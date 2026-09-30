@@ -8,7 +8,7 @@ framework registry and exposes the SACM-specific configuration:
     from models.sam import build_sam_vit_l
     from models.sacm.diagnose import main as diagnose
 
-Structure (the SAM architecture lives in models/sam — a sibling module):
+Structure (SAM the foundation model lives in models/sam):
   - specs.py:    ModelSpecs (freeze protocol, param groups, forward)
   - configs.py:  SACM ablation presets
   - diagnose.py: head-supervision / gating diagnostics (paper motivation)

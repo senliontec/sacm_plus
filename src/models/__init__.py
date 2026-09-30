@@ -4,13 +4,14 @@ Importing a model module registers its ModelSpecs into the framework's
 MODEL_REGISTRY (core.registry) and exposes the model-specific
 configuration (presets, diagnostics).
 
-Current modules:
-  - sam:  the SAM-family architecture (Meta SAM vendored, with the SACM
-    geometric adapters / closed-loop decoder switches); shared backbone,
-    not an algorithm.
-  - sacm: prompt-free curvilinear segmentation (dual-level geometric
-    adapters + closed-loop coarse-to-fine decoder + topology-aligned
-    training); registers sam_l / sam_b / sam_h.
+Current models:
+  - sam:  the SAM foundation model (Meta code vendored, with the SACM
+    geometric adapters / closed-loop decoder switches) — the shared
+    backbone every segmentation model here is built on.
+  - sacm: the SACM segmentation model (prompt-free curvilinear
+    segmentation: dual-level geometric adapters + closed-loop
+    coarse-to-fine decoder + topology-aligned training); registers
+    sam_l / sam_b / sam_h.
 
 Adding a new model: create models/<name>/ with the architecture code, a
 models.py registering its ModelSpecs, and its own configs; then add

@@ -1,0 +1,23 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+build/
+dist/
+
+# IDE
+.idea/
+.vscode/
+
+# CodeGraph index (machine-generated)
+.codegraph/
+
+# Runtime outputs: data, results, logs, checkpoints
+datasets/
+outputs/
+results/
+logs/

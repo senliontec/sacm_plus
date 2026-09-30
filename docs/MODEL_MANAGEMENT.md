@@ -86,7 +86,7 @@ CLI 增加 `--model_config path` 覆盖——已列入技术债表，验证后�
 - **阶段 B（验证后做）**：损失组装也模型化——spec 增加
   `aux_losses(model, outputs, targets) -> (aux_loss, aux_terms)`，
   通用层（BCE/Dice/clDice 作用于主掩膜）留在训练循环，SAM 特有的
-  深监督/IoU 移入 `models/sam.py`。届时吸纳单输出模型（U-Net）时
+  深监督/IoU 移入 `models/sacm/`。届时吸纳单输出模型（U-Net）时
   训练循环真正零改动
 
 ## 6. 纪律
