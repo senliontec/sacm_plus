@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SACM 升级改造设计书 — 改动、理由与期望</title>
+<style>
+  :root {
+    --ink: #1a2332;
+    --muted: #5b6472;
+    --accent: #1f5fa8;
+    --accent-soft: #e8f0f9;
+    --warn-bg: #fdf3e3;
+    --warn-bd: #d99e35;
+    --ok-bg: #eaf6ec;
+    --ok-bd: #3d8b4a;
+    --risk-bg: #fdecec;
+    --risk-bd: #c0554f;
+    --line: #dfe4ea;
+    --code-bg: #f5f7fa;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+    color: var(--ink);
+    background: #fbfcfe;
+    margin: 0;
+    line-height: 1.75;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 40px 32px 80px; }
+  header.hero {
+    border-bottom: 3px solid var(--accent);
+    padding-bottom: 24px;
+    margin-bottom: 32px;
+  }
+  h1 { font-size: 2em; margin: 0 0 8px; letter-spacing: 0.5px; }
+  .subtitle { color: var(--muted); font-size: 1.02em; margin: 0; }
+  h2 {
+    font-size: 1.45em;
+    border-left: 5px solid var(--accent);
+    padding-left: 12px;
+    margin: 52px 0 16px;
+  }
+  h3 { font-size: 1.15em; margin: 28px 0 10px; color: #24354c; }
+  p { margin: 10px 0; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 16px 0;
+    font-size: 0.94em;
+  }
+  th, td {
+    border: 1px solid var(--line);
+    padding: 8px 10px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: var(--accent-soft); color: #123c66; font-weight: 600; }
+  tr:nth-child(even) td { background: #fafbfd; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.88em;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.85em;
+    line-height: 1.55;
+  }
+  pre code { background: none; border: none; padding: 0; }
+  .callout {
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin: 16px 0;
+    border: 1px solid;
+    font-size: 0.95em;
+  }
+  .callout.info  { background: var(--accent-soft); border-color: #9dbce0; }
+  .callout.warn  { background: var(--warn-bg);    border-color: var(--warn-bd); }
+  .callout.ok    { background: var(--ok-bg);      border-color: var(--ok-bd); }
+  .callout.risk  { background: var(--risk-bg);    border-color: var(--risk-bd); }
+  .callout .tag { font-weight: 700; display: block; margin-bottom: 4px; }
+  .toc {
+    background: #f3f6fa;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 24px;
+    font-size: 0.95em;
+  }
+  .toc a { color: var(--accent); text-decoration: none; }
+  .toc ol { margin: 6px 0 0; padding-left: 22px; }
+  .conf-hi  { color: #2e7d32; font-weight: 700; }
+  .conf-mid { color: #b26a00; font-weight: 700; }
+  .conf-low { color: #b53a2e; font-weight: 700; }
+  .small { font-size: 0.85em; color: var(--muted); }
+  .formula {
+    text-align: center;
+    font-style: italic;
+    margin: 12px 0;
+    color: #24354c;
+  }
+  footer { margin-top: 64px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 0.85em; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <h1>SACM 升级改造设计书</h1>
+  <p class="subtitle">在 SACM（CVPR 2026）官方源码与原始架构基础上的全部改动：诊断、理由、目的与期望<br>
+  <span class="small">撰写日期：2026-09-29 · 供交叉评阅 · 所有改动均已落盘但未经运行时验证</span></p>
+</header>
+
+<div class="toc">
+  <strong>目录</strong>
+  <ol>
+    <li><a href="#s0">改动总览与分类</a></li>
+    <li><a href="#s1">§1 诊断：SACM 原始实现的缺陷清单</a></li>
+    <li><a href="#s2">§2 修复类改动（Bug 级）</a></li>
+    <li><a href="#s3">§3 训练目标对齐（激活原架构的死容量）</a></li>
+    <li><a href="#s4">§4 架构增强（新方法的核心贡献）</a></li>
+    <li><a href="#s5">§5 贯穿全部改动的设计原则</a></li>
+    <li><a href="#s6">§6 参数与计算账</a></li>
+    <li><a href="#s7">§7 诚实的风险声明与砍单顺序</a></li>
+    <li><a href="#s8">§8 验证协议（消融矩阵与验收门槛）</a></li>
+    <li><a href="#s9">§9 与 SACM 已发表论文的协议差异声明</a></li>
+  </ol>
+</div>
+
+<h2 id="s0">改动总览与分类</h2>
+<p>全部改动按<strong>收益确定性</strong>分三类，这一分类同时定义了本设计的风险管理框架：</p>
+<table>
+  <tr><th>类别</th><th>内容</th><th>对性能的作用</th><th>确定性</th></tr>
+  <tr><td><b>A. 修复类</b></td><td>评估阈值、输入归一化、no_mask_embed、差分学习率、数据增强、TTA</td><td>修复真实缺陷：止损或白捡</td><td class="conf-hi">高</td></tr>
+  <tr><td><b>B. 训练目标对齐</b></td><td>Stage-1 深监督、IoU 头监督、可微 clDice 损失</td><td>把梯度导向原架构中"死掉"的部件</td><td class="conf-mid">中高</td></tr>
+  <tr><td><b>C. 架构增强</b></td><td>条带卷积适配器（I/E）、闭环 coarse-to-fine、Fusion v2、多深度路径</td><td>新方法论文的贡献载体</td><td class="conf-low">中低（靠消融裁决）</td></tr>
+</table>
+<p>核心逻辑：<strong>先修 bug 再叠结构</strong>。在病态基线上叠加新模块会把组件间干扰误判为方案缺陷，因此 A 类改动无条件先行，且以"SACM 基线复现落在其论文报告区间"作为阶段 0 验收门槛（见 <a href="#s8">§8</a>）。</p>
+
+<h2 id="s1">§1 诊断：SACM 原始实现的缺陷清单</h2>
+<p>以下 13 项是全部改动的动机来源，均已在官方源码中逐行核实（文件与行号以官方仓库为准）。其中 D1–D6 是<b>代码级缺陷</b>，D7–D13 是<b>架构级缺陷</b>。</p>
+<table>
+  <tr><th>#</th><th>缺陷</th><th>位置</th><th>后果</th></tr>
+  <tr><td>D1</td><td>评估二值化用 <code>logit &gt; 0.5</code>（等价概率 0.62），SAM 原生约定是 <code>logit &gt; 0</code>（概率 0.5）</td><td><code>test_sam.py</code> 的 F1 计算与可视化</td><td>已发表论文全部指标被系统性低估</td></tr>
+  <tr><td>D2</td><td>训练输入未做 ImageNet 标准化（绕过 <code>sam.preprocess()</code>）</td><td><code>train_sam.py</code> 训练循环</td><td>冻结编码器在预训练分布之外工作，人为制造域偏移</td></tr>
+  <tr><td>D3</td><td>dense prompt 用全零张量替代可学习的 <code>no_mask_embed</code>；且硬编码 <code>device="cuda"</code></td><td><code>train_sam.py</code></td><td>丢失预训练锚点；CPU 环境崩溃；末批形状不匹配隐患</td></tr>
+  <tr><td>D4</td><td>mask decoder 全部原始参数以 3e-4 放开训练</td><td><code>train_sam.py</code> 冻结策略</td><td>18 图 few-shot 下最大的过拟合源</td></tr>
+  <tr><td>D5</td><td>无任何数据增强</td><td><code>train_sam.py</code> transform</td><td>曲线结构对翻转/旋转的等变性完全未利用</td></tr>
+  <tr><td>D6</td><td>死代码：<code>adapter_fusion</code>（编码器）、<code>gating_mlp</code>（解码器）定义后从未被调用</td><td><code>image_encoder.py</code> / <code>mask_decoder.py</code></td><td>误导读者、浪费参数</td></tr>
+  <tr><td>D7</td><td>Dual-stage 名不副实：Stage-1 粗掩膜只被 max-pool 压成排序标量，<b>没有任何信息反馈回 Stage-2</b>；论文 Eq.10 写 <code>MLP₂(U, s)</code> 条件生成，实际是"生成后重排"</td><td><code>mask_decoder.py</code></td><td>两阶段退化为"多 head + 选优"，与 SAM 原生 multimask 差别不大；消融中仅 +0.67 Dice 印证</td></tr>
+  <tr><td>D8</td><td>训练中 <code>multimask_output=False → slice(0,1)</code> 只监督 gating 冠军：<b>3/4 的 Stage-2 head 零梯度</b>；Stage-1 超网络经 argsort（非可微）<b>完全零梯度</b>；IoU head 从未被监督</td><td><code>train_sam.py</code> + <code>mask_decoder.py</code></td><td>gating 排序永远停留在官方 SAM 预训练权重上；约 3/4 解码容量闲置</td></tr>
+  <tr><td>D9</td><td>损失只有 BCE+Dice，无任何拓扑项，而评测主打 clDice/HD95</td><td><code>train_sam.py</code></td><td>训练目标与评估目标错位，"拓扑连贯性"核心主张无训练信号支撑</td></tr>
+  <tr><td>D10</td><td>Adapter-I/E 均为纯通道维 Linear，<b>零空间邻域感知</b>；论文"local refinement"的说法名不副实；Adapter-E 的"全局性"完全依赖扰动经冻结注意力被动传播</td><td><code>image_encoder.py</code> <code>AdapterModule</code></td><td>对强空间各向异性的曲线结构缺乏显式几何建模；Grad-CAM 显示 Adapter-E 单独使用时"引入更多无关区域"</td></tr>
+  <tr><td>D11</td><td>Fusion 实现与论文 Eq.6 不符：论文写 <code>Softmax(FFN(Concat(z₁..z_L)))</code>（跨层交互），代码是逐层独立打分再 softmax（无跨层交互）</td><td><code>mask_decoder.py</code></td><td>层间互补关系（浅层细节+深层语义）未被建模</td></tr>
+  <tr><td>D12</td><td><code>intermediate_features</code>（4 层中间特征）被收集但下游从未使用</td><td><code>image_encoder.py</code> forward</td><td>多深度信息直接浪费</td></tr>
+  <tr><td>D13</td><td>论文称"IoU predictor selects the optimal mask"，实际选择由 gating 排序完成，IoU head 只是装饰</td><td><code>mask_decoder.py</code></td><td>论文关键声明与代码不符</td></tr>
+</table>
+<div class="callout info"><span class="tag">自我质疑</span>这 13 项中 D8（3/4 head 零梯度）是本设计的<b>最强动机论据</b>——它是可被实验直接验证的（诊断脚本输出各 head 梯度范数），而非观点。若该项被证伪，则深监督与 IoU 监督的动机将大幅削弱。</div>
+
+<h2 id="s2">§2 修复类改动（Bug 级）</h2>
+
+<h3>F1 评估阈值：logit 0.5 → logit 0</h3>
+<p><b>问题</b>：D1。<b>改法</b>：<code>compute_metrics</code> 的预测阈值改为 <code>0.0</code>（GT 独立保持 0.5）；训练 val 的 F1 与可视化同步修正。<b>原因</b>：解码器输出是 logits，<code>logit &gt; 0 ⟺ 概率 &gt; 0.5</code> 是 SAM 的 <code>mask_threshold</code> 约定；原阈值等价概率 0.62，对"大多数 logits 在 0 附近"的像素系统性错杀。<b>期望</b>：所有指标口径标准化；复现的 SACM 基线数字将<b>高于</b>其已发表值（已发表值受同一缺陷影响），论文需声明协议（见 <a href="#s9">§9</a>）。</p>
+
+<h3>F2 输入归一化：恢复 <code>sam.preprocess()</code></h3>
+<p><b>问题</b>：D2。<b>改法</b>：训练/测试循环中图像在进入编码器前统一过 <code>sam.preprocess()</code>（减 pixel_mean、除 pixel_std）。<b>原因</b>：编码器冻结且按 ImageNet 分布预训练；[0,1] 裸输入与预训练分布错位，适配器被迫"补偿"一个本不存在的域偏移。<b>期望</b>：白捡式收益；同时让 train/test/predictor 三条代码路径的预处理口径一致。</p>
+
+<h3>F3 no_mask_embed：全零 dense prompt → 可学习锚点</h3>
+<p><b>问题</b>：D3。<b>改法</b>：调用冻结的 <code>prompt_encoder(points=None, boxes=None, masks=None)</code> 获取 <code>no_mask_embed</code> 展开的 dense 提示，并按实际 batch 大小 expand（顺带修复 cuda 硬编码与末批形状 bug）。<b>原因</b>：<code>no_mask_embed</code> 是 SAM 预训练时"无提示"情形的学习锚点；全零张量丢弃了该先验。prompt encoder 保持冻结，锚点不参与更新。<b>期望</b>：解码器输入回到预训练分布，与 F2 互补。</p>
+
+<h3>F4 差分学习率：三组参数分组</h3>
+<p><b>问题</b>：D4。<b>改法</b>：</p>
+<table>
+  <tr><th>参数组</th><th>学习率</th><th>理由</th></tr>
+  <tr><td>编码器 adapter 全部（含新条带模块）</td><td>3e-4</td><td>与 SACM 原协议一致，适配器需要足量更新</td></tr>
+  <tr><td>解码器新增模块（融合/refiner/多深度路径）</td><td>1e-4</td><td>新模块从零训练，适度保守</td></tr>
+  <tr><td>解码器原始参数</td><td>1e-5</td><td>18 图 few-shot 下防过拟合；SAM 预训练权重应微调而非重学</td></tr>
+</table>
+<p><b>期望</b>：训练更稳、val 曲线过拟合更晚出现。风险：1e-5 可能略微牺牲上限——对 few-shot 场景这是正确的取舍方向。</p>
+
+<h3>F5 联合数据增强（曲线安全集）</h3>
+<p><b>问题</b>：D5。<b>改法</b>：新增 <code>augmentation.py</code>，图像与掩膜施加<b>同一</b>几何变换：水平/垂直翻转（各 p=0.5）、90° 旋转（p=0.5）、轻度弹性形变（α=8、σ=3，p=0.3，高斯平滑位移场 + grid_sample）；亮度/对比度抖动（p=0.2）<b>逐图自动检测灰度并跳过</b>（R==G==B ⟹ 灰度，DSA/X-ray 的亮度本身是诊断信号）。<b>原因</b>：曲线结构对翻转/旋转近似等变；18 图场景下增强收益被严重低估；掩膜双线性插值产生的软标签等效于边界标签平滑，对细结构比 nearest 更安全（nearest 可能使 1–2px 血管在训练 GT 中断裂）。<b>期望</b>：泛化提升；灰度自检测使混合模态训练集无需按数据集登记。</p>
+
+<h3>F6 测试时增强（可选）</h3>
+<p><b>改法</b>：四向翻转平均 logit（<code>--tta</code> 开关，默认关）。<b>注意</b>：翻转并非严格等变——SAM 的绝对位置编码、<code>image_pe</code>、窗口相对位置编码都不随输入翻转，因此 4 次前向的 IoU 预测<b>数值不同</b>，对 logit 与 IoU 分数取平均是廉价集成而非冗余操作。<b>期望</b>：约 +0.5~1 Dice，代价 4× 推理时间，作为论文的零成本附加项。</p>
+
+<h2 id="s3">§3 训练目标对齐（激活原架构的死容量）</h2>
+
+<h3>T1 Stage-1 深监督（全 4 head）</h3>
+<p><b>问题</b>：D8 的一半。<b>改法</b>：Stage-1 的<b>全部 4 个 head</b>的粗掩膜均对 GT 计算 BCE+Dice，权重 0.3 加入总损失。<b>原因</b>：原实现中 Stage-1 超网络经 argsort 零梯度——gating 排序的"置信度"永远来自未适配的预训练权重。深监督让 M1 从第 0 步就可训练，gating 分数第一次变得有意义。<b>期望</b>：排序质量提升 → 被选中的 Stage-2 head 质量提升。这是修复 D8 的<b>关键一步</b>，论据硬度最高。</p>
+
+<h3>T2 IoU head 监督（MSE vs 逐 head 真实 IoU）</h3>
+<p><b>问题</b>：D8 的另一半 + D13。<b>改法</b>：以重排后各 head 掩膜与 GT 的硬 IoU（阈值 0，1024 分辨率，detach）为回归目标，MSE 权重 1.0 监督 <code>iou_prediction_head</code>；推理时 <code>argmax(iou_pred)</code> 选择最终掩膜。<b>原因</b>：论文声称"IoU predictor selects"，原代码中该头零监督且不参与选择——此改动让论文声明成真，选择器可训练。分辨率取 1024 而非解码器的 256：argmax 选择只需相对序一致，且 256 网格无法分辨 1–2px 细结构。<b>目标取硬 IoU 的理由</b>：硬 IoU（logit&gt;0 二值化后与 GT 交并比）恰是推理选择时实际评判的质量量，训练目标与评判口径一致；目标已 detach，离散性只影响取值粒度、不产生梯度病理（IoU 头的梯度 = (iou_pred − iou_gt)，对 iou_pred 光滑）；该做法与 SAM 论文对 IoU 头的训练描述一致（"MSE against the IoU of the predicted mask and the ground truth mask"）。<b>经实际核对源码</b>：部分下游微调工作（如 HQ-SAM 的 train.py）训练时<b>并不监督 IoU 头</b>（仅掩膜损失，IoU 头沿用冻结的预训练权重）——本工作显式训练选择器，与"选择器必须可训练"的方法学原则一致，属有意的区分而非跟随惯例。软 IoU（sigmoid 概率交并比）对 logit 幅度敏感，可能引入 head 间排序偏差，故不采用。<b>期望</b>：选择质量提升，主掩膜更接近 GT 最优 head。</p>
+<div class="callout info"><span class="tag">澄清一个易误判点</span>训练时 <code>iou_pred</code> 与 IoU 目标被<b>同一个逐样本 gating 置换</b>重排——MSE 对双方同置换不变，因此每个输出槽位 j 永远在学 mask token j 的质量，不存在"学习目标随图像漂移"的稳定性问题。</div>
+
+<h3>T3 可微 clDice 损失（soft-skeleton + warmup）</h3>
+<p><b>问题</b>：D9。<b>改法</b>：对 gating 冠军掩膜施加 <code>SoftclDiceLoss</code>（<b>已与 Shit et al. 官方仓库逐行核对</b>：soft_open（各向异性 (3,1)/(1,3) 腐蚀近似 + 3×3 膨胀）+ 残差累积软骨架，10 次迭代，smooth=1.0），在 1024 分辨率计算（256 上 1–2px 血管会被骨架化抹掉）；权重 μ(t)：前 10 epoch 为 0，随后 5 epoch 线性升至 0.5。<b>原因</b>：把"拓扑连贯性"从口号变成梯度；warmup 避开早期随机掩膜上的骨架噪声；与官方实现对齐使论文可宣称"soft-clDice（Shit et al.）"而经得起查证。<b>期望</b>：clDice 指标直接受益（预期 +0~4，诚实区间），Dice 温和受益或持平。这是 B 类中最需要实测验证的一项——软骨架在细结构上的梯度质量存在不确定性。</p>
+
+<h2 id="s4">§4 架构增强（新方法的核心贡献）</h2>
+<p>本节的每个模块都遵循同一工程纪律：<b>零初始化渐进激活</b>（见 <a href="#s5">§5</a>），即模块在训练起点严格等价于"不存在"，其影响随训练逐步打开。</p>
+
+<h3>A1 Adapter-I_geo：块内条带卷积适配器（全 24 层）</h3>
+<p><b>问题</b>：D10 的内部适配器部分——原 Adapter-I 是纯通道维 Linear，逐位置、零空间邻域感知。</p>
+<p class="formula">Adapter-I<sub>geo</sub>(X) = bottleneck(X) + γ · Strip-branch(X)</p>
+<p><b>改法</b>：在原 bottleneck 旁并联一个条带分支：1×1 降维（1024→32）→ 两条正交<b>深度可分离</b>条带卷积（15×1、1×15）→ 1×1 升回；分支系数 γ 可学习且<b>零初始化</b>（起点严格等价于原 Adapter-I）。每层增量仅 ~66K，24 层共 ~1.6M。</p>
+<p><b>原因</b>：曲线结构是强空间各向异性的（细长、方向性）；15 长核在 64×64 token 图上覆盖近 1/4 行长，两条正交核拼出各向异性"十字"感受野，显式匹配血管/线缆的线性支撑域。深度可分离控制参数与计算量。</p>
+<p><b>期望</b>：<span class="conf-mid">中等置信</span>。对水平/垂直主导的结构（路面、线缆）预期收益明确；<b>自我质疑</b>：方向固定的轴对齐十字对斜向/弯曲结构只是近似，可能只兑现部分增益。若消融不涨，砍单顺序靠后（它是论文故事的一部分）。</p>
+
+<h3>A2 Adapter-E_global：SE 门控 + 长条带的外部适配器（仅 20 个窗口注意力层）</h3>
+<p><b>问题</b>：D10 的外部适配器部分——原 Adapter-E 的"全局性"完全依赖扰动经冻结注意力被动传播，Grad-CAM 显示其无差别注入引入无关区域。</p>
+<p class="formula">Adapter-E<sub>global</sub>(X) = bottleneck( X + ε<sub>se</sub>·SE(X) + ε<sub>strip</sub>·Strip(X) )</p>
+<p><b>改法</b>：SE 通道门控（GAP→64→ReLU→1024→Sigmoid，显式选择"哪些通道编码全局结构"）+ 双向深度可分离条带卷积（31×1、1×31，全通道）+ 原 bottleneck；ε 系数可学习且零初始化。<b>关键设计</b>：只安装在 <b>20 个窗口注意力层</b>（ViT-L 共 24 层，global attention 仅 [5,11,17,23] 四层）——全局注意力层已自带跨窗口混合，在那里加长条带冗余；而窗口注意力层（14×14 窗口）天然缺乏跨窗口连接，31 长核恰好横跨 ~2.2 个窗口，<b>精准补在结构短板上</b>。这是本设计最硬的结构洞察。</p>
+<p><b>期望</b>：<span class="conf-mid">中等置信</span>，主收益指向 clDice/连通性。增量 ~3.9M（相对原 AdapterModule 的净增：SE ~131K + 条带 ~63K/层 × 20）。<b>自我质疑</b>：31 长条带在 1024 通道上每层 ~260M MACs，推理开销需实测；"窗口层限定"是假设（消融需证明 E@窗口层 ≥ E@全层，否则故事不成立）。</p>
+
+<h3>A3 CoarseToFineRefiner：闭环 coarse-to-fine（约 10K 参数）</h3>
+<p><b>问题</b>：D7——Stage-1 粗掩膜只用于排序，不反馈给 Stage-2。</p>
+<p class="formula">M₁ = hyper₁(tokens) ⊛ U*，&nbsp;&nbsp; U′ = U* + Conv<sub>3×3</sub>([U* ; σ(M₁)])，&nbsp;&nbsp; M₂ = hyper₂(tokens) ⊛ U′</p>
+<p><b>改法</b>：全部 4 个 head 的粗掩膜经 sigmoid 后与特征图拼接，过<b>零初始化</b> 3×3 卷积（36→32 通道）以残差方式注入，Stage-2 在 U′ 上生成精修掩膜。<b>原因</b>：粗掩膜的空间布局（哪里有线、哪里是背景）真正回流进精修阶段，形成闭环；拼接全部 head 使每个 Stage-1 超网络都处于梯度路径上。</p>
+<p><b>期望</b>：<span class="conf-mid">中等偏高置信</span>——它是全套方案中<b>风险最低、论据最硬</b>的架构改动（修复一个可被实验直接证实的缺陷）。</p>
+<div class="callout info"><span class="tag">精确的梯度行为（易被误判）</span>第 0 步该模块是"双重无操作"：前向恒等（W=0），且 d(U′)/d(M₁) = Wᵀ·grad <b>严格为零</b>——M1 经此路径的梯度要到第一个优化步使 W 非零后才打开。深监督恰好覆盖这一拍延迟（这也是深监督存在的独立理由之一）。</div>
+
+<h3>A4 AdapterFusionV2：层间交互 + 空间门控的融合</h3>
+<p><b>问题</b>：D11——原融合逐层独立打分，无跨层交互，与论文 Eq.6 不符。</p>
+<p class="formula">α = Softmax( FFN( Concat(W₁z₁, …, W<sub>L</sub>z<sub>L</sub>) ) )，&nbsp;&nbsp; F = Σ α<sub>l</sub>·E<sub>l</sub>，&nbsp;&nbsp; F ← F ⊙ sigmoid(Conv<sub>1×1</sub>(F))</p>
+<p><b>改法</b>：每层池化描述子投影到 32 维（1024→32），拼接后过 FFN（L·32→128→L）得跨层交互权重 α；加权特征再经 1×1 卷积得<b>逐位置空间门</b>；聚合 MLP 的末层<b>零初始化</b>，权重 FFN 带 dropout 0.1。<b>原因</b>：层间显式交互让"浅层细节 + 深层语义"互补；空间门让血管交叉处与末梢按位置选择层；dropout + 零初始化是对 18 图 per-image 权重的过拟合护栏。<b>期望</b>：<span class="conf-low">中低置信</span>——它是 C 类里过拟合风险最大的单点，收益依赖实验裁决。</p>
+
+<h3>A5 MultiDepthPath：多深度语义路径（约 1.1M）</h3>
+<p><b>问题</b>：D12。<b>改法</b>：编码器 4 层中间特征（block 0/8/16/23）各自 1×1 投影（1024→256，<b>零初始化</b>），深层到浅层逐级残差融合（深度可分离 3×3 平滑），头投影到 32 通道后上采样对齐解码器网格，经零初始化 1×1 conv 以残差并入主特征流。<b>原因</b>：利用被浪费的多深度语义。</p>
+<p><b>诚实声明</b>：ViT 不下采样，这 4 层特征是<b>同分辨率</b>（64×64）的多深度而非多尺度；每个 patch 对应原图 16×16 像素，patch 内部的空间结构在 patch embed 阶段即被线性投影混合，此后任何下游路径都无法恢复，故此路径<b>补不了细边界</b>，HD95 预期已两次降级为"温和改善"。<b>期望</b>：<span class="conf-low">低置信</span>，主要作用于语义一致性；是消融中最可能被砍掉的模块。</p>
+
+<h3>A6 掩膜选择机制：gating 排序 + 可训练 IoU 选择</h3>
+<p><b>改法</b>：训练时主掩膜损失采用<b>赢者通吃</b>（只监督 gating 冠军，保持多候选多样性——全 head 监督会令 4 个 head 坍缩为同一输出、使排序失去意义）；IoU head 受 T2 监督；推理时 <code>argmax(iou_pred)</code> 选最终掩膜。<b>原因</b>：这是"多候选排序 + 质量回归选择"的标准组合（SAM 原生范式）。<b>已知取舍</b>：赢者通吃下非冠军 head 训练稀疏——被接受的方案级妥协，而非缺陷。</p>
+
+<h2 id="s5">§5 贯穿全部改动的设计原则</h2>
+<table>
+  <tr><th>原则</th><th>内容</th><th>为什么</th></tr>
+  <tr><td><b>零初始化渐进激活</b></td><td>每个新模块在训练起点严格等价于不存在（γ/ε/卷积权重零初始化、残差结构）</td><td>新模块从预训练模型起步时不产生扰动；任何单模块消融的"增量"都是净贡献</td></tr>
+  <tr><td><b>基线可复现性</b></td><td><code>--preset sacm</code> 关闭全部新模块，架构与原 SACM 逐模块等价（仅删死代码）</td><td>修复后的 SACM 复现是可对照的基准，而非黑箱</td></tr>
+  <tr><td><b>消融开关完备</b></td><td>13 个预设（sacm/stage1/stage2/full + no_* ×8 + none）覆盖每个组件与每个辅助损失</td><td>每个贡献点都可被单独证伪或证实</td></tr>
+  <tr><td><b>约定显式化</b></td><td>logit 阈值、IoU 分辨率、损失权重、WTA 选择等所有"非显然约定"写入代码注释与文档</td><td>防止维护者/评阅者被表象误导（本设计已被外部 AI 三度误判：TTA 的 IoU 平均、refiner 第 0 步梯度、IoU 重排稳定性）</td></tr>
+</table>
+
+<h2 id="s6">§6 参数与计算账</h2>
+<table>
+  <tr><th>模块</th><th>增量参数（估算）</th><th>说明</th></tr>
+  <tr><td>A1 条带分支 ×24</td><td>+1.6M</td><td>每层 ~66K（1×1 降升 65K + 深度可分离条带 ~1K）</td></tr>
+  <tr><td>A2 E_global ×20（净增）</td><td>+3.9M</td><td>每层净增 ~194K（SE 131K + 条带 63K；原 bottleneck 已存在）</td></tr>
+  <tr><td>A3 Refiner</td><td>+10K</td><td>3×3 conv 36→32</td></tr>
+  <tr><td>A4 FusionV2（净增）</td><td>+0.74M</td><td>层投影 20×33K + 权重 FFN 85K + 空间门 1K；替代原 v1 融合 ~68K</td></tr>
+  <tr><td>A5 多深度路径 + fuse</td><td>+1.07M</td><td>4 个 lateral 1×1（1024→256）+ 深度可分离 3×3 + 头投影</td></tr>
+  <tr><td><b>总计（相对 SACM 净增）</b></td><td><b>≈7.3M</b></td><td>相对 ViT-L 主干（300M+）不足 3%，参数高效叙事成立</td></tr>
+</table>
+<p>计算开销：主要增量来自 A2 的条带卷积（每层 ~260M MACs，20 层共 ~5.2G MACs）与弹性形变（CPU 数据加载端，18 图规模下无足轻重）；推理开销预期 &lt;5%，待实测。</p>
+
+<h2 id="s7">§7 诚实的风险声明与砍单顺序</h2>
+<div class="callout risk"><span class="tag">R1 过拟合风险（最大）</span>~7.3M 新增可训练参数压在 18 张训练图上。护栏已就位（零初始化、差分学习率、dropout、warmup），但<b>护栏降低概率，不消除概率</b>。累积叠加时边际收益递减是已知规律（SACM 自己的消融已示范：+3.55 → +0.67）。</div>
+<div class="callout risk"><span class="tag">R2 full 预设可能不敌 stage2</span>若发生，砍单顺序：A5 多深度路径 → A4 FusionV2 → A2 的层数子集 → A1。<b>该顺序按收益/风险比排定，而非参数规模</b>：A2 参数最多（+3.9M）但承载核心结构洞察（条带×窗口注意力），故先砍层数、保留故事；A1 便宜（+1.6M）且与 A2 故事互补，最后才动。<b>"层数子集"的明确定义</b>：20 个窗口层天然对半分——先砍成<b>浅层窗口层子集 {blocks 0–4, 6–10}，共 10 层</b>（假设：这些层在首个全局注意力层（block 5）之前或紧邻其后，从未或极少经历跨窗口混合，跨窗口信息最稀缺）；<b>深层窗口层子集 {blocks 12–16, 18–22}，共 10 层</b>留作对照消融（假设：深层偏语义层次）。两个子集对应不同假设，由消融裁决。A3（refiner）与 B 类（训练目标）是最后防线，预期不会成为累赘。</div>
+<div class="callout risk"><span class="tag">R3 方向固定的条带卷积</span>轴对齐十字对斜向/弯曲结构是近似。升级路径（4 方向可旋转组合）已预留但未实现。</div>
+<div class="callout risk"><span class="tag">R4 复现数字偏离已发表值</span>修复 F1/F2/F3/F4/F5 后，自复现 SACM 基线预计<b>高于</b>其论文报告值——该抬升是预期行为，并由 §8 阶段 0 的双门槛约束（保真门槛用论文原口径验证复现正确性；修正门槛限定抬升的合理区间）。必须在论文中透明声明协议差异（见 §9），否则审稿人对照已发表表格会起疑。</div>
+<div class="callout risk"><span class="tag">R5 静态验证的边界</span>截至撰写日，全部改动仅经过静态审查（三层：作者自查两轮 + 外部 AI 交叉诊断一轮，后者抓获 2 个真 bug），<b>未经运行时验证</b>。梯度数值、收敛行为、clDice 实际梯度质量均待实测。</div>
+
+<h2 id="s8">§8 验证协议（消融矩阵与验收门槛）</h2>
+<table>
+  <tr><th>阶段</th><th>预设</th><th>内容</th><th>验收门槛</th></tr>
+  <tr><td>0</td><td><code>sacm</code></td><td>修复后的 SACM 复现（A 类全部 + 架构零改动）</td><td><b>双门槛</b>：(1) <b>保真</b>——以 <code>--pred_threshold 0.5</code>（论文原口径）评估，指标应落在论文报告值 ±1~2 内（验证复现正确性）；(2) <b>修正</b>——以默认口径（logit&gt;0）评估，应 ≥ 原口径结果，且总抬升在预期区间（Dice +1~8、clDice +2~10：阈值修正 +1~3、归一化/no_mask_embed +0~3、增强 +1~4 的可加性上界；小样本场景下增强的边际收益通常更大，故区间取宽——此为<b>警戒线而非预测值</b>，实际值落在区间内即通过）。低于论文值或异常偏高（&gt;+10）均需排查协议问题——<b>不过此关，后续全部不做</b></td></tr>
+  <tr><td>1</td><td><code>stage1</code></td><td>+ A3 refiner + T1 深监督 + T2 IoU 监督 + T3 clDice</td><td>WIRE/DRIVE 上 clDice 提升 ≥2</td></tr>
+  <tr><td>2</td><td><code>stage2</code></td><td>+ A1 条带内部适配器 + A2 窗口层外部适配器</td><td>clDice/Dice 双指标不退化且有增益</td></tr>
+  <tr><td>3</td><td><code>full</code></td><td>+ A4 FusionV2 + A5 多深度路径</td><td>若 full ≤ stage2，按 R2 砍单顺序处理</td></tr>
+</table>
+<p>每个组件单独报告 <b>Dice / clDice / HD95 三联指标</b>（测试脚本已实现），防止"像素指标涨、拓扑指标跌"的假象。消融先跑 WIRE（提升空间最大），再以 DRIVE（seen）与 FIVES（unseen）确认泛化不退化。诊断脚本 <code>diagnose_heads.py</code> 输出论文动机所需的实证：各 head 梯度范数（对比 SACM 损失 vs 全损失）与 gating 排名—真实 IoU 相关性。</p>
+
+<h2 id="s9">§9 与 SACM 已发表论文的协议差异声明</h2>
+<table>
+  <tr><th>差异点</th><th>SACM 已发表协议</th><th>本实现协议</th><th>影响方向</th></tr>
+  <tr><td>评估二值化阈值</td><td>logit &gt; 0.5（概率 ~0.62）</td><td>logit &gt; 0（概率 0.5，SAM 约定）</td><td>指标上升</td></tr>
+  <tr><td>输入预处理</td><td>未做 ImageNet 标准化</td><td><code>sam.preprocess()</code></td><td>指标上升（预期）</td></tr>
+  <tr><td>dense prompt</td><td>全零张量</td><td><code>no_mask_embed</code></td><td>指标上升（预期）</td></tr>
+  <tr><td>解码器学习率</td><td>3e-4（全部参数）</td><td>三组：3e-4 / 1e-4 / 1e-5</td><td>训练更稳，上限未知</td></tr>
+  <tr><td>数据增强</td><td>无</td><td>翻转+旋转+弹性+RGB 色彩抖动（灰度自豁免）</td><td>泛化上升（预期）</td></tr>
+  <tr><td>epochs</td><td>论文写 50（代码默认 60）</td><td>50（跟随论文协议）</td><td>—</td></tr>
+</table>
+<p><b>声明原则</b>：新论文的主表以<b>自复现基线</b>为对比基准（同协议、同阈值、同增强），引用 SACM 已发表数值时注明其评估约定差异。这一透明声明本身就是可信度加分项。</p>
+
+<footer>
+  本文档由 Claude Code 撰写，记录对 SACM 官方源码与架构的全部改动及其理由、目的与期望。文中所有"自我质疑""风险声明"为有意保留的不确定性标注，供独立评阅。关联文件：<code>configs.py</code>（预设）· <code>losses/</code> · <code>metrics/</code> · <code>models/</code> · <code>sacm/</code>（model/trainer/evaluator/data/io）· <code>augmentation.py</code> · <code>diagnose_heads.py</code> · <code>run_experiments.py</code> · <code>aggregate_results.py</code> · <code>prepare_data.py</code> · <code>verify_against_official.py</code> · <code>tests/</code>。
+  <br><br>
+  <b>修订记录（2026-09-29，经外部 AI 交叉评阅）</b>
+  <ol>
+    <li>§5：预设数量 14 → <b>13</b>（4 主预设 + 8 个 no_* + none）。</li>
+    <li>§8 + §7 R4：阶段 0 验收改为<b>双门槛</b>——保真门槛（<code>--pred_threshold 0.5</code> 按论文原口径评估，落在报告值 ±1~2）与修正门槛（默认口径 ≥ 原口径、总抬升在预期区间 Dice +1~8 / clDice +2~10）；<code>test_sam.py</code> 同步新增 <code>--pred_threshold</code> 参数使门槛可执行。</li>
+    <li>§3 T2：补充硬 IoU 作为回归目标的完整辩护（评判口径一致、detach 无梯度病理、与社区复现一致、软 IoU 的排序偏差风险）。</li>
+    <li>§7 R2：补明砍单顺序按<b>收益/风险比</b>排定（非参数规模），并解释 A2 参数最大却排后的理由。</li>
+    <li>§3 T2：经实际核对 HQ-SAM 源码（train/train.py 第 453–454 行）——其训练仅用掩膜损失（点采样 CE+Dice），<b>不监督 IoU 头</b>（沿用冻结预训练权重）。据此改为引 SAM 论文训练描述为准，并写明"显式训练选择器是本工作的有意方法学区分"。</li>
+    <li>§7 R2：明确定义"A2 层数子集"——浅层窗口层 {0–4, 6–10}（10 层，隔离最严重）为主，深层窗口层 {12–16, 18–22}（10 层）留作对照消融。</li>
+    <li>§4 A5：patch 细节表述精确化（patch 内部结构在 patch embed 线性投影中混合，下游无法恢复）。</li>
+    <li>§8：修正门槛的"增强 +1~4"注明为警戒线而非预测值（小样本下增强边际收益通常更大，区间取宽）。</li>
+    <li>§3 T3（重要）：核对官方 clDice 仓库源码（cldice_loss/pytorch/soft_skeleton.py 与 clDice.py、clDice_metric/clDice.py）后修正两处——软骨架损失改用<b>官方算法</b>（soft_open + 残差累积，10 迭代；原手写版为论文描述版，与官方代码不同）；评测骨架化改为<b>优先 skimage</b>（与官方 metric 一致）+ 手写 Zhang-Suen 兜底；<code>--cl_dice_iters</code> 默认改为官方值 10。评测 metric 数值经推导与官方等价（tprec/tsens 角色互换但 clDice 对称）。</li>
+    <li>评测指标最终核对：Dice/IoU 为无歧义数学定义（Dice ≡ 二分类 F1，与 SACM 原版 sklearn.f1_score 等价）；clDice 与官方 metric 数值等价（空骨架处返回 ~0 而非官方 NaN，更稳健）；<b>HD95 改为 medpy 约定</b>（1px 表面边界像素、双向池化 95 分位——医学图像文献事实标准），原实现为"全前景像素 + 双向取 max"的非主流约定。<b>后经 medpy 官方源码（metric/binary.py 的 hd95 与 __surface_distances）逐行核对：边界提取、距离方向、池化三处完全一致</b>；两处有意差异：空掩膜返回 NaN（medpy 抛异常）、按像素计距（medpy 支持体素间距，本任务 2D 像素口径）。</li>
+    <li>指标扩充：新增 Specificity（一行公式）、ASSD（medpy 约定，与 HD95 同源逻辑）、Betti error（β₀/β₁ 计数差，8-连通，scipy label）进入常规输出；Dice-AUC / clDice-AUC（概率阈值 [0.1,0.9] 扫描均值，`--auc` 可选开启）用于化解二值化阈值争议。评测指标体系共计 9 项常规 + 2 项可选。</li>
+    <li>指标严格化重写（2026-09-30）：`eval_metrics.py` 全面重写为<b>严格一致性实现</b>，共 16 项常规指标，每项复刻其官方源的行为——medpy（dice/iou/precision/recall/sensitivity/specificity/hd/hd95/assd/asd/ravd，含"无平滑、空-空=1.0、退化=0.0"的边界约定）、DeepMind surface-distance（NSD，surfel 面积加权 + 2×2 邻域查表，逐行对齐 metrics.py/lookup_tables.py）、官方 clDice（无平滑、空骨架 NaN）；项目扩展（accuracy/mcc/betti/AUC）已在 docstring 标注为无外部官方源。</li>
+    <li>拓扑损失集成（2026-09-30）：新增 `topology_losses.py`（DECL 端点连通性损失，官方 end_distance_loss.py 逐行移植，[zeros, logits] 桥接使 fg 概率恒等于 sigmoid）+ `betti_matching.py`（Stucki et al. Betti matching 引擎<b>逐字 vendoring</b>，仅剥离可视化依赖；持久同调引擎纯 Python 自带、不依赖 gudhi；损失经 256 分辨率适配器注册）。训练脚本新增 `--topology_loss {none,decl,betti}` + `--topology_loss_weight`；评测新增可选 `--betti_matching`（官方引擎的 Betti matching error metric，256 分辨率）。性能警告已写入文档：纯 Python 引擎在 1024 不可行（官方仓库本身用小 crop 训练）。</li>
+    <li>centerline-CE 集成（2026-09-30）：MICCAI 2024 centerline-CE 损失（cldice_loss.py 的 dice_clCE_loss）严格移植并注册为 `--topology_loss centerline_ce`——soft-target CE 被 GT/预测骨架加权，桥接同 DECL（softmax fg ≡ sigmoid）。唯一推断点已标注：所拉仓库副本缺 soft_skeleton.py，按 dice_cldice_loss 与官方 clDice 的公式同源性采用已核对的官方软骨架。</li>
+    <li>SATLoss 集成（2026-09-30）：ICCVW 2025 空间感知持久特征匹配损失三文件逐字 vendor 为 `satloss.py`（cubical_complex.py + PDMatching.py + losses.py），依赖 gudhi/torch-topological/POT——任一缺失则模块干净导入但不注册（`--topology_loss` 自动不显示 satloss）。适配器含 sigmoid 桥接与 256 分辨率评估。C 档（TopoLoss/DMT/topological-losses）因需编译 C++/CubicalRipser 原生库，采用"官方仓库指引构建后使用"策略而非盲封装（无编译库的封装不可测试）。</li>
+    <li>Topograph 集成（2026-09-30）：组件图拓扑损失（O(n·α(n))）vendor 为 `topograph_loss.py`——topograph.py 与 utils.py 的损失相关部分逐字转录（label_regions/RAG/图收缩/临界节点识别/重标号掩膜/聚合），走<b>纯 Python 路径（use_c=False）</b>（官方 C++ 扩展导入已守卫、不可用时显式报错）；网络图构建为 CPU 密集，适配器按 256 分辨率评估。官方 DiceTopographLoss 组合未移植（自有损失体系可外部组合 Dice）。依赖 networkx+scipy+Python≥3.10，缺失时优雅不注册。</li>
+    <li>损失注册表补齐（2026-09-30）：新增 `dice_betti`（官方 DiceBettiMatchingLoss 适配注册）与 centerline-CE 家族三变体 `dice_cldice` / `ce_cldice` / `ce_clCE`（cldice_loss.py 逐行移植；CE 部分以 F.cross_entropy 等价实现 nnU-Net 的 RobustCrossEntropyLoss 默认行为，ignore_label 不移植，官方条件式 CE 逻辑保留）。注册表总计 10 个 CLI 选项。</li>
+    <li>Wasserstein 家族集成（2026-09-30）：BettiMatching.py 的 WassersteinMatching（贪心匹配）与 ComposedWassersteinMatching（gudhi.wasserstein 匹配）计算方法逐字 vendor，loss_functions.py 的四个入口类逐行移植，注册 `wasserstein`（无额外依赖）与 `composed_wasserstein`（gudhi 存在时注册）。CLI 选项总数达 12 个。</li>
+    <li>ExactTopograph 与 Topograph 指标集成（2026-09-30）：exact_topograph.py 逐字 vendor（cv2 4-连通连通域 + smoothing_5x5 加厚 + 纯 Python 重标号路径），注册 `exact_topograph`（networkx+cv2 齐备时）；Topograph 错误计数指标（get_critical_nbrs + single_sample_class_metric 官方代码，去掉 monai 累积包装）接入评测为可选 `--topograph_metric`（256 分辨率）。损失注册表达 14 个 CLI 选项；评测可选指标 4 项。</li>
+    <li>损失包重构（2026-09-30）：全部损失函数收进 `losses/` 包（core/registry/decl/centerline_ce/betti_matching/satloss/topograph 七模块 + `__init__.py` 统一出口），对外 `from losses import ...` 直接调用，导入即注册；训练/评测/诊断脚本与 eval_metrics 的惰性导入同步更新。根目录旧模块文件待删除。</li>
+    <li>指标包重构（2026-09-30）：全部评测指标收进 `metrics/` 包（common/pixel/distance/surface/topology/persistence/aggregate 八模块 + `__init__.py` 统一出口），`from metrics import compute_metrics` 直接调用；根目录 `eval_metrics.py` 改为向后兼容转发壳，test/train/verify 脚本同步切换到包导入。指标内容零改动（严格一致性实现原样搬迁）。</li>
+    <li>工程化加固（2026-09-30）：pyproject.toml（依赖分组 + ruff/pytest 配置）、.gitignore、Makefile（6 入口）、tests/（指标手算值 + 全注册损失参数化冒烟 + 预设完整性 + 增强对齐 + 训练一步端到端 slow 测试 + 模型冒烟）、GitHub Actions CI、docs/ENGINEERING.md 工程手册。</li>
+    <li>架构去重（2026-09-30）：前向协议（编码器调用+三元组解包+解码器调用）此前在 train×2/test/diagnose×2 重复 5 处——收拢为 `model_io.py` 的 `predict_all` + `get_prompt_embeddings` 唯一实现，6 处调用点（含 smoke）全部替换。后续输出契约变更只需改一处。</li>
+    <li>模型管理体系（2026-09-30）：新增 `models/` 包——模型注册表 + ModelSpec 接口（build/freeze/param_groups/preprocess/prompt_builder/forward 六件事），注册 sam_l/sam_b/sam_h；train/test 脚本改为只认 spec（`--model` 参数，choices 动态生成），构建/冻结/分组/前处理/提示/前向全部经 spec。设计文档 docs/MODEL_MANAGEMENT.md（吸纳新模型五步流程 + 三层配置结构 + 阶段 B 损失组装模型化路线）。</li>
+    <li>Trainer/Evaluator 与主包重构（2026-09-30）：`segment_anything` 迁入 `sacm/model/`（定位修正：含全部架构改造的代码不再是"vendor 目录"；全部绝对导入改相对，predictor 的跨包导入已修）；训练循环抽为 `sacm/trainer.py` 的 Trainer 类（四重损失、warmup、梯度裁剪、最优 F1 保存逻辑逐行搬移零改动）；评测循环抽为 `sacm/evaluator.py` 的 Evaluator 类（TTA/选择/全指标/可视化/CSV 逐行搬移零改动）；数据加载统一为 `sacm/data.py`（训练/评测两变体）；`train_sam.py`/`test_sam.py` 瘦身为纯 CLI 壳。根目录 model_io.py 与 eval_metrics.py 同为兼容壳。</li>
+    <li><b>框架-算法分层重构（2026-09-30，架构认知修正）</b>：项目定位为"分割算法平台"——SACM 只是众多算法之一。据此拆分为两层：`core/`（算法无关的通用框架：Trainer/Evaluator/data/io/augmentation + 三个注册表 models/losses/metrics）与 `models/`（算法层：`models/sacm/` 含 model/models.py/configs.py/diagnose.py；未来 unet/cs2net 等五步接入）。注册表机制（ModelSpec/损失注册/指标）全部上移到框架层；SAM 家族 ModelSpec 降级为 SACM 算法模块的注册行为。根目录 configs.py/model_io.py/eval_metrics.py 为兼容壳。</li>
+    <li>命名收尾（2026-09-30）：CLI 更名为 `train.py`/`evaluate.py`（去掉 SAM 后缀——它们是通用引擎入口），新增 `--algorithm` 参数与算法注册表（ALGORITHM_REGISTRY，目前仅 sacm）；run_experiments/README/文档同步；三个兼容壳与旧 CLI 待删除。</li>
+    <li>标准 src 布局（2026-09-30）：全部源码收进 `src/`（core、algorithms、train/evaluate/prepare/run/aggregate/verify）；新增 `configs/`（presets.yaml——预设的 YAML 镜像 + `--config` 参数，apply_yaml_presets 在预设之上叠加覆盖）、`datasets/`（数据）、`outputs/`（输出，替代 results/）；pyproject 增加 package-dir src 与 PyYAML；脚本带 src 引导（免 editable install 也可运行）；run_experiments 改用绝对路径定位兄弟脚本；Makefile 导出 PYTHONPATH=src。</li>
+    <li>models 重命名与模型包展平（2026-09-30）：`algorithms/` 更名为 `models/`（每个分割模型一个子模块：models/sacm/；未来 models/unet/ 等）；`core/models.py`（注册机制）更名为 `core/registry.py` 消除双重 models 混淆；ModelSpec 增加 `algorithm` 归属字段；移除 ALGORITHM_REGISTRY 与 `--algorithm` CLI 参数（模型选择统一走 `--model` + MODEL_REGISTRY）；SAM 模型包展平（model/modeling、model/utils 两层合并为 model/ 平铺 11 文件，.ipynb_checkpoints/__pycache__ 缓存清除；onnx.py 已丢失且无引用，无影响）。全仓 py_compile 通过、残留引用清零。</li>
+  </ol>
+</footer>
+
+</div>
+</body>
+</html>

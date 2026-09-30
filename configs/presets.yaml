@@ -1,0 +1,57 @@
+# SACM presets — YAML mirror of algorithms/sacm/configs.py PRESETS.
+# Applied on top of the CLI preset: `preset` selects the base preset and
+# any TOP-LEVEL keys (outside `presets`) override everything.
+#
+# Usage:
+#   python src/train.py --config configs/presets.yaml            # full model
+#   python src/train.py --preset stage2 --config configs/presets.yaml
+#   # single-module ablation: add e.g. "use_multi_depth: false" as a
+#   # top-level key below.
+
+preset: full
+
+presets:
+  sacm:
+    use_geo_i: false
+    use_geo_e: false
+    use_coarse_to_fine: false
+    use_fusion_v2: false
+    use_multi_depth: false
+    deep_sup_weight: 0.0
+    cl_dice_weight: 0.0
+    iou_loss_weight: 0.0
+  stage1:
+    use_geo_i: false
+    use_geo_e: false
+    use_coarse_to_fine: true
+    use_fusion_v2: false
+    use_multi_depth: false
+    deep_sup_weight: 0.3
+    cl_dice_weight: 0.5
+    iou_loss_weight: 1.0
+  stage2:
+    use_geo_i: true
+    use_geo_e: true
+    use_coarse_to_fine: true
+    use_fusion_v2: false
+    use_multi_depth: false
+    deep_sup_weight: 0.3
+    cl_dice_weight: 0.5
+    iou_loss_weight: 1.0
+  full:
+    use_geo_i: true
+    use_geo_e: true
+    use_coarse_to_fine: true
+    use_fusion_v2: true
+    use_multi_depth: true
+    deep_sup_weight: 0.3
+    cl_dice_weight: 0.5
+    iou_loss_weight: 1.0
+  no_geo_i: {use_geo_i: false}
+  no_geo_e: {use_geo_e: false}
+  no_c2f: {use_coarse_to_fine: false}
+  no_fusion_v2: {use_fusion_v2: false}
+  no_multi_depth: {use_multi_depth: false}
+  no_cl: {cl_dice_weight: 0.0}
+  no_ds: {deep_sup_weight: 0.0}
+  no_iou: {iou_loss_weight: 0.0}
