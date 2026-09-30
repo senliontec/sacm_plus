@@ -137,12 +137,12 @@ topology loss to the training objective (weight via
   cleanly but does not register. Evaluated at 256 resolution (gudhi
   persistence per iteration at 1024 is expensive).
 - `topograph` — component-graph topology loss (official vendor in
-  `topograph_loss.py`, pure-Python path use_c=False; the official C++
-  relabel-mask extension is optional and guarded). Requires `networkx`
-  + `scipy` + Python >= 3.10; evaluates at 256 resolution (per-image
-  graph construction is CPU-heavy). The official DiceTopographLoss
-  combination is not ported — our own loss system composes Dice
-  externally.
+  `core/losses/topograph.py`, pure-Python path use_c=False; the official
+  C++ relabel-mask extension is optional and guarded). Requires
+  `networkx` + `scipy` + Python >= 3.10; evaluates at 256 resolution
+  (per-image graph construction is CPU-heavy). DiceTopographLoss and
+  ExactTopographLoss are ported as well (`dice_topograph`,
+  `exact_topograph`).
 
 All topology losses live in `core/losses/` (one module per family,
 registered on import); each is a registered entry, so adding more ports

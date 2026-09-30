@@ -69,6 +69,9 @@ class SoftSkeletonize(nn.Module):
       skel += relu(delta - skel * delta)
 
     Operates on probabilities in [0, 1]; input shape [B, C, H, W].
+
+    Deviation: the official class also has a 3D branch (5D tensors) —
+    not ported, this project is 2D-only.
     """
 
     def __init__(self, num_iter=10):

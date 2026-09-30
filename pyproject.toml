@@ -25,7 +25,9 @@ dependencies = [
 # Losses/metrics that need extra native/third-party packages (they are
 # registered automatically when these are importable):
 topology = [
-    "gudhi",
+    # NOTE: torch-topological 0.1.9 is incompatible with gudhi >= 3.13
+    # (CubicalComplex constructor signature changed); 3.10.1 verified.
+    "gudhi<3.13",
     "torch-topological",
     "POT",
     "opencv-python",

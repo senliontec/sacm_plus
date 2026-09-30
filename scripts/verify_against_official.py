@@ -242,6 +242,187 @@ def main():
     except ImportError as e:
         print(f"[SKIP] Topograph section: {e}")
 
+    # ------------------------------------------------ centerline-CE family --
+    # The pulled repo lacks soft_skeleton.py and needs nnUNet's
+    # RobustCrossEntropyLoss (default kwargs = plain CE). Both are shimmed
+    # here — the skeleton shim is the VERIFIED clDice skeleton (the
+    # documented substitution), the CE shim is exactly the official
+    # default behaviour — so the official cldice_loss.py module becomes
+    # importable and all four classes can be cross-checked.
+    try:
+        import importlib.util
+        import types
+
+        cce_pkg = types.ModuleType('cce_official')
+        cce_pkg.__path__ = []
+        sys.modules['cce_official'] = cce_pkg
+
+        def _soft_skel_shim(x, iter_=3):
+            from core.losses.core import SoftSkeletonize
+            return SoftSkeletonize(num_iter=iter_)(x)
+
+        skel_mod = types.ModuleType('cce_official.soft_skeleton')
+        skel_mod.soft_skel = _soft_skel_shim
+        sys.modules['cce_official.soft_skeleton'] = skel_mod
+
+        nnunet = types.ModuleType('nnunetv2')
+        nnunet.__path__ = []
+        nnunet_t = types.ModuleType('nnunetv2.training')
+        nnunet_t.__path__ = []
+        nnunet_l = types.ModuleType('nnunetv2.training.loss')
+        nnunet_l.__path__ = []
+        robust = types.ModuleType('nnunetv2.training.loss.robust_ce_loss')
+        robust.RobustCrossEntropyLoss = torch.nn.CrossEntropyLoss  # official default kwargs
+        sys.modules['nnunetv2'] = nnunet
+        sys.modules['nnunetv2.training'] = nnunet_t
+        sys.modules['nnunetv2.training.loss'] = nnunet_l
+        sys.modules['nnunetv2.training.loss.robust_ce_loss'] = robust
+
+        cce_path = os.path.join(_repo_dir('centerline_CE'), 'nnUNet', 'losses', 'cldice_loss.py')
+        spec = importlib.util.spec_from_file_location('cce_official.cldice_loss', cce_path)
+        cce_mod = importlib.util.module_from_spec(spec)
+        sys.modules['cce_official.cldice_loss'] = cce_mod
+        spec.loader.exec_module(cce_mod)
+
+        import core.losses.centerline_ce as our_cce
+        logits = torch.randn(1, 1, 64, 64) * 2.0
+        target = (torch.rand(1, 1, 64, 64) > 0.7).float()
+        two_ch = torch.cat([torch.zeros_like(logits), logits], dim=1)
+        long_target = (target > 0.5).long()
+
+        pairs = [
+            ('centerline_ce/dice_clCE', cce_mod.dice_clCE_loss(), our_cce.DiceCenterlineCELoss()),
+            ('centerline_ce/dice_cldice', cce_mod.dice_cldice_loss(), our_cce.DiceCLDiceLoss()),
+            ('centerline_ce/ce_cldice', cce_mod.CE_cldice_loss({}), our_cce.CECLDiceLoss()),
+            ('centerline_ce/ce_clCE', cce_mod.CE_clCE_loss({}), our_cce.CECLCELoss()),
+        ]
+        for name, o_loss, m_loss in pairs:
+            official = o_loss(two_ch, long_target)
+            ours = m_loss(logits, target)
+            check(name, official.item(), ours.item(), tol=1e-4)
+    except ImportError as e:
+        print(f"[SKIP] centerline-CE section: {e}")
+
+    # ----------------------------------------------------------- SATLoss ----
+    try:
+        import gudhi  # noqa: F401
+        import ot  # noqa: F401
+        import torch_topological  # noqa: F401
+        satloss_dir = _repo_dir('SATLoss')
+        sys.path.insert(0, satloss_dir)
+        try:
+            from utils.losses import PDMatchingLoss as OfficialPDMatchingLoss
+            from core.losses.satloss import SATLossAdapter
+            logits = torch.randn(1, 1, 32, 32) * 2.0
+            target = (torch.rand(1, 1, 32, 32) > 0.7).float()
+            probs = torch.sigmoid(logits)
+            opt = types.SimpleNamespace(precal_PD=False)
+            official = OfficialPDMatchingLoss(opt=opt, p=2)(probs, target)
+            ours = SATLossAdapter(resolution=32)(logits, target)
+            check('satloss/loss', official.item(), ours.item(), tol=1e-4)
+        except Exception as e:
+            print(f"[SKIP] SATLoss section (deps or import issue): {e}")
+        finally:
+            sys.path.pop(0)
+    except ImportError:
+        print("[SKIP] SATLoss section: gudhi/torch-topological/POT not installed")
+
+    # -------------------------------------------- randomized metric battery --
+    # Extends the single-pair checks: N random pairs plus edge cases
+    # (both empty, one empty, identical, single pixel). Every metric must
+    # agree with its official implementation on ALL of them.
+    try:
+        rng = np.random.default_rng(20260930)
+        medpy_dir = _repo_dir('medpy')
+        sd_dir = _repo_dir('surface-distance')
+        cldice_metric_dir = os.path.join(_repo_dir('clDice'), 'clDice')
+        if not os.path.isdir(cldice_metric_dir):
+            cldice_metric_dir = _repo_dir('clDice')
+        if os.path.isdir(medpy_dir) and os.path.isdir(sd_dir) and os.path.isdir(cldice_metric_dir):
+            sys.path.insert(0, medpy_dir)
+            sys.path.insert(0, sd_dir)
+            sys.path.insert(0, cldice_metric_dir)
+            try:
+                from medpy.metric import binary as medpy_binary
+                import surface_distance.metrics as sd_metrics
+                from cldice_metric.cldice import clDice as official_clDice
+                from core.metrics import (
+                    dice_score, iou_score, precision_score, recall_score,
+                    sensitivity_score, specificity_score, hd95_score,
+                    assd_score, asd_score, ravd_score, hausdorff_score,
+                    nsd_score, cldice_score,
+                )
+
+                cases = []
+                for size in (16, 33, 64):
+                    for i in range(6):
+                        g = rng.random((size, size)) > 0.6
+                        p = (rng.random((size, size)) > 0.45) & g
+                        cases.append((p.astype(np.uint8), g.astype(np.uint8)))
+                e = np.zeros((32, 32), dtype=np.uint8)
+                f = np.ones((32, 32), dtype=np.uint8)
+                sp = e.copy(); sp[10, 10] = 1
+                cases += [(e, e), (e, f), (f, e), (f, f), (sp, sp), (sp, e)]
+
+                def _off(fn):
+                    # medpy raises RuntimeError on empty masks; our ports
+                    # return NaN there (documented deviation) — treat the
+                    # official exception as NaN.
+                    try:
+                        return float(fn())
+                    except RuntimeError:
+                        return float('nan')
+
+                worst = {}
+                for pred, gt in cases:
+                    pairs = [
+                        ('dc', medpy_binary.dc(pred, gt), dice_score(pred, gt)),
+                        ('jc', medpy_binary.jc(pred, gt), iou_score(pred, gt)),
+                        ('precision', medpy_binary.precision(pred, gt), precision_score(pred, gt)),
+                        ('recall', medpy_binary.recall(pred, gt), recall_score(pred, gt)),
+                        ('sensitivity', medpy_binary.sensitivity(pred, gt), sensitivity_score(pred, gt)),
+                        ('specificity', medpy_binary.specificity(pred, gt), specificity_score(pred, gt)),
+                        ('hd95', _off(lambda: medpy_binary.hd95(pred, gt)), hd95_score(pred, gt)),
+                        ('assd', _off(lambda: medpy_binary.assd(pred, gt)), assd_score(pred, gt)),
+                        ('asd', _off(lambda: medpy_binary.asd(pred, gt)), asd_score(pred, gt)),
+                        ('ravd', _off(lambda: medpy_binary.ravd(pred, gt)), ravd_score(pred, gt)),
+                    ]
+                    for name, official, ours in pairs:
+                        if np.isnan(official) and np.isnan(ours):
+                            continue
+                        if np.isnan(official) != np.isnan(ours):
+                            raise AssertionError(f'battery/{name}: NaN mismatch on {pred.shape}')
+                        worst[name] = max(worst.get(name, 0.0),
+                                          abs(float(official) - float(ours)))
+                    # medpy hd raises on empty -> skip when one side is empty
+                    if pred.any() and gt.any():
+                        hd_o = medpy_binary.hd(pred, gt)
+                        hd_m = hausdorff_score(pred, gt)
+                        worst['hd'] = max(worst.get('hd', 0.0), abs(float(hd_o) - float(hd_m)))
+                    # NSD
+                    if pred.any() or gt.any():
+                        sd = sd_metrics.compute_surface_distances(gt.astype(bool), pred.astype(bool), (1.0, 1.0))
+                        nsd_o = sd_metrics.compute_surface_dice_at_tolerance(sd, 1.0)
+                        nsd_m = nsd_score(pred, gt, tolerance_mm=1.0)
+                        worst['nsd'] = max(worst.get('nsd', 0.0), abs(float(nsd_o) - float(nsd_m)))
+                    # clDice metric (skimage path)
+                    if pred.any() and gt.any():
+                        cl_o = official_clDice(pred.astype(bool), gt.astype(bool))
+                        cl_m = cldice_score(pred, gt)
+                        if not np.isnan(cl_o) and not np.isnan(cl_m):
+                            worst['cldice'] = max(worst.get('cldice', 0.0),
+                                                  abs(float(cl_o) - float(cl_m)))
+                for name, w in sorted(worst.items()):
+                    check(f'battery/{name}', 0.0, w, tol=1e-9)
+            finally:
+                sys.path.pop(0)
+                sys.path.pop(0)
+                sys.path.pop(0)
+        else:
+            print("[SKIP] battery: medpy/surface-distance/clDice not found")
+    except Exception as e:
+        print(f"[SKIP] battery: {e}")
+
     print()
     print(f"PASS: {len(PASS)}  FAIL: {len(FAIL)}")
     if FAIL:

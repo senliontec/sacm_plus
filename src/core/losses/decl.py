@@ -5,6 +5,11 @@ Strict port of the official repository: DECL-Loss, loss/end_distance_loss.py
 official forward expects 2-channel softmax logits; our bridge builds
 [zeros, logits] so that softmax(...)[:, 1] == sigmoid(logits) EXACTLY —
 the rest of the computation is the official code verbatim.
+
+Deviation: the official module defines its own SoftSkeletonize/soft_dice;
+ours reuses core.SoftSkeletonize (the verified clDice skeleton, which is
+algorithmically identical to the official 2D branch) with num_iter=40 —
+the official DECL default. The official 3D branch is not ported (2D-only).
 """
 
 import math
