@@ -54,3 +54,14 @@ def test_dice_bce_zero_for_identity():
 def test_registry_contains_none():
     # The default CLI option must always be usable
     assert build_topology_loss('none') is None
+
+
+def test_softcl_dice_iterations_alias():
+    # 回归:训练 CLI 曾用 iterations= 而类只认 num_iter(服务器实测崩溃),
+    # 别名 + 正确参数必须都可用
+    target = (torch.rand(1, 1, 16, 16) > 0.5).float()
+    logits = torch.randn(1, 1, 16, 16)
+    a = SoftclDiceLoss(num_iter=5)(logits, target)
+    b = SoftclDiceLoss(iterations=5)(logits, target)
+    assert torch.isfinite(a) and torch.isfinite(b)
+    assert a.item() == b.item()

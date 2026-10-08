@@ -144,7 +144,7 @@ def train(args):
 
     # Losses
     criterion = DiceBCELoss(bce_weight=args.bce_weight, dice_weight=args.dice_weight)
-    soft_cl = SoftclDiceLoss(iterations=args.cl_dice_iters)
+    soft_cl = SoftclDiceLoss(num_iter=args.cl_dice_iters)
     topo_loss = build_topology_loss(args.topology_loss)
     if topo_loss is not None:
         logging.info(f"Extra topology loss: {args.topology_loss} x {args.topology_loss_weight}")

@@ -117,7 +117,11 @@ class SoftclDiceLoss(nn.Module):
         smooth: Tversky-style smoothing (official default: 1.0).
     """
 
-    def __init__(self, num_iter=10, smooth=1.0):
+    def __init__(self, num_iter=10, smooth=1.0, iterations=None):
+        # `iterations` is a legacy alias kept so older call sites keep
+        # working; prefer num_iter (the official clDice parameter name).
+        if iterations is not None:
+            num_iter = iterations
         super().__init__()
         self.soft_skeletonize = SoftSkeletonize(num_iter=num_iter)
         self.smooth = smooth

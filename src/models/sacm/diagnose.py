@@ -89,7 +89,7 @@ def build_model(args, device):
 def compute_head_grad_norms(sam, model_input, gt_mask, device, loss_mode):
     """Backward one loss variant and collect per-head gradient norms."""
     criterion = DiceBCELoss()
-    soft_cl = SoftclDiceLoss(iterations=5)
+    soft_cl = SoftclDiceLoss(num_iter=5)
 
     model_input = sam.preprocess(model_input.to(device))
     gt_mask = gt_mask.to(device)

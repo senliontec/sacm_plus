@@ -20,6 +20,7 @@ from tqdm import tqdm
 
 from core.console import console, print_metrics_table
 from core.metrics import compute_metrics
+from core.metrics_advisor import advise
 from core.wandb_utils import finish_run, log_scalars, setup_wandb
 
 
@@ -352,6 +353,12 @@ class Trainer:
                     print_metrics_table(
                         {'f1': f1, 'loss': avg_val_loss, **val_metrics},
                         title=f"val metrics — epoch {epoch + 1}")
+                    # Online advisor: metric patterns -> optimization
+                    # directions, printed while training (history already
+                    # includes this epoch).
+                    for sev, msg in advise(history, self.args):
+                        console.print(f"  ⚠ {msg}",
+                                      style="yellow" if sev == 'warn' else "cyan")
 
                 # Step the scheduler (except ReduceLROnPlateau, updated during validation)
                 if self.scheduler is not None and self.args.scheduler != 'reduce':

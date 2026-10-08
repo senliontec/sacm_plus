@@ -15,7 +15,7 @@ set -euo pipefail
 # ---------------- 配置(可用环境变量覆盖) ----------------
 GPUS="${GPUS:-0 1 2 3 4 5 6 7}"
 CKPT="${CKPT:-checkpoints/sam_vit_l_0b3195.pth}"
-RAW_DATA_ROOT="${RAW_DATA_ROOT:-../datasets}"
+RAW_DATA_ROOT="${RAW_DATA_ROOT:-datasets}"   # 仓库内(与 up2server 上传布局一致)
 SPLIT_ROOT="${SPLIT_ROOT:-data/sacm_3shot}"
 TRAIN_SOURCES="${TRAIN_SOURCES:-datasets/DIS5K_train datasets/DRIVE_train datasets/ThinObject5K}"
 TEST_DATASETS="${TEST_DATASETS:-datasets/DRIVE_test datasets/DIS5K_test datasets/ThinObject5K}"
