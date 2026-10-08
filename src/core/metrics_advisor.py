@@ -94,10 +94,10 @@ def advise(history, args=None):
             out.append(('warn', 'clDice 损失停滞于 %.3f — 软骨架在细结构上梯度不足,'
                                '检查 cl_dice_warmup/ramp 节奏' % lc[-1]))
 
-    # 6) 阈值鲁棒性: auc 明显高于单点(单点为 0 时是空预测的假象,跳过)
+    # 6) 阈值鲁棒性: auc 明显高于单点(单点 < 0.01 属未收敛/塌缩噪声,跳过)
     da = last('val/dice_auc')
     dv = last('val/dice')
-    if da is not None and dv is not None and dv > 0 and da - dv > AUC_GAP:
+    if da is not None and dv is not None and dv > 0.05 and da - dv > AUC_GAP:
         out.append(('info', '阈值未选对: dice_auc %.3f 比单点 dice %.3f 高 %.2f — '
                            '调 pred_threshold 可白捡收益' % (da, dv, da - dv)))
 

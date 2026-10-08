@@ -16,7 +16,8 @@ from .core import DiceLoss, DiceBCELoss, soft_dice, SoftSkeletonize, SoftclDiceL
 from .registry import TOPOLOGY_LOSS_REGISTRY, build_topology_loss, register
 
 # Import all loss modules: side effect = registration into the registry
-from . import decl, centerline_ce, betti_matching, satloss, topograph  # noqa: F401
+from . import decl, centerline_ce, betti_matching, satloss, topograph, warping, topo_losses  # noqa: F401
+from . import euler_refine  # noqa: F401
 
 from .decl import EndpointDistanceLossAverage
 from .centerline_ce import (

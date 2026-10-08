@@ -10,6 +10,7 @@ extra topology loss; gradient clipping; best-F1 checkpoint selection).
 import json
 import logging
 import os
+import sys
 import time
 import warnings
 
@@ -19,7 +20,8 @@ import torch.nn.functional as F
 from sklearn.metrics import f1_score
 from tqdm import tqdm
 
-from core.console import console, epoch_header, epoch_row
+from core.console import console, epoch_header, epoch_row, print_topo_row
+from core.losses.monitor import topology_loss_monitor
 from core.metrics import compute_metrics
 from core.metrics_advisor import advise
 from core.wandb_utils import finish_run, log_scalars, setup_wandb
@@ -75,7 +77,8 @@ class Trainer:
         train_loss = 0.0
         comps_sum = {k: 0.0 for k in ('loss_main', 'loss_ds', 'loss_iou', 'loss_cl', 'loss_topo')}
         train_pbar = tqdm(self.train_loader, total=len(self.train_loader),
-                          desc=f"Epoch {epoch+1}/{self.args.epochs} [Train]")
+                          desc=f"Epoch {epoch+1}/{self.args.epochs} [Train]",
+                          disable=not sys.stderr.isatty())  # 日志文件里不画进度条
 
         for images, masks in train_pbar:
             images = images.to(self.device)
@@ -167,7 +170,8 @@ class Trainer:
         metrics_acc = {}
 
         val_pbar = tqdm(self.val_loader, total=len(self.val_loader),
-                        desc=f"Epoch {epoch+1}/{self.args.epochs} [Val]")
+                        desc=f"Epoch {epoch+1}/{self.args.epochs} [Val]",
+                        disable=not sys.stderr.isatty())  # 日志文件里不画进度条
 
         with torch.no_grad():
             for images, masks in val_pbar:
@@ -203,6 +207,13 @@ class Trainer:
                 # NaN,显示行保持列位稳定(见 print_metrics_row)
                 for k, v in m.items():
                     metrics_acc.setdefault(k, []).append(v)
+                # 拓扑损失监控:全部 13 个注册损失在当前预测上的值。
+                # 128 分辨率输入 + 引擎损失 64 分辨率(纯 Python 持久同调
+                # 在更大尺寸不可承受)——趋势信号足够,监控不影响训练。
+                m128 = F.interpolate(main_mask, size=(128, 128), mode='bilinear', align_corners=False)
+                t128 = F.interpolate(masks, size=(128, 128), mode='bilinear', align_corners=False)
+                for k, v in topology_loss_monitor(m128, t128, resolution=64).items():
+                    metrics_acc.setdefault(f'topo_{k}', []).append(v)
 
         all_pred_masks = torch.cat(all_pred_masks, dim=0)
         all_true_masks = torch.cat(all_true_masks, dim=0)
@@ -303,6 +314,7 @@ class Trainer:
             config=self._run_config(),
         )
         history = []
+        advice_log = {}
         best_epoch = -1
         # 宽表:一个表头,每行一个 epoch,每个指标一列(全指标)
         console.print(epoch_header(), style="bold")
@@ -343,13 +355,19 @@ class Trainer:
                                 self.optimizer.param_groups[0]['lr'],
                                 time.time() - t0, f1, vloss, val_metrics)
                 console.print(row, style="bold green" if is_best else "")
+                if val_metrics is not None:
+                    print_topo_row(val_metrics)
                 # Online advisor: metric patterns -> optimization
                 # directions, printed while training (history already
                 # includes this epoch).
                 if val_metrics is not None:
+                    # 顾问去重:同一条提示至少间隔 3 个验证 epoch 才重复
                     for sev, msg in advise(history, self.args):
-                        console.print(f"  ⚠ {msg}",
-                                      style="yellow" if sev == 'warn' else "cyan")
+                        last = advice_log.get(msg, -99)
+                        if epoch + 1 - last >= 3:
+                            console.print(f"  ⚠ {msg}",
+                                          style="yellow" if sev == 'warn' else "cyan")
+                            advice_log[msg] = epoch + 1
 
                 # Step the scheduler (except ReduceLROnPlateau, updated during validation)
                 if self.scheduler is not None and self.args.scheduler != 'reduce':

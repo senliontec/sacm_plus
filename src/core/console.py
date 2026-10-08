@@ -58,6 +58,14 @@ def epoch_row(epoch, train_loss, comps, lr, dt, f1, vloss, val_metrics=None):
     return ' │ '.join(_cell(v, w) for v, w in zip(vals, EPOCH_WIDTHS))
 
 
+def print_topo_row(metrics):
+    """One compact line with all monitored topology-loss values."""
+    parts = [f"{k[5:]}={v:.4f}" if v == v else f"{k[5:]}=—"
+             for k, v in sorted(metrics.items()) if k.startswith('topo_')]
+    if parts:
+        console.print("  topo-loss: " + "  ".join(parts), style="dim cyan")
+
+
 def print_metrics_row(metrics, f1=None, loss=None):
     """One compact line with ALL val metrics (per-epoch display)."""
     parts = []
