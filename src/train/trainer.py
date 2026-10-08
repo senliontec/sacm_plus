@@ -65,6 +65,11 @@ def count_parameters(model):
 def train(args):
     setup_logging(args)
 
+    # The save path may point at a not-yet-existing job dir (run_all.sh /
+    # run_experiments use results/<preset>/<dataset>/); create it up front
+    # so checkpoint + metrics_history.json saves never fail.
+    os.makedirs(os.path.dirname(args.save_path) or '.', exist_ok=True)
+
     random.seed(args.seed)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
