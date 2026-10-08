@@ -44,12 +44,16 @@ def find_pairs(src_dir):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Build the few-shot training split')
+    parser = argparse.ArgumentParser(description='Build the few-shot (or full) training split')
     parser.add_argument('--train_dirs', nargs='+', required=True,
                         help='Source dataset dirs (each with images/ and masks/); '
                              '3-shot per dataset is sampled from the first 6')
-    parser.add_argument('--shots', type=int, default=3, help='Train images per dataset')
-    parser.add_argument('--val_shots', type=int, default=1, help='Val images per dataset')
+    parser.add_argument('--shots', type=int, default=3, help='Train images per dataset (few-shot mode)')
+    parser.add_argument('--val_shots', type=int, default=1, help='Val images per dataset (few-shot mode)')
+    parser.add_argument('--use_all', action='store_true',
+                        help='全量模式(架构研究层): 不做 few-shot 采样, 按 --val_ratio 切 train/val')
+    parser.add_argument('--val_ratio', type=float, default=0.2,
+                        help='全量模式下验证集比例(默认 0.2)')
     parser.add_argument('--out_dir', type=str, required=True, help='Output root')
     parser.add_argument('--seed', type=int, default=42)
     args = parser.parse_args()
@@ -65,16 +69,23 @@ def main():
         pairs = find_pairs(src)
         if not pairs:
             raise ValueError(f"No image-mask pairs found in {src}")
-        if len(pairs) < args.shots + args.val_shots:
-            raise ValueError(
-                f"{name}: only {len(pairs)} pairs available, "
-                f"need at least {args.shots + args.val_shots}"
-            )
         random.shuffle(pairs)
-        subsets = [
-            ('train', pairs[:args.shots]),
-            ('val', pairs[args.shots:args.shots + args.val_shots]),
-        ]
+        if args.use_all:
+            n_val = max(1, int(len(pairs) * args.val_ratio))
+            subsets = [
+                ('train', pairs[n_val:]),
+                ('val', pairs[:n_val]),
+            ]
+        else:
+            if len(pairs) < args.shots + args.val_shots:
+                raise ValueError(
+                    f"{name}: only {len(pairs)} pairs available, "
+                    f"need at least {args.shots + args.val_shots}"
+                )
+            subsets = [
+                ('train', pairs[:args.shots]),
+                ('val', pairs[args.shots:args.shots + args.val_shots]),
+            ]
         for split, subset in subsets:
             for img_path, mask_path in subset:
                 img_ext = os.path.splitext(img_path)[1]

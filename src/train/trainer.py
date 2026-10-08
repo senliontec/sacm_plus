@@ -79,8 +79,17 @@ def train(args):
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(args.seed)
 
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    logging.info(f"Using device: {device}")
+    # DDP:由 torchrun 启动时注入 LOCAL_RANK;否则退化为单卡
+    is_ddp = 'LOCAL_RANK' in os.environ
+    if is_ddp:
+        import torch.distributed as dist
+        dist.init_process_group(backend='nccl')
+        local_rank = int(os.environ['LOCAL_RANK'])
+        device = torch.device(f'cuda:{local_rank}')
+        torch.cuda.set_device(device)
+    else:
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    logging.info(f"Using device: {device} (ddp={is_ddp})")
 
     # Build the model through the model registry (extensible to other
     # architectures without touching this script).
@@ -105,6 +114,12 @@ def train(args):
     # Model-specific freezing protocol (SAM: encoder adapters + mask
     # decoder only; other models define their own in their ModelSpec)
     spec.freeze(sam)
+
+    if is_ddp:
+        sam = torch.nn.parallel.DistributedDataParallel(
+            sam, device_ids=[local_rank],
+            find_unused_parameters=True,  # 层子集等条件分支会产生未用参数
+        )
 
     total_params, trainable_params = count_parameters(sam)
     logging.info(f"After freezing - Total parameters: {total_params:,}")
@@ -139,7 +154,13 @@ def train(args):
     train_dataset = SegmentationDataset(args.data_root, 'train', transform, augment=augment)
     val_dataset = SegmentationDataset(args.data_root, 'val', transform, augment=None)
 
-    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4)
+    train_sampler = None
+    if is_ddp:
+        from torch.utils.data.distributed import DistributedSampler
+        train_sampler = DistributedSampler(train_dataset)
+    train_loader = DataLoader(train_dataset, batch_size=args.batch_size,
+                              shuffle=(train_sampler is None), sampler=train_sampler,
+                              num_workers=4)
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4)
 
     logging.info(f"Training dataset size: {len(train_dataset)}")
@@ -186,7 +207,7 @@ def train(args):
         criterion=criterion, soft_cl=soft_cl, topo_loss=topo_loss,
         optimizer=optimizer, scheduler=scheduler,
         train_loader=train_loader, val_loader=val_loader,
-        args=args,
+        args=args, is_ddp=is_ddp, train_sampler=train_sampler,
     )
     trainer.fit()
 

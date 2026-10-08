@@ -12,19 +12,21 @@
 
 set -euo pipefail
 
-# ---------------- 配置(可用环境变量覆盖) ----------------
+# ---------------- 配置(仍可用环境变量覆盖,默认值 = 当前实验计划) ----------------
 GPUS="${GPUS:-0 1 2 3 4 5 6 7}"
 CKPT="${CKPT:-checkpoints/sam_vit_l_0b3195.pth}"
 RAW_DATA_ROOT="${RAW_DATA_ROOT:-datasets}"   # 仓库内(与 up2server 上传布局一致)
-SPLIT_ROOT="${SPLIT_ROOT:-data/sacm_3shot}"
-TRAIN_SOURCES="${TRAIN_SOURCES:-datasets/DIS5K_train datasets/DRIVE_train datasets/ThinObject5K}"
+SPLIT_ROOT="${SPLIT_ROOT:-data/dis5k_full}"
+TRAIN_SOURCES="${TRAIN_SOURCES:-datasets/DIS5K_train}"   # 架构研究层:DIS5K 全量
 TEST_DATASETS="${TEST_DATASETS:-datasets/DRIVE_test datasets/DIS5K_test datasets/ThinObject5K}"
 PRESETS="${PRESETS:-sacm stage1 stage2 full no_geo_i no_geo_e no_c2f no_fusion_v2 no_multi_depth no_cl no_ds no_iou geo_e_shallow geo_e_deep}"
 EPOCHS="${EPOCHS:-50}"
-VAL_INTERVAL="${VAL_INTERVAL:-1}"   # 每 epoch 显示全指标;论文协议口径 10,最终投稿跑 10
+VAL_INTERVAL="${VAL_INTERVAL:-5}"
 SEED="${SEED:-42}"
 RESULTS_ROOT="${RESULTS_ROOT:-results}"
 TTA="${TTA:-}"
+DDP="${DDP:-true}"   # true = 每个预设用全部 GPU 做 DDP 顺序跑(全量数据推荐);
+                    # false = run_experiments 任务级并行(每卡一个 job,3-shot 协议用)
 
 cd "$(dirname "$0")/.."
 
@@ -54,25 +56,48 @@ else
 fi
 
 echo "══════════ 2/4 多卡消融调度 ══════════"
-TEST_SPECS=""
-for ds in $TEST_DATASETS; do
-  TEST_SPECS="$TEST_SPECS $(basename "$ds"):$ds"
-done
+if [ "$DDP" = "true" ]; then
+  # 每个预设独占全部 GPU(DDP)顺序跑:全量数据下单个训练就吃满 8 卡
+  NG="$(nvidia-smi -L 2>/dev/null | wc -l)"
+  [ "$NG" -gt 0 ] || { echo "❌ nvidia-smi 不可用,无法 DDP"; exit 1; }
+  for p in $PRESETS; do
+    echo "── DDP 训练 preset=$p ($NG 卡)"
+    if [ "$SKIP_TRAIN" -eq 0 ]; then
+      torchrun --nproc_per_node="$NG" src/train/trainer.py \
+          --preset "$p" --data_root "$SPLIT_ROOT" --checkpoint "$CKPT" \
+          --epochs "$EPOCHS" --val_interval "$VAL_INTERVAL" --seed "$SEED" \
+          --use_wandb true --save_path "$RESULTS_ROOT/$p/best_model.pth"
+    fi
+    for ds in $TEST_DATASETS; do
+      [ -d "$ds" ] || continue
+      echo "── 评测 $p @ $(basename "$ds")"
+      python src/eval/evaluate.py --preset "$p" --data_root "$ds" \
+          --trained_weights "$RESULTS_ROOT/$p/best_model.pth" \
+          --output_dir "$RESULTS_ROOT/$p/$(basename "$ds")" --selection iou \
+          --use_wandb true
+    done
+  done
+else
+  TEST_SPECS=""
+  for ds in $TEST_DATASETS; do
+    TEST_SPECS="$TEST_SPECS $(basename "$ds"):$ds"
+  done
 
-EXTRA=""
-[ "$SKIP_TRAIN" -eq 1 ] && EXTRA="--skip_train"
-[ -n "$TTA" ] && EXTRA="$EXTRA --tta"
+  EXTRA=""
+  [ "$SKIP_TRAIN" -eq 1 ] && EXTRA="--skip_train"
+  [ -n "$TTA" ] && EXTRA="$EXTRA --tta"
 
-# shellcheck disable=SC2086
-python scripts/run_experiments.py \
-    --gpus $GPUS \
-    --checkpoint "$CKPT" \
-    --train_root "$SPLIT_ROOT" \
-    --test_datasets $TEST_SPECS \
-    --presets $PRESETS \
-    --output_root "$RESULTS_ROOT" \
-    --epochs "$EPOCHS" --val_interval "$VAL_INTERVAL" --seed "$SEED" \
-    $EXTRA
+  # shellcheck disable=SC2086
+  python scripts/run_experiments.py \
+      --gpus $GPUS \
+      --checkpoint "$CKPT" \
+      --train_root "$SPLIT_ROOT" \
+      --test_datasets $TEST_SPECS \
+      --presets $PRESETS \
+      --output_root "$RESULTS_ROOT" \
+      --epochs "$EPOCHS" --val_interval "$VAL_INTERVAL" --seed "$SEED" \
+      $EXTRA
+fi
 
 echo "══════════ 3/4 汇总: CSV + LaTeX ══════════"
 python scripts/aggregate_results.py --root "$RESULTS_ROOT" --out "$RESULTS_ROOT/tables"

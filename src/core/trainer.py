@@ -54,7 +54,8 @@ class Trainer:
     """Unified training engine (model-agnostic via ModelSpec)."""
 
     def __init__(self, model, spec, device, criterion, soft_cl, topo_loss,
-                 optimizer, scheduler, train_loader, val_loader, args):
+                 optimizer, scheduler, train_loader, val_loader, args,
+                 is_ddp=False, train_sampler=None):
         self.model = model
         self.spec = spec
         self.device = device
@@ -66,7 +67,17 @@ class Trainer:
         self.train_loader = train_loader
         self.val_loader = val_loader
         self.args = args
+        self.is_ddp = is_ddp
+        self.train_sampler = train_sampler
         self.best_f1_score = 0.0
+
+    @property
+    def _rank0(self):
+        """DDP 下只有 rank 0 做验证/日志/保存。"""
+        if not self.is_ddp:
+            return True
+        import torch.distributed as dist
+        return dist.get_rank() == 0
 
     def _forward(self, images):
         images = self.spec.preprocess(self.model, images)
@@ -75,6 +86,8 @@ class Trainer:
 
     def _train_epoch(self, epoch):
         self.model.train()
+        if self.train_sampler is not None:
+            self.train_sampler.set_epoch(epoch)  # DDP: 每 epoch 换采样顺序
         train_loss = 0.0
         comps_sum = {k: 0.0 for k in ('loss_main', 'loss_ds', 'loss_iou', 'loss_cl', 'loss_topo')}
         # 进度条已移除:逐 epoch 的 rich 宽表 + time 列取代进度反馈
@@ -245,9 +258,11 @@ class Trainer:
 
         if f1 > self.best_f1_score:
             self.best_f1_score = f1
+            state_dict = (self.model.module.state_dict() if self.is_ddp
+                          else self.model.state_dict())
             torch.save({
                 'epoch': epoch,
-                'model_state_dict': self.model.state_dict(),
+                'model_state_dict': state_dict,
                 'optimizer_state_dict': self.optimizer.state_dict(),
                 'val_loss': avg_val_loss,
                 'val_cldice': avg_val_cldice,
@@ -350,11 +365,13 @@ class Trainer:
 
     def fit(self):
         """Run the full training schedule (wandb-monitored when enabled)."""
-        run = setup_wandb(
-            self.args,
-            name=f"{self.args.model}_{self.args.preset}",
-            config=self._run_config(),
-        )
+        run = None
+        if self._rank0:
+            run = setup_wandb(
+                self.args,
+                name=f"{self.args.model}_{self.args.preset}",
+                config=self._run_config(),
+            )
         self._wandb_run = run
         history = []
         advice_log = {}
@@ -375,53 +392,55 @@ class Trainer:
                 for k, v in comps.items():
                     wm[f'train/{k}'] = v
 
+                # 验证/日志/保存只在 rank 0;其余 rank 只训练并同步梯度
                 best_before = self.best_f1_score
                 f1 = vloss = None
                 val_metrics = None
-                if (epoch + 1) % self.args.val_interval == 0:
+                is_best = False
+                if self._rank0 and (epoch + 1) % self.args.val_interval == 0:
                     f1, vloss, avg_val_cldice, val_metrics = self._validate(epoch)
                     wm.update({'val/loss': vloss, 'val/f1': f1,
                                'val/cldice': avg_val_cldice})
                     for k, v in val_metrics.items():
                         wm[f'val/{k}'] = v
                     is_best = self.best_f1_score > best_before
-                else:
-                    is_best = False
                 if is_best:
                     best_epoch = epoch + 1
 
-                log_scalars(run, wm)
+                if self._rank0:
+                    log_scalars(run, wm)
 
-                # **wm first so the explicit 1-based epoch wins (wm stores
-                # the 0-based wandb epoch)
-                history.append({**wm, 'epoch': epoch + 1,
-                                'time_s': round(time.time() - t0, 2)})
+                    # **wm first so the explicit 1-based epoch wins (wm stores
+                    # the 0-based wandb epoch)
+                    history.append({**wm, 'epoch': epoch + 1,
+                                    'time_s': round(time.time() - t0, 2)})
 
-                for line in epoch_row(epoch + 1, avg_train_loss, comps,
-                                      self.optimizer.param_groups[0]['lr'],
-                                      time.time() - t0, f1, vloss, val_metrics,
-                                      topo_names):
-                    console.print(line, style="bold green" if is_best else "")
-                # Online advisor: metric patterns -> optimization
-                # directions, printed while training (history already
-                # includes this epoch).
-                if val_metrics is not None:
-                    # 顾问去重:同一条提示至少间隔 3 个验证 epoch 才重复
-                    for sev, msg in advise(history, self.args):
-                        last = advice_log.get(msg, -99)
-                        if epoch + 1 - last >= 3:
-                            console.print(f"  ⚠ {msg}",
-                                          style="yellow" if sev == 'warn' else "cyan")
-                            advice_log[msg] = epoch + 1
+                    for line in epoch_row(epoch + 1, avg_train_loss, comps,
+                                          self.optimizer.param_groups[0]['lr'],
+                                          time.time() - t0, f1, vloss, val_metrics,
+                                          topo_names):
+                        console.print(line, style="bold green" if is_best else "")
+                    # Online advisor: metric patterns -> optimization
+                    # directions, printed while training (history already
+                    # includes this epoch).
+                    if val_metrics is not None:
+                        # 顾问去重:同一条提示至少间隔 3 个验证 epoch 才重复
+                        for sev, msg in advise(history, self.args):
+                            last = advice_log.get(msg, -99)
+                            if epoch + 1 - last >= 3:
+                                console.print(f"  ⚠ {msg}",
+                                              style="yellow" if sev == 'warn' else "cyan")
+                                advice_log[msg] = epoch + 1
 
                 # Step the scheduler (except ReduceLROnPlateau, updated during validation)
                 if self.scheduler is not None and self.args.scheduler != 'reduce':
                     self.scheduler.step()
         finally:
-            if run is not None:
-                try:
-                    run.summary['best_f1'] = self.best_f1_score
-                except Exception:
-                    pass
-            finish_run(run)
-            self._write_history(history, best_epoch)
+            if self._rank0:
+                if run is not None:
+                    try:
+                        run.summary['best_f1'] = self.best_f1_score
+                    except Exception:
+                        pass
+                finish_run(run)
+                self._write_history(history, best_epoch)
