@@ -34,6 +34,8 @@ TOPOLOGY_LOSS_WEIGHT="${TOPOLOGY_LOSS_WEIGHT:-0.1}"
 FULL_DATA="${FULL_DATA:-true}"           # 架构研究层默认全量;3-shot 协议层设 FULL_DATA=false
 VAL_RATIO="${VAL_RATIO:-0.2}"
 DDP="${DDP:-true}"                       # true = torchrun 8 卡 DDP(全量训练);false = 单卡
+BATCH_SIZE="${BATCH_SIZE:-1}"            # 每卡 batch:3090 24GB 实测 2 会 OOM(ViT-L 1024²);
+                                         # DDP 有效 batch = 卡数 × 此值
 
 cd "$(dirname "$0")/.."   # 仓库根
 ROOT="$(pwd)"
@@ -103,13 +105,16 @@ if [ "$SKIP_TRAIN" -eq 0 ]; then
   [ -f "$CKPT" ] || fail "checkpoint 不存在: $CKPT(先下载 sam_vit_l_0b3195.pth 放入 checkpoints/)"
   TRAIN_ARGS=(--preset "$PRESET" --data_root "$SPLIT_ROOT" \
       --checkpoint "$CKPT" --epochs "$EPOCHS" --val_interval "$VAL_INTERVAL" --seed "$SEED" \
+      --batch_size "$BATCH_SIZE" \
       --topology_loss "$TOPOLOGY_LOSS" --topology_loss_weight "$TOPOLOGY_LOSS_WEIGHT" \
       --use_wandb "$USE_WANDB" --save_path "$RESULTS_ROOT/$PRESET/best_model.pth")
   if [ "$DDP" = "true" ]; then
     NG="$(nvidia-smi -L 2>/dev/null | wc -l)"
     [ "$NG" -gt 0 ] || fail "nvidia-smi 不可用,无法 DDP"
-    torchrun --nproc_per_node="$NG" src/train/trainer.py "${TRAIN_ARGS[@]}" \
-      || fail "训练失败(DDP, $NG 卡)"
+    # NCCL_DEBUG=WARN: 首次 DDP 排障;NCCL_P2P_DISABLE/NCCL_SOCKET_IFNAME 可经环境变量覆盖
+    NCCL_DEBUG="${NCCL_DEBUG:-WARN}" torchrun --nproc_per_node="$NG" \
+      src/train/trainer.py "${TRAIN_ARGS[@]}" \
+      || fail "训练失败(DDP, $NG 卡)——常见原因: NCCL 通信/网卡, 见 NCCL_DEBUG 日志"
   else
     python src/train/trainer.py "${TRAIN_ARGS[@]}" || fail "训练失败"
   fi

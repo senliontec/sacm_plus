@@ -27,6 +27,7 @@ RESULTS_ROOT="${RESULTS_ROOT:-results}"
 TTA="${TTA:-}"
 DDP="${DDP:-true}"   # true = 每个预设用全部 GPU 做 DDP 顺序跑(全量数据推荐);
                     # false = run_experiments 任务级并行(每卡一个 job,3-shot 协议用)
+BATCH_SIZE="${BATCH_SIZE:-1}"   # 每卡 batch:3090 24GB 实测 2 会 OOM;DDP 有效 batch = 卡数 × 此值
 
 cd "$(dirname "$0")/.."
 
@@ -66,6 +67,7 @@ if [ "$DDP" = "true" ]; then
       torchrun --nproc_per_node="$NG" src/train/trainer.py \
           --preset "$p" --data_root "$SPLIT_ROOT" --checkpoint "$CKPT" \
           --epochs "$EPOCHS" --val_interval "$VAL_INTERVAL" --seed "$SEED" \
+          --batch_size "$BATCH_SIZE" \
           --use_wandb true --save_path "$RESULTS_ROOT/$p/best_model.pth"
     fi
     for ds in $TEST_DATASETS; do
