@@ -9,7 +9,9 @@ messages, and a compact aligned per-epoch summary table
 from rich.console import Console
 from rich.table import Table
 
-console = Console()
+# 宽表(31 列,~200 字符)永不折行:显式 width=500 + soft_wrap=False——
+# 日志文件里每 epoch 恰为一行;宽屏终端单行;窄终端横向溢出可接受。
+console = Console(soft_wrap=False, width=500)
 
 
 # 紧凑行显示用的短名映射(每 epoch 一行全指标)。
