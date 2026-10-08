@@ -16,7 +16,9 @@ def binarize(x, threshold=0.0):
 
 
 def _bool(m):
-    return np.asarray(m) > 0
+    # 与 medpy 逐字等价:atleast_1d(astype(bool))——非零即真
+    # (含负值/NaN 的极端输入也与官方行为一致)
+    return np.atleast_1d(np.asarray(m).astype(bool))
 
 
 def zhang_suen_thinning(mask):
