@@ -14,6 +14,17 @@
 
 set -euo pipefail
 
+# 默认后台运行(BACKGROUND=true):nohup 重入自身,SSH 断开也不中断;
+# 前台调试用 BACKGROUND=false
+if [ "${BACKGROUND:-true}" = "true" ] && [ -z "${_BG_REENTRY:-}" ]; then
+  SELF="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
+  LOGF="run_$(date +%Y%m%d_%H%M%S).log"
+  nohup env _BG_REENTRY=1 bash "$SELF" "$@" > "$LOGF" 2>&1 &
+  echo "已在后台启动 (pid $!),日志: $LOGF"
+  echo "实时查看: tail -f $LOGF"
+  exit 0
+fi
+
 # ---------------- 配置(仍可用环境变量覆盖,默认值 = 当前实验计划) ----------------
 ENV_NAME="${ENV_NAME:-tsai}"
 PRESET="${PRESET:-full}"
