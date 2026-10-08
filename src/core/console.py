@@ -26,16 +26,26 @@ VAL_METRIC_SHORT = [
     ('betti_matching', 'BM'), ('topograph_error', 'TopoE'),
 ]
 
-# 宽表基础列:训练侧 8 列 + F1/L + 全部 20 项 val 指标
+# 宽表基础列(紧凑宽度):训练侧 8 列 + F1/L + 全部 20 项 val 指标
 BASE_NAMES = (['ep', 'tr_loss', 'main', 'ds', 'iou', 'scl', 'topo', 'lr',
                'F1', 'L'] + [s for _, s in VAL_METRIC_SHORT])
-BASE_WIDTHS = ([5, 8, 7, 7, 7, 7, 7, 9, 6, 8] + [6] * len(VAL_METRIC_SHORT))
+BASE_WIDTHS = ([4, 7, 6, 6, 6, 6, 6, 7, 6, 7] + [5] * len(VAL_METRIC_SHORT))
 
 # 方向箭头:↑ = 越大越好,↓ = 越小越好(ep/lr/time 为元信息,无箭头)
 UP = {'F1', 'D', 'IoU', 'P', 'R', 'Sen', 'Spe', 'Acc', 'MCC', 'cDh', 'NSD',
       'dAUC', 'cAUCh'}
 DOWN = {'tr_loss', 'main', 'ds', 'iou', 'scl', 'topo', 'L', 'HD', 'H95',
         'ASSD', 'ASD', 'RAVD', 'β', 'BM', 'TopoE'}
+
+# 拓扑损失 3-4 字符缩写(表头下打印一次对照表)
+TOPO_SHORT = {
+    'betti': 'bt', 'ce_clce': 'cCE', 'ce_cldice': 'cCD', 'centerline_ce': 'clC',
+    'composed_wasserstein': 'cW', 'decl': 'decl', 'dice_betti': 'dB',
+    'dice_cldice': 'dCD', 'dice_topograph': 'dT', 'euler_refine': 'eul',
+    'exact_topograph': 'xT', 'hutopo': 'hut', 'satloss': 'sat',
+    'topo_cripser': 'tC', 'topo_tcripser': 'tT', 'topograph': 'tG',
+    'warping': 'wrp', 'wasserstein': 'wst',
+}
 
 
 def _col_specs(topo_names):
@@ -49,9 +59,14 @@ def _col_specs(topo_names):
         else:
             names.append(n); widths.append(w)
     for n in topo_names:
-        names.append(n + '↓'); widths.append(max(6, len(n) + 2) + 1)
-    names.append('time'); widths.append(7)
+        names.append(TOPO_SHORT.get(n, n[:4]) + '↓'); widths.append(4)
+    names.append('time'); widths.append(6)
     return names, widths
+
+
+def topo_legend(topo_names):
+    """拓扑损失缩写对照(启动时打印一次)。"""
+    return '  ' + '  '.join(f"{TOPO_SHORT.get(n, n[:4])}={n}" for n in topo_names)
 
 
 def _cell(v, w):
@@ -67,15 +82,24 @@ def _cell(v, w):
     return f'{v:.4f}'.center(w)
 
 
-def epoch_header(topo_names=()):
-    """Wide table header: 基础 30 列 + 拓扑损失列 + time(最后),带方向箭头。"""
+def _base_row_vals(epoch, train_loss, comps, lr, dt, f1, vloss, val_metrics):
+    vm = val_metrics or {}
+    return [epoch, train_loss,
+            comps.get('loss_main'), comps.get('loss_ds'), comps.get('loss_iou'),
+            comps.get('loss_cl'), comps.get('loss_topo'), lr,
+            f1, vloss] + [vm.get(key) for key, _s in VAL_METRIC_SHORT] + \
+           [f'{dt:.0f}s']
+
+
+def epoch_header(topo_names=(), single=True):
+    """表头(紧凑单行,分隔符 │ 无空格;~290 字符适配宽屏)。"""
     names, widths = _col_specs(topo_names)
-    return ' │ '.join(_cell(n, w) for n, w in zip(names, widths))
+    return ['│'.join(_cell(n, w) for n, w in zip(names, widths))]
 
 
 def epoch_row(epoch, train_loss, comps, lr, dt, f1, vloss, val_metrics=None,
-              topo_names=()):
-    """Wide data row: every metric in its own column ('—' when absent)."""
+              topo_names=(), single=True):
+    """数据行(紧凑单行)。"""
     vm = val_metrics or {}
     vals = [epoch, train_loss,
             comps.get('loss_main'), comps.get('loss_ds'), comps.get('loss_iou'),
@@ -87,7 +111,7 @@ def epoch_row(epoch, train_loss, comps, lr, dt, f1, vloss, val_metrics=None,
         vals.append(vm.get(f'topo_{n}'))
     vals.append(f'{dt:.0f}s')
     _names, widths = _col_specs(topo_names)
-    return ' │ '.join(_cell(v, w) for v, w in zip(vals, widths))
+    return ['│'.join(_cell(v, w) for v, w in zip(vals, widths))]
 
 
 def print_topo_row(metrics):

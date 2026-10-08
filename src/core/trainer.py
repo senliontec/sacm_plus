@@ -20,7 +20,7 @@ import torch.nn.functional as F
 from sklearn.metrics import f1_score
 from tqdm import tqdm
 
-from core.console import console, epoch_header, epoch_row
+from core.console import console, epoch_header, epoch_row, topo_legend
 from core.losses.monitor import topology_loss_monitor
 from core.losses.registry import TOPOLOGY_LOSS_REGISTRY
 from core.metrics import compute_metrics
@@ -321,10 +321,11 @@ class Trainer:
         history = []
         advice_log = {}
         best_epoch = -1
-        # 宽表:一个表头,每行一个 epoch,每个指标一列
-        # (31 基础列 + 18 拓扑损失列 + time,单行 ~340 字符)
+        # 宽表:紧凑单行(49 列,~290 字符);表头下打一次拓扑损失缩写对照
         topo_names = sorted(TOPOLOGY_LOSS_REGISTRY)
-        console.print(epoch_header(topo_names), style="bold")
+        for line in epoch_header(topo_names):
+            console.print(line, style="bold")
+        console.print(topo_legend(topo_names), style="dim")
 
         try:
             for epoch in range(self.args.epochs):
@@ -358,11 +359,11 @@ class Trainer:
                 history.append({**wm, 'epoch': epoch + 1,
                                 'time_s': round(time.time() - t0, 2)})
 
-                row = epoch_row(epoch + 1, avg_train_loss, comps,
-                                self.optimizer.param_groups[0]['lr'],
-                                time.time() - t0, f1, vloss, val_metrics,
-                                topo_names)
-                console.print(row, style="bold green" if is_best else "")
+                for line in epoch_row(epoch + 1, avg_train_loss, comps,
+                                      self.optimizer.param_groups[0]['lr'],
+                                      time.time() - t0, f1, vloss, val_metrics,
+                                      topo_names):
+                    console.print(line, style="bold green" if is_best else "")
                 # Online advisor: metric patterns -> optimization
                 # directions, printed while training (history already
                 # includes this epoch).
