@@ -32,6 +32,7 @@ from core.evaluator import (
     Evaluator,
 )
 from core.losses import DiceBCELoss
+from core.wandb_utils import WANDB_API_KEY_DEFAULT
 from core.registry import MODEL_REGISTRY, get_model_spec
 
 
@@ -178,9 +179,8 @@ if __name__ == '__main__':
     parser.add_argument('--wandb_entity', type=str, default='buaazqk', help='wandb entity')
     parser.add_argument('--wandb_host', type=str, default='http://172.16.1.7:8080',
                         help='Self-hosted wandb base URL')
-    parser.add_argument('--wandb_api_key', type=str, default=None,
-                        help='wandb API key (optional; normally supplied via WANDB_API_KEY env '
-                             'or "wandb login --host http://172.16.1.7:8080" once per machine)')
+    parser.add_argument('--wandb_api_key', type=str, default=WANDB_API_KEY_DEFAULT,
+                        help='wandb API key (self-hosted 172.16.1.7 local key, hardcoded per user request)')
     parser.add_argument('--wandb_name', type=str, default=None, help='wandb run name')
     parser.add_argument('--wandb_tags', type=str, default=None, help='Comma-separated wandb tags')
 
