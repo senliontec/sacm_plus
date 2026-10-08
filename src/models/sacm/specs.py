@@ -27,6 +27,7 @@ SAM_DEFAULTS = dict(
     adapter_dim_ratio=0.1,
     use_geo_i=True,
     use_geo_e=True,
+    geo_e_layers='all',
     use_coarse_to_fine=True,
     use_fusion_v2=True,
     use_multi_depth=True,

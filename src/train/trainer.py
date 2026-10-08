@@ -88,6 +88,7 @@ def train(args):
         adapter_dim_ratio=args.adapter_dim_ratio,
         use_geo_i=args.use_geo_i,
         use_geo_e=args.use_geo_e,
+        geo_e_layers=args.geo_e_layers,
         use_coarse_to_fine=args.use_coarse_to_fine,
         use_fusion_v2=args.use_fusion_v2,
         use_multi_depth=args.use_multi_depth,
@@ -209,6 +210,9 @@ if __name__ == '__main__':
     parser.add_argument('--preset', type=str, default='full', choices=sorted(PRESETS), help='Architecture/training preset for ablation experiments')
     parser.add_argument('--use_geo_i', type=str2bool, default=True, help='Geometric internal adapters (strip branch)')
     parser.add_argument('--use_geo_e', type=str2bool, default=True, help='Geometric external adapters (SE gate + strip, window layers only)')
+    parser.add_argument('--geo_e_layers', type=str, default='all', choices=['all', 'shallow', 'deep'],
+                        help="A2 layer placement: 'all' window layers / 'shallow' first half / 'deep' second half "
+                             "(for ViT-L: {0-4,6-10} / {12-16,18-22})")
     parser.add_argument('--use_coarse_to_fine', type=str2bool, default=True, help='Closed-loop coarse-to-fine refinement')
     parser.add_argument('--use_fusion_v2', type=str2bool, default=True, help='Fusion v2 (concat+FFN weights + spatial gate); off = original SACM fusion')
     parser.add_argument('--use_multi_depth', type=str2bool, default=True, help='Multi-depth semantic path from encoder intermediates')

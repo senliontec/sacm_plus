@@ -24,6 +24,7 @@ def build_sam_vit_h(
     adapter_dim_ratio=0.1,
     use_geo_i=True,
     use_geo_e=True,
+    geo_e_layers='all',
     use_coarse_to_fine=True,
     use_fusion_v2=True,
     use_multi_depth=True,
@@ -38,6 +39,7 @@ def build_sam_vit_h(
         adapter_dim_ratio=adapter_dim_ratio,
         use_geo_i=use_geo_i,
         use_geo_e=use_geo_e,
+        geo_e_layers=geo_e_layers,
         use_coarse_to_fine=use_coarse_to_fine,
         use_fusion_v2=use_fusion_v2,
         use_multi_depth=use_multi_depth,
@@ -53,6 +55,7 @@ def build_sam_vit_l(
     adapter_dim_ratio=0.1,
     use_geo_i=True,
     use_geo_e=True,
+    geo_e_layers='all',
     use_coarse_to_fine=True,
     use_fusion_v2=True,
     use_multi_depth=True,
@@ -67,6 +70,7 @@ def build_sam_vit_l(
         adapter_dim_ratio=adapter_dim_ratio,
         use_geo_i=use_geo_i,
         use_geo_e=use_geo_e,
+        geo_e_layers=geo_e_layers,
         use_coarse_to_fine=use_coarse_to_fine,
         use_fusion_v2=use_fusion_v2,
         use_multi_depth=use_multi_depth,
@@ -79,6 +83,7 @@ def build_sam_vit_b(
     adapter_dim_ratio=0.1,
     use_geo_i=True,
     use_geo_e=True,
+    geo_e_layers='all',
     use_coarse_to_fine=True,
     use_fusion_v2=True,
     use_multi_depth=True,
@@ -93,6 +98,7 @@ def build_sam_vit_b(
         adapter_dim_ratio=adapter_dim_ratio,
         use_geo_i=use_geo_i,
         use_geo_e=use_geo_e,
+        geo_e_layers=geo_e_layers,
         use_coarse_to_fine=use_coarse_to_fine,
         use_fusion_v2=use_fusion_v2,
         use_multi_depth=use_multi_depth,
@@ -117,6 +123,7 @@ def _build_sam(
     adapter_dim_ratio=0.1,
     use_geo_i=True,
     use_geo_e=True,
+    geo_e_layers='all',
     use_coarse_to_fine=True,
     use_fusion_v2=True,
     use_multi_depth=True,
@@ -126,11 +133,25 @@ def _build_sam(
     vit_patch_size = 16
     image_embedding_size = image_size // vit_patch_size
 
+    # External-adapter layer placement: 'all' = every window-attention
+    # layer; 'shallow'/'deep' = the first/second HALF of the window
+    # layers (for ViT-L this is exactly {0-4, 6-10} / {12-16, 18-22} —
+    # the R2 层子集 of the design). The halves rule generalizes to any
+    # depth (ViT-B/H) without ever producing an empty subset.
+    window_layers = [i for i in range(encoder_depth)
+                     if i not in set(encoder_global_attn_indexes)]
+    half = len(window_layers) // 2
+    if geo_e_layers == 'shallow':
+        geo_e_indices = tuple(window_layers[:half])
+    elif geo_e_layers == 'deep':
+        geo_e_indices = tuple(window_layers[half:])
+    else:
+        geo_e_indices = tuple(window_layers)  # 'all'
+
     # Number of external-adapter feature layers consumed by the decoder
-    # fusion module: with the geometric external adapter, the
-    # global-attention layers are skipped.
+    # fusion module.
     adapter_num_layers = (
-        encoder_depth - len(encoder_global_attn_indexes)
+        len(geo_e_indices)
         if (use_adapter and use_geo_e)
         else encoder_depth
     )
@@ -153,6 +174,7 @@ def _build_sam(
             adapter_dim_ratio=adapter_dim_ratio,
             use_geo_i=use_geo_i,
             use_geo_e=use_geo_e,
+            geo_e_indices=geo_e_indices,
         ),
         prompt_encoder=PromptEncoder(
             embed_dim=prompt_embed_dim,

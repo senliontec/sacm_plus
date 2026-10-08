@@ -22,6 +22,7 @@ def str2bool(v):
 FULL = dict(
     use_geo_i=True,
     use_geo_e=True,
+    geo_e_layers='all',
     use_coarse_to_fine=True,
     use_fusion_v2=True,
     use_multi_depth=True,
@@ -78,6 +79,12 @@ PRESETS = {
     "no_cl": {**FULL, "cl_dice_weight": 0.0},
     "no_ds": {**FULL, "deep_sup_weight": 0.0},
     "no_iou": {**FULL, "iou_loss_weight": 0.0},
+    # Layer-placement ablation of A2 (design R2 层子集):
+    # E_global only on the first/second half of the window-attention
+    # layers (for ViT-L: shallow {0-4, 6-10} / deep {12-16, 18-22};
+    # global-attn layers excluded both ways).
+    "geo_e_shallow": {**FULL, "geo_e_layers": "shallow"},
+    "geo_e_deep": {**FULL, "geo_e_layers": "deep"},
     # No preset: keep CLI values.
     "none": {},
 }

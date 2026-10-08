@@ -45,6 +45,7 @@ class ImageEncoderViT(nn.Module):
         adapter_dim_ratio: float = 0.1,
         use_geo_i: bool = True,
         use_geo_e: bool = True,
+        geo_e_indices: Tuple[int, ...] = None,
     ) -> None:
         """
         Args:
@@ -71,12 +72,17 @@ class ImageEncoderViT(nn.Module):
             use_geo_e (bool): If True, external adapters become AdapterEGlobal
                 (SE gate + strip convs) and are applied on window-attention
                 layers only; otherwise plain adapters on all layers.
+            geo_e_indices (tuple): with use_geo_e, the exact layer indices
+                that get AdapterEGlobal (default: ALL window-attention
+                layers). Subsets enable the layer-placement ablation
+                (shallow {0-4,6-10} vs deep {12-16,18-22}).
         """
         super().__init__()
         self.img_size = img_size
         self.use_adapter = use_adapter
         self.use_geo_i = use_geo_i
         self.use_geo_e = use_geo_e
+        self.geo_e_indices = set(geo_e_indices) if use_geo_e and geo_e_indices is not None else None
         self.patch_size = patch_size
         self.depth = depth
         self.global_attn_indexes = tuple(global_attn_indexes)
@@ -141,7 +147,10 @@ class ImageEncoderViT(nn.Module):
         self.adapter_norm = None
         if use_adapter:
             for i in range(depth):
-                if use_geo_e and i not in self.global_attn_indexes:
+                is_geo_e_layer = use_geo_e and (
+                    self.geo_e_indices is None or i in self.geo_e_indices
+                ) and i not in self.global_attn_indexes
+                if is_geo_e_layer:
                     self.external_adapters.append(
                         AdapterEGlobal(embed_dim, adapter_dim_ratio, act_layer)
                     )
@@ -173,9 +182,11 @@ class ImageEncoderViT(nn.Module):
 
             # Apply external adapter and store output if adapters are enabled
             if self.use_adapter:
-                # Global-attention layers skip the external adapter when the
-                # geometric variant is used.
-                if self.use_geo_e and i in self.global_attn_indexes:
+                # With the geometric variant, only the designated window
+                # layers run the external adapter (global-attention layers
+                # and non-designated layers skip it).
+                if self.use_geo_e and (i in self.global_attn_indexes or
+                                       (self.geo_e_indices is not None and i not in self.geo_e_indices)):
                     continue
                 external_adapter_out = self.external_adapters[i](self.adapter_norm(x))
                 adapter_features.append(external_adapter_out)

@@ -71,6 +71,7 @@ def evaluate(args):
         adapter_dim_ratio=args.adapter_dim_ratio,
         use_geo_i=args.use_geo_i,
         use_geo_e=args.use_geo_e,
+        geo_e_layers=args.geo_e_layers,
         use_coarse_to_fine=args.use_coarse_to_fine,
         use_fusion_v2=args.use_fusion_v2,
         use_multi_depth=args.use_multi_depth,
@@ -84,7 +85,13 @@ def evaluate(args):
 
     # Load trained weights
     checkpoint = torch.load(args.trained_weights, map_location=device)
-    sam.load_state_dict(checkpoint['model_state_dict'])
+    try:
+        sam.load_state_dict(checkpoint['model_state_dict'])
+    except RuntimeError as e:
+        raise RuntimeError(
+            f"权重与当前架构不匹配(常见原因:训练/评测的 --preset 或 --geo_e_layers "
+            f"不一致;checkpoint 记录的 config = {checkpoint.get('config')}): {e}"
+        ) from e
     logging.info(f"Loaded trained weights from {args.trained_weights}")
     if 'f1_score' in checkpoint:
         logging.info(f"Checkpoint validation F1 score: {checkpoint['f1_score']:.4f}")
@@ -110,7 +117,7 @@ def evaluate(args):
     loader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=False, num_workers=4)
     summary, csv_rows, n_hd95_nan, avg_loss = evaluator.run(loader, args.output_dir)
 
-    print(f"\nTest Results:")
+    print("\nTest Results:")
     for k, (mean, std) in summary.items():
         print(f"Average {k.capitalize()}: {mean:.4f} ± {std:.4f}")
     print(f"Average Loss: {avg_loss:.4f}")
@@ -134,6 +141,9 @@ if __name__ == '__main__':
     parser.add_argument('--preset', type=str, default='full', choices=sorted(PRESETS), help='Architecture preset (must match training)')
     parser.add_argument('--use_geo_i', type=str2bool, default=True, help='Geometric internal adapters (strip branch)')
     parser.add_argument('--use_geo_e', type=str2bool, default=True, help='Geometric external adapters (SE gate + strip, window layers only)')
+    parser.add_argument('--geo_e_layers', type=str, default='all', choices=['all', 'shallow', 'deep'],
+                        help="A2 layer placement: 'all' window layers / 'shallow' first half / 'deep' second half "
+                             "(for ViT-L: {0-4,6-10} / {12-16,18-22})")
     parser.add_argument('--use_coarse_to_fine', type=str2bool, default=True, help='Closed-loop coarse-to-fine refinement')
     parser.add_argument('--use_fusion_v2', type=str2bool, default=True, help='Fusion v2 (concat+FFN weights + spatial gate)')
     parser.add_argument('--use_multi_depth', type=str2bool, default=True, help='Multi-depth semantic path from encoder intermediates')
