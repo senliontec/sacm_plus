@@ -171,6 +171,7 @@ class Trainer:
         val_cldice = []
         metrics_acc = {}
         val_has_monitored = False
+        vis_items = []  # (image, gt, pred) 供 wandb 可视化
 
         val_pbar = tqdm(self.val_loader, total=len(self.val_loader),
                         desc=f"Epoch {epoch+1}/{self.args.epochs} [Val]",
@@ -219,6 +220,10 @@ class Trainer:
                     t128 = F.interpolate(masks, size=(128, 128), mode='bilinear', align_corners=False)
                     for k, v in topology_loss_monitor(m128, t128, resolution=64).items():
                         metrics_acc.setdefault(f'topo_{k}', []).append(v)
+                if len(vis_items) < 3:
+                    vis_items.append((images[0].detach().cpu(),
+                                      masks[0].detach().cpu(),
+                                      main_mask[0].detach().cpu()))
 
         all_pred_masks = torch.cat(all_pred_masks, dim=0)
         all_true_masks = torch.cat(all_true_masks, dim=0)
@@ -235,6 +240,8 @@ class Trainer:
             self.scheduler.step(avg_val_loss)
 
         val_metrics = {k: float(np.mean(v)) for k, v in metrics_acc.items() if v}
+
+        self._log_val_images(epoch, vis_items)
 
         if f1 > self.best_f1_score:
             self.best_f1_score = f1
@@ -259,6 +266,36 @@ class Trainer:
             logging.info(f'👍New best model saved with F1 score: {self.best_f1_score:.4f}')
 
         return f1, avg_val_loss, avg_val_cldice, val_metrics
+
+    def _log_val_images(self, epoch, items):
+        """验证图可视化(原图/GT/预测三列)上传 wandb;失败不影响训练。"""
+        run = getattr(self, '_wandb_run', None)
+        if run is None or not items:
+            return
+        try:
+            import matplotlib
+            matplotlib.use('Agg')
+            import matplotlib.pyplot as plt
+            import wandb
+
+            n = len(items)
+            fig, axes = plt.subplots(n, 3, figsize=(9, 3 * n))
+            if n == 1:
+                axes = axes[None, :]
+            for row, (img, gt, pred) in enumerate(items):
+                axes[row, 0].imshow(img[:, ::4, ::4].permute(1, 2, 0).numpy())
+                axes[row, 0].set_title('image')
+                axes[row, 1].imshow(gt[0].numpy(), cmap='gray')
+                axes[row, 1].set_title('GT')
+                axes[row, 2].imshow((pred > 0).float().numpy(), cmap='gray')
+                axes[row, 2].set_title('pred')
+                for ax in axes[row]:
+                    ax.axis('off')
+            plt.tight_layout()
+            run.log({'val/vis': wandb.Image(fig)}, step=epoch + 1)
+            plt.close(fig)
+        except Exception:
+            pass  # 可视化失败不影响训练
 
     def _run_config(self):
         """Config snapshot shared by wandb and the local metric history."""
@@ -318,6 +355,7 @@ class Trainer:
             name=f"{self.args.model}_{self.args.preset}",
             config=self._run_config(),
         )
+        self._wandb_run = run
         history = []
         advice_log = {}
         best_epoch = -1
