@@ -29,6 +29,8 @@ TRAIN_SOURCES="${TRAIN_SOURCES:-datasets/DIS5K_train datasets/DRIVE_train datase
 TEST_DATASETS="${TEST_DATASETS:-datasets/DRIVE_test datasets/DIS5K_test datasets/ThinObject5K}"
 RESULTS_ROOT="${RESULTS_ROOT:-results}"
 USE_WANDB="${USE_WANDB:-true}"
+TOPOLOGY_LOSS="${TOPOLOGY_LOSS:-none}"   # none | betti | decl | topograph | ...(13 个官方移植)
+TOPOLOGY_LOSS_WEIGHT="${TOPOLOGY_LOSS_WEIGHT:-0.1}"
 
 cd "$(dirname "$0")/.."   # 仓库根
 ROOT="$(pwd)"
@@ -92,6 +94,7 @@ if [ "$SKIP_TRAIN" -eq 0 ]; then
   [ -f "$CKPT" ] || fail "checkpoint 不存在: $CKPT(先下载 sam_vit_l_0b3195.pth 放入 checkpoints/)"
   python src/train/trainer.py --preset "$PRESET" --data_root "$SPLIT_ROOT" \
       --checkpoint "$CKPT" --epochs "$EPOCHS" --val_interval "$VAL_INTERVAL" --seed "$SEED" \
+      --topology_loss "$TOPOLOGY_LOSS" --topology_loss_weight "$TOPOLOGY_LOSS_WEIGHT" \
       --use_wandb "$USE_WANDB" --save_path "$RESULTS_ROOT/$PRESET/best_model.pth" \
       || fail "训练失败"
   echo "✅ 训练完成"
