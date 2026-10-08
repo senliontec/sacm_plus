@@ -94,11 +94,22 @@ def advise(history, args=None):
             out.append(('warn', 'clDice 损失停滞于 %.3f — 软骨架在细结构上梯度不足,'
                                '检查 cl_dice_warmup/ramp 节奏' % lc[-1]))
 
-    # 6) 阈值鲁棒性: auc 明显高于单点
+    # 6) 阈值鲁棒性: auc 明显高于单点(单点为 0 时是空预测的假象,跳过)
     da = last('val/dice_auc')
     dv = last('val/dice')
-    if da is not None and dv is not None and da - dv > AUC_GAP:
+    if da is not None and dv is not None and dv > 0 and da - dv > AUC_GAP:
         out.append(('info', '阈值未选对: dice_auc %.3f 比单点 dice %.3f 高 %.2f — '
                            '调 pred_threshold 可白捡收益' % (da, dv, da - dv)))
+
+    # 7) 全背景塌缩: 预测全空连续 2 个验证 epoch
+    dseries = series('val/dice')
+    rseries = series('val/recall')
+    if len(dseries) >= 2:
+        collapsed = all(d == 0 and (len(rseries) > i and rseries[i] == 0)
+                        for i, d in enumerate(dseries[-2:]))
+        if collapsed:
+            out.append(('warn', '塌缩警告: 预测连续 2 个验证 epoch 全空(D=R=0) — '
+                               'clDice warmup 前常见;观察其激活后是否恢复,'
+                               '持续塌缩则排查: 单源验证/更多训练源/缩短 warmup'))
 
     return out

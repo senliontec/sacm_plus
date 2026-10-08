@@ -28,7 +28,9 @@ def cldice_score(pred, gt):
         return float("nan")
     tprec = _cl_score(v_p, s_l)
     tsens = _cl_score(v_l, s_p)
-    return float(2.0 * tprec * tsens / (tprec + tsens))
+    with np.errstate(divide='ignore', invalid='ignore'):
+        # 无重叠时 0/0 → NaN(与官方语义一致),静默处理
+        return float(2.0 * tprec * tsens / (tprec + tsens))
 
 
 def betti_error(pred, gt, connectivity=2):
