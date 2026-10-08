@@ -37,8 +37,8 @@ from core.trainer import Trainer
 
 
 def setup_logging(args):
-    if not os.path.exists('logs'):
-        os.makedirs('logs')
+    # exist_ok: DDP 下 8 个 rank 同时建目录,避免 FileExistsError 竞态
+    os.makedirs('logs', exist_ok=True)
 
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     log_file = f'logs/training_{timestamp}.log'

@@ -37,8 +37,7 @@ from core.registry import MODEL_REGISTRY, get_model_spec
 
 
 def setup_logging():
-    if not os.path.exists('logs'):
-        os.makedirs('logs')
+    os.makedirs('logs', exist_ok=True)
 
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     log_file = f'logs/test_{timestamp}.log'
