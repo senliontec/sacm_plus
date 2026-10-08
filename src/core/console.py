@@ -35,7 +35,7 @@ BASE_WIDTHS = ([4, 7, 6, 6, 6, 6, 6, 6, 5, 6] + [5] * len(VAL_METRIC_SHORT))
 UP = {'F1', 'D', 'IoU', 'P', 'R', 'Sen', 'Spe', 'Acc', 'MCC', 'cDh', 'NSD',
       'dAUC', 'cAUCh'}
 DOWN = {'tr_loss', 'main', 'ds', 'iou', 'scl', 'topo', 'L', 'HD', 'H95',
-        'ASSD', 'ASD', 'RAVD', 'β', 'BM', 'TopoE'}
+        'ASSD', 'ASD', 'RAVD', 'β', 'BM', 'TE'}
 
 # 拓扑损失 3-4 字符缩写(表头下打印一次对照表)
 TOPO_SHORT = {
