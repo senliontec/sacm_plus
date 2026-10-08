@@ -32,7 +32,7 @@ else
 fi
 ssh "${SERVER}" "mkdir -p ${TARGET}"
 
-rsync -avz --progress --delete \
+rsync -avz --partial --info=progress2 --delete \
     "${EXCLUDES[@]}" \
     "${SRC}/" "${SERVER}:${TARGET}/"
 

@@ -332,9 +332,10 @@ class Trainer:
 
                 log_scalars(run, wm)
 
-                history.append({'epoch': epoch + 1,
-                                'time_s': round(time.time() - t0, 2),
-                                **wm})
+                # **wm first so the explicit 1-based epoch wins (wm stores
+                # the 0-based wandb epoch)
+                history.append({**wm, 'epoch': epoch + 1,
+                                'time_s': round(time.time() - t0, 2)})
 
                 vals = (f"{epoch+1:03d}", f"{avg_train_loss:.4f}",
                         *(f"{comps[k]:.4f}" for k in

@@ -20,7 +20,6 @@ top of this file — treat "below band" as a pointer, not a verdict.
 import argparse
 import json
 import os
-import sys
 
 # ---------------------------------------------------------------- 健康参考带 --
 # (val 指标, 粗粒度文献参考;低于下界才提示。改这里即可调整口径)
@@ -245,7 +244,7 @@ def compare_report(root):
         for comp in sorted({d[0] for d in deltas}):
             subs = [d for d in deltas if d[0] == comp]
             main = [f"{k}={d:+.4f}" for _, k, d in subs
-                    if k in ('val/dice', 'val/clDice', 'val/cldice', 'val/hd95')
+                    if k in ('val/dice', 'val/cldice', 'val/hd95')
                     and abs(d) > 1e-9]
             if main:
                 lines.append(f"- **{comp}**: {'; '.join(main)}")
