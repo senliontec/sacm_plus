@@ -226,14 +226,14 @@ if __name__ == '__main__':
     parser.add_argument('--cl_dice_iters', type=int, default=10, help='Soft-skeleton iterations of the clDice loss (official clDice repo default: 10)')
     parser.add_argument('--iou_loss_weight', type=float, default=1.0, help='Weight of the IoU head MSE supervision')
 
-    # Full val metric suite opt-ins: the 16-metric suite always runs;
-    # these extras are expensive (seconds per image) and off by default.
-    parser.add_argument('--val_auc', action='store_true',
-                        help='Also compute dice_auc/cldice_auc on the val set (~9x skeletonization cost)')
-    parser.add_argument('--val_betti_matching', action='store_true',
-                        help='Also compute betti_matching on the val set (persistence engine, seconds per image)')
-    parser.add_argument('--val_topograph', action='store_true',
-                        help='Also compute topograph_error on the val set (component graph, seconds per image)')
+    # Full val metric suite: 16 常规指标 + 4 可选指标全部默认开启
+    # (few-shot val 集仅 3 图,引擎级指标秒级可承受;传 --val_auc false 等可关)
+    parser.add_argument('--val_auc', type=str2bool, default=True,
+                        help='Compute dice_auc/cldice_auc on the val set (~9x skeletonization cost)')
+    parser.add_argument('--val_betti_matching', type=str2bool, default=True,
+                        help='Compute betti_matching on the val set (persistence engine, seconds per image)')
+    parser.add_argument('--val_topograph', type=str2bool, default=True,
+                        help='Compute topograph_error on the val set (component graph, seconds per image)')
 
     # Extra topology loss (strict ports of official implementations)
     parser.add_argument('--topology_loss', type=str, default='none',

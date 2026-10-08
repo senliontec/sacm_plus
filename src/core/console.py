@@ -22,10 +22,10 @@ VAL_METRIC_SHORT = [
     ('betti_matching', 'BM'), ('topograph_error', 'TopoE'),
 ]
 
-# 宽表:训练侧 9 列 + F1/L + 全部 20 项 val 指标,每指标固定一列
-EPOCH_NAMES = (['ep', 'tr_loss', 'main', 'ds', 'iou', 'cl', 'topo', 'lr', 'time',
-                'F1', 'L'] + [s for _, s in VAL_METRIC_SHORT])
-EPOCH_WIDTHS = ([5, 8, 7, 7, 7, 7, 7, 9, 7, 6, 8] + [6] * len(VAL_METRIC_SHORT))
+# 宽表:训练侧 8 列 + F1/L + 全部 20 项 val 指标,time 放最后(元信息)
+EPOCH_NAMES = (['ep', 'tr_loss', 'main', 'ds', 'iou', 'cl', 'topo', 'lr',
+                'F1', 'L'] + [s for _, s in VAL_METRIC_SHORT] + ['time'])
+EPOCH_WIDTHS = ([5, 8, 7, 7, 7, 7, 7, 9, 6, 8] + [6] * len(VAL_METRIC_SHORT) + [7])
 
 
 def _cell(v, w):
@@ -50,10 +50,11 @@ def epoch_row(epoch, train_loss, comps, lr, dt, f1, vloss, val_metrics=None):
     vm = val_metrics or {}
     vals = [epoch, train_loss,
             comps.get('loss_main'), comps.get('loss_ds'), comps.get('loss_iou'),
-            comps.get('loss_cl'), comps.get('loss_topo'), lr, f'{dt:.0f}s',
+            comps.get('loss_cl'), comps.get('loss_topo'), lr,
             f1, vloss]
     for key, _short in VAL_METRIC_SHORT:
         vals.append(vm.get(key))
+    vals.append(f'{dt:.0f}s')
     return ' │ '.join(_cell(v, w) for v, w in zip(vals, EPOCH_WIDTHS))
 
 
