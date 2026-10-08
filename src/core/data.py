@@ -12,6 +12,10 @@ import os
 from PIL import Image
 from torch.utils.data import Dataset
 
+# DIS5K 含超大原图(1 亿+ 像素),关闭 PIL 的"解压炸弹"保护以避免警告刷屏;
+# 数据为本项目自管数据集,无恶意输入风险。
+Image.MAX_IMAGE_PIXELS = None
+
 SUPPORTED_EXTENSIONS = ('.png', '.jpg', '.jpeg', '.tif', '.tiff')
 
 

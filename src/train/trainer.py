@@ -80,11 +80,14 @@ def train(args):
         torch.cuda.manual_seed_all(args.seed)
 
     # DDP:由 torchrun 启动时注入 LOCAL_RANK;否则退化为单卡
+    # (init 方式参考 fencing-algs/experiments/run.py:显式 device_id 绑定,
+    #  避免多卡节点上 NCCL 选错设备)
     is_ddp = 'LOCAL_RANK' in os.environ
     if is_ddp:
         import torch.distributed as dist
-        dist.init_process_group(backend='nccl')
         local_rank = int(os.environ['LOCAL_RANK'])
+        dist.init_process_group(backend='nccl',
+                                device_id=torch.device(f'cuda:{local_rank}'))
         device = torch.device(f'cuda:{local_rank}')
         torch.cuda.set_device(device)
     else:

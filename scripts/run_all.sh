@@ -76,27 +76,27 @@ else
 fi
 
 # ---------------- 2. 数据 ----------------
-if [ "$SKIP_DATA" -eq 0 ]; then
-  step "2/5 数据: 整理原始数据集 + 构建 ${SHOTS}-shot 训练划分"
+build_split() {
   [ -d "$RAW_DATA_ROOT" ] || fail "原始数据集目录不存在: $RAW_DATA_ROOT"
   python scripts/organize_datasets.py --src "$RAW_DATA_ROOT" --out datasets || true
-  if [ -f "$SPLIT_ROOT/split_manifest.csv" ]; then
-    echo "⚠️  $SPLIT_ROOT 已存在,跳过采样(如需重建请删除该目录)"
+  if [ "$FULL_DATA" = "true" ]; then
+    python scripts/prepare_data.py --train_dirs $TRAIN_SOURCES --use_all \
+        --val_ratio "$VAL_RATIO" --out_dir "$SPLIT_ROOT" --seed "$SEED" \
+        || fail "prepare_data(全量) 失败"
   else
-    # shellcheck disable=SC2086
-    if [ "$FULL_DATA" = "true" ]; then
-      python scripts/prepare_data.py --train_dirs $TRAIN_SOURCES --use_all \
-          --val_ratio "$VAL_RATIO" --out_dir "$SPLIT_ROOT" --seed "$SEED" \
-          || fail "prepare_data(全量) 失败"
-    else
-      python scripts/prepare_data.py --train_dirs $TRAIN_SOURCES \
-          --shots "$SHOTS" --val_shots "$VAL_SHOTS" --out_dir "$SPLIT_ROOT" --seed "$SEED" \
-          || fail "prepare_data 失败"
-    fi
+    python scripts/prepare_data.py --train_dirs $TRAIN_SOURCES \
+        --shots "$SHOTS" --val_shots "$VAL_SHOTS" --out_dir "$SPLIT_ROOT" --seed "$SEED" \
+        || fail "prepare_data 失败"
   fi
-  echo "✅ 数据就绪"
+}
+
+if [ -f "$SPLIT_ROOT/split_manifest.csv" ]; then
+  echo "⚠️  $SPLIT_ROOT 已存在,跳过采样(如需重建请删除该目录)"
 else
-  [ -f "$SPLIT_ROOT/split_manifest.csv" ] || fail "--skip-data 但 $SPLIT_ROOT 不存在"
+  step "2/5 数据: 整理原始数据集 + 构建训练划分"
+  # shellcheck disable=SC2086
+  build_split
+  echo "✅ 数据就绪"
 fi
 
 # ---------------- 3. 训练 ----------------
@@ -111,7 +111,8 @@ if [ "$SKIP_TRAIN" -eq 0 ]; then
   if [ "$DDP" = "true" ]; then
     NG="$(nvidia-smi -L 2>/dev/null | wc -l)"
     [ "$NG" -gt 0 ] || fail "nvidia-smi 不可用,无法 DDP"
-    # NCCL_DEBUG=WARN: 首次 DDP 排障;NCCL_P2P_DISABLE/NCCL_SOCKET_IFNAME 可经环境变量覆盖
+    # 参考 fencing-algs:显式 localhost + 固定端口(避免 torchrun 用主机名/错误网卡导致 NCCL 秒崩)
+    MASTER_ADDR=127.0.0.1 MASTER_PORT=29500 \
     NCCL_DEBUG="${NCCL_DEBUG:-WARN}" torchrun --nproc_per_node="$NG" \
       src/train/trainer.py "${TRAIN_ARGS[@]}" \
       || fail "训练失败(DDP, $NG 卡)——常见原因: NCCL 通信/网卡, 见 NCCL_DEBUG 日志"
