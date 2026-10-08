@@ -43,12 +43,14 @@ def setup_logging(args):
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     log_file = f'logs/training_{timestamp}.log'
 
+    stream = logging.StreamHandler()
+    stream.setLevel(logging.WARNING)  # 终端只显示警告/错误;INFO 全量进日志文件
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s - %(levelname)s - %(message)s',
         handlers=[
             logging.FileHandler(log_file),
-            logging.StreamHandler()
+            stream,
         ]
     )
 

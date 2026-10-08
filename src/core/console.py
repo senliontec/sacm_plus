@@ -22,14 +22,14 @@ VAL_METRIC_SHORT = [
     ('sensitivity', 'Sen'), ('specificity', 'Spe'), ('accuracy', 'Acc'),
     ('mcc', 'MCC'), ('cldice', 'cDh'), ('hd', 'HD'), ('hd95', 'H95'),
     ('assd', 'ASSD'), ('asd', 'ASD'), ('ravd', 'RAVD'), ('nsd', 'NSD'),
-    ('betti', 'β'), ('dice_auc', 'dAUC'), ('cldice_auc', 'cAUCh'),
-    ('betti_matching', 'BM'), ('topograph_error', 'TopoE'),
+    ('betti', 'β'), ('dice_auc', 'dAUC'), ('cldice_auc', 'cAh'),
+    ('betti_matching', 'BM'), ('topograph_error', 'TE'),
 ]
 
 # 宽表基础列(紧凑宽度):训练侧 8 列 + F1/L + 全部 20 项 val 指标
 BASE_NAMES = (['ep', 'tr_loss', 'main', 'ds', 'iou', 'scl', 'topo', 'lr',
                'F1', 'L'] + [s for _, s in VAL_METRIC_SHORT])
-BASE_WIDTHS = ([4, 7, 6, 6, 6, 6, 6, 7, 6, 7] + [5] * len(VAL_METRIC_SHORT))
+BASE_WIDTHS = ([4, 7, 6, 6, 6, 6, 6, 6, 5, 6] + [5] * len(VAL_METRIC_SHORT))
 
 # 方向箭头:↑ = 越大越好,↓ = 越小越好(ep/lr/time 为元信息,无箭头)
 UP = {'F1', 'D', 'IoU', 'P', 'R', 'Sen', 'Spe', 'Acc', 'MCC', 'cDh', 'NSD',
@@ -59,8 +59,8 @@ def _col_specs(topo_names):
         else:
             names.append(n); widths.append(w)
     for n in topo_names:
-        names.append(TOPO_SHORT.get(n, n[:4]) + '↓'); widths.append(4)
-    names.append('time'); widths.append(6)
+        names.append(TOPO_SHORT.get(n, n[:4]) + '↓'); widths.append(5)
+    names.append('time'); widths.append(5)
     return names, widths
 
 
@@ -69,8 +69,20 @@ def topo_legend(topo_names):
     return '  ' + '  '.join(f"{TOPO_SHORT.get(n, n[:4])}={n}" for n in topo_names)
 
 
+def _fmt(v):
+    """自适应精度:保证数值宽度 ≤ 5(大数自动降小数位)。"""
+    a = abs(v)
+    if a >= 1000:
+        return f'{v:.0f}'
+    if a >= 100:
+        return f'{v:.1f}'
+    if a >= 10:
+        return f'{v:.2f}'
+    return f'{v:.3f}'
+
+
 def _cell(v, w):
-    # 表头与数值统一居中(Excel 风格)
+    # 表头与数值统一居中(Excel 风格);数值经 _fmt 保证不超列宽
     if v is None:
         return '—'.center(w)
     if isinstance(v, float) and v != v:  # NaN -> —
@@ -79,7 +91,7 @@ def _cell(v, w):
         return f'{v:^{w}d}'
     if isinstance(v, str):
         return f'{v:^{w}}'
-    return f'{v:.4f}'.center(w)
+    return _fmt(v).center(w)
 
 
 def _base_row_vals(epoch, train_loss, comps, lr, dt, f1, vloss, val_metrics):
@@ -92,9 +104,9 @@ def _base_row_vals(epoch, train_loss, comps, lr, dt, f1, vloss, val_metrics):
 
 
 def epoch_header(topo_names=(), single=True):
-    """表头(紧凑单行,分隔符 │ 无空格;~290 字符适配宽屏)。"""
+    """表头(单行;分隔符带空格,~410 字符)。"""
     names, widths = _col_specs(topo_names)
-    return ['│'.join(_cell(n, w) for n, w in zip(names, widths))]
+    return [' │ '.join(_cell(n, w) for n, w in zip(names, widths))]
 
 
 def epoch_row(epoch, train_loss, comps, lr, dt, f1, vloss, val_metrics=None,
@@ -111,7 +123,7 @@ def epoch_row(epoch, train_loss, comps, lr, dt, f1, vloss, val_metrics=None,
         vals.append(vm.get(f'topo_{n}'))
     vals.append(f'{dt:.0f}s')
     _names, widths = _col_specs(topo_names)
-    return ['│'.join(_cell(v, w) for v, w in zip(vals, widths))]
+    return [' │ '.join(_cell(v, w) for v, w in zip(vals, widths))]
 
 
 def print_topo_row(metrics):
