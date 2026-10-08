@@ -22,6 +22,40 @@ VAL_METRIC_SHORT = [
     ('betti_matching', 'BM'), ('topograph_error', 'TopoE'),
 ]
 
+# 宽表:训练侧 9 列 + F1/L + 全部 20 项 val 指标,每指标固定一列
+EPOCH_NAMES = (['ep', 'tr_loss', 'main', 'ds', 'iou', 'cl', 'topo', 'lr', 'time',
+                'F1', 'L'] + [s for _, s in VAL_METRIC_SHORT])
+EPOCH_WIDTHS = ([5, 8, 7, 7, 7, 7, 7, 9, 7, 6, 8] + [6] * len(VAL_METRIC_SHORT))
+
+
+def _cell(v, w):
+    if v is None:
+        return '—'.rjust(w)
+    if isinstance(v, float) and v != v:  # NaN -> —
+        return '—'.rjust(w)
+    if isinstance(v, int):
+        return f'{v:>{w}d}'
+    if isinstance(v, str):
+        return f'{v:>{w}}'
+    return f'{v:.4f}'.rjust(w)
+
+
+def epoch_header():
+    """Wide table header: one column per metric."""
+    return ' │ '.join(_cell(n, w) for n, w in zip(EPOCH_NAMES, EPOCH_WIDTHS))
+
+
+def epoch_row(epoch, train_loss, comps, lr, dt, f1, vloss, val_metrics=None):
+    """Wide data row: every metric in its own column ('—' when absent)."""
+    vm = val_metrics or {}
+    vals = [epoch, train_loss,
+            comps.get('loss_main'), comps.get('loss_ds'), comps.get('loss_iou'),
+            comps.get('loss_cl'), comps.get('loss_topo'), lr, f'{dt:.0f}s',
+            f1, vloss]
+    for key, _short in VAL_METRIC_SHORT:
+        vals.append(vm.get(key))
+    return ' │ '.join(_cell(v, w) for v, w in zip(vals, EPOCH_WIDTHS))
+
 
 def print_metrics_row(metrics, f1=None, loss=None):
     """One compact line with ALL val metrics (per-epoch display)."""
@@ -33,7 +67,7 @@ def print_metrics_row(metrics, f1=None, loss=None):
     for key, short in VAL_METRIC_SHORT:
         if key in metrics:
             v = metrics[key]
-            parts.append(f"{short}={v:.3f}")
+            parts.append(f"{short}={v:.3f}" if v == v else f"{short}=—")
     console.print("  " + "  ".join(parts), style="dim cyan")
 
 

@@ -29,11 +29,18 @@ TTA="${TTA:-}"
 cd "$(dirname "$0")/.."
 
 SKIP_TRAIN=0
+NO_KILL=0
 for a in "$@"; do case "$a" in
   --skip-train) SKIP_TRAIN=1 ;;
+  --no-kill)    NO_KILL=1 ;;
   -h|--help) sed -n '2,10p' "$0"; exit 0 ;;
   *) echo "未知参数: $a"; exit 1 ;;
 esac; done
+
+# 重跑前清理上一次的残留进程与 GPU(参考 fencing-algs;--no-kill 跳过)
+if [ "$NO_KILL" -eq 0 ]; then
+  bash scripts/kill_runs.sh
+fi
 
 echo "══════════ 1/4 数据: 组织 + 3-shot 划分 ══════════"
 [ -d "$RAW_DATA_ROOT" ] || { echo "❌ 原始数据集目录不存在: $RAW_DATA_ROOT"; exit 1; }

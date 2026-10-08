@@ -11,6 +11,7 @@ import json
 import logging
 import os
 import time
+import warnings
 
 import numpy as np
 import torch
@@ -18,7 +19,7 @@ import torch.nn.functional as F
 from sklearn.metrics import f1_score
 from tqdm import tqdm
 
-from core.console import console, print_metrics_row
+from core.console import console, epoch_header, epoch_row
 from core.metrics import compute_metrics
 from core.metrics_advisor import advise
 from core.wandb_utils import finish_run, log_scalars, setup_wandb
@@ -198,19 +199,21 @@ class Trainer:
                     compute_topograph=self.args.val_topograph,
                 )
                 val_cldice.append(m['cldice'])
+                # 保留 NaN 项(空预测时 HD/cD/β 无定义):均值会自然传播
+                # NaN,显示行保持列位稳定(见 print_metrics_row)
                 for k, v in m.items():
-                    if not np.isnan(v):
-                        metrics_acc.setdefault(k, []).append(v)
+                    metrics_acc.setdefault(k, []).append(v)
 
         all_pred_masks = torch.cat(all_pred_masks, dim=0)
         all_true_masks = torch.cat(all_true_masks, dim=0)
         f1 = calculate_f1_score(all_pred_masks, all_true_masks)
 
         avg_val_loss = val_loss / len(self.val_loader)
-        avg_val_cldice = float(np.nanmean(val_cldice)) if val_cldice else float('nan')
-        logging.info(f'Epoch {epoch+1}/{self.args.epochs} - Average Val Loss: {avg_val_loss:.4f}')
-        logging.info(f'Epoch {epoch+1}/{self.args.epochs} - F1 Score: {f1:.4f}')
-        logging.info(f'Epoch {epoch+1}/{self.args.epochs} - Val clDice: {avg_val_cldice:.4f}')
+        with warnings.catch_warnings():
+            # 全部 NaN(空预测)时 nanmean 会打 "Mean of empty slice"
+            warnings.simplefilter('ignore', RuntimeWarning)
+            avg_val_cldice = float(np.nanmean(val_cldice)) if val_cldice else float('nan')
+        # 逐 epoch 的 val 数值全部由 rich 宽表呈现,不再刷 INFO 日志
 
         if self.args.scheduler == 'reduce':
             self.scheduler.step(avg_val_loss)
@@ -301,19 +304,13 @@ class Trainer:
         )
         history = []
         best_epoch = -1
-        # Per-epoch summary table (ECG-SAM style, fencing-algs pattern).
-        # Every epoch shows the full loss breakdown; val metrics (16-suite)
-        # appear in the table below on validation epochs.
-        cols = ("ep", "tr_loss", "main", "ds", "iou", "cl", "topo", "lr", "time")
-        widths = (5, 8, 7, 7, 7, 7, 7, 10, 8)
-        sep = " │ "
-        console.print(sep.join(f"{c:^{w}}" for c, w in zip(cols, widths)), style="bold")
+        # 宽表:一个表头,每行一个 epoch,每个指标一列(全指标)
+        console.print(epoch_header(), style="bold")
 
         try:
             for epoch in range(self.args.epochs):
                 t0 = time.time()
                 avg_train_loss, comps = self._train_epoch(epoch)
-                logging.info(f'Epoch {epoch+1}/{self.args.epochs} - Average Train Loss: {avg_train_loss:.4f}')
 
                 wm = {'epoch': epoch, 'train/loss': avg_train_loss,
                       'lr': self.optimizer.param_groups[0]['lr']}
@@ -321,9 +318,11 @@ class Trainer:
                     wm[f'train/{k}'] = v
 
                 best_before = self.best_f1_score
+                f1 = vloss = None
+                val_metrics = None
                 if (epoch + 1) % self.args.val_interval == 0:
-                    f1, avg_val_loss, avg_val_cldice, val_metrics = self._validate(epoch)
-                    wm.update({'val/loss': avg_val_loss, 'val/f1': f1,
+                    f1, vloss, avg_val_cldice, val_metrics = self._validate(epoch)
+                    wm.update({'val/loss': vloss, 'val/f1': f1,
                                'val/cldice': avg_val_cldice})
                     for k, v in val_metrics.items():
                         wm[f'val/{k}'] = v
@@ -340,21 +339,14 @@ class Trainer:
                 history.append({**wm, 'epoch': epoch + 1,
                                 'time_s': round(time.time() - t0, 2)})
 
-                vals = (f"{epoch+1:03d}", f"{avg_train_loss:.4f}",
-                        *(f"{comps[k]:.4f}" for k in
-                          ('loss_main', 'loss_ds', 'loss_iou', 'loss_cl', 'loss_topo')),
-                        f"{self.optimizer.param_groups[0]['lr']:.2e}",
-                        f"{time.time() - t0:.0f}s")
-                row = sep.join(f"{v:^{w}}" for v, w in zip(vals, widths))
+                row = epoch_row(epoch + 1, avg_train_loss, comps,
+                                self.optimizer.param_groups[0]['lr'],
+                                time.time() - t0, f1, vloss, val_metrics)
                 console.print(row, style="bold green" if is_best else "")
-                # Full val metric suite on validation epochs (f1 + val
-                # loss + the 16 implemented metrics)
-                if (epoch + 1) % self.args.val_interval == 0:
-                    # 每验证 epoch 一行紧凑全指标(全部 16+4 项)
-                    print_metrics_row(val_metrics, f1=f1, loss=avg_val_loss)
-                    # Online advisor: metric patterns -> optimization
-                    # directions, printed while training (history already
-                    # includes this epoch).
+                # Online advisor: metric patterns -> optimization
+                # directions, printed while training (history already
+                # includes this epoch).
+                if val_metrics is not None:
                     for sev, msg in advise(history, self.args):
                         console.print(f"  ⚠ {msg}",
                                       style="yellow" if sev == 'warn' else "cyan")
@@ -362,8 +354,6 @@ class Trainer:
                 # Step the scheduler (except ReduceLROnPlateau, updated during validation)
                 if self.scheduler is not None and self.args.scheduler != 'reduce':
                     self.scheduler.step()
-                    current_lr = self.optimizer.param_groups[0]['lr']
-                    logging.info(f'Current learning rate: {current_lr:.7f}')
         finally:
             if run is not None:
                 try:

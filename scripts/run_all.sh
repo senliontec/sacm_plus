@@ -33,15 +33,21 @@ USE_WANDB="${USE_WANDB:-true}"
 cd "$(dirname "$0")/.."   # 仓库根
 ROOT="$(pwd)"
 
-SKIP_SETUP=0; SKIP_DATA=0; SKIP_TRAIN=0; SKIP_EVAL=0
+SKIP_SETUP=0; SKIP_DATA=0; SKIP_TRAIN=0; SKIP_EVAL=0; NO_KILL=0
 for a in "$@"; do case "$a" in
   --skip-setup) SKIP_SETUP=1 ;;
   --skip-data)  SKIP_DATA=1 ;;
   --skip-train) SKIP_TRAIN=1 ;;
   --skip-eval)  SKIP_EVAL=1 ;;
+  --no-kill)    NO_KILL=1 ;;
   -h|--help) sed -n '2,13p' "$0"; exit 0 ;;
   *) echo "未知参数: $a"; exit 1 ;;
 esac; done
+
+# 重跑前清理上一次的残留训练进程与 GPU(参考 fencing-algs;--no-kill 跳过)
+if [ "$NO_KILL" -eq 0 ] && [ "$SKIP_TRAIN" -eq 0 ]; then
+  bash scripts/kill_runs.sh
+fi
 
 step() { echo; echo "════════════════════════ $* ════════════════════════"; }
 fail() { echo "❌ $*" >&2; exit 1; }
