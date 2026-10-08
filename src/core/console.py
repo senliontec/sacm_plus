@@ -12,6 +12,31 @@ from rich.table import Table
 console = Console()
 
 
+# 紧凑行显示用的短名映射(每 epoch 一行全指标)
+VAL_METRIC_SHORT = [
+    ('dice', 'D'), ('iou', 'IoU'), ('precision', 'P'), ('recall', 'R'),
+    ('sensitivity', 'Sen'), ('specificity', 'Spe'), ('accuracy', 'Acc'),
+    ('mcc', 'MCC'), ('cldice', 'cD'), ('hd', 'HD'), ('hd95', 'H95'),
+    ('assd', 'ASSD'), ('asd', 'ASD'), ('ravd', 'RAVD'), ('nsd', 'NSD'),
+    ('betti', 'β'), ('dice_auc', 'dAUC'), ('cldice_auc', 'cAUC'),
+    ('betti_matching', 'BM'), ('topograph_error', 'TopoE'),
+]
+
+
+def print_metrics_row(metrics, f1=None, loss=None):
+    """One compact line with ALL val metrics (per-epoch display)."""
+    parts = []
+    if f1 is not None:
+        parts.append(f"F1={f1:.4f}")
+    if loss is not None:
+        parts.append(f"L={loss:.4f}")
+    for key, short in VAL_METRIC_SHORT:
+        if key in metrics:
+            v = metrics[key]
+            parts.append(f"{short}={v:.3f}")
+    console.print("  " + "  ".join(parts), style="dim cyan")
+
+
 def print_metrics_table(metrics, title="val metrics"):
     """Full metric suite as a compact table: 4 name/value pairs per row.
 

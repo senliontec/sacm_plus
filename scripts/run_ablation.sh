@@ -21,6 +21,7 @@ TRAIN_SOURCES="${TRAIN_SOURCES:-datasets/DIS5K_train datasets/DRIVE_train datase
 TEST_DATASETS="${TEST_DATASETS:-datasets/DRIVE_test datasets/DIS5K_test datasets/ThinObject5K}"
 PRESETS="${PRESETS:-sacm stage1 stage2 full no_geo_i no_geo_e no_c2f no_fusion_v2 no_multi_depth no_cl no_ds no_iou geo_e_shallow geo_e_deep}"
 EPOCHS="${EPOCHS:-50}"
+VAL_INTERVAL="${VAL_INTERVAL:-1}"   # 每 epoch 显示全指标;论文协议口径 10,最终投稿跑 10
 SEED="${SEED:-42}"
 RESULTS_ROOT="${RESULTS_ROOT:-results}"
 TTA="${TTA:-}"
@@ -63,7 +64,7 @@ python scripts/run_experiments.py \
     --test_datasets $TEST_SPECS \
     --presets $PRESETS \
     --output_root "$RESULTS_ROOT" \
-    --epochs "$EPOCHS" --seed "$SEED" \
+    --epochs "$EPOCHS" --val_interval "$VAL_INTERVAL" --seed "$SEED" \
     $EXTRA
 
 echo "══════════ 3/4 汇总: CSV + LaTeX ══════════"

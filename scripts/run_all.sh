@@ -18,6 +18,7 @@ set -euo pipefail
 ENV_NAME="${ENV_NAME:-tsai}"
 PRESET="${PRESET:-full}"
 EPOCHS="${EPOCHS:-50}"
+VAL_INTERVAL="${VAL_INTERVAL:-1}"   # 用户要求每 epoch 显示全指标;论文协议口径为 10,最终投稿跑 10
 SHOTS="${SHOTS:-3}"
 VAL_SHOTS="${VAL_SHOTS:-1}"
 SEED="${SEED:-42}"
@@ -84,7 +85,7 @@ if [ "$SKIP_TRAIN" -eq 0 ]; then
   step "3/5 训练: preset=$PRESET epochs=$EPOCHS"
   [ -f "$CKPT" ] || fail "checkpoint 不存在: $CKPT(先下载 sam_vit_l_0b3195.pth 放入 checkpoints/)"
   python src/train/trainer.py --preset "$PRESET" --data_root "$SPLIT_ROOT" \
-      --checkpoint "$CKPT" --epochs "$EPOCHS" --seed "$SEED" \
+      --checkpoint "$CKPT" --epochs "$EPOCHS" --val_interval "$VAL_INTERVAL" --seed "$SEED" \
       --use_wandb "$USE_WANDB" --save_path "$RESULTS_ROOT/$PRESET/best_model.pth" \
       || fail "训练失败"
   echo "✅ 训练完成"

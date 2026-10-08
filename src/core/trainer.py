@@ -18,7 +18,7 @@ import torch.nn.functional as F
 from sklearn.metrics import f1_score
 from tqdm import tqdm
 
-from core.console import console, print_metrics_table
+from core.console import console, print_metrics_row
 from core.metrics import compute_metrics
 from core.metrics_advisor import advise
 from core.wandb_utils import finish_run, log_scalars, setup_wandb
@@ -350,9 +350,8 @@ class Trainer:
                 # Full val metric suite on validation epochs (f1 + val
                 # loss + the 16 implemented metrics)
                 if (epoch + 1) % self.args.val_interval == 0:
-                    print_metrics_table(
-                        {'f1': f1, 'loss': avg_val_loss, **val_metrics},
-                        title=f"val metrics — epoch {epoch + 1}")
+                    # 每验证 epoch 一行紧凑全指标(全部 16+4 项)
+                    print_metrics_row(val_metrics, f1=f1, loss=avg_val_loss)
                     # Online advisor: metric patterns -> optimization
                     # directions, printed while training (history already
                     # includes this epoch).
