@@ -80,9 +80,11 @@ class Trainer:
         return dist.get_rank() == 0
 
     def _forward(self, images):
-        images = self.spec.preprocess(self.model, images)
-        sparse, dense = self.spec.prompt_builder(self.model, images.shape[0])
-        return self.spec.forward(self.model, images, sparse, dense, return_stage1=True)
+        # DDP 包装器不转发 Sam 的方法/子模块,spec 函数必须拿到原始模型
+        model = self.model.module if self.is_ddp else self.model
+        images = self.spec.preprocess(model, images)
+        sparse, dense = self.spec.prompt_builder(model, images.shape[0])
+        return self.spec.forward(model, images, sparse, dense, return_stage1=True)
 
     def _train_epoch(self, epoch):
         self.model.train()

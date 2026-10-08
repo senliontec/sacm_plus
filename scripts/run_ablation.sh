@@ -64,7 +64,10 @@ if [ "$DDP" = "true" ]; then
   for p in $PRESETS; do
     echo "── DDP 训练 preset=$p ($NG 卡)"
     if [ "$SKIP_TRAIN" -eq 0 ]; then
-      MASTER_ADDR=127.0.0.1 MASTER_PORT=29500 torchrun --nproc_per_node="$NG" \
+      mkdir -p "$RESULTS_ROOT/torchrun_logs"
+      MASTER_ADDR=127.0.0.1 MASTER_PORT=29500 \
+      NCCL_P2P_DISABLE="${NCCL_P2P_DISABLE:-1}" \
+      torchrun --nproc_per_node="$NG" --log-dir "$RESULTS_ROOT/torchrun_logs" \
           src/train/trainer.py \
           --preset "$p" --data_root "$SPLIT_ROOT" --checkpoint "$CKPT" \
           --epochs "$EPOCHS" --val_interval "$VAL_INTERVAL" --seed "$SEED" \

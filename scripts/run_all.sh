@@ -111,11 +111,14 @@ if [ "$SKIP_TRAIN" -eq 0 ]; then
   if [ "$DDP" = "true" ]; then
     NG="$(nvidia-smi -L 2>/dev/null | wc -l)"
     [ "$NG" -gt 0 ] || fail "nvidia-smi 不可用,无法 DDP"
-    # 参考 fencing-algs:显式 localhost + 固定端口(避免 torchrun 用主机名/错误网卡导致 NCCL 秒崩)
+    # 参考 fencing-algs:显式 localhost + 固定端口(避免 torchrun 用主机名/错误网卡导致 NCCL 秒崩);
+    # NCCL_P2P_DISABLE 默认 1(3090 多卡节点常见必须;要恢复直连设 NCCL_P2P_DISABLE=0)
+    mkdir -p "$RESULTS_ROOT/torchrun_logs"
     MASTER_ADDR=127.0.0.1 MASTER_PORT=29500 \
-    NCCL_DEBUG="${NCCL_DEBUG:-WARN}" torchrun --nproc_per_node="$NG" \
+    NCCL_DEBUG="${NCCL_DEBUG:-WARN}" NCCL_P2P_DISABLE="${NCCL_P2P_DISABLE:-1}" \
+    torchrun --nproc_per_node="$NG" --log-dir "$RESULTS_ROOT/torchrun_logs" \
       src/train/trainer.py "${TRAIN_ARGS[@]}" \
-      || fail "训练失败(DDP, $NG 卡)——常见原因: NCCL 通信/网卡, 见 NCCL_DEBUG 日志"
+      || fail "训练失败(DDP, $NG 卡)——逐 rank 日志在 $RESULTS_ROOT/torchrun_logs/"
   else
     python src/train/trainer.py "${TRAIN_ARGS[@]}" || fail "训练失败"
   fi

@@ -76,22 +76,23 @@ def train(args):
     random.seed(args.seed)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(args.seed)
 
-    # DDP:由 torchrun 启动时注入 LOCAL_RANK;否则退化为单卡
-    # (init 方式参考 fencing-algs/experiments/run.py:显式 device_id 绑定,
-    #  避免多卡节点上 NCCL 选错设备)
+    # DDP:由 torchrun 启动时注入 LOCAL_RANK;否则退化为单卡。
+    # 关键顺序(此前 manual_seed_all 在 init 之前执行,会在每个 rank 进程里
+    # 初始化全部 8 张卡的 CUDA 上下文,导致与 NCCL 冲突无声崩溃):
+    # 先建进程组 → 绑定本地卡 → 只播本地卡的种子。
     is_ddp = 'LOCAL_RANK' in os.environ
     if is_ddp:
         import torch.distributed as dist
         local_rank = int(os.environ['LOCAL_RANK'])
-        dist.init_process_group(backend='nccl',
-                                device_id=torch.device(f'cuda:{local_rank}'))
+        dist.init_process_group(backend='nccl')
+        torch.cuda.set_device(local_rank)
+        torch.cuda.manual_seed(args.seed)
         device = torch.device(f'cuda:{local_rank}')
-        torch.cuda.set_device(device)
     else:
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(args.seed)
     logging.info(f"Using device: {device} (ddp={is_ddp})")
 
     # Build the model through the model registry (extensible to other
