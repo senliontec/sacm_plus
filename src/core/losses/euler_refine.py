@@ -65,7 +65,9 @@ Deviation list (complete)
    call (verified on numpy 2.2.6) — the published 2D gudhi path cannot run
    as-is. We compare against `re_idx[:len(ori_shape)]`, which is the
    assertion's evident intent (C-order index check); the rest of the method
-   (and its first assertion) is verbatim.
+   (and its first assertion) is verbatim. The method's unused local
+   `reidx_1 = np.array(np.unravel_index(idx, ori_shape, order='F'))` is
+   dropped — upstream it is read only by commented-out code.
 3. The `cgm_dims` (multiclass) branch of `forward` (loss.py:1107-1181) is
    NOT ported: it spawns `multiprocessing` pools, needs the debug helpers
    `get_arg_map_range`/`save_nii` that write to hard-coded
@@ -107,6 +109,14 @@ Deviation list (complete)
    the official `compute_dgm_force_new` asserts that the gt persistence
    values are 0/1, an invariant a bilinear mask resize breaks (the official
    code never resizes — it only tiles the map into `topo_size` crops).
+9. `get_topo_loss`: the official hole counters are initialised as
+   `no_1 = no_2 = 0` but `np_3 = 0` (a typo), while the
+   `not b_exists and d_exists` branch increments `no_3` — i.e. a live
+   NameError in the vendored code (harmless in the 2D patch path, where all
+   critical-point coordinates come from the patch and are therefore always
+   inside `topo_size`, but it fires if the branch is ever reached). The
+   initialiser is corrected to `no_3 = 0`; the counters are vestigial (never
+   read afterwards), so this only removes the crash.
 """
 
 import numpy as np
@@ -331,7 +341,10 @@ class topo_loss_2d(nn.Module):
 
             no_1 = 0
             no_2 = 0
-            np_3 = 0
+            # Official upstream typos this initialiser as `np_3`, so the
+            # `not b_exists and d_exists` branch below would raise NameError
+            # whenever it is reached (deviation 9).
+            no_3 = 0
             if dim in list(idx_holes_to_remove.keys()):
                 for hole_indx in idx_holes_to_remove[dim]:
                     coor_b = [int(bcp_lh[dim][hole_indx][ii]) for ii in range(3)]

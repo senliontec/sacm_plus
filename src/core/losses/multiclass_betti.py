@@ -63,17 +63,22 @@ Deviations from the official file (exhaustive list)
 5.  ``Multiclass_CLDice`` / ``convert_to_one_vs_rest`` / ``DiceType`` come
     from ``core.losses.topograph`` (line-identical classes from the same
     lineage) instead of ``losses/dice_losses.py`` / ``losses/utils.py``.
-6.  ``_wasserstein_loss`` reads ``num_pairs_by_dim`` — the (older)
-    ``BarcodeResult`` layout referenced by the official file; the current
-    Betti-Matching-3D renamed that field to ``num_pairs``. The wrapper
-    reproduces the older layout.
+6.  ``BarcodeResult`` layout: the official file indexes the coordinates as a
+    single array and splits it with ``num_pairs_by_dim`` (l. 199-202 and
+    l. 222-223), i.e. the older Betti-Matching-3D layout with the dimensions
+    concatenated (dimension 0 pairs first). The current Betti-Matching-3D
+    instead returns one coordinate array per dimension and calls the count
+    field ``num_pairs``; the wrapper reproduces the layout the official code
+    actually reads.
 7.  The ``monai.data.meta_tensor.MetaTensor`` unwrapping of the official
     ``_wasserstein_loss`` is dropped: our bridge produces plain tensors, for
     which the official calls are no-ops.
 8.  The official ``forward`` takes ``alpha`` per call (``train.py`` ramps it
     up with an exponential warm-up schedule over ``ALPHA_WARMUP_EPOCHS``);
     the registered adapter exposes it as a constructor argument, the default
-    being the official call-time default (0.5).
+    being the official call-time default (0.5). Its ``alpha == 0`` branch
+    returns a shape-(1,) tensor, which the adapter reshapes to the 0-dim
+    scalar the registry contract asks for.
 9.  Bridge, single channel (see :class:`HutopoLossAdapter`): ``[B, 1, H, W]``
     logits are turned into the official multi-class one-hot form with
     ``cat([zeros, logits])`` + one-hot target, i.e. ``softmax(x)[:, 1] ==
@@ -129,10 +134,12 @@ class FiltrationType(enum.Enum):
 class BarcodeResult:
     """Stand-in for ``betti_matching.return_types.BarcodeResult``.
 
-    Mirrors the layout the official ``hutopo.py`` relies on (l. 195-202,
-    222-223): ``birth_coordinates`` / ``death_coordinates`` are lists indexed
-    by homology dimension, each an ``(n_pairs, n_dimensions)`` int64 array,
-    and ``num_pairs_by_dim`` is the per-dimension pair count.
+    Reproduces the layout the official ``hutopo.py`` relies on (l. 199-202
+    and l. 222-223): ``birth_coordinates`` / ``death_coordinates`` are single
+    ``(n_pairs, n_dimensions)`` int64 arrays holding ALL dimensions
+    (dimension 0 pairs first, then dimension 1 — the order the official
+    ``torch.split`` over ``num_pairs_by_dim`` assumes), and
+    ``num_pairs_by_dim`` is the per-dimension pair count.
     """
 
     __slots__ = ("birth_coordinates", "death_coordinates", "num_pairs_by_dim")
@@ -174,18 +181,26 @@ def compute_barcode(image):
     m, n = image.shape
 
     # Cell -> pixel that realises the cell's filtration value. On the doubled
-    # V-construction grid a vertex (even, even) belongs to one pixel and an
-    # edge (mixed parity) to the two pixels it separates; the engine-values
-    # the cell with the maximum of them (C++ getParentVoxel, ties to the
-    # larger coordinate).
+    # V-construction grid the cell at (x, y) touches the pixels
+    # {x//2, x//2 + x%2} x {y//2, y//2 + y%2} (one pixel for a vertex, two for
+    # an edge, four for a face) and the engine values it with the maximum over
+    # them — the C++ engine's CubicalGridComplex::getBirth. Ties are resolved
+    # towards the larger coordinate, its getParentVoxel order.
     x = np.arange(cp.M)[:, None]
     y = np.arange(cp.N)[None, :]
     i0, j0 = x // 2, y // 2
     i1 = np.minimum(i0 + (x % 2), m - 1)
     j1 = np.minimum(j0 + (y % 2), n - 1)
-    take_second = image[i1, j1] >= image[i0, j0]
-    owner_i = np.where(take_second, i1, i0)
-    owner_j = np.where(take_second, j1, j0)
+    values = np.stack([image[i0, j0], image[i1, j0],
+                       image[i0, j1], image[i1, j1]])
+    cell_value = values.max(axis=0)
+    owner_i = np.where((cell_value == values[3]) | (cell_value == values[1]), i1, i0)
+    owner_j = np.where((cell_value == values[3]) | (cell_value == values[2]), j1, j0)
+    # The engine numbers cells in filtration order, so index -> owner needs
+    # the cell's grid coordinate (cp.coordinates), not a flat grid offset.
+    cell_coordinates = np.array(cp.coordinates)
+    owner_of_cell_i = owner_i[cell_coordinates[:, 0], cell_coordinates[:, 1]]
+    owner_of_cell_j = owner_j[cell_coordinates[:, 0], cell_coordinates[:, 1]]
 
     birth_coordinates, death_coordinates, num_pairs_by_dim = [], [], []
     for dim in (0, 1):
@@ -195,18 +210,18 @@ def compute_barcode(image):
         if pairs:
             births = np.array([pair[0] for pair in pairs], dtype=np.int64)
             deaths = np.array([pair[1] for pair in pairs], dtype=np.int64)
-            coords_birth = np.stack([owner_i.ravel()[births],
-                                     owner_j.ravel()[births]], axis=1)
-            coords_death = np.stack([owner_i.ravel()[deaths],
-                                     owner_j.ravel()[deaths]], axis=1)
+            birth_coordinates.append(np.stack(
+                [owner_of_cell_i[births], owner_of_cell_j[births]], axis=1))
+            death_coordinates.append(np.stack(
+                [owner_of_cell_i[deaths], owner_of_cell_j[deaths]], axis=1))
         else:
-            coords_birth = np.zeros((0, 2), dtype=np.int64)
-            coords_death = np.zeros((0, 2), dtype=np.int64)
-        birth_coordinates.append(coords_birth)
-        death_coordinates.append(coords_death)
+            birth_coordinates.append(np.zeros((0, 2), dtype=np.int64))
+            death_coordinates.append(np.zeros((0, 2), dtype=np.int64))
         num_pairs_by_dim.append(len(pairs))
 
-    return BarcodeResult(birth_coordinates, death_coordinates,
+    # Single array, dimensions concatenated in order (official layout).
+    return BarcodeResult(np.concatenate(birth_coordinates, axis=0),
+                         np.concatenate(death_coordinates, axis=0),
                          np.array(num_pairs_by_dim, dtype=np.int64))
 
 
@@ -460,7 +475,9 @@ class HutopoLossAdapter(nn.Module):
         two_ch_logits = torch.cat([torch.zeros_like(logits), logits], dim=1)
         two_ch_target = torch.cat([1.0 - target, target], dim=1)
         loss, _dic = self.loss(two_ch_logits, two_ch_target, alpha=self.alpha)
-        return loss
+        # The official alpha == 0 branch (losses/hutopo.py, l. 71-72) yields a
+        # shape-(1,) tensor; the registry contract is a 0-dim scalar.
+        return loss.reshape(())
 
 
 if _HAS_GUDHI:

@@ -12,18 +12,20 @@ from rich.table import Table
 console = Console()
 
 
-# 紧凑行显示用的短名映射(每 epoch 一行全指标)
+# 紧凑行显示用的短名映射(每 epoch 一行全指标)。
+# 命名约定: cDh/cAUCh = 硬 clDice(评测指标,骨架化后二值计算);
+#           scl(训练损失列)= 软 clDice(可微损失,训练用)。
 VAL_METRIC_SHORT = [
     ('dice', 'D'), ('iou', 'IoU'), ('precision', 'P'), ('recall', 'R'),
     ('sensitivity', 'Sen'), ('specificity', 'Spe'), ('accuracy', 'Acc'),
-    ('mcc', 'MCC'), ('cldice', 'cD'), ('hd', 'HD'), ('hd95', 'H95'),
+    ('mcc', 'MCC'), ('cldice', 'cDh'), ('hd', 'HD'), ('hd95', 'H95'),
     ('assd', 'ASSD'), ('asd', 'ASD'), ('ravd', 'RAVD'), ('nsd', 'NSD'),
-    ('betti', 'β'), ('dice_auc', 'dAUC'), ('cldice_auc', 'cAUC'),
+    ('betti', 'β'), ('dice_auc', 'dAUC'), ('cldice_auc', 'cAUCh'),
     ('betti_matching', 'BM'), ('topograph_error', 'TopoE'),
 ]
 
 # 宽表:训练侧 8 列 + F1/L + 全部 20 项 val 指标,time 放最后(元信息)
-EPOCH_NAMES = (['ep', 'tr_loss', 'main', 'ds', 'iou', 'cl', 'topo', 'lr',
+EPOCH_NAMES = (['ep', 'tr_loss', 'main', 'ds', 'iou', 'scl', 'topo', 'lr',
                 'F1', 'L'] + [s for _, s in VAL_METRIC_SHORT] + ['time'])
 EPOCH_WIDTHS = ([5, 8, 7, 7, 7, 7, 7, 9, 6, 8] + [6] * len(VAL_METRIC_SHORT) + [7])
 

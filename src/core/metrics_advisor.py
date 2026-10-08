@@ -66,8 +66,8 @@ def advise(history, args=None):
             stalls = all(_rel_change(cd[-(i + 2)], cd[-(i + 1)]) < STALL_TOLERANCE
                          for i in range(STALL_EPOCHS))
             if stalls and _rel_change(dc[-2], dc[-1]) > STALL_TOLERANCE:
-                out.append(('warn', '拓扑项停滞: cldice 连续 %d 个验证 epoch 无改善而 dice 仍在涨 — '
-                                   '检查 cl_dice_weight/warmup,或换 --topology_loss' % STALL_EPOCHS))
+                out.append(('warn', '拓扑项停滞: 硬 clDice 指标连续 %d 个验证 epoch 无改善而 dice 仍在涨 — '
+                                   '检查软 clDice 损失(cl_dice_weight/warmup),或换 --topology_loss' % STALL_EPOCHS))
 
     # 3) 欠分割 / 过分割(精度-召回分叉)
     p = last('val/precision')
@@ -91,7 +91,7 @@ def advise(history, args=None):
     if len(lc) >= STALL_EPOCHS + 1 and all(v > CL_LOSS_STUCK for v in lc[-(STALL_EPOCHS + 1):]):
         if all(_rel_change(lc[-(i + 2)], lc[-(i + 1)]) < STALL_TOLERANCE
                for i in range(STALL_EPOCHS)):
-            out.append(('warn', 'clDice 损失停滞于 %.3f — 软骨架在细结构上梯度不足,'
+            out.append(('warn', '软 clDice 损失停滞于 %.3f — 软骨架在细结构上梯度不足,'
                                '检查 cl_dice_warmup/ramp 节奏' % lc[-1]))
 
     # 6) 阈值鲁棒性: auc 明显高于单点(单点 < 0.01 属未收敛/塌缩噪声,跳过)

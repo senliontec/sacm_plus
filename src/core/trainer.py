@@ -76,9 +76,10 @@ class Trainer:
         self.model.train()
         train_loss = 0.0
         comps_sum = {k: 0.0 for k in ('loss_main', 'loss_ds', 'loss_iou', 'loss_cl', 'loss_topo')}
+        # 进度条已移除:逐 epoch 的 rich 宽表 + time 列取代进度反馈
         train_pbar = tqdm(self.train_loader, total=len(self.train_loader),
                           desc=f"Epoch {epoch+1}/{self.args.epochs} [Train]",
-                          disable=not sys.stderr.isatty())  # 日志文件里不画进度条
+                          disable=True)
 
         for images, masks in train_pbar:
             images = images.to(self.device)
@@ -168,10 +169,11 @@ class Trainer:
         all_true_masks = []
         val_cldice = []
         metrics_acc = {}
+        val_has_monitored = False
 
         val_pbar = tqdm(self.val_loader, total=len(self.val_loader),
                         desc=f"Epoch {epoch+1}/{self.args.epochs} [Val]",
-                        disable=not sys.stderr.isatty())  # 日志文件里不画进度条
+                        disable=True)
 
         with torch.no_grad():
             for images, masks in val_pbar:
@@ -207,13 +209,15 @@ class Trainer:
                 # NaN,显示行保持列位稳定(见 print_metrics_row)
                 for k, v in m.items():
                     metrics_acc.setdefault(k, []).append(v)
-                # 拓扑损失监控:全部 13 个注册损失在当前预测上的值。
-                # 128 分辨率输入 + 引擎损失 64 分辨率(纯 Python 持久同调
-                # 在更大尺寸不可承受)——趋势信号足够,监控不影响训练。
-                m128 = F.interpolate(main_mask, size=(128, 128), mode='bilinear', align_corners=False)
-                t128 = F.interpolate(masks, size=(128, 128), mode='bilinear', align_corners=False)
-                for k, v in topology_loss_monitor(m128, t128, resolution=64).items():
-                    metrics_acc.setdefault(f'topo_{k}', []).append(v)
+                # 拓扑损失监控:全部注册损失在当前预测上的值。
+                # 只在第 1 张验证图上跑(128 输入 + 引擎 64 分辨率)——引擎级
+                # 损失秒级/图,全量监控会把验证拖慢 3 倍;趋势信号足够。
+                if not val_has_monitored:
+                    val_has_monitored = True
+                    m128 = F.interpolate(main_mask, size=(128, 128), mode='bilinear', align_corners=False)
+                    t128 = F.interpolate(masks, size=(128, 128), mode='bilinear', align_corners=False)
+                    for k, v in topology_loss_monitor(m128, t128, resolution=64).items():
+                        metrics_acc.setdefault(f'topo_{k}', []).append(v)
 
         all_pred_masks = torch.cat(all_pred_masks, dim=0)
         all_true_masks = torch.cat(all_true_masks, dim=0)
