@@ -7,7 +7,10 @@ supervision, IoU-head MSE, soft-clDice with warmup — plus the optional
 extra topology loss; gradient clipping; best-F1 checkpoint selection).
 """
 
+import json
 import logging
+import os
+import time
 
 import numpy as np
 import torch
@@ -15,7 +18,9 @@ import torch.nn.functional as F
 from sklearn.metrics import f1_score
 from tqdm import tqdm
 
+from core.console import console, print_metrics_table
 from core.metrics import compute_metrics
+from core.wandb_utils import finish_run, log_scalars, setup_wandb
 
 
 def calculate_f1_score(pred_masks, true_masks, threshold=0.0):
@@ -66,6 +71,7 @@ class Trainer:
     def _train_epoch(self, epoch):
         self.model.train()
         train_loss = 0.0
+        comps_sum = {k: 0.0 for k in ('loss_main', 'loss_ds', 'loss_iou', 'loss_cl', 'loss_topo')}
         train_pbar = tqdm(self.train_loader, total=len(self.train_loader),
                           desc=f"Epoch {epoch+1}/{self.args.epochs} [Train]")
 
@@ -142,9 +148,13 @@ class Trainer:
             self.optimizer.step()
 
             train_loss += loss.item()
+            for k in comps_sum:
+                comps_sum[k] += locals()[k].item() if isinstance(locals()[k], torch.Tensor) else float(locals()[k])
             train_pbar.set_postfix({'loss': loss.item(), 'cl': mu})
 
-        return train_loss / len(self.train_loader)
+        n = len(self.train_loader)
+        comps = {k: v / n for k, v in comps_sum.items()}
+        return train_loss / n, comps
 
     def _validate(self, epoch):
         self.model.eval()
@@ -152,6 +162,7 @@ class Trainer:
         all_pred_masks = []
         all_true_masks = []
         val_cldice = []
+        metrics_acc = {}
 
         val_pbar = tqdm(self.val_loader, total=len(self.val_loader),
                         desc=f"Epoch {epoch+1}/{self.args.epochs} [Val]")
@@ -174,9 +185,21 @@ class Trainer:
                 all_pred_masks.append(main_mask)
                 all_true_masks.append(masks)
 
-                # clDice monitor on the binarized main mask
-                m = compute_metrics(main_mask[0], masks[0])
+                # Full metric suite on the binarized main mask. The
+                # few-shot val sets are tiny (6 images in the 3-shot
+                # protocol), so the distance/topology metrics are cheap.
+                # The 4 optional extras (auc / persistence engines) are
+                # opt-in via CLI flags — they cost seconds per image.
+                m = compute_metrics(
+                    main_mask[0], masks[0],
+                    compute_auc=self.args.val_auc,
+                    compute_betti_matching=self.args.val_betti_matching,
+                    compute_topograph=self.args.val_topograph,
+                )
                 val_cldice.append(m['cldice'])
+                for k, v in m.items():
+                    if not np.isnan(v):
+                        metrics_acc.setdefault(k, []).append(v)
 
         all_pred_masks = torch.cat(all_pred_masks, dim=0)
         all_true_masks = torch.cat(all_true_masks, dim=0)
@@ -190,6 +213,8 @@ class Trainer:
 
         if self.args.scheduler == 'reduce':
             self.scheduler.step(avg_val_loss)
+
+        val_metrics = {k: float(np.mean(v)) for k, v in metrics_acc.items() if v}
 
         if f1 > self.best_f1_score:
             self.best_f1_score = f1
@@ -212,19 +237,129 @@ class Trainer:
             }, self.args.save_path)
             logging.info(f'👍New best model saved with F1 score: {self.best_f1_score:.4f}')
 
-        return f1, avg_val_loss, avg_val_cldice
+        return f1, avg_val_loss, avg_val_cldice, val_metrics
+
+    def _run_config(self):
+        """Config snapshot shared by wandb and the local metric history."""
+        return {
+            'model': self.args.model,
+            'preset': self.args.preset,
+            'batch_size': self.args.batch_size,
+            'epochs': self.args.epochs,
+            'adapter_lr': self.args.adapter_lr,
+            'new_module_lr': self.args.new_module_lr,
+            'decoder_lr': self.args.decoder_lr,
+            'deep_sup_weight': self.args.deep_sup_weight,
+            'cl_dice_weight': self.args.cl_dice_weight,
+            'iou_loss_weight': self.args.iou_loss_weight,
+            'topology_loss': self.args.topology_loss,
+            'topology_loss_weight': self.args.topology_loss_weight,
+            'use_geo_i': self.args.use_geo_i,
+            'use_geo_e': self.args.use_geo_e,
+            'use_coarse_to_fine': self.args.use_coarse_to_fine,
+            'use_fusion_v2': self.args.use_fusion_v2,
+            'use_multi_depth': self.args.use_multi_depth,
+            'val_auc': self.args.val_auc,
+            'val_betti_matching': self.args.val_betti_matching,
+            'val_topograph': self.args.val_topograph,
+            'seed': self.args.seed,
+        }
+
+    def _write_history(self, history, best_epoch):
+        """Persist the per-epoch metric history next to the checkpoint.
+
+        This is the AI-feedback-loop artifact: every metric shown in the
+        terminal / uploaded to wandb is also written here as structured
+        JSON, so an analysis pass (human or AI) can read exactly which
+        metric is weak and target the network change at it.
+        """
+        out_dir = os.path.dirname(self.args.save_path) or '.'
+        os.makedirs(out_dir, exist_ok=True)
+        path = os.path.join(out_dir, 'metrics_history.json')
+        payload = {
+            'config': self._run_config(),
+            'best_epoch': best_epoch,
+            'best_f1': self.best_f1_score,
+            'history': history,
+        }
+        try:
+            with open(path, 'w') as f:
+                json.dump(payload, f, indent=2)
+            logging.info(f"Metric history saved to {path}")
+        except OSError as e:
+            logging.warning(f"Metric history save failed: {e}")
 
     def fit(self):
-        """Run the full training schedule."""
-        for epoch in range(self.args.epochs):
-            avg_train_loss = self._train_epoch(epoch)
-            logging.info(f'Epoch {epoch+1}/{self.args.epochs} - Average Train Loss: {avg_train_loss:.4f}')
+        """Run the full training schedule (wandb-monitored when enabled)."""
+        run = setup_wandb(
+            self.args,
+            name=f"{self.args.model}_{self.args.preset}",
+            config=self._run_config(),
+        )
+        history = []
+        best_epoch = -1
+        # Per-epoch summary table (ECG-SAM style, fencing-algs pattern).
+        # Every epoch shows the full loss breakdown; val metrics (16-suite)
+        # appear in the table below on validation epochs.
+        cols = ("ep", "tr_loss", "main", "ds", "iou", "cl", "topo", "lr", "time")
+        widths = (5, 8, 7, 7, 7, 7, 7, 10, 8)
+        sep = " │ "
+        console.print(sep.join(f"{c:^{w}}" for c, w in zip(cols, widths)), style="bold")
 
-            if (epoch + 1) % self.args.val_interval == 0:
-                self._validate(epoch)
+        try:
+            for epoch in range(self.args.epochs):
+                t0 = time.time()
+                avg_train_loss, comps = self._train_epoch(epoch)
+                logging.info(f'Epoch {epoch+1}/{self.args.epochs} - Average Train Loss: {avg_train_loss:.4f}')
 
-            # Step the scheduler (except ReduceLROnPlateau, updated during validation)
-            if self.scheduler is not None and self.args.scheduler != 'reduce':
-                self.scheduler.step()
-                current_lr = self.optimizer.param_groups[0]['lr']
-                logging.info(f'Current learning rate: {current_lr:.7f}')
+                wm = {'epoch': epoch, 'train/loss': avg_train_loss,
+                      'lr': self.optimizer.param_groups[0]['lr']}
+                for k, v in comps.items():
+                    wm[f'train/{k}'] = v
+
+                best_before = self.best_f1_score
+                if (epoch + 1) % self.args.val_interval == 0:
+                    f1, avg_val_loss, avg_val_cldice, val_metrics = self._validate(epoch)
+                    wm.update({'val/loss': avg_val_loss, 'val/f1': f1,
+                               'val/cldice': avg_val_cldice})
+                    for k, v in val_metrics.items():
+                        wm[f'val/{k}'] = v
+                    is_best = self.best_f1_score > best_before
+                else:
+                    is_best = False
+                if is_best:
+                    best_epoch = epoch + 1
+
+                log_scalars(run, wm)
+
+                history.append({'epoch': epoch + 1,
+                                'time_s': round(time.time() - t0, 2),
+                                **wm})
+
+                vals = (f"{epoch+1:03d}", f"{avg_train_loss:.4f}",
+                        *(f"{comps[k]:.4f}" for k in
+                          ('loss_main', 'loss_ds', 'loss_iou', 'loss_cl', 'loss_topo')),
+                        f"{self.optimizer.param_groups[0]['lr']:.2e}",
+                        f"{time.time() - t0:.0f}s")
+                row = sep.join(f"{v:^{w}}" for v, w in zip(vals, widths))
+                console.print(row, style="bold green" if is_best else "")
+                # Full val metric suite on validation epochs (f1 + val
+                # loss + the 16 implemented metrics)
+                if (epoch + 1) % self.args.val_interval == 0:
+                    print_metrics_table(
+                        {'f1': f1, 'loss': avg_val_loss, **val_metrics},
+                        title=f"val metrics — epoch {epoch + 1}")
+
+                # Step the scheduler (except ReduceLROnPlateau, updated during validation)
+                if self.scheduler is not None and self.args.scheduler != 'reduce':
+                    self.scheduler.step()
+                    current_lr = self.optimizer.param_groups[0]['lr']
+                    logging.info(f'Current learning rate: {current_lr:.7f}')
+        finally:
+            if run is not None:
+                try:
+                    run.summary['best_f1'] = self.best_f1_score
+                except Exception:
+                    pass
+            finish_run(run)
+            self._write_history(history, best_epoch)

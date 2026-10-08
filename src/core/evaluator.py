@@ -16,6 +16,7 @@ import torch.nn.functional as F
 from tqdm import tqdm
 
 from core.metrics import compute_metrics
+from core.wandb_utils import finish_run, log_scalars, setup_wandb
 
 METRIC_KEYS = ['dice', 'iou', 'precision', 'recall', 'sensitivity', 'specificity',
                'accuracy', 'mcc', 'cldice', 'hd', 'hd95', 'assd', 'asd', 'ravd', 'nsd', 'betti']
@@ -52,6 +53,20 @@ class Evaluator:
         import matplotlib
         matplotlib.use('Agg')
         import matplotlib.pyplot as plt
+
+        run = setup_wandb(
+            self.args,
+            name=f"eval_{os.path.basename(self.args.data_root.rstrip('/'))}",
+            config={
+                'model': self.args.model,
+                'preset': self.args.preset,
+                'trained_weights': self.args.trained_weights,
+                'selection': self.args.selection,
+                'tta': self.args.tta,
+                'pred_threshold': self.args.pred_threshold,
+                'nsd_tolerance': self.args.nsd_tolerance,
+            },
+        )
 
         self.model.eval()
         metrics_all = {k: [] for k in self.metric_keys}
@@ -160,6 +175,14 @@ class Evaluator:
 
         avg_loss = float(np.mean(loss_values))
         logging.info(f"Average Loss: {avg_loss:.4f}")
+
+        wm = {'eval/loss': avg_loss}
+        for k, (mean, std) in summary.items():
+            wm[f'eval/{k}'] = mean
+            wm[f'eval/{k}_std'] = std
+        log_scalars(run, wm)
+        finish_run(run)
+
         return summary, csv_rows, n_hd95_nan, avg_loss
 
     @staticmethod

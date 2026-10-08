@@ -121,7 +121,7 @@ def evaluate(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Evaluate a trained segmentation model')
-    parser.add_argument('--data_root', type=str, default='../TMM_datasets/wire', help='Path to dataset root directory')
+    parser.add_argument('--data_root', type=str, required=True, help='Path to dataset root directory')
     parser.add_argument('--trained_weights', type=str, default='best_model.pth', help='Path to trained weights')
     parser.add_argument('--output_dir', type=str, default='outputs/tyre', help='Directory to save test results')
     parser.add_argument('--adapter_dim_ratio', type=float, default=0.1, help='Ratio of adapter dimension to model dimension')
@@ -160,6 +160,19 @@ if __name__ == '__main__':
                         help='Additionally compute topograph_error (official Topograph '
                              'critical-neighbor error count, evaluated at 256 resolution; '
                              'requires networkx + scipy)')
+
+    # wandb monitoring (self-hosted server at 172.16.1.7; failures are non-fatal)
+    parser.add_argument('--use_wandb', type=str2bool, default=True,
+                        help='Log the evaluation metrics to wandb (project sacm on the 172.16.1.7 server)')
+    parser.add_argument('--wandb_project', type=str, default='sacm', help='wandb project name')
+    parser.add_argument('--wandb_entity', type=str, default='buaazqk', help='wandb entity')
+    parser.add_argument('--wandb_host', type=str, default='http://172.16.1.7:8080',
+                        help='Self-hosted wandb base URL')
+    parser.add_argument('--wandb_api_key', type=str, default=None,
+                        help='wandb API key (optional; normally supplied via WANDB_API_KEY env '
+                             'or "wandb login --host http://172.16.1.7:8080" once per machine)')
+    parser.add_argument('--wandb_name', type=str, default=None, help='wandb run name')
+    parser.add_argument('--wandb_tags', type=str, default=None, help='Comma-separated wandb tags')
 
     # YAML config overrides (applied after the preset)
     parser.add_argument('--config', type=str, default=None,

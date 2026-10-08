@@ -184,8 +184,8 @@ def train(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Train a segmentation model')
-    parser.add_argument('--data_root', type=str, default='/hy-tmp/sam/datasets/eee', help='Path to dataset root directory')
-    parser.add_argument('--checkpoint', type=str, default='/hy-tmp/sam/sam_pth/sam_vit_l_0b3195.pth', help='Path to SAM checkpoint')
+    parser.add_argument('--data_root', type=str, required=True, help='Path to dataset root directory')
+    parser.add_argument('--checkpoint', type=str, default='checkpoints/sam_vit_l_0b3195.pth', help='Path to SAM checkpoint')
     parser.add_argument('--model', type=str, default='sam_l', choices=sorted(MODEL_REGISTRY),
                         help='Model architecture from the model registry (see docs/MODEL_MANAGEMENT.md)')
     parser.add_argument('--batch_size', type=int, default=1, help='Batch size')
@@ -216,6 +216,15 @@ if __name__ == '__main__':
     parser.add_argument('--cl_dice_iters', type=int, default=10, help='Soft-skeleton iterations of the clDice loss (official clDice repo default: 10)')
     parser.add_argument('--iou_loss_weight', type=float, default=1.0, help='Weight of the IoU head MSE supervision')
 
+    # Full val metric suite opt-ins: the 16-metric suite always runs;
+    # these extras are expensive (seconds per image) and off by default.
+    parser.add_argument('--val_auc', action='store_true',
+                        help='Also compute dice_auc/cldice_auc on the val set (~9x skeletonization cost)')
+    parser.add_argument('--val_betti_matching', action='store_true',
+                        help='Also compute betti_matching on the val set (persistence engine, seconds per image)')
+    parser.add_argument('--val_topograph', action='store_true',
+                        help='Also compute topograph_error on the val set (component graph, seconds per image)')
+
     # Extra topology loss (strict ports of official implementations)
     parser.add_argument('--topology_loss', type=str, default='none',
                         choices=['none'] + sorted(TOPOLOGY_LOSS_REGISTRY),
@@ -231,6 +240,19 @@ if __name__ == '__main__':
                              'evaluate at 256 resolution (engine performance).')
     parser.add_argument('--topology_loss_weight', type=float, default=0.1,
                         help='Weight of the extra topology loss term')
+
+    # wandb monitoring (self-hosted server at 172.16.1.7; failures are non-fatal)
+    parser.add_argument('--use_wandb', type=str2bool, default=True,
+                        help='Log training/validation metrics to wandb (project sacm on the 172.16.1.7 server)')
+    parser.add_argument('--wandb_project', type=str, default='sacm', help='wandb project name')
+    parser.add_argument('--wandb_entity', type=str, default='buaazqk', help='wandb entity')
+    parser.add_argument('--wandb_host', type=str, default='http://172.16.1.7:8080',
+                        help='Self-hosted wandb base URL')
+    parser.add_argument('--wandb_api_key', type=str, default=None,
+                        help='wandb API key (optional; normally supplied via WANDB_API_KEY env '
+                             'or "wandb login --host http://172.16.1.7:8080" once per machine)')
+    parser.add_argument('--wandb_name', type=str, default=None, help='wandb run name (default: model_preset)')
+    parser.add_argument('--wandb_tags', type=str, default=None, help='Comma-separated wandb tags')
 
     # Data augmentation
     parser.add_argument('--no_augment', action='store_true', help='Disable joint data augmentation')

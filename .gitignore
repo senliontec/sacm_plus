@@ -17,7 +17,15 @@ dist/
 .codegraph/
 
 # Runtime outputs: data, results, logs, checkpoints
+data/
 datasets/
 outputs/
 results/
 logs/
+
+# wandb local run data
+wandb/
+
+# Pretrained checkpoints (multi-GB, never commit)
+checkpoints/
+*.pth

@@ -174,6 +174,11 @@ python scripts/run_experiments.py --gpus 0 1 2 3 4 5 6 7 \
 # 3. Aggregate per-job summaries into CSV + LaTeX tables
 python scripts/aggregate_results.py --root results --out results/tables
 
+# 4. AI-improvement-loop diagnostics: weakest metric -> suspect component
+#    -> suggested change (reads metrics_history.json written during training)
+python scripts/metrics_report.py --history results/full/DRIVE/metrics_history.json
+python scripts/metrics_report.py --root results --out results/tables/report.md
+
 # 4. Motivation diagnostics (head supervision + gating quality evidence)
 python -m models.sacm.diagnose --preset sacm --data_root /data/DRIVE \
     --trained_weights results/sacm/DRIVE/best_model.pth \
