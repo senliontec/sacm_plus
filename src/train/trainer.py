@@ -159,13 +159,19 @@ def train(args):
     val_dataset = SegmentationDataset(args.data_root, 'val', transform, augment=None)
 
     train_sampler = None
+    val_sampler = None
     if is_ddp:
         from torch.utils.data.distributed import DistributedSampler
         train_sampler = DistributedSampler(train_dataset)
+        # fencing-algs 模式:验证集也分片,每 rank 算 600/8≈75 张,指标
+        # gather 到 rank 0 汇总(验证 16 分钟 → ~2.5 分钟,且任何 rank
+        # 都不会在验证期阻塞于 NCCL allreduce 空等)
+        val_sampler = DistributedSampler(val_dataset, shuffle=False)
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size,
                               shuffle=(train_sampler is None), sampler=train_sampler,
                               num_workers=4)
-    val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4)
+    val_loader = DataLoader(val_dataset, batch_size=args.batch_size,
+                            shuffle=False, sampler=val_sampler, num_workers=4)
 
     logging.info(f"Training dataset size: {len(train_dataset)}")
     logging.info(f"Validation dataset size: {len(val_dataset)}")
@@ -218,7 +224,13 @@ def train(args):
         train_loader=train_loader, val_loader=val_loader,
         args=args, is_ddp=is_ddp, train_sampler=train_sampler,
     )
-    trainer.fit()
+    try:
+        trainer.fit()
+    finally:
+        # fencing-algs 模式:进程组显式销毁(rank 异常退出时由 torchrun 兜底)
+        if is_ddp:
+            import torch.distributed as dist
+            dist.destroy_process_group()
 
 
 if __name__ == '__main__':

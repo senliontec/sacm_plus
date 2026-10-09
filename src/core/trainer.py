@@ -50,6 +50,34 @@ def cl_dice_weight_schedule(epoch, warmup_epochs, ramp_epochs):
     return min(1.0, (epoch - warmup_epochs) / max(ramp_epochs, 1))
 
 
+def _merge_val_payloads(gathered):
+    """Merge per-rank validation payloads into global metrics (rank 0).
+
+    gathered: list of dicts with keys loss_sum/count/tp/fp/fn/cldice/metrics
+    (see _validate). F1 comes from the GLOBAL confusion counts (exact micro-F1,
+    identical to sklearn on the concatenated shards); all other metrics are
+    nanmean-aggregated so a NaN on one shard never poisons a column.
+    """
+    avg_val_loss = sum(g['loss_sum'] for g in gathered) / max(
+        sum(g['count'] for g in gathered), 1)
+    tp = sum(g['tp'] for g in gathered)
+    fp = sum(g['fp'] for g in gathered)
+    fn = sum(g['fn'] for g in gathered)
+    denom = 2 * tp + fp + fn
+    f1 = 2 * tp / denom if denom > 0 else 0.0
+    acc = {}
+    for g in gathered:
+        for k, v in g['metrics'].items():
+            acc.setdefault(k, []).extend(v)
+    cldice_all = [x for g in gathered for x in g['cldice']]
+    with warnings.catch_warnings():
+        # 全部 NaN(空预测)时 nanmean 会打 "Mean of empty slice"
+        warnings.simplefilter('ignore', RuntimeWarning)
+        avg_val_cldice = float(np.nanmean(cldice_all)) if cldice_all else float('nan')
+        val_metrics = {k: float(np.nanmean(v)) for k, v in acc.items() if v}
+    return avg_val_loss, f1, avg_val_cldice, val_metrics
+
+
 class Trainer:
     """Unified training engine (model-agnostic via ModelSpec)."""
 
@@ -73,7 +101,7 @@ class Trainer:
 
     @property
     def _rank0(self):
-        """DDP 下只有 rank 0 做验证/日志/保存。"""
+        """DDP 下日志/保存只在 rank 0(验证已分片到全部 rank)。"""
         if not self.is_ddp:
             return True
         import torch.distributed as dist
@@ -185,6 +213,7 @@ class Trainer:
         if self.device.type == 'cuda':
             torch.cuda.empty_cache()
         val_loss = 0.0
+        n_batches = 0
         all_pred_masks = []
         all_true_masks = []
         val_cldice = []
@@ -192,6 +221,19 @@ class Trainer:
         val_has_monitored = False
         vis_items = []  # (image, gt, pred) 供 wandb 可视化
         VAL_ENGINE_IMGS = 50  # 引擎指标子集大小(均值估计,验证提速关键)
+
+        # DDP 分布式验证(fencing-algs 模式):验证集由 DistributedSampler
+        # 分片,每 rank 只算 600/8≈75 张,指标 gather 到 rank 0 汇总。
+        # 此前验证只在 rank 0 跑(~16 分钟/epoch),rank 1-7 会阻塞在
+        # 下一轮 backward 的 NCCL allreduce 里空等——占显存、GPU 0%,
+        # 成为服务器清理器/OOM killer 的击杀目标(实测 7 rank 被杀);
+        # 分片后 ~2.5 分钟、全 epoch 8 卡满负荷。
+        if self.is_ddp:
+            import torch.distributed as dist
+            world_size = dist.get_world_size()
+            rank = dist.get_rank()
+        else:
+            world_size, rank = 1, 0
 
         val_pbar = tqdm(self.val_loader, total=len(self.val_loader),
                         desc=f"Epoch {epoch+1}/{self.args.epochs} [Val]",
@@ -210,6 +252,7 @@ class Trainer:
 
                 loss = self.criterion(main_mask, masks)
                 val_loss += loss.item()
+                n_batches += 1
                 val_pbar.set_postfix({'loss': loss.item()})
 
                 all_pred_masks.append(main_mask)
@@ -221,8 +264,9 @@ class Trainer:
                 # The 4 optional extras (auc / persistence engines) are
                 # opt-in via CLI flags — they cost seconds per image.
                 # 引擎级指标(秒/图)只在前 50 张验证图上算:全量 600 张会
-                # 让验证 epoch 膨胀到 ~1 小时(实测 3271-3766s)
-                engine_subset = val_idx < VAL_ENGINE_IMGS
+                # 让验证 epoch 膨胀到 ~1 小时(实测 3271-3766s)。
+                # DDP 分片后仍由 rank 0 在其本地前 50 张上算(总预算不变)。
+                engine_subset = (rank == 0) and (val_idx < VAL_ENGINE_IMGS)
                 m = compute_metrics(
                     main_mask[0], masks[0],
                     compute_auc=self.args.val_auc and engine_subset,
@@ -235,8 +279,8 @@ class Trainer:
                 for k, v in m.items():
                     metrics_acc.setdefault(k, []).append(v)
                 # 拓扑损失监控:全部注册损失在当前预测上的值。
-                # 只在第 1 张验证图上跑(128 输入 + 引擎 64 分辨率)——引擎级
-                # 损失秒级/图,全量监控会把验证拖慢 3 倍;趋势信号足够。
+                # 每个 rank 只在其第 1 张验证图上跑(128 输入 + 引擎 64 分辨率)
+                # ——引擎级损失秒级/图;DDP 分片后 8 rank 合计监控 8 张,更稳。
                 if not val_has_monitored:
                     val_has_monitored = True
                     m128 = F.interpolate(main_mask, size=(128, 128), mode='bilinear', align_corners=False)
@@ -248,19 +292,38 @@ class Trainer:
                                       masks[0].detach().cpu(),
                                       main_mask[0].detach().cpu()))
 
-        all_pred_masks = torch.cat(all_pred_masks, dim=0)
-        all_true_masks = torch.cat(all_true_masks, dim=0)
-        f1 = calculate_f1_score(all_pred_masks, all_true_masks)
-
-        avg_val_loss = val_loss / len(self.val_loader)
-        with warnings.catch_warnings():
-            # 全部 NaN(空预测)时 nanmean 会打 "Mean of empty slice"
-            warnings.simplefilter('ignore', RuntimeWarning)
-            avg_val_cldice = float(np.nanmean(val_cldice)) if val_cldice else float('nan')
-            # nanmean 聚合:引擎指标子集(BM/TE/dAUC/cAh 只算前 50 张)里
-            # 单张 NaN(空 GT/空预测守卫)不再传染整列——此前 np.mean
-            # 导致 BM/TE 两列恒为 "—";全 NaN 时保持 NaN(显示 "—")
-            val_metrics = {k: float(np.nanmean(v)) for k, v in metrics_acc.items() if v}
+        if self.is_ddp:
+            # fencing-algs 模式:验证在全部 rank 分片执行,指标在 rank 0
+            # 汇总。F1 用混淆计数跨卡汇总(与全量拼接后 sklearn F1 逐位
+            # 等价);其余指标把每 rank 的累积字典/列表 gather 到 rank 0
+            # 后 nanmean——任何 rank 都不再长时间阻塞于 NCCL。
+            pred_cat = torch.cat(all_pred_masks, dim=0) > 0
+            true_cat = torch.cat(all_true_masks, dim=0) > 0.5
+            payload = {
+                'loss_sum': float(val_loss), 'count': n_batches,
+                'tp': int((pred_cat & true_cat).sum()),
+                'fp': int((pred_cat & ~true_cat).sum()),
+                'fn': int((~pred_cat & true_cat).sum()),
+                'cldice': val_cldice, 'metrics': metrics_acc,
+            }
+            gathered = [None] * world_size
+            dist.all_gather_object(gathered, payload)
+            if rank != 0:
+                return None, None, None, None
+            avg_val_loss, f1, avg_val_cldice, val_metrics = _merge_val_payloads(gathered)
+        else:
+            all_pred_masks = torch.cat(all_pred_masks, dim=0)
+            all_true_masks = torch.cat(all_true_masks, dim=0)
+            f1 = calculate_f1_score(all_pred_masks, all_true_masks)
+            avg_val_loss = val_loss / max(n_batches, 1)
+            with warnings.catch_warnings():
+                # 全部 NaN(空预测)时 nanmean 会打 "Mean of empty slice"
+                warnings.simplefilter('ignore', RuntimeWarning)
+                avg_val_cldice = float(np.nanmean(val_cldice)) if val_cldice else float('nan')
+                # nanmean 聚合:引擎指标子集(BM/TE/dAUC/cAh 只算前 50 张)里
+                # 单张 NaN(空 GT/空预测守卫)不再传染整列——此前 np.mean
+                # 导致 BM/TE 两列恒为 "—";全 NaN 时保持 NaN(显示 "—")
+                val_metrics = {k: float(np.nanmean(v)) for k, v in metrics_acc.items() if v}
         # 逐 epoch 的 val 数值全部由 rich 宽表呈现,不再刷 INFO 日志
 
         if self.args.scheduler == 'reduce':
@@ -377,6 +440,11 @@ class Trainer:
 
     def fit(self):
         """Run the full training schedule (wandb-monitored when enabled)."""
+        # fencing-algs 模式:rank0 专属操作(wandb init)前先 barrier,
+        # 保证所有 rank 从同一起点出发
+        if self.is_ddp:
+            import torch.distributed as dist
+            dist.barrier()
         run = None
         if self._rank0:
             run = setup_wandb(
@@ -404,18 +472,20 @@ class Trainer:
                 for k, v in comps.items():
                     wm[f'train/{k}'] = v
 
-                # 验证/日志/保存只在 rank 0;其余 rank 只训练并同步梯度
+                # DDP 下验证在所有 rank 分片执行(_validate 内部 gather
+                # 汇总),日志/保存只在 rank 0;其余 rank 只训练并同步梯度
                 best_before = self.best_f1_score
                 f1 = vloss = None
                 val_metrics = None
                 is_best = False
-                if self._rank0 and (epoch + 1) % self.args.val_interval == 0:
+                if (epoch + 1) % self.args.val_interval == 0:
                     f1, vloss, avg_val_cldice, val_metrics = self._validate(epoch)
-                    wm.update({'val/loss': vloss, 'val/f1': f1,
-                               'val/cldice': avg_val_cldice})
-                    for k, v in val_metrics.items():
-                        wm[f'val/{k}'] = v
-                    is_best = self.best_f1_score > best_before
+                    if self._rank0:
+                        wm.update({'val/loss': vloss, 'val/f1': f1,
+                                   'val/cldice': avg_val_cldice})
+                        for k, v in val_metrics.items():
+                            wm[f'val/{k}'] = v
+                        is_best = self.best_f1_score > best_before
                 if is_best:
                     best_epoch = epoch + 1
 
@@ -444,6 +514,11 @@ class Trainer:
                                               style="yellow" if sev == 'warn' else "cyan")
                                 advice_log[msg] = epoch + 1
 
+                # 每轮末尾同步(fencing-algs 模式):rank 0 的日志/保存
+                # 不拖慢其他 rank 进入下一轮,但也不让它们抢跑太远
+                if self.is_ddp:
+                    dist.barrier()
+
                 # Step the scheduler (except ReduceLROnPlateau, updated during validation)
                 if self.scheduler is not None and self.args.scheduler != 'reduce':
                     self.scheduler.step()
@@ -456,3 +531,6 @@ class Trainer:
                         pass
                 finish_run(run)
                 self._write_history(history, best_epoch)
+            # fencing-algs 模式:训练结束统一收队,再各自退出
+            if self.is_ddp:
+                dist.barrier()

@@ -29,7 +29,7 @@ fi
 ENV_NAME="${ENV_NAME:-tsai}"
 PRESET="${PRESET:-full}"
 EPOCHS="${EPOCHS:-20}"                   # 试水轮数;确认收敛后 EPOCHS=50 跑消融矩阵
-VAL_INTERVAL="${VAL_INTERVAL:-1}"        # 每 epoch 验证(引擎指标已节流至 50 张,~3-5 分钟/次)
+VAL_INTERVAL="${VAL_INTERVAL:-1}"        # 每 epoch 验证(8 卡分片 + 引擎指标节流 50 张,~2.5 分钟/次)
 SHOTS="${SHOTS:-3}"                      # 仅 FULL_DATA=false(3-shot 协议层)时生效
 VAL_SHOTS="${VAL_SHOTS:-1}"
 SEED="${SEED:-42}"
