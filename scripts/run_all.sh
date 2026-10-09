@@ -71,13 +71,17 @@ fi
 step() { echo; echo "════════════════════════ $* ════════════════════════"; }
 fail() { echo "❌ $*" >&2; exit 1; }
 
-# 数据完整性校验:每张图必须有掩码,否则训练会在中途崩
+# 数据完整性校验:每张图必须有掩码,否则训练会在中途崩。
+# 返回 0=完整,1=不完整(不直接退出,让调用方决定重建还是报错)。
 # (2026-10-09 教训:rsync --delete 曾在上传时删掉服务器掩码,ep2 才崩)
 check_split_integrity() {
   local d="$1" split="$2" n_img n_msk missing=0 stem found
   n_img=$(ls "$d/$split/images" 2>/dev/null | wc -l)
   n_msk=$(ls "$d/$split/masks" 2>/dev/null | wc -l)
-  [ "$n_img" -gt 0 ] || fail "数据完整性校验失败: $d/$split/images 为空"
+  if [ "$n_img" -eq 0 ]; then
+    echo "❌ 数据完整性: $d/$split/images 为空"
+    return 1
+  fi
   for f in "$d"/"$split"/images/*; do
     [ -e "$f" ] || continue
     stem="${f##*/}"; stem="${stem%.*}"
@@ -88,9 +92,11 @@ check_split_integrity() {
     [ "$found" -eq 0 ] && missing=$((missing + 1))
   done
   if [ "$missing" -gt 0 ]; then
-    fail "数据完整性校验失败: $d/$split images=$n_img masks=$n_msk,缺掩码 $missing 张——恢复掩码或重跑 prepare_data 后再启动"
+    echo "❌ 数据完整性: $d/$split images=$n_img masks=$n_msk,缺掩码 $missing 张"
+    return 1
   fi
   echo "✅ 数据完整: $split images=$n_img masks=$n_msk"
+  return 0
 }
 
 # ---------------- 1. 环境 ----------------
@@ -124,17 +130,35 @@ build_split() {
   fi
 }
 
-if [ -f "$SPLIT_ROOT/split_manifest.csv" ]; then
-  echo "⚠️  $SPLIT_ROOT 已存在,跳过采样(如需重建请删除该目录)"
+if [ "$SKIP_DATA" -eq 1 ]; then
+  echo "⚠️  --skip-data: 跳过数据构建,只做完整性校验"
 else
-  step "2/5 数据: 整理原始数据集 + 构建训练划分"
-  # shellcheck disable=SC2086
-  build_split
-  echo "✅ 数据就绪"
+  NEED_REBUILD=0
+  if [ -f "$SPLIT_ROOT/split_manifest.csv" ]; then
+    # 划分存在但可能残缺(如 rsync --delete 删过掩码):先自检
+    if check_split_integrity "$SPLIT_ROOT" train && check_split_integrity "$SPLIT_ROOT" val; then
+      echo "⚠️  $SPLIT_ROOT 已存在且完整,跳过采样"
+    else
+      echo "⚠️  $SPLIT_ROOT 数据不完整,自动重建"
+      NEED_REBUILD=1
+    fi
+  else
+    NEED_REBUILD=1
+  fi
+  if [ "$NEED_REBUILD" -eq 1 ]; then
+    rm -rf "$SPLIT_ROOT"
+    step "2/5 数据: 整理原始数据集 + 构建训练划分"
+    # shellcheck disable=SC2086
+    build_split
+    echo "✅ 数据就绪"
+  fi
 fi
-# 完整性校验(无论是否重建):images/masks 必须一一对应
-check_split_integrity "$SPLIT_ROOT" train
-check_split_integrity "$SPLIT_ROOT" val
+# 终检(重建后或 --skip-data 时都执行):绝不带残缺数据开训。
+# 重建后仍不完整 = 原始数据 datasets/ 本身缺掩码,需要补传
+check_split_integrity "$SPLIT_ROOT" train \
+  || fail "train 数据不完整:去掉 --skip-data 让脚本自动重建;若已重建仍失败,先补传原始数据 datasets/"
+check_split_integrity "$SPLIT_ROOT" val \
+  || fail "val 数据不完整:去掉 --skip-data 让脚本自动重建;若已重建仍失败,先补传原始数据 datasets/"
 
 # ---------------- 3. 训练 ----------------
 if [ "$SKIP_TRAIN" -eq 0 ]; then
