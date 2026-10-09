@@ -173,7 +173,12 @@ def train(args):
     # Losses
     criterion = DiceBCELoss(bce_weight=args.bce_weight, dice_weight=args.dice_weight)
     soft_cl = SoftclDiceLoss(num_iter=args.cl_dice_iters)
-    topo_loss = build_topology_loss(args.topology_loss)
+    try:
+        topo_loss = build_topology_loss(args.topology_loss,
+                                        resolution=args.topology_resolution)
+    except TypeError:
+        # 纯 torch 损失(decl 等)不收 resolution 参数
+        topo_loss = build_topology_loss(args.topology_loss)
     if topo_loss is not None:
         logging.info(f"Extra topology loss: {args.topology_loss} x {args.topology_loss_weight}")
     logging.info(f"Using DiceBCELoss with BCE weight: {args.bce_weight}, Dice weight: {args.dice_weight}")
@@ -277,6 +282,9 @@ if __name__ == '__main__':
                              'evaluate at 256 resolution (engine performance).')
     parser.add_argument('--topology_loss_weight', type=float, default=0.1,
                         help='Weight of the extra topology loss term')
+    parser.add_argument('--topology_resolution', type=int, default=256,
+                        help='Resolution for engine-based topology losses (betti/topograph 等); '
+                             '训练太慢可降到 128')
 
     # wandb monitoring (self-hosted server at 172.16.1.7; failures are non-fatal)
     parser.add_argument('--use_wandb', type=str2bool, default=True,

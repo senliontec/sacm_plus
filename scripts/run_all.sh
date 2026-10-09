@@ -40,8 +40,9 @@ TRAIN_SOURCES="${TRAIN_SOURCES:-datasets/DIS5K_train}"   # 架构研究层:DIS5K
 TEST_DATASETS="${TEST_DATASETS:-datasets/DRIVE_test datasets/DIS5K_test datasets/ThinObject5K}"
 RESULTS_ROOT="${RESULTS_ROOT:-results}"
 USE_WANDB="${USE_WANDB:-true}"
-TOPOLOGY_LOSS="${TOPOLOGY_LOSS:-none}"   # none | betti | decl | topograph | ...(18 个官方移植)
+TOPOLOGY_LOSS="${TOPOLOGY_LOSS:-topograph}"   # 默认 topograph:针对 β 碎片化瓶颈;none 关闭
 TOPOLOGY_LOSS_WEIGHT="${TOPOLOGY_LOSS_WEIGHT:-0.1}"
+TOPOLOGY_RESOLUTION="${TOPOLOGY_RESOLUTION:-256}"   # 引擎损失分辨率;训练太慢降 128
 FULL_DATA="${FULL_DATA:-true}"           # 架构研究层默认全量;3-shot 协议层设 FULL_DATA=false
 VAL_RATIO="${VAL_RATIO:-0.2}"
 DDP="${DDP:-true}"                       # true = torchrun 8 卡 DDP(全量训练);false = 单卡
@@ -118,6 +119,7 @@ if [ "$SKIP_TRAIN" -eq 0 ]; then
       --checkpoint "$CKPT" --epochs "$EPOCHS" --val_interval "$VAL_INTERVAL" --seed "$SEED" \
       --batch_size "$BATCH_SIZE" \
       --topology_loss "$TOPOLOGY_LOSS" --topology_loss_weight "$TOPOLOGY_LOSS_WEIGHT" \
+      --topology_resolution "$TOPOLOGY_RESOLUTION" \
       --use_wandb "$USE_WANDB" --save_path "$RESULTS_ROOT/$PRESET/best_model.pth")
   if [ "$DDP" = "true" ]; then
     NG="$(nvidia-smi -L 2>/dev/null | wc -l)"

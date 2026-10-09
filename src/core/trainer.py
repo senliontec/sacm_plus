@@ -180,6 +180,10 @@ class Trainer:
 
     def _validate(self, epoch):
         self.model.eval()
+        # 验证期在训练缓存之上叠加前向/指标,先清碎片避免 OOM 峰
+        # (epoch 5 实测出现过 2.5GB 分配失败)
+        if self.device.type == 'cuda':
+            torch.cuda.empty_cache()
         val_loss = 0.0
         all_pred_masks = []
         all_true_masks = []
@@ -187,13 +191,14 @@ class Trainer:
         metrics_acc = {}
         val_has_monitored = False
         vis_items = []  # (image, gt, pred) 供 wandb 可视化
+        VAL_ENGINE_IMGS = 50  # 引擎指标子集大小(均值估计,验证提速关键)
 
         val_pbar = tqdm(self.val_loader, total=len(self.val_loader),
                         desc=f"Epoch {epoch+1}/{self.args.epochs} [Val]",
                         disable=True)
 
         with torch.no_grad():
-            for images, masks in val_pbar:
+            for val_idx, (images, masks) in enumerate(val_pbar):
                 images = images.to(self.device)
                 masks = masks.to(self.device)
 
@@ -215,11 +220,14 @@ class Trainer:
                 # protocol), so the distance/topology metrics are cheap.
                 # The 4 optional extras (auc / persistence engines) are
                 # opt-in via CLI flags — they cost seconds per image.
+                # 引擎级指标(秒/图)只在前 50 张验证图上算:全量 600 张会
+                # 让验证 epoch 膨胀到 ~1 小时(实测 3271-3766s)
+                engine_subset = val_idx < VAL_ENGINE_IMGS
                 m = compute_metrics(
                     main_mask[0], masks[0],
-                    compute_auc=self.args.val_auc,
-                    compute_betti_matching=self.args.val_betti_matching,
-                    compute_topograph=self.args.val_topograph,
+                    compute_auc=self.args.val_auc and engine_subset,
+                    compute_betti_matching=self.args.val_betti_matching and engine_subset,
+                    compute_topograph=self.args.val_topograph and engine_subset,
                 )
                 val_cldice.append(m['cldice'])
                 # 保留 NaN 项(空预测时 HD/cD/β 无定义):均值会自然传播
