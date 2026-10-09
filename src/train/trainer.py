@@ -85,7 +85,10 @@ def train(args):
     if is_ddp:
         import torch.distributed as dist
         local_rank = int(os.environ['LOCAL_RANK'])
-        dist.init_process_group(backend='nccl')
+        # fencing-algs 模式:显式传入 device_id,barrier 等集合通信不再报
+        # "using the device under current context" 警告
+        dist.init_process_group(backend='nccl',
+                                device_id=torch.device(f'cuda:{local_rank}'))
         torch.cuda.set_device(local_rank)
         torch.cuda.manual_seed(args.seed)
         device = torch.device(f'cuda:{local_rank}')
