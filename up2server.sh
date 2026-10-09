@@ -30,8 +30,8 @@ if [ "$CODE_ONLY" -eq 1 ]; then
 else
   echo "Uploading ${SRC} → ${SERVER}:${TARGET} (code + checkpoint + data) ..."
 fi
-ssh "${SERVER}" "mkdir -p ${TARGET}"
 
+# 不再单独 ssh mkdir:rsync 会自动创建目标目录,这样全程只需输入一次密码
 rsync -avz --partial --info=progress2 --delete \
     "${EXCLUDES[@]}" \
     "${SRC}/" "${SERVER}:${TARGET}/"
