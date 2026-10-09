@@ -297,13 +297,19 @@ class Trainer:
             # 汇总。F1 用混淆计数跨卡汇总(与全量拼接后 sklearn F1 逐位
             # 等价);其余指标把每 rank 的累积字典/列表 gather 到 rank 0
             # 后 nanmean——任何 rank 都不再长时间阻塞于 NCCL。
-            pred_cat = torch.cat(all_pred_masks, dim=0) > 0
-            true_cat = torch.cat(all_true_masks, dim=0) > 0.5
+            if all_pred_masks:
+                pred_cat = torch.cat(all_pred_masks, dim=0) > 0
+                true_cat = torch.cat(all_true_masks, dim=0) > 0.5
+                tp = int((pred_cat & true_cat).sum())
+                fp = int((pred_cat & ~true_cat).sum())
+                fn = int((~pred_cat & true_cat).sum())
+            else:
+                # 验证集小于卡数时(如 3-shot 协议层)部分 rank 分片为空:
+                # 空分片贡献 0 计数,不参与 F1,其余指标列表同样为空
+                tp = fp = fn = 0
             payload = {
                 'loss_sum': float(val_loss), 'count': n_batches,
-                'tp': int((pred_cat & true_cat).sum()),
-                'fp': int((pred_cat & ~true_cat).sum()),
-                'fn': int((~pred_cat & true_cat).sum()),
+                'tp': tp, 'fp': fp, 'fn': fn,
                 'cldice': val_cldice, 'metrics': metrics_acc,
             }
             gathered = [None] * world_size

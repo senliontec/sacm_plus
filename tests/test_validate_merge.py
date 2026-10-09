@@ -67,3 +67,17 @@ def test_merge_across_uneven_shards():
     _, _, _, metrics = _merge_val_payloads([g0, g1])
     assert metrics['dice'] == pytest.approx(0.75)
     assert metrics['bm'] == pytest.approx(2.0)        # 只按存在分片平均
+
+
+def test_empty_shard_contributes_zero():
+    # 3-shot 协议层:验证集 < 卡数时,部分 rank 分片为空(0 张图),
+    # 空分片贡献 0 计数、不影响 F1 与其他指标
+    g_full = _payload(np.ones(10), np.ones(10), count=1, cldice=(0.9,),
+                      metrics={'dice': [1.0]})
+    g_empty = {'loss_sum': 0.0, 'count': 0, 'tp': 0, 'fp': 0, 'fn': 0,
+               'cldice': [], 'metrics': {}}
+    avg_loss, f1, cldice, metrics = _merge_val_payloads([g_full, g_empty])
+    assert f1 == pytest.approx(1.0)          # 只有非空分片参与 F1
+    assert avg_loss == pytest.approx(1.5)    # 1.5 / 1
+    assert cldice == pytest.approx(0.9)
+    assert metrics['dice'] == pytest.approx(1.0)
