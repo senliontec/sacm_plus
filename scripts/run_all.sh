@@ -29,7 +29,7 @@ fi
 ENV_NAME="${ENV_NAME:-tsai}"
 PRESET="${PRESET:-full}"
 EPOCHS="${EPOCHS:-20}"                   # 试水轮数;确认收敛后 EPOCHS=50 跑消融矩阵
-VAL_INTERVAL="${VAL_INTERVAL:-5}"        # 全量验证集 600 张,每 5 epoch 验一次
+VAL_INTERVAL="${VAL_INTERVAL:-1}"        # 每 epoch 验证(引擎指标已节流至 50 张,~3-5 分钟/次)
 SHOTS="${SHOTS:-3}"                      # 仅 FULL_DATA=false(3-shot 协议层)时生效
 VAL_SHOTS="${VAL_SHOTS:-1}"
 SEED="${SEED:-42}"
@@ -41,7 +41,7 @@ TEST_DATASETS="${TEST_DATASETS:-datasets/DRIVE_test datasets/DIS5K_test datasets
 RESULTS_ROOT="${RESULTS_ROOT:-results}"
 USE_WANDB="${USE_WANDB:-true}"
 TOPOLOGY_LOSS="${TOPOLOGY_LOSS:-topograph}"   # 默认 topograph:针对 β 碎片化瓶颈;none 关闭
-TOPOLOGY_LOSS_WEIGHT="${TOPOLOGY_LOSS_WEIGHT:-0.1}"
+TOPOLOGY_LOSS_WEIGHT="${TOPOLOGY_LOSS_WEIGHT:-0.002}"   # 0.002: topograph 原始量级~200,需对齐主损失 ~0.7(实测 0.1 时拓扑项占 97%)
 TOPOLOGY_RESOLUTION="${TOPOLOGY_RESOLUTION:-256}"   # 引擎损失分辨率;训练太慢降 128
 FULL_DATA="${FULL_DATA:-true}"           # 架构研究层默认全量;3-shot 协议层设 FULL_DATA=false
 VAL_RATIO="${VAL_RATIO:-0.2}"
