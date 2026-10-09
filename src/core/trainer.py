@@ -230,8 +230,8 @@ class Trainer:
                     compute_topograph=self.args.val_topograph and engine_subset,
                 )
                 val_cldice.append(m['cldice'])
-                # 保留 NaN 项(空预测时 HD/cD/β 无定义):均值会自然传播
-                # NaN,显示行保持列位稳定(见 print_metrics_row)
+                # 保留 NaN 项(空预测时 HD/cD/β 无定义):累积层不动,
+                # 聚合层用 nanmean 跳过 NaN(见下文),列位保持稳定
                 for k, v in m.items():
                     metrics_acc.setdefault(k, []).append(v)
                 # 拓扑损失监控:全部注册损失在当前预测上的值。
@@ -257,12 +257,14 @@ class Trainer:
             # 全部 NaN(空预测)时 nanmean 会打 "Mean of empty slice"
             warnings.simplefilter('ignore', RuntimeWarning)
             avg_val_cldice = float(np.nanmean(val_cldice)) if val_cldice else float('nan')
+            # nanmean 聚合:引擎指标子集(BM/TE/dAUC/cAh 只算前 50 张)里
+            # 单张 NaN(空 GT/空预测守卫)不再传染整列——此前 np.mean
+            # 导致 BM/TE 两列恒为 "—";全 NaN 时保持 NaN(显示 "—")
+            val_metrics = {k: float(np.nanmean(v)) for k, v in metrics_acc.items() if v}
         # 逐 epoch 的 val 数值全部由 rich 宽表呈现,不再刷 INFO 日志
 
         if self.args.scheduler == 'reduce':
             self.scheduler.step(avg_val_loss)
-
-        val_metrics = {k: float(np.mean(v)) for k, v in metrics_acc.items() if v}
 
         self._log_val_images(epoch, vis_items)
 

@@ -70,7 +70,8 @@ def topo_legend(topo_names):
 
 
 def _fmt(v):
-    """自适应精度:保证数值宽度 ≤ 5(大数自动降小数位)。"""
+    """自适应精度:保证数值宽度 ≤ 5(大数自动降小数位;小于 0.001
+    用科学计数法,避免学习率等小量被截成 0.000)。"""
     a = abs(v)
     if a >= 1000:
         return f'{v:.0f}'
@@ -78,7 +79,9 @@ def _fmt(v):
         return f'{v:.1f}'
     if a >= 10:
         return f'{v:.2f}'
-    return f'{v:.3f}'
+    if a >= 0.001 or a == 0:
+        return f'{v:.3f}'
+    return f'{v:.0e}'
 
 
 def _cell(v, w):
