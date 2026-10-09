@@ -71,6 +71,28 @@ fi
 step() { echo; echo "════════════════════════ $* ════════════════════════"; }
 fail() { echo "❌ $*" >&2; exit 1; }
 
+# 数据完整性校验:每张图必须有掩码,否则训练会在中途崩
+# (2026-10-09 教训:rsync --delete 曾在上传时删掉服务器掩码,ep2 才崩)
+check_split_integrity() {
+  local d="$1" split="$2" n_img n_msk missing=0 stem found
+  n_img=$(ls "$d/$split/images" 2>/dev/null | wc -l)
+  n_msk=$(ls "$d/$split/masks" 2>/dev/null | wc -l)
+  [ "$n_img" -gt 0 ] || fail "数据完整性校验失败: $d/$split/images 为空"
+  for f in "$d"/"$split"/images/*; do
+    [ -e "$f" ] || continue
+    stem="${f##*/}"; stem="${stem%.*}"
+    found=0
+    for ext in .png .jpg .jpeg .tif .tiff; do
+      [ -e "$d/$split/masks/$stem$ext" ] && { found=1; break; }
+    done
+    [ "$found" -eq 0 ] && missing=$((missing + 1))
+  done
+  if [ "$missing" -gt 0 ]; then
+    fail "数据完整性校验失败: $d/$split images=$n_img masks=$n_msk,缺掩码 $missing 张——恢复掩码或重跑 prepare_data 后再启动"
+  fi
+  echo "✅ 数据完整: $split images=$n_img masks=$n_msk"
+}
+
 # ---------------- 1. 环境 ----------------
 if [ "$SKIP_SETUP" -eq 0 ]; then
   step "1/5 环境: conda $ENV_NAME + 项目依赖"
@@ -110,6 +132,9 @@ else
   build_split
   echo "✅ 数据就绪"
 fi
+# 完整性校验(无论是否重建):images/masks 必须一一对应
+check_split_integrity "$SPLIT_ROOT" train
+check_split_integrity "$SPLIT_ROOT" val
 
 # ---------------- 3. 训练 ----------------
 if [ "$SKIP_TRAIN" -eq 0 ]; then
