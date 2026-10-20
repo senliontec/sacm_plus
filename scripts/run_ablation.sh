@@ -22,7 +22,7 @@ DRIVE_TEST_GT="${DRIVE_TEST_GT:-}"       # 可选:已核实的 DRIVE test 血管
 TEST_DATASETS="${TEST_DATASETS:-datasets/DIS5K_test datasets/ThinObject5K}"
 # DRIVE_test 默认不加入:官方 test/mask 是 FOV,不是血管 GT。
 # 用 DRIVE_train 的 3/17 留出划分,或提供 DRIVE_TEST_GT 后再显式加入 TEST_DATASETS。
-PRESETS="${PRESETS:-sacm stage1 stage2 full no_geo_i no_geo_e no_c2f no_fusion_v2 no_multi_depth no_cl no_ds no_iou geo_e_shallow geo_e_deep}"
+PRESETS="${PRESETS:-sacm stage1 stage2 full full_wta full_allhead no_geo_i no_geo_e no_c2f no_fusion_v2 no_multi_depth no_cl no_ds no_iou geo_e_shallow geo_e_deep}"
 EPOCHS="${EPOCHS:-50}"
 VAL_INTERVAL="${VAL_INTERVAL:-5}"
 SEED="${SEED:-42}"
@@ -31,6 +31,11 @@ TTA="${TTA:-}"
 DDP="${DDP:-true}"   # true = 每个预设用全部 GPU 做 DDP 顺序跑(全量数据推荐);
                     # false = run_experiments 任务级并行(每卡一个 job,3-shot 协议用)
 BATCH_SIZE="${BATCH_SIZE:-1}"   # 每卡 batch:3090 24GB 实测 2 会 OOM;DDP 有效 batch = 卡数 × 此值
+SELECTION="${SELECTION:-auto}"           # auto: iou only when iou_loss_weight>0, else gating
+PRED_THRESHOLD="${PRED_THRESHOLD:-0.0}"  # logits; SACM fidelity uses 0.5
+GROUP_REGEX="${GROUP_REGEX:-}"           # space-separated NAME:REGEX; patient/volume grouping
+CLEAN_SPLIT="${CLEAN_SPLIT:-true}"       # clear train/val before writing the split
+MAKE_TEST="${MAKE_TEST:-true}"           # also write group-disjoint test/ for Seen
 
 cd "$(dirname "$0")/.."
 
@@ -59,9 +64,19 @@ fi
 if [ -f "$SPLIT_ROOT/split_manifest.csv" ]; then
   echo "⚠️  $SPLIT_ROOT 已存在,跳过采样"
 else
+  read -ra GROUP_SPECS <<< "$GROUP_REGEX"
+  GROUP_ARGS=()
+  for spec in "${GROUP_SPECS[@]}"; do
+    [ -n "$spec" ] && GROUP_ARGS+=(--group_regex "$spec")
+  done
+  CLEAN_ARG=()
+  [ "$CLEAN_SPLIT" = "true" ] && CLEAN_ARG=(--clean)
+  TEST_ARG=()
+  [ "$MAKE_TEST" = "true" ] && TEST_ARG=(--make_test)
   # shellcheck disable=SC2086
   python scripts/prepare_data.py --train_dirs $TRAIN_SOURCES \
-      --shots 3 --val_shots 1 --out_dir "$SPLIT_ROOT" --seed "$SEED"
+      --shots 3 --val_shots 1 --out_dir "$SPLIT_ROOT" --seed "$SEED" \
+      "${GROUP_ARGS[@]}" "${CLEAN_ARG[@]}" "${TEST_ARG[@]}"
 fi
 
 echo "══════════ 2/4 多卡消融调度 ══════════"
@@ -80,6 +95,7 @@ if [ "$DDP" = "true" ]; then
           --preset "$p" --data_root "$SPLIT_ROOT" --checkpoint "$CKPT" \
           --epochs "$EPOCHS" --val_interval "$VAL_INTERVAL" --seed "$SEED" \
           --batch_size "$BATCH_SIZE" \
+          --val_selection "$SELECTION" --pred_threshold "$PRED_THRESHOLD" \
           --use_wandb true --save_path "$RESULTS_ROOT/$p/best_model.pth"
     fi
     for ds in $TEST_DATASETS; do
@@ -91,7 +107,8 @@ if [ "$DDP" = "true" ]; then
       echo "── 评测 $p @ $(basename "$ds")"
       python src/eval/evaluate.py --preset "$p" --data_root "$ds" \
           --trained_weights "$RESULTS_ROOT/$p/best_model.pth" \
-          --output_dir "$RESULTS_ROOT/$p/$(basename "$ds")" --selection iou \
+          --output_dir "$RESULTS_ROOT/$p/$(basename "$ds")" \
+          --selection "$SELECTION" --pred_threshold "$PRED_THRESHOLD" \
           --use_wandb true
     done
   done
@@ -118,6 +135,7 @@ else
       --presets $PRESETS \
       --output_root "$RESULTS_ROOT" \
       --epochs "$EPOCHS" --val_interval "$VAL_INTERVAL" --seed "$SEED" \
+      --selection "$SELECTION" --pred_threshold "$PRED_THRESHOLD" \
       $EXTRA
 fi
 

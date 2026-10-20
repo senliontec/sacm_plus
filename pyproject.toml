@@ -34,6 +34,12 @@ topology = [
     "POT",
     "opencv-python",
     "monai",
+    "cripser",
+    # tcripser (T-construction binding) is not on PyPI; install it from
+    # the official CubicalRipser repo when topo_tcripser is needed.
+]
+data = [
+    "h5py",  # CREMI HDF5 conversion in scripts/organize_datasets.py
 ]
 dev = [
     "pytest",

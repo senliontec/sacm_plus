@@ -23,8 +23,12 @@ Usage:
 """
 
 import argparse
+import gzip
+import io
 import os
 import shutil
+import tarfile
+import zipfile
 
 import numpy as np
 from PIL import Image
@@ -299,9 +303,15 @@ def organize_drive(src, out_root, drive_test_gt=None):
         if n != n_img:
             print(f"[DRIVE] 警告: test images={n_img}, GT pairs={n};"
                   " 缺 GT 的图不会被评测")
+        readme = os.path.join(test_root, 'README.md')
+        if os.path.exists(readme):
+            os.remove(readme)  # stale "masks absent" note
         total += n
     elif _mask_dir_is_vessel_like(os.path.join(test_root, 'masks')):
         print("[DRIVE] DRIVE_test: 保留已有的血管 GT masks/")
+        readme = os.path.join(test_root, 'README.md')
+        if os.path.exists(readme):
+            os.remove(readme)
     else:
         print(f"[DRIVE] DRIVE_test: images/{n_img} 张 + fov/{n_fov} 张;"
               " 官方 test/mask 是 FOV,不是 GT,因此不生成 masks/")
@@ -310,6 +320,245 @@ def organize_drive(src, out_root, drive_test_gt=None):
     for msg in rejected[:3]:
         print(f"[DRIVE] 忽略无效测试 GT: {msg}")
     return total
+
+
+def _find_dir_with(src, predicate):
+    for root, _, files in os.walk(src):
+        if predicate(root, files):
+            return root
+    return None
+
+
+def _save_rgb(img, dst):
+    img.convert('RGB').save(dst)
+
+
+def _save_binary(img, dst):
+    arr = np.array(img.convert('L'))
+    Image.fromarray(((arr > 0) * 255).astype(np.uint8)).save(dst)
+
+
+def _tar_image(tar, name):
+    f = tar.extractfile(name)
+    if f is None:
+        return None
+    data = f.read()
+    if name.endswith('.gz'):
+        data = gzip.decompress(data)
+    return Image.open(io.BytesIO(data))
+
+
+def organize_dca1(src, out_root):
+    """DCA1 Database_134_Angiograms -> DCA1/images + DCA1/masks."""
+    pair_dir = _find_dir_with(
+        src, lambda r, fs: any(f.endswith('_gt.pgm') for f in fs))
+    if pair_dir is None:
+        raise ValueError(f"DCA1: no *_gt.pgm pairs found under {src}")
+    out = os.path.join(out_root, 'DCA1')
+    os.makedirs(os.path.join(out, 'images'), exist_ok=True)
+    os.makedirs(os.path.join(out, 'masks'), exist_ok=True)
+    n = 0
+    for gt_name in sorted(os.listdir(pair_dir)):
+        if not gt_name.endswith('_gt.pgm'):
+            continue
+        idx = gt_name[:-len('_gt.pgm')]
+        img_path = os.path.join(pair_dir, idx + '.pgm')
+        gt_path = os.path.join(pair_dir, gt_name)
+        if not os.path.exists(img_path):
+            continue
+        _save_rgb(Image.open(img_path), os.path.join(out, 'images', idx + '.png'))
+        convert_to_binary_png(gt_path, os.path.join(out, 'masks', idx + '.png'))
+        n += 1
+    print(f"[DCA1] {n} 对")
+    return n
+
+
+def organize_stare(src, out_root, label_set='ah'):
+    """STARE tar archives -> STARE/images + STARE/masks (ah by default)."""
+    root = _find_dir_with(src, lambda r, fs: 'stare-images.tar' in fs)
+    if root is None:
+        raise ValueError(f"STARE: stare-images.tar not found under {src}")
+    img_tar = os.path.join(root, 'stare-images.tar')
+    label_tar = os.path.join(root, f'labels-{label_set}.tar')
+    if not os.path.exists(label_tar):
+        label_tar = os.path.join(root, 'labels-vk.tar')
+    if not os.path.exists(label_tar):
+        raise ValueError(f"STARE: no labels-{label_set}.tar / labels-vk.tar")
+    out = os.path.join(out_root, 'STARE')
+    os.makedirs(os.path.join(out, 'images'), exist_ok=True)
+    os.makedirs(os.path.join(out, 'masks'), exist_ok=True)
+
+    images = {}
+    with tarfile.open(img_tar, 'r:*') as tar:
+        for m in tar.getmembers():
+            if not m.isfile():
+                continue
+            key = os.path.basename(m.name).split('.')[0]
+            img = _tar_image(tar, m.name)
+            if img is not None:
+                images[key] = img
+    labels = {}
+    with tarfile.open(label_tar, 'r:*') as tar:
+        for m in tar.getmembers():
+            if not m.isfile():
+                continue
+            key = os.path.basename(m.name).split('.')[0]
+            img = _tar_image(tar, m.name)
+            if img is not None:
+                labels[key] = img
+    n = 0
+    for key in sorted(images):
+        if key not in labels:
+            continue
+        _save_rgb(images[key], os.path.join(out, 'images', key + '.png'))
+        _save_binary(labels[key], os.path.join(out, 'masks', key + '.png'))
+        n += 1
+    print(f"[STARE] {n} 对 (labels {os.path.basename(label_tar)})")
+    return n
+
+
+def _chase_mask_for(base, root):
+    for suffix in ('_1stHO.png', '_2ndHO.png'):
+        p = os.path.join(root, base + suffix)
+        if os.path.exists(p):
+            return p
+    return None
+
+
+def organize_chasedb1(src, out_root):
+    """Extracted CHASEDB1 -> CHASEDB1/images + masks (1stHO preferred)."""
+    root = _find_dir_with(
+        src, lambda r, fs: any(f.endswith('_1stHO.png') for f in fs))
+    if root is None:
+        raise ValueError(f"CHASEDB1: no *_1stHO.png found under {src}")
+    out = os.path.join(out_root, 'CHASEDB1')
+    os.makedirs(os.path.join(out, 'images'), exist_ok=True)
+    os.makedirs(os.path.join(out, 'masks'), exist_ok=True)
+    n = 0
+    for f in sorted(os.listdir(root)):
+        if not f.lower().endswith(('.jpg', '.jpeg', '.png')):
+            continue
+        if '_1stHO' in f or '_2ndHO' in f:
+            continue
+        base = os.path.splitext(f)[0]
+        mask = _chase_mask_for(base, root)
+        if mask is None:
+            continue
+        _save_rgb(Image.open(os.path.join(root, f)),
+                  os.path.join(out, 'images', base + '.png'))
+        _save_binary(Image.open(mask),
+                     os.path.join(out, 'masks', base + '.png'))
+        n += 1
+    print(f"[CHASEDB1] {n} 对")
+    return n
+
+
+def organize_chasedb1_zip(zip_path, out_root):
+    """CHASEDB1.zip -> CHASEDB1/images + masks without manual extraction."""
+    out = os.path.join(out_root, 'CHASEDB1')
+    if os.path.isdir(os.path.join(out, 'images')) and \
+            os.listdir(os.path.join(out, 'images')):
+        print("[skip] CHASEDB1.zip: CHASEDB1 已存在")
+        return 0
+    os.makedirs(os.path.join(out, 'images'), exist_ok=True)
+    os.makedirs(os.path.join(out, 'masks'), exist_ok=True)
+    n = 0
+    with zipfile.ZipFile(zip_path) as z:
+        names = z.namelist()
+        by_base = {os.path.basename(n): n for n in names}
+        for name in names:
+            base_name = os.path.basename(name)
+            if not base_name.lower().endswith(('.jpg', '.jpeg', '.png')):
+                continue
+            if '_1stHO' in base_name or '_2ndHO' in base_name:
+                continue
+            base = os.path.splitext(base_name)[0]
+            mask_name = by_base.get(base + '_1stHO.png') or \
+                by_base.get(base + '_2ndHO.png')
+            if mask_name is None:
+                continue
+            img = Image.open(io.BytesIO(z.read(name)))
+            mask = Image.open(io.BytesIO(z.read(mask_name)))
+            _save_rgb(img, os.path.join(out, 'images', base + '.png'))
+            _save_binary(mask, os.path.join(out, 'masks', base + '.png'))
+            n += 1
+    print(f"[CHASEDB1.zip] {n} 对")
+    return n
+
+
+def organize_fives(src, out_root):
+    """FIVES train/test Original+Ground truth -> FIVES_train/FIVES_test."""
+    root = _find_dir_with(
+        src,
+        lambda r, fs: os.path.isdir(os.path.join(r, 'train', 'Original'))
+        and os.path.isdir(os.path.join(r, 'test', 'Original')))
+    if root is None:
+        raise ValueError(f"FIVES: train/Original + test/Original not found under {src}")
+    total = 0
+    for split, out_name in (('train', 'FIVES_train'), ('test', 'FIVES_test')):
+        img_dir = os.path.join(root, split, 'Original')
+        gt_dir = os.path.join(root, split, 'Ground truth')
+        out = os.path.join(out_root, out_name)
+        if os.path.isdir(os.path.join(out, 'images')) and \
+                os.listdir(os.path.join(out, 'images')):
+            print(f"[skip] {out_name}: 已存在")
+            continue
+        os.makedirs(os.path.join(out, 'images'), exist_ok=True)
+        os.makedirs(os.path.join(out, 'masks'), exist_ok=True)
+        n = 0
+        for f in sorted(os.listdir(img_dir)):
+            if not f.lower().endswith('.png'):
+                continue
+            img = os.path.join(img_dir, f)
+            gt = os.path.join(gt_dir, f)
+            if not os.path.exists(gt):
+                continue
+            # FIVES images are already PNG; copying is much faster than
+            # re-encoding 800 2048x2048 images.
+            copy_image(img, os.path.join(out, 'images', f))
+            _save_binary(Image.open(gt), os.path.join(out, 'masks', f))
+            n += 1
+        print(f"[FIVES] {out_name}: {n} 对")
+        total += n
+    return total
+
+
+def organize_cremi(src, out_root):
+    """CREMI HDF5 -> CREMI/images + CREMI/masks (curvilinear boundary)."""
+    hdfs = []
+    for root, _, files in os.walk(src):
+        for f in files:
+            if f.endswith('.hdf') and 'padded' not in f:
+                hdfs.append(os.path.join(root, f))
+    if not hdfs:
+        raise ValueError(f"CREMI: no unpadded .hdf found under {src}")
+    try:
+        import h5py
+    except ImportError as e:
+        raise ImportError("CREMI conversion requires h5py: pip install h5py") from e
+    out = os.path.join(out_root, 'CREMI')
+    os.makedirs(os.path.join(out, 'images'), exist_ok=True)
+    os.makedirs(os.path.join(out, 'masks'), exist_ok=True)
+    n = 0
+    for hdf in sorted(hdfs):
+        stem = os.path.basename(hdf)[:-4]
+        sample = stem.split('_2016')[0]
+        with h5py.File(hdf, 'r') as f:
+            raw = f['volumes/raw']
+            nid = f['volumes/labels/neuron_ids']
+            for z in range(raw.shape[0]):
+                img = np.asarray(raw[z], dtype=np.uint8)
+                lab = np.asarray(nid[z])
+                boundary = np.zeros_like(lab, dtype=bool)
+                boundary[:, :-1] |= lab[:, :-1] != lab[:, 1:]
+                boundary[:-1, :] |= lab[:-1, :] != lab[1:, :]
+                name = f'{sample}_z{z:03d}.png'
+                Image.fromarray(img).save(os.path.join(out, 'images', name))
+                Image.fromarray((boundary * 255).astype(np.uint8)).save(
+                    os.path.join(out, 'masks', name))
+                n += 1
+    print(f"[CREMI] {n} 对")
+    return n
 
 
 def organize_dis5k(src, out_root):
@@ -362,6 +611,11 @@ def main():
 
     os.makedirs(args.out, exist_ok=True)
     total = 0
+    # Zip-only CHASEDB1 is common; read it without manual extraction.
+    for name in sorted(os.listdir(args.src)):
+        p = os.path.join(args.src, name)
+        if os.path.isfile(p) and name.lower() == 'chasedb1.zip':
+            total += organize_chasedb1_zip(p, args.out)
     for name in sorted(os.listdir(args.src)):
         src = os.path.join(args.src, name)
         if not os.path.isdir(src) or name.startswith('.'):
@@ -382,6 +636,18 @@ def main():
                 print(f"[skip] {name}: DIS5K_* 已存在")
                 continue
             total += organize_dis5k(src, args.out)
+        elif _find_dir_with(src, lambda r, fs: any(f.endswith('_gt.pgm') for f in fs)):
+            total += organize_dca1(src, args.out)
+        elif _find_dir_with(src, lambda r, fs: 'stare-images.tar' in fs):
+            total += organize_stare(src, args.out)
+        elif _find_dir_with(src, lambda r, fs: any(f.endswith('_1stHO.png') for f in fs)):
+            total += organize_chasedb1(src, args.out)
+        elif _find_dir_with(
+                src, lambda r, fs: os.path.isdir(os.path.join(r, 'train', 'Original'))
+                and os.path.isdir(os.path.join(r, 'test', 'Original'))):
+            total += organize_fives(src, args.out)
+        elif _find_dir_with(src, lambda r, fs: any(f.endswith('.hdf') for f in fs)):
+            total += organize_cremi(src, args.out)
         else:
             print(f"[unknown] {name}: 无法识别的布局,跳过")
     print(f"\n完成: 共整理 {total} 对 → {args.out}")

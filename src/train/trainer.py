@@ -9,10 +9,10 @@ Usage:
         --data_root <root> --checkpoint <sam.pth>
 """
 
-import os
-import random
 import argparse
 import logging
+import os
+import random
 import sys
 from datetime import datetime
 
@@ -27,13 +27,13 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 
 import models  # noqa: F401  (registers every model family's ModelSpecs)
-from core.wandb_utils import WANDB_API_KEY_DEFAULT
-from models.sacm.configs import PRESETS, apply_preset, str2bool
 from core.augmentation import JointAugment
-from core.data import SegmentationDataset
-from core.losses import DiceBCELoss, SoftclDiceLoss, TOPOLOGY_LOSS_REGISTRY, build_topology_loss
+from core.data import SegmentationDataset, TestDataset
+from core.losses import TOPOLOGY_LOSS_REGISTRY, DiceBCELoss, SoftclDiceLoss, build_topology_loss
 from core.registry import MODEL_REGISTRY, get_model_spec
 from core.trainer import Trainer
+from core.wandb_utils import WANDB_API_KEY_DEFAULT
+from models.sacm.configs import PRESETS, apply_preset, str2bool
 
 
 def setup_logging(args):
@@ -159,7 +159,9 @@ def train(args):
         logging.info("Joint augmentation disabled")
 
     train_dataset = SegmentationDataset(args.data_root, 'train', transform, augment=augment)
-    val_dataset = SegmentationDataset(args.data_root, 'val', transform, augment=None)
+    # Validation keeps GT at its ORIGINAL resolution so val HD95/clDice/NSD
+    # are directly comparable to test metrics (not 1024-space metrics).
+    val_dataset = TestDataset(args.data_root, split='val')
 
     train_sampler = None
     val_sampler = None
@@ -173,7 +175,8 @@ def train(args):
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size,
                               shuffle=(train_sampler is None), sampler=train_sampler,
                               num_workers=4)
-    val_loader = DataLoader(val_dataset, batch_size=args.batch_size,
+    # Variable original GT sizes: batch_size must be 1 for validation.
+    val_loader = DataLoader(val_dataset, batch_size=1,
                             shuffle=False, sampler=val_sampler, num_workers=4)
 
     logging.info(f"Training dataset size: {len(train_dataset)}")
@@ -270,15 +273,23 @@ if __name__ == '__main__':
 
     # Auxiliary losses
     parser.add_argument('--deep_sup_weight', type=float, default=0.3, help='Weight of Stage-1 deep supervision (all heads)')
-    parser.add_argument('--stage2_supervision', type=str, default='wta',
+    parser.add_argument('--stage2_supervision', type=str, default='soft',
                         choices=['wta', 'allhead', 'soft'],
-                        help='Stage-2 candidate supervision: wta (original winner-take-all), '
+                        help='Stage-2 candidate supervision: soft (default D8 fix; '
+                             'uniform + IoU-softmax mixture, all candidates get gradient), '
                              'allhead (mean over all candidates; may collapse), '
-                             'soft (uniform + IoU-softmax mixture; all candidates get gradient)')
+                             'wta (original winner-take-all; baseline/ablation only)')
     parser.add_argument('--soft_select_mix', type=float, default=0.5,
                         help='soft mode: uniform/(IoU-softmax) mixture; 0=uniform all-head, 1=trust IoU head')
     parser.add_argument('--soft_select_tau', type=float, default=1.0,
                         help='soft mode: temperature for softmax(iou_pred / tau)')
+    parser.add_argument('--val_selection', type=str, default='auto',
+                        choices=['auto', 'iou', 'gating'],
+                        help='Mask used for validation/checkpoint selection: '
+                             'auto -> iou when iou_loss_weight>0, else gating')
+    parser.add_argument('--pred_threshold', type=float, default=0.0,
+                        help='Logit threshold for validation F1/metrics; keep equal '
+                             'to evaluation --pred_threshold')
     parser.add_argument('--cl_dice_weight', type=float, default=0.5, help='Max weight of the differentiable clDice loss')
     parser.add_argument('--cl_dice_warmup', type=int, default=10, help='Epochs before the clDice loss activates')
     parser.add_argument('--cl_dice_ramp', type=int, default=5, help='Epochs for the clDice weight to ramp to its max')

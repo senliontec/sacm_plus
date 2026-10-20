@@ -68,10 +68,15 @@ def test_missing_test_gt_keeps_fov_out_of_masks(tmp_path):
 def test_valid_test_gt_builds_masks(tmp_path):
     src = _make_drive(tmp_path, valid_test_gt=True)
     out = tmp_path / 'out'
+    stale = out / 'DRIVE_test/README.md'
+    stale.parent.mkdir(parents=True, exist_ok=True)
+    stale.write_text('stale: masks absent')
+
     od.organize_drive(str(src), str(out))
 
     mask = out / 'DRIVE_test/masks/01_test.png'
     assert mask.exists()
+    assert not stale.exists()
     ratio = od.mask_foreground_ratio(str(mask))
     assert 0.005 <= ratio <= 0.30
 

@@ -17,8 +17,8 @@ Usage:
 Options:
     --skip_train   only run the test step (checkpoints must exist)
     --skip_test    only run the training step
-    --selection    mask selection; default: 'gating' for the sacm preset
-                   (original behavior), 'iou' otherwise
+    --selection    mask selection; default: 'auto' (iou iff the preset
+                   trains the IoU head, else gating/original behavior)
 """
 
 import argparse
@@ -34,7 +34,7 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC_DIR = os.path.join(REPO_ROOT, 'src')
 sys.path.insert(0, SRC_DIR)
 
-from models.sacm.configs import PRESETS
+from models.sacm.configs import PRESETS  # noqa: E402
 
 
 def build_commands(args, preset, dataset, test_dir, job_dir):
@@ -53,7 +53,11 @@ def build_commands(args, preset, dataset, test_dir, job_dir):
     if args.extra_train_args:
         train_cmd += args.extra_train_args.split()
 
-    sel = args.selection or ('gating' if preset == 'sacm' else 'iou')
+    iou_weight = PRESETS.get(preset, {}).get('iou_loss_weight', 0.0)
+    sel = args.selection or (
+        'iou' if float(iou_weight or 0.0) > 0 else 'gating')
+    train_cmd += ['--val_selection', sel,
+                  '--pred_threshold', str(args.pred_threshold)]
     test_cmd = [
         sys.executable, os.path.join(SRC_DIR, 'eval', 'evaluate.py'),
         '--preset', preset,
@@ -61,6 +65,7 @@ def build_commands(args, preset, dataset, test_dir, job_dir):
         '--trained_weights', ckpt_path,
         '--output_dir', job_dir,
         '--selection', sel,
+        '--pred_threshold', str(args.pred_threshold),
     ]
     if args.tta:
         test_cmd.append('--tta')
@@ -143,7 +148,10 @@ def main():
     parser.add_argument('--val_interval', type=int, default=10)
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--selection', type=str, default=None,
-                        help="Override mask selection ('iou' or 'gating')")
+                        help="Override mask selection ('iou' or 'gating'); "
+                             "default: iou iff preset trains the IoU head, else gating")
+    parser.add_argument('--pred_threshold', type=float, default=0.0,
+                        help='Logit binarization threshold; SACM fidelity uses 0.5')
     parser.add_argument('--tta', action='store_true', help='Enable four-way flip TTA at test time')
     parser.add_argument('--skip_train', action='store_true')
     parser.add_argument('--skip_test', action='store_true')

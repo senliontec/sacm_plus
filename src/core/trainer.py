@@ -10,7 +10,6 @@ extra topology loss; gradient clipping; best-F1 checkpoint selection).
 import json
 import logging
 import os
-import sys
 import time
 import warnings
 
@@ -21,6 +20,7 @@ from sklearn.metrics import f1_score
 from tqdm import tqdm
 
 from core.console import console, epoch_header, epoch_row, topo_legend
+from core.evaluator import resolve_selection
 from core.losses.monitor import topology_loss_monitor
 from core.losses.registry import TOPOLOGY_LOSS_REGISTRY
 from core.metrics import compute_metrics
@@ -114,6 +114,11 @@ class Trainer:
         self.is_ddp = is_ddp
         self.train_sampler = train_sampler
         self.best_f1_score = 0.0
+        if getattr(args, 'stage2_supervision', 'soft') == 'wta' and self._rank0:
+            logging.warning(
+                "D8: stage2_supervision='wta' — only the gating champion "
+                "Stage-2 head receives mask loss. Use 'soft' (default) or "
+                "'allhead' unless running the D8 baseline/ablation.")
 
     @property
     def _rank0(self):
@@ -162,7 +167,7 @@ class Trainer:
             # allhead : all Stage-2 mask heads (diversity may collapse)
             # soft    : detached uniform + IoU-softmax mixture; every head
             #           gets gradient while the IoU head is trained separately
-            stage2_mode = getattr(self.args, 'stage2_supervision', 'wta')
+            stage2_mode = getattr(self.args, 'stage2_supervision', 'soft')
             if stage2_mode == 'wta':
                 main_mask = m2[:, 0:1]
                 aux_mask = main_mask
@@ -255,13 +260,16 @@ class Trainer:
         fast_val = bool(getattr(self.args, 'fast_val', False))
         val_loss = 0.0
         n_batches = 0
-        all_pred_masks = []
-        all_true_masks = []
+        tp = fp = fn = 0
         val_cldice = []
         metrics_acc = {}
         val_has_monitored = False
         vis_items = []  # (image, gt, pred) 供 wandb 可视化
         VAL_ENGINE_IMGS = 50  # 引擎指标子集大小(均值估计,验证提速关键)
+        val_selection = getattr(self.args, 'val_selection', 'auto')
+        val_selection = resolve_selection(
+            val_selection, getattr(self.args, 'iou_loss_weight', 0.0))
+        pred_threshold = float(getattr(self.args, 'pred_threshold', 0.0))
 
         # DDP 分布式验证(fencing-algs 模式):验证集由 DistributedSampler
         # 分片,每 rank 只算 600/8≈75 张,指标 gather 到 rank 0 汇总。
@@ -281,36 +289,49 @@ class Trainer:
                         disable=True)
 
         with torch.no_grad():
-            for val_idx, (images, masks) in enumerate(val_pbar):
+            for val_idx, (images, masks, original_size, _img_name) in enumerate(val_pbar):
                 images = images.to(self.device)
                 masks = masks.to(self.device)
 
-                masks_stage2, iou_pred, masks_stage1 = self._forward(images)
+                masks_stage2, iou_pred, _masks_stage1 = self._forward(images)
 
-                masks = F.interpolate(masks, size=(1024, 1024), mode='bilinear', align_corners=False)
-                m2 = F.interpolate(masks_stage2, size=(1024, 1024), mode='bilinear', align_corners=False)
-                main_mask = m2[:, 0:1]
+                # Select at decoder resolution, then restore the ORIGINAL GT
+                # size before loss/metrics — the same path as test evaluation.
+                if val_selection == 'iou':
+                    idx = iou_pred.argmax(dim=1)
+                    gather = idx[:, None, None, None].expand(
+                        -1, 1, masks_stage2.shape[2], masks_stage2.shape[3])
+                    main_mask = torch.gather(masks_stage2, 1, gather)
+                else:
+                    main_mask = masks_stage2[:, 0:1]
+
+                width, height = original_size
+                width = width.item() if torch.is_tensor(width) else int(width)
+                height = height.item() if torch.is_tensor(height) else int(height)
+                main_mask = F.interpolate(
+                    main_mask, size=(height, width),
+                    mode='bilinear', align_corners=False)
 
                 loss = self.criterion(main_mask, masks)
                 val_loss += loss.item()
                 n_batches += 1
                 val_pbar.set_postfix({'loss': loss.item()})
 
-                all_pred_masks.append(main_mask)
-                all_true_masks.append(masks)
+                pred_bin = main_mask[0, 0] > pred_threshold
+                true_bin = masks[0, 0] > 0.5
+                tp += int((pred_bin & true_bin).sum())
+                fp += int((pred_bin & ~true_bin).sum())
+                fn += int((~pred_bin & true_bin).sum())
 
                 if not fast_val:
-                    # Full metric suite on the binarized main mask. The
+                    # Full metric suite on the ORIGINAL-size main mask. The
                     # few-shot val sets are tiny (6 images in the 3-shot
                     # protocol), so the distance/topology metrics are cheap.
-                    # The 4 optional extras (auc / persistence engines) are
-                    # opt-in via CLI flags — they cost seconds per image.
-                    # 引擎级指标(秒/图)只在前 50 张验证图上算:全量 600 张会
-                    # 让验证 epoch 膨胀到 ~1 小时(实测 3271-3766s)。
-                    # DDP 分片后仍由 rank 0 在其本地前 50 张上算(总预算不变)。
+                    # 引擎级指标(秒/图)只在前 50 张验证图上算。
                     engine_subset = (rank == 0) and (val_idx < VAL_ENGINE_IMGS)
                     m = compute_metrics(
                         main_mask[0], masks[0],
+                        threshold=pred_threshold,
                         compute_auc=self.args.val_auc and engine_subset,
                         compute_betti_matching=self.args.val_betti_matching and engine_subset,
                         compute_topograph=self.args.val_topograph and engine_subset,
@@ -330,7 +351,10 @@ class Trainer:
                         for k, v in topology_loss_monitor(m128, t128, resolution=64).items():
                             metrics_acc.setdefault(f'topo_{k}', []).append(v)
                 if len(vis_items) < 3:
-                    vis_items.append((images[0].detach().cpu(),
+                    vis_img = F.interpolate(
+                        images[0:1], size=masks.shape[-2:],
+                        mode='bilinear', align_corners=False)[0]
+                    vis_items.append((vis_img.detach().cpu(),
                                       masks[0].detach().cpu(),
                                       main_mask[0].detach().cpu()))
 
@@ -339,16 +363,8 @@ class Trainer:
             # 汇总。F1 用混淆计数跨卡汇总(与全量拼接后 sklearn F1 逐位
             # 等价);其余指标把每 rank 的累积字典/列表 gather 到 rank 0
             # 后 nanmean——任何 rank 都不再长时间阻塞于 NCCL。
-            if all_pred_masks:
-                pred_cat = torch.cat(all_pred_masks, dim=0) > 0
-                true_cat = torch.cat(all_true_masks, dim=0) > 0.5
-                tp = int((pred_cat & true_cat).sum())
-                fp = int((pred_cat & ~true_cat).sum())
-                fn = int((~pred_cat & true_cat).sum())
-            else:
-                # 验证集小于卡数时(如 3-shot 协议层)部分 rank 分片为空:
-                # 空分片贡献 0 计数,不参与 F1,其余指标列表同样为空
-                tp = fp = fn = 0
+            # 验证集小于卡数时(如 3-shot 协议层)部分 rank 分片为空:
+            # 空分片贡献 0 计数,不参与 F1,其余指标列表同样为空。
             payload = {
                 'loss_sum': float(val_loss), 'count': n_batches,
                 'tp': tp, 'fp': fp, 'fn': fn,
@@ -360,9 +376,8 @@ class Trainer:
                 return None, None, None, None
             avg_val_loss, f1, avg_val_cldice, val_metrics = _merge_val_payloads(gathered)
         else:
-            all_pred_masks = torch.cat(all_pred_masks, dim=0)
-            all_true_masks = torch.cat(all_true_masks, dim=0)
-            f1 = calculate_f1_score(all_pred_masks, all_true_masks)
+            denom = 2 * tp + fp + fn
+            f1 = 2 * tp / denom if denom > 0 else 0.0
             avg_val_loss = val_loss / max(n_batches, 1)
             with warnings.catch_warnings():
                 # 全部 NaN(空预测)时 nanmean 会打 "Mean of empty slice"
@@ -399,6 +414,16 @@ class Trainer:
                     'use_fusion_v2': self.args.use_fusion_v2,
                     'use_multi_depth': self.args.use_multi_depth,
                     'adapter_dim_ratio': self.args.adapter_dim_ratio,
+                    'stage2_supervision': getattr(self.args, 'stage2_supervision', 'soft'),
+                    'soft_select_mix': getattr(self.args, 'soft_select_mix', 0.5),
+                    'soft_select_tau': getattr(self.args, 'soft_select_tau', 1.0),
+                    'iou_loss_weight': self.args.iou_loss_weight,
+                    'pred_threshold': getattr(self.args, 'pred_threshold', 0.0),
+                    'val_selection': getattr(self.args, 'val_selection', 'auto'),
+                    'deep_sup_weight': self.args.deep_sup_weight,
+                    'cl_dice_weight': self.args.cl_dice_weight,
+                    'topology_loss': self.args.topology_loss,
+                    'topology_loss_weight': self.args.topology_loss_weight,
                 },
             }, self.args.save_path)
             logging.info(f'👍New best model saved with F1 score: {self.best_f1_score:.4f}')
@@ -414,6 +439,7 @@ class Trainer:
             import matplotlib
             matplotlib.use('Agg')
             import matplotlib.pyplot as plt
+
             import wandb
 
             n = len(items)
@@ -446,11 +472,13 @@ class Trainer:
             'new_module_lr': self.args.new_module_lr,
             'decoder_lr': self.args.decoder_lr,
             'deep_sup_weight': self.args.deep_sup_weight,
-            'stage2_supervision': getattr(self.args, 'stage2_supervision', 'wta'),
+            'stage2_supervision': getattr(self.args, 'stage2_supervision', 'soft'),
             'soft_select_mix': getattr(self.args, 'soft_select_mix', 0.5),
             'soft_select_tau': getattr(self.args, 'soft_select_tau', 1.0),
             'cl_dice_weight': self.args.cl_dice_weight,
             'iou_loss_weight': self.args.iou_loss_weight,
+            'pred_threshold': getattr(self.args, 'pred_threshold', 0.0),
+            'val_selection': getattr(self.args, 'val_selection', 'auto'),
             'topology_loss': self.args.topology_loss,
             'topology_loss_weight': self.args.topology_loss_weight,
             'use_geo_i': self.args.use_geo_i,

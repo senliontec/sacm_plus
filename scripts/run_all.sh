@@ -27,7 +27,7 @@ fi
 
 # ---------------- 配置(仍可用环境变量覆盖,默认值 = 当前实验计划) ----------------
 ENV_NAME="${ENV_NAME:-tsai}"
-PRESET="${PRESET:-full}"
+PRESET="${PRESET:-full}"                 # full 默认 D8 soft;原始 wta 基线用 sacm/full_wta
 EPOCHS="${EPOCHS:-20}"                   # 试水轮数;确认收敛后 EPOCHS=50 跑消融矩阵
 VAL_INTERVAL="${VAL_INTERVAL:-1}"        # 每 epoch 验证(8 卡分片 + 引擎指标节流 50 张,~2.5 分钟/次)
 FAST_VAL="${FAST_VAL:-false}"            # true: 验证只算 loss+F1,跳过全量指标/拓扑监控(训练提速)
@@ -49,6 +49,11 @@ TOPOLOGY_LOSS_WEIGHT="${TOPOLOGY_LOSS_WEIGHT:-0.002}"   # 0.002: topograph 原�
 TOPOLOGY_RESOLUTION="${TOPOLOGY_RESOLUTION:-256}"   # 引擎损失分辨率;训练太慢降 128
 FULL_DATA="${FULL_DATA:-true}"           # 架构研究层默认全量;3-shot 协议层设 FULL_DATA=false
 VAL_RATIO="${VAL_RATIO:-0.2}"
+SELECTION="${SELECTION:-auto}"           # auto: iou only when iou_loss_weight>0, else gating
+PRED_THRESHOLD="${PRED_THRESHOLD:-0.0}"  # logits; SACM fidelity uses 0.5
+GROUP_REGEX="${GROUP_REGEX:-}"           # space-separated NAME:REGEX; e.g. 'CHASEDB1:Image_(\\d+)[LR] CREMI:sample_([ABC])'
+CLEAN_SPLIT="${CLEAN_SPLIT:-true}"       # clear train/val before writing 3-shot split
+MAKE_TEST="${MAKE_TEST:-true}"           # 3-shot: also write group-disjoint test/ for Seen
 DDP="${DDP:-true}"                       # true = torchrun 8 卡 DDP(全量训练);false = 单卡
 BATCH_SIZE="${BATCH_SIZE:-1}"            # 每卡 batch:3090 24GB 实测 2 会 OOM(ViT-L 1024²);
                                          # DDP 有效 batch = 卡数 × 此值
@@ -113,7 +118,7 @@ if [ "$SKIP_SETUP" -eq 0 ]; then
   conda activate "$ENV_NAME"
   python -c "import torch" 2>/dev/null || \
     pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
-  pip install -e ".[dev,topology]" || fail "pip install 失败"
+  pip install -e ".[dev,topology,data]" || fail "pip install 失败"
   echo "✅ 环境就绪 ($(python --version) @ $(which python))"
 else
   eval "$(conda shell.bash hook)"; conda activate "$ENV_NAME" 2>/dev/null || true
@@ -128,14 +133,23 @@ build_split() {
   else
     python scripts/organize_datasets.py --src "$RAW_DATA_ROOT" --out datasets || true
   fi
+  read -ra GROUP_SPECS <<< "$GROUP_REGEX"
+  GROUP_ARGS=()
+  for spec in "${GROUP_SPECS[@]}"; do
+    [ -n "$spec" ] && GROUP_ARGS+=(--group_regex "$spec")
+  done
+  CLEAN_ARG=()
+  [ "$CLEAN_SPLIT" = "true" ] && CLEAN_ARG=(--clean)
+  TEST_ARG=()
+  [ "$MAKE_TEST" = "true" ] && TEST_ARG=(--make_test)
   if [ "$FULL_DATA" = "true" ]; then
     python scripts/prepare_data.py --train_dirs $TRAIN_SOURCES --use_all \
         --val_ratio "$VAL_RATIO" --out_dir "$SPLIT_ROOT" --seed "$SEED" \
-        || fail "prepare_data(全量) 失败"
+        "${CLEAN_ARG[@]}" || fail "prepare_data(全量) 失败"
   else
     python scripts/prepare_data.py --train_dirs $TRAIN_SOURCES \
         --shots "$SHOTS" --val_shots "$VAL_SHOTS" --out_dir "$SPLIT_ROOT" --seed "$SEED" \
-        || fail "prepare_data 失败"
+        "${GROUP_ARGS[@]}" "${CLEAN_ARG[@]}" "${TEST_ARG[@]}" || fail "prepare_data 失败"
   fi
 }
 
@@ -175,7 +189,8 @@ if [ "$SKIP_TRAIN" -eq 0 ]; then
   [ -f "$CKPT" ] || fail "checkpoint 不存在: $CKPT(先下载 sam_vit_l_0b3195.pth 放入 checkpoints/)"
   TRAIN_ARGS=(--preset "$PRESET" --data_root "$SPLIT_ROOT" \
       --checkpoint "$CKPT" --epochs "$EPOCHS" --val_interval "$VAL_INTERVAL" --seed "$SEED" \
-      --fast_val "$FAST_VAL" --batch_size "$BATCH_SIZE" \
+      --fast_val "$FAST_VAL" --val_selection "$SELECTION" \
+      --pred_threshold "$PRED_THRESHOLD" --batch_size "$BATCH_SIZE" \
       --topology_loss "$TOPOLOGY_LOSS" --topology_loss_weight "$TOPOLOGY_LOSS_WEIGHT" \
       --topology_resolution "$TOPOLOGY_RESOLUTION" \
       --use_wandb "$USE_WANDB" --save_path "$RESULTS_ROOT/$PRESET/best_model.pth")
@@ -211,7 +226,8 @@ if [ "$SKIP_EVAL" -eq 0 ]; then
     echo "── 评测 $name"
     python src/eval/evaluate.py --preset "$PRESET" --data_root "$ds" \
         --trained_weights "$RESULTS_ROOT/$PRESET/best_model.pth" \
-        --output_dir "$RESULTS_ROOT/$PRESET/$name" --selection iou \
+        --output_dir "$RESULTS_ROOT/$PRESET/$name" \
+        --selection "$SELECTION" --pred_threshold "$PRED_THRESHOLD" \
         --use_wandb "$USE_WANDB" \
         || fail "$name 评测失败"
   done

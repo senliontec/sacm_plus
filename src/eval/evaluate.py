@@ -9,9 +9,9 @@ Usage:
         --output_dir results/name --selection iou --tta
 """
 
-import os
 import argparse
 import logging
+import os
 import sys
 from datetime import datetime
 
@@ -22,7 +22,6 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import torch
 
 import models  # noqa: F401  (registers every model family's ModelSpecs)
-from models.sacm.configs import PRESETS, apply_preset, str2bool
 from core.data import TestDataset
 from core.evaluator import (
     AUC_KEYS,
@@ -30,10 +29,12 @@ from core.evaluator import (
     METRIC_KEYS,
     TOPOGRAPH_KEYS,
     Evaluator,
+    resolve_selection,
 )
 from core.losses import DiceBCELoss
-from core.wandb_utils import WANDB_API_KEY_DEFAULT
 from core.registry import MODEL_REGISTRY, get_model_spec
+from core.wandb_utils import WANDB_API_KEY_DEFAULT
+from models.sacm.configs import PRESETS, apply_preset, str2bool
 
 
 def setup_logging():
@@ -100,6 +101,20 @@ def evaluate(args):
     if 'config' in checkpoint:
         logging.info(f"Checkpoint architecture config: {checkpoint['config']}")
 
+    # D8 / SACM-fidelity guard: never silently argmax an untrained IoU head.
+    ckpt_cfg = checkpoint.get('config', {}) if isinstance(checkpoint, dict) else {}
+    iou_weight = ckpt_cfg.get('iou_loss_weight',
+                              getattr(args, 'iou_loss_weight', 0.0))
+    args.selection = resolve_selection(args.selection, iou_weight)
+    if args.selection == 'iou' and float(iou_weight or 0.0) <= 0:
+        logging.warning(
+            "selection='iou' was requested but the checkpoint has "
+            "iou_loss_weight=0 (IoU head untrained); metrics are invalid. "
+            "Use --selection auto or gating.")
+    logging.info(
+        f"Resolved mask selection: {args.selection} "
+        f"(iou_loss_weight={iou_weight})")
+
     dataset = TestDataset(args.data_root)
     logging.info(f"Validation dataset size: {len(dataset)}")
 
@@ -151,8 +166,11 @@ if __name__ == '__main__':
     parser.add_argument('--use_multi_depth', type=str2bool, default=True, help='Multi-depth semantic path from encoder intermediates')
 
     # Inference options
-    parser.add_argument('--selection', type=str, default='iou', choices=['iou', 'gating'],
-                        help="Final mask selection: 'iou' = trained IoU head; 'gating' = gating-ranked head 0")
+    parser.add_argument('--selection', type=str, default='auto',
+                        choices=['auto', 'iou', 'gating'],
+                        help="Final mask selection: 'auto' = iou when the checkpoint "
+                             "trained the IoU head (iou_loss_weight>0), else gating; "
+                             "'iou' = trained IoU head; 'gating' = gating-ranked head 0")
     parser.add_argument('--pred_threshold', type=float, default=0.0,
                         help='Binarization threshold on logits; 0.0 = probability 0.5 (standard). '
                              'Set 0.5 to replicate the original SACM evaluation convention '

@@ -4,8 +4,10 @@ import importlib.util
 import os
 
 import numpy as np
+import pytest
 import torch
 
+from core.evaluator import resolve_selection
 from core.trainer import stage2_soft_weights
 
 _SCRIPT = os.path.join(os.path.dirname(__file__), '..', 'scripts', 'diagnose_selection.py')
@@ -81,4 +83,19 @@ def test_stage2_soft_weights():
     w_uniform = stage2_soft_weights(iou, mix=0.0)
     assert torch.allclose(w_uniform, torch.full_like(iou, 0.25))
     assert (w > 0).all()
+
+    # D8 regression: every Stage-2 head must receive a nonzero gradient.
+    m2 = torch.randn(1, 4, 3, 3, requires_grad=True)
+    (m2 * w[:, :, None, None]).sum().backward()
+    assert m2.grad is not None
+    assert (m2.grad.abs() > 0).all()
+
+
+def test_resolve_selection_never_uses_untrained_iou():
+    assert resolve_selection('auto', 0.0) == 'gating'
+    assert resolve_selection('auto', 1.0) == 'iou'
+    assert resolve_selection('iou', 0.0) == 'iou'
+    assert resolve_selection('gating', 1.0) == 'gating'
+    with pytest.raises(ValueError):
+        resolve_selection('bogus', 1.0)
 

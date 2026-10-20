@@ -16,7 +16,8 @@ from torch.utils.data import Dataset
 # 数据为本项目自管数据集,无恶意输入风险。
 Image.MAX_IMAGE_PIXELS = None
 
-SUPPORTED_EXTENSIONS = ('.png', '.jpg', '.jpeg', '.tif', '.tiff')
+SUPPORTED_EXTENSIONS = ('.png', '.jpg', '.jpeg', '.tif', '.tiff',
+                        '.bmp', '.ppm', '.pgm')
 
 
 def _find_pairs(image_dir, mask_dir):
@@ -82,12 +83,20 @@ class SegmentationDataset(Dataset):
 class TestDataset(Dataset):
     """Evaluation dataset (root/images + root/masks): the model input is
     resized to 1024x1024, the GT stays at the ORIGINAL resolution for
-    metric computation."""
+    metric computation.
 
-    def __init__(self, root_dir):
+    ``split='val'`` reads root/val/images + root/val/masks, which lets
+    training validation use the same original-resolution metric path as
+    test evaluation instead of 1024-space metrics.
+    """
+
+    def __init__(self, root_dir, split=None):
         self.root_dir = root_dir
-        self.image_dir = os.path.join(root_dir, 'images')
-        self.mask_dir = os.path.join(root_dir, 'masks')
+        base = root_dir if split is None else os.path.join(root_dir, split)
+        self.image_dir = os.path.join(base, 'images')
+        self.mask_dir = os.path.join(base, 'masks')
+        self.fov_dir = os.path.join(base, 'fov')
+        self.has_fov = os.path.isdir(self.fov_dir)
 
         self.image_files = _find_pairs(self.image_dir, self.mask_dir)
         if not self.image_files:
@@ -97,7 +106,6 @@ class TestDataset(Dataset):
         return len(self.image_files)
 
     def __getitem__(self, idx):
-        import torch
         from torchvision import transforms
 
         img_name = self.image_files[idx]
@@ -129,4 +137,14 @@ class TestDataset(Dataset):
         model_input = model_transform(image)
         original_mask = mask_transform(mask)
 
-        return model_input, original_mask, original_size, img_name
+        fov_mask = None
+        if self.has_fov:
+            for ext in SUPPORTED_EXTENSIONS:
+                p = os.path.join(self.fov_dir, base_name + ext)
+                if os.path.exists(p):
+                    fov_mask = (mask_transform(Image.open(p).convert('L')) > 0.5).float()
+                    break
+        if fov_mask is None:
+            fov_mask = original_mask.new_ones(original_mask.shape)
+
+        return model_input, original_mask, original_size, img_name, fov_mask

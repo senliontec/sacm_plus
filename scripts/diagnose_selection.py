@@ -45,6 +45,7 @@ sys.path.insert(0, os.path.join(REPO_ROOT, 'src'))
 
 import models  # noqa: F401,E402  (registers ModelSpecs)
 from core.data import TestDataset  # noqa: E402
+from core.evaluator import resolve_selection  # noqa: E402
 from core.metrics.distance import hd95_score  # noqa: E402
 from core.metrics.persistence import betti_matching_score  # noqa: E402
 from core.metrics.pixel import dice_score, iou_score  # noqa: E402
@@ -269,6 +270,10 @@ def main():
     parser.add_argument('--output_dir', type=str, default='diagnosis/selection')
     parser.add_argument('--model', type=str, default='sam_l', choices=sorted(MODEL_REGISTRY))
     parser.add_argument('--preset', type=str, default='full', choices=sorted(PRESETS))
+    parser.add_argument('--selection', type=str, default='auto',
+                        choices=['auto', 'iou', 'gating'],
+                        help='auto: use iou only when the preset trains the IoU head '
+                             '(iou_loss_weight>0), else gating/head 0')
     parser.add_argument('--adapter_dim_ratio', type=float, default=0.1)
     parser.add_argument('--use_geo_i', type=str2bool, default=True)
     parser.add_argument('--use_geo_e', type=str2bool, default=True)
@@ -289,6 +294,11 @@ def main():
     args = parser.parse_args()
 
     apply_preset(args, args.preset)
+    args.selection = resolve_selection(
+        args.selection, getattr(args, 'iou_loss_weight', 0.0))
+    if args.selection == 'gating':
+        print("[diagnose] IoU head untrained or gating selected: iou columns "
+              "mirror gating and ECE is disabled (NaN).")
     if args.oracle_metric not in args.metrics:
         args.metrics = list(args.metrics) + [args.oracle_metric]
 
@@ -320,6 +330,14 @@ def main():
             cands = F.interpolate(masks, size=(h, w), mode='bilinear',
                                   align_corners=False)[0].cpu().numpy()
             iou_scores = iou_pred[0].detach().cpu().numpy()
+            if args.selection == 'iou':
+                score_vec = iou_scores
+                iou_idx = int(np.argmax(iou_scores)) if iou_scores.size else -1
+            else:
+                # gating baseline: the IoU head is untrained/disabled, so
+                # do not rank candidates or compute ECE with random scores.
+                score_vec = np.full_like(iou_scores, np.nan, dtype=float)
+                iou_idx = 0 if iou_scores.size else -1
             n_candidates = cands.shape[0]
 
             cand_metrics = [compute_candidate_metrics(cands[k], gt, args.threshold, args.metrics)
@@ -329,7 +347,6 @@ def main():
             metric_values = {m: [cand_metrics[k][m] for k in range(n_candidates)]
                              for m in args.metrics}
             gating_idx = 0
-            iou_idx = int(np.argmax(iou_scores)) if iou_scores.size else -1
             oracle_indices = {
                 m: best_index(metric_values[m], higher=(m in HIGHER_IS_BETTER))
                 for m in args.metrics
@@ -344,7 +361,7 @@ def main():
                 f'oracle_idx_{args.oracle_metric}': oracle_indices[args.oracle_metric],
                 'pair_iou_mean': pair_iou_mean,
                 'pair_cldice_mean': pair_cldice_mean,
-                '_pred_iou': [float(x) for x in iou_scores],
+                '_pred_iou': [float(x) for x in score_vec],
                 '_true_iou': [float(cand_metrics[k]['iou']) for k in range(n_candidates)],
             }
             for m in args.metrics:
@@ -363,7 +380,7 @@ def main():
                 row[f'regret_iou_{m}'] = regret_value(row[f'iou_{m}'], oracle_val, higher)
                 row[f'disagreement_{m}'] = (float(iou_idx != best_idx)
                                             if best_idx >= 0 else float('nan'))
-                row[f'spearman_{m}'] = safe_spearman(iou_scores, metric_values[m])
+                row[f'spearman_{m}'] = safe_spearman(score_vec, metric_values[m])
             rows.append(row)
 
     base_fields = ['dataset', 'category', 'image', 'gating_idx', 'iou_idx',

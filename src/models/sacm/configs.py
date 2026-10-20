@@ -6,7 +6,8 @@ ablation matrix can be reproduced with a single flag, e.g.:
     python train_sam.py --preset sacm      # bug-fixed SACM reproduction
     python train_sam.py --preset stage1    # + coarse-to-fine, deep sup, clDice
     python train_sam.py --preset stage2    # + geometric strip adapters
-    python train_sam.py --preset full      # full model (default)
+    python train_sam.py --preset full      # full model (D8 soft supervision)
+    python train_sam.py --preset full_wta  # D8 ablation: winner-take-all
 
 CLI flags override nothing: the preset is applied after parsing. For
 manual control use --preset none and set every switch explicitly.
@@ -29,7 +30,10 @@ FULL = dict(
     deep_sup_weight=0.3,
     cl_dice_weight=0.5,
     iou_loss_weight=1.0,
-    stage2_supervision='wta',
+    # D8 fix: every Stage-2 head receives mask gradient via detached
+    # uniform + IoU-softmax weights.  The original behaviour is kept as
+    # the `full_wta` ablation and in the `sacm` baseline.
+    stage2_supervision='soft',
     soft_select_mix=0.5,
     soft_select_tau=1.0,
 )
@@ -45,6 +49,8 @@ PRESETS = {
         deep_sup_weight=0.0,
         cl_dice_weight=0.0,
         iou_loss_weight=0.0,
+        # Explicit D8 baseline: winner-take-all (only gating head 0).
+        stage2_supervision='wta',
     ),
     # Stage 1: true coarse-to-fine + M1 deep supervision + clDice loss
     # + IoU head supervision (trained selector).
@@ -57,6 +63,7 @@ PRESETS = {
         deep_sup_weight=0.3,
         cl_dice_weight=0.5,
         iou_loss_weight=1.0,
+        stage2_supervision='soft',
     ),
     # Stage 2: + geometric strip adapters (I_geo all layers, E_global on
     # the 20 window-attention layers only).
@@ -69,12 +76,16 @@ PRESETS = {
         deep_sup_weight=0.3,
         cl_dice_weight=0.5,
         iou_loss_weight=1.0,
+        stage2_supervision='soft',
     ),
     # Full model: + Fusion v2 (cross-layer interaction + spatial gate)
     # + multi-depth decoder path.
     "full": dict(FULL),
-    # D8 candidate-supervision variants (see stage2_supervision):
-    # allhead = all candidates' mask loss; soft = uniform + IoU-softmax.
+    # D8 candidate-supervision ablations. `full` defaults to soft after
+    # the fix; full_wta reproduces the old winner-take-all behaviour.
+    # wta = only gating head; allhead = mean over all heads;
+    # soft = detached uniform + IoU-softmax (default).
+    "full_wta": {**FULL, "stage2_supervision": "wta"},
     "full_allhead": {**FULL, "stage2_supervision": "allhead"},
     "full_soft": {**FULL, "stage2_supervision": "soft"},
     # Single-module ablations (full model minus one component).

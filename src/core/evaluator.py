@@ -25,13 +25,32 @@ BETTI_MATCHING_KEYS = ['betti_matching']
 TOPOGRAPH_KEYS = ['topograph_error']
 
 
+def resolve_selection(requested, iou_loss_weight):
+    """Resolve 'auto' without silently using an untrained IoU head.
+
+    auto -> 'iou' only when the IoU head received supervision
+    (iou_loss_weight > 0); otherwise 'gating' (head 0), matching the
+    original SACM baseline. Explicit 'iou'/'gating' are preserved.
+    """
+    if requested in (None, 'auto'):
+        return 'iou' if float(iou_loss_weight or 0.0) > 0 else 'gating'
+    if requested not in ('iou', 'gating'):
+        raise ValueError(
+            f"Unknown selection={requested!r}; expected auto/iou/gating")
+    return requested
+
+
 def select_mask(masks, iou_pred, selection):
     """Select the final mask. 'iou': trained IoU head (argmax);
     'gating': gating-ranked head 0 (original SACM behavior)."""
     if selection == 'iou':
         k = int(iou_pred[0].argmax())
-    else:  # 'gating'
+    elif selection == 'gating':
         k = 0
+    else:
+        raise ValueError(
+            f"select_mask received unresolved selection={selection!r}; "
+            "call resolve_selection() first")
     return masks[:, k:k + 1]
 
 
@@ -84,9 +103,10 @@ class Evaluator:
         viz_warned = False
 
         with torch.no_grad():
-            for model_input, original_mask, original_size, img_name in test_pbar:
+            for model_input, original_mask, original_size, img_name, fov_mask in test_pbar:
                 model_input = model_input.to(self.device)
                 original_mask = original_mask.to(self.device)
+                fov_mask = fov_mask.to(self.device)
 
                 # Model-specific input preprocessing
                 model_input = self.spec.preprocess(self.model, model_input)
@@ -139,7 +159,9 @@ class Evaluator:
 
                 # Save prediction visualization (non-fatal if matplotlib fails)
                 try:
-                    pred_mask = (low_res_masks[0, 0] > 0).cpu().numpy().astype(np.uint8) * 255
+                    pred_mask = (
+                        low_res_masks[0, 0] > getattr(self.args, 'pred_threshold', 0.0)
+                    ).cpu().numpy().astype(np.uint8) * 255
 
                     width, height = original_size
                     width = width.item() if torch.is_tensor(width) else width

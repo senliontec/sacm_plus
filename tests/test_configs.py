@@ -15,6 +15,7 @@ REQUIRED_KEYS = {
     "deep_sup_weight",
     "cl_dice_weight",
     "iou_loss_weight",
+    "stage2_supervision",
 }
 
 
@@ -42,3 +43,13 @@ def test_apply_preset_overrides():
     # 'none' is a no-op
     apply_preset(args, "none")
     assert args.use_geo_i is True
+
+
+def test_d8_supervision_modes_are_explicit():
+    assert PRESETS["full"]["stage2_supervision"] == "soft"
+    assert PRESETS["full_soft"]["stage2_supervision"] == "soft"
+    assert PRESETS["full_allhead"]["stage2_supervision"] == "allhead"
+    assert PRESETS["full_wta"]["stage2_supervision"] == "wta"
+    assert PRESETS["sacm"]["stage2_supervision"] == "wta"
+    assert PRESETS["stage1"]["stage2_supervision"] == "soft"
+    assert PRESETS["stage2"]["stage2_supervision"] == "soft"
