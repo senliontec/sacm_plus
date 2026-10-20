@@ -136,6 +136,10 @@ class Evaluator:
                     low_res_masks, size=original_size[::-1],
                     mode='bilinear', align_corners=False,
                 )
+                # Optional FOV mask: remove predictions outside the retinal
+                # field (and zero any GT outside it) before metrics.
+                low_res_masks = low_res_masks * fov_mask
+                original_mask = original_mask * fov_mask
 
                 loss = self.criterion(low_res_masks, original_mask)
                 loss_values.append(loss.item())

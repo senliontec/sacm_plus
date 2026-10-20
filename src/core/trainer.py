@@ -289,9 +289,10 @@ class Trainer:
                         disable=True)
 
         with torch.no_grad():
-            for val_idx, (images, masks, original_size, _img_name) in enumerate(val_pbar):
+            for val_idx, (images, masks, original_size, _img_name, fov_mask) in enumerate(val_pbar):
                 images = images.to(self.device)
                 masks = masks.to(self.device)
+                fov_mask = fov_mask.to(self.device)
 
                 masks_stage2, iou_pred, _masks_stage1 = self._forward(images)
 
@@ -311,6 +312,8 @@ class Trainer:
                 main_mask = F.interpolate(
                     main_mask, size=(height, width),
                     mode='bilinear', align_corners=False)
+                main_mask = main_mask * fov_mask
+                masks = masks * fov_mask
 
                 loss = self.criterion(main_mask, masks)
                 val_loss += loss.item()

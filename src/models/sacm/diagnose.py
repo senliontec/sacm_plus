@@ -27,18 +27,19 @@ import argparse
 import csv
 import os
 
+import matplotlib
 import numpy as np
 import torch
 import torch.nn.functional as F
-import matplotlib
+
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-from models.sacm.configs import PRESETS, apply_preset, str2bool
-from models.sam import build_sam_vit_l
 from core.data import TestDataset
 from core.io import get_prompt_embeddings, predict_all
 from core.losses import DiceBCELoss, SoftclDiceLoss
+from models.sacm.configs import PRESETS, apply_preset, str2bool
+from models.sam import build_sam_vit_l
 
 STAGE1_KEY = 'output_hypernetworks_mlps'
 STAGE2_KEY = 'output_hypernetworks_mlps_stage2'
@@ -143,7 +144,7 @@ def compute_head_grad_norms(sam, model_input, gt_mask, device, loss_mode):
 
 def run_grad_analysis(sam, loader, device, num_images, output_dir):
     rows = []
-    for i, (model_input, original_mask, original_size, img_name) in enumerate(loader):
+    for i, (model_input, original_mask, original_size, img_name, _fov) in enumerate(loader):
         if i >= num_images:
             break
         # Interpolate GT to 1024 (model-input space)
@@ -192,7 +193,7 @@ def run_grad_analysis(sam, loader, device, num_images, output_dir):
 def run_gating_analysis(sam, loader, device, num_images, output_dir):
     rows = []
     with torch.no_grad():
-        for i, (model_input, original_mask, original_size, img_name) in enumerate(loader):
+        for i, (model_input, original_mask, original_size, img_name, _fov) in enumerate(loader):
             if i >= num_images:
                 break
             model_input = sam.preprocess(model_input.to(device))

@@ -161,7 +161,7 @@ def main():
             d = os.path.join(args.out_dir, split)
             if os.path.isdir(d):
                 shutil.rmtree(d)
-    split_names = ['train', 'val'] + (['test'] if args.make_test else [])
+    split_names = ['train', 'val']
     for split in split_names:
         os.makedirs(os.path.join(args.out_dir, split, 'images'), exist_ok=True)
         os.makedirs(os.path.join(args.out_dir, split, 'masks'), exist_ok=True)
@@ -207,6 +207,11 @@ def main():
                         for img, mask in group]
                 subsets.append(('test', test))
         for split, subset in subsets:
+            # Seen test sets are per-dataset roots: test/<dataset>/images.
+            split_root = (os.path.join(args.out_dir, 'test', name)
+                          if split == 'test' else os.path.join(args.out_dir, split))
+            os.makedirs(os.path.join(split_root, 'images'), exist_ok=True)
+            os.makedirs(os.path.join(split_root, 'masks'), exist_ok=True)
             for item in subset:
                 img_path, mask_path = item[0], item[1]
                 group = item[2] if len(item) > 2 else ''
@@ -214,10 +219,27 @@ def main():
                 mask_ext = os.path.splitext(mask_path)[1]
                 # Prefix the dataset name to avoid collisions across sources
                 new_base = f"{name}_{os.path.splitext(os.path.basename(img_path))[0]}"
-                new_img = os.path.join(args.out_dir, split, 'images', new_base + img_ext)
-                new_mask = os.path.join(args.out_dir, split, 'masks', new_base + mask_ext)
+                new_img = os.path.join(split_root, 'images', new_base + img_ext)
+                new_mask = os.path.join(split_root, 'masks', new_base + mask_ext)
                 shutil.copy2(img_path, new_img)
                 shutil.copy2(mask_path, new_mask)
+
+                # Optional FOV: keep it aligned with the split (train/val/test).
+                fov_src_dir = os.path.join(src, 'fov')
+                if os.path.isdir(fov_src_dir):
+                    src_base = os.path.splitext(os.path.basename(img_path))[0]
+                    fov_path = None
+                    for ext in SUPPORTED:
+                        cand = os.path.join(fov_src_dir, src_base + ext)
+                        if os.path.exists(cand):
+                            fov_path = cand
+                            break
+                    if fov_path is not None:
+                        fov_dir = os.path.join(split_root, 'fov')
+                        os.makedirs(fov_dir, exist_ok=True)
+                        shutil.copy2(fov_path,
+                                     os.path.join(fov_dir, new_base + '.png'))
+
                 manifest.append({
                     'dataset': name,
                     'split': split,

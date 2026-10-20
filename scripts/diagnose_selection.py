@@ -318,7 +318,8 @@ def main():
         loader = DataLoader(dataset, batch_size=1, shuffle=False,
                             num_workers=args.num_workers)
         pbar = tqdm(loader, total=len(loader), desc=f'{dataset_name} [{category}]')
-        for idx, (model_input, original_mask, _original_size, img_name) in enumerate(pbar):
+        for idx, (model_input, original_mask, _original_size, img_name,
+                  fov_mask) in enumerate(pbar):
             if args.limit and idx >= args.limit:
                 break
             model_input = spec.preprocess(model, model_input.to(device))
@@ -326,9 +327,12 @@ def main():
                 masks, iou_pred = spec.forward(model, model_input, sparse, dense,
                                                return_stage1=False)
             gt = original_mask[0].cpu().numpy().squeeze()
+            fov = fov_mask[0, 0].cpu().numpy() > 0.5
+            gt = gt * fov
             h, w = gt.shape
             cands = F.interpolate(masks, size=(h, w), mode='bilinear',
                                   align_corners=False)[0].cpu().numpy()
+            cands = cands * fov[None]
             iou_scores = iou_pred[0].detach().cpu().numpy()
             if args.selection == 'iou':
                 score_vec = iou_scores

@@ -215,6 +215,11 @@ fi
 
 # ---------------- 4. 评测 ----------------
 if [ "$SKIP_EVAL" -eq 0 ]; then
+  if [ "$FULL_DATA" = "false" ] && [ "$MAKE_TEST" = "true" ]; then
+    for td in "$SPLIT_ROOT"/test/*; do
+      [ -d "$td/masks" ] && TEST_DATASETS="$TEST_DATASETS $td"
+    done
+  fi
   step "4/5 评测: $TEST_DATASETS"
   for ds in $TEST_DATASETS; do
     [ -d "$ds" ] || { echo "⚠️  跳过(不存在): $ds"; continue; }

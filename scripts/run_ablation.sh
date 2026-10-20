@@ -78,6 +78,11 @@ else
       --shots 3 --val_shots 1 --out_dir "$SPLIT_ROOT" --seed "$SEED" \
       "${GROUP_ARGS[@]}" "${CLEAN_ARG[@]}" "${TEST_ARG[@]}"
 fi
+if [ "$MAKE_TEST" = "true" ]; then
+  for td in "$SPLIT_ROOT"/test/*; do
+    [ -d "$td/masks" ] && TEST_DATASETS="$TEST_DATASETS $td"
+  done
+fi
 
 echo "══════════ 2/4 多卡消融调度 ══════════"
 if [ "$DDP" = "true" ]; then

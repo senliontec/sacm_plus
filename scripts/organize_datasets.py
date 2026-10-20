@@ -181,6 +181,21 @@ def _convert_drive_fov(src_mask_dir, img_dir, out_fov_dir):
     return n
 
 
+def _convert_drive_training_fov(src_mask_dir, img_dir, out_fov_dir):
+    """training/mask/<id>_training_mask.gif -> DRIVE_train/fov/<id>.png."""
+    if not os.path.isdir(src_mask_dir):
+        return 0
+    os.makedirs(out_fov_dir, exist_ok=True)
+    n = 0
+    for f in sorted(os.listdir(img_dir)):
+        base = os.path.splitext(f)[0]
+        mask = os.path.join(src_mask_dir, f'{base}_mask.gif')
+        if os.path.exists(mask):
+            convert_to_binary_png(mask, os.path.join(out_fov_dir, base + '.png'))
+            n += 1
+    return n
+
+
 def _write_drive_test_readme(test_root):
     path = os.path.join(test_root, 'README.md')
     text = """# DRIVE test: no public vessel ground truth
@@ -258,6 +273,11 @@ def organize_drive(src, out_root, drive_test_gt=None):
             pairs.append((os.path.join(img_dir, f), mask, base))
     n = _convert_pairs(pairs, os.path.join(out_root, 'DRIVE_train'))
     print(f"[DRIVE] DRIVE_train: {n} 对")
+    n_fov = _convert_drive_training_fov(
+        os.path.join(src, 'training', 'mask'), img_dir,
+        os.path.join(out_root, 'DRIVE_train', 'fov'))
+    if n_fov:
+        print(f"[DRIVE] DRIVE_train fov: {n_fov} 张")
     total += n
 
     test_img_dir = os.path.join(src, 'test', 'images')
