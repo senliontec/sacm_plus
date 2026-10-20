@@ -9,8 +9,9 @@ messages, and a compact aligned per-epoch summary table
 from rich.console import Console
 from rich.table import Table
 
-# 宽表(31 列,~200 字符)永不折行:显式 width=500 + soft_wrap=False——
-# 日志文件里每 epoch 恰为一行;宽屏终端单行;窄终端横向溢出可接受。
+# 宽表(base 32 列 + topo 最多 18 列 + time)永不折行:
+# 显式 width=500 + soft_wrap=False——日志文件里每 epoch 恰为一行;
+# 宽屏终端单行;窄终端横向溢出可接受。
 console = Console(soft_wrap=False, width=500)
 
 
@@ -28,8 +29,10 @@ VAL_METRIC_SHORT = [
 
 # 宽表基础列(紧凑宽度):训练侧 8 列 + F1/L + 全部 20 项 val 指标
 BASE_NAMES = (['ep', 'tr_loss', 'main', 'ds', 'iou', 'scl', 'topo', 'lr',
-               'F1', 'L'] + [s for _, s in VAL_METRIC_SHORT])
-BASE_WIDTHS = ([4, 7, 6, 6, 6, 6, 6, 6, 5, 6] + [5] * len(VAL_METRIC_SHORT))
+               'F1', 'L'] + [s for _, s in VAL_METRIC_SHORT] +
+              ['tr_s', 'val_s'])
+BASE_WIDTHS = ([4, 7, 6, 6, 6, 6, 6, 6, 5, 6] +
+               [5] * len(VAL_METRIC_SHORT) + [5, 5])
 
 # 方向箭头:↑ = 越大越好,↓ = 越小越好(ep/lr/time 为元信息,无箭头)
 UP = {'F1', 'D', 'IoU', 'P', 'R', 'Sen', 'Spe', 'Acc', 'MCC', 'cDh', 'NSD',
@@ -97,13 +100,14 @@ def _cell(v, w):
     return _fmt(v).center(w)
 
 
-def _base_row_vals(epoch, train_loss, comps, lr, dt, f1, vloss, val_metrics):
+def _base_row_vals(epoch, train_loss, comps, lr, dt, f1, vloss, val_metrics,
+                   train_s=None, val_s=None):
     vm = val_metrics or {}
     return [epoch, train_loss,
             comps.get('loss_main'), comps.get('loss_ds'), comps.get('loss_iou'),
             comps.get('loss_cl'), comps.get('loss_topo'), lr,
             f1, vloss] + [vm.get(key) for key, _s in VAL_METRIC_SHORT] + \
-           [f'{dt:.0f}s']
+           [train_s, val_s, f'{dt:.0f}s']
 
 
 def epoch_header(topo_names=(), single=True):
@@ -113,7 +117,7 @@ def epoch_header(topo_names=(), single=True):
 
 
 def epoch_row(epoch, train_loss, comps, lr, dt, f1, vloss, val_metrics=None,
-              topo_names=(), single=True):
+              topo_names=(), single=True, train_s=None, val_s=None):
     """数据行(紧凑单行)。"""
     vm = val_metrics or {}
     vals = [epoch, train_loss,
@@ -122,6 +126,8 @@ def epoch_row(epoch, train_loss, comps, lr, dt, f1, vloss, val_metrics=None,
             f1, vloss]
     for key, _short in VAL_METRIC_SHORT:
         vals.append(vm.get(key))
+    vals.append(train_s)
+    vals.append(val_s)
     for n in topo_names:
         vals.append(vm.get(f'topo_{n}'))
     vals.append(f'{dt:.0f}s')

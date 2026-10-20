@@ -18,7 +18,10 @@ CKPT="${CKPT:-checkpoints/sam_vit_l_0b3195.pth}"
 RAW_DATA_ROOT="${RAW_DATA_ROOT:-datasets}"   # 仓库内(与 up2server 上传布局一致)
 SPLIT_ROOT="${SPLIT_ROOT:-data/dis5k_full}"
 TRAIN_SOURCES="${TRAIN_SOURCES:-datasets/DIS5K_train}"   # 架构研究层:DIS5K 全量
-TEST_DATASETS="${TEST_DATASETS:-datasets/DRIVE_test datasets/DIS5K_test datasets/ThinObject5K}"
+DRIVE_TEST_GT="${DRIVE_TEST_GT:-}"       # 可选:已核实的 DRIVE test 血管 GT 目录;官方 test/mask 是 FOV
+TEST_DATASETS="${TEST_DATASETS:-datasets/DIS5K_test datasets/ThinObject5K}"
+# DRIVE_test 默认不加入:官方 test/mask 是 FOV,不是血管 GT。
+# 用 DRIVE_train 的 3/17 留出划分,或提供 DRIVE_TEST_GT 后再显式加入 TEST_DATASETS。
 PRESETS="${PRESETS:-sacm stage1 stage2 full no_geo_i no_geo_e no_c2f no_fusion_v2 no_multi_depth no_cl no_ds no_iou geo_e_shallow geo_e_deep}"
 EPOCHS="${EPOCHS:-50}"
 VAL_INTERVAL="${VAL_INTERVAL:-5}"
@@ -47,7 +50,12 @@ fi
 
 echo "══════════ 1/4 数据: 组织 + 3-shot 划分 ══════════"
 [ -d "$RAW_DATA_ROOT" ] || { echo "❌ 原始数据集目录不存在: $RAW_DATA_ROOT"; exit 1; }
-python scripts/organize_datasets.py --src "$RAW_DATA_ROOT" --out datasets || true
+if [ -n "$DRIVE_TEST_GT" ]; then
+  python scripts/organize_datasets.py --src "$RAW_DATA_ROOT" --out datasets \
+      --drive_test_gt "$DRIVE_TEST_GT" || true
+else
+  python scripts/organize_datasets.py --src "$RAW_DATA_ROOT" --out datasets || true
+fi
 if [ -f "$SPLIT_ROOT/split_manifest.csv" ]; then
   echo "⚠️  $SPLIT_ROOT 已存在,跳过采样"
 else
@@ -76,6 +84,10 @@ if [ "$DDP" = "true" ]; then
     fi
     for ds in $TEST_DATASETS; do
       [ -d "$ds" ] || continue
+      if [ ! -d "$ds/masks" ]; then
+        echo "❌ $ds 缺少 masks/ (DRIVE 官方 test/mask 是 FOV,不能当 GT);跳过"
+        continue
+      fi
       echo "── 评测 $p @ $(basename "$ds")"
       python src/eval/evaluate.py --preset "$p" --data_root "$ds" \
           --trained_weights "$RESULTS_ROOT/$p/best_model.pth" \
@@ -86,6 +98,10 @@ if [ "$DDP" = "true" ]; then
 else
   TEST_SPECS=""
   for ds in $TEST_DATASETS; do
+    if [ ! -d "$ds/masks" ]; then
+      echo "❌ $ds 缺少 masks/ (DRIVE 官方 test/mask 是 FOV,不能当 GT);跳过"
+      continue
+    fi
     TEST_SPECS="$TEST_SPECS $(basename "$ds"):$ds"
   done
 

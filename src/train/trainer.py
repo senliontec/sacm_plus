@@ -250,6 +250,9 @@ if __name__ == '__main__':
     parser.add_argument('--weight_decay', type=float, default=0.01, help='Weight decay for optimizer')
     parser.add_argument('--epochs', type=int, default=50, help='Number of epochs (aligned with the paper protocol)')
     parser.add_argument('--val_interval', type=int, default=10, help='Validation interval (epochs)')
+    parser.add_argument('--fast_val', type=str2bool, default=False,
+                        help='Validation computes only loss + F1; skips the full metric suite and '
+                             'topology monitor (training-time speed; full metrics stay in evaluate.py)')
     parser.add_argument('--clip_grad_norm', type=float, default=1.0, help='Gradient clipping norm (0 to disable)')
     parser.add_argument('--seed', type=int, default=42, help='Random seed')
     parser.add_argument('--save_path', type=str, default='best_model.pth', help='Where to save the best checkpoint (per-job paths for parallel runs)')
@@ -267,6 +270,15 @@ if __name__ == '__main__':
 
     # Auxiliary losses
     parser.add_argument('--deep_sup_weight', type=float, default=0.3, help='Weight of Stage-1 deep supervision (all heads)')
+    parser.add_argument('--stage2_supervision', type=str, default='wta',
+                        choices=['wta', 'allhead', 'soft'],
+                        help='Stage-2 candidate supervision: wta (original winner-take-all), '
+                             'allhead (mean over all candidates; may collapse), '
+                             'soft (uniform + IoU-softmax mixture; all candidates get gradient)')
+    parser.add_argument('--soft_select_mix', type=float, default=0.5,
+                        help='soft mode: uniform/(IoU-softmax) mixture; 0=uniform all-head, 1=trust IoU head')
+    parser.add_argument('--soft_select_tau', type=float, default=1.0,
+                        help='soft mode: temperature for softmax(iou_pred / tau)')
     parser.add_argument('--cl_dice_weight', type=float, default=0.5, help='Max weight of the differentiable clDice loss')
     parser.add_argument('--cl_dice_warmup', type=int, default=10, help='Epochs before the clDice loss activates')
     parser.add_argument('--cl_dice_ramp', type=int, default=5, help='Epochs for the clDice weight to ramp to its max')

@@ -172,6 +172,42 @@
 
 ---
 
+## 9. 重要修正（2026-10-18）：SACM 的定位是 few-shot 泛化，不是绝对 SOTA
+
+SACM 的卖点是 **18 张图（6 数据集 × 3-shot）+ 跨域泛化**，不是所有算法中的绝对最优。因此后续论文与实验按以下口径调整：
+
+- **主张**：限定为“同一 18 图 3-shot 预算下的 few-shot / cross-domain 最优 + 拓扑保持”，不要写 absolute SOTA / 全面超过全监督方法。
+- **主表**：按 Base-Seen / Base-Unseen / Novel 分组；SACM（同协议）、SAM zero-shot、本方法变体为主对比；全监督方法（HarmonySeg、DeformCL、vesselFM、VesMamba、nnU-Net 等）放在“参考上界”栏，明确标注不是同预算对手。
+- **其它 few-shot/迁移方法**：CaPro（1 张无标注图，training-free）、FineSAM++、TopoLoRA-SAM 等按各自预算标注，避免 apples-to-oranges。
+- **指标**：主看 clDice / HD95 / Betti + Dice/IoU，并报告 Seen / Unseen / Novel 的分层结果；选择故事的核心证据是 **Unseen/Novel 上的 selection regret / oracle gap 是否缩小**。
+- **故事**：从“绝对精度更高”改为“**域偏移下的选择鲁棒性**”——IoU 校准对域敏感，拓扑感知选择应主要在 Unseen/Novel 上获益。
+- **Pilot**：至少 2 个 Seen（DRIVE、CHASEDB1）+ 2 个 Unseen/Novel（WIRE、ROAD）；决策门看跨域 clDice/HD95 与 selection regret，不只看 in-domain Dice。
+- **协议风险**：官方 3-shot split 未公开时，用多个 seed 报告 mean±std，并在论文中说明 split/val 的差异；不要声称逐位复现。
+- **代码改动不变**：拓扑选择头 + 全候选/ST 训练 + 诊断脚本；诊断脚本按 Seen/Unseen/Novel 分层。
+
+---
+
+## 10. 全语料补充（2026-10-20）：250 篇 parsing 中的 pre-2025 基础工作
+
+`parsing/` 已扩展到 250 篇（与 `pdf/` 一致）。除前述 2025–2026 工作外，全语料扫描发现以下更早的、必须引用的基础工作：
+
+- **TopoSeg: Topology-Aware Nuclear Instance Segmentation**（ICCV 2023）——提出 **adaptive topology-aware selection (ATS)**，按 Betti error 选择**图像/图像块**参与拓扑 loss 计算，不是选择输出 mask 候选。它占用了“topology-aware selection”这个措辞，但对象是训练样本/区域；我们的主张必须明确写成 **inference-time mask-candidate selection**。
+- **Dynamic Snake Convolution Based on Topological Geometric Constraints for Tubular Structure Segmentation**（ICCV 2023）——动态 snake 卷积，把管状几何先验做进卷积核；是与我们的 strip/window adapter 最接近的早期工作之一，必须对比。
+- **DTU-Net: Learning Topological Similarity for Curvilinear Structure Segmentation**（IPMI 2023）——曲线结构的拓扑相似性学习；作为曲线拓扑基线引用。
+- **Topology-Aware Uncertainty for Image Segmentation**（NeurIPS 2023）——拓扑与不确定性结合；与“不确定性/校准驱动的候选选择”相关。
+- **Skeleton Recall Loss**（ECCV 2024）——骨架召回连通性 loss；已在 `3rd/Skeleton-Recall`，但尚未接入 `sacm_plus`。
+- **Topologically Faithful Image Segmentation via Induced Matching of Persistence Barcodes**（ICML 2023）——Betti matching 的原始论文；已通过 `Betti-matching` 接入。
+- **Structure-aware Image Segmentation with Homotopy Warping**（NeurIPS 2022）——homotopy warping loss；已通过 `Warping` 接入。
+
+**对定位的影响**：这些工作说明“拓扑 + 选择/几何先验”本身不新；真正需要精确表述的是：
+1. 选择对象是 **prompt-free SAM 解码器输出的多个 mask 候选**，不是训练图像/区域；
+2. 选择发生在 **inference-time**，且目标是 **few-shot / cross-domain** 下的拓扑可靠性；
+3. 选择信号是 **像素/管状拓扑**（clDice/Betti/持久同调），不是关系图拓扑或语义相似度。
+
+同时，250 篇全语料扫描没有再发现 2025–2026 中比前述表格更直接的威胁；新增的主要是这些更早的基础工作。
+
+---
+
 ## 主要来源
 
 - [SACM, CVPR 2026](https://openaccess.thecvf.com/content/CVPR2026/html/Zhu_Dual-level_Adapter_Boosting_Prompt-free_Curvilinear_Structure_Segmentation_CVPR_2026_paper.html#1) · [code](https://github.com/kylechuuuuu/SACM)

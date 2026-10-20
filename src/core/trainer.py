@@ -50,6 +50,22 @@ def cl_dice_weight_schedule(epoch, warmup_epochs, ramp_epochs):
     return min(1.0, (epoch - warmup_epochs) / max(ramp_epochs, 1))
 
 
+def stage2_soft_weights(iou_pred, mix=0.5, tau=1.0):
+    """D8 fix: uniform + IoU-softmax mixture over Stage-2 candidates.
+
+    The weights are detached: the main mask loss trains every candidate
+    through the weighted sum, while the IoU head keeps its own MSE
+    supervision. ``mix=0`` is equivalent to uniform all-head training;
+    ``mix=1`` trusts the IoU head. A small uniform floor (mix<1) prevents
+    early IoU-head noise from starving any candidate of gradient.
+    """
+    k = iou_pred.shape[1]
+    uniform = torch.full_like(iou_pred, 1.0 / float(k))
+    soft = F.softmax(iou_pred / max(float(tau), 1e-6), dim=1)
+    mix = min(max(float(mix), 0.0), 1.0)
+    return ((1.0 - mix) * uniform + mix * soft).detach()
+
+
 def _merge_val_payloads(gathered):
     """Merge per-rank validation payloads into global metrics (rank 0).
 
@@ -141,10 +157,34 @@ class Trainer:
             m2 = F.interpolate(masks_stage2, size=(1024, 1024), mode='bilinear', align_corners=False)
             m1 = F.interpolate(masks_stage1, size=(1024, 1024), mode='bilinear', align_corners=False)
 
-            # Main mask: the gating winner (index 0 of the reordered heads).
-            # Winner-take-all keeps the heads specialized; the IoU head is
-            # trained separately and performs selection at inference.
-            loss_main = self.criterion(m2[:, 0:1], masks)
+            # D8: Stage-2 supervision mode.
+            # wta     : original SACM winner-take-all (only gating head 0)
+            # allhead : all Stage-2 mask heads (diversity may collapse)
+            # soft    : detached uniform + IoU-softmax mixture; every head
+            #           gets gradient while the IoU head is trained separately
+            stage2_mode = getattr(self.args, 'stage2_supervision', 'wta')
+            if stage2_mode == 'wta':
+                main_mask = m2[:, 0:1]
+                aux_mask = main_mask
+                loss_main = self.criterion(main_mask, masks)
+            elif stage2_mode == 'allhead':
+                head_losses = [self.criterion(m2[:, k:k + 1], masks)
+                               for k in range(m2.shape[1])]
+                loss_main = sum(head_losses) / float(len(head_losses))
+                aux_mask = m2.mean(dim=1, keepdim=True)
+            elif stage2_mode == 'soft':
+                weights = stage2_soft_weights(
+                    iou_pred,
+                    mix=getattr(self.args, 'soft_select_mix', 0.5),
+                    tau=getattr(self.args, 'soft_select_tau', 1.0),
+                )
+                main_mask = (m2 * weights[:, :, None, None]).sum(dim=1, keepdim=True)
+                aux_mask = main_mask
+                loss_main = self.criterion(main_mask, masks)
+            else:
+                raise ValueError(
+                    f"Unknown stage2_supervision={stage2_mode!r}; "
+                    "expected one of wta/allhead/soft")
 
             # Stage-1 deep supervision: ALL heads vs GT. This is what makes
             # the gating scores meaningful in the first place.
@@ -171,12 +211,12 @@ class Trainer:
                 epoch, self.args.cl_dice_warmup, self.args.cl_dice_ramp
             )
             if mu > 0:
-                loss_cl = self.soft_cl(m2[:, 0:1], masks)
+                loss_cl = self.soft_cl(aux_mask, masks)
 
             # Extra topology loss (optional; strict ports)
             loss_topo = 0.0
             if self.topo_loss is not None:
-                loss_topo = self.topo_loss(m2[:, 0:1], masks)
+                loss_topo = self.topo_loss(aux_mask, masks)
 
             loss = (
                 loss_main
@@ -212,6 +252,7 @@ class Trainer:
         # (epoch 5 实测出现过 2.5GB 分配失败)
         if self.device.type == 'cuda':
             torch.cuda.empty_cache()
+        fast_val = bool(getattr(self.args, 'fast_val', False))
         val_loss = 0.0
         n_batches = 0
         all_pred_masks = []
@@ -258,35 +299,36 @@ class Trainer:
                 all_pred_masks.append(main_mask)
                 all_true_masks.append(masks)
 
-                # Full metric suite on the binarized main mask. The
-                # few-shot val sets are tiny (6 images in the 3-shot
-                # protocol), so the distance/topology metrics are cheap.
-                # The 4 optional extras (auc / persistence engines) are
-                # opt-in via CLI flags — they cost seconds per image.
-                # 引擎级指标(秒/图)只在前 50 张验证图上算:全量 600 张会
-                # 让验证 epoch 膨胀到 ~1 小时(实测 3271-3766s)。
-                # DDP 分片后仍由 rank 0 在其本地前 50 张上算(总预算不变)。
-                engine_subset = (rank == 0) and (val_idx < VAL_ENGINE_IMGS)
-                m = compute_metrics(
-                    main_mask[0], masks[0],
-                    compute_auc=self.args.val_auc and engine_subset,
-                    compute_betti_matching=self.args.val_betti_matching and engine_subset,
-                    compute_topograph=self.args.val_topograph and engine_subset,
-                )
-                val_cldice.append(m['cldice'])
-                # 保留 NaN 项(空预测时 HD/cD/β 无定义):累积层不动,
-                # 聚合层用 nanmean 跳过 NaN(见下文),列位保持稳定
-                for k, v in m.items():
-                    metrics_acc.setdefault(k, []).append(v)
-                # 拓扑损失监控:全部注册损失在当前预测上的值。
-                # 每个 rank 只在其第 1 张验证图上跑(128 输入 + 引擎 64 分辨率)
-                # ——引擎级损失秒级/图;DDP 分片后 8 rank 合计监控 8 张,更稳。
-                if not val_has_monitored:
-                    val_has_monitored = True
-                    m128 = F.interpolate(main_mask, size=(128, 128), mode='bilinear', align_corners=False)
-                    t128 = F.interpolate(masks, size=(128, 128), mode='bilinear', align_corners=False)
-                    for k, v in topology_loss_monitor(m128, t128, resolution=64).items():
-                        metrics_acc.setdefault(f'topo_{k}', []).append(v)
+                if not fast_val:
+                    # Full metric suite on the binarized main mask. The
+                    # few-shot val sets are tiny (6 images in the 3-shot
+                    # protocol), so the distance/topology metrics are cheap.
+                    # The 4 optional extras (auc / persistence engines) are
+                    # opt-in via CLI flags — they cost seconds per image.
+                    # 引擎级指标(秒/图)只在前 50 张验证图上算:全量 600 张会
+                    # 让验证 epoch 膨胀到 ~1 小时(实测 3271-3766s)。
+                    # DDP 分片后仍由 rank 0 在其本地前 50 张上算(总预算不变)。
+                    engine_subset = (rank == 0) and (val_idx < VAL_ENGINE_IMGS)
+                    m = compute_metrics(
+                        main_mask[0], masks[0],
+                        compute_auc=self.args.val_auc and engine_subset,
+                        compute_betti_matching=self.args.val_betti_matching and engine_subset,
+                        compute_topograph=self.args.val_topograph and engine_subset,
+                    )
+                    val_cldice.append(m['cldice'])
+                    # 保留 NaN 项(空预测时 HD/cD/β 无定义):累积层不动,
+                    # 聚合层用 nanmean 跳过 NaN(见下文),列位保持稳定
+                    for k, v in m.items():
+                        metrics_acc.setdefault(k, []).append(v)
+                    # 拓扑损失监控:全部注册损失在当前预测上的值。
+                    # 每个 rank 只在其第 1 张验证图上跑(128 输入 + 引擎 64 分辨率)
+                    # ——引擎级损失秒级/图;DDP 分片后 8 rank 合计监控 8 张,更稳。
+                    if not val_has_monitored:
+                        val_has_monitored = True
+                        m128 = F.interpolate(main_mask, size=(128, 128), mode='bilinear', align_corners=False)
+                        t128 = F.interpolate(masks, size=(128, 128), mode='bilinear', align_corners=False)
+                        for k, v in topology_loss_monitor(m128, t128, resolution=64).items():
+                            metrics_acc.setdefault(f'topo_{k}', []).append(v)
                 if len(vis_items) < 3:
                     vis_items.append((images[0].detach().cpu(),
                                       masks[0].detach().cpu(),
@@ -404,6 +446,9 @@ class Trainer:
             'new_module_lr': self.args.new_module_lr,
             'decoder_lr': self.args.decoder_lr,
             'deep_sup_weight': self.args.deep_sup_weight,
+            'stage2_supervision': getattr(self.args, 'stage2_supervision', 'wta'),
+            'soft_select_mix': getattr(self.args, 'soft_select_mix', 0.5),
+            'soft_select_tau': getattr(self.args, 'soft_select_tau', 1.0),
             'cl_dice_weight': self.args.cl_dice_weight,
             'iou_loss_weight': self.args.iou_loss_weight,
             'topology_loss': self.args.topology_loss,
@@ -417,6 +462,7 @@ class Trainer:
             'val_auc': self.args.val_auc,
             'val_betti_matching': self.args.val_betti_matching,
             'val_topograph': self.args.val_topograph,
+            'fast_val': getattr(self.args, 'fast_val', False),
             'seed': self.args.seed,
         }
 
@@ -472,9 +518,11 @@ class Trainer:
             for epoch in range(self.args.epochs):
                 t0 = time.time()
                 avg_train_loss, comps = self._train_epoch(epoch)
+                train_s = time.time() - t0
 
                 wm = {'epoch': epoch, 'train/loss': avg_train_loss,
-                      'lr': self.optimizer.param_groups[0]['lr']}
+                      'lr': self.optimizer.param_groups[0]['lr'],
+                      'train/time_s': train_s}
                 for k, v in comps.items():
                     wm[f'train/{k}'] = v
 
@@ -483,12 +531,16 @@ class Trainer:
                 best_before = self.best_f1_score
                 f1 = vloss = None
                 val_metrics = None
+                val_s = None
                 is_best = False
                 if (epoch + 1) % self.args.val_interval == 0:
+                    val_t0 = time.time()
                     f1, vloss, avg_val_cldice, val_metrics = self._validate(epoch)
+                    val_s = time.time() - val_t0
                     if self._rank0:
                         wm.update({'val/loss': vloss, 'val/f1': f1,
-                                   'val/cldice': avg_val_cldice})
+                                   'val/cldice': avg_val_cldice,
+                                   'val/time_s': val_s})
                         for k, v in val_metrics.items():
                             wm[f'val/{k}'] = v
                         is_best = self.best_f1_score > best_before
@@ -501,12 +553,14 @@ class Trainer:
                     # **wm first so the explicit 1-based epoch wins (wm stores
                     # the 0-based wandb epoch)
                     history.append({**wm, 'epoch': epoch + 1,
-                                    'time_s': round(time.time() - t0, 2)})
+                                    'time_s': round(time.time() - t0, 2),
+                                    'train_s': round(train_s, 2),
+                                    'val_s': round(val_s, 2) if val_s is not None else None})
 
                     for line in epoch_row(epoch + 1, avg_train_loss, comps,
                                           self.optimizer.param_groups[0]['lr'],
                                           time.time() - t0, f1, vloss, val_metrics,
-                                          topo_names):
+                                          topo_names, train_s=train_s, val_s=val_s):
                         console.print(line, style="bold green" if is_best else "")
                     # Online advisor: metric patterns -> optimization
                     # directions, printed while training (history already

@@ -29,6 +29,9 @@ FULL = dict(
     deep_sup_weight=0.3,
     cl_dice_weight=0.5,
     iou_loss_weight=1.0,
+    stage2_supervision='wta',
+    soft_select_mix=0.5,
+    soft_select_tau=1.0,
 )
 
 PRESETS = {
@@ -70,6 +73,10 @@ PRESETS = {
     # Full model: + Fusion v2 (cross-layer interaction + spatial gate)
     # + multi-depth decoder path.
     "full": dict(FULL),
+    # D8 candidate-supervision variants (see stage2_supervision):
+    # allhead = all candidates' mask loss; soft = uniform + IoU-softmax.
+    "full_allhead": {**FULL, "stage2_supervision": "allhead"},
+    "full_soft": {**FULL, "stage2_supervision": "soft"},
     # Single-module ablations (full model minus one component).
     "no_geo_i": {**FULL, "use_geo_i": False},
     "no_geo_e": {**FULL, "use_geo_e": False},
