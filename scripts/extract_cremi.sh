@@ -16,7 +16,7 @@ cd "$REPO_ROOT"
 #       --out data --skip-blank
 if [ "$#" -eq 0 ]; then
     set -- \
-        --hdf sample_A_20160501.hdf \
+        --hdf sample_C_20160501.hdf \
         --out data \
         --skip-blank \
         --overwrite

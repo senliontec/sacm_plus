@@ -10,14 +10,17 @@ function inspect_cremi(hdfFile, startSlice, previewPath)
 % startSlice is 1-based; startSlice=1 corresponds to HDF5 z=0. If omitted,
 % browsing starts at slice 1.
 %
-% After each image is shown:
+% After each image is shown, click the figure window and use:
 %   Enter : next slice (wraps to slice 1 after the last slice)
 %   b     : previous slice
+%   1     : overlay derived neuron-boundary mask (red)
+%   2     : overlay official synaptic-cleft mask (green)
+%   3     : overlay both masks
 %   q     : quit
 %
-% The displayed image is the grayscale raw slice with the derived
-% neuron-boundary mask drawn in red. If the HDF has no neuron_ids
-% (CREMI test volumes A+/B+/C+), only the raw slice is shown.
+% The displayed image is the grayscale raw slice with the selected mask(s)
+% overlaid. If the HDF has no neuron_ids or no clefts (for example CREMI
+% test volumes A+/B+/C+), the unavailable masks are omitted with a warning.
 %
 % If previewPath is supplied, the currently displayed slice is saved when
 % you quit. No source HDF is modified.
@@ -49,10 +52,12 @@ print_group(info);
 
 rawPath = '/volumes/raw';
 nidPath = '/volumes/labels/neuron_ids';
+cleftPath = '/volumes/labels/clefts';
 if ~dataset_exists(hdfFile, rawPath)
     error('inspect_cremi:noRaw', '%s has no %s dataset', hdfFile, rawPath);
 end
 hasLabels = dataset_exists(hdfFile, nidPath);
+hasClefts = dataset_exists(hdfFile, cleftPath);
 
 rawInfo = h5info(hdfFile, rawPath);
 dims = double(rawInfo.Dataspace.Size);
@@ -108,35 +113,88 @@ if hasLabels
             '%s shape [%s] differs from raw [W,H,Z]=[%d,%d,%d]', ...
             nidPath, num2str(nidDims), W, H, Z);
     end
-else
-    warning('inspect_cremi:noLabels', ...
-        '%s has no %s; showing raw slices without a mask (test volume).', ...
-        hdfFile, nidPath);
+end
+if hasClefts
+    cleftInfo = h5info(hdfFile, cleftPath);
+    cleftDims = double(cleftInfo.Dataspace.Size);
+    if numel(cleftDims) == 3 && ~isequal(cleftDims, [W, H, Z])
+        warning('inspect_cremi:cleftShape', ...
+            '%s shape [%s] differs from raw [W,H,Z]=[%d,%d,%d]', ...
+            cleftPath, num2str(cleftDims), W, H, Z);
+    end
+end
+if ~hasLabels && ~hasClefts
+    warning('inspect_cremi:noMasks', ...
+        '%s has neither %s nor %s; showing raw slices only.', ...
+        hdfFile, nidPath, cleftPath);
 end
 
-fig = figure('Name', sprintf('CREMI: %s', fileInfo.name), 'Color', 'w');
+fig = figure( ...
+    'Name', sprintf('CREMI: %s', fileInfo.name), ...
+    'Color', 'w', ...
+    'ToolBar', 'figure', ...
+    'MenuBar', 'figure');
 ax = axes(fig);
 z = startSlice;
+interactive = usejava('desktop');
+
+if hasLabels
+    maskMode = 'boundary';
+elseif hasClefts
+    maskMode = 'clefts';
+else
+    maskMode = 'raw';
+end
+
+if interactive
+    set(fig, 'KeyPressFcn', @on_key);
+    fprintf(['Keys (click the figure first): Enter=next, b=back, ' ...
+        '1=boundary, 2=clefts, 3=both, q=quit\n']);
+    fprintf('Use the figure toolbar magnifier to zoom.\n');
+    figure(fig);
+    drawnow;
+else
+    fprintf('Headless mode: rendering one slice (no keyboard input).\n');
+end
 
 while true
     rawSlice = raw(:, :, z);
+    boundary = [];
+    clefts = [];
 
+    boundaryView = [];
     if hasLabels
         labels = read_label_slice(hdfFile, nidPath, z, H, W);
         boundary = false(H, W);
         boundary(:, 1:end-1) = labels(:, 1:end-1) ~= labels(:, 2:end);
         boundary(1:end-1, :) = boundary(1:end-1, :) | ...
             (labels(1:end-1, :) ~= labels(2:end, :));
-        overlay = make_overlay(rawSlice, boundary);
-        titleText = sprintf('%s | slice %d/%d (HDF5 z=%d) | boundary %.2f%%', ...
-            fileInfo.name, z, Z, z - 1, 100 * mean(boundary(:)));
-        fprintf('slice %d/%d (HDF5 z=%d): boundary fg %.3f%%\n', ...
-            z, Z, z - 1, 100 * mean(boundary(:)));
-    else
-        overlay = make_overlay(rawSlice, false(H, W));
-        titleText = sprintf('%s | slice %d/%d (HDF5 z=%d) | raw only', ...
-            fileInfo.name, z, Z, z - 1);
+        % Display-only thickening; exported masks remain one pixel wide.
+        boundaryView = dilate_mask(boundary);
     end
+    if hasClefts
+        cleftLabels = read_label_slice(hdfFile, cleftPath, z, H, W);
+        clefts = (cleftLabels ~= 0) & (cleftLabels ~= intmax('uint64'));
+    end
+
+    overlay = make_overlay(rawSlice, boundaryView, clefts, maskMode);
+    titleText = sprintf('slice %d/%d (z=%d) | %s', ...
+        z, Z, z - 1, maskMode);
+    statsText = sprintf('slice %d/%d (HDF5 z=%d), mode=%s', ...
+        z, Z, z - 1, maskMode);
+    if hasLabels
+        titleText = sprintf('%s | B %.2f%%', ...
+            titleText, 100 * mean(boundary(:)));
+        statsText = sprintf('%s, boundary %.3f%%', ...
+            statsText, 100 * mean(boundary(:)));
+    end
+    if hasClefts
+        titleText = sprintf('%s | C %.2f%%', ...
+            titleText, 100 * mean(clefts(:)));
+        statsText = sprintf('%s, clefts %.3f%%', ...
+            statsText, 100 * mean(clefts(:)));
+    end
+    fprintf('%s\n', statsText);
 
     if all(rawSlice(:) == 0)
         warning('inspect_cremi:blankSlice', ...
@@ -149,20 +207,51 @@ while true
     title(ax, titleText, 'Interpreter', 'none');
     drawnow;
 
-    answer = input(sprintf( ...
-        'slice %d/%d  [Enter]=next  [b]=previous  [q]=quit: ', z, Z), 's');
-    answer = lower(strtrim(answer));
-    if strcmp(answer, 'q')
+    if ~interactive
         break;
-    elseif strcmp(answer, 'b')
-        z = max(1, z - 1);
-    else
-        if z >= Z
-            z = 1;
-            fprintf('回到第 1 个 slice。\n');
-        else
-            z = z + 1;
-        end
+    end
+
+    key = wait_for_key(fig);
+    if ~isvalid(fig)
+        break;
+    end
+    key = lower(strtrim(key));
+
+    switch key
+        case {'return', 'enter'}
+            if z >= Z
+                z = 1;
+                fprintf('回到第 1 个 slice。\n');
+            else
+                z = z + 1;
+            end
+        case 'q'
+            break;
+        case 'b'
+            z = max(1, z - 1);
+        case '1'
+            if hasLabels
+                maskMode = 'boundary';
+            else
+                warning('inspect_cremi:noBoundary', ...
+                    'This HDF has no neuron_ids; boundary unavailable.');
+            end
+        case '2'
+            if hasClefts
+                maskMode = 'clefts';
+            else
+                warning('inspect_cremi:noClefts', ...
+                    'This HDF has no clefts; cleft mask unavailable.');
+            end
+        case '3'
+            if hasLabels && hasClefts
+                maskMode = 'both';
+            else
+                warning('inspect_cremi:maskMode', ...
+                    'Both masks are required for mode 3.');
+            end
+        otherwise
+            % Ignore unknown keys; keep the current slice/mode.
     end
 end
 
@@ -171,6 +260,37 @@ if nargin >= 3 && ~isempty(previewPath)
     exportgraphics(fig, previewPath, 'Resolution', 150);
     fprintf('Saved preview: %s\n', previewPath);
 end
+end
+
+
+function key = wait_for_key(fig)
+% Block until the figure receives a key press (or is closed).
+setappdata(fig, 'lastKey', '');
+try
+    uiwait(fig);
+catch
+    key = 'q';
+    return;
+end
+if isvalid(fig)
+    key = getappdata(fig, 'lastKey');
+else
+    key = 'q';
+end
+end
+
+
+function on_key(src, evt)
+% Store the key and release uiwait.
+key = evt.Key;
+if isempty(key)
+    key = evt.Character;
+end
+key = lower(key);
+% Numeric keypad may report numpad1/numpad2/numpad3.
+key = regexprep(key, '^numpad([123])$', '$1');
+setappdata(src, 'lastKey', key);
+uiresume(src);
 end
 
 
@@ -242,8 +362,17 @@ end
 end
 
 
-function overlay = make_overlay(rawSlice, boundary)
-% Grayscale background with red boundary pixels.
+function mask = dilate_mask(mask)
+% One-pixel four-neighbour dilation for display only.
+mask(2:end, :) = mask(2:end, :) | mask(1:end-1, :);
+mask(1:end-1, :) = mask(1:end-1, :) | mask(2:end, :);
+mask(:, 2:end) = mask(:, 2:end) | mask(:, 1:end-1);
+mask(:, 1:end-1) = mask(:, 1:end-1) | mask(:, 2:end);
+end
+
+
+function overlay = make_overlay(rawSlice, boundary, clefts, mode)
+% Grayscale background with red boundary and green cleft overlays.
 lo = double(min(rawSlice(:)));
 hi = double(max(rawSlice(:)));
 if hi > lo
@@ -252,7 +381,20 @@ else
     raw01 = zeros(size(rawSlice));
 end
 overlay = repmat(raw01, [1, 1, 3]);
-overlay(:, :, 1) = overlay(:, :, 1) .* ~boundary + double(boundary);
-overlay(:, :, 2) = overlay(:, :, 2) .* ~boundary;
-overlay(:, :, 3) = overlay(:, :, 3) .* ~boundary;
+
+showBoundary = ~isempty(boundary) && ...
+    (strcmp(mode, 'boundary') || strcmp(mode, 'both'));
+showClefts = ~isempty(clefts) && ...
+    (strcmp(mode, 'clefts') || strcmp(mode, 'both'));
+
+if showBoundary
+    overlay(:, :, 1) = overlay(:, :, 1) .* ~boundary + double(boundary);
+    overlay(:, :, 2) = overlay(:, :, 2) .* ~boundary + 0.15 * double(boundary);
+    overlay(:, :, 3) = overlay(:, :, 3) .* ~boundary + 0.15 * double(boundary);
+end
+if showClefts
+    overlay(:, :, 1) = overlay(:, :, 1) .* ~clefts + 0.15 * double(clefts);
+    overlay(:, :, 2) = overlay(:, :, 2) .* ~clefts + double(clefts);
+    overlay(:, :, 3) = overlay(:, :, 3) .* ~clefts + 0.15 * double(clefts);
+end
 end
