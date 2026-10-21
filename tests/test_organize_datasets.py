@@ -100,3 +100,42 @@ def test_old_fov_masks_are_quarantined(tmp_path):
 
     assert not (out / 'DRIVE_test/masks').exists()
     assert (out / 'DRIVE_test/fov/01_test.png').exists()
+
+
+def test_cremi_skips_blank_raw_slices(tmp_path):
+    """Volume C z014/z074 are all-zero in the released raw HDF5.
+
+    Their annotations are non-empty, but an all-black image carries no
+    signal. The converter must drop those pairs instead of shipping them
+    into Seen evaluation.
+    """
+    h5py = pytest.importorskip('h5py')
+    src = tmp_path / 'CREMI'
+    src.mkdir()
+    raw = np.zeros((3, 8, 8), dtype=np.uint8)
+    raw[1] = 10
+    raw[2] = 20
+    nid = np.zeros((3, 8, 8), dtype=np.uint64)
+    nid[1, :, 4:] = 1
+    nid[2, :, 4:] = 1
+    with h5py.File(src / 'sample_A_20160501.hdf', 'w') as f:
+        f.create_dataset('volumes/raw', data=raw)
+        f.create_dataset('volumes/labels/neuron_ids', data=nid)
+
+    out = tmp_path / 'out'
+    stale_img = out / 'CREMI/images/sample_A_z000.png'
+    stale_mask = out / 'CREMI/masks/sample_A_z000.png'
+    stale_img.parent.mkdir(parents=True)
+    stale_mask.parent.mkdir(parents=True)
+    stale_img.write_bytes(b'stale')
+    stale_mask.write_bytes(b'stale')
+
+    n = od.organize_cremi(str(src), str(out))
+
+    assert n == 2
+    assert not (out / 'CREMI/images/sample_A_z000.png').exists()
+    assert not (out / 'CREMI/masks/sample_A_z000.png').exists()
+    assert (out / 'CREMI/images/sample_A_z001.png').exists()
+    assert (out / 'CREMI/images/sample_A_z002.png').exists()
+    mask = np.array(Image.open(out / 'CREMI/masks/sample_A_z001.png'))
+    assert set(np.unique(mask)) <= {0, 255}

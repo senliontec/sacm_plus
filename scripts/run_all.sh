@@ -35,7 +35,7 @@ SHOTS="${SHOTS:-3}"                      # 仅 FULL_DATA=false(3-shot 协议层)
 VAL_SHOTS="${VAL_SHOTS:-1}"
 SEED="${SEED:-42}"
 CKPT="${CKPT:-checkpoints/sam_vit_l_0b3195.pth}"
-RAW_DATA_ROOT="${RAW_DATA_ROOT:-datasets}"   # 原始数据集目录(仓库内,与 up2server 上传布局一致)
+RAW_DATA_ROOT="${RAW_DATA_ROOT:-../datasets}"   # canonical raw library: project-root datasets/, sibling of sacm_plus/
 SPLIT_ROOT="${SPLIT_ROOT:-data/dis5k_full}"
 TRAIN_SOURCES="${TRAIN_SOURCES:-datasets/DIS5K_train}"   # 架构研究层:DIS5K 全量
 DRIVE_TEST_GT="${DRIVE_TEST_GT:-}"       # 可选:已核实的 DRIVE test 血管 GT 目录;官方 test/mask 是 FOV,不能当 GT

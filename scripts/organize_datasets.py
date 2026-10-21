@@ -393,11 +393,55 @@ def organize_dca1(src, out_root):
     return n
 
 
+def _read_maybe_gz(path):
+    if path.endswith('.gz'):
+        with gzip.open(path, 'rb') as f:
+            return Image.open(io.BytesIO(f.read()))
+    return Image.open(path)
+
+
+def _organize_stare_extracted(root, out_root, label_set='ah'):
+    img_dir = os.path.join(root, 'stare-images')
+    label_dir = os.path.join(root, f'labels-{label_set}')
+    if not os.path.isdir(label_dir):
+        label_dir = os.path.join(root, 'labels-vk')
+    if not os.path.isdir(label_dir):
+        raise ValueError(f"STARE: no labels-{label_set} / labels-vk under {root}")
+    out = os.path.join(out_root, 'STARE')
+    os.makedirs(os.path.join(out, 'images'), exist_ok=True)
+    os.makedirs(os.path.join(out, 'masks'), exist_ok=True)
+    n = 0
+    for f in sorted(os.listdir(img_dir)):
+        if not f.lower().endswith(('.ppm.gz', '.ppm')):
+            continue
+        key = f.split('.')[0]
+        label = None
+        for cand in (f'{key}.{label_set}.ppm.gz', f'{key}.{label_set}.ppm',
+                     f'{key}.ppm.gz', f'{key}.ppm'):
+            p = os.path.join(label_dir, cand)
+            if os.path.exists(p):
+                label = p
+                break
+        if label is None:
+            continue
+        _save_rgb(_read_maybe_gz(os.path.join(img_dir, f)),
+                  os.path.join(out, 'images', key + '.png'))
+        _save_binary(_read_maybe_gz(label),
+                     os.path.join(out, 'masks', key + '.png'))
+        n += 1
+    print(f"[STARE] {n} 对 (extracted, labels {os.path.basename(label_dir)})")
+    return n
+
+
 def organize_stare(src, out_root, label_set='ah'):
-    """STARE tar archives -> STARE/images + STARE/masks (ah by default)."""
+    """STARE tar or extracted .ppm.gz -> STARE/images + STARE/masks."""
+    extracted = _find_dir_with(
+        src, lambda r, fs: os.path.isdir(os.path.join(r, 'stare-images')))
+    if extracted is not None:
+        return _organize_stare_extracted(extracted, out_root, label_set)
     root = _find_dir_with(src, lambda r, fs: 'stare-images.tar' in fs)
     if root is None:
-        raise ValueError(f"STARE: stare-images.tar not found under {src}")
+        raise ValueError(f"STARE: no stare-images dir/tar under {src}")
     img_tar = os.path.join(root, 'stare-images.tar')
     label_tar = os.path.join(root, f'labels-{label_set}.tar')
     if not os.path.exists(label_tar):
@@ -544,7 +588,13 @@ def organize_fives(src, out_root):
 
 
 def organize_cremi(src, out_root):
-    """CREMI HDF5 -> CREMI/images + CREMI/masks (curvilinear boundary)."""
+    """CREMI HDF5 -> CREMI/images + CREMI/masks (curvilinear boundary).
+
+    Some released volumes contain all-zero raw sections (e.g. volume C
+    z014/z074 in the 20160501 files) while their labels are still
+    non-empty. Those images carry no signal and must not enter training
+    or evaluation, so they are skipped here.
+    """
     hdfs = []
     for root, _, files in os.walk(src):
         for f in files:
@@ -560,6 +610,7 @@ def organize_cremi(src, out_root):
     os.makedirs(os.path.join(out, 'images'), exist_ok=True)
     os.makedirs(os.path.join(out, 'masks'), exist_ok=True)
     n = 0
+    n_blank = 0
     for hdf in sorted(hdfs):
         stem = os.path.basename(hdf)[:-4]
         sample = stem.split('_2016')[0]
@@ -568,16 +619,163 @@ def organize_cremi(src, out_root):
             nid = f['volumes/labels/neuron_ids']
             for z in range(raw.shape[0]):
                 img = np.asarray(raw[z], dtype=np.uint8)
+                name = f'{sample}_z{z:03d}.png'
+                if not np.any(img):
+                    # Remove stale outputs from an earlier conversion.
+                    for sub in ('images', 'masks'):
+                        stale = os.path.join(out, sub, name)
+                        if os.path.exists(stale):
+                            os.remove(stale)
+                    print(f"[CREMI] skip blank raw slice {name}")
+                    n_blank += 1
+                    continue
                 lab = np.asarray(nid[z])
                 boundary = np.zeros_like(lab, dtype=bool)
                 boundary[:, :-1] |= lab[:, :-1] != lab[:, 1:]
                 boundary[:-1, :] |= lab[:-1, :] != lab[1:, :]
-                name = f'{sample}_z{z:03d}.png'
                 Image.fromarray(img).save(os.path.join(out, 'images', name))
                 Image.fromarray((boundary * 255).astype(np.uint8)).save(
                     os.path.join(out, 'masks', name))
                 n += 1
-    print(f"[CREMI] {n} 对")
+    print(f"[CREMI] {n} 对 (跳过全黑切片 {n_blank} 张)")
+    return n
+
+
+def organize_cracktree(src, out_root, variant='rgb'):
+    """CrackTree200 rgb/gray + gt -> CrackTree200/images + masks."""
+    root = _find_dir_with(
+        src,
+        lambda r, fs: os.path.isdir(os.path.join(r, 'cracktree200_gt'))
+        and (os.path.isdir(os.path.join(r, 'cracktree200rgb'))
+             or os.path.isdir(os.path.join(r, 'cracktree200gray'))))
+    if root is None:
+        raise ValueError(f"CrackTree200: rgb/gray + gt dirs not found under {src}")
+    img_dir = os.path.join(root, f'cracktree200{variant}')
+    if not os.path.isdir(img_dir):
+        img_dir = os.path.join(root, 'cracktree200rgb')
+    gt_dir = os.path.join(root, 'cracktree200_gt')
+    out = os.path.join(out_root, 'CrackTree200')
+    os.makedirs(os.path.join(out, 'images'), exist_ok=True)
+    os.makedirs(os.path.join(out, 'masks'), exist_ok=True)
+    n = 0
+    for f in sorted(os.listdir(img_dir)):
+        if not f.lower().endswith(('.jpg', '.jpeg', '.png')):
+            continue
+        base = os.path.splitext(f)[0]
+        gt = os.path.join(gt_dir, base + '.png')
+        if not os.path.exists(gt):
+            continue
+        copy_image(os.path.join(img_dir, f),
+                   os.path.join(out, 'images', f))
+        convert_to_binary_png(gt, os.path.join(out, 'masks', base + '.png'))
+        n += 1
+    print(f"[CrackTree200] {n} 对")
+    return n
+
+
+def organize_deepcrack(src, out_root):
+    """DeepCrack train_img/lab + test_img/lab -> DeepCrack_train/test."""
+    root = _find_dir_with(
+        src,
+        lambda r, fs: all(os.path.isdir(os.path.join(r, d)) for d in
+                          ('train_img', 'train_lab', 'test_img', 'test_lab')))
+    if root is None:
+        raise ValueError(f"DeepCrack: train/test img/lab dirs not found under {src}")
+    total = 0
+    for split, out_name in (('train', 'DeepCrack_train'),
+                            ('test', 'DeepCrack_test')):
+        img_dir = os.path.join(root, f'{split}_img')
+        lab_dir = os.path.join(root, f'{split}_lab')
+        out = os.path.join(out_root, out_name)
+        os.makedirs(os.path.join(out, 'images'), exist_ok=True)
+        os.makedirs(os.path.join(out, 'masks'), exist_ok=True)
+        n = 0
+        for f in sorted(os.listdir(img_dir)):
+            if not f.lower().endswith(('.jpg', '.jpeg', '.png')):
+                continue
+            base = os.path.splitext(f)[0]
+            lab = None
+            for ext in ('.png', '.jpg', '.jpeg'):
+                cand = os.path.join(lab_dir, base + ext)
+                if os.path.exists(cand):
+                    lab = cand
+                    break
+            if lab is None:
+                continue
+            copy_image(os.path.join(img_dir, f),
+                       os.path.join(out, 'images', f))
+            convert_to_binary_png(lab, os.path.join(out, 'masks', base + '.png'))
+            n += 1
+        print(f"[DeepCrack] {out_name}: {n} 对")
+        total += n
+    return total
+
+
+def organize_xcad(src, out_root):
+    """XCAD test/images + test/masks -> XCAD_test (train is unlabeled)."""
+    root = _find_dir_with(
+        src,
+        lambda r, fs: os.path.isdir(os.path.join(r, 'test', 'images'))
+        and os.path.isdir(os.path.join(r, 'test', 'masks')))
+    if root is None:
+        raise ValueError(f"XCAD: test/images + test/masks not found under {src}")
+    img_dir = os.path.join(root, 'test', 'images')
+    mask_dir = os.path.join(root, 'test', 'masks')
+    out = os.path.join(out_root, 'XCAD_test')
+    os.makedirs(os.path.join(out, 'images'), exist_ok=True)
+    os.makedirs(os.path.join(out, 'masks'), exist_ok=True)
+    n = 0
+    for f in sorted(os.listdir(img_dir)):
+        if not f.lower().endswith(('.png', '.jpg', '.jpeg')):
+            continue
+        base = os.path.splitext(f)[0]
+        mask = None
+        for ext in ('.png', '.jpg', '.jpeg'):
+            cand = os.path.join(mask_dir, base + ext)
+            if os.path.exists(cand):
+                mask = cand
+                break
+        if mask is None:
+            continue
+        copy_image(os.path.join(img_dir, f),
+                   os.path.join(out, 'images', f))
+        convert_to_binary_png(mask, os.path.join(out, 'masks', base + '.png'))
+        n += 1
+    print(f"[XCAD] test: {n} 对 (train unlabeled, ignored)")
+    return n
+
+
+def organize_road(src, out_root):
+    """ROAD/Massachusetts Roads test split -> ROAD_test/images + masks."""
+    root = _find_dir_with(
+        src,
+        lambda r, fs: os.path.isdir(os.path.join(r, 'tiff', 'test'))
+        and os.path.isdir(os.path.join(r, 'tiff', 'test_labels')))
+    if root is None:
+        raise ValueError(f"ROAD: tiff/test + tiff/test_labels not found under {src}")
+    img_dir = os.path.join(root, 'tiff', 'test')
+    lab_dir = os.path.join(root, 'tiff', 'test_labels')
+    out = os.path.join(out_root, 'ROAD_test')
+    os.makedirs(os.path.join(out, 'images'), exist_ok=True)
+    os.makedirs(os.path.join(out, 'masks'), exist_ok=True)
+    n = 0
+    for f in sorted(os.listdir(img_dir)):
+        if not f.lower().endswith(('.tif', '.tiff', '.png')):
+            continue
+        base = os.path.splitext(f)[0]
+        lab = None
+        for ext in ('.tif', '.tiff', '.png'):
+            cand = os.path.join(lab_dir, base + ext)
+            if os.path.exists(cand):
+                lab = cand
+                break
+        if lab is None:
+            continue
+        copy_image(os.path.join(img_dir, f),
+                   os.path.join(out, 'images', f))
+        convert_to_binary_png(lab, os.path.join(out, 'masks', base + '.png'))
+        n += 1
+    print(f"[ROAD] test: {n} 对")
     return n
 
 
@@ -658,7 +856,9 @@ def main():
             total += organize_dis5k(src, args.out)
         elif _find_dir_with(src, lambda r, fs: any(f.endswith('_gt.pgm') for f in fs)):
             total += organize_dca1(src, args.out)
-        elif _find_dir_with(src, lambda r, fs: 'stare-images.tar' in fs):
+        elif _find_dir_with(
+                src, lambda r, fs: 'stare-images.tar' in fs
+                or os.path.isdir(os.path.join(r, 'stare-images'))):
             total += organize_stare(src, args.out)
         elif _find_dir_with(src, lambda r, fs: any(f.endswith('_1stHO.png') for f in fs)):
             total += organize_chasedb1(src, args.out)
@@ -668,6 +868,23 @@ def main():
             total += organize_fives(src, args.out)
         elif _find_dir_with(src, lambda r, fs: any(f.endswith('.hdf') for f in fs)):
             total += organize_cremi(src, args.out)
+        elif _find_dir_with(
+                src, lambda r, fs: os.path.isdir(os.path.join(r, 'cracktree200_gt'))
+                and (os.path.isdir(os.path.join(r, 'cracktree200rgb'))
+                     or os.path.isdir(os.path.join(r, 'cracktree200gray')))):
+            total += organize_cracktree(src, args.out)
+        elif _find_dir_with(
+                src, lambda r, fs: all(os.path.isdir(os.path.join(r, d)) for d in
+                                       ('train_img', 'train_lab', 'test_img', 'test_lab'))):
+            total += organize_deepcrack(src, args.out)
+        elif _find_dir_with(
+                src, lambda r, fs: os.path.isdir(os.path.join(r, 'test', 'images'))
+                and os.path.isdir(os.path.join(r, 'test', 'masks'))):
+            total += organize_xcad(src, args.out)
+        elif _find_dir_with(
+                src, lambda r, fs: os.path.isdir(os.path.join(r, 'tiff', 'test'))
+                and os.path.isdir(os.path.join(r, 'tiff', 'test_labels'))):
+            total += organize_road(src, args.out)
         else:
             print(f"[unknown] {name}: 无法识别的布局,跳过")
     print(f"\n完成: 共整理 {total} 对 → {args.out}")

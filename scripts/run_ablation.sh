@@ -15,7 +15,7 @@ set -euo pipefail
 # ---------------- 配置(仍可用环境变量覆盖,默认值 = 当前实验计划) ----------------
 GPUS="${GPUS:-0 1 2 3 4 5 6 7}"
 CKPT="${CKPT:-checkpoints/sam_vit_l_0b3195.pth}"
-RAW_DATA_ROOT="${RAW_DATA_ROOT:-datasets}"   # 仓库内(与 up2server 上传布局一致)
+RAW_DATA_ROOT="${RAW_DATA_ROOT:-../datasets}"   # canonical raw library: project-root datasets/, sibling of sacm_plus/
 SPLIT_ROOT="${SPLIT_ROOT:-data/dis5k_full}"
 TRAIN_SOURCES="${TRAIN_SOURCES:-datasets/DIS5K_train}"   # 架构研究层:DIS5K 全量
 DRIVE_TEST_GT="${DRIVE_TEST_GT:-}"       # 可选:已核实的 DRIVE test 血管 GT 目录;官方 test/mask 是 FOV
