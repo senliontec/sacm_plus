@@ -22,8 +22,8 @@ Usage:
         --hdf /path/to/datasets/CREMI/sample_A_20160501.hdf \
         --out /path/to/cremi_png --skip-blank
 
-Output layout (one folder per HDF, named after the original file):
-    <out>/<hdf_name>/            # e.g. sample_A_20160501.hdf/
+Output layout (one folder per HDF, named after the original file stem):
+    <out>/<hdf_stem>/            # e.g. sample_A_20160501/
         images_gray/z<ZZZ>.png   # single-channel L
         images_rgb/z<ZZZ>.png    # 3-channel RGB, R=G=B
         masks/z<ZZZ>.png
@@ -237,13 +237,13 @@ def extract(
     for hdf in hdfs:
         validate_hdf(hdf)
 
-    volume_names = [Path(hdf).name for hdf in hdfs]
+    volume_names = [Path(hdf).stem for hdf in hdfs]
     if len(set(volume_names)) != len(volume_names):
         duplicates = sorted({
             name for name in volume_names if volume_names.count(name) > 1
         })
-        raise SystemExit(f"duplicate HDF filenames: {duplicates}")
-    volume_dirs = {hdf: out_path / Path(hdf).name for hdf in hdfs}
+        raise SystemExit(f"duplicate HDF stems: {duplicates}")
+    volume_dirs = {hdf: out_path / Path(hdf).stem for hdf in hdfs}
     manifest_path = out_path / 'manifest.csv'
 
     if out_path.exists() and not out_path.is_dir():
@@ -260,8 +260,8 @@ def extract(
             volume_dir = volume_dirs[hdf]
             if volume_dir.is_dir():
                 shutil.rmtree(volume_dir)
-            # Migrate the previous stem-only layout on overwrite.
-            legacy_volume_dir = out_path / Path(hdf).stem
+            # Migrate the previous full-filename layout on overwrite.
+            legacy_volume_dir = out_path / Path(hdf).name
             if legacy_volume_dir != volume_dir and legacy_volume_dir.is_dir():
                 shutil.rmtree(legacy_volume_dir)
         # Remove the old flat layout from earlier versions of this script.
@@ -287,7 +287,8 @@ def extract(
     all_rows = []
 
     for hdf in hdfs:
-        volume_name = Path(hdf).name
+        volume_name = Path(hdf).stem
+        hdf_name = Path(hdf).name
         volume_dir = volume_dirs[hdf]
         image_gray_dir = volume_dir / 'images_gray'
         image_rgb_dir = volume_dir / 'images_rgb'
@@ -346,7 +347,7 @@ def extract(
                 )
 
                 base_row = {
-                    'hdf': volume_name,
+                    'hdf': hdf_name,
                     'z': z,
                     'source': _relative(Path(hdf), src_path),
                     'blank': int(is_blank),
@@ -426,7 +427,7 @@ def main() -> int:
     )
     parser.add_argument(
         '--out', required=True,
-        help='output root; each HDF gets its own <hdf_name>/ folder',
+        help='output root; each HDF gets its own <hdf_stem>/ folder',
     )
     parser.add_argument(
         '--skip-blank', action='store_true',
