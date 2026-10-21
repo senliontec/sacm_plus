@@ -37,7 +37,7 @@ Output layout (one folder per HDF, named after the original file stem):
         images_rgb/z<ZZZ>.png    # 3-channel RGB, R=G=B
         masks/z<ZZZ>.png
         manifest.csv             # paths relative to this HDF folder
-    <out>/manifest.csv           # aggregate manifest with paths relative to out
+    <out>/manifest.csv           # aggregate of every per-HDF manifest in <out>
 
 CREMI ``volumes/raw`` is single-channel electron microscopy, so the RGB
 export is the grayscale image replicated across R/G/B (R=G=B). It does not
@@ -79,6 +79,10 @@ RAW_KEY = 'volumes/raw'
 NEURON_KEY = 'volumes/labels/neuron_ids'
 CLEFT_KEY = 'volumes/labels/clefts'
 MASK_TYPES = ('boundary', 'clefts')
+MANIFEST_FIELDS = [
+    'hdf', 'z', 'mask_type', 'image_gray', 'image_rgb', 'mask',
+    'source', 'blank', 'fg_ratio',
+]
 
 
 def label_key(mask_type: str) -> str:
@@ -249,6 +253,46 @@ def _relative(path: Path, root: Path) -> str:
         return path.as_posix()
 
 
+def collect_global_rows(out_path: Path) -> list[dict]:
+    """Merge every per-HDF manifest currently present under *out_path*.
+
+    This keeps the aggregate manifest complete even when volumes are
+    exported in separate script invocations.
+    """
+    rows = []
+    required = set(MANIFEST_FIELDS) - {'mask_type'}
+    for volume_dir in sorted(out_path.iterdir()):
+        if not volume_dir.is_dir():
+            continue
+        volume_manifest = volume_dir / 'manifest.csv'
+        if not volume_manifest.is_file():
+            continue
+        with open(volume_manifest, newline='') as handle:
+            reader = csv.DictReader(handle)
+            fields = set(reader.fieldnames or [])
+            if not required <= fields:
+                print(
+                    f"[CREMI] warning: skip {volume_manifest}: "
+                    f"missing columns {sorted(required - fields)}"
+                )
+                continue
+            if 'mask_type' not in fields:
+                print(
+                    f"[CREMI] warning: {volume_manifest} has no mask_type; "
+                    "assuming boundary"
+                )
+            for row in reader:
+                merged = {field: row.get(field, '') for field in MANIFEST_FIELDS}
+                merged['mask_type'] = row.get('mask_type') or 'boundary'
+                for column in ('image_gray', 'image_rgb', 'mask'):
+                    rel = row[column]
+                    if not rel.startswith(volume_dir.name + '/'):
+                        rel = f'{volume_dir.name}/{rel}'
+                    merged[column] = rel
+                rows.append(merged)
+    return rows
+
+
 def extract(
     src: os.PathLike | None,
     out: os.PathLike,
@@ -263,8 +307,10 @@ def extract(
     *mask_type* selects ``boundary`` (derived from neuron_ids) or
     ``clefts`` (official synaptic-cleft labels). If *hdf_paths* is given,
     only those files are read; otherwise every unpadded ``*.hdf`` under
-    *src* is used. Returns a summary dict with counts: volumes, slices,
-    written, blank_skipped, blank_written.
+    *src* is used. The aggregate manifest is rebuilt from all per-HDF
+    manifests already present in *out*, so separate invocations do not
+    drop previously exported volumes. Returns a summary dict with counts:
+    volumes, slices, written, blank_skipped, blank_written.
     """
     require_h5py()
     label_key(mask_type)
@@ -317,10 +363,7 @@ def extract(
             manifest_path.unlink()
     out_path.mkdir(parents=True, exist_ok=True)
 
-    fieldnames = [
-        'hdf', 'z', 'mask_type', 'image_gray', 'image_rgb', 'mask',
-        'source', 'blank', 'fg_ratio',
-    ]
+    fieldnames = MANIFEST_FIELDS
     summary = {
         'volumes': 0,
         'slices': 0,
@@ -328,7 +371,6 @@ def extract(
         'blank_skipped': 0,
         'blank_written': 0,
     }
-    all_rows = []
 
     for hdf in hdfs:
         volume_name = Path(hdf).stem
@@ -409,12 +451,6 @@ def extract(
                     'image_rgb': _relative(image_rgb_path, volume_dir),
                     'mask': _relative(mask_path, volume_dir),
                 })
-                all_rows.append({
-                    **base_row,
-                    'image_gray': _relative(image_gray_path, out_path),
-                    'image_rgb': _relative(image_rgb_path, out_path),
-                    'mask': _relative(mask_path, out_path),
-                })
                 summary['written'] += 1
                 summary['slices'] += 1
                 if is_blank:
@@ -431,10 +467,11 @@ def extract(
             writer.writeheader()
             writer.writerows(volume_rows)
 
+    global_rows = collect_global_rows(out_path)
     with open(manifest_path, 'w', newline='') as manifest_file:
         writer = csv.DictWriter(manifest_file, fieldnames=fieldnames)
         writer.writeheader()
-        writer.writerows(all_rows)
+        writer.writerows(global_rows)
 
     print(
         f"[CREMI] done: {summary['written']} image/{mask_type} mask pairs "
@@ -442,7 +479,10 @@ def extract(
         f"blank written={summary['blank_written']}, "
         f"blank skipped={summary['blank_skipped']}"
     )
-    print(f"[CREMI] manifest: {manifest_path}")
+    print(
+        f"[CREMI] manifest: {manifest_path} "
+        f"({len(global_rows)} rows across all exported volumes)"
+    )
     return summary
 
 
