@@ -102,6 +102,58 @@ def test_old_fov_masks_are_quarantined(tmp_path):
     assert (out / 'DRIVE_test/fov/01_test.png').exists()
 
 
+def test_organize_hrf_pairs_masks_and_fov(tmp_path):
+    src = tmp_path / 'HRF'
+    _write_image(src / 'images/01_h.jpg')
+    _write_mask(src / 'masks/01_h.tif', 0.07)
+    _write_mask(src / 'roi_masks/01_h_mask.tif', 0.70)
+
+    out = tmp_path / 'out'
+    n = od.organize_hrf(str(src), str(out))
+
+    assert n == 1
+    assert (out / 'HRF/images/01_h.jpg').exists()
+    assert (out / 'HRF/masks/01_h.png').exists()
+    assert (out / 'HRF/fov/01_h.png').exists()
+    mask = np.array(Image.open(out / 'HRF/masks/01_h.png'))
+    assert set(np.unique(mask)) == {0, 255}
+    fov = np.array(Image.open(out / 'HRF/fov/01_h.png'))
+    assert set(np.unique(fov)) == {0, 255}
+
+
+def test_organize_lesav_uses_vessel_segmentations(tmp_path):
+    src = tmp_path / 'LES-AV'
+    _write_image(src / 'images/12.png')
+    _write_mask(src / 'masks/12_mask.gif', 0.50)
+    _write_mask(src / 'vessel-segmentations/12.png', 0.07)
+
+    out = tmp_path / 'out'
+    n = od.organize_lesav(str(src), str(out))
+
+    assert n == 1
+    assert (out / 'LES-AV/images/12.png').exists()
+    mask = np.array(Image.open(out / 'LES-AV/masks/12.png'))
+    assert set(np.unique(mask)) == {0, 255}
+    assert od.mask_foreground_ratio(out / 'LES-AV/masks/12.png') == pytest.approx(0.07, abs=0.01)
+
+
+def test_organize_chcrack5k_skips_blank_gt(tmp_path):
+    src = tmp_path / 'CHCrack5k'
+    _write_image(src / 'test/image/a.jpg')
+    _write_mask(src / 'test/gt/a.png', 0.01)
+    _write_image(src / 'test/image/b.jpg')
+    _write_mask(src / 'test/gt/b.png', 0.0)
+
+    out = tmp_path / 'out'
+    n = od.organize_chcrack5k(str(src), str(out))
+
+    assert n == 1
+    assert (out / 'CHCrack5k_test/images/a.jpg').exists()
+    assert (out / 'CHCrack5k_test/masks/a.png').exists()
+    assert not (out / 'CHCrack5k_test/images/b.jpg').exists()
+    assert not (out / 'CHCrack5k_test/masks/b.png').exists()
+
+
 def test_cremi_skips_blank_raw_slices(tmp_path):
     """Volume C z014/z074 are all-zero in the released raw HDF5.
 

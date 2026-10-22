@@ -16,6 +16,12 @@ Converters (auto-detected by layout):
                 im/ + gt/; gt is instance-labelled -> binarized (>0).
                 Outputs: DIS5K_train (DIS-TR) and DIS5K_test (TE1..4
                 merged, filenames prefixed with the split name).
+  - HRF:        images/ + masks/ + roi_masks/ -> HRF/images, HRF/masks,
+                HRF/fov. The ROI mask is the field of view, not vessel GT.
+  - LES-AV:     images/ + vessel-segmentations/ -> LES-AV/images and
+                LES-AV/masks. The 0/1 GIF masks are intentionally ignored.
+  - CHCrack5k:  test/image + test/gt -> CHCrack5k_test. Empty GT masks
+                (13 in the released test split) are skipped.
 
 Usage:
     python scripts/organize_datasets.py --src <dir-with-raw-datasets> \
@@ -711,6 +717,119 @@ def organize_deepcrack(src, out_root):
     return total
 
 
+def organize_hrf(src, out_root):
+    """HRF original layout -> HRF/images + masks + fov.
+
+    HRF has original high-resolution fundus images, binary vessel masks,
+    and ROI masks.  The ROI mask is the field of view; it must not be
+    used as a segmentation target.
+    """
+    img_dir = os.path.join(src, 'images')
+    mask_dir = os.path.join(src, 'masks')
+    roi_dir = os.path.join(src, 'roi_masks')
+    if not all(os.path.isdir(d) for d in (img_dir, mask_dir, roi_dir)):
+        raise ValueError(f"HRF: images/, masks/ and roi_masks/ not found under {src}")
+    out = os.path.join(out_root, 'HRF')
+    for sub in ('images', 'masks', 'fov'):
+        os.makedirs(os.path.join(out, sub), exist_ok=True)
+    n = 0
+    for f in sorted(os.listdir(img_dir)):
+        img_ext = os.path.splitext(f)[1]
+        if img_ext.lower() not in DRIVE_IMAGE_EXTS:
+            continue
+        base = os.path.splitext(f)[0]
+        mask = None
+        for ext in ('.tif', '.tiff', '.png', '.gif'):
+            cand = os.path.join(mask_dir, base + ext)
+            if os.path.exists(cand):
+                mask = cand
+                break
+        roi = os.path.join(roi_dir, base + '_mask.tif')
+        if mask is None or not os.path.exists(roi):
+            continue
+        validate_vessel_mask(mask)
+        copy_image(os.path.join(img_dir, f),
+                   os.path.join(out, 'images', base + img_ext))
+        convert_to_binary_png(mask,
+                              os.path.join(out, 'masks', base + '.png'))
+        convert_to_binary_png(roi,
+                              os.path.join(out, 'fov', base + '.png'))
+        n += 1
+    print(f"[HRF] {n} 对 (+fov)")
+    return n
+
+
+def organize_lesav(src, out_root):
+    """LES-AV original layout -> LES-AV/images + masks.
+
+    `vessel-segmentations/` is the binary 0/255 vessel target.  The
+    `masks/*.gif` files are 0/1 and are intentionally not used.
+    """
+    img_dir = os.path.join(src, 'images')
+    mask_dir = os.path.join(src, 'vessel-segmentations')
+    if not os.path.isdir(img_dir) or not os.path.isdir(mask_dir):
+        raise ValueError(
+            f"LES-AV: images/ and vessel-segmentations/ not found under {src}"
+        )
+    pairs = []
+    for f in sorted(os.listdir(img_dir)):
+        img_ext = os.path.splitext(f)[1]
+        if img_ext.lower() not in DRIVE_IMAGE_EXTS:
+            continue
+        base = os.path.splitext(f)[0]
+        mask = os.path.join(mask_dir, base + '.png')
+        if not os.path.exists(mask):
+            continue
+        validate_vessel_mask(mask)
+        pairs.append((os.path.join(img_dir, f), mask, base))
+    n = _convert_pairs(pairs, os.path.join(out_root, 'LES-AV'))
+    print(f"[LES-AV] {n} 对")
+    return n
+
+
+def organize_chcrack5k(src, out_root):
+    """CHCrack5k test split -> CHCrack5k_test/images + masks.
+
+    The released test split has 13 empty GT masks; they carry no
+    foreground and are skipped so every evaluated image has a target.
+    """
+    img_dir = os.path.join(src, 'test', 'image')
+    gt_dir = os.path.join(src, 'test', 'gt')
+    if not os.path.isdir(img_dir) or not os.path.isdir(gt_dir):
+        raise ValueError(
+            f"CHCrack5k: test/image and test/gt not found under {src}"
+        )
+    out = os.path.join(out_root, 'CHCrack5k_test')
+    os.makedirs(os.path.join(out, 'images'), exist_ok=True)
+    os.makedirs(os.path.join(out, 'masks'), exist_ok=True)
+    n = 0
+    blank = 0
+    for f in sorted(os.listdir(img_dir)):
+        img_ext = os.path.splitext(f)[1]
+        if img_ext.lower() not in DRIVE_IMAGE_EXTS:
+            continue
+        base = os.path.splitext(f)[0]
+        gt = None
+        for ext in ('.png', '.jpg', '.jpeg', '.tif', '.tiff'):
+            cand = os.path.join(gt_dir, base + ext)
+            if os.path.exists(cand):
+                gt = cand
+                break
+        if gt is None:
+            continue
+        arr = np.array(Image.open(gt).convert('L'))
+        if not np.any(arr > 0):
+            blank += 1
+            continue
+        copy_image(os.path.join(img_dir, f),
+                   os.path.join(out, 'images', base + img_ext))
+        convert_to_binary_png(gt,
+                              os.path.join(out, 'masks', base + '.png'))
+        n += 1
+    print(f"[CHCrack5k] test: {n} 对 (跳过空 GT {blank} 张)")
+    return n
+
+
 def organize_xcad(src, out_root):
     """XCAD test/images + test/masks -> XCAD_test (train is unlabeled)."""
     root = _find_dir_with(
@@ -839,7 +958,16 @@ def main():
         if not os.path.isdir(src) or name.startswith('.'):
             continue
         out_root = os.path.join(args.out, name)
-        if os.path.isdir(os.path.join(src, 'images')) and os.path.isdir(os.path.join(src, 'masks')):
+        if all(os.path.isdir(os.path.join(src, d))
+               for d in ('images', 'masks', 'roi_masks')):
+            total += organize_hrf(src, args.out)
+        elif os.path.isdir(os.path.join(src, 'images')) and \
+                os.path.isdir(os.path.join(src, 'vessel-segmentations')):
+            total += organize_lesav(src, args.out)
+        elif os.path.isdir(os.path.join(src, 'test', 'image')) and \
+                os.path.isdir(os.path.join(src, 'test', 'gt')):
+            total += organize_chcrack5k(src, args.out)
+        elif os.path.isdir(os.path.join(src, 'images')) and os.path.isdir(os.path.join(src, 'masks')):
             if os.path.isdir(os.path.join(out_root, 'images')):
                 print(f"[skip] {name}: 目标已具备 images/+masks/ 布局")
                 continue

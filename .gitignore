@@ -19,6 +19,8 @@ dist/
 # Runtime outputs: data, results, logs, checkpoints
 data/
 datasets/
+datasets_legacy/
+exports/
 outputs/
 results/
 logs/

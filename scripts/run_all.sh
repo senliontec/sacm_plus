@@ -36,12 +36,12 @@ VAL_SHOTS="${VAL_SHOTS:-1}"
 SEED="${SEED:-42}"
 CKPT="${CKPT:-checkpoints/sam_vit_l_0b3195.pth}"
 RAW_DATA_ROOT="${RAW_DATA_ROOT:-../datasets}"   # canonical raw library: project-root datasets/, sibling of sacm_plus/
-SPLIT_ROOT="${SPLIT_ROOT:-data/dis5k_full}"
-TRAIN_SOURCES="${TRAIN_SOURCES:-datasets/DIS5K_train}"   # 架构研究层:DIS5K 全量
+SPLIT_ROOT="${SPLIT_ROOT:-data/sacm_3shot_v0}"
+TRAIN_SOURCES="${TRAIN_SOURCES:-datasets/seen/DRIVE datasets/seen/CHASEDB1 datasets/seen/DCA1 datasets/seen/CREMI datasets/seen/CrackTree200}"   # SACM protocol domains (full mode)
 DRIVE_TEST_GT="${DRIVE_TEST_GT:-}"       # 可选:已核实的 DRIVE test 血管 GT 目录;官方 test/mask 是 FOV,不能当 GT
-TEST_DATASETS="${TEST_DATASETS:-datasets/DIS5K_test datasets/ThinObject5K}"
+TEST_DATASETS="${TEST_DATASETS:-datasets/unseen/FIVES datasets/unseen/STARE datasets/unseen/XCAD datasets/unseen/DeepCrack datasets/unseen/HRF datasets/unseen/LES-AV datasets/unseen/CHCrack5k datasets/novel/ROAD datasets/novel/TYRE datasets/novel/WIRE}"
 # DRIVE_test 默认不加入:它只有官方 test 图像 + FOV,没有公开血管 GT。
-# 用 DRIVE_train 的 3/17 留出划分,或提供 DRIVE_TEST_GT 后再显式加入 TEST_DATASETS。
+# 用 seen/DRIVE 的 3/17 留出划分,或提供 DRIVE_TEST_GT 后再显式加入 TEST_DATASETS。
 RESULTS_ROOT="${RESULTS_ROOT:-results}"
 USE_WANDB="${USE_WANDB:-true}"
 TOPOLOGY_LOSS="${TOPOLOGY_LOSS:-topograph}"   # 默认 topograph:针对 β 碎片化瓶颈;none 关闭
@@ -133,6 +133,8 @@ build_split() {
   else
     python scripts/organize_datasets.py --src "$RAW_DATA_ROOT" --out datasets || true
   fi
+  python scripts/group_datasets.py --root datasets \
+      || fail "group_datasets(seen/unseen/novel) 失败"
   read -ra GROUP_SPECS <<< "$GROUP_REGEX"
   GROUP_ARGS=()
   for spec in "${GROUP_SPECS[@]}"; do

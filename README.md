@@ -26,9 +26,28 @@ README.md
 
 ## Datasets
 
-This project uses **4 internal datasets** for evaluation. The datasets can be found at:
+The frozen available-data protocol lives in `datasets/` (evaluation roots)
+and `data/sacm_3shot_v0/` (train/val/Seen split):
 
-- [Curvilinear_Structure_Datasets](https://github.com/dianshuoli/Curvilinear_Structure_Datasets)
+- **Train**: DRIVE, CHASEDB1, DCA1, CREMI, CrackTree200; 3-shot each = 15.
+- **Val**: 1 per domain = 5.
+- **Seen**: held-out images from the five training domains = 493.
+- **Unseen**: FIVES 200, STARE 20, XCAD 126, DeepCrack 237,
+  HRF 45, LES-AV 22, CHCrack5k 990 = 1,640.
+- **Novel**: ROAD 49, TYRE 36, WIRE 31 = 116.
+
+DSCA, official CRACK, and CORN are not part of this protocol: DSCA is
+access-restricted, the official CRACK/CORN splits are unavailable, and the
+official 3-shot sample IDs were never published. Published SACM numbers are
+therefore reference-only and are not directly comparable to this split.
+
+Individual dataset converters live in `scripts/datasets/`. Each script can
+rebuild one dataset independently; see `scripts/datasets/README.md`.
+
+`LEAF` (31 images) is archived at `datasets_legacy/novel_LEAF` and excluded
+from the main protocol: its 1-px sparse centreline masks contain a median of
+305 8-connected components per image, which makes it unsuitable for
+quantitative topology claims.
 
 ## Engineering quick start
 

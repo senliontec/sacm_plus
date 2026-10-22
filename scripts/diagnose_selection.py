@@ -18,8 +18,9 @@ Per dataset/category it reports:
 Example:
   python scripts/diagnose_selection.py \
       --preset full \
-      --data_root DRIVE:../datasets/DRIVE_test CHASEDB1:../datasets/CHASEDB1_test \
-                  WIRE:../datasets/WIRE_test ROAD:../datasets/ROAD_test \
+      --data_root DRIVE:data/sacm_3shot_v0/test/DRIVE \
+                  CHASEDB1:data/sacm_3shot_v0/test/CHASEDB1 \
+                  WIRE:datasets/novel/WIRE ROAD:datasets/novel/ROAD \
       --category DRIVE:seen CHASEDB1:seen WIRE:novel ROAD:novel \
       --trained_weights results/full/best_model.pth \
       --output_dir diagnosis/full --metrics dice cldice hd95

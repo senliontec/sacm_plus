@@ -16,12 +16,12 @@ set -euo pipefail
 GPUS="${GPUS:-0 1 2 3 4 5 6 7}"
 CKPT="${CKPT:-checkpoints/sam_vit_l_0b3195.pth}"
 RAW_DATA_ROOT="${RAW_DATA_ROOT:-../datasets}"   # canonical raw library: project-root datasets/, sibling of sacm_plus/
-SPLIT_ROOT="${SPLIT_ROOT:-data/dis5k_full}"
-TRAIN_SOURCES="${TRAIN_SOURCES:-datasets/DIS5K_train}"   # 架构研究层:DIS5K 全量
+SPLIT_ROOT="${SPLIT_ROOT:-data/sacm_3shot_v0}"
+TRAIN_SOURCES="${TRAIN_SOURCES:-datasets/seen/DRIVE datasets/seen/CHASEDB1 datasets/seen/DCA1 datasets/seen/CREMI datasets/seen/CrackTree200}"   # SACM protocol domains (full mode)
 DRIVE_TEST_GT="${DRIVE_TEST_GT:-}"       # 可选:已核实的 DRIVE test 血管 GT 目录;官方 test/mask 是 FOV
-TEST_DATASETS="${TEST_DATASETS:-datasets/DIS5K_test datasets/ThinObject5K}"
+TEST_DATASETS="${TEST_DATASETS:-datasets/unseen/FIVES datasets/unseen/STARE datasets/unseen/XCAD datasets/unseen/DeepCrack datasets/unseen/HRF datasets/unseen/LES-AV datasets/unseen/CHCrack5k datasets/novel/ROAD datasets/novel/TYRE datasets/novel/WIRE}"
 # DRIVE_test 默认不加入:官方 test/mask 是 FOV,不是血管 GT。
-# 用 DRIVE_train 的 3/17 留出划分,或提供 DRIVE_TEST_GT 后再显式加入 TEST_DATASETS。
+# 用 seen/DRIVE 的 3/17 留出划分,或提供 DRIVE_TEST_GT 后再显式加入 TEST_DATASETS。
 PRESETS="${PRESETS:-sacm stage1 stage2 full full_wta full_allhead no_geo_i no_geo_e no_c2f no_fusion_v2 no_multi_depth no_cl no_ds no_iou geo_e_shallow geo_e_deep}"
 EPOCHS="${EPOCHS:-50}"
 VAL_INTERVAL="${VAL_INTERVAL:-5}"
@@ -61,6 +61,8 @@ if [ -n "$DRIVE_TEST_GT" ]; then
 else
   python scripts/organize_datasets.py --src "$RAW_DATA_ROOT" --out datasets || true
 fi
+python scripts/group_datasets.py --root datasets \
+    || { echo "❌ group_datasets(seen/unseen/novel) 失败"; exit 1; }
 if [ -f "$SPLIT_ROOT/split_manifest.csv" ]; then
   echo "⚠️  $SPLIT_ROOT 已存在,跳过采样"
 else
