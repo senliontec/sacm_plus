@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SACM-Plus 数据集准备与实验协议报告 v0</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --paper: #ffffff;
+    --ink: #1f2933;
+    --muted: #5f6b7a;
+    --line: #d9dee5;
+    --accent: #1f6feb;
+    --accent-soft: #e8f1ff;
+    --ok: #16794b;
+    --ok-soft: #e6f4ec;
+    --warn: #9a5b00;
+    --warn-soft: #fff4dc;
+    --risk: #9f1d20;
+    --risk-soft: #fdecec;
+    --code: #f1f3f6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 15px/1.7 -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC",
+          "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+  main {
+    max-width: 1180px;
+    margin: 28px auto 60px;
+    padding: 0 22px;
+  }
+  header.hero {
+    background: linear-gradient(135deg, #0f2f57 0%, #1f6feb 55%, #43a3ff 100%);
+    color: #fff;
+    border-radius: 18px;
+    padding: 34px 36px;
+    box-shadow: 0 12px 30px rgba(31, 111, 235, .22);
+  }
+  header.hero h1 { margin: 0 0 8px; font-size: 30px; line-height: 1.25; }
+  header.hero p { margin: 4px 0; color: #dceaff; }
+  .meta {
+    display: flex; flex-wrap: wrap; gap: 10px;
+    margin-top: 18px;
+  }
+  .pill {
+    display: inline-block; padding: 5px 10px; border-radius: 999px;
+    background: rgba(255,255,255,.16); color: #fff; font-size: 13px;
+    border: 1px solid rgba(255,255,255,.24);
+  }
+  .cards {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 14px; margin: 20px 0 26px;
+  }
+  .card {
+    background: var(--paper); border: 1px solid var(--line);
+    border-radius: 14px; padding: 16px 18px;
+    box-shadow: 0 3px 10px rgba(15, 47, 87, .05);
+  }
+  .card .num { font-size: 26px; font-weight: 700; color: var(--accent); }
+  .card .label { color: var(--muted); font-size: 13px; margin-top: 3px; }
+  section {
+    background: var(--paper); border: 1px solid var(--line);
+    border-radius: 14px; padding: 24px 26px; margin: 20px 0;
+    box-shadow: 0 3px 12px rgba(15, 47, 87, .045);
+  }
+  h2 { font-size: 22px; margin: 0 0 12px; padding-bottom: 8px; border-bottom: 2px solid var(--accent-soft); }
+  h3 { font-size: 17px; margin: 22px 0 8px; }
+  p { margin: 8px 0; }
+  ul, ol { margin: 8px 0 8px 22px; padding: 0; }
+  li { margin: 4px 0; }
+  code {
+    background: var(--code); border: 1px solid #e3e7ed;
+    border-radius: 5px; padding: 1px 5px; font-size: 13px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  pre {
+    background: #101820; color: #e8eef7; border-radius: 10px;
+    padding: 16px 18px; overflow: auto; line-height: 1.55;
+    font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  pre code { background: transparent; border: 0; padding: 0; color: inherit; }
+  .table-wrap { overflow-x: auto; margin: 12px 0; }
+  table {
+    width: 100%; border-collapse: collapse; min-width: 720px;
+    font-size: 14px;
+  }
+  th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+  th { background: #f0f4fa; color: #26364a; font-weight: 650; }
+  tbody tr:nth-child(even) { background: #fafbfd; }
+  td.num, th.num { text-align: right; white-space: nowrap; }
+  .ok { color: var(--ok); font-weight: 650; }
+  .warn { color: var(--warn); font-weight: 650; }
+  .risk { color: var(--risk); font-weight: 650; }
+  .note, .warning, .danger, .success {
+    border-radius: 10px; padding: 13px 15px; margin: 14px 0;
+    border-left: 5px solid;
+  }
+  .note { background: var(--accent-soft); border-color: var(--accent); }
+  .warning { background: var(--warn-soft); border-color: var(--warn); }
+  .danger { background: var(--risk-soft); border-color: var(--risk); }
+  .success { background: var(--ok-soft); border-color: var(--ok); }
+  .small { color: var(--muted); font-size: 13px; }
+  .toc {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 8px 18px; margin: 10px 0 0;
+  }
+  .toc a { color: var(--accent); text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .flow {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+    align-items: stretch; margin: 14px 0;
+  }
+  .flow .step {
+    background: #f7faff; border: 1px solid #cfe0ff; border-radius: 10px;
+    padding: 12px; text-align: center; font-size: 13px;
+  }
+  .flow .step b { display: block; color: var(--accent); margin-bottom: 4px; }
+  footer { color: var(--muted); text-align: center; font-size: 12px; margin-top: 28px; }
+  @media (max-width: 760px) {
+    header.hero { padding: 26px 22px; }
+    header.hero h1 { font-size: 24px; }
+    section { padding: 18px 16px; }
+    .flow { grid-template-columns: 1fr 1fr; }
+  }
+  @media print {
+    body { background: #fff; }
+    main { max-width: none; margin: 0; padding: 0; }
+    header.hero, section, .card { box-shadow: none; }
+    section { break-inside: avoid; }
+    pre { white-space: pre-wrap; }
+  }
+</style>
+</head>
+<body>
+<main>
+
+<header class="hero">
+  <h1>SACM-Plus 数据集准备与实验协议报告</h1>
+  <p>版本 v0 · 生成日期 2026-10-22 · 冻结状态：是</p>
+  <p>范围：18 个原始数据集 → 标准数据源池 → 3-shot 训练/验证/Seen 测试协议 → Unseen/Novel 外部测试</p>
+  <div class="meta">
+    <span class="pill">seed 42</span>
+    <span class="pill">5 个 Seen 域</span>
+    <span class="pill">15 train / 5 val / 493 seen test</span>
+    <span class="pill">2,269 条协议记录</span>
+    <span class="pill">9,393 对源数据池</span>
+  </div>
+</header>
+
+<div class="cards">
+  <div class="card"><div class="num">18</div><div class="label">原始数据集 / 标准源池</div></div>
+  <div class="card"><div class="num">9,393</div><div class="label">源池 image-mask 对</div></div>
+  <div class="card"><div class="num">15</div><div class="label">当前主协议数据集</div></div>
+  <div class="card"><div class="num">15 / 5</div><div class="label">Train / Val</div></div>
+  <div class="card"><div class="num">493</div><div class="label">Seen test</div></div>
+  <div class="card"><div class="num">1,756</div><div class="label">Unseen + Novel test</div></div>
+</div>
+
+<section id="toc">
+  <h2>目录</h2>
+  <div class="toc">
+    <a href="#summary">1. 执行摘要</a>
+    <a href="#pipeline">2. 数据组织流程</a>
+    <a href="#pools">3. 18 个源数据池</a>
+    <a href="#seen">4. Seen 域划分</a>
+    <a href="#external">5. Unseen / Novel</a>
+    <a href="#candidates">6. 候选数据集</a>
+    <a href="#audit">7. 数据审计结果</a>
+    <a href="#decisions">8. 设计决策与取舍</a>
+    <a href="#official">9. 与官方 SACM 的差异</a>
+    <a href="#evaluation">10. 评测与 baseline 计划</a>
+    <a href="#reproduce">11. 复现命令与产物</a>
+    <a href="#limitations">12. 限制与发表清单</a>
+  </div>
+</section>
+
+<section id="summary">
+  <h2>1. 执行摘要</h2>
+  <p>
+    本报告记录 SACM-Plus 当前实验所使用的数据组织方式、划分规则、审计结果和设计取舍。
+    核心结论是：<b>数据源池可以安全用于后续实验；训练/验证/测试 split 由我们自己固定，并非官方 SACM 的原始 split。</b>
+  </p>
+  <div class="success">
+    <b>当前协议 v0（已生成并冻结）</b><br>
+    5 个 Seen 域 × 3-shot = 15 张训练图；每域 1 张验证图，共 5 张；
+    5 个 Seen 域的留出部分共 493 张 Seen test；
+    7 个 Unseen 数据集共 1,640 张；3 个 Novel 数据集共 116 张。
+  </div>
+  <div class="warning">
+    <b>这不是官方 SACM 的严格复现。</b>
+    官方使用 6 个训练域、18 张训练图，且没有公开具体 3-shot 样本 ID 和完整测试 split。
+    因此官方 SACM 及官方 baseline 的数字不能直接作为本协议下的对比结果；
+    正式实验必须在当前 split 上重跑 SACM 和选定的 baseline。
+  </div>
+</section>
+
+<section id="pipeline">
+  <h2>2. 数据组织流程</h2>
+  <div class="flow">
+    <div class="step"><b>① 原始数据</b>18 个原始目录，格式各异</div>
+    <div class="step"><b>② 标准源池</b>统一 images / masks / manifest</div>
+    <div class="step"><b>③ 实验 split</b>train / val / seen test</div>
+    <div class="step"><b>④ 外部测试</b>unseen / novel 整块测试</div>
+  </div>
+  <p>目录分工：</p>
+  <ul>
+    <li><code>segment/datasets/</code>：原始数据仓库，保持原始格式；</li>
+    <li><code>sacm_plus/datasets/</code>：统一格式的标准源池，每个数据集包含 <code>images/</code>、<code>masks/</code>、可选 <code>fov/</code>、<code>manifest.csv</code>；</li>
+    <li><code>sacm_plus/data/sacm_3shot_v0/</code>：本次论文实际使用的固定 split；</li>
+    <li><code>docs/DATASET_PROTOCOL_REPORT.html</code>：本报告。</li>
+  </ul>
+  <p>
+    18 个源池全部通过独立脚本生成，例如 <code>scripts/datasets/prepare_DRIVE.py</code>、
+    <code>scripts/datasets/prepare_OCTA-500.py</code>。源池不会被训练脚本直接修改；
+    训练/测试只读取固定的 split 或外部测试源池。
+  </p>
+</section>
+
+<section id="pools">
+  <h2>3. 18 个源数据池</h2>
+  <p>
+    下表是 18 个源池的选取口径。所有 mask 均已统一为单通道 PNG、0/255；
+    “排除/未用”表示没有进入当前源池或当前主协议，而不是数据损坏。
+  </p>
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>数据集</th><th>角色</th><th class="num">源池</th><th>选取规则</th><th>排除 / 未用</th><th>状态</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>DRIVE</td><td>Seen</td><td class="num">20</td><td>仅 training；1st_manual 作 mask；FOV 另存</td><td>官方 test 无血管 GT</td><td class="ok">主协议</td></tr>
+      <tr><td>CHASEDB1</td><td>Seen</td><td class="num">28</td><td>1stHO mask；同名配对</td><td>2ndHO 不另算；患者级 split 剩 2 张</td><td class="ok">主协议</td></tr>
+      <tr><td>DCA1</td><td>Seen</td><td class="num">134</td><td>gt.pgm 与同名 pgm 配对</td><td>无</td><td class="ok">主协议</td></tr>
+      <tr><td>CREMI</td><td>Seen</td><td class="num">373</td><td>A/B/C volume；neuron_ids 转 boundary</td><td>2 张全黑；A/B 剩 246 张不进 Seen test</td><td class="ok">主协议</td></tr>
+      <tr><td>CrackTree200</td><td>Seen</td><td class="num">206</td><td>RGB 图 + cracktree200_gt</td><td>无</td><td class="ok">主协议</td></tr>
+      <tr><td>FIVES</td><td>Unseen</td><td class="num">200</td><td>官方 test / Original + Ground truth</td><td>官方 train 不混入外部测试</td><td class="ok">主协议</td></tr>
+      <tr><td>STARE</td><td>Unseen</td><td class="num">20</td><td>stare-images + labels-ah</td><td>vk 标注不另算</td><td class="ok">主协议</td></tr>
+      <tr><td>XCAD</td><td>Unseen</td><td class="num">126</td><td>test/images + test/masks</td><td>train 无 mask</td><td class="ok">主协议</td></tr>
+      <tr><td>DeepCrack</td><td>Unseen</td><td class="num">237</td><td>test_img + test_lab</td><td>官方 train 不混入</td><td class="ok">主协议</td></tr>
+      <tr><td>HRF</td><td>Unseen</td><td class="num">45</td><td>images + masks；ROI 写 fov</td><td>无</td><td class="ok">主协议</td></tr>
+      <tr><td>LES-AV</td><td>Unseen</td><td class="num">22</td><td>images + vessel-segmentations</td><td>masks/*.gif 是 FOV，不是血管 GT</td><td class="ok">主协议</td></tr>
+      <tr><td>CHCrack5k</td><td>Unseen</td><td class="num">990</td><td>test/image + test/gt</td><td>13 张空 GT</td><td class="ok">主协议</td></tr>
+      <tr><td>ROAD</td><td>Novel</td><td class="num">49</td><td>tiff/test + test_labels</td><td>官方 train/val 不混入</td><td class="ok">主协议</td></tr>
+      <tr><td>TYRE</td><td>Novel</td><td class="num">36</td><td>in-house；RGB mask &gt;127</td><td>无</td><td class="ok">主协议</td></tr>
+      <tr><td>WIRE</td><td>Novel</td><td class="num">31</td><td>in-house；RGB mask &gt;127</td><td>无</td><td class="ok">主协议</td></tr>
+      <tr><td>TopoMortar</td><td>Novel</td><td class="num">350</td><td>默认 test/images + test/accurate</td><td>train/val 不混入</td><td class="warn">候选</td></tr>
+      <tr><td>OCTA-500</td><td>Unseen</td><td class="num">300</td><td>OCTA(ILM_OPL) 2D 投影 + GT_LargeVessel</td><td>本地只有 300 个 projection；500 个 label</td><td class="warn">候选</td></tr>
+      <tr><td>DeepGlobe</td><td>Unseen</td><td class="num">6,226</td><td>train/*_sat.jpg + *_mask.png</td><td>valid/test 无 GT；候选</td><td class="warn">候选</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="small">
+    源池合计 9,393 对。其中 15 个主协议数据集合计 2,517 对（含 Seen 域未使用图）；
+    3 个候选数据集合计 6,876 对，尚未进入主实验。
+  </p>
+</section>
+
+<section id="seen">
+  <h2>4. Seen 域划分</h2>
+  <p>
+    训练协议为每域 3 张训练图、1 张验证图。Seen test 使用未被 train/val 选中的
+    group，且与 train/val 保持患者/volume 级隔离。
+  </p>
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>数据集</th><th class="num">源池</th><th class="num">Train</th><th class="num">Val</th><th class="num">Seen test</th><th class="num">未使用</th><th>分组方式</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>DRIVE</td><td class="num">20</td><td class="num">3</td><td class="num">1</td><td class="num">16</td><td class="num">0</td><td>image-level</td></tr>
+      <tr><td>CHASEDB1</td><td class="num">28</td><td class="num">3</td><td class="num">1</td><td class="num">22</td><td class="num">2</td><td>患者级</td></tr>
+      <tr><td>DCA1</td><td class="num">134</td><td class="num">3</td><td class="num">1</td><td class="num">130</td><td class="num">0</td><td>image-level</td></tr>
+      <tr><td>CREMI</td><td class="num">373</td><td class="num">3</td><td class="num">1</td><td class="num">123</td><td class="num">246</td><td>volume 级</td></tr>
+      <tr><td>CrackTree200</td><td class="num">206</td><td class="num">3</td><td class="num">1</td><td class="num">202</td><td class="num">0</td><td>image-level</td></tr>
+      <tr><th>合计</th><th class="num">761</th><th class="num">15</th><th class="num">5</th><th class="num">493</th><th class="num">248</th><th>—</th></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>4.1 已冻结的实际样本</h3>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>数据集</th><th>Train 样本</th><th>Val 样本</th></tr></thead>
+    <tbody>
+      <tr><td>DRIVE</td><td><code>40_training.tif</code>, <code>26_training.tif</code>, <code>35_training.tif</code></td><td><code>25_training.tif</code></td></tr>
+      <tr><td>CHASEDB1</td><td><code>Image_06L.png</code>, <code>Image_06R.png</code>, <code>Image_02L.png</code></td><td><code>Image_10L.png</code></td></tr>
+      <tr><td>DCA1</td><td><code>33.png</code>, <code>59.png</code>, <code>72.png</code></td><td><code>16.png</code></td></tr>
+      <tr><td>CREMI</td><td><code>sample_B_z000.png</code>, <code>sample_B_z001.png</code>, <code>sample_B_z002.png</code></td><td><code>sample_A_z000.png</code></td></tr>
+      <tr><td>CrackTree200</td><td><code>6682.jpg</code>, <code>6331.jpg</code>, <code>6293.jpg</code></td><td><code>6721.jpg</code></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>4.2 CHASEDB1 为什么有 2 张未使用</h3>
+  <p>
+    CHASEDB1 有 14 位患者、每人左右眼各一张，共 28 张，且<b>没有官方 train/test split</b>。
+    当前 split 使用患者级分组：
+  </p>
+  <ul>
+    <li>Train 3 张来自患者 02 和 06；</li>
+    <li>Val 1 张来自患者 10；</li>
+    <li>Seen test 使用其余 11 位患者的 22 张；</li>
+    <li><code>Image_02R</code> 和 <code>Image_10R</code> 未使用。</li>
+  </ul>
+  <p>
+    未使用的两张如果放入 Seen test，会让患者 02/10 同时出现在 train/val 和 test，造成患者级泄漏；
+    如果放入 train/val，又会超过 3-shot / 1-val 配额。因此这是患者级隔离的必然结果，不是漏图。
+  </p>
+  <p class="small">
+    备选方案是常见的 20/8 划分（后 4 位患者测试）。本协议没有采用，因为官方具体 8 张测试图未公开，
+    20/8 会留下 16 张训练池图不用，且不能解决官方 3-shot ID 未知的问题。
+  </p>
+
+  <h3>4.3 CREMI 为什么有 246 张未使用</h3>
+  <p>
+    CREMI 当前按 volume 隔离：Train 来自 B volume，Val 来自 A volume，Seen test 只用 C volume。
+  </p>
+  <ul>
+    <li>A/B 共 250 张；train/val 使用 4 张，剩余 246 张；</li>
+    <li>C 共 123 张，全部作为 Seen test；</li>
+    <li>A/B 剩余图不能进 Seen test，否则测试与训练共享 volume，造成泄漏；</li>
+    <li>3-shot 配额固定，也不能把它们全部加入 train/val。</li>
+  </ul>
+  <p class="small">
+    备选：A 训练/验证，B+C 测试，可把 Seen test 从 123 提升到 248，未使用降到 121；
+    但训练只来自一个 volume。本 v0 保留 A/B 训练、C 测试的 leave-one-volume-out 方案。
+  </p>
+
+  <h3>4.4 Image-level 划分的风险</h3>
+  <p>
+    DRIVE、DCA1、CrackTree200 的源池没有可用的患者/病灶分组元数据，v0 采用 image-level 划分。
+    如果原始数据集实际存在同一患者多张图，可能产生弱患者级泄漏；论文中必须明确说明这一点。
+    后续 v1 应优先检查这些数据集的 patient/session 元数据。
+  </p>
+</section>
+
+<section id="external">
+  <h2>5. Unseen / Novel 外部测试</h2>
+  <p>Unseen 和 Novel 不参与训练或 checkpoint 选择，整块作为外部测试集使用。</p>
+  <h3>5.1 Unseen：7 个数据集，1,640 张</h3>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>数据集</th><th class="num">测试数</th><th>选择口径</th><th>标签口径</th></tr></thead>
+    <tbody>
+      <tr><td>FIVES</td><td class="num">200</td><td>官方 test</td><td>全血管</td></tr>
+      <tr><td>STARE</td><td class="num">20</td><td>全部 20 张</td><td>observer ah</td></tr>
+      <tr><td>XCAD</td><td class="num">126</td><td>有 GT 的 test；train 无 mask</td><td>血管</td></tr>
+      <tr><td>DeepCrack</td><td class="num">237</td><td>官方 test</td><td>裂缝</td></tr>
+      <tr><td>HRF</td><td class="num">45</td><td>全部 45 张；ROI 作 FOV</td><td>血管</td></tr>
+      <tr><td>LES-AV</td><td class="num">22</td><td>全部 22 张</td><td>vessel-segmentations 全血管</td></tr>
+      <tr><td>CHCrack5k</td><td class="num">990</td><td>官方 test；删除 13 张空 GT</td><td>裂缝</td></tr>
+      <tr><th>合计</th><th class="num">1,640</th><th>—</th><th>—</th></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>5.2 Novel：3 个数据集，116 张</h3>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>数据集</th><th class="num">测试数</th><th>类别</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td>ROAD</td><td class="num">49</td><td>道路</td><td>官方 test</td></tr>
+      <tr><td>TYRE</td><td class="num">36</td><td>轮胎花纹</td><td>in-house；mask &gt;127</td></tr>
+      <tr><td>WIRE</td><td class="num">31</td><td>线束</td><td>in-house；mask &gt;127</td></tr>
+      <tr><th>合计</th><th class="num">116</th><th>—</th><th>—</th></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section id="candidates">
+  <h2>6. 候选数据集</h2>
+  <p>
+    以下 3 个数据集已生成源池，但<b>没有进入当前主实验</b>。它们适合作为附录或后续扩展，
+    不应直接混入主表平均。
+  </p>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>数据集</th><th class="num">源池</th><th>建议角色</th><th>原因 / 注意事项</th></tr></thead>
+    <tbody>
+      <tr><td>OCTA-500</td><td class="num">300</td><td>Unseen 附录</td><td>本地只有 300 个 2D projection；500 个 label 中 200 个无配对投影</td></tr>
+      <tr><td>TopoMortar</td><td class="num">350</td><td>Novel 附录</td><td>默认 test split；前景比例较高（最大约 39.6%）</td></tr>
+      <tr><td>DeepGlobe</td><td class="num">6,226</td><td>待定</td><td>道路类；数量会压倒其他 Unseen；当前放于 unseen，启用前需确认 unseen/novel 角色</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section id="audit">
+  <h2>7. 数据审计结果</h2>
+  <h3>7.1 18 个源池</h3>
+  <div class="success">
+    <b>9,393 对全部通过：</b>
+    0 个 orphan image；0 个 orphan mask；0 个尺寸不一致；0 个空 mask；
+    所有 mask 为单通道且只有 0/255；FOV 共 65 张，全部尺寸一致且为 0/255。
+  </div>
+  <p>源池图像扩展名分布（加载器支持 .png/.jpg/.jpeg/.tif/.tiff/.bmp/.ppm/.pgm）：</p>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>扩展名</th><th class="num">数量</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td><code>.jpg</code></td><td class="num">7,536</td><td>CrackTree、CHCrack、DeepCrack、DeepGlobe、HRF</td></tr>
+      <tr><td><code>.png</code></td><td class="num">1,488</td><td>其余数据集</td></tr>
+      <tr><td><code>.bmp</code></td><td class="num">300</td><td>OCTA-500</td></tr>
+      <tr><td><code>.tiff</code></td><td class="num">49</td><td>ROAD</td></tr>
+      <tr><td><code>.tif</code></td><td class="num">20</td><td>DRIVE</td></tr>
+      <tr><th>合计</th><th class="num">9,393</th><th>—</th></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="small">
+    扩展名不统一不会影响当前读取：训练/测试加载器按 stem 在 support list 中查找配对，
+    不会写死 <code>*.png</code>。真正重要的是 mask 已统一为 PNG 0/255。
+  </p>
+
+  <h3>7.2 生成后的 split</h3>
+  <div class="success">
+    <b>513 条 split 记录（15 train + 5 val + 493 seen test）全部通过：</b>
+    图像/mask 尺寸一致；mask 0/255；无空 mask；train/val/test 的 group 交集为空。
+  </div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>检查项</th><th>结果</th></tr></thead>
+    <tbody>
+      <tr><td>Train</td><td>15 张，5 个数据集各 3 张</td></tr>
+      <tr><td>Val</td><td>5 张，5 个数据集各 1 张</td></tr>
+      <tr><td>Seen test</td><td>493 张：DRIVE 16 / CHASEDB1 22 / DCA1 130 / CREMI 123 / CrackTree200 202</td></tr>
+      <tr><td>Group overlap</td><td>所有数据集 train/val/test 交集为空</td></tr>
+      <tr><td>Mask integrity</td><td>513 对全部尺寸一致、无空 mask、值为 0/255</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>7.3 前景比例范围</h3>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>数据集</th><th class="num">最小</th><th class="num">最大</th><th>备注</th></tr></thead>
+    <tbody>
+      <tr><td>CHASEDB1</td><td class="num">5.06%</td><td class="num">8.52%</td><td>—</td></tr>
+      <tr><td>CREMI</td><td class="num">1.87%</td><td class="num">3.21%</td><td>boundary 目标</td></tr>
+      <tr><td>CrackTree200</td><td class="num">0.10%</td><td class="num">0.99%</td><td>极低前景</td></tr>
+      <tr><td>DCA1</td><td class="num">2.71%</td><td class="num">10.93%</td><td>—</td></tr>
+      <tr><td>DRIVE</td><td class="num">6.03%</td><td class="num">11.59%</td><td>—</td></tr>
+      <tr><td>CHCrack5k</td><td class="num">0.01%</td><td class="num">13.40%</td><td>极低前景，需关注指标稳定性</td></tr>
+      <tr><td>DeepCrack</td><td class="num">0.69%</td><td class="num">19.25%</td><td>—</td></tr>
+      <tr><td>DeepGlobe</td><td class="num">0.15%</td><td class="num">29.33%</td><td>候选；道路</td></tr>
+      <tr><td>FIVES</td><td class="num">0.73%</td><td class="num">11.06%</td><td>—</td></tr>
+      <tr><td>HRF</td><td class="num">5.09%</td><td class="num">10.56%</td><td>—</td></tr>
+      <tr><td>LES-AV</td><td class="num">4.19%</td><td class="num">9.49%</td><td>—</td></tr>
+      <tr><td>OCTA-500</td><td class="num">4.60%</td><td class="num">13.09%</td><td>候选</td></tr>
+      <tr><td>STARE</td><td class="num">4.31%</td><td class="num">10.21%</td><td>—</td></tr>
+      <tr><td>XCAD</td><td class="num">2.83%</td><td class="num">9.68%</td><td>—</td></tr>
+      <tr><td>ROAD</td><td class="num">0.55%</td><td class="num">13.31%</td><td>—</td></tr>
+      <tr><td>TYRE</td><td class="num">0.38%</td><td class="num">12.32%</td><td>—</td></tr>
+      <tr><td>TopoMortar</td><td class="num">5.01%</td><td class="num">39.59%</td><td>候选；高前景</td></tr>
+      <tr><td>WIRE</td><td class="num">0.60%</td><td class="num">25.66%</td><td>—</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="small">
+    极低前景不是空 mask，也不是配对错误；但它会让 Dice/clDice 对小目标更敏感。
+    训练和评测时应固定阈值，并报告每个数据集的单独结果与 macro average。
+  </p>
+</section>
+
+<section id="decisions">
+  <h2>8. 设计决策与取舍</h2>
+
+  <h3>8.1 为什么主协议是 5 个 Seen 域，而不是官方 6 个</h3>
+  <p>
+    官方 SACM 使用 DRIVE、CHASEDB1、DCA1、CrackTree、CREMI、CORN 六个训练域，
+    共 18 张 3-shot 图。当前原始数据仓库没有 CORN，因此 v0 使用 5 个域、15 张图。
+  </p>
+  <ul>
+    <li>官方没有公开 3-shot 样本 ID，补 CORN 也不能严格复现；</li>
+    <li>先冻结 5 域协议，避免主实验被数据下载阻塞；</li>
+    <li>如果以后拿到 CORN，创建 <code>sacm_3shot_v1</code>，不要修改 v0。</li>
+  </ul>
+
+  <h3>8.2 为什么 CHASEDB1 用 3 / 1 / 22</h3>
+  <p>
+    CHASEDB1 没有官方 split。当前方案使用患者级分组，3 train、1 val、22 test；
+    2 张未使用是患者左右眼无法安全拆分的必然结果。
+    该方案比常见 20/8 使用更多测试图，同时保持患者隔离。
+  </p>
+
+  <h3>8.3 为什么 CREMI 保留 A/B 训练、C 测试</h3>
+  <p>
+    这是一个干净的 leave-one-volume-out 设计：Seen test 只使用 C volume，
+    不与 train/val 的 A/B 共享 volume。代价是 A/B 剩余 246 张被闲置，
+    但这比把训练 volume 放进测试更安全。
+  </p>
+
+  <h3>8.4 为什么候选数据集不进入主表</h3>
+  <ul>
+    <li>OCTA-500 本地只有 300 个 projection，不是完整 500；</li>
+    <li>TopoMortar 前景比例偏高，适合单独分析；</li>
+    <li>DeepGlobe 有 6,226 对，数量会主导 Unseen 平均；且角色尚未最终确认。</li>
+  </ul>
+
+  <h3>8.5 为什么 LEAF 不在主协议</h3>
+  <p>
+    LEAF 的 mask 存在大量 1 像素稀疏中心线和断点，质量不适合当前主定量协议；
+    已归档到 <code>datasets_legacy/novel_LEAF</code>。
+  </p>
+
+  <h3>8.6 为什么 OCTA-500 只有 300 对</h3>
+  <p>
+    本地 <code>OCTA(ILM_OPL)</code> 只有 10001–10300 共 300 个 2D 投影；
+    <code>GT_LargeVessel</code> 有 500 个标签。10301–10500 没有匹配投影，
+    因此不能配对。这不是脚本截断，是本地原始数据不完整。
+  </p>
+</section>
+
+<section id="official">
+  <h2>9. 与官方 SACM 的差异</h2>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>项目</th><th>官方 SACM</th><th>当前 v0</th><th>能否直接比较</th></tr></thead>
+    <tbody>
+      <tr><td>训练域</td><td>6 个：DRIVE、CHASEDB1、DCA1、CrackTree、CREMI、CORN</td><td>5 个：去掉 CORN</td><td class="risk">否</td></tr>
+      <tr><td>训练图</td><td>18 张（6 × 3）</td><td>15 张（5 × 3）</td><td class="risk">否</td></tr>
+      <tr><td>3-shot 样本 ID</td><td>未公开</td><td>seed 42 固定</td><td class="risk">否</td></tr>
+      <tr><td>Seen test</td><td>DRIVE 20、CHASEDB1 8、DCA1 100、CORN 100</td><td>DRIVE 16、CHASEDB1 22、DCA1 130、CREMI 123、CrackTree 202</td><td class="risk">否</td></tr>
+      <tr><td>Unseen</td><td>FIVES、DSCA、XCAD、CRACK</td><td>FIVES、STARE、XCAD、DeepCrack、HRF、LES-AV、CHCrack5k</td><td class="risk">否</td></tr>
+      <tr><td>Novel</td><td>ROAD、LEAF、TYRE、WIRE</td><td>ROAD、TYRE、WIRE（LEAF 归档）</td><td class="risk">否</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="warning">
+    <b>结论：</b>官方论文中的 SACM 和 baseline 数字只能作为“论文报告值”引用，
+    不能作为当前协议下的直接对比结果。正式主表必须在当前 v0 split 上重跑 SACM 和选定的 baseline。
+  </div>
+</section>
+
+<section id="evaluation">
+  <h2>10. 评测与 Baseline 计划</h2>
+  <h3>10.1 指标</h3>
+  <p>主表建议统一报告：Dice、IoU、clDice、HD95。所有方法使用同一套评测代码。</p>
+  <h3>10.2 聚合方式</h3>
+  <p>
+    每个数据集单独报告，再报告 Seen / Unseen / Novel 的 <b>macro average</b>。
+    不要用像素数加权，否则 CHCrack5k 这类大数据集会压过 STARE / LES-AV。
+  </p>
+  <h3>10.3 随机性</h3>
+  <ul>
+    <li>固定同一份 split；</li>
+    <li>训练 seed 0、1、2，报告 mean ± std；</li>
+    <li>不要每个训练 seed 重新抽 3-shot，否则协议会变；</li>
+    <li>如果研究 shot 采样方差，另做实验，不混入主表。</li>
+  </ul>
+  <h3>10.4 Checkpoint 选择</h3>
+  <p>
+    每域只有 1 张 val（共 5 张），early stopping 噪声较大。
+    建议固定训练 epoch/step budget，或明确写清 checkpoint 选择规则；
+    绝不使用 Seen/Unseen/Novel test 调参。
+  </p>
+  <h3>10.5 Baseline 重跑</h3>
+  <ul>
+    <li><b>必须重跑：</b>SACM（官方代码 + 当前 split）；</li>
+    <li><b>优先重跑：</b>3–5 个有公开代码、能适配 3-shot 的强 baseline；</li>
+    <li><b>其余方法：</b>如果代码不可用或成本过高，只放“官方报告值”表，并标注不同协议；</li>
+    <li>主表只放“our protocol, all methods rerun”的结果；官方数字单独放附录。</li>
+  </ul>
+</section>
+
+<section id="reproduce">
+  <h2>11. 复现命令与产物</h2>
+  <h3>11.1 生成 split</h3>
+  <pre><code>cd /home/dev/mywork/project/segment/sacm_plus
+
+/home/dev/anaconda3/envs/tsai/bin/python scripts/prepare_data.py \
+  --train_dirs \
+    datasets/seen/DRIVE \
+    datasets/seen/CHASEDB1 \
+    datasets/seen/DCA1 \
+    datasets/seen/CREMI \
+    datasets/seen/CrackTree200 \
+  --shots 3 \
+  --val_shots 1 \
+  --out_dir data/sacm_3shot_v0 \
+  --seed 42 \
+  --clean \
+  --make_test</code></pre>
+
+  <h3>11.2 关键产物</h3>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>文件</th><th>内容</th><th>大小 / 行数</th><th>SHA256</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><code>data/sacm_3shot_v0/split_manifest.csv</code></td>
+        <td>513 条 train/val/seen-test 记录；字段：dataset、split、source_image、output、group</td>
+        <td>513 行；31,057 bytes</td>
+        <td><code>85bb48046eba76dbcad8f8027ce05f89aae7c7ad7ee2c60ae0cffe90fff620e2</code></td>
+      </tr>
+      <tr>
+        <td><code>data/sacm_3shot_v0/protocol_manifest.csv</code></td>
+        <td>2,269 条完整协议记录（train + val + seen + unseen + novel），含尺寸、前景比、image/mask SHA256</td>
+        <td>2,269 行；796,929 bytes</td>
+        <td><code>a89e65bbcff2830c589998605d1bf607b880b05f5e890e7db09e12112945e99e</code></td>
+      </tr>
+      <tr>
+        <td><code>data/sacm_3shot_v0/protocol_summary.json</code></td>
+        <td>按 role/split/dataset 的计数、协议版本、seed、manifest 哈希</td>
+        <td>1,056 bytes</td>
+        <td><code>fd6af83c5556aab90ba666ce6d4fcf51bbbf6e6b54649ccd92d9cf2588b05d1a</code></td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>11.3 协议清单</h3>
+  <pre><code>data/sacm_3shot_v0/
+  train/images/       15
+  train/masks/        15
+  val/images/          5
+  val/masks/           5
+  test/DRIVE/         16
+  test/CHASEDB1/      22
+  test/DCA1/         130
+  test/CREMI/        123
+  test/CrackTree200/ 202
+  split_manifest.csv
+  protocol_manifest.csv
+  protocol_summary.json</code></pre>
+
+  <h3>11.4 发布建议</h3>
+  <ul>
+    <li>发布 <code>split_manifest.csv</code> / <code>protocol_manifest.csv</code>、生成脚本和随机种子；</li>
+    <li>不要直接重新分发受 license 限制的原始医学图像；提供官方下载链接即可；</li>
+    <li>在 README 中写明 v0 冻结日期、hash、Git commit；</li>
+    <li>任何 split 修改都必须升级为 v1，并重跑全部 baseline。</li>
+  </ul>
+</section>
+
+<section id="limitations">
+  <h2>12. 限制与发表清单</h2>
+  <h3>12.1 必须写进论文的限制</h3>
+  <ul>
+    <li>没有 CORN，训练域为 5 个而非官方 6 个；</li>
+    <li>官方 3-shot 图片 ID 和完整测试 split 未公开，本协议为自定义 split；</li>
+    <li>CHASEDB1 没有官方 split，采用患者级 3/1/22；</li>
+    <li>CREMI 使用 A/B 训练验证、C 测试，A/B 剩余 246 张未使用；</li>
+    <li>DRIVE、DCA1、CrackTree200 使用 image-level split，可能存在未识别的患者级泄漏；</li>
+    <li>OCTA-500 本地只有 300 对，TopoMortar / DeepGlobe 尚未进入主协议；</li>
+    <li>极低前景数据集（CHCrack5k、CrackTree200）的指标对小目标敏感；</li>
+    <li>官方 SACM/baseline 数字与当前协议不可直接比较。</li>
+  </ul>
+
+  <h3>12.2 发表前检查清单</h3>
+  <ul>
+    <li>☐ 固定 v0 split，不再修改；</li>
+    <li>☐ 保存并发布 split/protocol manifest 与 SHA256；</li>
+    <li>☐ 重跑 SACM，并确认训练/测试路径完全一致；</li>
+    <li>☐ 重跑选定的 baseline；官方数字单独放附录；</li>
+    <li>☐ 至少 3 个训练 seed，报告 mean ± std；</li>
+    <li>☐ 报告每数据集结果和 macro average；</li>
+    <li>☐ 明确说明 CORN 缺失、CHASEDB1 自定义 split、CREMI 未使用图；</li>
+    <li>☐ 检查原始数据 license，只发布文件清单和脚本。</li>
+  </ul>
+
+  <div class="note">
+    <b>一句话总结：</b>
+    当前 v0 是一套<b>自洽、可复现、无已知 group 泄漏</b>的实验协议；
+    它不是官方 SACM 的严格复现。后续所有论文对比必须基于这份冻结协议重跑。
+  </div>
+</section>
+
+<footer>
+  SACM-Plus Dataset Protocol Report · v0 · 2026-10-22 · 本报告由数据集审计与 split 生成结果自动汇总
+</footer>
+
+</main>
+</body>
+</html>
