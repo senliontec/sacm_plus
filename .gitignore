@@ -17,7 +17,10 @@ dist/
 .codegraph/
 
 # Runtime outputs: data, results, logs, checkpoints
-data/
+# Keep runtime data ignored except for the frozen 3-shot split.
+data/*
+!/data/sacm_3shot_v0/
+!/data/sacm_3shot_v0/**
 /datasets/
 datasets_legacy/
 exports/
