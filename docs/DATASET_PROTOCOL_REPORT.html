@@ -141,7 +141,7 @@
 
 <header class="hero">
   <h1>SACM-Plus 数据集准备与实验协议报告</h1>
-  <p>版本 v1 · 更新日期 2026-10-23 · v0（2026-10-22）保留为历史</p>
+  <p>版本 v1 · 更新日期 2026-10-23 · 当前 split: <code>data/sacm_3shot</code>（早期 v0 已删除）</p>
   <p>范围：20 个原始数据集 → 标准数据源池 → 6 域 3-shot 训练/验证/Seen 测试协议 → Unseen/Novel 外部测试</p>
   <div class="meta">
     <span class="pill">seed 42</span>
@@ -195,7 +195,8 @@
     <b>v1 修订（2026-10-23）</b><br>
     CORN 与 LEAF 由论文作者提供，已按 SACM 官方实验配置接入：
     CORN 成为第 6 个 3-shot 训练域，其官方 batch-disjoint test 进入 Seen；
-    LEAF 恢复为 Novel 第 4 个数据集。v0 保留作历史，不覆盖。
+    LEAF 恢复为 Novel 第 4 个数据集。早期 v0 已删除；当前只保留
+    <code>data/sacm_3shot</code>。
   </div>
   <div class="warning">
     <b>仍不是官方 SACM 的严格复现。</b>
@@ -217,7 +218,7 @@
   <ul>
     <li><code>segment/datasets/</code>：原始数据仓库，保持原始格式；</li>
     <li><code>sacm_plus/datasets/</code>：统一格式的标准源池，每个数据集包含 <code>images/</code>、<code>masks/</code>、可选 <code>fov/</code>、<code>manifest.csv</code>；</li>
-    <li><code>sacm_plus/data/sacm_3shot/</code>：当前论文实际使用的固定 split；<code>sacm_3shot_v0/</code> 保留为历史；</li>
+    <li><code>sacm_plus/data/sacm_3shot/</code>：当前论文实际使用的固定 split；</li>
     <li><code>docs/DATASET_PROTOCOL_REPORT.html</code>：本报告。</li>
   </ul>
   <p>
@@ -494,7 +495,7 @@
   <ul>
     <li>官方没有公开 3-shot 样本 ID，v1 用 seed 42 固定采样，仍不能逐位复现；</li>
     <li>CORN 的 3 张训练图来自 3 个不同 batch（7/3/6），val 用官方 batch 9；</li>
-    <li>v0 保留作历史，不覆盖；所有新实验以 <code>sacm_3shot</code> 为准。</li>
+    <li>早期 v0 已删除；所有新实验以 <code>sacm_3shot</code> 为准。</li>
   </ul>
 
   <h3>8.2 为什么 CHASEDB1 用 3 / 1 / 22</h3>
@@ -629,14 +630,14 @@ python scripts/build_protocol_manifest.py \
       <tr>
         <td><code>data/sacm_3shot/protocol_manifest.csv</code></td>
         <td>2,456 条完整协议记录（train + val + seen + unseen + novel），含尺寸、前景比、image/mask SHA256</td>
-        <td>2,456 行；760,653 bytes</td>
-        <td><code>09cd3e17ad876267bc7fe23874983e1a6fee7c59f2a4e344168c3c3f19424c2e</code></td>
+        <td>2,456 行；749,271 bytes</td>
+        <td><code>b3a5bd06b3cd5d7a2adda69d15e4776838c2e5f0b37a90b031f28e727ee63590</code></td>
       </tr>
       <tr>
         <td><code>data/sacm_3shot/protocol_summary.json</code></td>
         <td>按 role/split/dataset 的计数、协议版本、seed、manifest 哈希</td>
-        <td>1,136 bytes</td>
-        <td><code>0ff7e15c2bda33d0943fef2122aa95c60182da19bdf66b3e53d579673cc3f338</code></td>
+        <td>1,133 bytes</td>
+        <td><code>303dfcfc350069d89672b7210b74ce01ceb57ebc396579ed734ff4b7b9cdd04f</code></td>
       </tr>
     </tbody>
   </table>
@@ -703,7 +704,7 @@ python scripts/build_protocol_manifest.py \
 </section>
 
 <footer>
-  SACM-Plus Dataset Protocol Report · v1 · 2026-10-23 · v0（2026-10-22）保留为历史
+  SACM-Plus Dataset Protocol Report · v1 · 2026-10-23 · 当前 split: data/sacm_3shot
 </footer>
 
 </main>

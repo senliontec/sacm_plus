@@ -129,7 +129,7 @@ def main() -> int:
     args = parser.parse_args()
 
     # Keep the paths as supplied (relative by default) so the manifest is
-    # portable, matching the v0 convention (data/... , datasets/...).
+    # portable, keeping the supplied relative paths (data/... , datasets/...).
     root = args.split_root
     datasets_root = args.datasets_root
     version = args.version or root.name

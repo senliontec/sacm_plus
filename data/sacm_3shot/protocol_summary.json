@@ -1,6 +1,6 @@
 {
-  "protocol_version": "sacm_3shot_v1",
-  "generated_at_utc": "2026-10-23T03:02:10.234016+00:00",
+  "protocol_version": "sacm_3shot",
+  "generated_at_utc": "2026-10-23T03:42:51.399745+00:00",
   "seed": 42,
   "counts": {
     "seen": {
@@ -54,5 +54,5 @@
     "images": 2456,
     "unique_datasets": 17
   },
-  "manifest_sha256": "09cd3e17ad876267bc7fe23874983e1a6fee7c59f2a4e344168c3c3f19424c2e"
+  "manifest_sha256": "b3a5bd06b3cd5d7a2adda69d15e4776838c2e5f0b37a90b031f28e727ee63590"
 }
