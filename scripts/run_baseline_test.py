@@ -27,6 +27,14 @@ sys.path.insert(0, str(REPO_ROOT / 'src'))
 
 from core.run_status import RunStatus  # noqa: E402
 
+# Prediction adapters.  A method without an entry is assumed to have
+# predictions already on disk.
+ADAPTERS = {
+    'unet': REPO_ROOT / 'baselines' / 'adapters' / 'unet.py',
+    'sam_vit_l_unet': REPO_ROOT / 'baselines' / 'adapters' /
+    'sam_vit_l_unet.py',
+}
+
 
 def read_specs(protocol: Path, dataset_filter):
     roots = {}
@@ -89,9 +97,14 @@ def main():
     parser.add_argument('--protocol', type=Path,
                         default=REPO_ROOT / 'data' / 'sacm_3shot' /
                         'protocol_manifest.csv')
-    parser.add_argument('--checkpoint', type=Path,
-                        default=REPO_ROOT / 'workdirs' / 'baselines' /
-                        'unet' / 'best_model.pth')
+    parser.add_argument('--checkpoint', type=Path, default=None,
+                        help='trained baseline checkpoint (default: '
+                             'workdirs/baselines/<method>/best_model.pth)')
+    parser.add_argument('--sam-checkpoint', type=Path,
+                        default=REPO_ROOT / 'checkpoints' /
+                        'sam_vit_l_0b3195.pth',
+                        help='frozen SAM ViT-L checkpoint for '
+                             'sam_vit_l_unet')
     parser.add_argument('--pred-root', type=Path,
                         default=REPO_ROOT / 'results' / 'predictions')
     parser.add_argument('--paper-root', type=Path,
@@ -115,6 +128,9 @@ def main():
     parser.add_argument('--allow-stale-checkpoint', action='store_true',
                         help='allow a checkpoint older than the current split')
     args = parser.parse_args()
+    if args.checkpoint is None:
+        args.checkpoint = (REPO_ROOT / 'workdirs' / 'baselines' /
+                           args.method / 'best_model.pth')
 
     dataset_filter = set(args.datasets) if args.datasets else None
     specs = read_specs(args.protocol, dataset_filter)
@@ -124,7 +140,7 @@ def main():
     print('  ' + ' '.join(name for name, _ in specs))
 
     stage_names = []
-    if not args.skip_predict and args.method == 'unet':
+    if not args.skip_predict and args.method in ADAPTERS:
         stage_names.append('predict')
     if not args.skip_paper:
         stage_names.append('paper_metrics')
@@ -183,12 +199,18 @@ def main():
                           '(--allow-stale-checkpoint)')
 
         if not args.skip_predict:
-            if args.method == 'unet':
+            adapter = ADAPTERS.get(args.method)
+            if adapter is not None:
                 if not args.checkpoint.is_file():
+                    hint = (
+                        'python baselines/adapters/sam_vit_l_unet.py '
+                        '--stage train --epochs 200'
+                        if args.method == 'sam_vit_l_unet' else
+                        'python baselines/adapters/unet.py '
+                        '--stage train --epochs 200')
                     raise SystemExit(
                         f'missing checkpoint: {args.checkpoint}\n'
-                        'train first: python baselines/adapters/unet.py '
-                        '--stage train --epochs 200')
+                        f'train first: {hint}')
                 split = REPO_ROOT / 'data' / 'sacm_3shot' / 'split_manifest.csv'
                 if split.is_file() and not args.allow_stale_checkpoint:
                     expected_hash = file_sha256(split)
@@ -201,11 +223,11 @@ def main():
                         raise SystemExit(
                             'checkpoint was trained on a different split; '
                             'retrain first or pass --allow-stale-checkpoint')
-                cmd = [sys.executable,
-                       REPO_ROOT / 'baselines' / 'adapters' / 'unet.py',
-                       '--stage', 'predict',
+                cmd = [sys.executable, adapter, '--stage', 'predict',
                        '--checkpoint', args.checkpoint,
                        '--pred-root', method_pred_root]
+                if args.method == 'sam_vit_l_unet':
+                    cmd += ['--sam-checkpoint', args.sam_checkpoint]
                 if args.device:
                     cmd += ['--device', args.device]
                 cmd += ['--test-datasets']
