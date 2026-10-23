@@ -21,10 +21,14 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 import math
+import os
 import sys
-from collections import Counter, defaultdict
+import time
+from collections import defaultdict
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -36,8 +40,11 @@ sys.path.insert(0, str(REPO_ROOT / 'src'))
 sys.path.insert(0, str(REPO_ROOT / 'scripts'))
 
 from evaluate_predictions import compute_selected  # noqa: E402
+from core.run_status import RunStatus  # noqa: E402
 
 MAIN_METRICS = ['dice', 'iou', 'cldice', 'hd95']
+CACHE_VERSION = 1
+DEFAULT_WORKERS = min(8, os.cpu_count() or 1)
 METHOD_META = {
     'unet': ('U-Net', '✗'),
     'cs2net': ('CS²Net', '✗'),
@@ -81,32 +88,104 @@ def discover_methods(pred_root: Path):
     return methods
 
 
-def collect_method(method, rows, pred_root, metric_names, max_images=None):
-    per_dataset = defaultdict(list)
-    missing = []
-    counts = Counter()
-    for row in rows:
-        if max_images is not None and counts[row['dataset']] >= max_images:
-            continue
-        counts[row['dataset']] += 1
-    done = Counter()
-    seen = set()
-    print(f'{method}: collecting {sum(counts.values())} images across '
-          f'{len(counts)} datasets', flush=True)
-
+def group_rows(rows, max_images=None):
+    grouped = defaultdict(list)
     for row in rows:
         dataset = row['dataset']
-        if max_images is not None and done[dataset] >= max_images:
+        if max_images is not None and len(grouped[dataset]) >= max_images:
             continue
+        grouped[dataset].append(row)
+    return grouped
+
+
+def missing_predictions(method, dataset, rows_ds, pred_root):
+    missing = []
+    for row in rows_ds:
+        stem = Path(row['mask_path']).stem
+        pred_path = pred_root / method / dataset / f'{stem}.png'
+        if not pred_path.is_file():
+            missing.append(str(pred_path))
+    return missing
+
+
+def pred_signature(method, dataset, rows_ds, pred_root):
+    """Cheap fingerprint of the prediction files used by one dataset."""
+    digest = hashlib.sha256()
+    for row in rows_ds:
+        stem = Path(row['mask_path']).stem
+        pred_path = pred_root / method / dataset / f'{stem}.png'
+        try:
+            stat = pred_path.stat()
+            token = f'{stem}|{stat.st_size}|{stat.st_mtime_ns}'
+        except OSError:
+            token = f'{stem}|MISSING'
+        digest.update(token.encode('utf-8'))
+        digest.update(b'\n')
+    return digest.hexdigest()
+
+
+def cache_paths(out_root, method, dataset):
+    base = out_root / method / dataset
+    return base / 'metrics.csv', base / 'metrics_meta.json'
+
+
+def load_cached(metrics_path, meta_path, metric_names, n_expected,
+                pred_root, signature, max_images):
+    if not (metrics_path.is_file() and meta_path.is_file()):
+        return None
+    try:
+        meta = json.loads(meta_path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return None
+    if (meta.get('version') != CACHE_VERSION
+            or meta.get('metric_names') != list(metric_names)
+            or meta.get('n_expected') != n_expected
+            or meta.get('pred_root') != str(pred_root)
+            or meta.get('pred_signature') != signature
+            or meta.get('max_images') != max_images):
+        return None
+    try:
+        with open(metrics_path) as f:
+            reader = csv.DictReader(f)
+            rows = []
+            for raw in reader:
+                item = {'image': raw.get('image', ''),
+                        'role': raw.get('role', '')}
+                for metric in metric_names:
+                    value = raw.get(metric, '')
+                    item[metric] = (float('nan') if value in ('', 'nan', 'NaN')
+                                    else float(value))
+                rows.append(item)
+    except (OSError, ValueError, KeyError):
+        return None
+    if len(rows) != meta.get('n_images'):
+        return None
+    return rows
+
+
+def save_meta(out_root, method, dataset, meta):
+    _, meta_path = cache_paths(out_root, method, dataset)
+    tmp = meta_path.with_name(meta_path.name + '.tmp')
+    try:
+        with open(tmp, 'w') as f:
+            json.dump(meta, f, indent=2)
+            f.write('\n')
+        os.replace(tmp, meta_path)
+    except OSError:
+        pass
+
+
+def collect_chunk(method, dataset, chunk_index, rows_chunk, pred_root,
+                  metric_names):
+    """Worker: compute a contiguous image chunk (process-pool safe)."""
+    per_rows = []
+    missing = []
+    for row in rows_chunk:
         stem = Path(row['mask_path']).stem
         pred_path = pred_root / method / dataset / f'{stem}.png'
         if not pred_path.is_file():
             missing.append(str(pred_path))
             continue
-        if dataset not in seen:
-            seen.add(dataset)
-            print(f'  {method}/{dataset}: {counts[dataset]} images',
-                  flush=True)
         gt_path = resolve(row['mask_path'])
         pred = np.array(Image.open(pred_path).convert('L'),
                         dtype=np.float32) / 255.0
@@ -116,16 +195,156 @@ def collect_method(method, rows, pred_root, metric_names, max_images=None):
             raise SystemExit(
                 f'{pred_path}: prediction shape {pred.shape} != GT {gt.shape}')
         metrics = compute_selected(pred, gt, metric_names)
-        per_dataset[dataset].append({
+        per_rows.append({
             'image': stem,
             'role': row['role'],
             **metrics,
         })
-        done[dataset] += 1
-        if done[dataset] % 100 == 0 or done[dataset] == counts[dataset]:
-            print(f'    {dataset}: {done[dataset]}/{counts[dataset]}',
+    return dataset, chunk_index, per_rows, missing
+
+
+def collect_method(method, rows, pred_root, out_root, metric_names,
+                   max_images=None, workers=DEFAULT_WORKERS, resume=True,
+                   status=None, chunk_size=100):
+    cache_enabled = metric_names != 'all'
+    grouped = group_rows(rows, max_images)
+    order = list(grouped)
+    total_expected = sum(len(v) for v in grouped.values())
+    workers = max(1, int(workers))
+    chunk_size = max(1, int(chunk_size))
+    print(f'{method}: collecting {total_expected} images across '
+          f'{len(order)} datasets (workers={workers}, '
+          f'chunk={chunk_size}, resume={resume})', flush=True)
+
+    t0 = time.time()
+    per_dataset = {}
+    missing = []
+    to_run = []
+    completed = 0
+    reused_rows = 0
+    for dataset in order:
+        rows_ds = grouped[dataset]
+        signature = pred_signature(method, dataset, rows_ds, pred_root)
+        metrics_path, meta_path = cache_paths(out_root, method, dataset)
+        cached = None
+        if resume and cache_enabled:
+            cached = load_cached(
+                metrics_path, meta_path, metric_names, len(rows_ds),
+                pred_root, signature, max_images)
+        if cached is not None:
+            per_dataset[dataset] = cached
+            missing.extend(missing_predictions(
+                method, dataset, rows_ds, pred_root))
+            completed += 1
+            reused_rows += len(rows_ds)
+            print(f'  {method}/{dataset}: reused {len(cached)} cached rows',
                   flush=True)
-    return per_dataset, missing
+        else:
+            to_run.append((dataset, rows_ds, signature))
+
+    if status is not None:
+        status.update(
+            datasets_total=len(order), overall_total=total_expected,
+            datasets_done=completed, overall_done=reused_rows,
+            active_datasets=[], dataset=None, dataset_done=0,
+            dataset_total=0, rate=0.0, eta_s=None,
+            message=f'{method}: metric collection')
+
+    if not to_run:
+        return {ds: per_dataset[ds] for ds in order if ds in per_dataset}, missing
+
+    # Submit fixed-size chunks rather than whole datasets: the parent gets
+    # live progress every chunk, and small/large datasets share the pool
+    # evenly (CHCrack5k no longer occupies one worker for a whole minute).
+    dataset_rows = {}
+    dataset_signatures = {}
+    dataset_chunks_total = {}
+    chunk_specs = []
+    for dataset, rows_ds, signature in to_run:
+        dataset_rows[dataset] = rows_ds
+        dataset_signatures[dataset] = signature
+        chunks = [rows_ds[i:i + chunk_size]
+                  for i in range(0, len(rows_ds), chunk_size)]
+        dataset_chunks_total[dataset] = len(chunks)
+        for chunk_index, chunk in enumerate(chunks):
+            chunk_specs.append((dataset, chunk_index, chunk))
+    workers = max(1, min(workers, len(chunk_specs) or 1))
+
+    active = set(dataset_chunks_total)
+    processed = reused_rows
+    dataset_done_images = defaultdict(int)
+    dataset_rows_by_chunk = defaultdict(dict)
+    dataset_missing_map = defaultdict(list)
+    remaining = dict(dataset_chunks_total)
+
+    with ProcessPoolExecutor(max_workers=workers) as pool:
+        futures = {
+            pool.submit(collect_chunk, method, dataset, chunk_index, chunk,
+                        pred_root, metric_names):
+                (dataset, chunk_index, len(chunk))
+            for dataset, chunk_index, chunk in chunk_specs
+        }
+        for future in as_completed(futures):
+            dataset, chunk_index, attempted = futures[future]
+            _, _, per_rows, chunk_missing = future.result()
+            dataset_rows_by_chunk[dataset][chunk_index] = per_rows
+            dataset_missing_map[dataset].extend(chunk_missing)
+            dataset_done_images[dataset] += attempted
+            processed += attempted
+            remaining[dataset] -= 1
+
+            total_ds = len(dataset_rows[dataset])
+            done_ds = dataset_done_images[dataset]
+            if done_ds % 100 == 0 or remaining[dataset] == 0:
+                print(f'    {dataset}: {done_ds}/{total_ds}', flush=True)
+
+            if remaining[dataset] == 0:
+                per_rows_all = [
+                    row for index in sorted(dataset_rows_by_chunk[dataset])
+                    for row in dataset_rows_by_chunk[dataset][index]
+                ]
+                per_dataset[dataset] = per_rows_all
+                missing.extend(dataset_missing_map[dataset])
+                completed += 1
+                active.discard(dataset)
+                metrics_path, _ = cache_paths(out_root, method, dataset)
+                fields = ['image', 'role']
+                if per_rows_all:
+                    fields += [k for k in per_rows_all[0]
+                               if k not in ('image', 'role')]
+                write_csv(metrics_path, fields, per_rows_all)
+                if cache_enabled:
+                    meta = {
+                        'version': CACHE_VERSION,
+                        'metric_names': list(metric_names),
+                        'n_expected': len(dataset_rows[dataset]),
+                        'n_images': len(per_rows_all),
+                        'pred_root': str(pred_root),
+                        'pred_signature': dataset_signatures[dataset],
+                        'max_images': max_images,
+                        'generated_at_utc':
+                            datetime.now(timezone.utc).isoformat(),
+                    }
+                    save_meta(out_root, method, dataset, meta)
+                print(f'{method}/{dataset}: {len(per_rows_all)} images '
+                      f'({len(dataset_missing_map[dataset])} missing)',
+                      flush=True)
+
+            elapsed = max(time.time() - t0, 1e-6)
+            rate = processed / elapsed
+            eta = ((total_expected - processed) / rate
+                   if rate > 0 and processed < total_expected else 0.0)
+            if status is not None:
+                status.update(
+                    datasets_total=len(order), overall_total=total_expected,
+                    datasets_done=completed, overall_done=processed,
+                    active_datasets=sorted(active), dataset=None,
+                    dataset_done=0, dataset_total=0, rate=round(rate, 2),
+                    eta_s=round(eta, 1),
+                    message=f'{method}: {processed}/{total_expected} images')
+
+    ordered = {ds: per_dataset[ds] for ds in order if ds in per_dataset}
+    return ordered, missing
 
 
 def summarize(per_dataset, metric_names):
@@ -257,6 +476,27 @@ def write_latex(out_dir, methods, summary, macros, metric_names):
         (out_dir / f'table_macro_{metric}.tex').write_text('\n'.join(lines))
 
 
+def print_summary(methods, summaries, macros, roles, metric_names):
+    short = {'dice': 'Dice', 'iou': 'IoU', 'cldice': 'clDice', 'hd95': 'HD95'}
+    labels = [short.get(m, m) for m in metric_names]
+    for method in methods:
+        print(f'\n[{method}] per-dataset (mean)')
+        print('  ' + f'{"dataset":<14} {"role":<7} ' +
+              ' '.join(f'{label:>8}' for label in labels))
+        for dataset in sorted(summaries[method]):
+            values = summaries[method][dataset]
+            cells = [fmt(values.get(m, {}).get('mean', float('nan')), m)
+                     for m in metric_names]
+            print('  ' + f'{dataset:<14} {roles[method][dataset]:<7} ' +
+                  ' '.join(f'{cell:>8}' for cell in cells))
+        print(f'[{method}] macro')
+        for role in ROLE_ORDER + ['All']:
+            cells = [fmt(macros[method][m][role]['mean'], m)
+                     for m in metric_names]
+            print('  ' + f'{role:<7}          ' +
+                  ' '.join(f'{cell:>8}' for cell in cells))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--protocol', type=Path,
@@ -276,9 +516,21 @@ def main():
                         help='per-dataset cap for smoke tests')
     parser.add_argument('--allow-missing', action='store_true',
                         help='write partial results instead of failing')
+    parser.add_argument('--workers', type=int, default=DEFAULT_WORKERS,
+                        help=f'parallel dataset workers (default: '
+                             f'{DEFAULT_WORKERS})')
+    parser.add_argument('--chunk-size', type=int, default=100,
+                        help='images per worker task (default: 100)')
+    parser.add_argument('--no-resume', dest='resume', action='store_false',
+                        help='ignore per-dataset metric caches')
+    parser.set_defaults(resume=True)
     args = parser.parse_args()
     if args.max_images is not None and args.max_images <= 0:
         raise SystemExit('--max-images must be positive (omit it to use all)')
+    if args.workers < 1:
+        raise SystemExit('--workers must be >= 1')
+    if args.chunk_size < 1:
+        raise SystemExit('--chunk-size must be >= 1')
 
     collect_metrics = 'all' if args.metrics == 'all' else [
         m.strip() for m in args.metrics.split(',') if m.strip()]
@@ -292,114 +544,137 @@ def main():
     if not methods:
         raise SystemExit(f'no methods under {args.pred_root}')
 
+    metric_names = None if collect_metrics == 'all' else collect_metrics
+    use_cache = args.resume and collect_metrics != 'all'
+    if collect_metrics == 'all' and args.resume:
+        print('[info] --metrics all disables per-dataset metric cache')
+    status_path = Path(os.environ.get('SACM_RUN_STATUS') or
+                       (args.pred_root.parent / '.run_status' /
+                        f'{methods[0]}.json'))
+    os.environ.setdefault('SACM_RUN_STATUS', str(status_path))
+    status = RunStatus(method=methods[0] if len(methods) == 1
+                       else 'paper_metrics',
+                       stage='paper_metrics', heartbeat=10.0)
+
     all_summaries = {}
     all_macros = {}
+    all_roles = {}
     stats = {'methods': {}, 'missing': {}}
-    metric_names = None
-    for method in methods:
-        per_dataset, missing = collect_method(
-            method, rows, args.pred_root, collect_metrics, args.max_images)
-        if missing and not args.allow_missing:
-            raise SystemExit(
-                f'{method}: {len(missing)} missing predictions; '
-                f'first={missing[0]} (use --allow-missing to continue)')
-        if metric_names is None:
-            first_rows = next(iter(per_dataset.values()), [])
-            if not first_rows:
+    try:
+        for method in methods:
+            worker_metrics = ('all' if collect_metrics == 'all'
+                              else metric_names)
+            grouped = group_rows(rows, args.max_images)
+            status.update(
+                datasets_total=len(grouped),
+                overall_total=sum(len(v) for v in grouped.values()),
+                datasets_done=0, overall_done=0, active_datasets=[],
+                dataset=None, dataset_done=0, dataset_total=0,
+                rate=0.0, eta_s=None, message=f'{method}: starting')
+            per_dataset, missing = collect_method(
+                method, rows, args.pred_root, args.out_root,
+                worker_metrics, args.max_images, args.workers,
+                use_cache, status, args.chunk_size)
+            if missing and not args.allow_missing:
                 raise SystemExit(
-                    f'{method}: no predictions were collected; '
-                    'check --pred-root and --allow-missing')
-            if collect_metrics == 'all':
+                    f'{method}: {len(missing)} missing predictions; '
+                    f'first={missing[0]} (use --allow-missing to continue)')
+            if metric_names is None:
+                first_rows = next(iter(per_dataset.values()), [])
+                if not first_rows:
+                    raise SystemExit(
+                        f'{method}: no predictions were collected; '
+                        'check --pred-root and --allow-missing')
                 metric_names = [k for k in first_rows[0]
                                 if k not in ('image', 'role')]
-            else:
-                metric_names = collect_metrics
-        summary = summarize(per_dataset, metric_names)
-        role_map = {dataset: role_of(dataset, rows) for dataset in summary}
-        macros = {m: macro(summary, role_map, m) for m in metric_names}
-        expected = {row['dataset'] for row in rows}
-        missing_datasets = sorted(expected - set(summary))
-        if missing_datasets:
-            print(f'[warn] {method}: missing datasets {missing_datasets}; '
-                  'macro denominators are reduced')
-        all_summaries[method] = summary
-        all_macros[method] = macros
-        stats['methods'][method] = {
-            'datasets': len(summary),
-            'images': sum(len(v) for v in per_dataset.values()),
-            'missing': len(missing),
-            'missing_datasets': missing_datasets,
-        }
-        stats['missing'][method] = missing[:100]
-        print(f'{method}: {stats["methods"][method]["images"]} images, '
-              f'{stats["methods"][method]["datasets"]} datasets, '
-              f'{len(missing)} missing')
-
-        method_dir = args.out_root / method
-        method_dir.mkdir(parents=True, exist_ok=True)
-        for dataset, rows_ds in per_dataset.items():
-            fields = ['image', 'role'] + [
-                m for m in metric_names if rows_ds and m in rows_ds[0]]
-            write_csv(method_dir / dataset / 'metrics.csv', fields, rows_ds)
-
-    if metric_names is None:
-        raise SystemExit('no metrics collected')
-    args.out_root.mkdir(parents=True, exist_ok=True)
-    metric_fields = []
-    for m in metric_names:
-        metric_fields += [f'{m}_mean', f'{m}_std', f'{m}_n']
-    dataset_rows = []
-    for method in methods:
-        for dataset, vals in sorted(all_summaries[method].items()):
-            row = {'method': method, 'dataset': dataset,
-                   'role': role_of(dataset, rows)}
-            for m in metric_names:
-                item = vals.get(m, {})
-                row[f'{m}_mean'] = item.get('mean')
-                row[f'{m}_std'] = item.get('std')
-                row[f'{m}_n'] = item.get('n', 0)
-            dataset_rows.append(row)
-    write_csv(args.out_root / 'paper_metrics.csv',
-              ['method', 'dataset', 'role'] + metric_fields, dataset_rows)
-
-    macro_rows = []
-    for method in methods:
-        for role in ROLE_ORDER + ['All']:
-            row = {'method': method, 'role': role}
-            for m in metric_names:
-                item = all_macros[method][m][role]
-                row[f'{m}_mean'] = item['mean']
-                row[f'{m}_std'] = item['std']
-                row[f'{m}_n_datasets'] = item['n']
-            macro_rows.append(row)
-    macro_fields = []
-    for m in metric_names:
-        macro_fields += [f'{m}_mean', f'{m}_std', f'{m}_n_datasets']
-    write_csv(args.out_root / 'paper_macro.csv',
-              ['method', 'role'] + macro_fields, macro_rows)
-
-    write_markdown(args.out_root / 'paper_tables.md',
-                   methods, all_summaries, all_macros, metric_names)
-    write_latex(args.out_root, methods, all_summaries, all_macros,
-                metric_names)
-    stats.update({
-        'protocol': str(args.protocol),
-        'pred_root': str(args.pred_root),
-        'metrics': metric_names,
-        'generated_at_utc': datetime.now(timezone.utc).isoformat(),
-        'test_rows': len(rows),
-        'macro': {
-            method: {
-                m: {role: all_macros[method][m][role]
-                    for role in ROLE_ORDER + ['All']}
-                for m in metric_names
+            summary = summarize(per_dataset, metric_names)
+            role_map = {dataset: role_of(dataset, rows)
+                        for dataset in summary}
+            macros = {m: macro(summary, role_map, m)
+                      for m in metric_names}
+            expected = {row['dataset'] for row in rows}
+            missing_datasets = sorted(expected - set(summary))
+            if missing_datasets:
+                print(f'[warn] {method}: missing datasets '
+                      f'{missing_datasets}; macro denominators are reduced')
+            all_summaries[method] = summary
+            all_macros[method] = macros
+            all_roles[method] = role_map
+            stats['methods'][method] = {
+                'datasets': len(summary),
+                'images': sum(len(v) for v in per_dataset.values()),
+                'missing': len(missing),
+                'missing_datasets': missing_datasets,
             }
-            for method in methods
-        },
-    })
-    with open(args.out_root / 'paper_stats.json', 'w') as f:
-        json.dump(stats, f, indent=2)
-        f.write('\n')
+            stats['missing'][method] = missing[:100]
+            print(f'{method}: {stats["methods"][method]["images"]} images, '
+                  f'{stats["methods"][method]["datasets"]} datasets, '
+                  f'{len(missing)} missing', flush=True)
+
+        if metric_names is None:
+            raise SystemExit('no metrics collected')
+        args.out_root.mkdir(parents=True, exist_ok=True)
+        metric_fields = []
+        for m in metric_names:
+            metric_fields += [f'{m}_mean', f'{m}_std', f'{m}_n']
+        dataset_rows = []
+        for method in methods:
+            for dataset, vals in sorted(all_summaries[method].items()):
+                row = {'method': method, 'dataset': dataset,
+                       'role': role_of(dataset, rows)}
+                for m in metric_names:
+                    item = vals.get(m, {})
+                    row[f'{m}_mean'] = item.get('mean')
+                    row[f'{m}_std'] = item.get('std')
+                    row[f'{m}_n'] = item.get('n', 0)
+                dataset_rows.append(row)
+        write_csv(args.out_root / 'paper_metrics.csv',
+                  ['method', 'dataset', 'role'] + metric_fields, dataset_rows)
+
+        macro_rows = []
+        for method in methods:
+            for role in ROLE_ORDER + ['All']:
+                row = {'method': method, 'role': role}
+                for m in metric_names:
+                    item = all_macros[method][m][role]
+                    row[f'{m}_mean'] = item['mean']
+                    row[f'{m}_std'] = item['std']
+                    row[f'{m}_n_datasets'] = item['n']
+                macro_rows.append(row)
+        macro_fields = []
+        for m in metric_names:
+            macro_fields += [f'{m}_mean', f'{m}_std', f'{m}_n_datasets']
+        write_csv(args.out_root / 'paper_macro.csv',
+                  ['method', 'role'] + macro_fields, macro_rows)
+
+        write_markdown(args.out_root / 'paper_tables.md',
+                       methods, all_summaries, all_macros, metric_names)
+        write_latex(args.out_root, methods, all_summaries, all_macros,
+                    metric_names)
+        stats.update({
+            'protocol': str(args.protocol),
+            'pred_root': str(args.pred_root),
+            'metrics': metric_names,
+            'generated_at_utc': datetime.now(timezone.utc).isoformat(),
+            'test_rows': len(rows),
+            'macro': {
+                method: {
+                    m: {role: all_macros[method][m][role]
+                        for role in ROLE_ORDER + ['All']}
+                    for m in metric_names
+                }
+                for method in methods
+            },
+        })
+        with open(args.out_root / 'paper_stats.json', 'w') as f:
+            json.dump(stats, f, indent=2)
+            f.write('\n')
+        print_summary(methods, all_summaries, all_macros, all_roles,
+                      metric_names)
+        status.finish('paper metrics complete')
+    except BaseException as exc:
+        status.fail(exc)
+        raise
     print(f'wrote {args.out_root}')
     return 0
 

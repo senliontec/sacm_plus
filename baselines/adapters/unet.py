@@ -48,6 +48,7 @@ sys.path.insert(0, str(REPO_ROOT / 'src'))
 from unet import UNet  # noqa: E402  (upstream model, unchanged)
 from core.console import console  # noqa: E402
 from core.metrics import cldice_score, hd95_score  # noqa: E402
+from core.run_status import RunStatus  # noqa: E402
 from core.wandb_utils import (  # noqa: E402
     finish_run,
     log_artifact,
@@ -480,53 +481,70 @@ def predict(args, ckpt_path: Path):
     model.load_state_dict(payload['model_state_dict'])
     model.to(device).eval()
 
+    datasets = []
     for spec in args.test_datasets:
         name, sep, root = spec.partition(':')
         if not sep or not name or not root:
             raise SystemExit(f'--test-datasets entries must be NAME:DIR, got {spec!r}')
         root = Path(root)
-        out_dir = args.pred_root / name
-        out_dir.mkdir(parents=True, exist_ok=True)
         pairs = list_pairs(root)
         if not pairs:
             raise SystemExit(f'no image/mask pairs under {root}')
-        total = len(pairs)
-        print(f'{name}: predicting {total} images on {device} -> {out_dir}',
-              flush=True)
-        t0 = time.time()
-        for done, (image_path, mask_path) in enumerate(pairs, 1):
-            image = Image.open(image_path).convert('RGB').resize(
-                (input_size, input_size), Image.BICUBIC)
-            tensor = torch.from_numpy(
-                np.asarray(image, dtype=np.float32).copy()).permute(2, 0, 1)
-            tensor = (tensor / 255.0).unsqueeze(0).to(device)
-            prob = torch.sigmoid(model(tensor))
-            with Image.open(mask_path) as mask_image:
-                width, height = mask_image.size
-            prob = F.interpolate(prob, size=(height, width),
-                                 mode='bilinear', align_corners=False)
-            pred = (prob.squeeze().cpu().numpy() > 0.5).astype(np.uint8) * 255
-            Image.fromarray(pred, mode='L').save(out_dir / f'{image_path.stem}.png')
-            if done % 50 == 0 and done != total:
-                elapsed = time.time() - t0
-                rate = done / elapsed if elapsed > 0 else 0.0
-                eta = (total - done) / rate if rate > 0 else 0.0
-                print(f'  {name}: {done}/{total}  {rate:.1f} img/s  '
-                      f'ETA {eta:.0f}s', flush=True)
-        elapsed = time.time() - t0
-        print(f'{name}: done {total} predictions in {elapsed:.0f}s '
-              f'-> {out_dir}', flush=True)
+        datasets.append((name, root, pairs))
+    total_images = sum(len(pairs) for _, _, pairs in datasets)
+    status = RunStatus(method='unet', stage='predict', heartbeat=10.0)
+    status.update(datasets_total=len(datasets), overall_total=total_images)
 
-    meta = {
-        'method': 'unet',
-        'checkpoint': str(ckpt_path),
-        'checkpoint_sha256': file_sha256(ckpt_path),
-        'split_manifest_sha256': payload.get('split_manifest_sha256'),
-        'datasets': [spec.partition(':')[0] for spec in args.test_datasets],
-    }
-    with open(args.pred_root / '.prediction_meta.json', 'w') as f:
-        json.dump(meta, f, indent=2)
-        f.write('\n')
+    try:
+        for dataset_index, (name, root, pairs) in enumerate(datasets, 1):
+            out_dir = args.pred_root / name
+            out_dir.mkdir(parents=True, exist_ok=True)
+            total = len(pairs)
+            status.start_dataset(name, index=dataset_index, total=total,
+                                 overall_total=total_images)
+            print(f'{name}: predicting {total} images on {device} -> {out_dir}',
+                  flush=True)
+            t0 = time.time()
+            for done, (image_path, mask_path) in enumerate(pairs, 1):
+                image = Image.open(image_path).convert('RGB').resize(
+                    (input_size, input_size), Image.BICUBIC)
+                tensor = torch.from_numpy(
+                    np.asarray(image, dtype=np.float32).copy()).permute(2, 0, 1)
+                tensor = (tensor / 255.0).unsqueeze(0).to(device)
+                prob = torch.sigmoid(model(tensor))
+                with Image.open(mask_path) as mask_image:
+                    width, height = mask_image.size
+                prob = F.interpolate(prob, size=(height, width),
+                                     mode='bilinear', align_corners=False)
+                pred = (prob.squeeze().cpu().numpy() > 0.5).astype(np.uint8) * 255
+                Image.fromarray(pred, mode='L').save(
+                    out_dir / f'{image_path.stem}.png')
+                status.advance(1, write=(done % 10 == 0))
+                if done % 50 == 0 and done != total:
+                    elapsed = time.time() - t0
+                    rate = done / elapsed if elapsed > 0 else 0.0
+                    eta = (total - done) / rate if rate > 0 else 0.0
+                    print(f'  {name}: {done}/{total}  {rate:.1f} img/s  '
+                          f'ETA {eta:.0f}s', flush=True)
+            elapsed = time.time() - t0
+            status.finish_dataset()
+            print(f'{name}: done {total} predictions in {elapsed:.0f}s '
+                  f'-> {out_dir}', flush=True)
+
+        meta = {
+            'method': 'unet',
+            'checkpoint': str(ckpt_path),
+            'checkpoint_sha256': file_sha256(ckpt_path),
+            'split_manifest_sha256': payload.get('split_manifest_sha256'),
+            'datasets': [name for name, _, _ in datasets],
+        }
+        with open(args.pred_root / '.prediction_meta.json', 'w') as f:
+            json.dump(meta, f, indent=2)
+            f.write('\n')
+        status.finish('predictions complete')
+    except BaseException as exc:
+        status.fail(exc)
+        raise
 
 
 def main():

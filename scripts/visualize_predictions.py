@@ -30,6 +30,7 @@ sys.path.insert(0, str(REPO_ROOT / 'src'))
 sys.path.insert(0, str(REPO_ROOT / 'scripts'))
 
 from evaluate_predictions import compute_selected  # noqa: E402
+from core.run_status import RunStatus  # noqa: E402
 
 METHOD_META = {
     'unet': ('U-Net', '✗'),
@@ -177,67 +178,88 @@ def main():
     samples = sample_rows(rows, args.num_samples, args.seed)
     args.out_root.mkdir(parents=True, exist_ok=True)
     summary_rows = []
-    for method in args.methods:
-        display = METHOD_META.get(method, (method, '?'))[0]
-        for dataset, items in samples.items():
-            out_dir = args.out_root / method / dataset
-            out_dir.mkdir(parents=True, exist_ok=True)
-            panels = []
-            for row in items:
-                stem = Path(row['mask_path']).stem
-                pred_path = (args.pred_root / method / dataset /
-                             f'{stem}.png')
-                if not pred_path.is_file():
-                    msg = f'missing prediction: {pred_path}'
-                    if args.allow_missing:
-                        print(f'[warn] {msg}')
-                        continue
-                    raise SystemExit(msg)
-                image, _ = load_image(resolve(row['image_path']),
-                                      args.max_side)
-                gt_orig = Image.open(resolve(row['mask_path'])).convert('L')
-                pred_orig = Image.open(pred_path).convert('L')
-                if gt_orig.size != pred_orig.size:
-                    raise SystemExit(
-                        f'{pred_path}: {pred_orig.size} != GT {gt_orig.size}')
-                metrics = compute_selected(
-                    np.asarray(pred_orig, dtype=np.float32) / 255.0,
-                    np.asarray(gt_orig, dtype=np.float32) / 255.0,
-                    ['dice', 'iou', 'cldice', 'hd95'])
-                gt_image = (gt_orig if gt_orig.size == image.size else
-                            gt_orig.resize(image.size, Image.NEAREST))
-                pred_image = (pred_orig if pred_orig.size == image.size else
-                              pred_orig.resize(image.size, Image.NEAREST))
-                gt = np.asarray(gt_image) > 127
-                pred = np.asarray(pred_image) > 127
-                title = f'{display} | {dataset} | {stem}'
-                fig = make_panel(image, gt, pred, title, metrics)
-                panel_path = out_dir / f'{stem}.png'
-                fig.savefig(panel_path, bbox_inches='tight')
-                plt.close(fig)
-                panels.append((image, gt, pred, stem))
-                summary_rows.append({
-                    'method': method,
-                    'dataset': dataset,
-                    'image': stem,
-                    'dice': metrics['dice'],
-                    'iou': metrics['iou'],
-                    'cldice': metrics['cldice'],
-                    'hd95': metrics['hd95'],
-                    'panel': str(panel_path),
-                })
-            if panels:
-                # A grid with hundreds of rows is both unreadable and an
-                # OOM risk (e.g. CHCrack5k with --num-samples 0).  Keep all
-                # individual panels but cap the contact sheet.
-                grid_panels = panels[:16]
-                fig = make_grid(grid_panels, f'{display} | {dataset}')
-                fig.savefig(out_dir / 'grid.png', bbox_inches='tight')
-                plt.close(fig)
-                if len(panels) > len(grid_panels):
-                    print(f'  grid capped at {len(grid_panels)} of '
-                          f'{len(panels)} panels')
-            print(f'{method}/{dataset}: {len(panels)} panels -> {out_dir}')
+    total_panels = sum(len(items) for _ in args.methods
+                       for items in samples.values())
+    units = len(args.methods) * len(samples)
+    status = RunStatus(method=args.methods[0], stage='visualize',
+                       heartbeat=10.0)
+    status.update(datasets_total=units, overall_total=total_panels,
+                  overall_done=0)
+
+    unit = 0
+    try:
+        for method in args.methods:
+            display = METHOD_META.get(method, (method, '?'))[0]
+            for dataset, items in samples.items():
+                unit += 1
+                out_dir = args.out_root / method / dataset
+                out_dir.mkdir(parents=True, exist_ok=True)
+                status.start_dataset(f'{method}/{dataset}', index=unit,
+                                     total=len(items),
+                                     overall_total=total_panels)
+                panels = []
+                for row in items:
+                    stem = Path(row['mask_path']).stem
+                    pred_path = (args.pred_root / method / dataset /
+                                 f'{stem}.png')
+                    if not pred_path.is_file():
+                        msg = f'missing prediction: {pred_path}'
+                        if args.allow_missing:
+                            print(f'[warn] {msg}')
+                            continue
+                        raise SystemExit(msg)
+                    image, _ = load_image(resolve(row['image_path']),
+                                          args.max_side)
+                    gt_orig = Image.open(resolve(row['mask_path'])).convert('L')
+                    pred_orig = Image.open(pred_path).convert('L')
+                    if gt_orig.size != pred_orig.size:
+                        raise SystemExit(
+                            f'{pred_path}: {pred_orig.size} != GT {gt_orig.size}')
+                    metrics = compute_selected(
+                        np.asarray(pred_orig, dtype=np.float32) / 255.0,
+                        np.asarray(gt_orig, dtype=np.float32) / 255.0,
+                        ['dice', 'iou', 'cldice', 'hd95'])
+                    gt_image = (gt_orig if gt_orig.size == image.size else
+                                gt_orig.resize(image.size, Image.NEAREST))
+                    pred_image = (pred_orig if pred_orig.size == image.size else
+                                  pred_orig.resize(image.size, Image.NEAREST))
+                    gt = np.asarray(gt_image) > 127
+                    pred = np.asarray(pred_image) > 127
+                    title = f'{display} | {dataset} | {stem}'
+                    fig = make_panel(image, gt, pred, title, metrics)
+                    panel_path = out_dir / f'{stem}.png'
+                    fig.savefig(panel_path, bbox_inches='tight')
+                    plt.close(fig)
+                    panels.append((image, gt, pred, stem))
+                    summary_rows.append({
+                        'method': method,
+                        'dataset': dataset,
+                        'image': stem,
+                        'dice': metrics['dice'],
+                        'iou': metrics['iou'],
+                        'cldice': metrics['cldice'],
+                        'hd95': metrics['hd95'],
+                        'panel': str(panel_path),
+                    })
+                    status.advance(1, write=False)
+                if panels:
+                    # A grid with hundreds of rows is both unreadable and an
+                    # OOM risk (e.g. CHCrack5k with --num-samples 0).  Keep all
+                    # individual panels but cap the contact sheet.
+                    grid_panels = panels[:16]
+                    fig = make_grid(grid_panels, f'{display} | {dataset}')
+                    fig.savefig(out_dir / 'grid.png', bbox_inches='tight')
+                    plt.close(fig)
+                    if len(panels) > len(grid_panels):
+                        print(f'  grid capped at {len(grid_panels)} of '
+                              f'{len(panels)} panels')
+                status.finish_dataset()
+                print(f'{method}/{dataset}: {len(panels)} panels -> {out_dir}',
+                      flush=True)
+        status.finish('visualizations complete')
+    except BaseException as exc:
+        status.fail(exc)
+        raise
 
     with open(args.out_root / 'visualizations.csv', 'w', newline='') as f:
         writer = csv.DictWriter(f, fieldnames=[

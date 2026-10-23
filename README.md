@@ -268,6 +268,33 @@ python scripts/visualize_predictions.py --methods unet \
 python scripts/run_baseline_test.py
 ```
 
+Long test/evaluation runs write a live state file and print stage progress.
+Inspect it without hunting for PIDs:
+
+```bash
+python scripts/run_status.py --method unet
+watch -n 2 python scripts/run_status.py --method unet
+```
+
+Prediction prints every 50 images; metric collection prints per dataset and
+every 100 images.  Per-dataset metric results are cached
+(`results/paper/<method>/<dataset>/metrics.csv` + `metrics_meta.json`), so an
+interrupted run resumes completed datasets automatically.  Metric collection
+is parallel across datasets (`--workers`, default `min(8, CPU count)`):
+
+```bash
+# Resume a run that stopped during prediction or metrics
+python scripts/run_baseline_test.py --method unet --skip-predict
+python scripts/run_baseline_test.py --method unet --skip-predict --workers 8
+
+# Recompute everything (ignore the cache)
+python scripts/collect_paper_metrics.py --methods unet --no-resume
+```
+
+The collector finishes by printing a per-dataset summary table plus
+Seen/Unseen/Novel/All macro rows; the same values are in `paper_metrics.csv`.
+Status files live under `results/.run_status/`.
+
 U-Net training prints a rich one-line table (header + one row per epoch)
 and persists the same values next to its checkpoint:
 
@@ -287,7 +314,9 @@ enable it with `WANDB_LOG_ARTIFACT=true`.  Shutdown waits at most
 
 `collect_paper_metrics.py` reads the frozen protocol manifest and emits
 `paper_metrics.csv`, `paper_macro.csv`, `paper_stats.json`, per-metric
-LaTeX tables, and `paper_tables.md`. `visualize_predictions.py` writes
+LaTeX tables, and `paper_tables.md`. It also writes one `metrics.csv` per
+`<method>/<dataset>` (per-image rows) and a `metrics_meta.json` cache marker.
+`visualize_predictions.py` writes
 `results/visualizations/<method>/<dataset>/<stem>.png` and `grid.png`
 with input, GT, prediction, and TP/FP/FN error panels.
 
