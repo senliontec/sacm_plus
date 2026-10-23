@@ -246,6 +246,8 @@ def train(args):
         shutil.copy2(ckpt_path, backup)
         print(f'backup previous checkpoint -> {backup}')
     best_dice = -1.0
+    best_epoch = 0
+    best_per_dataset = {}
     for epoch in range(1, args.epochs + 1):
         model.train()
         running = 0.0
@@ -273,20 +275,29 @@ def train(args):
             wb.update({f'val/{dataset}/{key}': value
                        for key, value in values.items()})
         log_scalars(run, wb)
+        improved = val_dice > best_dice
+        marker = '  *best*' if improved else ''
         print(f'epoch {epoch:03d}/{args.epochs}  loss={train_loss:.4f}  '
               f'val_dice={val_metrics["dice"]:.4f}  '
               f'val_iou={val_metrics["iou"]:.4f}  '
               f'val_cldice={val_metrics["cldice"]:.4f}  '
               f'val_hd95={val_metrics["hd95"]:.4f}  '
-              f'empty={val_metrics["empty_prediction_rate"]:.2f}', flush=True)
-        for dataset, values in val_per_dataset.items():
-            print(f'  {dataset}: dice={values["dice"]:.4f} '
-                  f'iou={values["iou"]:.4f} '
-                  f'cldice={values["cldice"]:.4f} '
-                  f'hd95={values["hd95"]:.4f} '
-                  f'empty={values["empty_prediction_rate"]:.0f}', flush=True)
-        if val_dice > best_dice:
+              f'empty={val_metrics["empty_prediction_rate"]:.2f}{marker}',
+              flush=True)
+        show_datasets = improved or (
+            args.dataset_log_interval > 0 and
+            epoch % args.dataset_log_interval == 0)
+        if show_datasets:
+            for dataset, values in val_per_dataset.items():
+                print(f'  {dataset}: dice={values["dice"]:.4f} '
+                      f'iou={values["iou"]:.4f} '
+                      f'cldice={values["cldice"]:.4f} '
+                      f'hd95={values["hd95"]:.4f} '
+                      f'empty={values["empty_prediction_rate"]:.0f}', flush=True)
+        if improved:
             best_dice = val_dice
+            best_epoch = epoch
+            best_per_dataset = val_per_dataset
             torch.save({
                 'model_state_dict': model.state_dict(),
                 'epoch': epoch,
@@ -296,7 +307,15 @@ def train(args):
                 'input_size': args.input_size,
                 'split_manifest_sha256': split_sha256,
             }, ckpt_path)
-    print(f'best val_dice={best_dice:.4f} -> {ckpt_path}')
+    print(f'best val_dice={best_dice:.4f} @ epoch {best_epoch} -> {ckpt_path}')
+    if best_per_dataset:
+        print(f'per-dataset at best epoch {best_epoch}:')
+        for dataset, values in best_per_dataset.items():
+            print(f'  {dataset}: dice={values["dice"]:.4f} '
+                  f'iou={values["iou"]:.4f} '
+                  f'cldice={values["cldice"]:.4f} '
+                  f'hd95={values["hd95"]:.4f} '
+                  f'empty={values["empty_prediction_rate"]:.0f}')
     log_artifact(run, ckpt_path, name=f'unet-seed{args.seed}',
                  artifact_type='model')
     finish_run(run)
@@ -366,6 +385,9 @@ def main():
                         help='NAME:GT_ROOT entries for prediction')
     parser.add_argument('--epochs', type=int, default=200,
                         help='U-Net needs ~200 epochs to converge on 18 images')
+    parser.add_argument('--dataset-log-interval', type=int, default=20,
+                        help='print per-dataset validation lines every N epochs '
+                             '(0 = only on a new best)')
     parser.add_argument('--batch-size', type=int, default=4)
     parser.add_argument('--lr', type=float, default=1e-3)
     parser.add_argument('--weight-decay', type=float, default=1e-4)
