@@ -31,6 +31,7 @@ import random
 import shutil
 import sys
 import time
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -44,6 +45,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / 'baselines' / 'unet'))
 sys.path.insert(0, str(REPO_ROOT / 'src'))
 from unet import UNet  # noqa: E402  (upstream model, unchanged)
+from core.metrics import cldice_score, hd95_score  # noqa: E402
 from core.wandb_utils import (  # noqa: E402
     finish_run,
     log_artifact,
@@ -136,18 +138,47 @@ def iou_coefficient(prob: torch.Tensor, target: torch.Tensor) -> float:
 
 
 @torch.no_grad()
-def validate(model, loader, device):
+def validate(model, pairs, device, input_size):
+    """Validate at the ORIGINAL GT resolution, matching the paper metrics."""
     model.eval()
     dice_scores = []
     iou_scores = []
-    for images, masks in loader:
-        images, masks = images.to(device), masks.to(device)
-        prob = torch.sigmoid(model(images))
-        dice_scores.append(dice_coefficient(prob, masks))
-        iou_scores.append(iou_coefficient(prob, masks))
-    if not dice_scores:
-        return 0.0, 0.0
-    return float(np.mean(dice_scores)), float(np.mean(iou_scores))
+    cldice_scores = []
+    hd95_scores = []
+    for image_path, mask_path in pairs:
+        image = Image.open(image_path).convert('RGB').resize(
+            (input_size, input_size), Image.BICUBIC)
+        tensor = torch.from_numpy(
+            np.asarray(image, dtype=np.float32).copy()).permute(2, 0, 1)
+        tensor = (tensor / 255.0).unsqueeze(0).to(device)
+        prob = torch.sigmoid(model(tensor))
+        with Image.open(mask_path) as mask_image:
+            width, height = mask_image.size
+            gt = np.asarray(mask_image.convert('L')) > 127
+        prob = F.interpolate(prob, size=(height, width),
+                             mode='bilinear', align_corners=False)
+        pred = prob[0, 0].cpu().numpy() > 0.5
+        inter = np.logical_and(pred, gt).sum()
+        denom = pred.sum() + gt.sum()
+        dice_scores.append(float((2.0 * inter + 1e-7) / (denom + 1e-7)))
+        union = denom - inter
+        iou_scores.append(float((inter + 1e-7) / (union + 1e-7)))
+        cldice_scores.append(cldice_score(pred, gt))
+        hd95_scores.append(hd95_score(pred, gt))
+
+    def mean(values):
+        if not values:
+            return float('nan')
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', RuntimeWarning)
+            return float(np.nanmean(values))
+
+    return {
+        'dice': mean(dice_scores),
+        'iou': mean(iou_scores),
+        'cldice': mean(cldice_scores),
+        'hd95': mean(hd95_scores),
+    }
 
 
 def train(args):
@@ -162,8 +193,6 @@ def train(args):
     val_set = PairDataset(args.data_root / 'val', args.input_size, augment=False)
     train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True,
                               num_workers=args.num_workers, drop_last=False)
-    val_loader = DataLoader(val_set, batch_size=1, shuffle=False,
-                            num_workers=args.num_workers)
 
     model = UNet(n_channels=3, n_classes=1).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr,
@@ -215,23 +244,30 @@ def train(args):
             optimizer.step()
             running += loss.item() * images.size(0)
         scheduler.step()
-        val_dice, val_iou = validate(model, val_loader, device)
+        val_metrics = validate(model, val_set.pairs, device, args.input_size)
+        val_dice = val_metrics['dice']
         train_loss = running / len(train_set)
         log_scalars(run, {
             'epoch': epoch,
             'train/loss': train_loss,
-            'val/dice': val_dice,
-            'val/iou': val_iou,
+            'val/dice': val_metrics['dice'],
+            'val/iou': val_metrics['iou'],
+            'val/cldice': val_metrics['cldice'],
+            'val/hd95': val_metrics['hd95'],
             'lr': optimizer.param_groups[0]['lr'],
         })
         print(f'epoch {epoch:03d}/{args.epochs}  loss={train_loss:.4f}  '
-              f'val_dice={val_dice:.4f}  val_iou={val_iou:.4f}', flush=True)
+              f'val_dice={val_metrics["dice"]:.4f}  '
+              f'val_iou={val_metrics["iou"]:.4f}  '
+              f'val_cldice={val_metrics["cldice"]:.4f}  '
+              f'val_hd95={val_metrics["hd95"]:.4f}', flush=True)
         if val_dice > best_dice:
             best_dice = val_dice
             torch.save({
                 'model_state_dict': model.state_dict(),
                 'epoch': epoch,
                 'val_dice': val_dice,
+                'val_metrics': val_metrics,
                 'input_size': args.input_size,
                 'split_manifest_sha256': split_sha256,
             }, ckpt_path)

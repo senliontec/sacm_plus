@@ -10,6 +10,15 @@ SERVER="zkyd@172.16.1.7"
 TARGET="/home/zkyd/code/sacm-plus"
 SRC="$(cd "$(dirname "$0")" && pwd)"
 
+# Reuse one SSH connection for all rsync calls: ask for the password once.
+CONTROL_DIR="${TMPDIR:-/tmp}/sacm-plus-ssh-$(id -u)"
+mkdir -p "$CONTROL_DIR"
+chmod 700 "$CONTROL_DIR"
+CONTROL_PATH="$CONTROL_DIR/%C"
+SSH_OPTS=(-o ControlMaster=auto -o ControlPath="$CONTROL_PATH"
+          -o ControlPersist=600)
+RSYNC_SSH="ssh ${SSH_OPTS[*]}"
+
 CODE_ONLY=0
 for a in "$@"; do case "$a" in
   --code-only) CODE_ONLY=1 ;;
@@ -31,9 +40,13 @@ else
   echo "Uploading ${SRC} → ${SERVER}:${TARGET} (code + checkpoint + data) ..."
 fi
 
-# 不再单独 ssh mkdir:rsync 会自动创建目标目录,这样全程只需输入一次密码
+# Establish the shared connection once (and create the target directory).
+echo "Authenticating ${SERVER} (one password prompt) ..."
+ssh "${SSH_OPTS[@]}" "$SERVER" "mkdir -p '${TARGET}'"
+
 # 代码目录:--checksum 按内容比较，只传真正改动的文件；--update 不覆盖服务器上更新的文件
-rsync -avz --partial --update --checksum --info=progress2 --delete \
+rsync -e "$RSYNC_SSH" -avz --partial --update --checksum \
+    --info=progress2 --delete \
     "${EXCLUDES[@]}" --exclude 'datasets/' --exclude 'data/' \
     "${SRC}/" "${SERVER}:${TARGET}/"
 
@@ -43,10 +56,14 @@ if [ "$CODE_ONLY" -eq 0 ]; then
   for d in datasets data; do
     [ -d "${SRC}/$d" ] || continue
     echo "Uploading data: $d (incremental, no --delete) ..."
-    rsync -avz --partial --update --checksum --info=progress2 \
+    rsync -e "$RSYNC_SSH" -avz --partial --update --checksum \
+        --info=progress2 \
         "${SRC}/$d/" "${SERVER}:${TARGET}/$d/"
   done
 fi
+
+# Close the shared connection; ControlPersist would also do it later.
+ssh "${SSH_OPTS[@]}" -O exit "$SERVER" >/dev/null 2>&1 || true
 
 echo ""
 echo "Done. On server:"
