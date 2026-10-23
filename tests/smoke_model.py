@@ -9,7 +9,7 @@ the smoke test exercises exactly the same code path as train/test.
 
 import torch
 
-from models.sam import build_sam_vit_l
+from models.sam_network import build_sam_vit_l
 from core.io import get_prompt_embeddings, predict_all
 
 

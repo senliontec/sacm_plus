@@ -52,7 +52,7 @@ from core.metrics.persistence import betti_matching_score  # noqa: E402
 from core.metrics.pixel import dice_score, iou_score  # noqa: E402
 from core.metrics.topology import cldice_score  # noqa: E402
 from core.registry import MODEL_REGISTRY, get_model_spec  # noqa: E402
-from models.sacm.configs import PRESETS, apply_preset, str2bool  # noqa: E402
+from models.sacm_x.configs import PRESETS, apply_preset, str2bool  # noqa: E402
 
 HIGHER_IS_BETTER = {'dice', 'cldice', 'betti_matching', 'iou'}
 LOWER_IS_BETTER = {'hd95'}

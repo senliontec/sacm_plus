@@ -8,7 +8,7 @@ inlined in train_sam.py (moved here verbatim — behaviour unchanged).
 
 import logging
 
-from models.sam import build_sam_vit_b, build_sam_vit_h, build_sam_vit_l
+from models.sam_network import build_sam_vit_b, build_sam_vit_h, build_sam_vit_l
 from core.io import get_prompt_embeddings, predict_all
 from core.registry import ModelSpec, register_model
 

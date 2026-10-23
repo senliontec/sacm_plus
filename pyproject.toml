@@ -59,8 +59,8 @@ packages = [
     "core.metrics",
     # algorithm layer
     "models",
-    "models.sacm",
-    "models.sam",
+    "models.sacm_x",
+    "models.sam_network",
 ]
 
 [tool.ruff]

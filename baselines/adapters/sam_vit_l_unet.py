@@ -64,7 +64,7 @@ from core.wandb_utils import (  # noqa: E402
     log_scalars,
     setup_wandb,
 )
-from models.sam.build_sam import build_sam_vit_l  # noqa: E402
+from models.sam_network.build_sam import build_sam_vit_l  # noqa: E402
 
 IMAGE_EXTS = ('.png', '.jpg', '.jpeg', '.tif', '.tiff', '.bmp', '.ppm')
 MASK_EXTS = IMAGE_EXTS

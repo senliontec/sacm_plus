@@ -4,7 +4,7 @@ import argparse
 
 import pytest
 
-from models.sacm.configs import (
+from models.sacm_x.configs import (
     PRESETS,
     apply_preset,
     apply_yaml_presets,

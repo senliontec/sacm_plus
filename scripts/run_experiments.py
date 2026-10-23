@@ -38,7 +38,7 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC_DIR = os.path.join(REPO_ROOT, 'src')
 sys.path.insert(0, SRC_DIR)
 
-from models.sacm.configs import PRESETS  # noqa: E402
+from models.sacm_x.configs import PRESETS  # noqa: E402
 
 
 def resolve_selection(args, preset):

@@ -13,7 +13,7 @@ import pytest
 import torch
 import torch.nn.functional as F
 
-from models.sam import build_sam_vit_b
+from models.sam_network import build_sam_vit_b
 from core.io import get_prompt_embeddings, predict_all
 from core.losses import DiceBCELoss, SoftclDiceLoss
 

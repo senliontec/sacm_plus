@@ -2,7 +2,7 @@
 ModelSpec — a self-describing bundle of build/freeze/param-groups/
 preprocess/prompt/forward functions. The Trainer and Evaluator only
 speak ModelSpec; model modules register their specs (see
-models/sacm/models.py for the reference implementation).
+models/sacm_x/specs.py for the reference implementation).
 
 See docs/MODEL_MANAGEMENT.md for the full design and the step-by-step
 recipe for adding a model.

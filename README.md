@@ -221,7 +221,7 @@ python scripts/metrics_report.py --history results/full/DRIVE/metrics_history.js
 python scripts/metrics_report.py --root results --out results/tables/report.md
 
 # 4. Motivation diagnostics (head supervision + gating quality evidence)
-python -m models.sacm.diagnose --preset sacm --data_root /data/DRIVE \
+python -m models.sacm_x.diagnose --preset sacm --data_root /data/DRIVE \
     --trained_weights results/sacm/DRIVE/best_model.pth \
     --output_dir diagnosis/sacm_drive
 ```
@@ -327,7 +327,7 @@ LaTeX tables, and `paper_tables.md`. It also writes one `metrics.csv` per
 `results/visualizations/<method>/<dataset>/<stem>.png` and `grid.png`
 with input, GT, prediction, and TP/FP/FN error panels.
 
-`src/models/sacm/diagnose.py` produces the paper's motivation evidence:
+`src/models/sacm_x/diagnose.py` produces the paper's motivation evidence:
 per-head gradient norms under the original winner-take-all loss vs the
 full loss (showing 3/4 Stage-2 heads were unsupervised), and the gating
 rank vs ground-truth IoU correlation.

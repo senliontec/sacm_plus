@@ -33,7 +33,7 @@ from core.losses import TOPOLOGY_LOSS_REGISTRY, DiceBCELoss, SoftclDiceLoss, bui
 from core.registry import MODEL_REGISTRY, get_model_spec
 from core.trainer import ForwardWrapper, Trainer
 from core.wandb_utils import WANDB_API_KEY_DEFAULT, redact_secrets
-from models.sacm.configs import PRESETS, apply_preset, str2bool
+from models.sacm_x.configs import PRESETS, apply_preset, str2bool
 
 
 class DistributedEvalSampler(Sampler):
@@ -402,6 +402,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
     apply_preset(args, args.preset)
     if args.config is not None:
-        from models.sacm.configs import apply_yaml_presets
+        from models.sacm_x.configs import apply_yaml_presets
         apply_yaml_presets(args, args.config)
     train(args)

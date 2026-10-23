@@ -38,8 +38,8 @@ import matplotlib.pyplot as plt
 from core.data import TestDataset
 from core.io import get_prompt_embeddings, predict_all
 from core.losses import DiceBCELoss, SoftclDiceLoss
-from models.sacm.configs import PRESETS, apply_preset, str2bool
-from models.sam import build_sam_vit_l
+from models.sacm_x.configs import PRESETS, apply_preset, str2bool
+from models.sam_network import build_sam_vit_l
 
 STAGE1_KEY = 'output_hypernetworks_mlps'
 STAGE2_KEY = 'output_hypernetworks_mlps_stage2'

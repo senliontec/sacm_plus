@@ -1,4 +1,4 @@
-# Preset definitions live in Python: src/models/sacm/configs.py (PRESETS).
+# Preset definitions live in Python: src/models/sacm_x/configs.py (PRESETS).
 # This file only selects a preset and optionally overrides argparse values.
 #
 # Usage:
