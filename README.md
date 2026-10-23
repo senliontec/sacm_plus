@@ -239,6 +239,9 @@ Example for the U-Net adapter:
 # Server one-click training; background by default, logs under logs/
 bash scripts/run_unet_train.sh
 
+# Pick the physical GPU; the script clears that GPU first by default
+GPU=1 bash scripts/run_unet_train.sh
+
 # Foreground debug / short run
 BACKGROUND=false EPOCHS=20 bash scripts/run_unet_train.sh
 
@@ -264,6 +267,19 @@ python scripts/visualize_predictions.py --methods unet \
 # and save visualizations.  Requires the trained checkpoint.
 python scripts/run_baseline_test.py
 ```
+
+U-Net training prints a rich one-line table (header + one row per epoch)
+and persists the same values next to its checkpoint:
+
+```text
+workdirs/baselines/unet/metrics_history.json
+    config + per-epoch overall and per-dataset metrics (AI-readable)
+workdirs/baselines/unet/val_metrics_by_dataset.csv
+    one row per epoch; 6 datasets x Dice/IoU/clDice/HD95 = 24 metric columns
+```
+
+Per-dataset values are also logged to W&B every epoch as
+`val/<dataset>/<metric>`.
 
 `collect_paper_metrics.py` reads the frozen protocol manifest and emits
 `paper_metrics.csv`, `paper_macro.csv`, `paper_stats.json`, per-metric

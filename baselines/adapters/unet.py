@@ -24,6 +24,7 @@ Examples:
 from __future__ import annotations
 
 import argparse
+import csv
 import hashlib
 import json
 import os
@@ -45,6 +46,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / 'baselines' / 'unet'))
 sys.path.insert(0, str(REPO_ROOT / 'src'))
 from unet import UNet  # noqa: E402  (upstream model, unchanged)
+from core.console import console  # noqa: E402
 from core.metrics import cldice_score, hd95_score  # noqa: E402
 from core.wandb_utils import (  # noqa: E402
     finish_run,
@@ -145,6 +147,102 @@ def _mean(values):
         return float(np.nanmean(values))
 
 
+# ECG-SAM style fixed-width line table, matching fencing-algs: a one-time
+# header, one centered row per epoch, and " *" appended to the last cell on a
+# new best (the whole row is bold green).  No separate best/empty columns.
+LOG_SEP = ' │ '
+LOG_COLS = ('ep', 'tr_loss', 'Dice↑', 'IoU↑', 'clDice↑', 'HD95↓',
+            'lr', 'time')
+LOG_WIDTHS = (5, 8, 7, 7, 8, 7, 8, 8)
+LOG_RULE = '─┼─'.join('─' * width for width in LOG_WIDTHS)
+LOG_FOOTER = '─' * (sum(LOG_WIDTHS) + 3 * (len(LOG_WIDTHS) - 1))
+
+
+def _metric_text(value, digits=4):
+    return '—' if value != value else f'{value:.{digits}f}'
+
+
+def _hd95_text(value):
+    if value != value:
+        return '—'
+    value = abs(value)
+    if value >= 1000:
+        return f'{value:.0f}'
+    if value >= 100:
+        return f'{value:.1f}'
+    return f'{value:.2f}'
+
+
+def print_epoch_header(epochs, seed, device, num_params):
+    console.print()
+    console.print(
+        f' [bold cyan]unet[/]  [dim]{num_params:,} params  '
+        f'{epochs} epochs  seed {seed}  {device}[/]')
+    console.print(
+        LOG_SEP.join(f'{name:^{width}}'
+                     for name, width in zip(LOG_COLS, LOG_WIDTHS)),
+        style='bold cyan')
+    console.print(LOG_RULE, style='dim')
+
+
+def print_epoch_row(epoch, loss, metrics, lr, elapsed, improved):
+    star = ' *' if improved else ''
+    values = (
+        f'E{epoch:03d}',
+        f'{loss:.4f}',
+        _metric_text(metrics['dice']),
+        _metric_text(metrics['iou']),
+        _metric_text(metrics['cldice']),
+        _hd95_text(metrics['hd95']),
+        f'{lr:.2e}',
+        f'{elapsed:.0f}s{star}',
+    )
+    row = LOG_SEP.join(f'{value:^{width}}'
+                       for value, width in zip(values, LOG_WIDTHS))
+    console.print(row, style='bold green' if improved else None)
+
+
+def print_epoch_footer():
+    console.print(LOG_FOOTER, style='dim')
+
+
+def _json_value(value):
+    """JSON-safe metric value: NaN -> null."""
+    if value is None:
+        return None
+    value = float(value)
+    return None if value != value else round(value, 6)
+
+
+def _csv_value(value):
+    """CSV-safe metric value: missing/NaN -> empty cell."""
+    if value is None:
+        return ''
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        return ''
+    return '' if value != value else f'{value:.6f}'
+
+
+def write_history(path, config, history, best_epoch, best_dice):
+    """Atomically persist the full per-epoch history (AI-readable JSON)."""
+    payload = {
+        'config': config,
+        'best_epoch': best_epoch,
+        'best_val_dice': None if best_dice < 0 else round(float(best_dice), 6),
+        'history': history,
+    }
+    tmp = path.with_name(path.name + '.tmp')
+    try:
+        with tmp.open('w') as f:
+            json.dump(payload, f, indent=2, allow_nan=False)
+            f.write('\n')
+        os.replace(tmp, path)
+    except (OSError, ValueError) as exc:
+        print(f'WARNING: failed to write {path}: {exc}')
+
+
 @torch.no_grad()
 def validate(model, pairs, device, input_size):
     """Validate at the ORIGINAL GT resolution, per dataset and overall."""
@@ -218,24 +316,25 @@ def train(args):
     split_sha256 = (file_sha256(split_manifest)
                     if split_manifest.is_file() else None)
 
+    run_config = {
+        'method': 'unet',
+        'data_root': str(args.data_root),
+        'train_images': len(train_set),
+        'val_images': len(val_set),
+        'epochs': args.epochs,
+        'batch_size': args.batch_size,
+        'lr': args.lr,
+        'weight_decay': args.weight_decay,
+        'input_size': args.input_size,
+        'seed': args.seed,
+        'optimizer': 'AdamW',
+        'loss': 'BCE+Dice',
+        'split_manifest_sha256': split_sha256,
+    }
     run = setup_wandb(
         args,
         name=f'unet-seed{args.seed}',
-        config={
-            'method': 'unet',
-            'data_root': str(args.data_root),
-            'train_images': len(train_set),
-            'val_images': len(val_set),
-            'epochs': args.epochs,
-            'batch_size': args.batch_size,
-            'lr': args.lr,
-            'weight_decay': args.weight_decay,
-            'input_size': args.input_size,
-            'seed': args.seed,
-            'optimizer': 'AdamW',
-            'loss': 'BCE+Dice',
-            'split_manifest_sha256': split_sha256,
-        },
+        config=run_config,
     )
 
     args.workdir.mkdir(parents=True, exist_ok=True)
@@ -247,8 +346,35 @@ def train(args):
         print(f'backup previous checkpoint -> {backup}')
     best_dice = -1.0
     best_epoch = 0
-    best_per_dataset = {}
+
+    # Persistent, AI-readable artifacts.  The JSON mirrors the terminal/W&B
+    # values (overall + every dataset); the wide CSV has one row per epoch
+    # with 4 metric columns for each of the 6 datasets.
+    stamp = time.strftime('%Y%m%d_%H%M%S')
+    history = []
+    history_path = args.workdir / 'metrics_history.json'
+    dataset_csv_path = args.workdir / 'val_metrics_by_dataset.csv'
+    for artifact in (history_path, dataset_csv_path):
+        if artifact.is_file():
+            backup = artifact.with_name(
+                f'{artifact.stem}.before_{stamp}{artifact.suffix}')
+            shutil.copy2(artifact, backup)
+            print(f'backup previous {artifact.name} -> {backup}')
+    dataset_names = sorted({
+        image_path.stem.split('_', 1)[0] for image_path, _ in val_set.pairs})
+    metric_names = ('dice', 'iou', 'cldice', 'hd95')
+    csv_fields = (['epoch', 'train_loss', 'lr', 'is_best'] +
+                  [f'{dataset}_{metric}'
+                   for dataset in dataset_names for metric in metric_names])
+    with dataset_csv_path.open('w', newline='') as f:
+        csv.DictWriter(f, fieldnames=csv_fields).writeheader()
+    write_history(history_path, run_config, history, best_epoch, best_dice)
+    print(f'metrics history -> {history_path}')
+    print(f'per-dataset metrics -> {dataset_csv_path}')
+    num_params = sum(p.numel() for p in model.parameters())
+    print_epoch_header(args.epochs, args.seed, device, num_params)
     for epoch in range(1, args.epochs + 1):
+        epoch_t0 = time.time()
         model.train()
         running = 0.0
         for images, masks in train_loader:
@@ -262,12 +388,14 @@ def train(args):
         scheduler.step()
         val_metrics, val_per_dataset = validate(
             model, val_set.pairs, device, args.input_size)
+        elapsed = time.time() - epoch_t0
         val_dice = val_metrics['dice']
         train_loss = running / len(train_set)
+        lr = optimizer.param_groups[0]['lr']
         wb = {
             'epoch': epoch,
             'train/loss': train_loss,
-            'lr': optimizer.param_groups[0]['lr'],
+            'lr': lr,
         }
         wb.update({f'val/{key}': value
                    for key, value in val_metrics.items()})
@@ -276,28 +404,10 @@ def train(args):
                        for key, value in values.items()})
         log_scalars(run, wb)
         improved = val_dice > best_dice
-        marker = '  *best*' if improved else ''
-        print(f'epoch {epoch:03d}/{args.epochs}  loss={train_loss:.4f}  '
-              f'val_dice={val_metrics["dice"]:.4f}  '
-              f'val_iou={val_metrics["iou"]:.4f}  '
-              f'val_cldice={val_metrics["cldice"]:.4f}  '
-              f'val_hd95={val_metrics["hd95"]:.4f}  '
-              f'empty={val_metrics["empty_prediction_rate"]:.2f}{marker}',
-              flush=True)
-        show_datasets = improved or (
-            args.dataset_log_interval > 0 and
-            epoch % args.dataset_log_interval == 0)
-        if show_datasets:
-            for dataset, values in val_per_dataset.items():
-                print(f'  {dataset}: dice={values["dice"]:.4f} '
-                      f'iou={values["iou"]:.4f} '
-                      f'cldice={values["cldice"]:.4f} '
-                      f'hd95={values["hd95"]:.4f} '
-                      f'empty={values["empty_prediction_rate"]:.0f}', flush=True)
+        print_epoch_row(epoch, train_loss, val_metrics, lr, elapsed, improved)
         if improved:
             best_dice = val_dice
             best_epoch = epoch
-            best_per_dataset = val_per_dataset
             torch.save({
                 'model_state_dict': model.state_dict(),
                 'epoch': epoch,
@@ -307,15 +417,47 @@ def train(args):
                 'input_size': args.input_size,
                 'split_manifest_sha256': split_sha256,
             }, ckpt_path)
-    print(f'best val_dice={best_dice:.4f} @ epoch {best_epoch} -> {ckpt_path}')
-    if best_per_dataset:
-        print(f'per-dataset at best epoch {best_epoch}:')
-        for dataset, values in best_per_dataset.items():
-            print(f'  {dataset}: dice={values["dice"]:.4f} '
-                  f'iou={values["iou"]:.4f} '
-                  f'cldice={values["cldice"]:.4f} '
-                  f'hd95={values["hd95"]:.4f} '
-                  f'empty={values["empty_prediction_rate"]:.0f}')
+
+        entry = {
+            'epoch': epoch,
+            'train_loss': round(train_loss, 6),
+            'lr': lr,
+            'is_best': improved,
+            'overall': {
+                key: _json_value(value) for key, value in val_metrics.items()
+            },
+            'datasets': {
+                dataset: {key: _json_value(value)
+                          for key, value in values.items()}
+                for dataset, values in val_per_dataset.items()
+            },
+        }
+        history.append(entry)
+        csv_row = {
+            'epoch': epoch,
+            'train_loss': f'{train_loss:.6f}',
+            'lr': f'{lr:.8g}',
+            'is_best': int(improved),
+        }
+        for dataset in dataset_names:
+            values = val_per_dataset.get(dataset, {})
+            for metric in metric_names:
+                csv_row[f'{dataset}_{metric}'] = _csv_value(
+                    values.get(metric))
+        try:
+            with dataset_csv_path.open('a', newline='') as f:
+                csv.DictWriter(f, fieldnames=csv_fields).writerow(csv_row)
+        except OSError as exc:
+            print(f'WARNING: failed to append {dataset_csv_path}: {exc}')
+        write_history(history_path, run_config, history,
+                      best_epoch, best_dice)
+
+    print_epoch_footer()
+    console.print(
+        f' [bold]Best[/]  E{best_epoch:03d}  val_dice={best_dice:.4f}  '
+        f'-> {ckpt_path}')
+    print(f'metrics history -> {history_path}')
+    print(f'per-dataset metrics -> {dataset_csv_path}')
     log_artifact(run, ckpt_path, name=f'unet-seed{args.seed}',
                  artifact_type='model')
     finish_run(run)
@@ -385,9 +527,6 @@ def main():
                         help='NAME:GT_ROOT entries for prediction')
     parser.add_argument('--epochs', type=int, default=200,
                         help='U-Net needs ~200 epochs to converge on 18 images')
-    parser.add_argument('--dataset-log-interval', type=int, default=20,
-                        help='print per-dataset validation lines every N epochs '
-                             '(0 = only on a new best)')
     parser.add_argument('--batch-size', type=int, default=4)
     parser.add_argument('--lr', type=float, default=1e-3)
     parser.add_argument('--weight-decay', type=float, default=1e-4)

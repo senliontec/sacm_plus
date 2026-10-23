@@ -7,6 +7,9 @@
 #   EPOCHS=50 bash scripts/run_unet_train.sh          # shorter run
 #   USE_WANDB=false bash scripts/run_unet_train.sh    # no W&B
 #   WANDB_MODE=offline bash scripts/run_unet_train.sh # local W&B logs
+#   GPU=1 bash scripts/run_unet_train.sh              # use physical GPU 1,
+#                                                     # clearing it first
+#   GPU=1 KILL_GPU_PROCS=false bash scripts/run_unet_train.sh  # keep other jobs
 #
 # Environment:
 #   PYTHON, EPOCHS, BATCH_SIZE, LR, INPUT_SIZE, SEED, DEVICE, GPU,
@@ -84,6 +87,10 @@ else
     nvidia-smi --query-gpu=index,name,memory.total,memory.used \
       --format=csv,noheader >&2 || true
     exit 2
+  fi
+  if [ -n "${CUDA_VISIBLE_DEVICES:-}" ] && \
+      [ "$CUDA_VISIBLE_DEVICES" != "$GPU_INDEX" ]; then
+    echo "WARNING: overriding CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES with GPU=$GPU_INDEX" >&2
   fi
   export CUDA_VISIBLE_DEVICES="$GPU_INDEX"
   DEVICE="cuda"
@@ -250,9 +257,12 @@ if [ "${BACKGROUND:-true}" = "true" ] && [ -z "${_UNET_BG_REENTRY:-}" ]; then
   exit 0
 fi
 
-kill_previous_unet
+# Free the target GPU first: if another user's job blocks it, abort before
+# stopping the previous U-Net run.
 kill_gpu_processes
+kill_previous_unet
 
+echo "device=$DEVICE gpu=${GPU_INDEX:-none} CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-unset}"
 CMD=("$PYTHON" baselines/adapters/unet.py --stage train
      --epochs "$EPOCHS" --batch-size "$BATCH_SIZE" --lr "$LR"
      --input-size "$INPUT_SIZE" --seed "$SEED" --device "$DEVICE"
