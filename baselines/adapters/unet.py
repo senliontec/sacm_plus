@@ -137,15 +137,25 @@ def iou_coefficient(prob: torch.Tensor, target: torch.Tensor) -> float:
     return (inter + 1e-7) / (union + 1e-7)
 
 
+def _mean(values):
+    if not values:
+        return float('nan')
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', RuntimeWarning)
+        return float(np.nanmean(values))
+
+
 @torch.no_grad()
 def validate(model, pairs, device, input_size):
-    """Validate at the ORIGINAL GT resolution, matching the paper metrics."""
+    """Validate at the ORIGINAL GT resolution, per dataset and overall."""
     model.eval()
-    dice_scores = []
-    iou_scores = []
-    cldice_scores = []
-    hd95_scores = []
+    overall = {key: [] for key in ('dice', 'iou', 'cldice', 'hd95', 'empty')}
+    per_dataset = {}
     for image_path, mask_path in pairs:
+        dataset = image_path.stem.split('_', 1)[0]
+        bucket = per_dataset.setdefault(
+            dataset, {key: [] for key in ('dice', 'iou', 'cldice', 'hd95',
+                                          'empty')})
         image = Image.open(image_path).convert('RGB').resize(
             (input_size, input_size), Image.BICUBIC)
         tensor = torch.from_numpy(
@@ -158,27 +168,31 @@ def validate(model, pairs, device, input_size):
         prob = F.interpolate(prob, size=(height, width),
                              mode='bilinear', align_corners=False)
         pred = prob[0, 0].cpu().numpy() > 0.5
+
         inter = np.logical_and(pred, gt).sum()
         denom = pred.sum() + gt.sum()
-        dice_scores.append(float((2.0 * inter + 1e-7) / (denom + 1e-7)))
         union = denom - inter
-        iou_scores.append(float((inter + 1e-7) / (union + 1e-7)))
-        cldice_scores.append(cldice_score(pred, gt))
-        hd95_scores.append(hd95_score(pred, gt))
+        values = {
+            'dice': float((2.0 * inter + 1e-7) / (denom + 1e-7)),
+            'iou': float((inter + 1e-7) / (union + 1e-7)),
+            'cldice': cldice_score(pred, gt),
+            'hd95': hd95_score(pred, gt),
+            'empty': float(pred.sum() == 0),
+        }
+        for key, value in values.items():
+            overall[key].append(value)
+            bucket[key].append(value)
 
-    def mean(values):
-        if not values:
-            return float('nan')
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore', RuntimeWarning)
-            return float(np.nanmean(values))
-
-    return {
-        'dice': mean(dice_scores),
-        'iou': mean(iou_scores),
-        'cldice': mean(cldice_scores),
-        'hd95': mean(hd95_scores),
-    }
+    metrics = {key: _mean(values) for key, values in overall.items()}
+    metrics['empty_prediction_rate'] = metrics.pop('empty')
+    datasets = {}
+    for dataset, values in sorted(per_dataset.items()):
+        datasets[dataset] = {
+            key: _mean(items) for key, items in values.items()
+            if key != 'empty'
+        }
+        datasets[dataset]['empty_prediction_rate'] = _mean(values['empty'])
+    return metrics, datasets
 
 
 def train(args):
@@ -244,23 +258,33 @@ def train(args):
             optimizer.step()
             running += loss.item() * images.size(0)
         scheduler.step()
-        val_metrics = validate(model, val_set.pairs, device, args.input_size)
+        val_metrics, val_per_dataset = validate(
+            model, val_set.pairs, device, args.input_size)
         val_dice = val_metrics['dice']
         train_loss = running / len(train_set)
-        log_scalars(run, {
+        wb = {
             'epoch': epoch,
             'train/loss': train_loss,
-            'val/dice': val_metrics['dice'],
-            'val/iou': val_metrics['iou'],
-            'val/cldice': val_metrics['cldice'],
-            'val/hd95': val_metrics['hd95'],
             'lr': optimizer.param_groups[0]['lr'],
-        })
+        }
+        wb.update({f'val/{key}': value
+                   for key, value in val_metrics.items()})
+        for dataset, values in val_per_dataset.items():
+            wb.update({f'val/{dataset}/{key}': value
+                       for key, value in values.items()})
+        log_scalars(run, wb)
         print(f'epoch {epoch:03d}/{args.epochs}  loss={train_loss:.4f}  '
               f'val_dice={val_metrics["dice"]:.4f}  '
               f'val_iou={val_metrics["iou"]:.4f}  '
               f'val_cldice={val_metrics["cldice"]:.4f}  '
-              f'val_hd95={val_metrics["hd95"]:.4f}', flush=True)
+              f'val_hd95={val_metrics["hd95"]:.4f}  '
+              f'empty={val_metrics["empty_prediction_rate"]:.2f}', flush=True)
+        for dataset, values in val_per_dataset.items():
+            print(f'  {dataset}: dice={values["dice"]:.4f} '
+                  f'iou={values["iou"]:.4f} '
+                  f'cldice={values["cldice"]:.4f} '
+                  f'hd95={values["hd95"]:.4f} '
+                  f'empty={values["empty_prediction_rate"]:.0f}', flush=True)
         if val_dice > best_dice:
             best_dice = val_dice
             torch.save({
@@ -268,6 +292,7 @@ def train(args):
                 'epoch': epoch,
                 'val_dice': val_dice,
                 'val_metrics': val_metrics,
+                'val_per_dataset': val_per_dataset,
                 'input_size': args.input_size,
                 'split_manifest_sha256': split_sha256,
             }, ckpt_path)
