@@ -305,6 +305,11 @@ def main():
             d = os.path.join(args.out_dir, split)
             if os.path.isdir(d):
                 shutil.rmtree(d)
+        # Never leave manifests that describe the previous split.
+        for name in ('protocol_manifest.csv', 'protocol_summary.json'):
+            path = os.path.join(args.out_dir, name)
+            if os.path.isfile(path):
+                os.remove(path)
     split_names = ['train', 'val']
     for split in split_names:
         os.makedirs(os.path.join(args.out_dir, split, 'images'), exist_ok=True)
@@ -362,6 +367,13 @@ def main():
                 if overlap:
                     raise ValueError(
                         f"{name}: official val overlaps train: {overlap[:3]}")
+                train_groups = {group for _, _, group in train}
+                val_groups = {group for _, _, group in val}
+                overlap_groups = sorted(train_groups & val_groups)
+                if overlap_groups:
+                    raise ValueError(
+                        f"{name}: official val shares subject/volume groups "
+                        f"with train: {overlap_groups[:5]}")
                 source_dirs['val'] = val_specs[name]
             else:
                 train, val = select_group_split(

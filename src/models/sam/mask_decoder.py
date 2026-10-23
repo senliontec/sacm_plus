@@ -253,9 +253,21 @@ class MaskDecoder(nn.Module):
         output_tokens = output_tokens.unsqueeze(0).expand(sparse_prompt_embeddings.size(0), -1, -1)
         tokens = torch.cat((output_tokens, sparse_prompt_embeddings), dim=1)
 
-        src = torch.repeat_interleave(image_embeddings, tokens.shape[0], dim=0)
+        # ``tokens`` has one entry per image (or K prompts per image).
+        # Repeat each image embedding by K, not by the total token batch,
+        # otherwise batch_size > 1 becomes B*B.
+        image_batch = image_embeddings.shape[0]
+        repeats, remainder = divmod(tokens.shape[0], image_batch)
+        if repeats < 1 or remainder:
+            raise ValueError(
+                f'token batch {tokens.shape[0]} is not a multiple of '
+                f'image batch {image_batch}')
+        src = image_embeddings.repeat_interleave(repeats, dim=0)
+        pos_src = image_pe.repeat_interleave(repeats, dim=0)
+        if dense_prompt_embeddings.shape[0] == image_batch and repeats > 1:
+            dense_prompt_embeddings = dense_prompt_embeddings.repeat_interleave(
+                repeats, dim=0)
         src = src + dense_prompt_embeddings
-        pos_src = torch.repeat_interleave(image_pe, tokens.shape[0], dim=0)
         b, c, h, w = src.shape
 
         hs, src = self.transformer(src, pos_src, tokens)

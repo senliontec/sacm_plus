@@ -146,8 +146,8 @@
   <div class="meta">
     <span class="pill">seed 42</span>
     <span class="pill">6 个 Seen 域</span>
-    <span class="pill">18 train / 6 val / 643 seen test</span>
-    <span class="pill">2,454 条协议记录</span>
+    <span class="pill">18 train / 6 val / 3,580 test</span>
+    <span class="pill">3,604 条协议记录</span>
     <span class="pill">10,940 对源数据池</span>
   </div>
 </header>
@@ -155,10 +155,10 @@
 <div class="cards">
   <div class="card"><div class="num">20</div><div class="label">原始数据集 / 标准源池</div></div>
   <div class="card"><div class="num">10,940</div><div class="label">源池 image-mask 对</div></div>
-  <div class="card"><div class="num">17</div><div class="label">当前主协议数据集</div></div>
+  <div class="card"><div class="num">20</div><div class="label">当前主协议数据集</div></div>
   <div class="card"><div class="num">18 / 6</div><div class="label">Train / Val</div></div>
   <div class="card"><div class="num">643</div><div class="label">Seen test</div></div>
-  <div class="card"><div class="num">1,787</div><div class="label">Unseen + Novel test</div></div>
+  <div class="card"><div class="num">2,937</div><div class="label">Unseen + Novel test</div></div>
 </div>
 
 <section id="toc">
@@ -169,7 +169,7 @@
     <a href="#pools">3. 18 个源数据池</a>
     <a href="#seen">4. Seen 域划分</a>
     <a href="#external">5. Unseen / Novel</a>
-    <a href="#candidates">6. 候选数据集</a>
+    <a href="#candidates">6. 扩展数据集</a>
     <a href="#audit">7. 数据审计结果</a>
     <a href="#decisions">8. 设计决策与取舍</a>
     <a href="#official">9. 与官方 SACM 的差异</a>
@@ -189,7 +189,8 @@
     <b>当前协议 v1（已生成并冻结）</b><br>
     6 个 Seen 域 × 3-shot = 18 张训练图；每域 1 张验证图，共 6 张（CORN 用官方 val）；
     5 个原有 Seen 域的留出部分 491 张 + CORN 官方 test 152 张 = 643 张 Seen test；
-    7 个 Unseen 数据集共 1,640 张；4 个 Novel 数据集共 147 张（新增官方 LEAF 31 张）。
+    8 个 Unseen 数据集共 1,940 张；6 个 Novel 数据集共 997 张。
+    最终 20 个数据集合计 3,580 张测试图（+18 train +6 val = 3,604 条协议记录）。
   </div>
   <div class="success">
     <b>v1 修订（2026-10-23）</b><br>
@@ -200,7 +201,8 @@
   </div>
   <div class="warning">
     <b>仍不是官方 SACM 的严格复现。</b>
-    v1 已对齐官方<b>训练预算（6 域 × 3-shot = 18 张）</b>和 <b>Novel 组成（ROAD/LEAF/TYRE/WIRE = 147 张）</b>，
+    v1 已对齐官方<b>训练预算（6 域 × 3-shot = 18 张）</b>，并保留官方 Novel 4 集
+    <b>（ROAD/LEAF/TYRE/WIRE = 147 张）</b>；扩展后 Novel 为 6 集 997 张，
     但官方没有公开具体的 3-shot 样本 ID，且 Seen/Unseen 组成仍受 DSCA 权限、官方 CRACK split、
     DRIVE 官方 test 无血管 GT 等限制。官方数字仍只能作为参考；正式主表必须在 v1 split 上重跑 SACM 和 baseline。
   </div>
@@ -257,15 +259,18 @@
       <tr><td>LEAF</td><td>Novel</td><td class="num">31</td><td>作者提供官方 SACM 集；mask &gt;127</td><td>细线断点多，拓扑指标需注明</td><td class="ok">主协议</td></tr>
       <tr><td>TYRE</td><td>Novel</td><td class="num">36</td><td>in-house；RGB mask &gt;127</td><td>无</td><td class="ok">主协议</td></tr>
       <tr><td>WIRE</td><td>Novel</td><td class="num">31</td><td>in-house；RGB mask &gt;127</td><td>无</td><td class="ok">主协议</td></tr>
-      <tr><td>TopoMortar</td><td>Novel</td><td class="num">350</td><td>默认 test/images + test/accurate</td><td>train/val 不混入</td><td class="warn">候选</td></tr>
-      <tr><td>OCTA-500</td><td>Unseen</td><td class="num">300</td><td>OCTA(ILM_OPL) 2D 投影 + GT_LargeVessel</td><td>本地只有 300 个 projection；500 个 label</td><td class="warn">候选</td></tr>
-      <tr><td>DeepGlobe</td><td>Unseen</td><td class="num">6,226</td><td>train/*_sat.jpg + *_mask.png</td><td>valid/test 无 GT；候选</td><td class="warn">候选</td></tr>
+      <tr><td>TopoMortar</td><td>Novel</td><td class="num">350</td><td>默认 test/images + test/accurate</td><td>train/val 不混入</td><td class="ok">主协议</td></tr>
+      <tr><td>OCTA-500</td><td>Unseen</td><td class="num">300</td><td>OCTA(ILM_OPL) 2D 投影 + GT_LargeVessel</td><td>本地只有 300 个 projection；500 个 label</td><td class="ok">主协议</td></tr>
+      <tr><td>DeepGlobe</td><td>Novel</td><td class="num">500</td><td>train/*_sat.jpg + *_mask.png；seed 42 固定子集</td><td>valid/test 无 GT；全量 6,226 对，主协议只用 500</td><td class="ok">主协议</td></tr>
     </tbody>
   </table>
   </div>
   <p class="small">
-    源池合计 10,940 对。其中 17 个主协议数据集合计 4,064 对（含 Seen 域未使用图）；
-    3 个候选数据集合计 6,876 对，尚未进入主实验。
+    源池合计 10,940 对。20 个主协议数据集的源池共 5,214 对
+    （Seen 2,277 含未使用的 Seen 源图 + Unseen 1,940 + Novel 997）；
+    但冻结的 <code>protocol_manifest.csv</code> 实际只使用 3,604 行
+    （18 train + 6 val + 3,580 test），不是 5,214 行。
+    DeepGlobe 主协议使用 seed-42 的 500 对子集，其余 5,726 对保留在原始池中。
   </p>
 </section>
 
@@ -354,7 +359,7 @@
 <section id="external">
   <h2>5. Unseen / Novel 外部测试</h2>
   <p>Unseen 和 Novel 不参与训练或 checkpoint 选择，整块作为外部测试集使用。</p>
-  <h3>5.1 Unseen：7 个数据集，1,640 张</h3>
+  <h3>5.1 Unseen：8 个数据集，1,940 张</h3>
   <div class="table-wrap">
   <table>
     <thead><tr><th>数据集</th><th class="num">测试数</th><th>选择口径</th><th>标签口径</th></tr></thead>
@@ -366,12 +371,13 @@
       <tr><td>HRF</td><td class="num">45</td><td>全部 45 张；ROI 作 FOV</td><td>血管</td></tr>
       <tr><td>LES-AV</td><td class="num">22</td><td>全部 22 张</td><td>vessel-segmentations 全血管</td></tr>
       <tr><td>CHCrack5k</td><td class="num">990</td><td>官方 test；删除 13 张空 GT</td><td>裂缝</td></tr>
-      <tr><th>合计</th><th class="num">1,640</th><th>—</th><th>—</th></tr>
+      <tr><td>OCTA-500</td><td class="num">300</td><td>OCTA(ILM_OPL) 2D 投影</td><td>GT_LargeVessel</td></tr>
+      <tr><th>合计</th><th class="num">1,940</th><th>—</th><th>—</th></tr>
     </tbody>
   </table>
   </div>
 
-  <h3>5.2 Novel：4 个数据集，147 张</h3>
+  <h3>5.2 Novel：6 个数据集，997 张</h3>
   <div class="table-wrap">
   <table>
     <thead><tr><th>数据集</th><th class="num">测试数</th><th>类别</th><th>说明</th></tr></thead>
@@ -380,25 +386,27 @@
       <tr><td>LEAF</td><td class="num">31</td><td>叶脉</td><td>作者提供的官方 SACM 集；mask &gt;127；细线断点多，拓扑指标需注明</td></tr>
       <tr><td>TYRE</td><td class="num">36</td><td>轮胎花纹</td><td>in-house；mask &gt;127</td></tr>
       <tr><td>WIRE</td><td class="num">31</td><td>线束</td><td>in-house；mask &gt;127</td></tr>
-      <tr><th>合计</th><th class="num">147</th><th>—</th><th>—</th></tr>
+      <tr><td>DeepGlobe</td><td class="num">500</td><td>道路</td><td>有 GT 的 train split；固定 seed 42 子集（全量 6,226）</td></tr>
+      <tr><td>TopoMortar</td><td class="num">350</td><td>砖缝/拓扑</td><td>官方 test/accurate；高前景</td></tr>
+      <tr><th>合计</th><th class="num">997</th><th>—</th><th>—</th></tr>
     </tbody>
   </table>
   </div>
 </section>
 
 <section id="candidates">
-  <h2>6. 候选数据集</h2>
+  <h2>6. 扩展数据集（已纳入 20 数据集主表）</h2>
   <p>
-    以下 3 个数据集已生成源池，但<b>没有进入当前主实验</b>。它们适合作为附录或后续扩展，
-    不应直接混入主表平均。
+    OCTA-500、TopoMortar、DeepGlobe 已进入最终 20 数据集测试表，
+    但它们不属于 SACM 官方 12 数据集，因此在论文中需单独标注来源和 caveat。
   </p>
   <div class="table-wrap">
   <table>
-    <thead><tr><th>数据集</th><th class="num">源池</th><th>建议角色</th><th>原因 / 注意事项</th></tr></thead>
+    <thead><tr><th>数据集</th><th class="num">主协议测试数</th><th>角色</th><th>注意事项</th></tr></thead>
     <tbody>
-      <tr><td>OCTA-500</td><td class="num">300</td><td>Unseen 附录</td><td>本地只有 300 个 2D projection；500 个 label 中 200 个无配对投影</td></tr>
-      <tr><td>TopoMortar</td><td class="num">350</td><td>Novel 附录</td><td>默认 test split；前景比例较高（最大约 39.6%）</td></tr>
-      <tr><td>DeepGlobe</td><td class="num">6,226</td><td>待定</td><td>道路类；数量会压倒其他 Unseen；当前放于 unseen，启用前需确认 unseen/novel 角色</td></tr>
+      <tr><td>OCTA-500</td><td class="num">300</td><td>Unseen</td><td>本地只有 300 个 2D projection；500 个 label 中 200 个无配对投影</td></tr>
+      <tr><td>TopoMortar</td><td class="num">350</td><td>Novel</td><td>默认 test split；前景比例较高（最大约 39.6%）</td></tr>
+      <tr><td>DeepGlobe</td><td class="num">500</td><td>Novel</td><td>使用有 GT 的 train split；固定 seed-42 的 500 张子集；全量 6,226 对不全部测试</td></tr>
     </tbody>
   </table>
   </div>
@@ -463,16 +471,16 @@
       <tr><td>DRIVE</td><td class="num">6.03%</td><td class="num">11.59%</td><td>—</td></tr>
       <tr><td>CHCrack5k</td><td class="num">0.01%</td><td class="num">13.40%</td><td>极低前景，需关注指标稳定性</td></tr>
       <tr><td>DeepCrack</td><td class="num">0.69%</td><td class="num">19.25%</td><td>—</td></tr>
-      <tr><td>DeepGlobe</td><td class="num">0.15%</td><td class="num">29.33%</td><td>候选；道路</td></tr>
+      <tr><td>DeepGlobe</td><td class="num">0.15%</td><td class="num">29.33%</td><td>主协议 500 子集；范围为全量源池；道路</td></tr>
       <tr><td>FIVES</td><td class="num">0.73%</td><td class="num">11.06%</td><td>—</td></tr>
       <tr><td>HRF</td><td class="num">5.09%</td><td class="num">10.56%</td><td>—</td></tr>
       <tr><td>LES-AV</td><td class="num">4.19%</td><td class="num">9.49%</td><td>—</td></tr>
-      <tr><td>OCTA-500</td><td class="num">4.60%</td><td class="num">13.09%</td><td>候选</td></tr>
+      <tr><td>OCTA-500</td><td class="num">4.60%</td><td class="num">13.09%</td><td>主协议</td></tr>
       <tr><td>STARE</td><td class="num">4.31%</td><td class="num">10.21%</td><td>—</td></tr>
       <tr><td>XCAD</td><td class="num">2.83%</td><td class="num">9.68%</td><td>—</td></tr>
       <tr><td>ROAD</td><td class="num">0.55%</td><td class="num">13.31%</td><td>—</td></tr>
       <tr><td>TYRE</td><td class="num">0.38%</td><td class="num">12.32%</td><td>—</td></tr>
-      <tr><td>TopoMortar</td><td class="num">5.01%</td><td class="num">39.59%</td><td>候选；高前景</td></tr>
+      <tr><td>TopoMortar</td><td class="num">5.01%</td><td class="num">39.59%</td><td>主协议；高前景</td></tr>
       <tr><td>WIRE</td><td class="num">0.60%</td><td class="num">25.66%</td><td>—</td></tr>
     </tbody>
   </table>
@@ -513,17 +521,19 @@
     但这比把训练 volume 放进测试更安全。
   </p>
 
-  <h3>8.4 为什么候选数据集不进入主表</h3>
+  <h3>8.4 为什么扩展数据集进入 20 数据集表</h3>
   <ul>
-    <li>OCTA-500 本地只有 300 个 projection，不是完整 500；</li>
-    <li>TopoMortar 前景比例偏高，适合单独分析；</li>
-    <li>DeepGlobe 有 6,226 对，数量会主导 Unseen 平均；且角色尚未最终确认。</li>
+    <li>OCTA-500 提供新的 OCTA 模态，作为 Unseen 补充；本地 300 个 projection 全部有配对标签；</li>
+    <li>TopoMortar 提供高前景、砖缝/拓扑结构，作为 Novel 补充；</li>
+    <li>DeepGlobe 使用有 GT 的 train split 中固定 seed-42 的 500 张子集，作为道路类 Novel 补充；
+    不使用全量 6,226 对，避免测试成本和无意义的重复评估。macro 仍按数据集等权，不按图片数加权。</li>
   </ul>
 
   <h3>8.5 为什么 v1 恢复 LEAF（附标注 caveat）</h3>
   <p>
     LEAF 是 SACM 官方 Novel 集的一部分，v1 使用论文作者提供的 31 张官方数据，
-    以保持 Novel 组成与论文一致（ROAD/LEAF/TYRE/WIRE = 147）。
+    以保持 SACM 官方 Novel 4 集完整（ROAD/LEAF/TYRE/WIRE = 147）；扩展后的
+    20 数据集主表 Novel 为 6 集 997 张，额外加入 DeepGlobe 500 和 TopoMortar 350。
     其 mask 确实存在大量 1 像素断点（中位数 305 个 8-连通分量，39% 分量 ≤4 px），
     这是官方标注本身的属性：主表仍使用官方 mask，但拓扑指标（clDice/HD95/Betti）
     需在论文中注明“对标注断点敏感”，不能把它当作干净的拓扑基准。
@@ -547,14 +557,16 @@
       <tr><td>训练图</td><td>18 张（6 × 3）</td><td>18 张（6 × 3）</td><td class="ok">是（预算）</td></tr>
       <tr><td>3-shot 样本 ID</td><td>未公开</td><td>seed 42 固定</td><td class="risk">否</td></tr>
       <tr><td>Seen test</td><td>DRIVE 20、CHASEDB1 8、DCA1 100、CORN 100</td><td>DRIVE 16、CHASEDB1 20、DCA1 130、CREMI 123、CrackTree 202、CORN 152</td><td class="risk">否</td></tr>
-      <tr><td>Unseen</td><td>FIVES、DSCA、XCAD、CRACK</td><td>FIVES、STARE、XCAD、DeepCrack、HRF、LES-AV、CHCrack5k</td><td class="risk">否</td></tr>
-      <tr><td>Novel</td><td>ROAD、LEAF、TYRE、WIRE</td><td>ROAD、LEAF、TYRE、WIRE</td><td class="ok">是（组成）</td></tr>
+      <tr><td>Unseen</td><td>FIVES、DSCA、XCAD、CRACK</td><td>FIVES、STARE、XCAD、DeepCrack、HRF、LES-AV、CHCrack5k、OCTA-500</td><td class="risk">否</td></tr>
+      <tr><td>Novel</td><td>ROAD、LEAF、TYRE、WIRE</td><td>ROAD、LEAF、TYRE、WIRE、DeepGlobe、TopoMortar</td><td class="risk">否（扩展）</td></tr>
     </tbody>
   </table>
   </div>
   <div class="warning">
-    <b>结论：</b>v1 已对齐官方训练预算（18 张）和 Novel 组成（147 张），
-    但 Seen/Unseen 的具体图像集合仍不同（DSCA 权限、官方 CRACK split、DRIVE test GT 等限制）。
+    <b>结论：</b>v1 已对齐官方 18 张训练预算；主协议扩展为 20 个数据集。
+    其中 17 个保持 SACM 参考口径，DeepGlobe/OCTA-500/TopoMortar 作为扩展行单列，
+    因此不能把 20 数据集 macro 直接当成 SACM 官方复现（DSCA 权限、官方 CRACK split、
+    DRIVE test GT 等限制仍在）。
     官方论文中的 SACM 和 baseline 数字仍只能作为“论文报告值”引用；
     正式主表必须在 v1 split 上重跑 SACM 和选定的 baseline。
   </div>
@@ -630,15 +642,15 @@ python scripts/build_protocol_manifest.py \
       </tr>
       <tr>
         <td><code>data/sacm_3shot/protocol_manifest.csv</code></td>
-        <td>2,454 条完整协议记录（train + val + seen + unseen + novel），含尺寸、前景比、image/mask SHA256</td>
-        <td>2,454 行；748,622 bytes</td>
-        <td><code>a5b17280fa401ef3bb50f9b29450fb02f922469dced1c0660e68c17c3e882727</code></td>
+        <td>3,604 条完整协议记录（train + val + seen + unseen + novel），含尺寸、前景比、image/mask SHA256</td>
+        <td>3,604 行；1,082,598 bytes</td>
+        <td><code>52f5ddf1629aaffdd52dfd85bf809c1715dc85b5a7d6cdd19553dc5f0482178b</code></td>
       </tr>
       <tr>
         <td><code>data/sacm_3shot/protocol_summary.json</code></td>
         <td>按 role/split/dataset 的计数、协议版本、seed、manifest 哈希、group checks</td>
-        <td>2,346 bytes</td>
-        <td><code>1eef95788a69d4ef2b0cfe61fa01bc27c18e4bed7b0f4e773e8396e839d56a8c</code></td>
+        <td>2,586 bytes</td>
+        <td><code>26dd8a117795402d0d6addd06e7dda1b37b8828da78949b5ce3a639216748ab4</code></td>
       </tr>
     </tbody>
   </table>
@@ -679,7 +691,7 @@ python scripts/build_protocol_manifest.py \
     <li>CREMI 使用 A/B 训练验证、C 测试，A/B 剩余 246 张未使用；</li>
     <li>DRIVE、DCA1、CrackTree200 使用 image-level split，可能存在未识别的患者级泄漏；</li>
     <li>LEAF 官方 mask 细线断点多（中位数 305 个 8-连通分量，39% 分量 ≤4 px），拓扑指标需注明标注 caveat；</li>
-    <li>OCTA-500 本地只有 300 对，TopoMortar / DeepGlobe 尚未进入主协议；</li>
+    <li>OCTA-500 本地只有 300 对；TopoMortar 350 对；DeepGlobe 使用有 GT 的 train split 的 500 张固定子集（全量 6,226）；三者均已进入 20 数据集主表；</li>
     <li>极低前景数据集（CHCrack5k、CrackTree200）的指标对小目标敏感；</li>
     <li>官方 SACM/baseline 数字与当前协议不可直接比较。</li>
   </ul>
@@ -699,7 +711,7 @@ python scripts/build_protocol_manifest.py \
   <div class="note">
     <b>一句话总结：</b>
     当前 v1 是一套<b>自洽、可复现、无已知 group 泄漏</b>的实验协议，
-    并且已对齐官方训练预算（18 张）和 Novel 组成（147 张）；
+    并且已对齐官方训练预算（18 张）、保留官方 Novel 4 集（147 张），并扩展为 20 数据集主表；
     但它仍不是官方 SACM 的严格复现。后续所有论文对比必须基于这份冻结协议重跑。
   </div>
 </section>

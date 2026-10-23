@@ -153,6 +153,10 @@ def apply_yaml_presets(args, path):
             raise ValueError(
                 f"Unknown YAML preset {name!r}; built-ins: "
                 f"{sorted(PRESETS)}")
+        # Keep the recorded preset consistent with the switches that were
+        # actually applied; otherwise wandb/history says stage2 while the
+        # YAML selected full.
+        args.preset = name
 
     overrides = {k: v for k, v in cfg.items() if k not in ('preset', 'presets')}
     for key, value in overrides.items():

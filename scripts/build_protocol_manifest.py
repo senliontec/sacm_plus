@@ -32,8 +32,8 @@ FIELDS = [
     'image_sha256', 'mask_sha256',
 ]
 ACTIVE_UNSEEN = ['FIVES', 'STARE', 'XCAD', 'DeepCrack', 'HRF', 'LES-AV',
-                 'CHCrack5k']
-ACTIVE_NOVEL = ['ROAD', 'LEAF', 'TYRE', 'WIRE']
+                 'CHCrack5k', 'OCTA-500']
+ACTIVE_NOVEL = ['ROAD', 'LEAF', 'TYRE', 'WIRE', 'DeepGlobe', 'TopoMortar']
 IMAGE_EXTS = ('.png', '.jpg', '.jpeg', '.tif', '.tiff', '.bmp', '.ppm')
 
 # Group semantics for the training domains.  Subject-level groups must not
@@ -53,6 +53,25 @@ GROUP_POLICIES = {
 # val uses A and test uses C.  The exception is explicit and checked.
 ALLOWED_TRAIN_REPEATS = {
     'CREMI': 'only three volumes A/B/C; train B slices, val A, test C',
+}
+
+# Frozen protocol cardinalities.  A missing/changed pool must fail the build
+# instead of silently shrinking the manifest or accepting DeepGlobe --full.
+EXPECTED_TEST_COUNTS = {
+    'DRIVE': 16, 'CHASEDB1': 20, 'DCA1': 130, 'CREMI': 123,
+    'CrackTree200': 202, 'CORN': 152,
+    'FIVES': 200, 'STARE': 20, 'XCAD': 126, 'DeepCrack': 237,
+    'HRF': 45, 'LES-AV': 22, 'CHCrack5k': 990, 'OCTA-500': 300,
+    'ROAD': 49, 'LEAF': 31, 'TYRE': 36, 'WIRE': 31,
+    'DeepGlobe': 500, 'TopoMortar': 350,
+}
+EXPECTED_TRAIN_COUNTS = {
+    'DRIVE': 3, 'CHASEDB1': 3, 'DCA1': 3, 'CREMI': 3,
+    'CrackTree200': 3, 'CORN': 3,
+}
+EXPECTED_VAL_COUNTS = {
+    'DRIVE': 1, 'CHASEDB1': 1, 'DCA1': 1, 'CREMI': 1,
+    'CrackTree200': 1, 'CORN': 1,
 }
 
 
@@ -95,16 +114,19 @@ def split_rows(root: Path, version: str):
             stem = item['output']
             if split == 'test':
                 base = root / 'test' / dataset / 'images'
+                mask_dir = root / 'test' / dataset / 'masks'
             else:
                 base = root / split / 'images'
+                mask_dir = root / split / 'masks'
             matches = sorted(base.glob(stem + '.*'))
             if not matches:
                 raise SystemExit(f'missing image for manifest row {item}')
             image = matches[0]
-            mask = (root / split / 'masks' / f'{stem}.png'
-                    if split != 'test' else
-                    root / 'test' / dataset / 'masks' / f'{stem}.png')
-            if not mask.is_file():
+            mask = next(
+                (mask_dir / f'{stem}{ext}' for ext in IMAGE_EXTS
+                 if (mask_dir / f'{stem}{ext}').is_file()),
+                None)
+            if mask is None:
                 raise SystemExit(f'missing mask for manifest row {item}')
             role = 'seen'
             split_label = {'train': 'train', 'val': 'val',
@@ -123,8 +145,9 @@ def external_rows(datasets_root: Path, version: str, role: str, names,
         image_dir = base / 'images'
         mask_dir = base / 'masks'
         if not image_dir.is_dir() or not mask_dir.is_dir():
-            print(f'[warn] missing external dataset: {base}')
-            continue
+            raise SystemExit(
+                f'missing active external dataset: {base}; '
+                'prepare it instead of silently shrinking the protocol')
         masks = {p.stem: p for p in sorted(mask_dir.iterdir())
                  if p.suffix.lower() in IMAGE_EXTS}
         for image in sorted(image_dir.iterdir()):
@@ -185,6 +208,38 @@ def validate_group_policy(rows):
     }
 
 
+def validate_expected_counts(rows):
+    """Fail if a pool silently shrank/grew relative to the frozen protocol."""
+    got_train = Counter(row['dataset'] for row in rows
+                        if row['split'] == 'train')
+    got_val = Counter(row['dataset'] for row in rows
+                      if row['split'] == 'val')
+    got_test = Counter(row['dataset'] for row in rows
+                       if row['split'].endswith('_test'))
+    errors = []
+
+    def compare(label, expected, got):
+        missing = sorted(set(expected) - set(got))
+        extra = sorted(set(got) - set(expected))
+        changed = sorted(
+            dataset for dataset in set(expected) & set(got)
+            if expected[dataset] != got[dataset])
+        if missing:
+            errors.append(f'{label}: missing datasets {missing}')
+        if extra:
+            errors.append(f'{label}: unexpected datasets {extra}')
+        if changed:
+            errors.append(
+                f'{label}: count mismatch ' +
+                ', '.join(f'{d}={got[d]}(expected {expected[d]})'
+                          for d in changed))
+
+    compare('train', EXPECTED_TRAIN_COUNTS, got_train)
+    compare('val', EXPECTED_VAL_COUNTS, got_val)
+    compare('test', EXPECTED_TEST_COUNTS, got_test)
+    return errors
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--split-root', type=Path,
@@ -192,6 +247,8 @@ def main() -> int:
     parser.add_argument('--datasets-root', type=Path, default=Path('datasets'))
     parser.add_argument('--version', default=None,
                         help='protocol_version (default: split root name)')
+    parser.add_argument('--seed', type=int, default=42,
+                        help='split seed recorded in the summary')
     args = parser.parse_args()
 
     # Keep the paths as supplied (relative by default) so the manifest is
@@ -205,6 +262,18 @@ def main() -> int:
     rows += external_rows(datasets_root, version, 'novel', ACTIVE_NOVEL,
                           'novel_test')
 
+    count_errors = validate_expected_counts(rows)
+    checks = validate_group_policy(rows)
+    if count_errors or not checks['ok']:
+        for error in count_errors:
+            print(f'[error] {error}')
+        if not checks['ok']:
+            print(f"  cross-split groups: {checks['cross_split_groups']}")
+            print(f"  unexpected train duplicates: "
+                  f"{checks['unexpected_train_duplicate_groups']}")
+        print('[error] refusing to overwrite the frozen manifest')
+        return 2
+
     manifest_path = root / 'protocol_manifest.csv'
     with open(manifest_path, 'w', newline='') as f:
         writer = csv.DictWriter(f, fieldnames=FIELDS)
@@ -212,11 +281,10 @@ def main() -> int:
         writer.writerows(rows)
 
     counts = Counter((r['role'], r['split'], r['dataset']) for r in rows)
-    checks = validate_group_policy(rows)
     summary = {
         'protocol_version': version,
         'generated_at_utc': datetime.now(timezone.utc).isoformat(),
-        'seed': 42,
+        'seed': args.seed,
         'counts': {
             role: {
                 split: {

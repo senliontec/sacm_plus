@@ -35,8 +35,14 @@ has been removed):
 - **Seen**: held-out images from the five original training domains = 491,
   plus the official CORN test split = 152; total 643.
 - **Unseen**: FIVES 200, STARE 20, XCAD 126, DeepCrack 237,
-  HRF 45, LES-AV 22, CHCrack5k 990 = 1,640.
-- **Novel**: ROAD 49, LEAF 31, TYRE 36, WIRE 31 = 147.
+  HRF 45, LES-AV 22, CHCrack5k 990, OCTA-500 300 = 1,940.
+- **Novel**: ROAD 49, LEAF 31, TYRE 36, WIRE 31, DeepGlobe 500,
+  TopoMortar 350 = 997.
+
+The final extended protocol therefore has **20 datasets** and
+**3,580 test images** (643 Seen + 1,940 Unseen + 997 Novel).  DeepGlobe
+uses a fixed seed-42 subset of its labeled train split; its official
+valid/test splits have no GT.
 
 This now matches the SACM paper on the two dataset-level training/evaluation
 budgets we can reproduce: **6 domains × 3-shot = 18** training images and the
@@ -217,6 +223,51 @@ python -m models.sacm.diagnose --preset sacm --data_root /data/DRIVE \
     --trained_weights results/sacm/DRIVE/best_model.pth \
     --output_dir diagnosis/sacm_drive
 ```
+
+## Baseline monitoring, paper statistics, and visualization
+
+Every baseline adapter uses the shared W&B helper in
+`src/core/wandb_utils.py` and writes the same prediction contract:
+
+```text
+results/predictions/<method>/<dataset>/<stem>.png
+```
+
+Example for the U-Net adapter:
+
+```bash
+# Server one-click training; background by default, logs under logs/
+bash scripts/run_unet_train.sh
+
+# Foreground debug / short run
+BACKGROUND=false EPOCHS=20 bash scripts/run_unet_train.sh
+
+# Direct adapter invocation with W&B monitoring
+python baselines/adapters/unet.py --stage train --epochs 200 \
+    --use_wandb --wandb_mode offline \
+    --wandb_project sacm
+
+# Predict on any number of datasets
+python baselines/adapters/unet.py --stage predict \
+    --test-datasets DRIVE:data/sacm_3shot/test/DRIVE \
+                   WIRE:datasets/novel/WIRE
+
+# Collect paper tables (CSV/JSON/LaTeX/Markdown) for one or more methods
+python scripts/collect_paper_metrics.py --methods unet --out-root results/paper
+
+# Save qualitative panels and per-dataset grids
+python scripts/visualize_predictions.py --methods unet --num-samples 8
+
+# One command: predict on all protocol test sets, collect paper tables,
+# and save visualizations.  Requires the trained checkpoint.
+python scripts/run_baseline_test.py
+```
+
+`collect_paper_metrics.py` reads the frozen protocol manifest and emits
+`paper_metrics.csv`, `paper_macro.csv`, `paper_stats.json`, per-metric
+LaTeX tables, and `paper_tables.md`. `visualize_predictions.py` writes
+`results/visualizations/<method>/<dataset>/<stem>.png` and `grid.png`
+with input, GT, prediction, and TP/FP/FN error panels.
 
 `src/models/sacm/diagnose.py` produces the paper's motivation evidence:
 per-head gradient norms under the original winner-take-all loss vs the

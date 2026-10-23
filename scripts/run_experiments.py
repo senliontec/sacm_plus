@@ -77,6 +77,8 @@ def test_command(args, preset, dataset, test_dir, ckpt_path, selection):
     ]
     if args.tta:
         cmd.append('--tta')
+    if getattr(args, 'extra_eval_args', ''):
+        cmd += args.extra_eval_args.split()
     return cmd
 
 
@@ -221,6 +223,8 @@ def main():
                         help='Enable four-way flip TTA at test time')
     parser.add_argument('--skip_train', action='store_true')
     parser.add_argument('--skip_test', action='store_true')
+    parser.add_argument('--extra_eval_args', type=str, default='',
+                        help='extra args appended to every evaluate.py command')
     parser.add_argument('--extra_train_args', type=str, default='',
                         help='Extra flags appended to the train command')
     args = parser.parse_args()
@@ -272,6 +276,14 @@ def main():
             f, fieldnames=['preset', 'dataset', 'gpu', 'status'])
         writer.writeheader()
         writer.writerows(status_rows_all)
+    failed = [row for row in status_rows_all
+              if row['status'] not in ('done', 'train_only')]
+    if failed:
+        print(f"FAILED jobs ({len(failed)}):")
+        for row in failed:
+            print(f"  {row['preset']}/{row['dataset']}: {row['status']}")
+        print(f"Status table: {os.path.join(args.output_root, 'jobs.csv')}")
+        raise SystemExit(1)
     print(f"All jobs finished. Status table: "
           f"{os.path.join(args.output_root, 'jobs.csv')}")
 

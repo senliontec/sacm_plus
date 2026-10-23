@@ -21,7 +21,7 @@ TRAIN_SOURCES="${TRAIN_SOURCES:-datasets/seen/DRIVE datasets/seen/CHASEDB1 datas
 VAL_SOURCES="${VAL_SOURCES:-CORN:datasets/seen/CORN/val}"   # official val split (CORN batch 9)
 TEST_SOURCES="${TEST_SOURCES:-CORN:datasets/seen/CORN/test}"     # official test split (CORN batches 10-11)
 DRIVE_TEST_GT="${DRIVE_TEST_GT:-}"       # 可选:已核实的 DRIVE test 血管 GT 目录;官方 test/mask 是 FOV
-TEST_DATASETS="${TEST_DATASETS:-datasets/unseen/FIVES datasets/unseen/STARE datasets/unseen/XCAD datasets/unseen/DeepCrack datasets/unseen/HRF datasets/unseen/LES-AV datasets/unseen/CHCrack5k datasets/novel/ROAD datasets/novel/LEAF datasets/novel/TYRE datasets/novel/WIRE}"
+TEST_DATASETS="${TEST_DATASETS:-datasets/unseen/FIVES datasets/unseen/STARE datasets/unseen/XCAD datasets/unseen/DeepCrack datasets/unseen/HRF datasets/unseen/LES-AV datasets/unseen/CHCrack5k datasets/unseen/OCTA-500 datasets/novel/ROAD datasets/novel/LEAF datasets/novel/TYRE datasets/novel/WIRE datasets/novel/DeepGlobe datasets/novel/TopoMortar}"
 # DRIVE_test 默认不加入:官方 test/mask 是 FOV,不是血管 GT。
 # 用 seen/DRIVE 的 3/17 留出划分,或提供 DRIVE_TEST_GT 后再显式加入 TEST_DATASETS。
 PRESETS="${PRESETS:-sacm stage1 stage2 full full_wta full_allhead no_geo_i no_geo_e no_c2f no_fusion_v2 no_multi_depth no_cl no_ds no_iou geo_e_shallow geo_e_deep}"
@@ -59,9 +59,11 @@ echo "══════════ 1/4 数据: 组织 + 3-shot 划分 ══�
 [ -d "$RAW_DATA_ROOT" ] || { echo "❌ 原始数据集目录不存在: $RAW_DATA_ROOT"; exit 1; }
 if [ -n "$DRIVE_TEST_GT" ]; then
   python scripts/organize_datasets.py --src "$RAW_DATA_ROOT" --out datasets \
-      --drive_test_gt "$DRIVE_TEST_GT" || true
+      --drive_test_gt "$DRIVE_TEST_GT" \
+      || { echo "❌ organize_datasets 失败"; exit 1; }
 else
-  python scripts/organize_datasets.py --src "$RAW_DATA_ROOT" --out datasets || true
+  python scripts/organize_datasets.py --src "$RAW_DATA_ROOT" --out datasets \
+      || { echo "❌ organize_datasets 失败"; exit 1; }
 fi
 python scripts/group_datasets.py --root datasets \
     || { echo "❌ group_datasets(seen/unseen/novel) 失败"; exit 1; }
@@ -70,6 +72,15 @@ python scripts/datasets/prepare_CORN.py --overwrite \
     || { echo "❌ prepare_CORN 失败"; exit 1; }
 python scripts/datasets/prepare_leaf.py --overwrite \
     || { echo "❌ prepare_leaf 失败"; exit 1; }
+python scripts/datasets/prepare_OCTA-500.py --overwrite \
+    --src "$RAW_DATA_ROOT/OCTA-500" \
+    || { echo "❌ prepare_OCTA-500 失败"; exit 1; }
+python scripts/datasets/prepare_TopoMortar.py --overwrite \
+    --src "$RAW_DATA_ROOT/TopoMortar" \
+    || { echo "❌ prepare_TopoMortar 失败"; exit 1; }
+python scripts/datasets/prepare_DeepGlobe.py --overwrite \
+    --src "$RAW_DATA_ROOT/DeepGlobe" \
+    || { echo "❌ prepare_DeepGlobe 失败"; exit 1; }
 if [ -f "$SPLIT_ROOT/split_manifest.csv" ]; then
   echo "⚠️  $SPLIT_ROOT 已存在,跳过采样"
 else
@@ -91,6 +102,12 @@ else
       "${VAL_ARGS[@]}" "${TEST_SOURCES_ARGS[@]}" \
       --shots 3 --val_shots 1 --out_dir "$SPLIT_ROOT" --seed "$SEED" \
       "${GROUP_ARGS[@]}" "${CLEAN_ARG[@]}" "${TEST_ARG[@]}"
+fi
+if [ "$MAKE_TEST" = "true" ]; then
+  python scripts/build_protocol_manifest.py \
+      --split-root "$SPLIT_ROOT" --datasets-root datasets \
+      --seed "$SEED" \
+      || { echo "❌ protocol manifest 校验/生成失败"; exit 1; }
 fi
 if [ "$MAKE_TEST" = "true" ]; then
   for td in "$SPLIT_ROOT"/test/*; do
@@ -117,26 +134,29 @@ if [ "$DDP" = "true" ]; then
           --val_selection "$SELECTION" --pred_threshold "$PRED_THRESHOLD" \
           --use_wandb true --save_path "$RESULTS_ROOT/$p/best_model.pth"
     fi
+    TTA_ARG=()
+    [ -n "$TTA" ] && TTA_ARG=(--tta)
     for ds in $TEST_DATASETS; do
-      [ -d "$ds" ] || continue
+      [ -d "$ds" ] || { echo "❌ 测试集不存在: $ds"; exit 1; }
       if [ ! -d "$ds/masks" ]; then
-        echo "❌ $ds 缺少 masks/ (DRIVE 官方 test/mask 是 FOV,不能当 GT);跳过"
-        continue
+        echo "❌ 测试集缺少 masks/: $ds (DRIVE 官方 test/mask 是 FOV,不能当 GT)"
+        exit 1
       fi
       echo "── 评测 $p @ $(basename "$ds")"
       python src/eval/evaluate.py --preset "$p" --data_root "$ds" \
           --trained_weights "$RESULTS_ROOT/$p/best_model.pth" \
           --output_dir "$RESULTS_ROOT/$p/$(basename "$ds")" \
           --selection "$SELECTION" --pred_threshold "$PRED_THRESHOLD" \
-          --use_wandb true
+          "${TTA_ARG[@]}" --use_wandb true
     done
   done
 else
   TEST_SPECS=""
   for ds in $TEST_DATASETS; do
+    [ -d "$ds" ] || { echo "❌ 测试集不存在: $ds"; exit 1; }
     if [ ! -d "$ds/masks" ]; then
-      echo "❌ $ds 缺少 masks/ (DRIVE 官方 test/mask 是 FOV,不能当 GT);跳过"
-      continue
+      echo "❌ 测试集缺少 masks/: $ds (DRIVE 官方 test/mask 是 FOV,不能当 GT)"
+      exit 1
     fi
     TEST_SPECS="$TEST_SPECS $(basename "$ds"):$ds"
   done
@@ -159,7 +179,7 @@ else
 fi
 
 echo "══════════ 3/4 汇总: CSV + LaTeX ══════════"
-python scripts/aggregate_results.py --root "$RESULTS_ROOT" --out "$RESULTS_ROOT/tables"
+python scripts/aggregate_results.py --root "$RESULTS_ROOT" --out "$RESULTS_ROOT/tables" --strict-protocol
 
 echo "══════════ 4/4 AI 诊断: 组件贡献排名 ══════════"
 python scripts/metrics_report.py --root "$RESULTS_ROOT" --out "$RESULTS_ROOT/tables/report.md"

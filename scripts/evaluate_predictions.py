@@ -121,9 +121,14 @@ def main():
             raise SystemExit(f'--datasets entries must be NAME:DIR, got {spec!r}')
         pred_dir = args.pred_root / name
         gt_root = Path(root)
-        summary, rows = evaluate_one(pred_dir, gt_root, metric_names)
         out_dir = args.out_root / name
         out_dir.mkdir(parents=True, exist_ok=True)
+        # Do not leave a previous successful summary if this run fails.
+        for stale in ('results_summary.txt', 'metrics.csv'):
+            stale_path = out_dir / stale
+            if stale_path.exists():
+                stale_path.unlink()
+        summary, rows = evaluate_one(pred_dir, gt_root, metric_names)
         with open(out_dir / 'results_summary.txt', 'w') as f:
             f.write(f'Dataset: {root}\n')
             f.write(f'Num Samples: {len(rows)}\n')

@@ -48,18 +48,21 @@
 验证：data/sacm_3shot/val/       # 6 张（含 CORN 官方 val）
 Seen：data/sacm_3shot/test/<dataset>/   # 5 个留出域 + CORN 官方 test
 Unseen：datasets/unseen/<dataset>/
-Novel：datasets/novel/<dataset>/    # ROAD, LEAF, TYRE, WIRE
+Novel：datasets/novel/<dataset>/
 ```
 
-其中 Seen test 的 6 个数据集为：
+最终 20 个数据集：
 
 ```text
-DRIVE, CHASEDB1, DCA1, CREMI, CrackTree200, CORN
+Seen (6):   DRIVE, CHASEDB1, DCA1, CREMI, CrackTree200, CORN
+Unseen (8): FIVES, STARE, XCAD, DeepCrack, HRF, LES-AV, CHCrack5k, OCTA-500
+Novel (6):  ROAD, LEAF, TYRE, WIRE, DeepGlobe, TopoMortar
 ```
 
-CORN 使用作者提供的官方 batch-disjoint split：train 1176 / val 188 /
-test 152。LEAF 使用作者提供的官方 31 张 Novel 集；其 mask 细碎，拓扑指标
-需在论文中注明标注 caveat。
+DeepGlobe 使用有 GT 的 train split 中固定 seed 42 的 500 张子集；
+其官方 valid/test 没有 GT。CORN 使用作者提供的官方 batch-disjoint
+split：train 1176 / val 188 / test 152。LEAF 使用作者提供的官方 31 张
+Novel 集；其 mask 细碎，拓扑指标需在论文中注明标注 caveat。
 
 禁止使用 test 进行调参或选择 checkpoint；checkpoint 只能由 val 选择。
 

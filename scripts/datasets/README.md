@@ -59,7 +59,7 @@ Each raw directory under `segment/datasets/` has exactly one script:
 | `leaf` | `prepare_leaf.py` | `novel/LEAF` | Author-provided official SACM LEAF, 31 images; masks binarized at >127 |
 | `TopoMortar` | `prepare_TopoMortar.py` | `novel/TopoMortar` | Test split by default |
 | `OCTA-500` | `prepare_OCTA-500.py` | `unseen/OCTA-500` | 300 paired 2D projections; `GT_LargeVessel` default |
-| `DeepGlobe` | `prepare_DeepGlobe.py` | `unseen/DeepGlobe` | Train split with masks; valid/test have no GT |
+| `DeepGlobe` | `prepare_DeepGlobe.py` | `novel/DeepGlobe` | Labeled train split; fixed seed-42 500-image subset by default (`--full` for all 6,226); official valid/test have no GT |
 
 TYRE/WIRE source masks are anti-aliased RGB; they are binarized at `>127`
 to match the frozen protocol (not at `>0`).

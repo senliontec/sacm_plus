@@ -24,8 +24,13 @@ Examples:
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
+import os
 import random
+import shutil
 import sys
+import time
 from pathlib import Path
 
 import numpy as np
@@ -37,10 +42,25 @@ from torch.utils.data import DataLoader, Dataset
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / 'baselines' / 'unet'))
+sys.path.insert(0, str(REPO_ROOT / 'src'))
 from unet import UNet  # noqa: E402  (upstream model, unchanged)
+from core.wandb_utils import (  # noqa: E402
+    finish_run,
+    log_artifact,
+    log_scalars,
+    setup_wandb,
+)
 
 IMAGE_EXTS = ('.png', '.jpg', '.jpeg', '.tif', '.tiff', '.bmp', '.ppm')
 MASK_EXTS = IMAGE_EXTS
+
+
+def file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with open(path, 'rb') as f:
+        for chunk in iter(lambda: f.read(1 << 20), b''):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def list_pairs(root: Path):
@@ -108,15 +128,26 @@ def dice_coefficient(prob: torch.Tensor, target: torch.Tensor) -> float:
     return (2.0 * inter + 1e-7) / (denom + 1e-7)
 
 
+def iou_coefficient(prob: torch.Tensor, target: torch.Tensor) -> float:
+    pred = (prob > 0.5).float()
+    inter = (pred * target).sum().item()
+    union = pred.sum().item() + target.sum().item() - inter
+    return (inter + 1e-7) / (union + 1e-7)
+
+
 @torch.no_grad()
 def validate(model, loader, device):
     model.eval()
-    scores = []
+    dice_scores = []
+    iou_scores = []
     for images, masks in loader:
         images, masks = images.to(device), masks.to(device)
-        logits = model(images)
-        scores.append(dice_coefficient(torch.sigmoid(logits), masks))
-    return float(np.mean(scores)) if scores else 0.0
+        prob = torch.sigmoid(model(images))
+        dice_scores.append(dice_coefficient(prob, masks))
+        iou_scores.append(iou_coefficient(prob, masks))
+    if not dice_scores:
+        return 0.0, 0.0
+    return float(np.mean(dice_scores)), float(np.mean(iou_scores))
 
 
 def train(args):
@@ -140,9 +171,37 @@ def train(args):
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         optimizer, T_max=max(args.epochs, 1))
     bce = nn.BCEWithLogitsLoss()
+    split_manifest = args.data_root / 'split_manifest.csv'
+    split_sha256 = (file_sha256(split_manifest)
+                    if split_manifest.is_file() else None)
+
+    run = setup_wandb(
+        args,
+        name=f'unet-seed{args.seed}',
+        config={
+            'method': 'unet',
+            'data_root': str(args.data_root),
+            'train_images': len(train_set),
+            'val_images': len(val_set),
+            'epochs': args.epochs,
+            'batch_size': args.batch_size,
+            'lr': args.lr,
+            'weight_decay': args.weight_decay,
+            'input_size': args.input_size,
+            'seed': args.seed,
+            'optimizer': 'AdamW',
+            'loss': 'BCE+Dice',
+            'split_manifest_sha256': split_sha256,
+        },
+    )
 
     args.workdir.mkdir(parents=True, exist_ok=True)
     ckpt_path = args.workdir / 'best_model.pth'
+    if ckpt_path.is_file():
+        backup = ckpt_path.with_name(
+            f'best_model.before_{time.strftime("%Y%m%d_%H%M%S")}.pth')
+        shutil.copy2(ckpt_path, backup)
+        print(f'backup previous checkpoint -> {backup}')
     best_dice = -1.0
     for epoch in range(1, args.epochs + 1):
         model.train()
@@ -156,10 +215,17 @@ def train(args):
             optimizer.step()
             running += loss.item() * images.size(0)
         scheduler.step()
-        val_dice = validate(model, val_loader, device)
+        val_dice, val_iou = validate(model, val_loader, device)
         train_loss = running / len(train_set)
+        log_scalars(run, {
+            'epoch': epoch,
+            'train/loss': train_loss,
+            'val/dice': val_dice,
+            'val/iou': val_iou,
+            'lr': optimizer.param_groups[0]['lr'],
+        })
         print(f'epoch {epoch:03d}/{args.epochs}  loss={train_loss:.4f}  '
-              f'val_dice={val_dice:.4f}', flush=True)
+              f'val_dice={val_dice:.4f}  val_iou={val_iou:.4f}', flush=True)
         if val_dice > best_dice:
             best_dice = val_dice
             torch.save({
@@ -167,8 +233,12 @@ def train(args):
                 'epoch': epoch,
                 'val_dice': val_dice,
                 'input_size': args.input_size,
+                'split_manifest_sha256': split_sha256,
             }, ckpt_path)
     print(f'best val_dice={best_dice:.4f} -> {ckpt_path}')
+    log_artifact(run, ckpt_path, name=f'unet-seed{args.seed}',
+                 artifact_type='model')
+    finish_run(run)
     return ckpt_path
 
 
@@ -206,6 +276,17 @@ def predict(args, ckpt_path: Path):
             Image.fromarray(pred, mode='L').save(out_dir / f'{image_path.stem}.png')
         print(f'{name}: {len(pairs)} predictions -> {out_dir}')
 
+    meta = {
+        'method': 'unet',
+        'checkpoint': str(ckpt_path),
+        'checkpoint_sha256': file_sha256(ckpt_path),
+        'split_manifest_sha256': payload.get('split_manifest_sha256'),
+        'datasets': [spec.partition(':')[0] for spec in args.test_datasets],
+    }
+    with open(args.pred_root / '.prediction_meta.json', 'w') as f:
+        json.dump(meta, f, indent=2)
+        f.write('\n')
+
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -215,6 +296,9 @@ def main():
                         default=REPO_ROOT / 'data' / 'sacm_3shot')
     parser.add_argument('--workdir', type=Path,
                         default=REPO_ROOT / 'workdirs' / 'baselines' / 'unet')
+    parser.add_argument('--checkpoint', type=Path, default=None,
+                        help='checkpoint used by --stage predict '
+                             '(default: <workdir>/best_model.pth)')
     parser.add_argument('--pred-root', type=Path,
                         default=REPO_ROOT / 'results' / 'predictions' / 'unet')
     parser.add_argument('--test-datasets', nargs='+', default=[],
@@ -227,6 +311,19 @@ def main():
     parser.add_argument('--input-size', type=int, default=512)
     parser.add_argument('--num-workers', type=int, default=0)
     parser.add_argument('--seed', type=int, default=42)
+    parser.add_argument('--use_wandb', action='store_true',
+                        help='log training scalars and the best checkpoint to W&B')
+    parser.add_argument('--wandb_project', default='sacm')
+    parser.add_argument('--wandb_entity', default=None)
+    parser.add_argument('--wandb_name', default=None)
+    parser.add_argument('--wandb_group', default='baselines')
+    parser.add_argument('--wandb_job_type', default='train')
+    parser.add_argument('--wandb_tags', default='unet,3shot')
+    parser.add_argument('--wandb_mode', choices=['online', 'offline', 'disabled'],
+                        default=None)
+    parser.add_argument('--wandb_host', default=os.environ.get('WANDB_BASE_URL'))
+    parser.add_argument('--wandb_api_key', default=os.environ.get('WANDB_API_KEY'))
+    parser.add_argument('--wandb_dir', default=None)
     parser.add_argument('--device',
                         default='cuda' if torch.cuda.is_available() else 'cpu')
     args = parser.parse_args()
@@ -236,7 +333,10 @@ def main():
             if args.stage == 'predict':
                 raise SystemExit('--test-datasets is required for --stage predict')
             print('no --test-datasets; training only')
-    ckpt_path = args.workdir / 'best_model.pth'
+    ckpt_path = args.checkpoint or (args.workdir / 'best_model.pth')
+    if args.stage in ('train', 'all') and args.checkpoint is not None:
+        raise SystemExit('--checkpoint is a predict-time option; '
+                         'use --workdir for training output')
     if args.stage == 'train':
         train(args)
     elif args.stage == 'predict':

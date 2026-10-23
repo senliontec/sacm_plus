@@ -16,6 +16,7 @@ import warnings
 import numpy as np
 import torch
 import torch.nn.functional as F
+from torch import nn
 from sklearn.metrics import f1_score
 from tqdm import tqdm
 
@@ -26,6 +27,28 @@ from core.losses.registry import TOPOLOGY_LOSS_REGISTRY
 from core.metrics import compute_metrics
 from core.metrics_advisor import advise
 from core.wandb_utils import finish_run, log_scalars, setup_wandb
+
+
+class ForwardWrapper(nn.Module):
+    """Expose the model-specific prompt-free forward to DDP.
+
+    DDP only synchronizes gradients when its own ``forward`` runs.  Calling
+    ``model.module(...)`` directly bypasses ``Reducer.prepare_for_backward``
+    and silently disables gradient all-reduce, so the actual training forward
+    is delegated to this wrapper and DDP wraps the wrapper.
+    """
+
+    def __init__(self, model, spec):
+        super().__init__()
+        self.model = model
+        self.spec = spec
+
+    def forward(self, images):
+        images = self.spec.preprocess(self.model, images)
+        sparse, dense = self.spec.prompt_builder(
+            self.model, images.shape[0])
+        return self.spec.forward(
+            self.model, images, sparse, dense, return_stage1=True)
 
 
 def calculate_f1_score(pred_masks, true_masks, threshold=0.0):
@@ -129,8 +152,11 @@ class Trainer:
         return dist.get_rank() == 0
 
     def _forward(self, images):
-        # DDP 包装器不转发 Sam 的方法/子模块,spec 函数必须拿到原始模型
-        model = self.model.module if self.is_ddp else self.model
+        # DDP must see the forward call itself; calling .module directly
+        # skips DDP's reducer preparation and silently disables all-reduce.
+        if self.is_ddp:
+            return self.model(images)
+        model = self.model
         images = self.spec.preprocess(model, images)
         sparse, dense = self.spec.prompt_builder(model, images.shape[0])
         return self.spec.forward(model, images, sparse, dense, return_stage1=True)
@@ -375,9 +401,21 @@ class Trainer:
             }
             gathered = [None] * world_size
             dist.all_gather_object(gathered, payload)
+            if rank == 0:
+                avg_val_loss, f1, avg_val_cldice, val_metrics = (
+                    _merge_val_payloads(gathered))
+            else:
+                avg_val_loss = f1 = avg_val_cldice = val_metrics = None
+            # Every DDP rank must advance ReduceLROnPlateau with the same
+            # value, otherwise rank 0 lowers its LR while the other ranks
+            # keep the old LR and the replicas diverge.
+            loss_payload = [avg_val_loss]
+            dist.broadcast_object_list(loss_payload, src=0)
+            avg_val_loss = loss_payload[0]
+            if self.args.scheduler == 'reduce':
+                self.scheduler.step(avg_val_loss)
             if rank != 0:
                 return None, None, None, None
-            avg_val_loss, f1, avg_val_cldice, val_metrics = _merge_val_payloads(gathered)
         else:
             denom = 2 * tp + fp + fn
             f1 = 2 * tp / denom if denom > 0 else 0.0
@@ -390,17 +428,22 @@ class Trainer:
                 # 单张 NaN(空 GT/空预测守卫)不再传染整列——此前 np.mean
                 # 导致 BM/TE 两列恒为 "—";全 NaN 时保持 NaN(显示 "—")
                 val_metrics = {k: float(np.nanmean(v)) for k, v in metrics_acc.items() if v}
+            if self.args.scheduler == 'reduce':
+                self.scheduler.step(avg_val_loss)
         # 逐 epoch 的 val 数值全部由 rich 宽表呈现,不再刷 INFO 日志
-
-        if self.args.scheduler == 'reduce':
-            self.scheduler.step(avg_val_loss)
 
         self._log_val_images(epoch, vis_items)
 
         if f1 > self.best_f1_score:
             self.best_f1_score = f1
-            state_dict = (self.model.module.state_dict() if self.is_ddp
-                          else self.model.state_dict())
+            if self.is_ddp:
+                inner = self.model.module
+                # ForwardWrapper stores the real Sam under .model; keep
+                # checkpoints loadable by evaluate.py.
+                inner = getattr(inner, 'model', inner)
+                state_dict = inner.state_dict()
+            else:
+                state_dict = self.model.state_dict()
             torch.save({
                 'epoch': epoch,
                 'model_state_dict': state_dict,

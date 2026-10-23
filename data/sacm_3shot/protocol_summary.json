@@ -1,6 +1,6 @@
 {
   "protocol_version": "sacm_3shot",
-  "generated_at_utc": "2026-10-23T06:28:29.678889+00:00",
+  "generated_at_utc": "2026-10-23T07:17:04.741504+00:00",
   "seed": 42,
   "counts": {
     "seen": {
@@ -37,7 +37,8 @@
         "DeepCrack": 237,
         "HRF": 45,
         "LES-AV": 22,
-        "CHCrack5k": 990
+        "CHCrack5k": 990,
+        "OCTA-500": 300
       }
     },
     "novel": {
@@ -45,16 +46,18 @@
         "ROAD": 49,
         "LEAF": 31,
         "TYRE": 36,
-        "WIRE": 31
+        "WIRE": 31,
+        "DeepGlobe": 500,
+        "TopoMortar": 350
       }
     }
   },
   "totals": {
-    "rows": 2454,
-    "images": 2454,
-    "unique_datasets": 17
+    "rows": 3604,
+    "images": 3604,
+    "unique_datasets": 20
   },
-  "manifest_sha256": "a5b17280fa401ef3bb50f9b29450fb02f922469dced1c0660e68c17c3e882727",
+  "manifest_sha256": "52f5ddf1629aaffdd52dfd85bf809c1715dc85b5a7d6cdd19553dc5f0482178b",
   "group_policy": {
     "CHASEDB1": "subject",
     "CHCrack5k": "image",
@@ -64,13 +67,16 @@
     "DCA1": "image",
     "DRIVE": "image",
     "DeepCrack": "image",
+    "DeepGlobe": "image",
     "FIVES": "image",
     "HRF": "image",
     "LEAF": "image",
     "LES-AV": "image",
+    "OCTA-500": "image",
     "ROAD": "image",
     "STARE": "image",
     "TYRE": "image",
+    "TopoMortar": "image",
     "WIRE": "image",
     "XCAD": "image"
   },
@@ -85,13 +91,16 @@
       "DCA1": "image",
       "DRIVE": "image",
       "DeepCrack": "image",
+      "DeepGlobe": "image",
       "FIVES": "image",
       "HRF": "image",
       "LEAF": "image",
       "LES-AV": "image",
+      "OCTA-500": "image",
       "ROAD": "image",
       "STARE": "image",
       "TYRE": "image",
+      "TopoMortar": "image",
       "WIRE": "image",
       "XCAD": "image"
     },

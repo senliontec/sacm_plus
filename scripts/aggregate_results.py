@@ -17,6 +17,7 @@ Usage:
 
 import argparse
 import csv
+import json
 import math
 import os
 import re
@@ -39,9 +40,10 @@ ROLE_BY_DATASET = {
     # Unseen (active protocol only)
     'FIVES': 'Unseen', 'STARE': 'Unseen', 'XCAD': 'Unseen',
     'DeepCrack': 'Unseen', 'HRF': 'Unseen', 'LES-AV': 'Unseen',
-    'CHCrack5k': 'Unseen',
+    'CHCrack5k': 'Unseen', 'OCTA-500': 'Unseen',
     # Novel
     'ROAD': 'Novel', 'LEAF': 'Novel', 'TYRE': 'Novel', 'WIRE': 'Novel',
+    'DeepGlobe': 'Novel', 'TopoMortar': 'Novel',
 }
 ROLE_ORDER = ['Seen', 'Unseen', 'Novel', 'Other']
 
@@ -62,7 +64,34 @@ def parse_summary(path):
     return metrics
 
 
-def collect(root):
+def parse_num_samples(path):
+    """Read the 'Num Samples: N' line, if the evaluator wrote one."""
+    with open(path) as f:
+        for line in f:
+            if line.strip().lower().startswith('num samples:'):
+                try:
+                    return int(line.split(':', 1)[1].strip())
+                except ValueError:
+                    return None
+    return None
+
+
+def load_expected_counts(path):
+    """Return {dataset: test_count} from the frozen protocol summary."""
+    if not path or not os.path.exists(path):
+        print(f"[warn] protocol summary not found: {path}")
+        return None
+    with open(path) as f:
+        summary = json.load(f)
+    expected = {}
+    for role in ('seen', 'unseen', 'novel'):
+        for split, datasets in summary.get('counts', {}).get(role, {}).items():
+            if split.endswith('_test'):
+                expected.update(datasets)
+    return expected
+
+
+def collect(root, expected_counts=None, strict=False):
     """Scan for (preset, dataset) -> metrics. Skips missing summaries."""
     rows = []
     if not os.path.isdir(root):
@@ -75,7 +104,31 @@ def collect(root):
             summary_path = os.path.join(
                 preset_dir, dataset, 'results_summary.txt')
             if not os.path.exists(summary_path):
+                msg = f"[missing summary] {preset}/{dataset}"
+                if strict:
+                    raise SystemExit(msg)
                 print(f"[skip] no summary: {preset}/{dataset}")
+                continue
+            n = parse_num_samples(summary_path)
+            expected = (expected_counts or {}).get(dataset)
+            if expected is not None and n is None:
+                msg = (f'[protocol unverifiable] {preset}/{dataset}: '
+                       'results_summary.txt has no Num Samples line')
+                if strict:
+                    raise SystemExit(msg)
+                print(msg + ' — accepted, count unchecked')
+            if expected is not None and n is not None and n != expected:
+                msg = (f'[protocol mismatch] {preset}/{dataset}: '
+                       f'{n} images, frozen protocol expects {expected}')
+                if strict:
+                    raise SystemExit(msg)
+                print(msg + ' — skipped')
+                continue
+            if expected_counts is not None and expected is None:
+                msg = f'[protocol mismatch] {preset}/{dataset}: dataset not in frozen protocol'
+                if strict:
+                    raise SystemExit(msg)
+                print(msg + ' — skipped')
                 continue
             metrics = parse_summary(summary_path)
             row = {
@@ -87,6 +140,14 @@ def collect(root):
                 if name in metrics:
                     row[name + '_mean'], row[name + '_std'] = metrics[name]
             rows.append(row)
+    if strict and expected_counts:
+        for preset in sorted({row['preset'] for row in rows}):
+            present = {row['dataset'] for row in rows
+                       if row['preset'] == preset}
+            missing = sorted(set(expected_counts) - present)
+            if missing:
+                raise SystemExit(
+                    f'{preset}: missing expected datasets: {missing}')
     return rows
 
 
@@ -226,13 +287,23 @@ def main():
                         help='Results root (run_experiments --output_root)')
     parser.add_argument('--out', type=str, default=None,
                         help='Output dir for CSV/LaTeX (default: <root>/tables)')
+    parser.add_argument('--protocol-summary', type=str,
+                        default='data/sacm_3shot/protocol_summary.json',
+                        help='frozen protocol counts for result validation')
+    parser.add_argument('--strict-protocol', action='store_true',
+                        help='fail instead of skipping a protocol mismatch')
     args = parser.parse_args()
     out_dir = args.out or os.path.join(args.root, 'tables')
 
-    rows = collect(args.root)
+    expected = load_expected_counts(args.protocol_summary)
+    if args.strict_protocol and expected is None:
+        raise SystemExit(
+            f'--strict-protocol requires {args.protocol_summary}')
+    rows = collect(args.root, expected_counts=expected,
+                   strict=args.strict_protocol)
     if not rows:
         print("No results found.")
-        return
+        return 1
     write_csv(rows, out_dir)
     write_latex(rows, out_dir)
     write_macro(rows, out_dir)

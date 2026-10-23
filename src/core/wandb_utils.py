@@ -46,7 +46,11 @@ def setup_wandb(args, name, config):
     if not wandb_available():
         logging.warning("wandb not installed — continuing without logging")
         return None
-    import wandb
+    try:
+        import wandb
+    except Exception as e:
+        logging.warning(f"wandb import failed ({e}) — continuing without logging")
+        return None
     try:
         host = getattr(args, 'wandb_host', None)
         if host:
@@ -57,12 +61,22 @@ def setup_wandb(args, name, config):
         tags = getattr(args, 'wandb_tags', None)
         if isinstance(tags, str):
             tags = [t.strip() for t in tags.split(',') if t.strip()]
+        mode = getattr(args, 'wandb_mode', None) or None
+        if mode == 'disabled':
+            return None
+        wandb_dir = getattr(args, 'wandb_dir', None) or None
+        if wandb_dir:
+            os.makedirs(wandb_dir, exist_ok=True)
         run = wandb.init(
             project=getattr(args, 'wandb_project', 'sacm'),
             entity=getattr(args, 'wandb_entity', None) or None,
             name=getattr(args, 'wandb_name', None) or name,
             config=config,
             tags=tags or [],
+            group=getattr(args, 'wandb_group', None) or None,
+            job_type=getattr(args, 'wandb_job_type', None) or None,
+            dir=wandb_dir,
+            mode=mode,
         )
         logging.info(f"wandb run started: {run.entity}/{run.project}/{run.name}")
         return run
@@ -77,6 +91,22 @@ def log_scalars(run, metrics):
         return
     try:
         run.log(metrics)
+    except Exception:
+        pass
+
+
+def log_artifact(run, path, name=None, artifact_type='model'):
+    """Attach a checkpoint/artifact to the run; never raise."""
+    if run is None:
+        return
+    try:
+        import wandb
+        artifact = wandb.Artifact(
+            name or os.path.splitext(os.path.basename(str(path)))[0],
+            type=artifact_type,
+        )
+        artifact.add_file(str(path))
+        run.log_artifact(artifact)
     except Exception:
         pass
 

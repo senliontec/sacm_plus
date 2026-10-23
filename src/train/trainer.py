@@ -23,7 +23,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import numpy as np
 import torch
 import torch.optim as optim
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Sampler
 from torchvision import transforms
 
 import models  # noqa: F401  (registers every model family's ModelSpecs)
@@ -31,9 +31,31 @@ from core.augmentation import JointAugment
 from core.data import SegmentationDataset, TestDataset
 from core.losses import TOPOLOGY_LOSS_REGISTRY, DiceBCELoss, SoftclDiceLoss, build_topology_loss
 from core.registry import MODEL_REGISTRY, get_model_spec
-from core.trainer import Trainer
+from core.trainer import ForwardWrapper, Trainer
 from core.wandb_utils import WANDB_API_KEY_DEFAULT, redact_secrets
 from models.sacm.configs import PRESETS, apply_preset, str2bool
+
+
+class DistributedEvalSampler(Sampler):
+    """Unique, unpadded validation shards for DDP.
+
+    ``DistributedSampler`` with ``drop_last=False`` pads the dataset with
+    duplicate indices, which double-counts tiny 3-shot validation sets.
+    This sampler gives every rank a disjoint subset and lets trailing ranks
+    be empty; the validation aggregator already handles empty shards.
+    """
+
+    def __init__(self, dataset):
+        import torch.distributed as dist
+        self.dataset = dataset
+        self.rank = dist.get_rank()
+        self.world_size = dist.get_world_size()
+
+    def __iter__(self):
+        return iter(range(self.rank, len(self.dataset), self.world_size))
+
+    def __len__(self):
+        return len(range(self.rank, len(self.dataset), self.world_size))
 
 
 def setup_logging(args):
@@ -121,10 +143,14 @@ def train(args):
     # Model-specific freezing protocol (SAM: encoder adapters + mask
     # decoder only; other models define their own in their ModelSpec)
     spec.freeze(sam)
+    base_model = sam
 
     if is_ddp:
+        # Wrap the prompt-free forward, not just the bare Sam, so DDP's
+        # reducer actually sees the training forward.  The optimizer must
+        # still be built from the unwrapped model's parameter names.
         sam = torch.nn.parallel.DistributedDataParallel(
-            sam, device_ids=[local_rank],
+            ForwardWrapper(base_model, spec), device_ids=[local_rank],
             find_unused_parameters=True,  # 层子集等条件分支会产生未用参数
         )
 
@@ -168,10 +194,9 @@ def train(args):
     if is_ddp:
         from torch.utils.data.distributed import DistributedSampler
         train_sampler = DistributedSampler(train_dataset)
-        # fencing-algs 模式:验证集也分片,每 rank 算 600/8≈75 张,指标
-        # gather 到 rank 0 汇总(验证 16 分钟 → ~2.5 分钟,且任何 rank
-        # 都不会在验证期阻塞于 NCCL allreduce 空等)
-        val_sampler = DistributedSampler(val_dataset, shuffle=False)
+        # Unique validation shards: no padding/duplicate samples on small
+        # 3-shot val sets.  Empty trailing ranks are handled by _validate.
+        val_sampler = DistributedEvalSampler(val_dataset)
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size,
                               shuffle=(train_sampler is None), sampler=train_sampler,
                               num_workers=4)
@@ -200,7 +225,7 @@ def train(args):
     )
 
     # Parameter groups with separate learning rates (model-specific)
-    optimizer = optim.AdamW(spec.param_groups(sam, args))
+    optimizer = optim.AdamW(spec.param_groups(base_model, args))
 
     # Set up learning rate scheduler
     if args.scheduler == 'cosine':

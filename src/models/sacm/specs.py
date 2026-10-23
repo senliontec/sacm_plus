@@ -18,6 +18,8 @@ NEW_DECODER_PREFIXES = (
     'mask_decoder.coarse_refiner',
     'mask_decoder.multi_depth_path',
     'mask_decoder.fuse_two',
+    # Stage-2 heads are newly added, not part of the pretrained decoder.
+    'mask_decoder.output_hypernetworks_mlps_stage2',
 )
 
 # Architecture switches shared by the whole SAM family (defaults = the

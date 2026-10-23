@@ -41,7 +41,7 @@ TRAIN_SOURCES="${TRAIN_SOURCES:-datasets/seen/DRIVE datasets/seen/CHASEDB1 datas
 VAL_SOURCES="${VAL_SOURCES:-CORN:datasets/seen/CORN/val}"   # official val split (CORN batch 9)
 TEST_SOURCES="${TEST_SOURCES:-CORN:datasets/seen/CORN/test}"     # official test split (CORN batches 10-11)
 DRIVE_TEST_GT="${DRIVE_TEST_GT:-}"       # 可选:已核实的 DRIVE test 血管 GT 目录;官方 test/mask 是 FOV,不能当 GT
-TEST_DATASETS="${TEST_DATASETS:-datasets/unseen/FIVES datasets/unseen/STARE datasets/unseen/XCAD datasets/unseen/DeepCrack datasets/unseen/HRF datasets/unseen/LES-AV datasets/unseen/CHCrack5k datasets/novel/ROAD datasets/novel/LEAF datasets/novel/TYRE datasets/novel/WIRE}"
+TEST_DATASETS="${TEST_DATASETS:-datasets/unseen/FIVES datasets/unseen/STARE datasets/unseen/XCAD datasets/unseen/DeepCrack datasets/unseen/HRF datasets/unseen/LES-AV datasets/unseen/CHCrack5k datasets/unseen/OCTA-500 datasets/novel/ROAD datasets/novel/LEAF datasets/novel/TYRE datasets/novel/WIRE datasets/novel/DeepGlobe datasets/novel/TopoMortar}"
 # DRIVE_test 默认不加入:它只有官方 test 图像 + FOV,没有公开血管 GT。
 # 用 seen/DRIVE 的 3/1/16 留出划分,或提供 DRIVE_TEST_GT 后再显式加入 TEST_DATASETS。
 RESULTS_ROOT="${RESULTS_ROOT:-results}"
@@ -131,9 +131,11 @@ build_split() {
   [ -d "$RAW_DATA_ROOT" ] || fail "原始数据集目录不存在: $RAW_DATA_ROOT"
   if [ -n "$DRIVE_TEST_GT" ]; then
     python scripts/organize_datasets.py --src "$RAW_DATA_ROOT" --out datasets \
-        --drive_test_gt "$DRIVE_TEST_GT" || true
+        --drive_test_gt "$DRIVE_TEST_GT" \
+        || fail "organize_datasets 失败"
   else
-    python scripts/organize_datasets.py --src "$RAW_DATA_ROOT" --out datasets || true
+    python scripts/organize_datasets.py --src "$RAW_DATA_ROOT" --out datasets \
+        || fail "organize_datasets 失败"
   fi
   python scripts/group_datasets.py --root datasets \
       || fail "group_datasets(seen/unseen/novel) 失败"
@@ -143,6 +145,14 @@ build_split() {
       || fail "prepare_CORN 失败"
   python scripts/datasets/prepare_leaf.py --overwrite \
       || fail "prepare_leaf 失败"
+  # Extended test pools (test-only; fixed counts are enforced by
+  # build_protocol_manifest.py).
+  python scripts/datasets/prepare_OCTA-500.py --overwrite \
+      --src "$RAW_DATA_ROOT/OCTA-500" || fail "prepare_OCTA-500 失败"
+  python scripts/datasets/prepare_TopoMortar.py --overwrite \
+      --src "$RAW_DATA_ROOT/TopoMortar" || fail "prepare_TopoMortar 失败"
+  python scripts/datasets/prepare_DeepGlobe.py --overwrite \
+      --src "$RAW_DATA_ROOT/DeepGlobe" || fail "prepare_DeepGlobe 失败"
   read -ra GROUP_SPECS <<< "$GROUP_REGEX"
   GROUP_ARGS=()
   for spec in "${GROUP_SPECS[@]}"; do
@@ -165,6 +175,11 @@ build_split() {
         "${VAL_ARGS[@]}" "${TEST_SOURCES_ARGS[@]}" \
         --shots "$SHOTS" --val_shots "$VAL_SHOTS" --out_dir "$SPLIT_ROOT" --seed "$SEED" \
         "${GROUP_ARGS[@]}" "${CLEAN_ARG[@]}" "${TEST_ARG[@]}" || fail "prepare_data 失败"
+    if [ "$MAKE_TEST" = "true" ]; then
+      python scripts/build_protocol_manifest.py \
+          --split-root "$SPLIT_ROOT" --datasets-root datasets \
+          --seed "$SEED" || fail "protocol manifest 校验/生成失败"
+    fi
   fi
 }
 
@@ -197,6 +212,14 @@ check_split_integrity "$SPLIT_ROOT" train \
   || fail "train 数据不完整:去掉 --skip-data 让脚本自动重建;若已重建仍失败,先补传原始数据 datasets/"
 check_split_integrity "$SPLIT_ROOT" val \
   || fail "val 数据不完整:去掉 --skip-data 让脚本自动重建;若已重建仍失败,先补传原始数据 datasets/"
+
+# Frozen protocol cardinality/group check also runs on --skip-data, so a
+# partially deleted split cannot silently train on 17 shots.
+if [ "$FULL_DATA" = "false" ] && [ "$MAKE_TEST" = "true" ]; then
+  python scripts/build_protocol_manifest.py \
+      --split-root "$SPLIT_ROOT" --datasets-root datasets \
+      --seed "$SEED" || fail "protocol manifest 校验/生成失败"
+fi
 
 # ---------------- 3. 训练 ----------------
 if [ "$SKIP_TRAIN" -eq 0 ]; then
@@ -232,15 +255,16 @@ fi
 if [ "$SKIP_EVAL" -eq 0 ]; then
   if [ "$FULL_DATA" = "false" ] && [ "$MAKE_TEST" = "true" ]; then
     for td in "$SPLIT_ROOT"/test/*; do
-      [ -d "$td/masks" ] && TEST_DATASETS="$TEST_DATASETS $td"
+      [ -d "$td" ] || continue
+      [ -d "$td/masks" ] || fail "Seen test 缺少 masks/: $td"
+      TEST_DATASETS="$TEST_DATASETS $td"
     done
   fi
   step "4/5 评测: $TEST_DATASETS"
   for ds in $TEST_DATASETS; do
-    [ -d "$ds" ] || { echo "⚠️  跳过(不存在): $ds"; continue; }
+    [ -d "$ds" ] || fail "测试集不存在: $ds (先运行 scripts/datasets/prepare_all.sh)"
     if [ ! -d "$ds/masks" ]; then
-      echo "❌ 跳过 $ds: 缺少 masks/ (DRIVE 官方 test/mask 是 FOV,不能当 GT)"
-      continue
+      fail "测试集缺少 masks/: $ds (DRIVE 官方 test/mask 是 FOV,不能当 GT)"
     fi
     name="$(basename "$ds")"
     echo "── 评测 $name"
@@ -256,7 +280,12 @@ fi
 
 # ---------------- 5. 报告 ----------------
 step "5/5 报告: 汇总 + AI 诊断"
-python scripts/aggregate_results.py --root "$RESULTS_ROOT" --out "$RESULTS_ROOT/tables" || true
+AGG_STRICT=()
+if [ "$FULL_DATA" = "false" ] && [ "$MAKE_TEST" = "true" ]; then
+  AGG_STRICT=(--strict-protocol)
+fi
+python scripts/aggregate_results.py --root "$RESULTS_ROOT" --out "$RESULTS_ROOT/tables" "${AGG_STRICT[@]}" \
+  || fail "结果汇总失败(检查协议计数/缺失测试集)"
 python scripts/metrics_report.py --root "$RESULTS_ROOT" --out "$RESULTS_ROOT/tables/report.md" || true
 
 echo

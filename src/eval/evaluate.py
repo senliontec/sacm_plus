@@ -105,6 +105,17 @@ def evaluate(args):
     ckpt_cfg = checkpoint.get('config', {}) if isinstance(checkpoint, dict) else {}
     iou_weight = ckpt_cfg.get('iou_loss_weight',
                               getattr(args, 'iou_loss_weight', 0.0))
+    # The best checkpoint was selected under the training-side selection and
+    # threshold.  When the evaluator is left at its defaults, reuse those
+    # settings instead of silently evaluating a different decision rule.
+    if args.selection == 'auto':
+        saved_selection = ckpt_cfg.get('val_selection')
+        if saved_selection in ('iou', 'gating'):
+            args.selection = saved_selection
+            logging.info(f"Using checkpoint val_selection={saved_selection}")
+    if args.pred_threshold == 0.0 and 'pred_threshold' in ckpt_cfg:
+        args.pred_threshold = float(ckpt_cfg['pred_threshold'])
+        logging.info(f"Using checkpoint pred_threshold={args.pred_threshold}")
     args.selection = resolve_selection(args.selection, iou_weight)
     if args.selection == 'iou' and float(iou_weight or 0.0) <= 0:
         logging.warning(
@@ -123,6 +134,12 @@ def evaluate(args):
     logging.info(f"Mask selection: {args.selection}; TTA: {args.tta}")
 
     os.makedirs(args.output_dir, exist_ok=True)
+    # A failed evaluation must not leave the previous run's summary behind;
+    # otherwise aggregate_results.py silently reuses stale numbers.
+    for stale in ('results_summary.txt', 'metrics.csv'):
+        stale_path = os.path.join(args.output_dir, stale)
+        if os.path.exists(stale_path):
+            os.remove(stale_path)
 
     # Expensive metrics are opt-in: the AUC sweep costs ~9x skeletonization;
     # Betti matching / Topograph engines cost seconds per image
