@@ -12,9 +12,9 @@ Usage:
     python run_experiments.py \
         --gpus 0 1 2 3 4 5 6 7 \
         --checkpoint /path/sam_vit_l_0b3195.pth \
-        --train_root data/sacm_3shot_v1 \
-        --test_datasets DRIVE:data/sacm_3shot_v1/test/DRIVE \
-                        CHASEDB1:data/sacm_3shot_v1/test/CHASEDB1 \
+        --train_root data/sacm_3shot \
+        --test_datasets DRIVE:data/sacm_3shot/test/DRIVE \
+                        CHASEDB1:data/sacm_3shot/test/CHASEDB1 \
         --presets sacm stage1 stage2 full \
         --output_root results --epochs 50 --tta
 

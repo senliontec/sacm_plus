@@ -64,9 +64,8 @@ Each raw directory under `segment/datasets/` has exactly one script:
 TYRE/WIRE source masks are anti-aliased RGB; they are binarized at `>127`
 to match the frozen protocol (not at `>0`).
 
-The scripts do not create or modify `data/sacm_3shot_v0/` or
-`data/sacm_3shot_v1/`; those splits are built separately by
-`scripts/prepare_data.py`.
+The scripts do not create or modify `data/sacm_3shot/`; that split is
+built separately by `scripts/prepare_data.py`.
 
 `LEAF` is included as the official SACM Novel set (author-provided, 31
 images). Its vein masks are thin and fragmented (median 305 8-connected

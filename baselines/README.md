@@ -44,9 +44,9 @@
 所有 baseline 使用同一份冻结 split：
 
 ```text
-训练：data/sacm_3shot_v1/train/     # 18 张（6 域 x 3-shot，含 CORN）
-验证：data/sacm_3shot_v1/val/       # 6 张（含 CORN 官方 val）
-Seen：data/sacm_3shot_v1/test/<dataset>/   # 5 个留出域 + CORN 官方 test
+训练：data/sacm_3shot/train/     # 18 张（6 域 x 3-shot，含 CORN）
+验证：data/sacm_3shot/val/       # 6 张（含 CORN 官方 val）
+Seen：data/sacm_3shot/test/<dataset>/   # 5 个留出域 + CORN 官方 test
 Unseen：datasets/unseen/<dataset>/
 Novel：datasets/novel/<dataset>/    # ROAD, LEAF, TYRE, WIRE
 ```

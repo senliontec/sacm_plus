@@ -18,8 +18,8 @@ Per dataset/category it reports:
 Example:
   python scripts/diagnose_selection.py \
       --preset full \
-      --data_root DRIVE:data/sacm_3shot_v1/test/DRIVE \
-                  CHASEDB1:data/sacm_3shot_v1/test/CHASEDB1 \
+      --data_root DRIVE:data/sacm_3shot/test/DRIVE \
+                  CHASEDB1:data/sacm_3shot/test/CHASEDB1 \
                   WIRE:datasets/novel/WIRE ROAD:datasets/novel/ROAD \
       --category DRIVE:seen CHASEDB1:seen WIRE:novel ROAD:novel \
       --trained_weights results/full/best_model.pth \

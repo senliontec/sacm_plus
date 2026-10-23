@@ -19,10 +19,8 @@ dist/
 # Runtime outputs: data, results, logs, checkpoints
 # Keep runtime data ignored except for the frozen 3-shot split.
 data/*
-!/data/sacm_3shot_v0/
-!/data/sacm_3shot_v0/**
-!/data/sacm_3shot_v1/
-!/data/sacm_3shot_v1/**
+!/data/sacm_3shot/
+!/data/sacm_3shot/**
 /datasets/
 datasets_legacy/
 exports/

@@ -16,7 +16,7 @@ set -euo pipefail
 GPUS="${GPUS:-0 1 2 3 4 5 6 7}"
 CKPT="${CKPT:-checkpoints/sam_vit_l_0b3195.pth}"
 RAW_DATA_ROOT="${RAW_DATA_ROOT:-../datasets}"   # canonical raw library: project-root datasets/, sibling of sacm_plus/
-SPLIT_ROOT="${SPLIT_ROOT:-data/sacm_3shot_v1}"
+SPLIT_ROOT="${SPLIT_ROOT:-data/sacm_3shot}"
 TRAIN_SOURCES="${TRAIN_SOURCES:-datasets/seen/DRIVE datasets/seen/CHASEDB1 datasets/seen/DCA1 datasets/seen/CREMI datasets/seen/CrackTree200 CORN:datasets/seen/CORN/train}"   # SACM protocol domains (6 x 3-shot = 18)
 VAL_SOURCES="${VAL_SOURCES:-CORN:datasets/seen/CORN/val}"   # official val split (CORN batch 9)
 TEST_SOURCES="${TEST_SOURCES:-CORN:datasets/seen/CORN/test}"     # official test split (CORN batches 10-11)

@@ -28,8 +28,7 @@ SACM/                              # 项目 = 分割算法平台（框架 + 算�
 ├── configs/                       # YAML 配置（presets.yaml，--config 叠加覆盖）
 ├── datasets/                      # 协议数据: seen/unseen/novel（gitignored）
 ├── datasets_legacy/               # 旧实验/无 GT 数据（gitignored）
-├── data/sacm_3shot_v1/            # 6 域 x 3-shot = 18 图（主协议；.gitignore 已放行）
-├── data/sacm_3shot_v0/            # 旧 5 域 split（保留作历史）
+├── data/sacm_3shot/               # 6 域 x 3-shot = 18 图（主协议；.gitignore 已放行）
 ├── exports/                       # HDF 导出等中间数据（gitignored）
 ├── outputs/                       # 输出：结果/日志/checkpoint（gitignored）
 ├── tests/                         # pytest（指标手算值、损失冒烟、增强、预设、慢速训练一步）

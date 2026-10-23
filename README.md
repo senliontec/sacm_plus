@@ -27,8 +27,8 @@ README.md
 ## Datasets
 
 The frozen available-data protocol lives in `datasets/` (evaluation roots)
-and `data/sacm_3shot_v1/` (train/val/Seen split; `sacm_3shot_v0` is kept as
-the earlier five-domain history):
+and `data/sacm_3shot/` (train/val/Seen split; the earlier five-domain draft
+has been removed):
 
 - **Train**: DRIVE, CHASEDB1, DCA1, CREMI, CrackTree200, CORN; 3-shot each = 18.
 - **Val**: 1 per domain = 6 (CORN uses its official validation batch).
@@ -196,11 +196,11 @@ python scripts/prepare_data.py \
     --val_dirs CORN:datasets/seen/CORN/val \
     --test_dirs CORN:datasets/seen/CORN/test \
     --shots 3 --val_shots 1 --make_test \
-    --out_dir data/sacm_3shot_v1 --seed 42
+    --out_dir data/sacm_3shot --seed 42
 
 # 2. Run the whole ablation matrix on multiple GPUs (train + test per job)
 python scripts/run_experiments.py --gpus 0 1 2 3 4 5 6 7 \
-    --checkpoint /path/sam_vit_l_0b3195.pth --train_root data/sacm_3shot_v1 \
+    --checkpoint /path/sam_vit_l_0b3195.pth --train_root data/sacm_3shot \
     --test_datasets DRIVE:/data/DRIVE CHASEDB1:/data/CHASEDB1 \
     --presets sacm stage1 stage2 full --output_root results --epochs 50 --tta
 

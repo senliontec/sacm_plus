@@ -10,7 +10,7 @@ using the active protocol lists below (candidate datasets are excluded).
 
 Usage:
     python scripts/build_protocol_manifest.py \
-        --split-root data/sacm_3shot_v1 --datasets-root datasets
+        --split-root data/sacm_3shot --datasets-root datasets
 """
 
 from __future__ import annotations
@@ -122,7 +122,7 @@ def external_rows(datasets_root: Path, version: str, role: str, names,
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--split-root', type=Path,
-                        default=Path('data/sacm_3shot_v1'))
+                        default=Path('data/sacm_3shot'))
     parser.add_argument('--datasets-root', type=Path, default=Path('datasets'))
     parser.add_argument('--version', default=None,
                         help='protocol_version (default: split root name)')

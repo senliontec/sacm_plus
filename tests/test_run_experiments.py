@@ -13,7 +13,7 @@ _spec.loader.exec_module(rex)
 
 def _args():
     return Namespace(
-        train_root='data/sacm_3shot_v1',
+        train_root='data/sacm_3shot',
         checkpoint='checkpoints/sam_vit_l.pth',
         epochs=50,
         val_interval=10,

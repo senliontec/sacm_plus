@@ -25,7 +25,7 @@ Official splits (e.g. CORN) can be named and supplied separately:
         --val_dirs CORN:datasets/seen/CORN/val \
         --test_dirs CORN:datasets/seen/CORN/test \
         --shots 3 --val_shots 1 --make_test \
-        --out_dir data/sacm_3shot_v1 --seed 42
+        --out_dir data/sacm_3shot --seed 42
 """
 
 import argparse
