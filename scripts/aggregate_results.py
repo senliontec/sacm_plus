@@ -105,8 +105,12 @@ def collect(root, expected_counts=None, strict=False):
         if not os.path.isdir(preset_dir):
             continue
         for dataset in sorted(os.listdir(preset_dir)):
+            dataset_dir = os.path.join(preset_dir, dataset)
+            if not os.path.isdir(dataset_dir):
+                # e.g. results/<preset>/best_model.pth — not a dataset.
+                continue
             summary_path = os.path.join(
-                preset_dir, dataset, 'results_summary.txt')
+                dataset_dir, 'results_summary.txt')
             if not os.path.exists(summary_path):
                 msg = f"[missing summary] {preset}/{dataset}"
                 if strict:
@@ -315,4 +319,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    raise SystemExit(main())

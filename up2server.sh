@@ -32,18 +32,18 @@ else
 fi
 
 # 不再单独 ssh mkdir:rsync 会自动创建目标目录,这样全程只需输入一次密码
-# 代码目录:--delete 保持本地 = 服务器一致
-rsync -avz --partial --info=progress2 --delete \
+# 代码目录:--checksum 按内容比较，只传真正改动的文件；--update 不覆盖服务器上更新的文件
+rsync -avz --partial --update --checksum --info=progress2 --delete \
     "${EXCLUDES[@]}" --exclude 'datasets/' --exclude 'data/' \
     "${SRC}/" "${SERVER}:${TARGET}/"
 
-# 数据目录:增量上传、不带 --delete —— 本地数据不完整时绝不删除服务器文件
+# 数据目录:同样按内容增量上传、不带 --delete —— 本地数据不完整时绝不删除服务器文件
 # (2026-10-09 教训:--delete 曾在上传时删掉服务器掩码,训练中途才崩)
 if [ "$CODE_ONLY" -eq 0 ]; then
   for d in datasets data; do
     [ -d "${SRC}/$d" ] || continue
-    echo "Uploading data: $d (no --delete) ..."
-    rsync -avz --partial --info=progress2 \
+    echo "Uploading data: $d (incremental, no --delete) ..."
+    rsync -avz --partial --update --checksum --info=progress2 \
         "${SRC}/$d/" "${SERVER}:${TARGET}/$d/"
   done
 fi

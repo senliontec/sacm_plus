@@ -314,14 +314,17 @@ def main():
     parser.add_argument('--use_wandb', action='store_true',
                         help='log training scalars and the best checkpoint to W&B')
     parser.add_argument('--wandb_project', default='sacm')
-    parser.add_argument('--wandb_entity', default=None)
+    parser.add_argument('--wandb_entity',
+                        default=os.environ.get('WANDB_ENTITY', 'buaazqk'))
     parser.add_argument('--wandb_name', default=None)
     parser.add_argument('--wandb_group', default='baselines')
     parser.add_argument('--wandb_job_type', default='train')
     parser.add_argument('--wandb_tags', default='unet,3shot')
     parser.add_argument('--wandb_mode', choices=['online', 'offline', 'disabled'],
                         default=None)
-    parser.add_argument('--wandb_host', default=os.environ.get('WANDB_BASE_URL'))
+    parser.add_argument('--wandb_host',
+                        default=os.environ.get(
+                            'WANDB_BASE_URL', 'http://172.16.1.7:8080'))
     parser.add_argument('--wandb_api_key', default=os.environ.get('WANDB_API_KEY'))
     parser.add_argument('--wandb_dir', default=None)
     parser.add_argument('--device',

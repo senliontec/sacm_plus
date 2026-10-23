@@ -61,6 +61,7 @@ BATCH_SIZE="${BATCH_SIZE:-1}"            # 每卡 batch:3090 24GB 实测 2 会 O
                                          # DDP 有效 batch = 卡数 × 此值
 
 cd "$(dirname "$0")/.."   # 仓库根
+source scripts/wandb_env.sh
 ROOT="$(pwd)"
 
 SKIP_SETUP=0; SKIP_DATA=0; SKIP_TRAIN=0; SKIP_EVAL=0; NO_KILL=0
@@ -124,6 +125,10 @@ if [ "$SKIP_SETUP" -eq 0 ]; then
   echo "✅ 环境就绪 ($(python --version) @ $(which python))"
 else
   eval "$(conda shell.bash hook)"; conda activate "$ENV_NAME" 2>/dev/null || true
+fi
+
+if [ "$USE_WANDB" = "true" ] && [ "${WANDB_MODE:-online}" != "offline" ]; then
+  wandb_auth_ok || fail "W&B 已启用但找不到凭据;检查 ~/.netrc 或 WANDB_API_KEY"
 fi
 
 # ---------------- 2. 数据 ----------------
@@ -216,9 +221,14 @@ check_split_integrity "$SPLIT_ROOT" val \
 # Frozen protocol cardinality/group check also runs on --skip-data, so a
 # partially deleted split cannot silently train on 17 shots.
 if [ "$FULL_DATA" = "false" ] && [ "$MAKE_TEST" = "true" ]; then
+  PROTOCOL_SEED=42
+  if [ -f "$SPLIT_ROOT/protocol_summary.json" ]; then
+    PROTOCOL_SEED="$(python -c 'import json,sys; print(json.load(open(sys.argv[1])).get("seed", 42))' \
+        "$SPLIT_ROOT/protocol_summary.json" 2>/dev/null || echo 42)"
+  fi
   python scripts/build_protocol_manifest.py \
       --split-root "$SPLIT_ROOT" --datasets-root datasets \
-      --seed "$SEED" || fail "protocol manifest 校验/生成失败"
+      --seed "$PROTOCOL_SEED" || fail "protocol manifest 校验/生成失败"
 fi
 
 # ---------------- 3. 训练 ----------------

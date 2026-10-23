@@ -16,6 +16,8 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.." || exit 1
+SELF="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
+source scripts/wandb_env.sh
 
 if [ -z "${PYTHON:-}" ]; then
   if [ -x /home/dev/anaconda3/envs/tsai/bin/python ]; then
@@ -35,16 +37,26 @@ LOG_DIR="${LOG_DIR:-logs}"
 USE_WANDB="${USE_WANDB:-true}"
 WANDB_MODE="${WANDB_MODE:-online}"
 WANDB_PROJECT="${WANDB_PROJECT:-sacm}"
-WANDB_ENTITY="${WANDB_ENTITY:-}"
+WANDB_ENTITY="${WANDB_ENTITY:-buaazqk}"
 WANDB_GROUP="${WANDB_GROUP:-baselines}"
-export WANDB_BASE_URL="${WANDB_BASE_URL:-}"
 
 mkdir -p "$LOG_DIR" "$WORKDIR"
+
+# Fail loudly instead of training silently without the requested W&B run.
+if [ "$USE_WANDB" = "true" ] && [ "$WANDB_MODE" != "offline" ] && [ "$WANDB_MODE" != "disabled" ]; then
+  if ! wandb_auth_ok; then
+    echo "ERROR: W&B is enabled (mode=$WANDB_MODE) but no credentials were found." >&2
+    echo "Expected ~/.netrc credentials for ${WANDB_BASE_URL}, or WANDB_API_KEY." >&2
+    echo "Use WANDB_MODE=offline for a local run." >&2
+    exit 1
+  fi
+fi
+
 LOG="${_UNET_LOG:-$LOG_DIR/unet_train_$(date +%Y%m%d_%H%M%S).log}"
 
 if [ "${BACKGROUND:-true}" = "true" ] && [ -z "${_UNET_BG_REENTRY:-}" ]; then
   nohup env _UNET_BG_REENTRY=1 _UNET_LOG="$LOG" BACKGROUND=false \
-    bash "$0" "$@" >"$LOG" 2>&1 &
+    bash "$SELF" "$@" >"$LOG" 2>&1 &
   echo "U-Net training started in background (pid $!)"
   echo "log: $LOG"
   echo "checkpoint: $WORKDIR/best_model.pth"

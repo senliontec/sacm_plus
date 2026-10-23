@@ -105,11 +105,16 @@ def main():
         else:
             meta = json.loads(meta_path.read_text())
             split = REPO_ROOT / 'data' / 'sacm_3shot' / 'split_manifest.csv'
-            expected_split = file_sha256(split) if split.is_file() else None
+            default_protocol = (REPO_ROOT / 'data' / 'sacm_3shot' /
+                                'protocol_manifest.csv').resolve()
+            custom_protocol = args.protocol.resolve() != default_protocol
+            expected_split = (None if custom_protocol or not split.is_file()
+                              else file_sha256(split))
             expected_ckpt = (file_sha256(args.checkpoint)
                              if args.checkpoint.is_file() else None)
             stale = (
-                meta.get('split_manifest_sha256') != expected_split or
+                (expected_split is not None and
+                 meta.get('split_manifest_sha256') != expected_split) or
                 (expected_ckpt is not None and
                  meta.get('checkpoint_sha256') != expected_ckpt))
             if stale and not args.allow_stale_checkpoint:
@@ -160,7 +165,8 @@ def main():
                '--methods', args.method,
                '--pred-root', args.pred_root,
                '--out-root', args.paper_root,
-               '--metrics', args.metrics]
+               '--metrics', args.metrics,
+               '--protocol', args.protocol]
         if args.datasets:
             cmd += ['--datasets'] + list(args.datasets)
         run(cmd)
@@ -171,6 +177,7 @@ def main():
              '--methods', args.method,
              '--pred-root', args.pred_root,
              '--out-root', args.vis_root,
+             '--protocol', args.protocol,
              '--num-samples', str(args.num_samples)] +
             (['--datasets'] + list(args.datasets) if args.datasets else []))
 

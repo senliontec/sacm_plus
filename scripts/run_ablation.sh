@@ -40,6 +40,10 @@ CLEAN_SPLIT="${CLEAN_SPLIT:-true}"       # clear train/val before writing the sp
 MAKE_TEST="${MAKE_TEST:-true}"           # also write group-disjoint test/ for Seen
 
 cd "$(dirname "$0")/.."
+source scripts/wandb_env.sh
+if [ "${WANDB_MODE:-online}" != "offline" ]; then
+  wandb_auth_ok || { echo "❌ W&B 已启用但找不到凭据;检查 ~/.netrc 或 WANDB_API_KEY"; exit 1; }
+fi
 
 SKIP_TRAIN=0
 NO_KILL=0
@@ -104,9 +108,14 @@ else
       "${GROUP_ARGS[@]}" "${CLEAN_ARG[@]}" "${TEST_ARG[@]}"
 fi
 if [ "$MAKE_TEST" = "true" ]; then
+  PROTOCOL_SEED=42
+  if [ -f "$SPLIT_ROOT/protocol_summary.json" ]; then
+    PROTOCOL_SEED="$(python -c 'import json,sys; print(json.load(open(sys.argv[1])).get("seed", 42))' \
+        "$SPLIT_ROOT/protocol_summary.json" 2>/dev/null || echo 42)"
+  fi
   python scripts/build_protocol_manifest.py \
       --split-root "$SPLIT_ROOT" --datasets-root datasets \
-      --seed "$SEED" \
+      --seed "$PROTOCOL_SEED" \
       || { echo "❌ protocol manifest 校验/生成失败"; exit 1; }
 fi
 if [ "$MAKE_TEST" = "true" ]; then
@@ -179,7 +188,9 @@ else
 fi
 
 echo "══════════ 3/4 汇总: CSV + LaTeX ══════════"
-python scripts/aggregate_results.py --root "$RESULTS_ROOT" --out "$RESULTS_ROOT/tables" --strict-protocol
+AGG_STRICT=()
+[ "$MAKE_TEST" = "true" ] && AGG_STRICT=(--strict-protocol)
+python scripts/aggregate_results.py --root "$RESULTS_ROOT" --out "$RESULTS_ROOT/tables" "${AGG_STRICT[@]}"
 
 echo "══════════ 4/4 AI 诊断: 组件贡献排名 ══════════"
 python scripts/metrics_report.py --root "$RESULTS_ROOT" --out "$RESULTS_ROOT/tables/report.md"

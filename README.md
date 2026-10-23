@@ -244,19 +244,21 @@ BACKGROUND=false EPOCHS=20 bash scripts/run_unet_train.sh
 
 # Direct adapter invocation with W&B monitoring
 python baselines/adapters/unet.py --stage train --epochs 200 \
-    --use_wandb --wandb_mode offline \
+    --use_wandb --wandb_mode online \
     --wandb_project sacm
 
-# Predict on any number of datasets
+# Predict on a subset (for a full run use scripts/run_baseline_test.py)
 python baselines/adapters/unet.py --stage predict \
     --test-datasets DRIVE:data/sacm_3shot/test/DRIVE \
                    WIRE:datasets/novel/WIRE
 
-# Collect paper tables (CSV/JSON/LaTeX/Markdown) for one or more methods
-python scripts/collect_paper_metrics.py --methods unet --out-root results/paper
+# Collect paper tables for the same subset
+python scripts/collect_paper_metrics.py --methods unet \
+    --datasets DRIVE WIRE --out-root results/paper
 
-# Save qualitative panels and per-dataset grids
-python scripts/visualize_predictions.py --methods unet --num-samples 8
+# Save qualitative panels for the same subset
+python scripts/visualize_predictions.py --methods unet \
+    --datasets DRIVE WIRE --num-samples 8
 
 # One command: predict on all protocol test sets, collect paper tables,
 # and save visualizations.  Requires the trained checkpoint.
