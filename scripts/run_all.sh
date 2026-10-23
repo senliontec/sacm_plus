@@ -28,7 +28,7 @@ fi
 # ---------------- 配置(仍可用环境变量覆盖,默认值 = 当前实验计划) ----------------
 ENV_NAME="${ENV_NAME:-tsai}"
 PRESET="${PRESET:-full}"                 # full 默认 D8 soft;原始 wta 基线用 sacm/full_wta
-EPOCHS="${EPOCHS:-20}"                   # 试水轮数;确认收敛后 EPOCHS=50 跑消融矩阵
+EPOCHS="${EPOCHS:-50}"                   # SACM 论文协议:50 epochs;试水可设 EPOCHS=20
 VAL_INTERVAL="${VAL_INTERVAL:-1}"        # 每 epoch 验证(8 卡分片 + 引擎指标节流 50 张,~2.5 分钟/次)
 FAST_VAL="${FAST_VAL:-false}"            # true: 验证只算 loss+F1,跳过全量指标/拓扑监控(训练提速)
 SHOTS="${SHOTS:-3}"                      # 仅 FULL_DATA=false(3-shot 协议层)时生效
@@ -36,24 +36,26 @@ VAL_SHOTS="${VAL_SHOTS:-1}"
 SEED="${SEED:-42}"
 CKPT="${CKPT:-checkpoints/sam_vit_l_0b3195.pth}"
 RAW_DATA_ROOT="${RAW_DATA_ROOT:-../datasets}"   # canonical raw library: project-root datasets/, sibling of sacm_plus/
-SPLIT_ROOT="${SPLIT_ROOT:-data/sacm_3shot_v0}"
-TRAIN_SOURCES="${TRAIN_SOURCES:-datasets/seen/DRIVE datasets/seen/CHASEDB1 datasets/seen/DCA1 datasets/seen/CREMI datasets/seen/CrackTree200}"   # SACM protocol domains (full mode)
+SPLIT_ROOT="${SPLIT_ROOT:-data/sacm_3shot_v1}"
+TRAIN_SOURCES="${TRAIN_SOURCES:-datasets/seen/DRIVE datasets/seen/CHASEDB1 datasets/seen/DCA1 datasets/seen/CREMI datasets/seen/CrackTree200 CORN:datasets/seen/CORN/train}"   # SACM protocol domains (6 x 3-shot = 18)
+VAL_SOURCES="${VAL_SOURCES:-CORN:datasets/seen/CORN/val}"   # official val split (CORN batch 9)
+TEST_SOURCES="${TEST_SOURCES:-CORN:datasets/seen/CORN/test}"     # official test split (CORN batches 10-11)
 DRIVE_TEST_GT="${DRIVE_TEST_GT:-}"       # 可选:已核实的 DRIVE test 血管 GT 目录;官方 test/mask 是 FOV,不能当 GT
-TEST_DATASETS="${TEST_DATASETS:-datasets/unseen/FIVES datasets/unseen/STARE datasets/unseen/XCAD datasets/unseen/DeepCrack datasets/unseen/HRF datasets/unseen/LES-AV datasets/unseen/CHCrack5k datasets/novel/ROAD datasets/novel/TYRE datasets/novel/WIRE}"
+TEST_DATASETS="${TEST_DATASETS:-datasets/unseen/FIVES datasets/unseen/STARE datasets/unseen/XCAD datasets/unseen/DeepCrack datasets/unseen/HRF datasets/unseen/LES-AV datasets/unseen/CHCrack5k datasets/novel/ROAD datasets/novel/LEAF datasets/novel/TYRE datasets/novel/WIRE}"
 # DRIVE_test 默认不加入:它只有官方 test 图像 + FOV,没有公开血管 GT。
-# 用 seen/DRIVE 的 3/17 留出划分,或提供 DRIVE_TEST_GT 后再显式加入 TEST_DATASETS。
+# 用 seen/DRIVE 的 3/1/16 留出划分,或提供 DRIVE_TEST_GT 后再显式加入 TEST_DATASETS。
 RESULTS_ROOT="${RESULTS_ROOT:-results}"
 USE_WANDB="${USE_WANDB:-true}"
-TOPOLOGY_LOSS="${TOPOLOGY_LOSS:-topograph}"   # 默认 topograph:针对 β 碎片化瓶颈;none 关闭
+TOPOLOGY_LOSS="${TOPOLOGY_LOSS:-none}"   # 默认 none:论文协议/SACM 基线是干净损失;需要拓扑项时显式开启
 TOPOLOGY_LOSS_WEIGHT="${TOPOLOGY_LOSS_WEIGHT:-0.002}"   # 0.002: topograph 原始量级~200,需对齐主损失 ~0.7(实测 0.1 时拓扑项占 97%)
 TOPOLOGY_RESOLUTION="${TOPOLOGY_RESOLUTION:-256}"   # 引擎损失分辨率;训练太慢降 128
-FULL_DATA="${FULL_DATA:-true}"           # 架构研究层默认全量;3-shot 协议层设 FULL_DATA=false
+FULL_DATA="${FULL_DATA:-false}"          # 默认 3-shot 论文协议(18 张);架构研究可设 FULL_DATA=true
 VAL_RATIO="${VAL_RATIO:-0.2}"
 SELECTION="${SELECTION:-auto}"           # auto: iou only when iou_loss_weight>0, else gating
 PRED_THRESHOLD="${PRED_THRESHOLD:-0.0}"  # logits; SACM fidelity uses 0.5
 GROUP_REGEX="${GROUP_REGEX:-}"           # space-separated NAME:REGEX; e.g. 'CHASEDB1:Image_(\\d+)[LR] CREMI:sample_([ABC])'
-CLEAN_SPLIT="${CLEAN_SPLIT:-true}"       # clear train/val before writing 3-shot split
-MAKE_TEST="${MAKE_TEST:-true}"           # 3-shot: also write group-disjoint test/ for Seen
+CLEAN_SPLIT="${CLEAN_SPLIT:-true}"       # clear train/val/test before writing split
+MAKE_TEST="${MAKE_TEST:-true}"           # 3-shot: write Seen test roots (official CORN test when supplied)
 DDP="${DDP:-true}"                       # true = torchrun 8 卡 DDP(全量训练);false = 单卡
 BATCH_SIZE="${BATCH_SIZE:-1}"            # 每卡 batch:3090 24GB 实测 2 会 OOM(ViT-L 1024²);
                                          # DDP 有效 batch = 卡数 × 此值
@@ -135,6 +137,12 @@ build_split() {
   fi
   python scripts/group_datasets.py --root datasets \
       || fail "group_datasets(seen/unseen/novel) 失败"
+  # CORN/LEAF are author-provided official SACM datasets; rebuild their
+  # prepared pools from ../datasets on every data rebuild.
+  python scripts/datasets/prepare_CORN.py --overwrite \
+      || fail "prepare_CORN 失败"
+  python scripts/datasets/prepare_leaf.py --overwrite \
+      || fail "prepare_leaf 失败"
   read -ra GROUP_SPECS <<< "$GROUP_REGEX"
   GROUP_ARGS=()
   for spec in "${GROUP_SPECS[@]}"; do
@@ -144,12 +152,17 @@ build_split() {
   [ "$CLEAN_SPLIT" = "true" ] && CLEAN_ARG=(--clean)
   TEST_ARG=()
   [ "$MAKE_TEST" = "true" ] && TEST_ARG=(--make_test)
+  VAL_ARGS=()
+  [ -n "$VAL_SOURCES" ] && VAL_ARGS=(--val_dirs $VAL_SOURCES)
+  TEST_SOURCES_ARGS=()
+  [ -n "$TEST_SOURCES" ] && TEST_SOURCES_ARGS=(--test_dirs $TEST_SOURCES)
   if [ "$FULL_DATA" = "true" ]; then
     python scripts/prepare_data.py --train_dirs $TRAIN_SOURCES --use_all \
         --val_ratio "$VAL_RATIO" --out_dir "$SPLIT_ROOT" --seed "$SEED" \
         "${CLEAN_ARG[@]}" || fail "prepare_data(全量) 失败"
   else
     python scripts/prepare_data.py --train_dirs $TRAIN_SOURCES \
+        "${VAL_ARGS[@]}" "${TEST_SOURCES_ARGS[@]}" \
         --shots "$SHOTS" --val_shots "$VAL_SHOTS" --out_dir "$SPLIT_ROOT" --seed "$SEED" \
         "${GROUP_ARGS[@]}" "${CLEAN_ARG[@]}" "${TEST_ARG[@]}" || fail "prepare_data 失败"
   fi

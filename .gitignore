@@ -21,6 +21,8 @@ dist/
 data/*
 !/data/sacm_3shot_v0/
 !/data/sacm_3shot_v0/**
+!/data/sacm_3shot_v1/
+!/data/sacm_3shot_v1/**
 /datasets/
 datasets_legacy/
 exports/

@@ -16,7 +16,7 @@ def betti_matching_score(pred_logits, gt, resolution=256):
     masks, missing scipy, or missing torch.
     """
     try:
-        from losses.betti_matching import betti_number_error_metric
+        from core.losses.betti_matching import betti_number_error_metric
         from scipy.ndimage import zoom
     except ImportError:
         return float("nan")
@@ -41,7 +41,7 @@ def topograph_error_score(pred_logits, gt, resolution=256):
     empty masks or missing dependencies (networkx/scipy).
     """
     try:
-        from losses.topograph import topograph_error_metric
+        from core.losses.topograph import topograph_error_metric
         from scipy.ndimage import zoom
     except ImportError:
         return float("nan")

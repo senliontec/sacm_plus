@@ -122,12 +122,15 @@ def apply_preset(args, preset):
 def apply_yaml_presets(args, path):
     """Apply a YAML config on top of the parsed args (after the preset).
 
-    Expected structure (see configs/presets.yaml):
+    Python ``PRESETS`` is the single source of truth.  The YAML file only
+    selects a preset and optionally overrides top-level argparse values:
 
-        preset: full            # selects a preset from `presets`
-        presets:                # optional mirror of PRESETS
-          full: {use_geo_i: true, ...}
+        preset: full            # selects a preset from Python PRESETS
         use_geo_i: false        # top-level keys override everything
+        epochs: 30
+
+    A custom ``presets`` mapping is still accepted for names that do not
+    exist in Python PRESETS, but it cannot shadow a built-in preset.
 
     Requires PyYAML.
     """
@@ -140,10 +143,16 @@ def apply_yaml_presets(args, path):
         cfg = yaml.safe_load(f) or {}
 
     name = cfg.get('preset', 'full')
-    presets = cfg.get('presets', {})
-    if name in presets:
-        for key, value in presets[name].items():
-            setattr(args, key, value)
+    if name != 'none':
+        if name in PRESETS:
+            apply_preset(args, name)
+        elif name in cfg.get('presets', {}):
+            for key, value in cfg['presets'][name].items():
+                setattr(args, key, value)
+        else:
+            raise ValueError(
+                f"Unknown YAML preset {name!r}; built-ins: "
+                f"{sorted(PRESETS)}")
 
     overrides = {k: v for k, v in cfg.items() if k not in ('preset', 'presets')}
     for key, value in overrides.items():

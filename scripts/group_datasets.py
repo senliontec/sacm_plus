@@ -52,6 +52,7 @@ LEGACY_NAMES = (
 INHOUSE_NOVEL = {
     'tyre': 'TYRE',
     'wire': 'WIRE',
+    'leaf': 'LEAF',
 }
 
 

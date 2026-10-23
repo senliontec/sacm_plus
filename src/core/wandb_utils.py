@@ -9,10 +9,22 @@ logging — wandb must never take down a training run.
 import logging
 import os
 
-# 内网自建 wandb(172.16.1.7)的本地密钥,硬编码于 CLI 默认值——与
-# fencing-algs configs/base.yaml 同一把 key。用户明确要求免交互登录;
-# 注意:该 key 会随源码同步到服务器,勿外传仓库。
-WANDB_API_KEY_DEFAULT = 'local-f27f7073eb73ba02434012288d46a6143ba407d8'
+# Read the self-hosted wandb key from the environment.  Never commit a
+# literal key: this file is tracked and the value would also appear in logs.
+WANDB_API_KEY_DEFAULT = os.environ.get('WANDB_API_KEY', '')
+
+_SECRET_MARKERS = ('api_key', 'token', 'secret', 'password')
+
+
+def redact_secrets(args):
+    """Return a log-safe dict of argparse values with credentials masked."""
+    safe = {}
+    for key, value in vars(args).items():
+        if any(marker in key.lower() for marker in _SECRET_MARKERS):
+            safe[key] = '***' if value else ''
+        else:
+            safe[key] = value
+    return safe
 
 
 def wandb_available():

@@ -76,6 +76,7 @@ def build_model(args, device):
         adapter_dim_ratio=args.adapter_dim_ratio,
         use_geo_i=args.use_geo_i,
         use_geo_e=args.use_geo_e,
+        geo_e_layers=args.geo_e_layers,
         use_coarse_to_fine=args.use_coarse_to_fine,
         use_fusion_v2=args.use_fusion_v2,
         use_multi_depth=args.use_multi_depth,
@@ -206,18 +207,15 @@ def run_gating_analysis(sam, loader, device, num_images, output_dir):
             # the Stage-1 masks (from which the gating scores derive).
             m2, iou_pred, m1 = predict_all(sam, model_input, sparse, dense, return_stage1=True)
             m2 = F.interpolate(m2, size=(1024, 1024), mode='bilinear', align_corners=False)
-            gating_scores = m1.view(1, m1.shape[1], -1).max(dim=-1).values[0].cpu().numpy()
 
-            # NOTE: predict_masks returns m1 already REORDERED by the gating
-            # (position 0 = gating's #1 pick). Consequently the per-head
-            # gating-rank columns below are degenerate ([1,2,3,4]) and the
-            # informative quantity is the IoU of the head AT each position:
-            # iou_by_gating_rank aggregates exactly that (and the hit rate
-            # compares gating's #1 pick against the GT-best head).
+            # predict_masks returns m1/m2 already REORDERED by the gating
+            # (position 0 = gating's #1 pick), so the gating rank of a
+            # position is simply its index + 1.  The informative comparison
+            # is between this position order and the GT-IoU order.
             ious = np.array([hard_iou(m2[0, k], gt[0]) for k in range(m2.shape[1])])
-            gating_rank = rankdata(-gating_scores)           # 1 = highest response
+            gating_rank = np.arange(1, m2.shape[1] + 1, dtype=float)
             iou_rank = rankdata(-ious)                       # 1 = best IoU
-            gating_winner = int(np.argmax(gating_scores))
+            gating_winner = 0                                # gating champion
             gt_best = int(np.argmax(ious))
             iou_head_winner = int(iou_pred[0].argmax())
 
@@ -287,6 +285,9 @@ def main():
     parser.add_argument('--adapter_dim_ratio', type=float, default=0.1)
     parser.add_argument('--use_geo_i', type=str2bool, default=True)
     parser.add_argument('--use_geo_e', type=str2bool, default=True)
+    parser.add_argument('--geo_e_layers', type=str, default='all',
+                        choices=['all', 'shallow', 'deep'],
+                        help='A2 layer placement; must match the checkpoint')
     parser.add_argument('--use_coarse_to_fine', type=str2bool, default=True)
     parser.add_argument('--use_fusion_v2', type=str2bool, default=True)
     parser.add_argument('--use_multi_depth', type=str2bool, default=True)

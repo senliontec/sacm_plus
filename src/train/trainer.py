@@ -32,7 +32,7 @@ from core.data import SegmentationDataset, TestDataset
 from core.losses import TOPOLOGY_LOSS_REGISTRY, DiceBCELoss, SoftclDiceLoss, build_topology_loss
 from core.registry import MODEL_REGISTRY, get_model_spec
 from core.trainer import Trainer
-from core.wandb_utils import WANDB_API_KEY_DEFAULT
+from core.wandb_utils import WANDB_API_KEY_DEFAULT, redact_secrets
 from models.sacm.configs import PRESETS, apply_preset, str2bool
 
 
@@ -55,7 +55,7 @@ def setup_logging(args):
     )
 
     logging.info("Training Configuration:")
-    for arg, value in vars(args).items():
+    for arg, value in redact_secrets(args).items():
         logging.info(f"{arg}: {value}")
 
 
@@ -332,7 +332,8 @@ if __name__ == '__main__':
     parser.add_argument('--wandb_host', type=str, default='http://172.16.1.7:8080',
                         help='Self-hosted wandb base URL')
     parser.add_argument('--wandb_api_key', type=str, default=WANDB_API_KEY_DEFAULT,
-                        help='wandb API key (self-hosted 172.16.1.7 local key, hardcoded per user request)')
+                        help='wandb API key (default: WANDB_API_KEY env; empty '
+                             'falls back to the wandb login/config store)')
     parser.add_argument('--wandb_name', type=str, default=None, help='wandb run name (default: model_preset)')
     parser.add_argument('--wandb_tags', type=str, default=None, help='Comma-separated wandb tags')
 

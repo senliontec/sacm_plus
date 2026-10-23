@@ -13,9 +13,19 @@ The split is recorded in <out_dir>/split_manifest.csv for reproducibility.
 
 Usage:
     python prepare_data.py \
-        --train_dirs <d1> <d2> <d3> <d4> <d5> <d6> \
+        --train_dirs <d1> ... <d6> \
         --shots 3 --val_shots 1 \
         --out_dir data/sacm_3shot --seed 42
+
+Official splits (e.g. CORN) can be named and supplied separately:
+
+    python prepare_data.py \
+        --train_dirs datasets/seen/DRIVE ... \
+                     CORN:datasets/seen/CORN/train \
+        --val_dirs CORN:datasets/seen/CORN/val \
+        --test_dirs CORN:datasets/seen/CORN/test \
+        --shots 3 --val_shots 1 --make_test \
+        --out_dir data/sacm_3shot_v1 --seed 42
 """
 
 import argparse
@@ -33,6 +43,9 @@ SUPPORTED = ('.png', '.jpg', '.jpeg', '.tif', '.tiff',
 DEFAULT_GROUP_REGEXES = {
     'CHASEDB1': r'Image_(\d+)[LR]',
     'CREMI': r'sample_([ABC])',
+    # CORN filenames are batch_<patient>_<index>.tif; the official split is
+    # batch-disjoint, and 3-shot sampling must stay within distinct batches.
+    'CORN': r'batch_(\d+)_',
 }
 
 
@@ -65,6 +78,28 @@ def parse_group_regexes(specs):
     return out
 
 
+def parse_named_dirs(specs):
+    """Parse ``NAME:DIR`` (or plain ``DIR``) entries into name -> path.
+
+    Named entries let one dataset pool live under a descriptive directory
+    (e.g. ``CORN:datasets/seen/CORN/train``) while keeping the protocol name
+    ``CORN`` in manifests and output filenames.
+    """
+    out = {}
+    for spec in specs or []:
+        if ':' in spec:
+            name, path = spec.split(':', 1)
+        else:
+            path = spec
+            name = os.path.basename(os.path.normpath(path))
+        if not name or not path:
+            raise ValueError(f"invalid NAME:DIR entry {spec!r}")
+        if name in out:
+            raise ValueError(f"duplicate dataset name {name!r} in {specs!r}")
+        out[name] = path
+    return out
+
+
 def group_pairs(pairs, dataset, regex=None):
     """Group image pairs by patient/volume ID parsed from the image stem.
 
@@ -93,6 +128,45 @@ def group_pairs(pairs, dataset, regex=None):
         key = f'{dataset}/{m.group(1)}'
         groups.setdefault(key, []).append((img, mask))
     return groups
+
+
+def select_group_images(groups, count):
+    """Pick exactly ``count`` images, preferring one per distinct group.
+
+    Used when validation comes from an official directory, so the training
+    sampler must not reserve a group for validation.  A second pass fills
+    from groups only when the pool has fewer groups than requested (e.g.
+    CREMI has three volumes); CORN has nine training batches, so its 3-shot
+    sample comes from three distinct batches.
+    """
+    keys = list(groups)
+    random.shuffle(keys)
+    picked = []
+    seen = set()
+    # First pass: one image per group.
+    for key in keys:
+        if len(picked) >= count:
+            break
+        img, mask = random.choice(groups[key])
+        picked.append((img, mask, key))
+        seen.add((img, mask))
+    # Second pass: fill from groups if the pool has too few groups.
+    if len(picked) < count:
+        for key in keys:
+            for img, mask in groups[key]:
+                if len(picked) >= count:
+                    break
+                if (img, mask) in seen:
+                    continue
+                picked.append((img, mask, key))
+                seen.add((img, mask))
+            if len(picked) >= count:
+                break
+    if len(picked) < count:
+        raise ValueError(
+            f"not enough groups: picked={len(picked)}/{count}; "
+            "add groups or reduce shots")
+    return picked
 
 
 def select_group_split(groups, shots, val_shots):
@@ -128,8 +202,18 @@ def select_group_split(groups, shots, val_shots):
 def main():
     parser = argparse.ArgumentParser(description='Build the few-shot (or full) training split')
     parser.add_argument('--train_dirs', nargs='+', required=True,
-                        help='Source dataset dirs (each with images/ and masks/); '
-                             '3-shot per dataset is sampled from the first 6')
+                        help='Source dataset roots (each with images/ and masks/). '
+                             'Entries may be NAME:DIR to set the protocol name while '
+                             'pointing at a split-specific pool (e.g. '
+                             'CORN:datasets/seen/CORN/train).')
+    parser.add_argument('--val_dirs', nargs='+', default=[],
+                        help='Optional NAME:DIR official validation roots; when '
+                             'present, val_shots are sampled from this directory '
+                             'instead of the training pool.')
+    parser.add_argument('--test_dirs', nargs='+', default=[],
+                        help='Optional NAME:DIR official test roots; when present '
+                             'with --make_test, the official test images are copied '
+                             'to test/<NAME>/ instead of the held-out complement.')
     parser.add_argument('--shots', type=int, default=3, help='Train images per dataset (few-shot mode)')
     parser.add_argument('--val_shots', type=int, default=1, help='Val images per dataset (few-shot mode)')
     parser.add_argument('--use_all', action='store_true',
@@ -142,22 +226,35 @@ def main():
                         help='NAME:REGEX (repeatable, one capture group), e.g. '
                              'CHASEDB1:Image_(\\d+)[LR] or CREMI:sample_([ABC])')
     parser.add_argument('--clean', action='store_true',
-                        help='Clear existing train/val dirs before writing')
+                        help='Clear existing train/val/test dirs before writing')
     parser.add_argument('--make_test', action='store_true',
-                        help='Copy all unused groups to test/ for Seen evaluation '
-                             '(group-disjoint from train/val)')
+                        help='Write Seen test roots. Uses test_dirs official '
+                             'splits when provided, otherwise copies all unused '
+                             'groups (group-disjoint from train/val).')
     args = parser.parse_args()
 
     random.seed(args.seed)
     group_regexes = parse_group_regexes(args.group_regex)
     if not group_regexes:
-        print("[info] --group_regex not set; using built-in CHASEDB1/CREMI "
+        print("[info] --group_regex not set; using built-in CHASEDB1/CREMI/CORN "
               "patterns; other datasets are image-level")
+    train_specs = parse_named_dirs(args.train_dirs)
+    val_specs = parse_named_dirs(args.val_dirs)
+    test_specs = parse_named_dirs(args.test_dirs)
+    unknown = (set(val_specs) | set(test_specs)) - set(train_specs)
+    if unknown:
+        raise ValueError(
+            "--val_dirs/--test_dirs names are not in --train_dirs: "
+            f"{sorted(unknown)}")
+    if args.use_all and (val_specs or test_specs):
+        print("[warn] --use_all ignores --val_dirs/--test_dirs "
+              "(full mode has no fixed official split)")
+        val_specs, test_specs = {}, {}
     if args.use_all and args.make_test:
         print("[warn] --use_all ignores --make_test "
               "(full mode has no held-out Seen split)")
     if args.clean:
-        for split in ('train', 'val'):
+        for split in ('train', 'val', 'test'):
             d = os.path.join(args.out_dir, split)
             if os.path.isdir(d):
                 shutil.rmtree(d)
@@ -167,12 +264,12 @@ def main():
         os.makedirs(os.path.join(args.out_dir, split, 'masks'), exist_ok=True)
 
     manifest = []
-    for src in args.train_dirs:
-        name = os.path.basename(os.path.normpath(src))
+    for name, src in train_specs.items():
         pairs = find_pairs(src)
         if not pairs:
             raise ValueError(f"No image-mask pairs found in {src}")
         regex = group_regexes.get(name, DEFAULT_GROUP_REGEXES.get(name))
+        source_dirs = {'train': src, 'val': src, 'test': src}
         if args.use_all:
             n_val = max(1, int(len(pairs) * args.val_ratio))
             if regex is None:
@@ -197,10 +294,58 @@ def main():
                 print(f"[warn] {name}: no group regex; image-level split "
                       "may leak patients/volumes into val")
             groups = group_pairs(pairs, name, regex)
-            train, val = select_group_split(
-                groups, args.shots, args.val_shots)
+            if name in val_specs:
+                # Official validation split: train may use any shots without
+                # reserving a group for validation.
+                train = select_group_images(groups, args.shots)
+                val_pairs = find_pairs(val_specs[name])
+                if not val_pairs:
+                    raise ValueError(
+                        f"No image-mask pairs found in {val_specs[name]}")
+                val_groups = group_pairs(val_pairs, name, regex)
+                val = select_group_images(val_groups, args.val_shots)
+                train_stems = {
+                    os.path.splitext(os.path.basename(img))[0]
+                    for img, _, _ in train
+                }
+                overlap = [
+                    img for img, _, _ in val
+                    if os.path.splitext(os.path.basename(img))[0] in train_stems
+                ]
+                if overlap:
+                    raise ValueError(
+                        f"{name}: official val overlaps train: {overlap[:3]}")
+                source_dirs['val'] = val_specs[name]
+            else:
+                train, val = select_group_split(
+                    groups, args.shots, args.val_shots)
             subsets = [('train', train), ('val', val)]
-            if args.make_test:
+            if args.make_test and name in test_specs:
+                test_pairs = find_pairs(test_specs[name])
+                if not test_pairs:
+                    raise ValueError(
+                        f"No image-mask pairs found in {test_specs[name]}")
+                used_stems = {
+                    os.path.splitext(os.path.basename(img))[0]
+                    for _, items in subsets for img, _, _ in items
+                }
+                test = []
+                for img, mask in test_pairs:
+                    stem = os.path.splitext(os.path.basename(img))[0]
+                    if stem in used_stems:
+                        raise ValueError(
+                            f"{name}: official test contains a train/val image: {img}")
+                    group = f'{name}/official_test'
+                    if regex is not None:
+                        match = re.search(regex, stem)
+                        if match:
+                            group = f'{name}/{match.group(1)}'
+                    test.append((img, mask, group))
+                subsets.append(('test', test))
+                source_dirs['test'] = test_specs[name]
+                print(f"[info] {name}: using official test split "
+                      f"({len(test)} pairs) from {test_specs[name]}")
+            elif args.make_test:
                 used = {g for _, _, g in train} | {g for _, _, g in val}
                 test = [(img, mask, key)
                         for key, group in groups.items() if key not in used
@@ -225,7 +370,8 @@ def main():
                 shutil.copy2(mask_path, new_mask)
 
                 # Optional FOV: keep it aligned with the split (train/val/test).
-                fov_src_dir = os.path.join(src, 'fov')
+                fov_src_dir = os.path.join(
+                    source_dirs.get(split, src), 'fov')
                 if os.path.isdir(fov_src_dir):
                     src_base = os.path.splitext(os.path.basename(img_path))[0]
                     fov_path = None
@@ -237,8 +383,12 @@ def main():
                     if fov_path is not None:
                         fov_dir = os.path.join(split_root, 'fov')
                         os.makedirs(fov_dir, exist_ok=True)
-                        shutil.copy2(fov_path,
-                                     os.path.join(fov_dir, new_base + '.png'))
+                        # Preserve the source extension: a .tif renamed to
+                        # .png is content-misleading even if PIL sniffs it.
+                        fov_ext = os.path.splitext(fov_path)[1]
+                        shutil.copy2(
+                            fov_path,
+                            os.path.join(fov_dir, new_base + fov_ext))
 
                 manifest.append({
                     'dataset': name,

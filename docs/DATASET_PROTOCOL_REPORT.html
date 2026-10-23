@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>SACM-Plus 数据集准备与实验协议报告 v0</title>
+<title>SACM-Plus 数据集准备与实验协议报告 v1</title>
 <style>
   :root {
     --bg: #f6f7f9;
@@ -141,24 +141,24 @@
 
 <header class="hero">
   <h1>SACM-Plus 数据集准备与实验协议报告</h1>
-  <p>版本 v0 · 生成日期 2026-10-22 · 冻结状态：是</p>
-  <p>范围：18 个原始数据集 → 标准数据源池 → 3-shot 训练/验证/Seen 测试协议 → Unseen/Novel 外部测试</p>
+  <p>版本 v1 · 更新日期 2026-10-23 · v0（2026-10-22）保留为历史</p>
+  <p>范围：20 个原始数据集 → 标准数据源池 → 6 域 3-shot 训练/验证/Seen 测试协议 → Unseen/Novel 外部测试</p>
   <div class="meta">
     <span class="pill">seed 42</span>
-    <span class="pill">5 个 Seen 域</span>
-    <span class="pill">15 train / 5 val / 493 seen test</span>
-    <span class="pill">2,269 条协议记录</span>
-    <span class="pill">9,393 对源数据池</span>
+    <span class="pill">6 个 Seen 域</span>
+    <span class="pill">18 train / 6 val / 645 seen test</span>
+    <span class="pill">2,456 条协议记录</span>
+    <span class="pill">10,940 对源数据池</span>
   </div>
 </header>
 
 <div class="cards">
-  <div class="card"><div class="num">18</div><div class="label">原始数据集 / 标准源池</div></div>
-  <div class="card"><div class="num">9,393</div><div class="label">源池 image-mask 对</div></div>
-  <div class="card"><div class="num">15</div><div class="label">当前主协议数据集</div></div>
-  <div class="card"><div class="num">15 / 5</div><div class="label">Train / Val</div></div>
-  <div class="card"><div class="num">493</div><div class="label">Seen test</div></div>
-  <div class="card"><div class="num">1,756</div><div class="label">Unseen + Novel test</div></div>
+  <div class="card"><div class="num">20</div><div class="label">原始数据集 / 标准源池</div></div>
+  <div class="card"><div class="num">10,940</div><div class="label">源池 image-mask 对</div></div>
+  <div class="card"><div class="num">17</div><div class="label">当前主协议数据集</div></div>
+  <div class="card"><div class="num">18 / 6</div><div class="label">Train / Val</div></div>
+  <div class="card"><div class="num">645</div><div class="label">Seen test</div></div>
+  <div class="card"><div class="num">1,787</div><div class="label">Unseen + Novel test</div></div>
 </div>
 
 <section id="toc">
@@ -186,16 +186,22 @@
     核心结论是：<b>数据源池可以安全用于后续实验；训练/验证/测试 split 由我们自己固定，并非官方 SACM 的原始 split。</b>
   </p>
   <div class="success">
-    <b>当前协议 v0（已生成并冻结）</b><br>
-    5 个 Seen 域 × 3-shot = 15 张训练图；每域 1 张验证图，共 5 张；
-    5 个 Seen 域的留出部分共 493 张 Seen test；
-    7 个 Unseen 数据集共 1,640 张；3 个 Novel 数据集共 116 张。
+    <b>当前协议 v1（已生成并冻结）</b><br>
+    6 个 Seen 域 × 3-shot = 18 张训练图；每域 1 张验证图，共 6 张（CORN 用官方 val）；
+    5 个原有 Seen 域的留出部分 493 张 + CORN 官方 test 152 张 = 645 张 Seen test；
+    7 个 Unseen 数据集共 1,640 张；4 个 Novel 数据集共 147 张（新增官方 LEAF 31 张）。
+  </div>
+  <div class="success">
+    <b>v1 修订（2026-10-23）</b><br>
+    CORN 与 LEAF 由论文作者提供，已按 SACM 官方实验配置接入：
+    CORN 成为第 6 个 3-shot 训练域，其官方 batch-disjoint test 进入 Seen；
+    LEAF 恢复为 Novel 第 4 个数据集。v0 保留作历史，不覆盖。
   </div>
   <div class="warning">
-    <b>这不是官方 SACM 的严格复现。</b>
-    官方使用 6 个训练域、18 张训练图，且没有公开具体 3-shot 样本 ID 和完整测试 split。
-    因此官方 SACM 及官方 baseline 的数字不能直接作为本协议下的对比结果；
-    正式实验必须在当前 split 上重跑 SACM 和选定的 baseline。
+    <b>仍不是官方 SACM 的严格复现。</b>
+    v1 已对齐官方<b>训练预算（6 域 × 3-shot = 18 张）</b>和 <b>Novel 组成（ROAD/LEAF/TYRE/WIRE = 147 张）</b>，
+    但官方没有公开具体的 3-shot 样本 ID，且 Seen/Unseen 组成仍受 DSCA 权限、官方 CRACK split、
+    DRIVE 官方 test 无血管 GT 等限制。官方数字仍只能作为参考；正式主表必须在 v1 split 上重跑 SACM 和 baseline。
   </div>
 </section>
 
@@ -211,20 +217,20 @@
   <ul>
     <li><code>segment/datasets/</code>：原始数据仓库，保持原始格式；</li>
     <li><code>sacm_plus/datasets/</code>：统一格式的标准源池，每个数据集包含 <code>images/</code>、<code>masks/</code>、可选 <code>fov/</code>、<code>manifest.csv</code>；</li>
-    <li><code>sacm_plus/data/sacm_3shot_v0/</code>：本次论文实际使用的固定 split；</li>
+    <li><code>sacm_plus/data/sacm_3shot_v1/</code>：当前论文实际使用的固定 split；<code>sacm_3shot_v0/</code> 保留为历史；</li>
     <li><code>docs/DATASET_PROTOCOL_REPORT.html</code>：本报告。</li>
   </ul>
   <p>
-    18 个源池全部通过独立脚本生成，例如 <code>scripts/datasets/prepare_DRIVE.py</code>、
+    20 个源池全部通过独立脚本生成，例如 <code>scripts/datasets/prepare_DRIVE.py</code>、
     <code>scripts/datasets/prepare_OCTA-500.py</code>。源池不会被训练脚本直接修改；
     训练/测试只读取固定的 split 或外部测试源池。
   </p>
 </section>
 
 <section id="pools">
-  <h2>3. 18 个源数据池</h2>
+  <h2>3. 20 个源数据池</h2>
   <p>
-    下表是 18 个源池的选取口径。所有 mask 均已统一为单通道 PNG、0/255；
+    下表是 20 个源池的选取口径。所有 mask 均已统一为单通道 PNG、0/255；
     “排除/未用”表示没有进入当前源池或当前主协议，而不是数据损坏。
   </p>
   <div class="table-wrap">
@@ -238,6 +244,7 @@
       <tr><td>DCA1</td><td>Seen</td><td class="num">134</td><td>gt.pgm 与同名 pgm 配对</td><td>无</td><td class="ok">主协议</td></tr>
       <tr><td>CREMI</td><td>Seen</td><td class="num">373</td><td>A/B/C volume；neuron_ids 转 boundary</td><td>2 张全黑；A/B 剩 246 张不进 Seen test</td><td class="ok">主协议</td></tr>
       <tr><td>CrackTree200</td><td>Seen</td><td class="num">206</td><td>RGB 图 + cracktree200_gt</td><td>无</td><td class="ok">主协议</td></tr>
+      <tr><td>CORN</td><td>Seen</td><td class="num">1,516</td><td>作者官方 CORN-1：train 1,176 / val 188 / test 152</td><td>官方 batch-disjoint split；3-shot 用 seed 42 抽样</td><td class="ok">主协议</td></tr>
       <tr><td>FIVES</td><td>Unseen</td><td class="num">200</td><td>官方 test / Original + Ground truth</td><td>官方 train 不混入外部测试</td><td class="ok">主协议</td></tr>
       <tr><td>STARE</td><td>Unseen</td><td class="num">20</td><td>stare-images + labels-ah</td><td>vk 标注不另算</td><td class="ok">主协议</td></tr>
       <tr><td>XCAD</td><td>Unseen</td><td class="num">126</td><td>test/images + test/masks</td><td>train 无 mask</td><td class="ok">主协议</td></tr>
@@ -246,6 +253,7 @@
       <tr><td>LES-AV</td><td>Unseen</td><td class="num">22</td><td>images + vessel-segmentations</td><td>masks/*.gif 是 FOV，不是血管 GT</td><td class="ok">主协议</td></tr>
       <tr><td>CHCrack5k</td><td>Unseen</td><td class="num">990</td><td>test/image + test/gt</td><td>13 张空 GT</td><td class="ok">主协议</td></tr>
       <tr><td>ROAD</td><td>Novel</td><td class="num">49</td><td>tiff/test + test_labels</td><td>官方 train/val 不混入</td><td class="ok">主协议</td></tr>
+      <tr><td>LEAF</td><td>Novel</td><td class="num">31</td><td>作者提供官方 SACM 集；mask &gt;127</td><td>细线断点多，拓扑指标需注明</td><td class="ok">主协议</td></tr>
       <tr><td>TYRE</td><td>Novel</td><td class="num">36</td><td>in-house；RGB mask &gt;127</td><td>无</td><td class="ok">主协议</td></tr>
       <tr><td>WIRE</td><td>Novel</td><td class="num">31</td><td>in-house；RGB mask &gt;127</td><td>无</td><td class="ok">主协议</td></tr>
       <tr><td>TopoMortar</td><td>Novel</td><td class="num">350</td><td>默认 test/images + test/accurate</td><td>train/val 不混入</td><td class="warn">候选</td></tr>
@@ -255,7 +263,7 @@
   </table>
   </div>
   <p class="small">
-    源池合计 9,393 对。其中 15 个主协议数据集合计 2,517 对（含 Seen 域未使用图）；
+    源池合计 10,940 对。其中 17 个主协议数据集合计 4,064 对（含 Seen 域未使用图）；
     3 个候选数据集合计 6,876 对，尚未进入主实验。
   </p>
 </section>
@@ -263,8 +271,9 @@
 <section id="seen">
   <h2>4. Seen 域划分</h2>
   <p>
-    训练协议为每域 3 张训练图、1 张验证图。Seen test 使用未被 train/val 选中的
-    group，且与 train/val 保持患者/volume 级隔离。
+    训练协议为每域 3 张训练图、1 张验证图。原有 5 域的 Seen test 使用未被
+    train/val 选中的 group，且与 train/val 保持患者/volume 级隔离；
+    CORN 直接使用作者官方 batch-disjoint split（train 1,176 / val 188 / test 152）。
   </p>
   <div class="table-wrap">
   <table>
@@ -277,7 +286,8 @@
       <tr><td>DCA1</td><td class="num">134</td><td class="num">3</td><td class="num">1</td><td class="num">130</td><td class="num">0</td><td>image-level</td></tr>
       <tr><td>CREMI</td><td class="num">373</td><td class="num">3</td><td class="num">1</td><td class="num">123</td><td class="num">246</td><td>volume 级</td></tr>
       <tr><td>CrackTree200</td><td class="num">206</td><td class="num">3</td><td class="num">1</td><td class="num">202</td><td class="num">0</td><td>image-level</td></tr>
-      <tr><th>合计</th><th class="num">761</th><th class="num">15</th><th class="num">5</th><th class="num">493</th><th class="num">248</th><th>—</th></tr>
+      <tr><td>CORN</td><td class="num">1,516</td><td class="num">3</td><td class="num">1</td><td class="num">152</td><td class="num">1,360</td><td>batch 级（官方 split）</td></tr>
+      <tr><th>合计</th><th class="num">2,277</th><th class="num">18</th><th class="num">6</th><th class="num">645</th><th class="num">1,608</th><th>—</th></tr>
     </tbody>
   </table>
   </div>
@@ -292,6 +302,7 @@
       <tr><td>DCA1</td><td><code>33.png</code>, <code>59.png</code>, <code>72.png</code></td><td><code>16.png</code></td></tr>
       <tr><td>CREMI</td><td><code>sample_B_z000.png</code>, <code>sample_B_z001.png</code>, <code>sample_B_z002.png</code></td><td><code>sample_A_z000.png</code></td></tr>
       <tr><td>CrackTree200</td><td><code>6682.jpg</code>, <code>6331.jpg</code>, <code>6293.jpg</code></td><td><code>6721.jpg</code></td></tr>
+      <tr><td>CORN</td><td><code>batch_7_76.tif</code>, <code>batch_3_41.tif</code>, <code>batch_6_18.tif</code></td><td><code>batch_9_161.tif</code></td></tr>
     </tbody>
   </table>
   </div>
@@ -328,14 +339,14 @@
   </ul>
   <p class="small">
     备选：A 训练/验证，B+C 测试，可把 Seen test 从 123 提升到 248，未使用降到 121；
-    但训练只来自一个 volume。本 v0 保留 A/B 训练、C 测试的 leave-one-volume-out 方案。
+    但训练只来自一个 volume。本 v1 保留 A/B 训练、C 测试的 leave-one-volume-out 方案。
   </p>
 
   <h3>4.4 Image-level 划分的风险</h3>
   <p>
-    DRIVE、DCA1、CrackTree200 的源池没有可用的患者/病灶分组元数据，v0 采用 image-level 划分。
+    DRIVE、DCA1、CrackTree200 的源池没有可用的患者/病灶分组元数据，v1 采用 image-level 划分。
     如果原始数据集实际存在同一患者多张图，可能产生弱患者级泄漏；论文中必须明确说明这一点。
-    后续 v1 应优先检查这些数据集的 patient/session 元数据。
+    后续 v2 应优先检查这些数据集的 patient/session 元数据。
   </p>
 </section>
 
@@ -359,15 +370,16 @@
   </table>
   </div>
 
-  <h3>5.2 Novel：3 个数据集，116 张</h3>
+  <h3>5.2 Novel：4 个数据集，147 张</h3>
   <div class="table-wrap">
   <table>
     <thead><tr><th>数据集</th><th class="num">测试数</th><th>类别</th><th>说明</th></tr></thead>
     <tbody>
       <tr><td>ROAD</td><td class="num">49</td><td>道路</td><td>官方 test</td></tr>
+      <tr><td>LEAF</td><td class="num">31</td><td>叶脉</td><td>作者提供的官方 SACM 集；mask &gt;127；细线断点多，拓扑指标需注明</td></tr>
       <tr><td>TYRE</td><td class="num">36</td><td>轮胎花纹</td><td>in-house；mask &gt;127</td></tr>
       <tr><td>WIRE</td><td class="num">31</td><td>线束</td><td>in-house；mask &gt;127</td></tr>
-      <tr><th>合计</th><th class="num">116</th><th>—</th><th>—</th></tr>
+      <tr><th>合计</th><th class="num">147</th><th>—</th><th>—</th></tr>
     </tbody>
   </table>
   </div>
@@ -393,9 +405,9 @@
 
 <section id="audit">
   <h2>7. 数据审计结果</h2>
-  <h3>7.1 18 个源池</h3>
+  <h3>7.1 20 个源池</h3>
   <div class="success">
-    <b>9,393 对全部通过：</b>
+    <b>10,940 对全部通过：</b>
     0 个 orphan image；0 个 orphan mask；0 个尺寸不一致；0 个空 mask；
     所有 mask 为单通道且只有 0/255；FOV 共 65 张，全部尺寸一致且为 0/255。
   </div>
@@ -405,11 +417,11 @@
     <thead><tr><th>扩展名</th><th class="num">数量</th><th>说明</th></tr></thead>
     <tbody>
       <tr><td><code>.jpg</code></td><td class="num">7,536</td><td>CrackTree、CHCrack、DeepCrack、DeepGlobe、HRF</td></tr>
-      <tr><td><code>.png</code></td><td class="num">1,488</td><td>其余数据集</td></tr>
+      <tr><td><code>.png</code></td><td class="num">1,519</td><td>其余数据集 + LEAF 31</td></tr>
       <tr><td><code>.bmp</code></td><td class="num">300</td><td>OCTA-500</td></tr>
       <tr><td><code>.tiff</code></td><td class="num">49</td><td>ROAD</td></tr>
-      <tr><td><code>.tif</code></td><td class="num">20</td><td>DRIVE</td></tr>
-      <tr><th>合计</th><th class="num">9,393</th><th>—</th></tr>
+      <tr><td><code>.tif</code></td><td class="num">1,536</td><td>DRIVE 20 + CORN-1 1,516</td></tr>
+      <tr><th>合计</th><th class="num">10,940</th><th>—</th></tr>
     </tbody>
   </table>
   </div>
@@ -420,18 +432,19 @@
 
   <h3>7.2 生成后的 split</h3>
   <div class="success">
-    <b>513 条 split 记录（15 train + 5 val + 493 seen test）全部通过：</b>
-    图像/mask 尺寸一致；mask 0/255；无空 mask；train/val/test 的 group 交集为空。
+    <b>669 条 split 记录（18 train + 6 val + 645 seen test）全部通过：</b>
+    图像/mask 尺寸一致；mask 0/255；无空 mask；原有 5 域 train/val/test 的 group 交集为空，
+    CORN 使用作者官方 batch-disjoint split。
   </div>
   <div class="table-wrap">
   <table>
     <thead><tr><th>检查项</th><th>结果</th></tr></thead>
     <tbody>
-      <tr><td>Train</td><td>15 张，5 个数据集各 3 张</td></tr>
-      <tr><td>Val</td><td>5 张，5 个数据集各 1 张</td></tr>
-      <tr><td>Seen test</td><td>493 张：DRIVE 16 / CHASEDB1 22 / DCA1 130 / CREMI 123 / CrackTree200 202</td></tr>
-      <tr><td>Group overlap</td><td>所有数据集 train/val/test 交集为空</td></tr>
-      <tr><td>Mask integrity</td><td>513 对全部尺寸一致、无空 mask、值为 0/255</td></tr>
+      <tr><td>Train</td><td>18 张，6 个数据集各 3 张（CORN 来自 batch 7/3/6）</td></tr>
+      <tr><td>Val</td><td>6 张，6 个数据集各 1 张（CORN 用官方 val batch 9）</td></tr>
+      <tr><td>Seen test</td><td>645 张：DRIVE 16 / CHASEDB1 22 / DCA1 130 / CREMI 123 / CrackTree200 202 / CORN 152</td></tr>
+      <tr><td>Group overlap</td><td>原有 5 域 train/val/test 交集为空；CORN 官方 split 本身 batch 不重叠</td></tr>
+      <tr><td>Mask integrity</td><td>669 对全部尺寸一致、无空 mask、值为 0/255</td></tr>
     </tbody>
   </table>
   </div>
@@ -471,15 +484,17 @@
 <section id="decisions">
   <h2>8. 设计决策与取舍</h2>
 
-  <h3>8.1 为什么主协议是 5 个 Seen 域，而不是官方 6 个</h3>
+  <h3>8.1 为什么 v1 恢复为官方 6 个 Seen 域</h3>
   <p>
     官方 SACM 使用 DRIVE、CHASEDB1、DCA1、CrackTree、CREMI、CORN 六个训练域，
-    共 18 张 3-shot 图。当前原始数据仓库没有 CORN，因此 v0 使用 5 个域、15 张图。
+    共 18 张 3-shot 图。v0 因当时没有 CORN 而使用 5 个域、15 张图；
+    2026-10-23 作者提供了 CORN-1 的官方 batch-disjoint split，v1 已恢复 6 域、18 张，
+    并把官方 test 152 张纳入 Seen。
   </p>
   <ul>
-    <li>官方没有公开 3-shot 样本 ID，补 CORN 也不能严格复现；</li>
-    <li>先冻结 5 域协议，避免主实验被数据下载阻塞；</li>
-    <li>如果以后拿到 CORN，创建 <code>sacm_3shot_v1</code>，不要修改 v0。</li>
+    <li>官方没有公开 3-shot 样本 ID，v1 用 seed 42 固定采样，仍不能逐位复现；</li>
+    <li>CORN 的 3 张训练图来自 3 个不同 batch（7/3/6），val 用官方 batch 9；</li>
+    <li>v0 保留作历史，不覆盖；所有新实验以 <code>sacm_3shot_v1</code> 为准。</li>
   </ul>
 
   <h3>8.2 为什么 CHASEDB1 用 3 / 1 / 22</h3>
@@ -503,10 +518,13 @@
     <li>DeepGlobe 有 6,226 对，数量会主导 Unseen 平均；且角色尚未最终确认。</li>
   </ul>
 
-  <h3>8.5 为什么 LEAF 不在主协议</h3>
+  <h3>8.5 为什么 v1 恢复 LEAF（附标注 caveat）</h3>
   <p>
-    LEAF 的 mask 存在大量 1 像素稀疏中心线和断点，质量不适合当前主定量协议；
-    已归档到 <code>datasets_legacy/novel_LEAF</code>。
+    LEAF 是 SACM 官方 Novel 集的一部分，v1 使用论文作者提供的 31 张官方数据，
+    以保持 Novel 组成与论文一致（ROAD/LEAF/TYRE/WIRE = 147）。
+    其 mask 确实存在大量 1 像素断点（中位数 305 个 8-连通分量，39% 分量 ≤4 px），
+    这是官方标注本身的属性：主表仍使用官方 mask，但拓扑指标（clDice/HD95/Betti）
+    需在论文中注明“对标注断点敏感”，不能把它当作干净的拓扑基准。
   </p>
 
   <h3>8.6 为什么 OCTA-500 只有 300 对</h3>
@@ -521,20 +539,22 @@
   <h2>9. 与官方 SACM 的差异</h2>
   <div class="table-wrap">
   <table>
-    <thead><tr><th>项目</th><th>官方 SACM</th><th>当前 v0</th><th>能否直接比较</th></tr></thead>
+    <thead><tr><th>项目</th><th>官方 SACM</th><th>当前 v1</th><th>能否直接比较</th></tr></thead>
     <tbody>
-      <tr><td>训练域</td><td>6 个：DRIVE、CHASEDB1、DCA1、CrackTree、CREMI、CORN</td><td>5 个：去掉 CORN</td><td class="risk">否</td></tr>
-      <tr><td>训练图</td><td>18 张（6 × 3）</td><td>15 张（5 × 3）</td><td class="risk">否</td></tr>
+      <tr><td>训练域</td><td>6 个：DRIVE、CHASEDB1、DCA1、CrackTree、CREMI、CORN</td><td>6 个：相同</td><td class="ok">是（组成）</td></tr>
+      <tr><td>训练图</td><td>18 张（6 × 3）</td><td>18 张（6 × 3）</td><td class="ok">是（预算）</td></tr>
       <tr><td>3-shot 样本 ID</td><td>未公开</td><td>seed 42 固定</td><td class="risk">否</td></tr>
-      <tr><td>Seen test</td><td>DRIVE 20、CHASEDB1 8、DCA1 100、CORN 100</td><td>DRIVE 16、CHASEDB1 22、DCA1 130、CREMI 123、CrackTree 202</td><td class="risk">否</td></tr>
+      <tr><td>Seen test</td><td>DRIVE 20、CHASEDB1 8、DCA1 100、CORN 100</td><td>DRIVE 16、CHASEDB1 22、DCA1 130、CREMI 123、CrackTree 202、CORN 152</td><td class="risk">否</td></tr>
       <tr><td>Unseen</td><td>FIVES、DSCA、XCAD、CRACK</td><td>FIVES、STARE、XCAD、DeepCrack、HRF、LES-AV、CHCrack5k</td><td class="risk">否</td></tr>
-      <tr><td>Novel</td><td>ROAD、LEAF、TYRE、WIRE</td><td>ROAD、TYRE、WIRE（LEAF 归档）</td><td class="risk">否</td></tr>
+      <tr><td>Novel</td><td>ROAD、LEAF、TYRE、WIRE</td><td>ROAD、LEAF、TYRE、WIRE</td><td class="ok">是（组成）</td></tr>
     </tbody>
   </table>
   </div>
   <div class="warning">
-    <b>结论：</b>官方论文中的 SACM 和 baseline 数字只能作为“论文报告值”引用，
-    不能作为当前协议下的直接对比结果。正式主表必须在当前 v0 split 上重跑 SACM 和选定的 baseline。
+    <b>结论：</b>v1 已对齐官方训练预算（18 张）和 Novel 组成（147 张），
+    但 Seen/Unseen 的具体图像集合仍不同（DSCA 权限、官方 CRACK split、DRIVE test GT 等限制）。
+    官方论文中的 SACM 和 baseline 数字仍只能作为“论文报告值”引用；
+    正式主表必须在 v1 split 上重跑 SACM 和选定的 baseline。
   </div>
 </section>
 
@@ -581,12 +601,19 @@
     datasets/seen/DCA1 \
     datasets/seen/CREMI \
     datasets/seen/CrackTree200 \
+    CORN:datasets/seen/CORN/train \
+  --val_dirs CORN:datasets/seen/CORN/val \
+  --test_dirs CORN:datasets/seen/CORN/test \
   --shots 3 \
   --val_shots 1 \
-  --out_dir data/sacm_3shot_v0 \
+  --out_dir data/sacm_3shot_v1 \
   --seed 42 \
   --clean \
-  --make_test</code></pre>
+  --make_test
+
+# Optional: rebuild the full protocol manifest/summary
+python scripts/build_protocol_manifest.py \
+  --split-root data/sacm_3shot_v1 --datasets-root datasets</code></pre>
 
   <h3>11.2 关键产物</h3>
   <div class="table-wrap">
@@ -594,38 +621,39 @@
     <thead><tr><th>文件</th><th>内容</th><th>大小 / 行数</th><th>SHA256</th></tr></thead>
     <tbody>
       <tr>
-        <td><code>data/sacm_3shot_v0/split_manifest.csv</code></td>
-        <td>513 条 train/val/seen-test 记录；字段：dataset、split、source_image、output、group</td>
-        <td>513 行；31,057 bytes</td>
-        <td><code>85bb48046eba76dbcad8f8027ce05f89aae7c7ad7ee2c60ae0cffe90fff620e2</code></td>
+        <td><code>data/sacm_3shot_v1/split_manifest.csv</code></td>
+        <td>669 条 train/val/seen-test 记录；字段：dataset、split、source_image、output、group</td>
+        <td>669 行；39,135 bytes</td>
+        <td><code>41506ae049c12ca0c0b9106ee06837603717a78034a0f6438d0702238bcd14a1</code></td>
       </tr>
       <tr>
-        <td><code>data/sacm_3shot_v0/protocol_manifest.csv</code></td>
-        <td>2,269 条完整协议记录（train + val + seen + unseen + novel），含尺寸、前景比、image/mask SHA256</td>
-        <td>2,269 行；796,929 bytes</td>
-        <td><code>a89e65bbcff2830c589998605d1bf607b880b05f5e890e7db09e12112945e99e</code></td>
+        <td><code>data/sacm_3shot_v1/protocol_manifest.csv</code></td>
+        <td>2,456 条完整协议记录（train + val + seen + unseen + novel），含尺寸、前景比、image/mask SHA256</td>
+        <td>2,456 行；760,653 bytes</td>
+        <td><code>09cd3e17ad876267bc7fe23874983e1a6fee7c59f2a4e344168c3c3f19424c2e</code></td>
       </tr>
       <tr>
-        <td><code>data/sacm_3shot_v0/protocol_summary.json</code></td>
+        <td><code>data/sacm_3shot_v1/protocol_summary.json</code></td>
         <td>按 role/split/dataset 的计数、协议版本、seed、manifest 哈希</td>
-        <td>1,056 bytes</td>
-        <td><code>fd6af83c5556aab90ba666ce6d4fcf51bbbf6e6b54649ccd92d9cf2588b05d1a</code></td>
+        <td>1,136 bytes</td>
+        <td><code>0ff7e15c2bda33d0943fef2122aa95c60182da19bdf66b3e53d579673cc3f338</code></td>
       </tr>
     </tbody>
   </table>
   </div>
 
   <h3>11.3 协议清单</h3>
-  <pre><code>data/sacm_3shot_v0/
-  train/images/       15
-  train/masks/        15
-  val/images/          5
-  val/masks/           5
+  <pre><code>data/sacm_3shot_v1/
+  train/images/       18
+  train/masks/        18
+  val/images/          6
+  val/masks/           6
   test/DRIVE/         16
   test/CHASEDB1/      22
   test/DCA1/         130
   test/CREMI/        123
   test/CrackTree200/ 202
+  test/CORN/         152
   split_manifest.csv
   protocol_manifest.csv
   protocol_summary.json</code></pre>
@@ -634,8 +662,8 @@
   <ul>
     <li>发布 <code>split_manifest.csv</code> / <code>protocol_manifest.csv</code>、生成脚本和随机种子；</li>
     <li>不要直接重新分发受 license 限制的原始医学图像；提供官方下载链接即可；</li>
-    <li>在 README 中写明 v0 冻结日期、hash、Git commit；</li>
-    <li>任何 split 修改都必须升级为 v1，并重跑全部 baseline。</li>
+    <li>在 README 中写明 v1 冻结日期、hash、Git commit；</li>
+    <li>任何 split 修改都必须升级为 v2，并重跑全部 baseline。</li>
   </ul>
 </section>
 
@@ -643,11 +671,12 @@
   <h2>12. 限制与发表清单</h2>
   <h3>12.1 必须写进论文的限制</h3>
   <ul>
-    <li>没有 CORN，训练域为 5 个而非官方 6 个；</li>
+    <li>CORN 使用作者官方 batch-disjoint split，但 3-shot 具体图片仍是 seed 42 抽样，不是官方 ID；CORN Seen 用 152 张，论文报告 100 张；</li>
     <li>官方 3-shot 图片 ID 和完整测试 split 未公开，本协议为自定义 split；</li>
     <li>CHASEDB1 没有官方 split，采用患者级 3/1/22；</li>
     <li>CREMI 使用 A/B 训练验证、C 测试，A/B 剩余 246 张未使用；</li>
     <li>DRIVE、DCA1、CrackTree200 使用 image-level split，可能存在未识别的患者级泄漏；</li>
+    <li>LEAF 官方 mask 细线断点多（中位数 305 个 8-连通分量，39% 分量 ≤4 px），拓扑指标需注明标注 caveat；</li>
     <li>OCTA-500 本地只有 300 对，TopoMortar / DeepGlobe 尚未进入主协议；</li>
     <li>极低前景数据集（CHCrack5k、CrackTree200）的指标对小目标敏感；</li>
     <li>官方 SACM/baseline 数字与当前协议不可直接比较。</li>
@@ -655,25 +684,26 @@
 
   <h3>12.2 发表前检查清单</h3>
   <ul>
-    <li>☐ 固定 v0 split，不再修改；</li>
+    <li>☐ 固定 v1 split，不再修改；</li>
     <li>☐ 保存并发布 split/protocol manifest 与 SHA256；</li>
     <li>☐ 重跑 SACM，并确认训练/测试路径完全一致；</li>
     <li>☐ 重跑选定的 baseline；官方数字单独放附录；</li>
     <li>☐ 至少 3 个训练 seed，报告 mean ± std；</li>
     <li>☐ 报告每数据集结果和 macro average；</li>
-    <li>☐ 明确说明 CORN 缺失、CHASEDB1 自定义 split、CREMI 未使用图；</li>
+    <li>☐ 明确说明 CORN 官方 split + seed 42 抽样、LEAF 标注 caveat、CHASEDB1 自定义 split、CREMI 未使用图；</li>
     <li>☐ 检查原始数据 license，只发布文件清单和脚本。</li>
   </ul>
 
   <div class="note">
     <b>一句话总结：</b>
-    当前 v0 是一套<b>自洽、可复现、无已知 group 泄漏</b>的实验协议；
-    它不是官方 SACM 的严格复现。后续所有论文对比必须基于这份冻结协议重跑。
+    当前 v1 是一套<b>自洽、可复现、无已知 group 泄漏</b>的实验协议，
+    并且已对齐官方训练预算（18 张）和 Novel 组成（147 张）；
+    但它仍不是官方 SACM 的严格复现。后续所有论文对比必须基于这份冻结协议重跑。
   </div>
 </section>
 
 <footer>
-  SACM-Plus Dataset Protocol Report · v0 · 2026-10-22 · 本报告由数据集审计与 split 生成结果自动汇总
+  SACM-Plus Dataset Protocol Report · v1 · 2026-10-23 · v0（2026-10-22）保留为历史
 </footer>
 
 </main>

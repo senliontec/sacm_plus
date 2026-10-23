@@ -16,10 +16,12 @@ set -euo pipefail
 GPUS="${GPUS:-0 1 2 3 4 5 6 7}"
 CKPT="${CKPT:-checkpoints/sam_vit_l_0b3195.pth}"
 RAW_DATA_ROOT="${RAW_DATA_ROOT:-../datasets}"   # canonical raw library: project-root datasets/, sibling of sacm_plus/
-SPLIT_ROOT="${SPLIT_ROOT:-data/sacm_3shot_v0}"
-TRAIN_SOURCES="${TRAIN_SOURCES:-datasets/seen/DRIVE datasets/seen/CHASEDB1 datasets/seen/DCA1 datasets/seen/CREMI datasets/seen/CrackTree200}"   # SACM protocol domains (full mode)
+SPLIT_ROOT="${SPLIT_ROOT:-data/sacm_3shot_v1}"
+TRAIN_SOURCES="${TRAIN_SOURCES:-datasets/seen/DRIVE datasets/seen/CHASEDB1 datasets/seen/DCA1 datasets/seen/CREMI datasets/seen/CrackTree200 CORN:datasets/seen/CORN/train}"   # SACM protocol domains (6 x 3-shot = 18)
+VAL_SOURCES="${VAL_SOURCES:-CORN:datasets/seen/CORN/val}"   # official val split (CORN batch 9)
+TEST_SOURCES="${TEST_SOURCES:-CORN:datasets/seen/CORN/test}"     # official test split (CORN batches 10-11)
 DRIVE_TEST_GT="${DRIVE_TEST_GT:-}"       # 可选:已核实的 DRIVE test 血管 GT 目录;官方 test/mask 是 FOV
-TEST_DATASETS="${TEST_DATASETS:-datasets/unseen/FIVES datasets/unseen/STARE datasets/unseen/XCAD datasets/unseen/DeepCrack datasets/unseen/HRF datasets/unseen/LES-AV datasets/unseen/CHCrack5k datasets/novel/ROAD datasets/novel/TYRE datasets/novel/WIRE}"
+TEST_DATASETS="${TEST_DATASETS:-datasets/unseen/FIVES datasets/unseen/STARE datasets/unseen/XCAD datasets/unseen/DeepCrack datasets/unseen/HRF datasets/unseen/LES-AV datasets/unseen/CHCrack5k datasets/novel/ROAD datasets/novel/LEAF datasets/novel/TYRE datasets/novel/WIRE}"
 # DRIVE_test 默认不加入:官方 test/mask 是 FOV,不是血管 GT。
 # 用 seen/DRIVE 的 3/17 留出划分,或提供 DRIVE_TEST_GT 后再显式加入 TEST_DATASETS。
 PRESETS="${PRESETS:-sacm stage1 stage2 full full_wta full_allhead no_geo_i no_geo_e no_c2f no_fusion_v2 no_multi_depth no_cl no_ds no_iou geo_e_shallow geo_e_deep}"
@@ -63,6 +65,11 @@ else
 fi
 python scripts/group_datasets.py --root datasets \
     || { echo "❌ group_datasets(seen/unseen/novel) 失败"; exit 1; }
+# Author-provided official SACM datasets: rebuild prepared pools.
+python scripts/datasets/prepare_CORN.py --overwrite \
+    || { echo "❌ prepare_CORN 失败"; exit 1; }
+python scripts/datasets/prepare_leaf.py --overwrite \
+    || { echo "❌ prepare_leaf 失败"; exit 1; }
 if [ -f "$SPLIT_ROOT/split_manifest.csv" ]; then
   echo "⚠️  $SPLIT_ROOT 已存在,跳过采样"
 else
@@ -75,8 +82,13 @@ else
   [ "$CLEAN_SPLIT" = "true" ] && CLEAN_ARG=(--clean)
   TEST_ARG=()
   [ "$MAKE_TEST" = "true" ] && TEST_ARG=(--make_test)
+  VAL_ARGS=()
+  [ -n "$VAL_SOURCES" ] && VAL_ARGS=(--val_dirs $VAL_SOURCES)
+  TEST_SOURCES_ARGS=()
+  [ -n "$TEST_SOURCES" ] && TEST_SOURCES_ARGS=(--test_dirs $TEST_SOURCES)
   # shellcheck disable=SC2086
   python scripts/prepare_data.py --train_dirs $TRAIN_SOURCES \
+      "${VAL_ARGS[@]}" "${TEST_SOURCES_ARGS[@]}" \
       --shots 3 --val_shots 1 --out_dir "$SPLIT_ROOT" --seed "$SEED" \
       "${GROUP_ARGS[@]}" "${CLEAN_ARG[@]}" "${TEST_ARG[@]}"
 fi

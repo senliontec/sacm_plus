@@ -1,24 +1,28 @@
-"""Multi-GPU launcher for the ablation matrix (train + test per job).
+"""Multi-GPU launcher: train once per preset, then evaluate every dataset.
 
-Each job = (preset, dataset): train with the preset on the few-shot
-split, then evaluate on the dataset. Jobs are distributed over the given
-GPUs (one job per GPU). Per-job checkpoints and results are isolated in
-<output_root>/<preset>/<dataset>/.
+Each preset is trained ONCE on ``--train_root``.  The checkpoint is written
+to ``<output_root>/<preset>/best_model.pth`` and then evaluated on every
+``NAME:DIR`` entry in ``--test_datasets`` (sequentially on the same GPU).
+Results and logs live under ``<output_root>/<preset>/``.
+
+This replaces the old job model, which retrained the same preset once per
+test dataset (the training root never depended on the dataset).
 
 Usage:
     python run_experiments.py \
         --gpus 0 1 2 3 4 5 6 7 \
         --checkpoint /path/sam_vit_l_0b3195.pth \
-        --train_root data/sacm_3shot \
-        --test_datasets DRIVE:/path/DRIVE CHASEDB1:/path/CHASEDB1 \
-        --presets sacm stage1 stage2 full no_geo_i no_geo_e no_c2f \
+        --train_root data/sacm_3shot_v1 \
+        --test_datasets DRIVE:data/sacm_3shot_v1/test/DRIVE \
+                        CHASEDB1:data/sacm_3shot_v1/test/CHASEDB1 \
+        --presets sacm stage1 stage2 full \
         --output_root results --epochs 50 --tta
 
 Options:
-    --skip_train   only run the test step (checkpoints must exist)
-    --skip_test    only run the training step
-    --selection    mask selection; default: 'auto' (iou iff the preset
-                   trains the IoU head, else gating/original behavior)
+    --skip_train   only run evaluation; checkpoints must already exist
+    --skip_test    only run training
+    --selection    mask selection; default: 'iou' iff the preset trains the
+                   IoU head, else gating (original SACM behavior)
 """
 
 import argparse
@@ -28,8 +32,7 @@ import subprocess
 import sys
 import time
 
-# Make the src packages importable without an editable install, and
-# locate the train/eval CLIs by absolute path.
+# Make the src packages importable without an editable install.
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC_DIR = os.path.join(REPO_ROOT, 'src')
 sys.path.insert(0, SRC_DIR)
@@ -37,10 +40,15 @@ sys.path.insert(0, SRC_DIR)
 from models.sacm.configs import PRESETS  # noqa: E402
 
 
-def build_commands(args, preset, dataset, test_dir, job_dir):
-    """Return (train_cmd, test_cmd, env_base) for a job."""
-    ckpt_path = os.path.join(job_dir, 'best_model.pth')
-    train_cmd = [
+def resolve_selection(args, preset):
+    """Resolve the mask-selection policy for one preset."""
+    iou_weight = PRESETS.get(preset, {}).get('iou_loss_weight', 0.0)
+    return args.selection or (
+        'iou' if float(iou_weight or 0.0) > 0 else 'gating')
+
+
+def train_command(args, preset, ckpt_path, selection):
+    cmd = [
         sys.executable, os.path.join(SRC_DIR, 'train', 'trainer.py'),
         '--preset', preset,
         '--data_root', args.train_root,
@@ -49,99 +57,156 @@ def build_commands(args, preset, dataset, test_dir, job_dir):
         '--val_interval', str(args.val_interval),
         '--seed', str(args.seed),
         '--save_path', ckpt_path,
+        '--val_selection', selection,
+        '--pred_threshold', str(args.pred_threshold),
     ]
     if args.extra_train_args:
-        train_cmd += args.extra_train_args.split()
+        cmd += args.extra_train_args.split()
+    return cmd
 
-    iou_weight = PRESETS.get(preset, {}).get('iou_loss_weight', 0.0)
-    sel = args.selection or (
-        'iou' if float(iou_weight or 0.0) > 0 else 'gating')
-    train_cmd += ['--val_selection', sel,
-                  '--pred_threshold', str(args.pred_threshold)]
-    test_cmd = [
+
+def test_command(args, preset, dataset, test_dir, ckpt_path, selection):
+    cmd = [
         sys.executable, os.path.join(SRC_DIR, 'eval', 'evaluate.py'),
         '--preset', preset,
         '--data_root', test_dir,
         '--trained_weights', ckpt_path,
-        '--output_dir', job_dir,
-        '--selection', sel,
+        '--output_dir', os.path.join(args.output_root, preset, dataset),
+        '--selection', selection,
         '--pred_threshold', str(args.pred_threshold),
     ]
     if args.tta:
-        test_cmd.append('--tta')
-    return train_cmd, test_cmd, ckpt_path
+        cmd.append('--tta')
+    return cmd
 
 
-def start_job(gpu, preset, dataset, test_dir, args):
-    """Start the train phase of a job; returns the slot dict."""
-    job_dir = os.path.join(args.output_root, preset, dataset)
-    os.makedirs(job_dir, exist_ok=True)
-    train_cmd, test_cmd, ckpt_path = build_commands(args, preset, dataset, test_dir, job_dir)
+def status_rows(slot, status):
+    """One jobs.csv row per (preset, dataset) for a terminal state."""
+    datasets = slot['datasets'] or ['']
+    return [
+        {'preset': slot['preset'], 'dataset': dataset,
+         'gpu': slot['gpu'], 'status': status}
+        for dataset, _test_dir in datasets
+    ]
 
-    log_fh = open(os.path.join(job_dir, 'run.log'), 'w')
+
+def start_next_test(slot, args):
+    """Launch the next test command, or close the job when the queue is empty."""
+    if not slot['test_queue']:
+        slot['phase'] = 'done'
+        if slot['status'] == 'running':
+            statuses = [row['status'] for row in slot['rows']]
+            slot['status'] = (
+                'done' if statuses and all(s == 'done' for s in statuses)
+                else 'done_with_failures')
+        slot['log'].close()
+        return
+
+    dataset, test_dir = slot['test_queue'].pop(0)
+    slot['current_dataset'] = dataset
+    slot['phase'] = 'test'
+    cmd = test_command(
+        args, slot['preset'], dataset, test_dir,
+        slot['ckpt'], slot['selection'])
+    slot['log'].write(f"=== test {dataset} ===\n{' '.join(cmd)}\n")
+    slot['log'].flush()
+    slot['proc'] = subprocess.Popen(
+        cmd, stdout=slot['log'], stderr=subprocess.STDOUT, env=slot['env'])
+    print(f"[gpu {slot['gpu']}] {slot['preset']}/{dataset}: test started")
+
+
+def start_job(gpu, preset, test_datasets, args):
+    """Start a preset job (train first, then all test datasets)."""
+    preset_dir = os.path.join(args.output_root, preset)
+    os.makedirs(preset_dir, exist_ok=True)
+    ckpt_path = os.path.join(preset_dir, 'best_model.pth')
+    log_fh = open(os.path.join(preset_dir, 'run.log'), 'w')
     env = dict(os.environ)
     env['CUDA_VISIBLE_DEVICES'] = str(gpu)
+    selection = resolve_selection(args, preset)
 
     slot = {
-        'gpu': gpu, 'preset': preset, 'dataset': dataset,
-        'log': log_fh, 'env': env, 'test_cmd': test_cmd,
-        'phase': 'train', 'proc': None, 'status': None,
+        'gpu': gpu, 'preset': preset, 'datasets': list(test_datasets),
+        'test_queue': list(test_datasets), 'ckpt': ckpt_path,
+        'selection': selection, 'log': log_fh, 'env': env,
+        'phase': 'train', 'proc': None, 'status': 'running',
+        'current_dataset': None, 'rows': [],
     }
 
-    log_fh.write(f"=== train ===\n{' '.join(train_cmd)}\n")
-    log_fh.flush()
     if args.skip_train:
-        print(f"[gpu {gpu}] {preset}/{dataset}: train skipped")
-    else:
-        slot['proc'] = subprocess.Popen(train_cmd, stdout=log_fh, stderr=subprocess.STDOUT, env=env)
-        print(f"[gpu {gpu}] {preset}/{dataset}: train started")
+        if not os.path.isfile(ckpt_path):
+            print(f"[gpu {gpu}] {preset}: MISSING checkpoint {ckpt_path}")
+            slot['status'] = 'missing_checkpoint'
+            slot['rows'] = status_rows(slot, 'missing_checkpoint')
+            slot['phase'] = 'done'
+            log_fh.close()
+            return slot
+        print(f"[gpu {gpu}] {preset}: train skipped")
+        start_next_test(slot, args)
+        return slot
+
+    cmd = train_command(args, preset, ckpt_path, selection)
+    log_fh.write(f"=== train ===\n{' '.join(cmd)}\n")
+    log_fh.flush()
+    slot['proc'] = subprocess.Popen(
+        cmd, stdout=log_fh, stderr=subprocess.STDOUT, env=env)
+    print(f"[gpu {gpu}] {preset}: train started")
     return slot
 
 
 def advance(slot, args):
-    """Handle a finished phase; returns True when the whole job is done."""
-    preset, dataset = slot['preset'], slot['dataset']
+    """Handle a finished phase. Returns True when the job is terminal."""
+    if slot['phase'] == 'done':
+        return True
+
+    preset, gpu = slot['preset'], slot['gpu']
     rc = 0 if slot['proc'] is None else slot['proc'].returncode
-    gpu = slot['gpu']
 
     if slot['phase'] == 'train':
         if rc != 0:
-            print(f"[gpu {gpu}] {preset}/{dataset}: TRAIN FAILED (rc={rc})")
+            print(f"[gpu {gpu}] {preset}: TRAIN FAILED (rc={rc})")
             slot['status'] = 'train_failed'
+            slot['rows'] = status_rows(slot, 'train_failed')
+            slot['phase'] = 'done'
             slot['log'].close()
             return True
         if args.skip_test:
-            print(f"[gpu {gpu}] {preset}/{dataset}: train done (test skipped)")
+            print(f"[gpu {gpu}] {preset}: train done (test skipped)")
             slot['status'] = 'train_only'
+            slot['rows'] = status_rows(slot, 'train_only')
+            slot['phase'] = 'done'
             slot['log'].close()
             return True
-        slot['log'].write(f"=== test ===\n{' '.join(slot['test_cmd'])}\n")
-        slot['log'].flush()
-        slot['proc'] = subprocess.Popen(
-            slot['test_cmd'], stdout=slot['log'], stderr=subprocess.STDOUT, env=slot['env']
-        )
-        slot['phase'] = 'test'
-        print(f"[gpu {gpu}] {preset}/{dataset}: test started")
-        return False
-    else:  # test phase finished
-        if rc == 0:
-            print(f"[gpu {gpu}] {preset}/{dataset}: done")
-            slot['status'] = 'done'
-        else:
-            print(f"[gpu {gpu}] {preset}/{dataset}: TEST FAILED (rc={rc})")
-            slot['status'] = f'test_failed(rc={rc})'
-        slot['log'].close()
-        return True
+        start_next_test(slot, args)
+        return slot['phase'] == 'done'
+
+    dataset = slot['current_dataset']
+    if rc == 0:
+        print(f"[gpu {gpu}] {preset}/{dataset}: done")
+        status = 'done'
+    else:
+        print(f"[gpu {gpu}] {preset}/{dataset}: TEST FAILED (rc={rc})")
+        status = f'test_failed(rc={rc})'
+    slot['rows'].append({
+        'preset': preset, 'dataset': dataset, 'gpu': gpu, 'status': status,
+    })
+    start_next_test(slot, args)
+    return slot['phase'] == 'done'
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Run the ablation matrix on multiple GPUs')
-    parser.add_argument('--gpus', nargs='+', type=int, required=True, help='GPU ids to use')
-    parser.add_argument('--checkpoint', type=str, required=True, help='Official SAM ViT-L checkpoint')
-    parser.add_argument('--train_root', type=str, required=True, help='Few-shot train/val split root')
+    parser = argparse.ArgumentParser(
+        description='Train once per preset, then evaluate all test datasets')
+    parser.add_argument('--gpus', nargs='+', type=int, required=True,
+                        help='GPU ids to use')
+    parser.add_argument('--checkpoint', type=str, required=True,
+                        help='Official SAM ViT-L checkpoint')
+    parser.add_argument('--train_root', type=str, required=True,
+                        help='Few-shot train/val split root')
     parser.add_argument('--test_datasets', nargs='+', required=True,
-                        help='Name:dir pairs, e.g. DRIVE:/data/DRIVE')
-    parser.add_argument('--presets', nargs='+', default=['sacm', 'stage1', 'stage2', 'full'],
+                        help='Name:dir pairs, e.g. DRIVE:data/.../test/DRIVE')
+    parser.add_argument('--presets', nargs='+',
+                        default=['sacm', 'stage1', 'stage2', 'full'],
                         choices=[p for p in PRESETS if p != 'none'])
     parser.add_argument('--output_root', type=str, default='outputs')
     parser.add_argument('--epochs', type=int, default=50)
@@ -149,42 +214,43 @@ def main():
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--selection', type=str, default=None,
                         help="Override mask selection ('iou' or 'gating'); "
-                             "default: iou iff preset trains the IoU head, else gating")
+                             "default: iou iff preset trains the IoU head")
     parser.add_argument('--pred_threshold', type=float, default=0.0,
                         help='Logit binarization threshold; SACM fidelity uses 0.5')
-    parser.add_argument('--tta', action='store_true', help='Enable four-way flip TTA at test time')
+    parser.add_argument('--tta', action='store_true',
+                        help='Enable four-way flip TTA at test time')
     parser.add_argument('--skip_train', action='store_true')
     parser.add_argument('--skip_test', action='store_true')
     parser.add_argument('--extra_train_args', type=str, default='',
                         help='Extra flags appended to the train command')
     args = parser.parse_args()
 
-    # Parse name:dir pairs
+    if args.skip_train and args.skip_test:
+        parser.error('--skip_train and --skip_test cannot be combined')
+
     test_datasets = []
     for spec in args.test_datasets:
         name, _, path = spec.partition(':')
         if not path:
-            raise ValueError(f"--test_datasets entries must be NAME:DIR, got {spec!r}")
+            raise ValueError(
+                f"--test_datasets entries must be NAME:DIR, got {spec!r}")
         test_datasets.append((name, path))
 
-    jobs = []
-    for preset in args.presets:
-        for name, path in test_datasets:
-            jobs.append((preset, name, path))
-    print(f"Total jobs: {len(jobs)} on GPUs {args.gpus}")
+    jobs = [(preset, test_datasets) for preset in args.presets]
+    print(f"Total presets: {len(jobs)}; datasets per preset: "
+          f"{len(test_datasets)}; GPUs {args.gpus}")
 
     os.makedirs(args.output_root, exist_ok=True)
-    status_rows = []
-    slots = {g: None for g in args.gpus}
+    slots = {gpu: None for gpu in args.gpus}
     queue = list(jobs)
+    status_rows_all = []
 
-    # Initial fill
     for gpu in args.gpus:
-        if queue and slots[gpu] is None:
-            preset, dataset, test_dir = queue.pop(0)
-            slots[gpu] = start_job(gpu, preset, dataset, test_dir, args)
+        if queue:
+            preset, datasets = queue.pop(0)
+            slots[gpu] = start_job(gpu, preset, datasets, args)
 
-    while queue or any(s is not None for s in slots.values()):
+    while queue or any(slot is not None for slot in slots.values()):
         for gpu in args.gpus:
             slot = slots[gpu]
             if slot is None:
@@ -192,25 +258,22 @@ def main():
             if slot['proc'] is not None and slot['proc'].poll() is None:
                 continue
             if advance(slot, args):
-                status_rows.append({
-                    'preset': slot['preset'],
-                    'dataset': slot['dataset'],
-                    'gpu': gpu,
-                    'status': slot['status'],
-                })
+                status_rows_all.extend(slot['rows'])
                 slots[gpu] = None
-        # Fill free slots from the queue
         for gpu in args.gpus:
             if queue and slots[gpu] is None:
-                preset, dataset, test_dir = queue.pop(0)
-                slots[gpu] = start_job(gpu, preset, dataset, test_dir, args)
+                preset, datasets = queue.pop(0)
+                slots[gpu] = start_job(gpu, preset, datasets, args)
         time.sleep(2)
 
-    with open(os.path.join(args.output_root, 'jobs.csv'), 'w', newline='') as f:
-        writer = csv.DictWriter(f, fieldnames=['preset', 'dataset', 'gpu', 'status'])
+    with open(os.path.join(args.output_root, 'jobs.csv'), 'w',
+              newline='') as f:
+        writer = csv.DictWriter(
+            f, fieldnames=['preset', 'dataset', 'gpu', 'status'])
         writer.writeheader()
-        writer.writerows(status_rows)
-    print(f"All jobs finished. Status table: {os.path.join(args.output_root, 'jobs.csv')}")
+        writer.writerows(status_rows_all)
+    print(f"All jobs finished. Status table: "
+          f"{os.path.join(args.output_root, 'jobs.csv')}")
 
 
 if __name__ == '__main__':

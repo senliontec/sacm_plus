@@ -44,18 +44,22 @@
 所有 baseline 使用同一份冻结 split：
 
 ```text
-训练：data/sacm_3shot_v0/train/     # 15 张
-验证：data/sacm_3shot_v0/val/       # 5 张
-Seen：data/sacm_3shot_v0/test/<dataset>/
+训练：data/sacm_3shot_v1/train/     # 18 张（6 域 x 3-shot，含 CORN）
+验证：data/sacm_3shot_v1/val/       # 6 张（含 CORN 官方 val）
+Seen：data/sacm_3shot_v1/test/<dataset>/   # 5 个留出域 + CORN 官方 test
 Unseen：datasets/unseen/<dataset>/
-Novel：datasets/novel/<dataset>/
+Novel：datasets/novel/<dataset>/    # ROAD, LEAF, TYRE, WIRE
 ```
 
-其中 Seen test 的 5 个数据集为：
+其中 Seen test 的 6 个数据集为：
 
 ```text
-DRIVE, CHASEDB1, DCA1, CREMI, CrackTree200
+DRIVE, CHASEDB1, DCA1, CREMI, CrackTree200, CORN
 ```
+
+CORN 使用作者提供的官方 batch-disjoint split：train 1176 / val 188 /
+test 152。LEAF 使用作者提供的官方 31 张 Novel 集；其 mask 细碎，拓扑指标
+需在论文中注明标注 caveat。
 
 禁止使用 test 进行调参或选择 checkpoint；checkpoint 只能由 val 选择。
 

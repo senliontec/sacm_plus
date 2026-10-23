@@ -11,7 +11,7 @@ SACM/                              # 项目 = 分割算法平台（框架 + 算�
 │   │   ├── trainer.py             #   统一训练引擎（模型无关，经 ModelSpec）
 │   │   ├── evaluator.py           #   统一评测引擎（TTA/选择/全指标/输出）
 │   │   ├── data.py / io.py / augmentation.py
-│   │   ├── models.py              #   ModelSpec + 模型注册表（通用机制）
+│   │   ├── registry.py            #   ModelSpec + 模型注册表（通用机制）
 │   │   ├── losses/                #   损失注册表（核心 + 14 拓扑损失官方移植）
 │   │   └── metrics/               #   指标（16 常规 + 4 可选，官方对齐）
 │   ├── models/                # 模型层（一切模型相关代码；深度学习中一切都是模型）
@@ -19,7 +19,7 @@ SACM/                              # 项目 = 分割算法平台（框架 + 算�
 │   │   ├── sam/                    #   SAM 基础模型（含全部 SACM 改造；已展平：无 modeling/utils 子层）
 │   │   └── sacm/                   #   SACM 分割模型（只是众多模型之一）
 │   │       ├── specs.py            #   SAM 家族 ModelSpec
-│   │       ├── configs.py          #   SACM 消融预设（14 个）
+│   │       ├── configs.py          #   SACM 消融预设（17 个实际预设）
 │   │       └── diagnose.py         #   SACM 诊断（论文 motivation 证据）
 │   ├── train/                     # 训练 CLI（trainer.py，--algorithm + --model + --config）
 │   ├── eval/                      # 评测 CLI（evaluate.py）
@@ -28,7 +28,8 @@ SACM/                              # 项目 = 分割算法平台（框架 + 算�
 ├── configs/                       # YAML 配置（presets.yaml，--config 叠加覆盖）
 ├── datasets/                      # 协议数据: seen/unseen/novel（gitignored）
 ├── datasets_legacy/               # 旧实验/无 GT 数据（gitignored）
-├── data/sacm_3shot_v0/            # 3-shot split（gitignored）
+├── data/sacm_3shot_v1/            # 6 域 x 3-shot = 18 图（主协议；.gitignore 已放行）
+├── data/sacm_3shot_v0/            # 旧 5 域 split（保留作历史）
 ├── exports/                       # HDF 导出等中间数据（gitignored）
 ├── outputs/                       # 输出：结果/日志/checkpoint（gitignored）
 ├── tests/                         # pytest（指标手算值、损失冒烟、增强、预设、慢速训练一步）

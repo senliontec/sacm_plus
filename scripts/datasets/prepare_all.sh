@@ -29,9 +29,9 @@ echo "Python: ${PY_CMD[*]}"
 }
 
 ALL=(
-  DRIVE CHASEDB1 DCA1 CREMI cracktree200
+  DRIVE CHASEDB1 DCA1 CREMI cracktree200 CORN
   FIVES STARE XCAD DeepCrack HRF LES-AV CHCrack5k
-  ROAD tyre wire
+  ROAD tyre wire leaf
   TopoMortar OCTA-500 DeepGlobe
 )
 if [ "$#" -gt 0 ]; then
@@ -72,6 +72,19 @@ echo "════════════════════════�
 from pathlib import Path
 root = Path('datasets')
 total_i = total_m = 0
+
+def counts(d):
+    # Most datasets are a flat images/masks pool; CORN keeps official
+    # train/val/test subdirectories, so sum those when present.
+    roots = [d] if (d / 'images').is_dir() else [
+        d / s for s in ('train', 'val', 'test')]
+    def n(sub):
+        return sum(
+            len([p for p in (r / sub).glob('*') if p.is_file()])
+            if (r / sub).is_dir() else 0
+            for r in roots)
+    return n('images'), n('masks'), n('fov')
+
 for role in ('seen', 'unseen', 'novel'):
     base = root / role
     if not base.is_dir():
@@ -79,9 +92,7 @@ for role in ('seen', 'unseen', 'novel'):
     for d in sorted(base.iterdir()):
         if not d.is_dir():
             continue
-        ni = len([p for p in (d / 'images').glob('*') if p.is_file()]) if (d / 'images').is_dir() else 0
-        nm = len([p for p in (d / 'masks').glob('*') if p.is_file()]) if (d / 'masks').is_dir() else 0
-        nf = len([p for p in (d / 'fov').glob('*') if p.is_file()]) if (d / 'fov').is_dir() else 0
+        ni, nm, nf = counts(d)
         total_i += ni
         total_m += nm
         print(f'{role:6s} {d.name:16s} images={ni:5d} masks={nm:5d} fov={nf:3d}')

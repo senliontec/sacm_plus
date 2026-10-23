@@ -1,0 +1,58 @@
+{
+  "protocol_version": "sacm_3shot_v1",
+  "generated_at_utc": "2026-10-23T03:02:10.234016+00:00",
+  "seed": 42,
+  "counts": {
+    "seen": {
+      "seen_test": {
+        "DRIVE": 16,
+        "CHASEDB1": 22,
+        "DCA1": 130,
+        "CREMI": 123,
+        "CrackTree200": 202,
+        "CORN": 152
+      },
+      "train": {
+        "DRIVE": 3,
+        "CHASEDB1": 3,
+        "DCA1": 3,
+        "CREMI": 3,
+        "CrackTree200": 3,
+        "CORN": 3
+      },
+      "val": {
+        "DRIVE": 1,
+        "CHASEDB1": 1,
+        "DCA1": 1,
+        "CREMI": 1,
+        "CrackTree200": 1,
+        "CORN": 1
+      }
+    },
+    "unseen": {
+      "unseen_test": {
+        "FIVES": 200,
+        "STARE": 20,
+        "XCAD": 126,
+        "DeepCrack": 237,
+        "HRF": 45,
+        "LES-AV": 22,
+        "CHCrack5k": 990
+      }
+    },
+    "novel": {
+      "novel_test": {
+        "ROAD": 49,
+        "LEAF": 31,
+        "TYRE": 36,
+        "WIRE": 31
+      }
+    }
+  },
+  "totals": {
+    "rows": 2456,
+    "images": 2456,
+    "unique_datasets": 17
+  },
+  "manifest_sha256": "09cd3e17ad876267bc7fe23874983e1a6fee7c59f2a4e344168c3c3f19424c2e"
+}

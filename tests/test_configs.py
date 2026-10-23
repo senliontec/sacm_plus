@@ -4,7 +4,12 @@ import argparse
 
 import pytest
 
-from models.sacm.configs import PRESETS, apply_preset, str2bool
+from models.sacm.configs import (
+    PRESETS,
+    apply_preset,
+    apply_yaml_presets,
+    str2bool,
+)
 
 REQUIRED_KEYS = {
     "use_geo_i",
@@ -53,3 +58,16 @@ def test_d8_supervision_modes_are_explicit():
     assert PRESETS["sacm"]["stage2_supervision"] == "wta"
     assert PRESETS["stage1"]["stage2_supervision"] == "soft"
     assert PRESETS["stage2"]["stage2_supervision"] == "soft"
+
+
+def test_yaml_uses_python_presets_as_source_of_truth(tmp_path):
+    config = tmp_path / 'config.yaml'
+    config.write_text('preset: sacm\nuse_geo_i: true\n')
+    args = argparse.Namespace(
+        use_geo_i=False, deep_sup_weight=0.0,
+        stage2_supervision='soft')
+    apply_yaml_presets(args, str(config))
+    # Python PRESETS supplied the D8 WTA baseline...
+    assert args.stage2_supervision == 'wta'
+    # ...and the top-level YAML key overrode it afterwards.
+    assert args.use_geo_i is True

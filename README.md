@@ -27,27 +27,31 @@ README.md
 ## Datasets
 
 The frozen available-data protocol lives in `datasets/` (evaluation roots)
-and `data/sacm_3shot_v0/` (train/val/Seen split):
+and `data/sacm_3shot_v1/` (train/val/Seen split; `sacm_3shot_v0` is kept as
+the earlier five-domain history):
 
-- **Train**: DRIVE, CHASEDB1, DCA1, CREMI, CrackTree200; 3-shot each = 15.
-- **Val**: 1 per domain = 5.
-- **Seen**: held-out images from the five training domains = 493.
+- **Train**: DRIVE, CHASEDB1, DCA1, CREMI, CrackTree200, CORN; 3-shot each = 18.
+- **Val**: 1 per domain = 6 (CORN uses its official validation batch).
+- **Seen**: held-out images from the five original training domains = 493,
+  plus the official CORN test split = 152; total 645.
 - **Unseen**: FIVES 200, STARE 20, XCAD 126, DeepCrack 237,
   HRF 45, LES-AV 22, CHCrack5k 990 = 1,640.
-- **Novel**: ROAD 49, TYRE 36, WIRE 31 = 116.
+- **Novel**: ROAD 49, LEAF 31, TYRE 36, WIRE 31 = 147.
 
-DSCA, official CRACK, and CORN are not part of this protocol: DSCA is
-access-restricted, the official CRACK/CORN splits are unavailable, and the
-official 3-shot sample IDs were never published. Published SACM numbers are
-therefore reference-only and are not directly comparable to this split.
+This now matches the SACM paper on the two dataset-level training/evaluation
+budgets we can reproduce: **6 domains × 3-shot = 18** training images and the
+four-dataset Novel set (`ROAD, LEAF, TYRE, WIRE = 147`). The Seen/Unseen
+composition still differs: DSCA is access-restricted, the official CRACK
+split is unavailable, and the official DRIVE test set has no vessel GT, so
+published numbers remain reference-only. CORN uses the author-provided
+batch-disjoint official splits (train 1176 / val 188 / test 152; the paper
+reports 100 Seen images, we use all 152). LEAF is the author-provided
+official SACM set; its vein masks are thin and fragmented (median 305
+8-connected components per image), so topology metrics on LEAF should be
+reported with that annotation caveat.
 
 Individual dataset converters live in `scripts/datasets/`. Each script can
 rebuild one dataset independently; see `scripts/datasets/README.md`.
-
-`LEAF` (31 images) is archived at `datasets_legacy/novel_LEAF` and excluded
-from the main protocol: its 1-px sparse centreline masks contain a median of
-305 8-connected components per image, which makes it unsuitable for
-quantitative topology claims.
 
 ## Engineering quick start
 
@@ -58,6 +62,9 @@ make test      # unit tests: hand-computed metrics, loss smoke tests, configs, a
 make verify    # numerical cross-check against the official repos (CPU only)
 make registry  # print the available topology-loss registry
 ```
+
+Wandb logging is optional: set `WANDB_API_KEY` (or run `wandb login`)
+before training/evaluation; no credential is stored in the source tree.
 
 Engineering conventions: `docs/ENGINEERING.md`.
 
@@ -180,13 +187,20 @@ weights when writing up the method.
 ## Experiment tooling
 
 ```bash
-# 1. Build the 3-shot train/val split (6 datasets x 3 shots, +1 val shot)
-python scripts/prepare_data.py --train_dirs <d1> ... <d6> --shots 3 --val_shots 1 \
-    --out_dir data/sacm_3shot --seed 42
+# 1. Build the 3-shot train/val split (6 datasets x 3 shots, +1 val shot).
+#    CORN uses its official validation/test splits:
+python scripts/prepare_data.py \
+    --train_dirs datasets/seen/DRIVE datasets/seen/CHASEDB1 datasets/seen/DCA1 \
+                 datasets/seen/CREMI datasets/seen/CrackTree200 \
+                 CORN:datasets/seen/CORN/train \
+    --val_dirs CORN:datasets/seen/CORN/val \
+    --test_dirs CORN:datasets/seen/CORN/test \
+    --shots 3 --val_shots 1 --make_test \
+    --out_dir data/sacm_3shot_v1 --seed 42
 
 # 2. Run the whole ablation matrix on multiple GPUs (train + test per job)
 python scripts/run_experiments.py --gpus 0 1 2 3 4 5 6 7 \
-    --checkpoint /path/sam_vit_l_0b3195.pth --train_root data/sacm_3shot \
+    --checkpoint /path/sam_vit_l_0b3195.pth --train_root data/sacm_3shot_v1 \
     --test_datasets DRIVE:/data/DRIVE CHASEDB1:/data/CHASEDB1 \
     --presets sacm stage1 stage2 full --output_root results --epochs 50 --tta
 
@@ -204,7 +218,7 @@ python -m models.sacm.diagnose --preset sacm --data_root /data/DRIVE \
     --output_dir diagnosis/sacm_drive
 ```
 
-`diagnose_heads.py` produces the paper's motivation evidence:
+`src/models/sacm/diagnose.py` produces the paper's motivation evidence:
 per-head gradient norms under the original winner-take-all loss vs the
 full loss (showing 3/4 Stage-2 heads were unsupervised), and the gating
 rank vs ground-truth IoU correlation.

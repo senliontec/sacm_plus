@@ -100,3 +100,20 @@ def test_compute_metrics_keys_and_finiteness():
     assert expected.issubset(m.keys())
     for k in ("dice", "iou", "precision", "recall", "accuracy", "mcc", "nsd"):
         assert np.isfinite(m[k]), k
+
+
+def test_persistence_metrics_are_finite():
+    """Regression: the optional persistence metrics must be computed, not NaN.
+
+    A stale top-level ``losses.*`` import silently turned both metrics into
+    NaN; this test uses a small line-like mask so both engines have work to do.
+    """
+    pytest.importorskip("networkx")
+    gt = np.zeros((32, 32), dtype=np.float32)
+    gt[8:24, 8] = 1.0
+    gt[16, 8:24] = 1.0
+    logits = np.where(gt > 0, 2.0, -2.0).astype(np.float32)
+    m = compute_metrics(
+        logits, gt, compute_betti_matching=True, compute_topograph=True)
+    assert "betti_matching" in m and np.isfinite(m["betti_matching"])
+    assert "topograph_error" in m and np.isfinite(m["topograph_error"])

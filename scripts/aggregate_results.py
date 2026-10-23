@@ -1,11 +1,15 @@
 """Aggregate results_summary.txt files into CSV and LaTeX tables.
 
 Scans <root>/<preset>/<dataset>/results_summary.txt and builds:
-    <out_dir>/all_metrics.csv     - one row per (preset, dataset)
-    <out_dir>/table_dice.tex      - LaTeX tables, one per metric
-    <out_dir>/table_iou.tex
-    <out_dir>/table_cldice.tex
-    <out_dir>/table_hd95.tex
+
+    <out_dir>/all_metrics.csv       - one row per (preset, dataset, role)
+    <out_dir>/macro_metrics.csv     - Seen/Unseen/Novel macro averages
+    <out_dir>/table_<metric>.tex    - per-dataset tables, mean±std
+    <out_dir>/table_macro_<metric>.tex - role-level macro tables
+
+Macro averaging: first average within each dataset, then average the
+per-dataset means (equal dataset weight, not equal image weight).  The
+reported macro std is the sample std of the per-dataset means.
 
 Usage:
     python aggregate_results.py --root results --out results/tables
@@ -13,16 +17,37 @@ Usage:
 
 import argparse
 import csv
+import math
 import os
 import re
+import statistics
 
-METRIC_RE = re.compile(r'^Average\s+(\w+):\s*([\d.eE+-]+|nan)\s*±\s*([\d.eE+-]+|nan)')
+METRIC_RE = re.compile(
+    r'^Average\s+(\w+):\s*([\d.eE+-]+|nan)\s*±\s*([\d.eE+-]+|nan)')
 MAIN_METRICS = ['dice', 'iou', 'cldice', 'hd95']
 # All reported metrics, in output order (AUC keys appear only when the
 # test ran with --auc; parsing is tolerant to missing entries)
-ALL_METRICS = ['dice', 'iou', 'precision', 'recall', 'sensitivity', 'specificity',
-               'accuracy', 'mcc', 'cldice', 'hd', 'hd95', 'assd', 'asd', 'ravd',
-               'nsd', 'betti', 'dice_auc', 'cldice_auc', 'betti_matching']
+ALL_METRICS = ['dice', 'iou', 'precision', 'recall', 'sensitivity',
+               'specificity', 'accuracy', 'mcc', 'cldice', 'hd', 'hd95',
+               'assd', 'asd', 'ravd', 'nsd', 'betti', 'dice_auc',
+               'cldice_auc', 'betti_matching', 'topograph_error']
+
+ROLE_BY_DATASET = {
+    # Seen (training domains; CORN included in the v1 protocol)
+    'DRIVE': 'Seen', 'CHASEDB1': 'Seen', 'DCA1': 'Seen',
+    'CREMI': 'Seen', 'CrackTree200': 'Seen', 'CORN': 'Seen',
+    # Unseen (active protocol only)
+    'FIVES': 'Unseen', 'STARE': 'Unseen', 'XCAD': 'Unseen',
+    'DeepCrack': 'Unseen', 'HRF': 'Unseen', 'LES-AV': 'Unseen',
+    'CHCrack5k': 'Unseen',
+    # Novel
+    'ROAD': 'Novel', 'LEAF': 'Novel', 'TYRE': 'Novel', 'WIRE': 'Novel',
+}
+ROLE_ORDER = ['Seen', 'Unseen', 'Novel', 'Other']
+
+
+def dataset_role(name):
+    return ROLE_BY_DATASET.get(name, 'Other')
 
 
 def parse_summary(path):
@@ -47,12 +72,17 @@ def collect(root):
         if not os.path.isdir(preset_dir):
             continue
         for dataset in sorted(os.listdir(preset_dir)):
-            summary_path = os.path.join(preset_dir, dataset, 'results_summary.txt')
+            summary_path = os.path.join(
+                preset_dir, dataset, 'results_summary.txt')
             if not os.path.exists(summary_path):
                 print(f"[skip] no summary: {preset}/{dataset}")
                 continue
             metrics = parse_summary(summary_path)
-            row = {'preset': preset, 'dataset': dataset}
+            row = {
+                'preset': preset,
+                'dataset': dataset,
+                'role': dataset_role(dataset),
+            }
             for name in ALL_METRICS:
                 if name in metrics:
                     row[name + '_mean'], row[name + '_std'] = metrics[name]
@@ -62,15 +92,24 @@ def collect(root):
 
 def write_csv(rows, out_dir):
     os.makedirs(out_dir, exist_ok=True)
-    fieldnames = ['preset', 'dataset']
+    fieldnames = ['preset', 'dataset', 'role']
     for name in ALL_METRICS:
         fieldnames += [name + '_mean', name + '_std']
     path = os.path.join(out_dir, 'all_metrics.csv')
     with open(path, 'w', newline='') as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction='ignore')
+        writer = csv.DictWriter(f, fieldnames=fieldnames,
+                                extrasaction='ignore')
         writer.writeheader()
         writer.writerows(rows)
     print(f"CSV: {path}")
+
+
+def _fmt(mean, std):
+    if mean is None or (isinstance(mean, float) and math.isnan(mean)):
+        return '--'
+    if std is None or (isinstance(std, float) and math.isnan(std)):
+        return f"{mean:.2f}"
+    return f"{mean:.2f}±{std:.2f}"
 
 
 def write_latex(rows, out_dir):
@@ -80,9 +119,7 @@ def write_latex(rows, out_dir):
 
     for metric in MAIN_METRICS:
         mean_key, std_key = metric + '_mean', metric + '_std'
-        lines = []
-        lines.append("\\begin{table}[t]")
-        lines.append("\\centering")
+        lines = ["\\begin{table}[t]", "\\centering"]
         title = metric.upper() if metric != 'cldice' else 'clDice'
         note = 'Lower is better' if metric == 'hd95' else 'Higher is better'
         lines.append(f"\\caption{{{title} on all datasets ({note}).}}")
@@ -93,12 +130,13 @@ def write_latex(rows, out_dir):
         lines.append("\\hline")
         for ds in datasets:
             cells = [ds]
-            for p in presets:
-                row = next((r for r in rows if r['preset'] == p and r['dataset'] == ds), None)
-                if row and mean_key in row:
-                    cells.append(f"{row[mean_key]:.2f}")
-                else:
-                    cells.append('--')
+            for preset in presets:
+                row = next((r for r in rows
+                            if r['preset'] == preset and r['dataset'] == ds),
+                           None)
+                cells.append(
+                    _fmt(row.get(mean_key), row.get(std_key))
+                    if row else '--')
             lines.append(' & '.join(cells) + ' \\\\')
         lines.append("\\hline")
         lines.append("\\end{tabular}")
@@ -111,10 +149,83 @@ def write_latex(rows, out_dir):
         print(f"LaTeX: {path}")
 
 
+def write_macro(rows, out_dir):
+    """Seen/Unseen/Novel equal-dataset macro averages."""
+    os.makedirs(out_dir, exist_ok=True)
+    presets = sorted({r['preset'] for r in rows})
+    roles = [role for role in ROLE_ORDER
+             if any(r['role'] == role for r in rows)]
+
+    macro_rows = []
+    for preset in presets:
+        for role in roles:
+            group = [r for r in rows
+                     if r['preset'] == preset and r['role'] == role]
+            if not group:
+                continue
+            for metric in ALL_METRICS:
+                key = metric + '_mean'
+                vals = [r[key] for r in group
+                        if key in r and math.isfinite(r[key])]
+                if not vals:
+                    continue
+                macro_rows.append({
+                    'preset': preset,
+                    'role': role,
+                    'metric': metric,
+                    'n_datasets': len(vals),
+                    'mean': f'{statistics.fmean(vals):.6f}',
+                    'std': (f'{statistics.stdev(vals):.6f}'
+                            if len(vals) > 1 else '0.000000'),
+                })
+
+    path = os.path.join(out_dir, 'macro_metrics.csv')
+    fields = ['preset', 'role', 'metric', 'n_datasets', 'mean', 'std']
+    with open(path, 'w', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=fields)
+        writer.writeheader()
+        writer.writerows(macro_rows)
+    print(f"CSV: {path}")
+
+    for metric in MAIN_METRICS:
+        lines = ["\\begin{table}[t]", "\\centering"]
+        title = metric.upper() if metric != 'cldice' else 'clDice'
+        lines.append(f"\\caption{{Macro {title} (equal dataset weight).}}")
+        header = ' & '.join(['Split'] + presets) + ' \\\\'
+        lines.append("\\begin{tabular}{l" + "c" * len(presets) + "}")
+        lines.append("\\hline")
+        lines.append(header)
+        lines.append("\\hline")
+        for role in roles:
+            cells = [role]
+            for preset in presets:
+                row = next((r for r in macro_rows
+                            if r['preset'] == preset
+                            and r['role'] == role
+                            and r['metric'] == metric), None)
+                if row is None:
+                    cells.append('--')
+                else:
+                    cells.append(f"{float(row['mean']):.2f}"
+                                 f"±{float(row['std']):.2f}")
+            lines.append(' & '.join(cells) + ' \\\\')
+        lines.append("\\hline")
+        lines.append("\\end{tabular}")
+        lines.append("\\label{tab:macro_" + metric + "}")
+        lines.append("\\end{table}")
+        path = os.path.join(out_dir, f'table_macro_{metric}.tex')
+        with open(path, 'w') as f:
+            f.write('\n'.join(lines) + '\n')
+        print(f"LaTeX: {path}")
+
+
 def main():
-    parser = argparse.ArgumentParser(description='Aggregate experiment results into tables')
-    parser.add_argument('--root', type=str, required=True, help='Results root (run_experiments --output_root)')
-    parser.add_argument('--out', type=str, default=None, help='Output dir for CSV/LaTeX (default: <root>/tables)')
+    parser = argparse.ArgumentParser(
+        description='Aggregate experiment results into tables')
+    parser.add_argument('--root', type=str, required=True,
+                        help='Results root (run_experiments --output_root)')
+    parser.add_argument('--out', type=str, default=None,
+                        help='Output dir for CSV/LaTeX (default: <root>/tables)')
     args = parser.parse_args()
     out_dir = args.out or os.path.join(args.root, 'tables')
 
@@ -124,6 +235,7 @@ def main():
         return
     write_csv(rows, out_dir)
     write_latex(rows, out_dir)
+    write_macro(rows, out_dir)
     print(f"Aggregated {len(rows)} (preset, dataset) rows.")
 
 

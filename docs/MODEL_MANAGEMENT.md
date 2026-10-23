@@ -16,7 +16,7 @@
 python src/train/trainer.py --model sam_b --preset stage2 ...   # 换模型 = 换一个参数
 ```
 
-## 2. ModelSpec 接口（`models/base.py`）
+## 2. ModelSpec 接口（`core/registry.py`）
 
 每个模型是一份"自述书"，六个可调用对象：
 
@@ -37,8 +37,9 @@ class ModelSpec:
 
 **约定**：`forward` 返回 SAM 形状的三元组 `(masks_stage2 [B,4,256,256],
 iou_pred [B,4], masks_stage1 [B,4,256,256])`（或二元组）。新模型若不
-具备多 head/两阶段结构，返回的辅助项置 `None` 并在 spec 里声明
-`has_aux = False`，训练循环按声明跳过辅助损失（见 §5 的迁移路线）。
+具备多 head/两阶段结构，返回的辅助项置 `None`；当前训练循环仍按 SAM
+形状组装辅助损失，单输出模型的完整支持需按 §5 的阶段 B 扩展 ModelSpec
+（`has_aux` 是计划字段，尚未加入 dataclass）。
 
 ## 3. 吸纳新模型的五步流程
 
