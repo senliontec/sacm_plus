@@ -6,6 +6,9 @@
 export WANDB_BASE_URL="${WANDB_BASE_URL:-http://172.16.1.7:8080}"
 export WANDB_ENTITY="${WANDB_ENTITY:-buaazqk}"
 export WANDB_PROJECT="${WANDB_PROJECT:-sacm}"
+# Bound run.finish(): a stalled self-hosted artifact/network flush must not
+# keep a completed training process alive.
+export WANDB_FINISH_TIMEOUT="${WANDB_FINISH_TIMEOUT:-60}"
 export no_proxy="${no_proxy:-},172.16.1.7,172.16.1.0/24"
 export NO_PROXY="${NO_PROXY:-},172.16.1.7,172.16.1.0/24"
 

@@ -8,6 +8,7 @@ logging — wandb must never take down a training run.
 
 import logging
 import os
+import threading
 
 # Read the self-hosted wandb key from the environment.  Never commit a
 # literal key: this file is tracked and the value would also appear in logs.
@@ -111,11 +112,36 @@ def log_artifact(run, path, name=None, artifact_type='model'):
         pass
 
 
-def finish_run(run):
-    """Close the run; never raise."""
+def finish_run(run, timeout=None):
+    """Close the run with a bounded wait; never raise.
+
+    The self-hosted server can leave ``run.finish()`` waiting on a slow
+    artifact/network flush.  A daemon thread lets training exit after
+    ``WANDB_FINISH_TIMEOUT`` seconds (default 60) instead of hanging forever;
+    metrics already logged are not affected.
+    """
     if run is None:
         return
+    if timeout is None:
+        try:
+            timeout = float(os.environ.get('WANDB_FINISH_TIMEOUT', '60'))
+        except ValueError:
+            timeout = 60.0
+
+    def _finish():
+        try:
+            run.finish()
+        except Exception:
+            pass
+
     try:
-        run.finish()
+        thread = threading.Thread(target=_finish, name='wandb-finish',
+                                  daemon=True)
+        thread.start()
+        thread.join(timeout)
+        if thread.is_alive():
+            logging.warning(
+                'wandb finish timed out after %.0fs; continuing without '
+                'waiting (local checkpoint/metrics are safe)', timeout)
     except Exception:
         pass

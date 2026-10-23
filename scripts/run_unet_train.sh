@@ -7,6 +7,7 @@
 #   EPOCHS=50 bash scripts/run_unet_train.sh          # shorter run
 #   USE_WANDB=false bash scripts/run_unet_train.sh    # no W&B
 #   WANDB_MODE=offline bash scripts/run_unet_train.sh # local W&B logs
+#   WANDB_LOG_ARTIFACT=true bash scripts/run_unet_train.sh  # upload checkpoint
 #   GPU=1 bash scripts/run_unet_train.sh              # use physical GPU 1,
 #                                                     # clearing it first
 #   GPU=1 KILL_GPU_PROCS=false bash scripts/run_unet_train.sh  # keep other jobs
@@ -15,7 +16,8 @@
 #   PYTHON, EPOCHS, BATCH_SIZE, LR, INPUT_SIZE, SEED, DEVICE, GPU,
 #   WORKDIR, LOG_DIR, USE_WANDB, WANDB_MODE, WANDB_PROJECT,
 #   WANDB_ENTITY, WANDB_GROUP, WANDB_NAME, WANDB_TAGS,
-#   WANDB_BASE_URL, WANDB_API_KEY, KILL_OLD, KILL_GPU_PROCS
+#   WANDB_BASE_URL, WANDB_API_KEY, WANDB_LOG_ARTIFACT, WANDB_FINISH_TIMEOUT,
+#   KILL_OLD, KILL_GPU_PROCS
 set -euo pipefail
 
 cd "$(dirname "$0")/.." || exit 1
@@ -42,6 +44,7 @@ WANDB_MODE="${WANDB_MODE:-online}"
 WANDB_PROJECT="${WANDB_PROJECT:-sacm}"
 WANDB_ENTITY="${WANDB_ENTITY:-buaazqk}"
 WANDB_GROUP="${WANDB_GROUP:-baselines}"
+WANDB_LOG_ARTIFACT="${WANDB_LOG_ARTIFACT:-false}"
 GPU="${GPU:-}"
 KILL_OLD="${KILL_OLD:-true}"
 KILL_GPU_PROCS="${KILL_GPU_PROCS:-true}"
@@ -273,6 +276,9 @@ if [ "$USE_WANDB" = "true" ]; then
   [ -n "$WANDB_ENTITY" ] && CMD+=(--wandb_entity "$WANDB_ENTITY")
   [ -n "${WANDB_NAME:-}" ] && CMD+=(--wandb_name "$WANDB_NAME")
   [ -n "${WANDB_TAGS:-}" ] && CMD+=(--wandb_tags "$WANDB_TAGS")
+  case "$WANDB_LOG_ARTIFACT" in
+    1|true|TRUE|yes|on) CMD+=(--wandb_log_artifact) ;;
+  esac
 fi
 
 echo "command: ${CMD[*]}"

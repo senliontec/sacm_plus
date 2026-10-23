@@ -400,8 +400,10 @@ def train(args):
         wb.update({f'val/{key}': value
                    for key, value in val_metrics.items()})
         for dataset, values in val_per_dataset.items():
-            wb.update({f'val/{dataset}/{key}': value
-                       for key, value in values.items()})
+            # W&B per-dataset panel: only the four paper metrics.  The empty
+            # rate remains in metrics_history.json for diagnostics.
+            wb.update({f'val/{dataset}/{metric}': values[metric]
+                       for metric in metric_names})
         log_scalars(run, wb)
         improved = val_dice > best_dice
         print_epoch_row(epoch, train_loss, val_metrics, lr, elapsed, improved)
@@ -458,8 +460,13 @@ def train(args):
         f'-> {ckpt_path}')
     print(f'metrics history -> {history_path}')
     print(f'per-dataset metrics -> {dataset_csv_path}')
-    log_artifact(run, ckpt_path, name=f'unet-seed{args.seed}',
-                 artifact_type='model')
+    if run is not None:
+        if args.wandb_log_artifact:
+            log_artifact(run, ckpt_path, name=f'unet-seed{args.seed}',
+                         artifact_type='model')
+        else:
+            print('W&B artifact upload skipped '
+                  '(set WANDB_LOG_ARTIFACT=true to enable)')
     finish_run(run)
     return ckpt_path
 
@@ -549,6 +556,12 @@ def main():
                             'WANDB_BASE_URL', 'http://172.16.1.7:8080'))
     parser.add_argument('--wandb_api_key', default=os.environ.get('WANDB_API_KEY'))
     parser.add_argument('--wandb_dir', default=None)
+    parser.add_argument(
+        '--wandb_log_artifact', action='store_true',
+        default=os.environ.get('WANDB_LOG_ARTIFACT', '').lower()
+        in ('1', 'true', 'yes', 'on'),
+        help='upload the best checkpoint to W&B (default: off; large '
+             'artifacts can stall the end of training on self-hosted servers)')
     parser.add_argument('--device',
                         default='cuda' if torch.cuda.is_available() else 'cpu')
     args = parser.parse_args()

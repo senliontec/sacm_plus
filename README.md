@@ -279,7 +279,11 @@ workdirs/baselines/unet/val_metrics_by_dataset.csv
 ```
 
 Per-dataset values are also logged to W&B every epoch as
-`val/<dataset>/<metric>`.
+`val/<dataset>/<metric>` (the four paper metrics; per-dataset empty rate is
+kept in the JSON only).  W&B checkpoint-artifact upload is **off by default**
+because large artifacts can stall the end of a run on the self-hosted server;
+enable it with `WANDB_LOG_ARTIFACT=true`.  Shutdown waits at most
+`WANDB_FINISH_TIMEOUT` seconds (default 60) before returning.
 
 `collect_paper_metrics.py` reads the frozen protocol manifest and emits
 `paper_metrics.csv`, `paper_macro.csv`, `paper_stats.json`, per-metric
