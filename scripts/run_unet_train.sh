@@ -167,6 +167,22 @@ kill_gpu_processes() {
     return 0
   fi
 
+  # Refuse to kill another user's job (only reachable as root); abort instead
+  # of starting into an OOM.
+  local me_uid owner_uid foreign=""
+  me_uid="$(id -u)"
+  for pid in $pids; do
+    owner_uid="$(ps -o uid= -p "$pid" 2>/dev/null | tr -d ' ')"
+    if [ -n "$owner_uid" ] && [ "$owner_uid" != "$me_uid" ]; then
+      foreign+=" $pid(uid=$owner_uid)"
+    fi
+  done
+  if [ -n "$foreign" ]; then
+    echo "ERROR: GPU $GPU_INDEX has process(es) owned by another user:$foreign" >&2
+    ps -o pid=,user=,args= -p $pids >&2 2>/dev/null || true
+    exit 1
+  fi
+
   echo "Stopping compute process(es) on GPU $GPU_INDEX:"
   ps -o pid=,user=,args= -p $pids 2>/dev/null | sed 's/^/  /' || true
 
