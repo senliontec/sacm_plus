@@ -32,8 +32,8 @@ has been removed):
 
 - **Train**: DRIVE, CHASEDB1, DCA1, CREMI, CrackTree200, CORN; 3-shot each = 18.
 - **Val**: 1 per domain = 6 (CORN uses its official validation batch).
-- **Seen**: held-out images from the five original training domains = 493,
-  plus the official CORN test split = 152; total 645.
+- **Seen**: held-out images from the five original training domains = 491,
+  plus the official CORN test split = 152; total 643.
 - **Unseen**: FIVES 200, STARE 20, XCAD 126, DeepCrack 237,
   HRF 45, LES-AV 22, CHCrack5k 990 = 1,640.
 - **Novel**: ROAD 49, LEAF 31, TYRE 36, WIRE 31 = 147.

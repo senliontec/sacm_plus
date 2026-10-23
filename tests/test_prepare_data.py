@@ -54,6 +54,43 @@ def test_select_group_split_is_disjoint():
     assert not (train_images & {img for img, _, _ in val})
 
 
+def test_select_group_split_uses_distinct_subjects_when_available():
+    names = [f'Image_{i:02d}{side}' for i in range(1, 7) for side in 'LR']
+    groups = pd.group_pairs(_pairs(names), 'CHASEDB1', r'Image_(\d+)[LR]')
+    random.seed(42)
+    train, val = pd.select_group_split(groups, shots=3, val_shots=1)
+
+    assert len(train) == 3
+    assert len({g for _, _, g in train}) == 3
+    assert len(val) == 1
+    assert {g for _, _, g in train}.isdisjoint({g for _, _, g in val})
+
+
+def test_select_group_split_keeps_volume_fallback():
+    names = ['sample_A_z000', 'sample_A_z001', 'sample_B_z000',
+             'sample_B_z001', 'sample_B_z002', 'sample_C_z000']
+    groups = pd.group_pairs(_pairs(names), 'CREMI', r'sample_([ABC])')
+    random.seed(42)
+    train, val = pd.select_group_split(groups, shots=3, val_shots=1)
+
+    assert len(train) == 3
+    assert len({g for _, _, g in train}) == 1
+    assert len(val) == 1
+    assert {g for _, _, g in train}.isdisjoint({g for _, _, g in val})
+
+
+def test_preferred_group_order_keeps_cremi_volumes():
+    names = ['sample_A_z000', 'sample_B_z000', 'sample_B_z001',
+             'sample_B_z002', 'sample_C_z000']
+    groups = pd.group_pairs(_pairs(names), 'CREMI', r'sample_([ABC])')
+    train, val = pd.select_group_split(
+        groups, shots=3, val_shots=1,
+        preferred_order=('CREMI/B', 'CREMI/A', 'CREMI/C'))
+
+    assert {g for _, _, g in train} == {'CREMI/B'}
+    assert {g for _, _, g in val} == {'CREMI/A'}
+
+
 def test_select_group_split_rejects_too_few_groups():
     groups = pd.group_pairs(_pairs(['Image_01L', 'Image_01R']),
                             'CHASEDB1', r'Image_(\d+)[LR]')

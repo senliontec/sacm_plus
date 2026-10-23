@@ -36,6 +36,25 @@ ACTIVE_UNSEEN = ['FIVES', 'STARE', 'XCAD', 'DeepCrack', 'HRF', 'LES-AV',
 ACTIVE_NOVEL = ['ROAD', 'LEAF', 'TYRE', 'WIRE']
 IMAGE_EXTS = ('.png', '.jpg', '.jpeg', '.tif', '.tiff', '.bmp', '.ppm')
 
+# Group semantics for the training domains.  Subject-level groups must not
+# cross train/val/test, and train may contain at most one image per group.
+# Image-level datasets have no public patient ID; each image is its own group
+# and this limitation is recorded in the summary.
+GROUP_POLICIES = {
+    'CHASEDB1': 'subject',
+    'CORN': 'batch',
+    'CREMI': 'volume',
+    'DRIVE': 'image',
+    'DCA1': 'image',
+    'CrackTree200': 'image',
+}
+# CREMI has only A/B/C; requiring three distinct train volumes plus val and
+# test volumes is impossible.  Train therefore uses several B slices while
+# val uses A and test uses C.  The exception is explicit and checked.
+ALLOWED_TRAIN_REPEATS = {
+    'CREMI': 'only three volumes A/B/C; train B slices, val A, test C',
+}
+
 
 def sha256(path: Path) -> str:
     h = hashlib.sha256()
@@ -119,6 +138,53 @@ def external_rows(datasets_root: Path, version: str, role: str, names,
     return rows
 
 
+def validate_group_policy(rows):
+    """Validate subject/volume/batch isolation for the Seen splits.
+
+    Rules:
+      * a group may not appear in more than one Seen split;
+      * train may contain at most one image per group, except for datasets
+        listed in ALLOWED_TRAIN_REPEATS (CREMI's three-volume constraint).
+    External Unseen/Novel rows are test-only, so repeated groups there do
+    not create train leakage and are not counted.
+    """
+    seen = [row for row in rows if row['role'] == 'seen']
+    group_splits = {}
+    train_counts = {}
+    for row in seen:
+        key = (row['dataset'], row['group'])
+        group_splits.setdefault(key, set()).add(row['split'])
+        if row['split'] == 'train':
+            train_counts[key] = train_counts.get(key, 0) + 1
+
+    cross_split = [
+        {'dataset': dataset, 'group': group, 'splits': sorted(splits)}
+        for (dataset, group), splits in sorted(group_splits.items())
+        if len(splits) > 1
+    ]
+    duplicates = []
+    unexpected = []
+    for (dataset, group), count in sorted(train_counts.items()):
+        if count <= 1:
+            continue
+        item = {'dataset': dataset, 'group': group, 'count': count}
+        duplicates.append(item)
+        if dataset not in ALLOWED_TRAIN_REPEATS:
+            unexpected.append(item)
+
+    datasets = sorted({row['dataset'] for row in rows})
+    policies = {dataset: GROUP_POLICIES.get(dataset, 'image')
+                for dataset in datasets}
+    return {
+        'ok': not cross_split and not unexpected,
+        'group_policy': policies,
+        'cross_split_groups': cross_split,
+        'train_duplicate_groups': duplicates,
+        'unexpected_train_duplicate_groups': unexpected,
+        'allowed_exceptions': dict(ALLOWED_TRAIN_REPEATS),
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--split-root', type=Path,
@@ -146,6 +212,7 @@ def main() -> int:
         writer.writerows(rows)
 
     counts = Counter((r['role'], r['split'], r['dataset']) for r in rows)
+    checks = validate_group_policy(rows)
     summary = {
         'protocol_version': version,
         'generated_at_utc': datetime.now(timezone.utc).isoformat(),
@@ -166,6 +233,8 @@ def main() -> int:
             'unique_datasets': len({r['dataset'] for r in rows}),
         },
         'manifest_sha256': sha256(manifest_path),
+        'group_policy': checks['group_policy'],
+        'group_checks': checks,
     }
     summary_path = root / 'protocol_summary.json'
     with open(summary_path, 'w') as f:
@@ -173,6 +242,12 @@ def main() -> int:
         f.write('\n')
     print(f'{len(rows)} rows -> {manifest_path}')
     print(f'summary -> {summary_path}')
+    print(f"group check: {'ok' if checks['ok'] else 'FAILED'}")
+    if not checks['ok']:
+        print(f"  cross-split groups: {checks['cross_split_groups']}")
+        print(f"  unexpected train duplicates: "
+              f"{checks['unexpected_train_duplicate_groups']}")
+        return 1
     return 0
 
 

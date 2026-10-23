@@ -1,12 +1,12 @@
 {
   "protocol_version": "sacm_3shot",
-  "generated_at_utc": "2026-10-23T03:42:51.399745+00:00",
+  "generated_at_utc": "2026-10-23T06:28:29.678889+00:00",
   "seed": 42,
   "counts": {
     "seen": {
       "seen_test": {
         "DRIVE": 16,
-        "CHASEDB1": 22,
+        "CHASEDB1": 20,
         "DCA1": 130,
         "CREMI": 123,
         "CrackTree200": 202,
@@ -50,9 +50,62 @@
     }
   },
   "totals": {
-    "rows": 2456,
-    "images": 2456,
+    "rows": 2454,
+    "images": 2454,
     "unique_datasets": 17
   },
-  "manifest_sha256": "b3a5bd06b3cd5d7a2adda69d15e4776838c2e5f0b37a90b031f28e727ee63590"
+  "manifest_sha256": "a5b17280fa401ef3bb50f9b29450fb02f922469dced1c0660e68c17c3e882727",
+  "group_policy": {
+    "CHASEDB1": "subject",
+    "CHCrack5k": "image",
+    "CORN": "batch",
+    "CREMI": "volume",
+    "CrackTree200": "image",
+    "DCA1": "image",
+    "DRIVE": "image",
+    "DeepCrack": "image",
+    "FIVES": "image",
+    "HRF": "image",
+    "LEAF": "image",
+    "LES-AV": "image",
+    "ROAD": "image",
+    "STARE": "image",
+    "TYRE": "image",
+    "WIRE": "image",
+    "XCAD": "image"
+  },
+  "group_checks": {
+    "ok": true,
+    "group_policy": {
+      "CHASEDB1": "subject",
+      "CHCrack5k": "image",
+      "CORN": "batch",
+      "CREMI": "volume",
+      "CrackTree200": "image",
+      "DCA1": "image",
+      "DRIVE": "image",
+      "DeepCrack": "image",
+      "FIVES": "image",
+      "HRF": "image",
+      "LEAF": "image",
+      "LES-AV": "image",
+      "ROAD": "image",
+      "STARE": "image",
+      "TYRE": "image",
+      "WIRE": "image",
+      "XCAD": "image"
+    },
+    "cross_split_groups": [],
+    "train_duplicate_groups": [
+      {
+        "dataset": "CREMI",
+        "group": "CREMI/B",
+        "count": 3
+      }
+    ],
+    "unexpected_train_duplicate_groups": [],
+    "allowed_exceptions": {
+      "CREMI": "only three volumes A/B/C; train B slices, val A, test C"
+    }
+  }
 }

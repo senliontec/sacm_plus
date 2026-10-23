@@ -47,6 +47,12 @@ DEFAULT_GROUP_REGEXES = {
     # batch-disjoint, and 3-shot sampling must stay within distinct batches.
     'CORN': r'batch_(\d+)_',
 }
+# CREMI is the documented volume-limited exception.  Pin the assignment so
+# the frozen protocol does not silently move val/test to a different volume
+# when unrelated sampling code changes.
+PREFERRED_GROUP_ORDER = {
+    'CREMI': ('CREMI/B', 'CREMI/A', 'CREMI/C'),
+}
 
 
 def find_pairs(src_dir):
@@ -169,10 +175,14 @@ def select_group_images(groups, count):
     return picked
 
 
-def select_group_split(groups, shots, val_shots):
-    """Pick exactly shots/val_shots images with disjoint group IDs."""
-    keys = list(groups)
-    random.shuffle(keys)
+def _legacy_group_split(groups, shots, val_shots, keys):
+    """Old image-filling policy, kept for image-level and volume-limited data.
+
+    One group may contribute several train images.  This is correct for
+    image-level datasets (each group has one image) and for CREMI, where
+    only three volumes exist: train uses slices from one volume, val takes
+    another volume, and test takes the remaining volume.
+    """
     train, val = [], []
     used = set()
     for key in keys:
@@ -196,6 +206,43 @@ def select_group_split(groups, shots, val_shots):
         raise ValueError(
             f"not enough disjoint groups: train={len(train)}/{shots}, "
             f"val={len(val)}/{val_shots}; add groups or reduce shots")
+    return train, val
+
+
+def select_group_split(groups, shots, val_shots, preferred_order=None):
+    """Pick exactly shots/val_shots images with disjoint group IDs.
+
+    When the pool has enough distinct groups, train gets ``shots`` images
+    from distinct groups and val gets ``val_shots`` images from distinct
+    groups; the remaining groups are left for Seen test.  This prevents a
+    patient's two eyes (CHASEDB1) from both entering the 3-shot train set.
+
+    Image-level datasets (every group has one image) keep the legacy
+    selection so their frozen split does not change.  Volume-limited
+    datasets such as CREMI also use the legacy fallback: with only A/B/C,
+    requiring three train volumes plus a val volume plus a test volume is
+    impossible, so train uses several slices from one volume while val and
+    test use the other volumes.
+    """
+    keys = list(groups)
+    if preferred_order:
+        rank = {key: index for index, key in enumerate(preferred_order)}
+        keys.sort(key=lambda key: rank.get(key, len(rank)))
+    else:
+        random.shuffle(keys)
+    all_singletons = all(len(items) == 1 for items in groups.values())
+    enough_groups = len(keys) >= shots + val_shots + 1
+
+    if all_singletons or not enough_groups:
+        return _legacy_group_split(groups, shots, val_shots, keys)
+
+    # Reserve distinct groups for val and leave the last group for test.
+    val = select_group_images(
+        {key: groups[key] for key in keys[:val_shots]}, val_shots)
+    train_pool = {
+        key: groups[key] for key in keys[val_shots:-1]
+    }
+    train = select_group_images(train_pool, shots)
     return train, val
 
 
@@ -318,7 +365,8 @@ def main():
                 source_dirs['val'] = val_specs[name]
             else:
                 train, val = select_group_split(
-                    groups, args.shots, args.val_shots)
+                    groups, args.shots, args.val_shots,
+                    preferred_order=PREFERRED_GROUP_ORDER.get(name))
             subsets = [('train', train), ('val', val)]
             if args.make_test and name in test_specs:
                 test_pairs = find_pairs(test_specs[name])
