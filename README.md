@@ -293,7 +293,12 @@ python scripts/collect_paper_metrics.py --methods unet --no-resume
 
 The collector finishes by printing a per-dataset summary table plus
 Seen/Unseen/Novel/All macro rows; the same values are in `paper_metrics.csv`.
-Status files live under `results/.run_status/`.
+Status files live under `results/.run_status/`.  To re-display a completed
+run at any time:
+
+```bash
+python scripts/show_paper_metrics.py --method unet
+```
 
 U-Net training prints a rich one-line table (header + one row per epoch)
 and persists the same values next to its checkpoint:
