@@ -116,6 +116,9 @@ def evaluate(args):
     if args.pred_threshold == 0.0 and 'pred_threshold' in ckpt_cfg:
         args.pred_threshold = float(ckpt_cfg['pred_threshold'])
         logging.info(f"Using checkpoint pred_threshold={args.pred_threshold}")
+    if ckpt_cfg.get('no_fov') and not args.no_fov:
+        args.no_fov = True
+        logging.info("Using checkpoint no_fov=True (official comparison)")
     args.selection = resolve_selection(args.selection, iou_weight)
     if args.selection == 'iou' and float(iou_weight or 0.0) <= 0:
         logging.warning(
@@ -188,6 +191,9 @@ if __name__ == '__main__':
                         help="Final mask selection: 'auto' = iou when the checkpoint "
                              "trained the IoU head (iou_loss_weight>0), else gating; "
                              "'iou' = trained IoU head; 'gating' = gating-ranked head 0")
+    parser.add_argument('--no-fov', dest='no_fov', action='store_true',
+                        help='Disable FOV masking to match the official SACM '
+                             'adapter / paper-metric prediction protocol')
     parser.add_argument('--pred_threshold', type=float, default=0.0,
                         help='Binarization threshold on logits; 0.0 = probability 0.5 (standard). '
                              'Set 0.5 to replicate the original SACM evaluation convention '

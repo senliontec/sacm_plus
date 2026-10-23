@@ -133,6 +133,7 @@ def train(args):
         use_coarse_to_fine=args.use_coarse_to_fine,
         use_fusion_v2=args.use_fusion_v2,
         use_multi_depth=args.use_multi_depth,
+        init_stage2_from_stage1=getattr(args, 'init_stage2_from_stage1', False),
     )
     sam.to(device)
 
@@ -295,6 +296,10 @@ if __name__ == '__main__':
     parser.add_argument('--use_coarse_to_fine', type=str2bool, default=True, help='Closed-loop coarse-to-fine refinement')
     parser.add_argument('--use_fusion_v2', type=str2bool, default=True, help='Fusion v2 (concat+FFN weights + spatial gate); off = original SACM fusion')
     parser.add_argument('--use_multi_depth', type=str2bool, default=True, help='Multi-depth semantic path from encoder intermediates')
+    parser.add_argument('--init_stage2_from_stage1', type=str2bool, default=False,
+                        help='Warm-start the new Stage-2 mask heads from the pretrained '
+                             'Stage-1 heads (identity initialization); default off for '
+                             'reproducibility with the official random initialization')
 
     # Auxiliary losses
     parser.add_argument('--deep_sup_weight', type=float, default=0.3, help='Weight of Stage-1 deep supervision (all heads)')
@@ -315,6 +320,14 @@ if __name__ == '__main__':
     parser.add_argument('--pred_threshold', type=float, default=0.0,
                         help='Logit threshold for validation F1/metrics; keep equal '
                              'to evaluation --pred_threshold')
+    parser.add_argument('--log_style', type=str, default='table',
+                        choices=['table', 'official'],
+                        help="Terminal monitoring style: 'table' = rich full-metric "
+                             "table; 'official' = SACM-style train loss / val loss / "
+                             "F1 / LR lines only")
+    parser.add_argument('--no-fov', dest='no_fov', action='store_true',
+                        help='Do not mask predictions/GT by the FOV; matches the '
+                             'official SACM adapter and paper-metric predictions')
     parser.add_argument('--cl_dice_weight', type=float, default=0.5, help='Max weight of the differentiable clDice loss')
     parser.add_argument('--cl_dice_warmup', type=int, default=10, help='Epochs before the clDice loss activates')
     parser.add_argument('--cl_dice_ramp', type=int, default=5, help='Epochs for the clDice weight to ramp to its max')

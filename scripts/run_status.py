@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Show live progress for sacm_plus prediction/metric/visualization jobs.
+"""Show live progress for SACM-X prediction/metric/visualization jobs.
 
 The pipeline writes ``results/.run_status/<method>.json`` through
 ``core.run_status.RunStatus``.  This command renders those files:

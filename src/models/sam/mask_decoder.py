@@ -40,6 +40,7 @@ class MaskDecoder(nn.Module):
         use_multi_depth: bool = True,
         encoder_embed_dim: int = 1024,
         num_multidepth_levels: int = 4,
+        init_stage2_from_stage1: bool = False,
     ) -> None:
         """
         Predicts masks given an image and prompt embeddings, using a
@@ -111,6 +112,15 @@ class MaskDecoder(nn.Module):
                 for i in range(self.num_mask_tokens)
             ]
         )
+        if init_stage2_from_stage1:
+            # Warm-start the new Stage-2 branch from the pretrained Stage-1
+            # branch.  The refiner/fusion residuals are zero-initialized, so
+            # Stage-2 then starts as an identity of Stage-1 instead of a
+            # random (often near-empty) mask.
+            for stage1_mlp, stage2_mlp in zip(
+                    self.output_hypernetworks_mlps,
+                    self.output_hypernetworks_mlps_stage2):
+                stage2_mlp.load_state_dict(stage1_mlp.state_dict())
 
         # IoU / quality prediction head (for each head)
         self.iou_prediction_head = MLP(

@@ -1,4 +1,7 @@
 import os
+import sys
+from pathlib import Path
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -14,6 +17,20 @@ import logging
 from datetime import datetime
 from sklearn.metrics import f1_score
 from tqdm import tqdm
+
+# The official code lives under baselines/sacm/; make the project's shared
+# wandb helpers importable regardless of the current working directory.
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT / 'src') not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT / 'src'))
+
+from core.wandb_utils import (  # noqa: E402
+    finish_run,
+    log_artifact,
+    log_scalars,
+    redact_secrets,
+    setup_wandb,
+)
 
 def setup_logging(args):
     if not os.path.exists('logs'):
@@ -250,8 +267,12 @@ def train(args):
     logging.info(f"Adapter parameters: {len(adapter_params)}, learning rate: {args.adapter_lr}")
     logging.info(f"Mask decoder parameters: {len(mask_decoder_params)}, learning rate: {args.decoder_lr}")
     logging.info(f"Scheduler: {args.scheduler}")
-    
-    
+
+    # Optional W&B.  setup_wandb is non-fatal: missing package, credentials,
+    # or an unreachable server only logs a warning and training continues.
+    wandb_run = setup_wandb(args, name='sacm_official',
+                            config=redact_secrets(args))
+
     best_f1_score = 0.0
     # zero_prompt
     sparse_embeddings = torch.zeros(
@@ -324,6 +345,11 @@ def train(args):
         
         avg_train_loss = train_loss/len(train_loader)
         logging.info(f'Epoch {epoch+1}/{args.epochs} - Average Train Loss: {avg_train_loss:.4f}')
+        log_scalars(wandb_run, {
+            'epoch': epoch + 1,
+            'train/loss': avg_train_loss,
+            'train/lr': optimizer.param_groups[0]['lr'],
+        })
         
         # Validate at specified intervals
         if (epoch + 1) % args.val_interval == 0:
@@ -399,12 +425,26 @@ def train(args):
                     'f1_score': f1,
                 }, 'best_model.pth')
                 logging.info(f'👍New best model saved with F1 score: {best_f1_score:.4f}')
-        
+
+            log_scalars(wandb_run, {
+                'epoch': epoch + 1,
+                'val/loss': avg_val_loss,
+                'val/f1': f1,
+                'val/best_f1': best_f1_score,
+            })
+
         # Step the scheduler (except for ReduceLROnPlateau which is updated during validation)
         if scheduler is not None and args.scheduler != 'reduce':
             scheduler.step()
             current_lr = optimizer.param_groups[0]['lr']
             logging.info(f'Current learning rate: {current_lr:.7f}')
+
+    if wandb_run is not None and getattr(args, 'wandb_log_artifact', False):
+        checkpoint = os.path.abspath('best_model.pth')
+        if os.path.isfile(checkpoint):
+            log_artifact(wandb_run, checkpoint, name='sacm_official',
+                         artifact_type='model')
+    finish_run(wandb_run)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Train SAM with adapters')
@@ -429,6 +469,28 @@ if __name__ == '__main__':
     parser.add_argument('--lr_step_size', type=int, default=10, help='Step size for StepLR scheduler')
     parser.add_argument('--lr_gamma', type=float, default=0.1, help='Gamma for StepLR and ReduceLROnPlateau schedulers')
     parser.add_argument('--patience', type=int, default=3, help='Patience for ReduceLROnPlateau scheduler')
-    
+
+    # Optional W&B logging.  Defaults mirror scripts/wandb_env.sh; passing
+    # --use_wandb enables the run (the one-click wrapper does this by default).
+    parser.add_argument('--use_wandb', action='store_true',
+                        help='Log training/validation metrics to W&B')
+    parser.add_argument('--wandb_project',
+                        default=os.environ.get('WANDB_PROJECT', 'sacm'))
+    parser.add_argument('--wandb_entity',
+                        default=os.environ.get('WANDB_ENTITY', 'buaazqk'))
+    parser.add_argument('--wandb_host',
+                        default=os.environ.get('WANDB_BASE_URL',
+                                               'http://172.16.1.7:8080'))
+    parser.add_argument('--wandb_api_key',
+                        default=os.environ.get('WANDB_API_KEY', ''))
+    parser.add_argument('--wandb_name', default=None)
+    parser.add_argument('--wandb_tags', default='sacm_official,3shot')
+    parser.add_argument('--wandb_mode', default=os.environ.get('WANDB_MODE'))
+    parser.add_argument('--wandb_dir', default=os.environ.get('WANDB_DIR'))
+    parser.add_argument('--wandb_group', default=None)
+    parser.add_argument('--wandb_job_type', default='train')
+    parser.add_argument('--wandb_log_artifact', action='store_true',
+                        help='Also upload best_model.pth as a W&B artifact')
+
     args = parser.parse_args()
-    train(args) 
+    train(args)

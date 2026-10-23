@@ -27,7 +27,7 @@
 
 ## 放置代码的规则
 
-1. 不修改上游算法的内部实现；需要适配时，把 wrapper 放到 `sacm_plus/scripts/baselines/`。
+1. 不修改上游算法的内部实现；需要适配时，把 wrapper 放到 `baselines/adapters/`。
 2. 每个子目录直接放该方法的完整源码，保留其 `README`、`requirements.txt`、`LICENSE`。
 3. 预训练权重不要提交到 Git。本仓库顶层 `.gitignore` 已忽略 `*.pth`、`checkpoints/`。
 4. 每个方法至少记录：

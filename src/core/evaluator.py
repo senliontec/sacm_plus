@@ -137,9 +137,12 @@ class Evaluator:
                     mode='bilinear', align_corners=False,
                 )
                 # Optional FOV mask: remove predictions outside the retinal
-                # field (and zero any GT outside it) before metrics.
-                low_res_masks = low_res_masks * fov_mask
-                original_mask = original_mask * fov_mask
+                # field (and zero any GT outside it) before metrics.  The
+                # official-comparison mode disables both so the prediction
+                # PNGs match the official adapter's paper-metric protocol.
+                if not getattr(self.args, 'no_fov', False):
+                    low_res_masks = low_res_masks * fov_mask
+                    original_mask = original_mask * fov_mask
 
                 loss = self.criterion(low_res_masks, original_mask)
                 loss_values.append(loss.item())
@@ -220,6 +223,7 @@ class Evaluator:
             f.write(f"Num Samples: {len(csv_rows)}\n")
             f.write(f"Selection: {args.selection}\n")
             f.write(f"TTA: {args.tta}\n")
+            f.write(f"No FOV: {getattr(args, 'no_fov', False)}\n")
             for k, (mean, std) in summary.items():
                 f.write(f"Average {k.capitalize()}: {mean:.4f} ± {std:.4f}\n")
             f.write(f"Average Loss: {avg_loss:.4f}\n")

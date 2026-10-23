@@ -28,6 +28,7 @@ def build_sam_vit_h(
     use_coarse_to_fine=True,
     use_fusion_v2=True,
     use_multi_depth=True,
+    init_stage2_from_stage1=False,
 ):
     return _build_sam(
         encoder_embed_dim=1280,
@@ -43,6 +44,7 @@ def build_sam_vit_h(
         use_coarse_to_fine=use_coarse_to_fine,
         use_fusion_v2=use_fusion_v2,
         use_multi_depth=use_multi_depth,
+        init_stage2_from_stage1=init_stage2_from_stage1,
     )
 
 
@@ -59,6 +61,7 @@ def build_sam_vit_l(
     use_coarse_to_fine=True,
     use_fusion_v2=True,
     use_multi_depth=True,
+    init_stage2_from_stage1=False,
 ):
     return _build_sam(
         encoder_embed_dim=1024,
@@ -74,6 +77,7 @@ def build_sam_vit_l(
         use_coarse_to_fine=use_coarse_to_fine,
         use_fusion_v2=use_fusion_v2,
         use_multi_depth=use_multi_depth,
+        init_stage2_from_stage1=init_stage2_from_stage1,
     )
 
 
@@ -87,6 +91,7 @@ def build_sam_vit_b(
     use_coarse_to_fine=True,
     use_fusion_v2=True,
     use_multi_depth=True,
+    init_stage2_from_stage1=False,
 ):
     return _build_sam(
         encoder_embed_dim=768,
@@ -102,6 +107,7 @@ def build_sam_vit_b(
         use_coarse_to_fine=use_coarse_to_fine,
         use_fusion_v2=use_fusion_v2,
         use_multi_depth=use_multi_depth,
+        init_stage2_from_stage1=init_stage2_from_stage1,
     )
 
 
@@ -127,6 +133,7 @@ def _build_sam(
     use_coarse_to_fine=True,
     use_fusion_v2=True,
     use_multi_depth=True,
+    init_stage2_from_stage1=False,
 ):
     prompt_embed_dim = 256
     image_size = 1024
@@ -201,6 +208,7 @@ def _build_sam(
             use_multi_depth=use_multi_depth,
             encoder_embed_dim=encoder_embed_dim,
             num_multidepth_levels=4,
+            init_stage2_from_stage1=init_stage2_from_stage1,
         ),
         pixel_mean=[123.675, 116.28, 103.53],
         pixel_std=[58.395, 57.12, 57.375],

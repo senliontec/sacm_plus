@@ -16,6 +16,7 @@ import argparse
 import csv
 import hashlib
 import json
+import math
 import os
 import subprocess
 import sys
@@ -26,6 +27,12 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / 'src'))
 
 from core.run_status import RunStatus  # noqa: E402
+from core.wandb_utils import (  # noqa: E402
+    finish_run,
+    log_artifact,
+    log_scalars,
+    setup_wandb,
+)
 
 # Prediction adapters.  A method without an entry is assumed to have
 # predictions already on disk.
@@ -93,6 +100,101 @@ def checkpoint_split_hash(path: Path):
         return None
 
 
+def _as_bool(value):
+    return str(value).strip().lower() not in ('0', 'false', 'no', 'off',
+                                              'disabled', 'none')
+
+
+def _float_or_none(value):
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return None if math.isnan(number) else number
+
+
+def log_paper_metrics(args, paper_root: Path):
+    """Log the 20-dataset per-dataset and macro metrics to W&B.
+
+    Non-fatal: a missing CSV, missing package, or unreachable server must not
+    turn a successful evaluation into a failed run.
+    """
+    metrics_path = paper_root / 'paper_metrics.csv'
+    macro_path = paper_root / 'paper_macro.csv'
+    if not metrics_path.is_file():
+        print(f'[warn] W&B: missing {metrics_path}; skip paper-metric logging')
+        return
+
+    run = setup_wandb(
+        args,
+        name=f'paper_metrics-{args.method}',
+        config={
+            'method': args.method,
+            'protocol': str(args.protocol),
+            'checkpoint': str(args.checkpoint),
+            'pred_root': str(args.pred_root),
+            'metrics': args.metrics,
+            'datasets': args.datasets or 'all',
+        },
+    )
+    if run is None:
+        return
+    try:
+        import wandb
+
+        with open(metrics_path, newline='') as f:
+            rows = [row for row in csv.DictReader(f)
+                    if row.get('method') == args.method]
+        if not rows:
+            print(f'[warn] W&B: no rows for method={args.method} in '
+                  f'{metrics_path}; skip paper-metric logging')
+            return
+
+        table = wandb.Table(columns=[
+            'method', 'dataset', 'role', 'dice_mean', 'iou_mean',
+            'cldice_mean', 'hd95_mean', 'dice_n',
+        ])
+        for row in rows:
+            table.add_data(
+                row['method'], row['dataset'], row['role'],
+                _float_or_none(row.get('dice_mean')),
+                _float_or_none(row.get('iou_mean')),
+                _float_or_none(row.get('cldice_mean')),
+                _float_or_none(row.get('hd95_mean')),
+                _float_or_none(row.get('dice_n')),
+            )
+        run.log({'paper/per_dataset': table})
+
+        scalars = {}
+        if macro_path.is_file():
+            with open(macro_path, newline='') as f:
+                macro_rows = [row for row in csv.DictReader(f)
+                              if row.get('method') == args.method]
+            for row in macro_rows:
+                role = row.get('role', '').strip().lower()
+                for metric in ('dice', 'iou', 'cldice', 'hd95'):
+                    value = _float_or_none(row.get(f'{metric}_mean'))
+                    if value is not None:
+                        scalars[f'macro/{args.method}/{role}/{metric}'] = value
+        if scalars:
+            log_scalars(run, scalars)
+
+        for path, artifact_name in (
+            (metrics_path, 'paper_metrics'),
+            (macro_path, 'paper_macro'),
+        ):
+            if path.is_file():
+                log_artifact(run, path,
+                             name=f'{artifact_name}-{args.method}',
+                             artifact_type='metrics')
+        print(f'W&B: logged paper metrics for {args.method} '
+              f'({len(rows)} dataset rows)')
+    except Exception as exc:
+        print(f'[warn] W&B paper-metric logging failed: {exc}')
+    finally:
+        finish_run(run)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--method', default='unet')
@@ -129,6 +231,25 @@ def main():
                              'reusing the cache')
     parser.add_argument('--allow-stale-checkpoint', action='store_true',
                         help='allow a checkpoint older than the current split')
+    parser.add_argument('--use_wandb', nargs='?', const=True,
+                        type=_as_bool, default=True,
+                        help='log paper metrics to W&B (default: true; '
+                             'pass false to disable)')
+    parser.add_argument('--wandb_project',
+                        default=os.environ.get('WANDB_PROJECT', 'sacm'))
+    parser.add_argument('--wandb_entity',
+                        default=os.environ.get('WANDB_ENTITY', 'buaazqk'))
+    parser.add_argument('--wandb_host',
+                        default=os.environ.get('WANDB_BASE_URL',
+                                               'http://172.16.1.7:8080'))
+    parser.add_argument('--wandb_api_key',
+                        default=os.environ.get('WANDB_API_KEY', ''))
+    parser.add_argument('--wandb_name', default=None)
+    parser.add_argument('--wandb_tags', default='paper_metrics,3shot')
+    parser.add_argument('--wandb_mode', default=os.environ.get('WANDB_MODE'))
+    parser.add_argument('--wandb_dir', default=os.environ.get('WANDB_DIR'))
+    parser.add_argument('--wandb_group', default=None)
+    parser.add_argument('--wandb_job_type', default='evaluation')
     args = parser.parse_args()
     if args.checkpoint is None:
         args.checkpoint = (REPO_ROOT / 'workdirs' / 'baselines' /
@@ -258,6 +379,8 @@ def main():
             if args.no_resume:
                 cmd += ['--no-resume']
             run(cmd)
+            if args.use_wandb:
+                log_paper_metrics(args, args.paper_root)
 
         if not args.skip_visualize:
             begin_stage('visualize')

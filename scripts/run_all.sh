@@ -35,7 +35,7 @@ SHOTS="${SHOTS:-3}"                      # 仅 FULL_DATA=false(3-shot 协议层)
 VAL_SHOTS="${VAL_SHOTS:-1}"
 SEED="${SEED:-42}"
 CKPT="${CKPT:-checkpoints/sam_vit_l_0b3195.pth}"
-RAW_DATA_ROOT="${RAW_DATA_ROOT:-../datasets}"   # canonical raw library: project-root datasets/, sibling of sacm_plus/
+RAW_DATA_ROOT="${RAW_DATA_ROOT:-../datasets}"   # canonical raw library: project-root datasets/, sibling of the SACM-X checkout
 SPLIT_ROOT="${SPLIT_ROOT:-data/sacm_3shot}"
 TRAIN_SOURCES="${TRAIN_SOURCES:-datasets/seen/DRIVE datasets/seen/CHASEDB1 datasets/seen/DCA1 datasets/seen/CREMI datasets/seen/CrackTree200 CORN:datasets/seen/CORN/train}"   # SACM protocol domains (6 x 3-shot = 18)
 VAL_SOURCES="${VAL_SOURCES:-CORN:datasets/seen/CORN/val}"   # official val split (CORN batch 9)

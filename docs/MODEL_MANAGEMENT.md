@@ -8,7 +8,7 @@
 
 | 名称 | 架构 | 用途 |
 |---|---|---|
-| `sam_l` | SAM ViT-L + 完整 SACM-v2 架构 | 默认（论文主模型） |
+| `sam_l` | SAM ViT-L + 完整 SACM-X 架构 | 默认（论文主模型） |
 | `sam_b` | SAM ViT-B + 同架构开关 | 调试/快速实验（CPU 友好） |
 | `sam_h` | SAM ViT-H + 同架构开关 | 容量上限实验 |
 

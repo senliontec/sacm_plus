@@ -33,6 +33,7 @@ SAM_DEFAULTS = dict(
     use_coarse_to_fine=True,
     use_fusion_v2=True,
     use_multi_depth=True,
+    init_stage2_from_stage1=False,
 )
 
 
@@ -92,6 +93,18 @@ def sam_param_groups(sam, args):
 
 
 def sam_preprocess(sam, images):
+    """Apply SAM normalization on the scale it was pretrained with.
+
+    Datasets use ``ToTensor`` -> [0, 1], while SAM's pixel_mean/pixel_std
+    are defined for [0, 255].  Feeding [0, 1] directly subtracts a mean of
+    ~123.7 and compresses the dynamic range by ~14x, which breaks the frozen
+    encoder.  Scale raw images to [0, 255] first; already-normalized inputs
+    (negative values) are left untouched.
+    """
+    lo = images.amin()
+    hi = images.amax()
+    if bool(lo >= 0.0) and bool(hi <= 1.0 + 1e-6):
+        images = images * 255.0
     return sam.preprocess(images)
 
 
@@ -111,7 +124,7 @@ def _make_spec(name, builder, description):
 
 
 register_model('sam_l')(_make_spec(
-    'sam_l', build_sam_vit_l, 'SAM ViT-L with the full SACM-v2 architecture (default)'))
+    'sam_l', build_sam_vit_l, 'SAM ViT-L with the full SACM-X architecture (default)'))
 register_model('sam_b')(_make_spec(
     'sam_b', build_sam_vit_b, 'SAM ViT-B with the same switches (faster, for debugging)'))
 register_model('sam_h')(_make_spec(

@@ -12,7 +12,7 @@
 # Environment:
 #   PYTHON, GPU, EPOCHS, VAL_INTERVAL, BATCH_SIZE (keep 1), ADAPTER_RATIO,
 #   ADAPTER_LR, DECODER_LR, WEIGHT_DECAY, BCE_WEIGHT, DICE_WEIGHT,
-#   DATA_ROOT, SAM_CKPT, WORKDIR, LOG_DIR
+#   DATA_ROOT, SAM_CKPT, WORKDIR, LOG_DIR, USE_WANDB, WANDB_MODE
 set -euo pipefail
 
 cd "$(dirname "$0")/.." || exit 1
@@ -24,7 +24,11 @@ if [ -z "${PYTHON:-}" ]; then
     PYTHON=python
   fi
 fi
+source scripts/wandb_env.sh
 GPU="${GPU:-0}"
+USE_WANDB="${USE_WANDB:-true}"
+WANDB_MODE="${WANDB_MODE:-online}"
+export WANDB_MODE
 EPOCHS="${EPOCHS:-60}"
 VAL_INTERVAL="${VAL_INTERVAL:-10}"
 BATCH_SIZE="${BATCH_SIZE:-1}"
@@ -52,6 +56,23 @@ if [ "$BATCH_SIZE" != "1" ]; then
   echo "         batch_size=1 is strongly recommended for 18 images." >&2
 fi
 
+if [ "$USE_WANDB" = "true" ] && [ "$WANDB_MODE" != "offline" ] && [ "$WANDB_MODE" != "disabled" ]; then
+  if ! wandb_auth_ok; then
+    echo "ERROR: W&B is enabled (mode=$WANDB_MODE) but no credentials were found." >&2
+    echo "Set WANDB_API_KEY or ~/.netrc, or use WANDB_MODE=offline / USE_WANDB=false." >&2
+    exit 1
+  fi
+fi
+
+WANDB_ARGS=()
+if [ "$USE_WANDB" = "true" ]; then
+  WANDB_ARGS+=(--use_wandb
+               --wandb_project "$WANDB_PROJECT"
+               --wandb_entity "$WANDB_ENTITY"
+               --wandb_host "$WANDB_BASE_URL"
+               --wandb_mode "$WANDB_MODE")
+fi
+
 mkdir -p "$WORKDIR" "$LOG_DIR"
 LOG="$LOG_DIR/sacm_official_train_$(date +%Y%m%d_%H%M%S).log"
 export PYTHONPATH="$REPO/baselines/sacm${PYTHONPATH:+:$PYTHONPATH}"
@@ -61,6 +82,7 @@ echo "data_root=$DATA_ROOT"
 echo "sam_checkpoint=$SAM_CKPT"
 echo "workdir=$WORKDIR"
 echo "epochs=$EPOCHS val_interval=$VAL_INTERVAL batch_size=$BATCH_SIZE"
+echo "wandb=$USE_WANDB mode=$WANDB_MODE project=$WANDB_PROJECT"
 echo "log=$LOG"
 
 cd "$WORKDIR"
@@ -76,7 +98,8 @@ cd "$WORKDIR"
   --val_interval "$VAL_INTERVAL" \
   --bce_weight "$BCE_WEIGHT" \
   --dice_weight "$DICE_WEIGHT" \
-  --scheduler cosine 2>&1 | tee "$LOG"
+  --scheduler cosine \
+  ${WANDB_ARGS[@]+"${WANDB_ARGS[@]}"} 2>&1 | tee "$LOG"
 
 if [ ! -f "$WORKDIR/best_model.pth" ]; then
   echo "ERROR: training finished but $WORKDIR/best_model.pth is missing." >&2

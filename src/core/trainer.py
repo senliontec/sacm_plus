@@ -338,8 +338,12 @@ class Trainer:
                 main_mask = F.interpolate(
                     main_mask, size=(height, width),
                     mode='bilinear', align_corners=False)
-                main_mask = main_mask * fov_mask
-                masks = masks * fov_mask
+                # Official-comparison protocol: no FOV masking.  The final
+                # evaluator uses the same switch so checkpoint selection and
+                # reported paper metrics share one post-processing rule.
+                if not getattr(self.args, 'no_fov', False):
+                    main_mask = main_mask * fov_mask
+                    masks = masks * fov_mask
 
                 loss = self.criterion(main_mask, masks)
                 val_loss += loss.item()
@@ -459,6 +463,7 @@ class Trainer:
                     'use_coarse_to_fine': self.args.use_coarse_to_fine,
                     'use_fusion_v2': self.args.use_fusion_v2,
                     'use_multi_depth': self.args.use_multi_depth,
+                    'init_stage2_from_stage1': getattr(self.args, 'init_stage2_from_stage1', False),
                     'adapter_dim_ratio': self.args.adapter_dim_ratio,
                     'stage2_supervision': getattr(self.args, 'stage2_supervision', 'soft'),
                     'soft_select_mix': getattr(self.args, 'soft_select_mix', 0.5),
@@ -466,6 +471,8 @@ class Trainer:
                     'iou_loss_weight': self.args.iou_loss_weight,
                     'pred_threshold': getattr(self.args, 'pred_threshold', 0.0),
                     'val_selection': getattr(self.args, 'val_selection', 'auto'),
+                    'no_fov': getattr(self.args, 'no_fov', False),
+                    'log_style': getattr(self.args, 'log_style', 'table'),
                     'deep_sup_weight': self.args.deep_sup_weight,
                     'cl_dice_weight': self.args.cl_dice_weight,
                     'topology_loss': self.args.topology_loss,
@@ -478,6 +485,8 @@ class Trainer:
 
     def _log_val_images(self, epoch, items):
         """验证图可视化(原图/GT/预测三列)上传 wandb;失败不影响训练。"""
+        if getattr(self.args, 'log_style', 'table') == 'official':
+            return  # official-comparison mode: no extra W&B artifacts
         run = getattr(self, '_wandb_run', None)
         if run is None or not items:
             return
@@ -525,6 +534,8 @@ class Trainer:
             'iou_loss_weight': self.args.iou_loss_weight,
             'pred_threshold': getattr(self.args, 'pred_threshold', 0.0),
             'val_selection': getattr(self.args, 'val_selection', 'auto'),
+            'no_fov': getattr(self.args, 'no_fov', False),
+            'log_style': getattr(self.args, 'log_style', 'table'),
             'topology_loss': self.args.topology_loss,
             'topology_loss_weight': self.args.topology_loss_weight,
             'use_geo_i': self.args.use_geo_i,
@@ -533,6 +544,7 @@ class Trainer:
             'use_coarse_to_fine': self.args.use_coarse_to_fine,
             'use_fusion_v2': self.args.use_fusion_v2,
             'use_multi_depth': self.args.use_multi_depth,
+            'init_stage2_from_stage1': getattr(self.args, 'init_stage2_from_stage1', False),
             'val_auc': self.args.val_auc,
             'val_betti_matching': self.args.val_betti_matching,
             'val_topograph': self.args.val_topograph,
@@ -582,11 +594,14 @@ class Trainer:
         history = []
         advice_log = {}
         best_epoch = -1
+        log_style = getattr(self.args, 'log_style', 'table')
+        official = log_style == 'official'
         # 宽表:紧凑单行(49 列,~290 字符);表头下打一次拓扑损失缩写对照
         topo_names = sorted(TOPOLOGY_LOSS_REGISTRY)
-        for line in epoch_header(topo_names):
-            console.print(line, style="bold")
-        console.print(topo_legend(topo_names), style="dim")
+        if not official:
+            for line in epoch_header(topo_names):
+                console.print(line, style="bold")
+            console.print(topo_legend(topo_names), style="dim")
 
         try:
             for epoch in range(self.args.epochs):
@@ -594,11 +609,24 @@ class Trainer:
                 avg_train_loss, comps = self._train_epoch(epoch)
                 train_s = time.time() - t0
 
-                wm = {'epoch': epoch, 'train/loss': avg_train_loss,
-                      'lr': self.optimizer.param_groups[0]['lr'],
-                      'train/time_s': train_s}
-                for k, v in comps.items():
-                    wm[f'train/{k}'] = v
+                if official:
+                    # Official SACM's train loss is the main DiceBCE term;
+                    # report the same term so the log is comparable instead of
+                    # hiding auxiliary deep-supervision/topology terms in it.
+                    train_loss = comps.get('loss_main', avg_train_loss)
+                    wm = {'epoch': epoch + 1,
+                          'train/loss': train_loss,
+                          'train/lr': self.optimizer.param_groups[0]['lr']}
+                    if self._rank0:
+                        print(f'Epoch {epoch+1}/{self.args.epochs} - '
+                              f'Average Train Loss: {train_loss:.4f}',
+                              flush=True)
+                else:
+                    wm = {'epoch': epoch, 'train/loss': avg_train_loss,
+                          'lr': self.optimizer.param_groups[0]['lr'],
+                          'train/time_s': train_s}
+                    for k, v in comps.items():
+                        wm[f'train/{k}'] = v
 
                 # DDP 下验证在所有 rank 分片执行(_validate 内部 gather
                 # 汇总),日志/保存只在 rank 0;其余 rank 只训练并同步梯度
@@ -612,16 +640,48 @@ class Trainer:
                     f1, vloss, avg_val_cldice, val_metrics = self._validate(epoch)
                     val_s = time.time() - val_t0
                     if self._rank0:
-                        wm.update({'val/loss': vloss, 'val/f1': f1,
-                                   'val/cldice': avg_val_cldice,
-                                   'val/time_s': val_s})
-                        for k, v in val_metrics.items():
-                            wm[f'val/{k}'] = v
+                        if official:
+                            wm.update({'val/loss': vloss, 'val/f1': f1})
+                        else:
+                            wm.update({'val/loss': vloss, 'val/f1': f1,
+                                       'val/cldice': avg_val_cldice,
+                                       'val/time_s': val_s})
+                            for k, v in val_metrics.items():
+                                wm[f'val/{k}'] = v
                         is_best = self.best_f1_score > best_before
+                        if official:
+                            wm['val/best_f1'] = self.best_f1_score
                 if is_best:
                     best_epoch = epoch + 1
 
                 if self._rank0:
+                    if official:
+                        if f1 is not None:
+                            print(f'Epoch {epoch+1}/{self.args.epochs} - '
+                                  f'Average Val Loss: {vloss:.4f}', flush=True)
+                            print(f'Epoch {epoch+1}/{self.args.epochs} - '
+                                  f'F1 Score: {f1:.4f}', flush=True)
+                            if is_best:
+                                print(f'👍New best model saved with F1 score: '
+                                      f'{self.best_f1_score:.4f}', flush=True)
+                    else:
+                        for line in epoch_row(epoch + 1, avg_train_loss, comps,
+                                              self.optimizer.param_groups[0]['lr'],
+                                              time.time() - t0, f1, vloss, val_metrics,
+                                              topo_names, train_s=train_s, val_s=val_s):
+                            console.print(line, style="bold green" if is_best else "")
+                        # Online advisor: metric patterns -> optimization
+                        # directions, printed while training (history already
+                        # includes this epoch).
+                        if val_metrics is not None:
+                            # 顾问去重:同一条提示至少间隔 3 个验证 epoch 才重复
+                            for sev, msg in advise(history, self.args):
+                                last = advice_log.get(msg, -99)
+                                if epoch + 1 - last >= 3:
+                                    console.print(f"  ⚠ {msg}",
+                                                  style="yellow" if sev == 'warn' else "cyan")
+                                    advice_log[msg] = epoch + 1
+
                     log_scalars(run, wm)
 
                     # **wm first so the explicit 1-based epoch wins (wm stores
@@ -631,23 +691,6 @@ class Trainer:
                                     'train_s': round(train_s, 2),
                                     'val_s': round(val_s, 2) if val_s is not None else None})
 
-                    for line in epoch_row(epoch + 1, avg_train_loss, comps,
-                                          self.optimizer.param_groups[0]['lr'],
-                                          time.time() - t0, f1, vloss, val_metrics,
-                                          topo_names, train_s=train_s, val_s=val_s):
-                        console.print(line, style="bold green" if is_best else "")
-                    # Online advisor: metric patterns -> optimization
-                    # directions, printed while training (history already
-                    # includes this epoch).
-                    if val_metrics is not None:
-                        # 顾问去重:同一条提示至少间隔 3 个验证 epoch 才重复
-                        for sev, msg in advise(history, self.args):
-                            last = advice_log.get(msg, -99)
-                            if epoch + 1 - last >= 3:
-                                console.print(f"  ⚠ {msg}",
-                                              style="yellow" if sev == 'warn' else "cyan")
-                                advice_log[msg] = epoch + 1
-
                 # 每轮末尾同步(fencing-algs 模式):rank 0 的日志/保存
                 # 不拖慢其他 rank 进入下一轮,但也不让它们抢跑太远
                 if self.is_ddp:
@@ -656,6 +699,10 @@ class Trainer:
                 # Step the scheduler (except ReduceLROnPlateau, updated during validation)
                 if self.scheduler is not None and self.args.scheduler != 'reduce':
                     self.scheduler.step()
+                if official and self._rank0:
+                    print(f'Current learning rate: '
+                          f'{self.optimizer.param_groups[0]["lr"]:.7f}',
+                          flush=True)
         finally:
             if self._rank0:
                 if run is not None:

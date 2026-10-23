@@ -30,6 +30,7 @@ import csv
 import os
 import subprocess
 import sys
+import threading
 import time
 
 # Make the src packages importable without an editable install.
@@ -92,6 +93,59 @@ def status_rows(slot, status):
     ]
 
 
+def _pump_output(proc, log_fh, prefix=''):
+    """Relay child stdout to the run log and the parent terminal.
+
+    The log file gets the raw line (preserving the one-line-per-epoch table);
+    ``prefix`` is only added to terminal output so multi-GPU jobs remain
+    distinguishable.
+    """
+    try:
+        for line in iter(proc.stdout.readline, ''):
+            # Keep draining the child pipe even if the terminal disconnects
+            # or the log file becomes unwritable; otherwise the child blocks
+            # on a full stdout pipe and the run appears hung.
+            try:
+                log_fh.write(line)
+                log_fh.flush()
+            except Exception:
+                pass
+            try:
+                sys.stdout.write(prefix + line if prefix else line)
+                sys.stdout.flush()
+            except Exception:
+                pass
+    except Exception:
+        pass
+    finally:
+        try:
+            proc.stdout.close()
+        except Exception:
+            pass
+
+
+def _launch(slot, cmd):
+    """Start a child process with stdout relayed to log + terminal."""
+    prefix = f"[gpu {slot['gpu']}] " if slot.get('multi_gpu') else ''
+    slot['proc'] = subprocess.Popen(
+        cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        env=slot['env'], text=True, bufsize=1)
+    slot['reader'] = threading.Thread(
+        target=_pump_output,
+        args=(slot['proc'], slot['log'], prefix),
+        daemon=True,
+    )
+    slot['reader'].start()
+
+
+def _join_reader(slot):
+    """Wait for the output relay before closing the shared log file."""
+    reader = slot.get('reader')
+    if reader is not None:
+        reader.join(timeout=10)
+        slot['reader'] = None
+
+
 def start_next_test(slot, args):
     """Launch the next test command, or close the job when the queue is empty."""
     if not slot['test_queue']:
@@ -112,9 +166,9 @@ def start_next_test(slot, args):
         slot['ckpt'], slot['selection'])
     slot['log'].write(f"=== test {dataset} ===\n{' '.join(cmd)}\n")
     slot['log'].flush()
-    slot['proc'] = subprocess.Popen(
-        cmd, stdout=slot['log'], stderr=subprocess.STDOUT, env=slot['env'])
-    print(f"[gpu {slot['gpu']}] {slot['preset']}/{dataset}: test started")
+    _launch(slot, cmd)
+    print(f"[gpu {slot['gpu']}] {slot['preset']}/{dataset}: test started",
+          flush=True)
 
 
 def start_job(gpu, preset, test_datasets, args):
@@ -133,6 +187,7 @@ def start_job(gpu, preset, test_datasets, args):
         'selection': selection, 'log': log_fh, 'env': env,
         'phase': 'train', 'proc': None, 'status': 'running',
         'current_dataset': None, 'rows': [],
+        'reader': None, 'multi_gpu': len(args.gpus) > 1,
     }
 
     if args.skip_train:
@@ -150,9 +205,8 @@ def start_job(gpu, preset, test_datasets, args):
     cmd = train_command(args, preset, ckpt_path, selection)
     log_fh.write(f"=== train ===\n{' '.join(cmd)}\n")
     log_fh.flush()
-    slot['proc'] = subprocess.Popen(
-        cmd, stdout=log_fh, stderr=subprocess.STDOUT, env=env)
-    print(f"[gpu {gpu}] {preset}: train started")
+    _launch(slot, cmd)
+    print(f"[gpu {gpu}] {preset}: train started", flush=True)
     return slot
 
 
@@ -161,6 +215,7 @@ def advance(slot, args):
     if slot['phase'] == 'done':
         return True
 
+    _join_reader(slot)
     preset, gpu = slot['preset'], slot['gpu']
     rc = 0 if slot['proc'] is None else slot['proc'].returncode
 

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>SACM-Plus 数据集准备与实验协议报告 v1</title>
+<title>SACM-X 数据集准备与实验协议报告 v1</title>
 <style>
   :root {
     --bg: #f6f7f9;
@@ -140,7 +140,7 @@
 <main>
 
 <header class="hero">
-  <h1>SACM-Plus 数据集准备与实验协议报告</h1>
+  <h1>SACM-X 数据集准备与实验协议报告</h1>
   <p>版本 v1 · 更新日期 2026-10-23 · 当前 split: <code>data/sacm_3shot</code>（早期 v0 已删除）</p>
   <p>范围：20 个原始数据集 → 标准数据源池 → 6 域 3-shot 训练/验证/Seen 测试协议 → Unseen/Novel 外部测试</p>
   <div class="meta">
@@ -182,7 +182,7 @@
 <section id="summary">
   <h2>1. 执行摘要</h2>
   <p>
-    本报告记录 SACM-Plus 当前实验所使用的数据组织方式、划分规则、审计结果和设计取舍。
+    本报告记录 SACM-X 当前实验所使用的数据组织方式、划分规则、审计结果和设计取舍。
     核心结论是：<b>数据源池可以安全用于后续实验；训练/验证/测试 split 由我们自己固定，并非官方 SACM 的原始 split。</b>
   </p>
   <div class="success">
@@ -717,7 +717,7 @@ python scripts/build_protocol_manifest.py \
 </section>
 
 <footer>
-  SACM-Plus Dataset Protocol Report · v1 · 2026-10-23 · 当前 split: data/sacm_3shot
+  SACM-X Dataset Protocol Report · v1 · 2026-10-23 · 当前 split: data/sacm_3shot
 </footer>
 
 </main>

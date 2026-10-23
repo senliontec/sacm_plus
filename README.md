@@ -1,6 +1,8 @@
-# SACM
+# SACM-X
 
-SACM is a PyTorch-based image segmentation project that integrates the Segment Anything Model (SAM) for both training and inference. The project provides custom training and testing scripts, and wraps SAM for easy extension and application.
+SACM-X is a PyTorch-based research framework for prompt-free curvilinear structure segmentation, built on the SACM baseline and the Segment Anything Model (SAM). The project provides custom training and testing scripts, and wraps SAM for easy extension and application.
+
+> SACM-X is the working name for the improved framework. The official SACM baseline remains under `baselines/sacm/` and `--preset sacm`; the local checkout/server directory may still be named `sacm_plus`/`sacm-plus`.
 
 ## Features
 

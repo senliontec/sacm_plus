@@ -25,15 +25,26 @@ if [ -z "${PYTHON:-}" ]; then
     PYTHON=python
   fi
 fi
+source scripts/wandb_env.sh
 GPU="${GPU:-0}"
 EPOCHS="${EPOCHS:-200}"
 BATCH_SIZE="${BATCH_SIZE:-4}"
-USE_WANDB="${USE_WANDB:-false}"
+USE_WANDB="${USE_WANDB:-true}"
+WANDB_MODE="${WANDB_MODE:-online}"
+export WANDB_MODE
 SKIP_TRAIN="${SKIP_TRAIN:-0}"
 SKIP_PREDICT="${SKIP_PREDICT:-0}"
 DATASETS="${DATASETS:-}"
 CHECKPOINT="${CHECKPOINT:-workdirs/baselines/sam_vit_l_unet/best_model.pth}"
 SAM_CKPT="${SAM_CKPT:-checkpoints/sam_vit_l_0b3195.pth}"
+
+if [ "$USE_WANDB" = "true" ] && [ "$WANDB_MODE" != "offline" ] && [ "$WANDB_MODE" != "disabled" ]; then
+  if ! wandb_auth_ok; then
+    echo "ERROR: W&B is enabled (mode=$WANDB_MODE) but no credentials were found." >&2
+    echo "Set WANDB_API_KEY or ~/.netrc, or use WANDB_MODE=offline / USE_WANDB=false." >&2
+    exit 1
+  fi
+fi
 
 if [ "$SKIP_TRAIN" != "1" ]; then
   echo "== [1/3] train =="
@@ -51,7 +62,8 @@ fi
 
 echo "== [2/3] predict + paper metrics + visualizations =="
 runner_args=(scripts/run_baseline_test.py --method sam_vit_l_unet
-  --checkpoint "$CHECKPOINT" --sam-checkpoint "$SAM_CKPT" --no-resume)
+  --checkpoint "$CHECKPOINT" --sam-checkpoint "$SAM_CKPT" --no-resume
+  --use_wandb "$USE_WANDB")
 if [ "$SKIP_PREDICT" = "1" ]; then
   runner_args+=(--skip-predict)
 fi

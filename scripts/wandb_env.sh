@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Shared self-hosted W&B environment for sacm_plus.
+# Shared self-hosted W&B environment for SACM-X.
 # Mirrors /home/dev/mywork/project/fencing-algs/_launch_experiments.sh.
 # Credentials live in ~/.netrc (created by wandb login); no key is stored here.
 
