@@ -33,6 +33,8 @@ ADAPTERS = {
     'unet': REPO_ROOT / 'baselines' / 'adapters' / 'unet.py',
     'sam_vit_l_unet': REPO_ROOT / 'baselines' / 'adapters' /
     'sam_vit_l_unet.py',
+    'sacm_official': REPO_ROOT / 'baselines' / 'adapters' /
+    'sacm_official.py',
 }
 
 

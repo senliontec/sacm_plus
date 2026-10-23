@@ -524,10 +524,20 @@ def train(args):
 
 @torch.no_grad()
 def predict(args, ckpt_path: Path):
-    if not args.sam_checkpoint.is_file():
-        raise SystemExit(f'missing SAM ViT-L checkpoint: {args.sam_checkpoint}')
+    # Resolve and hash the checkpoints before the (potentially long)
+    # prediction loop.  If another job moves/replaces a checkpoint while we
+    # are predicting, the already-loaded model can still finish and the
+    # metadata remains valid.
+    ckpt_path = Path(ckpt_path).resolve()
+    sam_checkpoint = Path(args.sam_checkpoint).resolve()
+    if not sam_checkpoint.is_file():
+        raise SystemExit(f'missing SAM ViT-L checkpoint: {sam_checkpoint}')
+    if not ckpt_path.is_file():
+        raise SystemExit(f'missing checkpoint: {ckpt_path}')
+    checkpoint_sha256 = file_sha256(ckpt_path)
+    sam_checkpoint_sha256 = file_sha256(sam_checkpoint)
     device = torch.device(args.device)
-    encoder = build_encoder(args.sam_checkpoint, device)
+    encoder = build_encoder(sam_checkpoint, device)
     payload = torch.load(ckpt_path, map_location=device, weights_only=False)
     input_size = payload.get('input_size', args.input_size)
     if input_size != 1024:
@@ -571,9 +581,9 @@ def predict(args, ckpt_path: Path):
     meta = {
         'method': 'sam_vit_l_unet',
         'checkpoint': str(ckpt_path),
-        'checkpoint_sha256': file_sha256(ckpt_path),
-        'sam_checkpoint': str(args.sam_checkpoint),
-        'sam_checkpoint_sha256': file_sha256(args.sam_checkpoint),
+        'checkpoint_sha256': checkpoint_sha256,
+        'sam_checkpoint': str(sam_checkpoint),
+        'sam_checkpoint_sha256': sam_checkpoint_sha256,
         'split_manifest_sha256': payload.get('split_manifest_sha256'),
         'datasets': [name for name, _, _ in datasets],
     }
