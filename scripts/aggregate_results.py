@@ -96,7 +96,11 @@ def collect(root, expected_counts=None, strict=False):
     rows = []
     if not os.path.isdir(root):
         raise ValueError(f"Results root not found: {root}")
+    skip_dirs = {'predictions', 'paper', 'visualizations', 'tables',
+                 'torchrun_logs', 'logs'}
     for preset in sorted(os.listdir(root)):
+        if preset in skip_dirs:
+            continue
         preset_dir = os.path.join(root, preset)
         if not os.path.isdir(preset_dir):
             continue
