@@ -490,7 +490,11 @@ def predict(args, ckpt_path: Path):
         pairs = list_pairs(root)
         if not pairs:
             raise SystemExit(f'no image/mask pairs under {root}')
-        for image_path, mask_path in pairs:
+        total = len(pairs)
+        print(f'{name}: predicting {total} images on {device} -> {out_dir}',
+              flush=True)
+        t0 = time.time()
+        for done, (image_path, mask_path) in enumerate(pairs, 1):
             image = Image.open(image_path).convert('RGB').resize(
                 (input_size, input_size), Image.BICUBIC)
             tensor = torch.from_numpy(
@@ -503,7 +507,15 @@ def predict(args, ckpt_path: Path):
                                  mode='bilinear', align_corners=False)
             pred = (prob.squeeze().cpu().numpy() > 0.5).astype(np.uint8) * 255
             Image.fromarray(pred, mode='L').save(out_dir / f'{image_path.stem}.png')
-        print(f'{name}: {len(pairs)} predictions -> {out_dir}')
+            if done % 50 == 0 and done != total:
+                elapsed = time.time() - t0
+                rate = done / elapsed if elapsed > 0 else 0.0
+                eta = (total - done) / rate if rate > 0 else 0.0
+                print(f'  {name}: {done}/{total}  {rate:.1f} img/s  '
+                      f'ETA {eta:.0f}s', flush=True)
+        elapsed = time.time() - t0
+        print(f'{name}: done {total} predictions in {elapsed:.0f}s '
+              f'-> {out_dir}', flush=True)
 
     meta = {
         'method': 'unet',

@@ -154,12 +154,14 @@ def main():
                 cmd += ['--device', args.device]
             cmd += ['--test-datasets']
             cmd += [f'{name}:{root}' for name, root in specs]
+            print('== predictions ==', flush=True)
             run(cmd)
         else:
             print(f'[warn] no prediction adapter for {args.method}; '
                   'assuming predictions already exist')
 
     if not args.skip_paper:
+        print('== paper metrics ==', flush=True)
         cmd = [sys.executable,
                REPO_ROOT / 'scripts' / 'collect_paper_metrics.py',
                '--methods', args.method,
@@ -172,6 +174,7 @@ def main():
         run(cmd)
 
     if not args.skip_visualize:
+        print('== visualizations ==', flush=True)
         run([sys.executable,
              REPO_ROOT / 'scripts' / 'visualize_predictions.py',
              '--methods', args.method,

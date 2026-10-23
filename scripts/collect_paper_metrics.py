@@ -24,7 +24,7 @@ import csv
 import json
 import math
 import sys
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -84,15 +84,29 @@ def discover_methods(pred_root: Path):
 def collect_method(method, rows, pred_root, metric_names, max_images=None):
     per_dataset = defaultdict(list)
     missing = []
+    counts = Counter()
+    for row in rows:
+        if max_images is not None and counts[row['dataset']] >= max_images:
+            continue
+        counts[row['dataset']] += 1
+    done = Counter()
+    seen = set()
+    print(f'{method}: collecting {sum(counts.values())} images across '
+          f'{len(counts)} datasets', flush=True)
+
     for row in rows:
         dataset = row['dataset']
-        if max_images is not None and len(per_dataset[dataset]) >= max_images:
+        if max_images is not None and done[dataset] >= max_images:
             continue
         stem = Path(row['mask_path']).stem
         pred_path = pred_root / method / dataset / f'{stem}.png'
         if not pred_path.is_file():
             missing.append(str(pred_path))
             continue
+        if dataset not in seen:
+            seen.add(dataset)
+            print(f'  {method}/{dataset}: {counts[dataset]} images',
+                  flush=True)
         gt_path = resolve(row['mask_path'])
         pred = np.array(Image.open(pred_path).convert('L'),
                         dtype=np.float32) / 255.0
@@ -107,6 +121,10 @@ def collect_method(method, rows, pred_root, metric_names, max_images=None):
             'role': row['role'],
             **metrics,
         })
+        done[dataset] += 1
+        if done[dataset] % 100 == 0 or done[dataset] == counts[dataset]:
+            print(f'    {dataset}: {done[dataset]}/{counts[dataset]}',
+                  flush=True)
     return per_dataset, missing
 
 
