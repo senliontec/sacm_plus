@@ -76,5 +76,5 @@ ssh "${SSH_OPTS[@]}" -O exit "$SERVER" >/dev/null 2>&1 || true
 echo ""
 echo "Done. On server:"
 echo "  cd ${TARGET}"
-echo "  bash scripts/run_all.sh                     # 一键: 环境 → 数据 → 训练 → 评测 → 报告"
-echo "  PRESET=stage2 EPOCHS=30 bash scripts/run_all.sh   # 环境变量覆盖配置"
+echo "  bash scripts/run_paper.sh --model all --seeds all --gpus 0 --resume  # 一键: 训练 → 评测 → 表格 → 图"
+echo "  bash scripts/run_paper.sh --model all --seeds all --tables-only       # 只重生成论文表格/图"

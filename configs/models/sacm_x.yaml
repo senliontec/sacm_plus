@@ -13,7 +13,7 @@ train_entrypoint: >-
   SKIP_TEST=true USE_WANDB=true bash scripts/run_sacm_x_quick.sh
 eval_entrypoint: >-
   GPU={gpu} TRAIN_ROOT={split_root} OUTPUT_ROOT={output_root}
-  USE_WANDB=true bash scripts/eval_sacm_x_20.sh
+  PRESET={preset} USE_WANDB=true bash scripts/eval_sacm_x_20.sh
 protocols: [seeded5, fixed]
 defaults:
   preset: full

@@ -25,6 +25,9 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / 'src'))
+sys.path.insert(0, str(REPO_ROOT / 'scripts'))
+
+from protocol_specs import dataset_specs  # noqa: E402
 
 from core.run_status import RunStatus  # noqa: E402
 from core.wandb_utils import (  # noqa: E402
@@ -47,24 +50,9 @@ SAM_CHECKPOINT_METHODS = {
 
 
 def read_specs(protocol: Path, dataset_filter):
-    roots = {}
-    with open(protocol) as f:
-        for row in csv.DictReader(f):
-            if not row['split'].endswith('_test'):
-                continue
-            if dataset_filter and row['dataset'] not in dataset_filter:
-                continue
-            mask = Path(row['mask_path'])
-            if not mask.is_absolute():
-                mask = REPO_ROOT / mask
-            root = mask.parent.parent
-            previous = roots.setdefault(row['dataset'], root)
-            if previous != root:
-                raise SystemExit(
-                    f'{row["dataset"]}: multiple test roots: {previous}, {root}')
-    if not roots:
-        raise SystemExit(f'no test rows in {protocol}')
-    return [(name, roots[name]) for name in sorted(roots)]
+    return [tuple(spec.split(':', 1)) for spec in dataset_specs(
+        protocol, set(dataset_filter) if dataset_filter else None,
+        REPO_ROOT)]
 
 
 def read_test_counts(protocol: Path, dataset_filter):
@@ -254,6 +242,9 @@ def main():
                              'reusing the cache')
     parser.add_argument('--allow-stale-checkpoint', action='store_true',
                         help='allow a checkpoint older than the current split')
+    parser.add_argument('--allow-partial-overwrite', action='store_true',
+                        help='allow a dataset/metric subset to overwrite a '
+                             'complete paper table')
     parser.add_argument('--use_wandb', nargs='?', const=True,
                         type=_as_bool, default=True,
                         help='log paper metrics to W&B (default: true; '
@@ -275,8 +266,12 @@ def main():
     parser.add_argument('--wandb_job_type', default='evaluation')
     args = parser.parse_args()
     if args.checkpoint is None:
+        custom = {
+            'nnwnet': 'nnunet_model_dir.txt',
+            'knowsam': 'SGDL_best_model.pth',
+        }.get(args.method, 'best_model.pth')
         args.checkpoint = (REPO_ROOT / 'workdirs' / 'baselines' /
-                           args.method / 'best_model.pth')
+                           args.method / custom)
     # FoB needs labeled support images at test time.  If the caller did
     # not override --data-root, follow the protocol's own split root so a
     # seed-specific run never uses the frozen seed-42 support set.
@@ -329,14 +324,23 @@ def main():
                       'checkpoint provenance is not re-validated')
             else:
                 meta = json.loads(meta_path.read_text())
-                split = REPO_ROOT / 'data' / 'sacm_3shot' / 'split_manifest.csv'
-                default_protocol = (REPO_ROOT / 'data' / 'sacm_3shot' /
-                                    'protocol_manifest.csv').resolve()
-                custom_protocol = args.protocol.resolve() != default_protocol
-                expected_split = (None if custom_protocol or not split.is_file()
-                                  else file_sha256(split))
-                expected_ckpt = (file_sha256(args.checkpoint)
-                                 if args.checkpoint.is_file() else None)
+                # Follow the active protocol's own split manifest; fall back
+                # to the frozen seed-42 manifest only when it has none.
+                split = args.protocol.parent / 'split_manifest.csv'
+                if not split.is_file():
+                    split = (REPO_ROOT / 'data' / 'sacm_3shot' /
+                             'split_manifest.csv')
+                expected_split = (file_sha256(split)
+                                  if split.is_file() else None)
+                custom_checkpoint = args.method in CUSTOM_CHECKPOINTS
+                expected_ckpt = (None if custom_checkpoint
+                                 else (file_sha256(args.checkpoint)
+                                       if args.checkpoint.is_file() else None))
+                if custom_checkpoint and not meta.get(
+                        'split_manifest_sha256'):
+                    # Custom nnU-Net/KnowSAM metadata predates the unified
+                    # hash fields; do not report a false stale mismatch.
+                    expected_split = None
                 stale = (
                     (expected_split is not None and
                      meta.get('split_manifest_sha256') != expected_split) or
@@ -408,6 +412,8 @@ def main():
                    '--protocol', args.protocol]
             if args.datasets:
                 cmd += ['--datasets'] + list(args.datasets)
+            if args.allow_partial_overwrite:
+                cmd += ['--allow-partial-overwrite']
             if args.workers is not None:
                 cmd += ['--workers', str(args.workers)]
             if args.chunk_size is not None:

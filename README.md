@@ -238,14 +238,15 @@ results/predictions/<method>/<dataset>/<stem>.png
 Example for the U-Net adapter:
 
 ```bash
-# Server one-click training; background by default, logs under logs/
-bash scripts/run_unet_train.sh
+# One-click every available model/seed: train -> eval -> tables -> figures
+bash scripts/run_paper.sh --model all --seeds all --gpus 0,1,2,3 --resume
 
-# Pick the physical GPU; the script clears that GPU first by default
-GPU=1 bash scripts/run_unet_train.sh
+# One model/seed through the same registry
+bash scripts/run_train.sh --model unet --seeds 0 --gpus 1
+bash scripts/run_eval.sh --model unet --seeds 0 --gpus 1
 
-# Foreground debug / short run
-BACKGROUND=false EPOCHS=20 bash scripts/run_unet_train.sh
+# Regenerate every paper table and figure from existing metrics only
+bash scripts/run_paper.sh --model all --seeds all --tables-only
 
 # Direct adapter invocation with W&B monitoring
 python baselines/adapters/unet.py --stage train --epochs 200 \

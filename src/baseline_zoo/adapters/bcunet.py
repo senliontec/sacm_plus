@@ -13,6 +13,7 @@ import random
 import cv2
 import numpy as np
 import torch
+import torch.nn.functional as F
 from PIL import Image
 from torch import nn
 
@@ -34,11 +35,12 @@ class BCUNetAdapter(BaselineAdapter):
     selection = 'dice'
     deviations = (
         'Upstream batch size 2 does not fit an 11 GiB card at 512x512; the '
-        'adapter uses batch 1 with 2-step gradient accumulation, preserving '
-        'the effective batch. On >=24 GiB pass --batch-size 2 '
-        '--accum-steps 1.',
+        'adapter uses batch 1 with 2-step gradient accumulation. This '
+        'preserves gradient sums but not batch-2 BatchNorm statistics. '
+        'On >=24 GiB pass --batch-size 2 --accum-steps 1.',
         'Checkpoint selection uses the 6-image validation split by Dice. '
-        'Upstream tracks IOU on the test list, which would leak test data.',
+        'Upstream has no checkpoint selection (it saves every 10 epochs); '
+        'the port adds val-Dice selection for a common protocol.',
         'Upstream preprocessing is BGR [0,255] with no normalization '
         '(cv2.imread + INTER_AREA); preserved exactly.',
         'Upstream OutConv referenced an undefined upconv2x2; repaired as a '
@@ -55,8 +57,13 @@ class BCUNetAdapter(BaselineAdapter):
             help='do not load ImageNet-22k ConvNeXt weights')
 
     def build_model(self, args) -> nn.Module:
+        # Prediction loads a complete self-contained checkpoint next; do
+        # not download ImageNet-22k backbone weights only to overwrite them.
+        # Training still uses the official pretrained initialization.
+        pretrained = (getattr(args, 'pretrained', True)
+                      and getattr(args, 'checkpoint', None) is None)
         return BCUNet(n_channels=3, n_classes=2, bilinear=False,
-                      pretrained=args.pretrained, in_22k=True)
+                      pretrained=pretrained, in_22k=True)
 
     def make_optimizer(self, model, args):
         return torch.optim.Adam(
@@ -74,12 +81,12 @@ class BCUNetAdapter(BaselineAdapter):
         mask = cv2.imread(str(sample.mask_path), cv2.IMREAD_GRAYSCALE)
         if mask is None:
             raise SystemExit(f'cv2 could not read {sample.mask_path}')
+        # Upstream thresholds at original resolution, then INTER_AREA
+        # resizes the 0/1 label.
+        mask = (mask >= 128).astype(np.uint8)
         mask = cv2.resize(mask, (self.input_size, self.input_size),
                           interpolation=cv2.INTER_AREA)
-        mask = mask.astype(np.int64)
-        mask[mask < 128] = 0
-        mask[mask >= 128] = 1
-        return mask
+        return mask.astype(np.int64)
 
     def prepare_train_batch(self, samples, rng: random.Random):
         images = []
@@ -107,9 +114,11 @@ class BCUNetAdapter(BaselineAdapter):
 
     def predict_sample(self, model, prepared, sample):
         _, _, fused = model(prepared)
-        pred = fused.argmax(dim=1)[0].detach().cpu().numpy()
         with Image.open(sample.mask_path) as mask:
             width, height = mask.size
-        pred = Image.fromarray((pred.astype(np.uint8) * 255)).resize(
-            (width, height), Image.NEAREST)
-        return np.asarray(pred) > 127
+        # Upstream upsamples the soft logits to original size and takes
+        # argmax there; nearest-resizing a 512 hard mask changes boundary
+        # pixels.
+        fused = F.interpolate(fused, size=(height, width),
+                              mode='bilinear', align_corners=False)
+        return fused.argmax(dim=1)[0].cpu().numpy().astype(bool)

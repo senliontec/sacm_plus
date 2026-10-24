@@ -100,6 +100,9 @@ def resolve_models(requested: str, models: dict[str, ModelConfig]) -> list[Model
     names = [name.strip() for name in requested.split(',') if name.strip()]
     if not names:
         raise ValueError('--model cannot be empty')
+    # Duplicate names would schedule colliding jobs for the same output
+    # root; keep the first occurrence only.
+    names = list(dict.fromkeys(names))
     unknown = [name for name in names if name not in models]
     if unknown:
         raise ValueError(

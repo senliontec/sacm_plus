@@ -15,21 +15,18 @@ from .prediction_acdc import test_single_volume
 
 ce_loss = torch.nn.CrossEntropyLoss()
 
-GPUdevice = torch.device('cuda', 0)
-pos_weight = torch.ones([1]).cuda(device=GPUdevice)*2
-criterion_G = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weight)
-
 
 class Trainer(nn.Module):
     def __init__(self, args):
         super(Trainer, self).__init__()
         self.args = args
+        self.device = torch.device(args.device)
         self.criterion_mse = nn.MSELoss()
         self.KDLoss = KDLoss(T=10)
         self.dice_loss = DiceLoss(args.num_classes)
 
-        self.sam_model = sam_model_registry[args.model_type](args).to(args.device).train()
-        self.SGDL = KnowSAM(args).cuda().train()
+        self.sam_model = sam_model_registry[args.model_type](args).to(self.device).train()
+        self.SGDL = KnowSAM(args).to(self.device).train()
 
         self.optimizer_sam = optim.Adam(self.sam_model.parameters(), lr=args.lr)
         self.optimizer_SGDL = torch.optim.SGD(self.SGDL.parameters(), lr=args.UNet_lr, momentum=0.9,
@@ -58,7 +55,7 @@ class Trainer(nn.Module):
     def entropy_loss(self, p, C=2):
         # p N*C*W*H*D
         y1 = -1 * torch.sum(p * torch.log(p + 1e-6), dim=1) / \
-             torch.tensor(np.log(C)).cuda()
+             torch.tensor(np.log(C), device=p.device)
         ent = torch.mean(y1)
         return ent
 
@@ -90,17 +87,21 @@ class Trainer(nn.Module):
         labeled_volume_batch = volume_batch[:self.args.labeled_bs]
         unlabeled_volume_batch = volume_batch[self.args.labeled_bs:]
 
-        unlabeled_volume_batch_mix = torch.zeros_like(unlabeled_volume_batch).cuda()
-        unlabel_pseudo_label_mix = torch.zeros_like(unlabel_pseudo_label).cuda()
-        labeled_volume_batch_mix = torch.zeros_like(labeled_volume_batch).cuda()
-        labeled_pseudo_label_mix = torch.zeros_like(labeled_label).cuda()
+        unlabeled_volume_batch_mix = torch.zeros_like(unlabeled_volume_batch)
+        unlabel_pseudo_label_mix = torch.zeros_like(unlabel_pseudo_label)
+        labeled_volume_batch_mix = torch.zeros_like(labeled_volume_batch)
+        labeled_pseudo_label_mix = torch.zeros_like(labeled_label)
 
         patch_h = int(self.args.image_size / patch_size)
         for b in range(self.args.labeled_bs):
             index = min_indices_2d[b]
-            img_mask = torch.zeros((self.args.image_size, self.args.image_size)).cuda()
+            img_mask = torch.zeros(
+                (self.args.image_size, self.args.image_size),
+                device=self.device)
             index_lab = min_indices_2d_lab[b]
-            img_mask_lab = torch.zeros((self.args.image_size, self.args.image_size)).cuda()
+            img_mask_lab = torch.zeros(
+                (self.args.image_size, self.args.image_size),
+                device=self.device)
             for n in index:
                 img_mask[n[0] * patch_h: (n[0] + 1) * patch_h, n[1] * patch_h: (n[1] + 1) * patch_h] = 1
             for n in index_lab:
@@ -238,7 +239,8 @@ class Trainer(nn.Module):
         avg_dice_vnet = 0.0
 
         for i_batch, sampled_batch in enumerate(val_loader):
-            val_image, val_label = sampled_batch["image"].cuda(), sampled_batch["label"].cuda()
+            val_image = sampled_batch["image"].to(self.device)
+            val_label = sampled_batch["label"].to(self.device)
             image_embeddings = self.sam_model.image_encoder(val_image)
             pred_UNet, pred_VNet, pred_UNet_soft, pred_VNet_soft, fusion_map = self.SGDL(val_image)
 
@@ -310,7 +312,8 @@ class Trainer(nn.Module):
 
         sam_info = np.array([0, 0, 0]).astype("float32")
         for i_batch, sampled_batch in enumerate(val_loader):
-            val_image, val_label = sampled_batch["image"].cuda(), sampled_batch["label"].cuda()
+            val_image = sampled_batch["image"].to(self.device)
+            val_label = sampled_batch["label"].to(self.device)
             metric_list = test_single_volume(self.args, val_image, val_label, self.sam_model, self.SGDL)
             metric_list = np.array(metric_list).astype("float32")
 

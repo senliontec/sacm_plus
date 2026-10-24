@@ -21,10 +21,18 @@ from baseline_zoo.runtime import BaselineAdapter
 
 
 def dice_loss(logits: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+    """Official milesial Dice loss (global over batch, eps=1e-6).
+
+    Matches ``dice_coeff(..., reduce_batch_first=True)``: the empty-set
+    branch reuses ``inter`` so two empty masks give Dice 1, and the
+    epsilon is added to numerator and denominator.
+    """
     prob = torch.sigmoid(logits)
-    inter = (prob * target).sum(dim=(1, 2, 3))
-    denom = prob.sum(dim=(1, 2, 3)) + target.sum(dim=(1, 2, 3))
-    return (1.0 - (2.0 * inter + 1.0) / (denom + 1.0)).mean()
+    inter = 2.0 * (prob * target).sum(dim=(1, 2, 3))
+    sets_sum = prob.sum(dim=(1, 2, 3)) + target.sum(dim=(1, 2, 3))
+    sets_sum = torch.where(sets_sum == 0, inter, sets_sum)
+    dice = (inter + 1e-6) / (sets_sum + 1e-6)
+    return 1.0 - dice.mean()
 
 
 class UNetAdapter(BaselineAdapter):
@@ -43,9 +51,15 @@ class UNetAdapter(BaselineAdapter):
         'architecture and BCE+Dice loss are used.',
         'Fixed 512x512 input instead of upstream img_scale=0.5 dynamic '
         'resize, so mixed-resolution domains can share batches.',
-        'AdamW + cosine over 200 epochs instead of upstream RMSprop + '
-        'ReduceLROnPlateau over 5 epochs; the 3-shot budget is the protocol '
-        'choice used for every baseline.',
+        'AdamW lr 1e-3/wd 1e-4/batch 4 + cosine over 200 epochs instead of '
+        'upstream RMSprop lr 1e-5/wd 1e-8/batch 1 + ReduceLROnPlateau over '
+        '5 epochs; the 3-shot budget and optimizer are the protocol choice '
+        'used for every baseline.',
+        'A one-class (BCE + foreground Dice) head is used; upstream '
+        'train.py defaults to two classes (CE + multiclass Dice).',
+        'Grayscale protocol images are converted to RGB because the '
+        'vendored model expects three input channels; upstream keeps 2-D '
+        'images single-channel and would assert.',
         'Random flips and 90-degree rotations are used for 3-shot training; '
         'upstream performs no augmentation.',
         'Checkpoint selected on the 6-image val split by Dice; upstream '
@@ -110,9 +124,11 @@ class UNetAdapter(BaselineAdapter):
         return tensor.unsqueeze(0).to(device)
 
     def predict_sample(self, model, prepared, sample):
-        prob = torch.sigmoid(model(prepared))
+        logits = model(prepared)
         with Image.open(sample.mask_path) as mask:
             width, height = mask.size
-        prob = F.interpolate(prob, size=(height, width),
-                             mode='bilinear', align_corners=False)
-        return (prob[0, 0].cpu().numpy() > 0.5)
+        # Upstream predicts logits first, then upsamples, then applies
+        # sigmoid; interpolating probabilities changes boundary decisions.
+        logits = F.interpolate(logits, size=(height, width),
+                               mode='bilinear', align_corners=False)
+        return (torch.sigmoid(logits)[0, 0].cpu().numpy() > 0.5)

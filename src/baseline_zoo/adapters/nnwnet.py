@@ -1,7 +1,7 @@
 """nnWNet baseline running the official nnU-Net trainer pipeline.
 
 The trainer plugin is copied into ``baseline_zoo.models.nnwnet`` and needs
-``nnunetv2==2.5.1``.  Data are staged into the official nnU-Net raw layout
+``nnunetv2==2.8.1``.  Data are staged into the official nnU-Net raw layout
 (24 protocol cases: 18 train + 6 val), a fixed one-fold split is written,
 and training/prediction use nnU-Net's own planner, trainer and predictor.
 """
@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -19,8 +20,9 @@ import numpy as np
 import torch
 from PIL import Image
 
-from baseline_zoo.data import RawPairDataset, load_mask, load_rgb
-from baseline_zoo.runtime import BaselineAdapter
+from baseline_zoo.data import (
+    RawPairDataset, load_mask, load_rgb, load_split_samples)
+from baseline_zoo.runtime import BaselineAdapter, file_sha256
 from core.wandb_utils import (
     finish_run,
     log_artifact,
@@ -54,11 +56,15 @@ class NNWNetAdapter(BaselineAdapter):
         'The official 2D trainer defaults are kept (200 epochs, SGD 1e-2, '
         'AMP, deep supervision, sliding-window/TTA inference); checkpoint '
         'selection is nnU-Net EMA pseudo-Dice on the val split.',
+        'The adapter seeds Python/NumPy/Torch before training, but nnU-Net '
+        'may use additional internal RNGs; --seed is not a bitwise guarantee.',
+        '--resume is rejected because nnU-Net continue-training is not wired '
+        'into this custom pipeline; reruns re-stage and re-plan from scratch.',
         'Official predictions are 0/1 label maps; this adapter writes 0/255 '
         'PNGs at the original GT resolution for the shared evaluator.',
         'All 24 cases are converted to RGB PNG for a single nnU-Net file '
-        'ending; the official natural-image reader applies RGB 0-1 '
-        'normalization.',
+        'ending; the official natural-image reader supplies 0-255 RGB and '
+        'nnU-Net applies its own preprocessing/normalization.',
     )
 
     def build_model(self, args):
@@ -94,8 +100,8 @@ class NNWNetAdapter(BaselineAdapter):
         images_tr.mkdir(parents=True, exist_ok=True)
         labels_tr.mkdir(parents=True, exist_ok=True)
 
-        train = RawPairDataset(data_root / 'train').samples
-        val = RawPairDataset(data_root / 'val').samples
+        train = load_split_samples(data_root, 'train')
+        val = load_split_samples(data_root, 'val')
         used: set[str] = set()
         train_cases, val_cases = [], []
         for samples, cases in ((train, train_cases), (val, val_cases)):
@@ -153,10 +159,31 @@ class NNWNetAdapter(BaselineAdapter):
         return nn_root, env
 
     # ---- official training -------------------------------------------
+    @staticmethod
+    def _find_checkpoint(model_dir: Path, kind: str) -> Path | None:
+        """Find checkpoint_best/final with either .pth or .safetensors."""
+        fold = model_dir / 'fold_0'
+        for suffix in ('.pth', '.safetensors'):
+            candidate = fold / f'checkpoint_{kind}{suffix}'
+            if candidate.is_file():
+                return candidate
+        return None
+
     def run_training(self, args):
+        if args.resume:
+            raise SystemExit(
+                'nnWNet does not support intra-run --resume; nnU-Net '
+                'continue-training is not wired into this custom pipeline')
+        from baseline_zoo.runtime import seed_everything
+        seed_everything(args.seed)
         workdir = Path(args.workdir)
         workdir.mkdir(parents=True, exist_ok=True)
         nn_root, env = self._init_env(workdir)
+        # A reused workdir must not mix raw PNGs/preprocessed arrays from a
+        # different protocol; re-stage and re-plan deterministically.
+        shutil.rmtree(nn_root / 'raw' / DATASET_NAME, ignore_errors=True)
+        shutil.rmtree(nn_root / 'preprocessed' / DATASET_NAME,
+                      ignore_errors=True)
         train_cases, val_cases = self._stage_raw(
             nn_root / 'raw', Path(args.data_root))
 
@@ -215,8 +242,9 @@ class NNWNetAdapter(BaselineAdapter):
                 if values:
                     scalars[f'nnunet/{key}'] = float(values[-1])
             log_scalars(run, scalars)
-            best = Path(trainer.output_folder) / 'checkpoint_best.pth'
-            if best.is_file():
+            best = self._find_checkpoint(
+                Path(trainer.output_folder_base), 'best')
+            if best is not None:
                 log_artifact(run, best, name=f'nnwnet-seed{args.seed}',
                              artifact_type='model')
         finish_run(run)
@@ -252,14 +280,28 @@ class NNWNetAdapter(BaselineAdapter):
             perform_everything_on_device=False,
             device=torch.device(args.device), verbose=False,
             allow_tqdm=True)
-        checkpoint_name = 'checkpoint_best.pth'
-        if not (model_dir / 'fold_0' / checkpoint_name).is_file():
-            checkpoint_name = 'checkpoint_final.pth'
+        resolved = self._find_checkpoint(model_dir, 'best')
+        if resolved is None:
+            resolved = self._find_checkpoint(model_dir, 'final')
+        if resolved is None:
+            raise SystemExit(
+                f'no checkpoint_best/final (.pth or .safetensors) under '
+                f'{model_dir / "fold_0"}')
+        checkpoint_name = resolved.name
+        if resolved.suffix != '.pth':
+            raise SystemExit(
+                f'nnU-Net runtime found {resolved.name}, but the installed '
+                'nnUNetPredictor expects .pth checkpoints; install the '
+                'declared nnunetv2 2.8.1 runtime instead of the vendored '
+                'safetensors fork')
         predictor.initialize_from_trained_model_folder(
             str(model_dir), use_folds=(0,), checkpoint_name=checkpoint_name)
 
         pred_root = Path(args.pred_root)
         pred_root.mkdir(parents=True, exist_ok=True)
+        stale_meta = pred_root / '.prediction_meta.json'
+        if stale_meta.is_file():
+            stale_meta.unlink()
         for spec in args.test_datasets:
             name, sep, root = spec.partition(':')
             if not sep:
@@ -295,12 +337,15 @@ class NNWNetAdapter(BaselineAdapter):
                 Image.fromarray((pred.astype(np.uint8) * 255)).save(
                     out_dir / f'{sample.stem}.png')
 
+        split_manifest = Path(args.data_root) / 'split_manifest.csv'
         meta = {
             'method': self.id,
             'official_source': self.official_source,
             'deviations': list(self.deviations),
             'checkpoint': str(model_dir),
             'checkpoint_name': checkpoint_name,
+            'split_manifest_sha256': (file_sha256(split_manifest)
+                                      if split_manifest.is_file() else None),
             'datasets': [spec.split(':', 1)[0]
                          for spec in args.test_datasets],
         }

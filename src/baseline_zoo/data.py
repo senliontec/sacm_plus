@@ -83,3 +83,66 @@ def load_mask(path: Path) -> np.ndarray:
 
 def sample_specs(root: Path) -> list[Sample]:
     return RawPairDataset(root).samples
+
+
+class SampleListDataset(Dataset):
+    """Minimal Dataset over an explicit, already-validated sample list."""
+
+    def __init__(self, samples: list[Sample]):
+        self.samples = list(samples)
+
+    def __len__(self) -> int:
+        return len(self.samples)
+
+    def __getitem__(self, index: int) -> Sample:
+        return self.samples[index]
+
+    @property
+    def datasets(self) -> list[str]:
+        return sorted({sample.dataset for sample in self.samples})
+
+
+def load_split_samples(root: Path, split: str,
+                       require_manifest: bool = True) -> list[Sample]:
+    """Load a train/val split and verify it against ``split_manifest.csv``.
+
+    Directory-only loading silently changes the 18/6 protocol when a stray
+    image or missing mask appears.  The manifest's ``output`` column is the
+    authoritative membership list; every expected stem must exist, and no
+    extra pair may be present.
+    """
+    import csv
+
+    root = Path(root)
+    dataset = RawPairDataset(root / split)
+    manifest = root / 'split_manifest.csv'
+    if not manifest.is_file():
+        if require_manifest:
+            raise SystemExit(
+                f'missing split manifest: {manifest}; refusing to infer '
+                f'the {split} membership from directory contents')
+        return dataset.samples
+
+    with manifest.open(newline='') as handle:
+        rows = list(csv.DictReader(handle))
+    expected = [row['output'] for row in rows if row.get('split') == split]
+    if not expected:
+        raise SystemExit(
+            f'{manifest}: no rows with split={split!r}')
+    if len(expected) != len(set(expected)):
+        raise SystemExit(f'{manifest}: duplicate {split} output stems')
+
+    found = {sample.stem: sample for sample in dataset.samples}
+    missing = [stem for stem in expected if stem not in found]
+    extra = sorted(set(found) - set(expected))
+    if missing or extra:
+        details = []
+        if missing:
+            details.append(f'missing {len(missing)} manifest rows '
+                           f'(first: {missing[0]})')
+        if extra:
+            details.append(f'{len(extra)} unlisted pairs '
+                           f'(first: {extra[0]})')
+        raise SystemExit(
+            f'{root / split} does not match {manifest}: ' + '; '.join(details))
+    return [found[stem] for stem in expected]

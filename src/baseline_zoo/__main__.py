@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import json
 import os
 import subprocess
 import sys
@@ -46,6 +47,8 @@ def _parse_seeds(values: list[str] | None, protocol: ProtocolConfig) -> list[int
     except ValueError:
         raise ValueError(
             f'--seeds must be integers or "all", got {values}') from None
+    # Duplicate seeds would create two jobs writing the same output root.
+    seeds = list(dict.fromkeys(seeds))
     return protocol.select_seeds(seeds)
 
 
@@ -164,19 +167,48 @@ def _build_jobs(args: argparse.Namespace,
     return jobs, gpus, protocol, seeds
 
 
+def _marker_matches(job: dict) -> bool:
+    """Return True when a done-marker still describes the current file."""
+    marker = job['marker']
+    checkpoint = job['checkpoint']
+    if not marker.is_file() or not checkpoint.is_file():
+        return False
+    try:
+        data = json.loads(marker.read_text())
+        stat = checkpoint.stat()
+        return (data.get('checkpoint') == str(checkpoint)
+                and int(data.get('size', -1)) == stat.st_size
+                and int(data.get('mtime_ns', -1)) == stat.st_mtime_ns)
+    except (OSError, ValueError, TypeError):
+        # Legacy/empty marker: force a re-run rather than trusting it.
+        return False
+
+
+def _write_marker(job: dict) -> None:
+    checkpoint = job['checkpoint']
+    stat = checkpoint.stat()
+    job['marker'].write_text(json.dumps({
+        'checkpoint': str(checkpoint),
+        'size': stat.st_size,
+        'mtime_ns': stat.st_mtime_ns,
+    }) + '\n')
+
+
 def _run_job(job: dict, stage: str, resume: bool, dry_run: bool) -> bool:
     model = job['model']
     seed = job['seed']
     gpu = job['gpu']
     output_root = job['output_root']
     print(f"\n[{model.id}] seed={seed} gpu={gpu}", flush=True)
-    if resume and job['marker'].is_file():
-        print(f"skip: {job['marker']} exists", flush=True)
+    if resume and _marker_matches(job):
+        print(f"skip: {job['marker']} matches the checkpoint", flush=True)
         return True
-    if stage == 'eval' and not dry_run and not job['checkpoint'].is_file():
-        print(f"[error] missing checkpoint: {job['checkpoint']}",
-              file=sys.stderr)
-        return False
+    if not dry_run and not job['checkpoint'].is_file():
+        # A stage marker must never hide a missing/renamed checkpoint.
+        if stage == 'eval' or job['marker'].is_file():
+            print(f"[error] missing checkpoint: {job['checkpoint']}",
+                  file=sys.stderr)
+            return False
     if dry_run:
         print(f"dry-run: {job['command']}", flush=True)
         return True
@@ -185,9 +217,13 @@ def _run_job(job: dict, stage: str, resume: bool, dry_run: bool) -> bool:
     prefix = f'[{model.id} seed={seed} gpu={gpu}] '
     print(f"{prefix}start (log: {log_path})", flush=True)
     ok = _run(job['command'], log_path, prefix)
-    if ok:
-        job['marker'].touch()
+    if ok and job['checkpoint'].is_file():
+        _write_marker(job)
         print(f"[{model.id}] seed={seed} gpu={gpu} done", flush=True)
+    elif ok:
+        print(f"[error] job succeeded but checkpoint is missing: "
+              f"{job['checkpoint']}", file=sys.stderr)
+        ok = False
     else:
         print(f"[{model.id}] seed={seed} gpu={gpu} failed", flush=True)
     return ok
@@ -358,7 +394,9 @@ def cmd_report(args: argparse.Namespace) -> int:
     seeds = _parse_seeds(args.seeds, protocol)
     check_protocol_seeds(protocol, seeds)
     result_root = resolve_result_root(args.result_root)
-    rows, missing = load_runs([model.id for model in models], seeds, result_root)
+    rows, missing = load_runs(
+        [model.id for model in models], seeds, result_root,
+        preset=getattr(args, 'preset', None))
 
     print(f'report: models={[model.id for model in models]} seeds={seeds} '
           f'root={_repo_path(result_root)} rows={len(rows)}')
@@ -366,6 +404,11 @@ def cmd_report(args: argparse.Namespace) -> int:
         print('missing runs (skipped):')
         for path in missing:
             print(f'  - {path}')
+        if (not getattr(args, 'allow_missing', False)
+                and not getattr(args, 'dry_run', False)):
+            print('[error] refusing to write a partial report; rerun missing '
+                  'jobs or pass --allow-missing', file=sys.stderr)
+            return 2
     if not rows:
         if args.dry_run:
             print('dry-run: no metric rows yet; report would be empty')
@@ -433,6 +476,11 @@ def build_parser() -> argparse.ArgumentParser:
                         help='seed integers or all (default: all)')
     report.add_argument('--result-root', default='results/paper')
     report.add_argument('--out-dir', default='results/paper/tables')
+    report.add_argument('--preset', default='full',
+                        help='SACM-X preset table to read')
+    report.add_argument('--allow-missing', action='store_true',
+                        help='write a report even when some model/seed '
+                             'runs are missing')
     report.add_argument('--gpus', default='', help=argparse.SUPPRESS)
     report.add_argument('--resume', action='store_true',
                         help=argparse.SUPPRESS)

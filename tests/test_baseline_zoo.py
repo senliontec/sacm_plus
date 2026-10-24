@@ -41,6 +41,13 @@ def test_plan_expands_sam_octa_command(capsys):
     assert 'results/paper/sam_octa/seed_0' in output
 
 
+def test_report_dry_run_tolerates_missing_runs(tmp_path, capsys):
+    rc = main(['report', '--model', 'unet', '--seeds', '0',
+               '--result-root', str(tmp_path / 'empty'), '--dry-run'])
+    assert rc == 0
+    assert 'no metric rows' in capsys.readouterr().out
+
+
 def test_resolve_models_all_returns_only_available():
     models = load_models()
     resolved = resolve_models('all', models)

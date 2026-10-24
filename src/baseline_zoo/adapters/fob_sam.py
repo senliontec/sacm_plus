@@ -82,6 +82,10 @@ class FoBSAMAdapter(BaselineAdapter):
         'volumes at 256.',
         'The unused InfoNCE attribute is kept as a dependency-free '
         'placeholder; it is never called by the official forward.',
+        '2D protocol images use per-image grayscale standardization or '
+        'ImageNet RGB normalization; upstream standardizes per volume. '
+        'Gamma and geometry augmentation choose their branch independently, '
+        'matching the released dataset code.',
     )
 
     def __init__(self):
@@ -110,7 +114,8 @@ class FoBSAMAdapter(BaselineAdapter):
             help='Official DeepLabV3 COCO ResNet-101 checkpoint')
         parser.add_argument(
             '--fob-shots', type=int, default=1,
-            help='Support images per episode/query (official: 1)')
+            help='Evaluation support images per query (official: 1); '
+                 'training episodes stay 1-shot as in the official code')
         parser.add_argument(
             '--fob-iters-per-epoch', type=int, default=3000,
             help='Official max_iters_per_load; total iterations = '
@@ -257,6 +262,9 @@ class FoBSAMAdapter(BaselineAdapter):
             raise SystemExit(
                 'fob_sam needs the training split for support images; '
                 f'not found under {roots[0]}')
+        if root != roots[0]:
+            print(f'WARNING: fob_sam support split fell back to {root}; '
+                  f'expected {roots[0]}')
         pairs = []
         for image, mask in list_pairs(root):
             # The 3-shot split is flat: train/images/<DATASET>_<case>.png.
@@ -396,6 +404,11 @@ class FoBSAMAdapter(BaselineAdapter):
                     args.grad_clip)
             optimizer.step()
             running += float(loss.detach())
+        # This adapter overrides the shared train_epoch, so it must step the
+        # scheduler itself; one step per 3000-iteration epoch matches the
+        # official milestone spacing.
+        if scheduler is not None:
+            scheduler.step()
         return running / iterations
 
     # ---- inference ----------------------------------------------------

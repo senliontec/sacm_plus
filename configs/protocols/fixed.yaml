@@ -1,0 +1,8 @@
+# Frozen seed-42 3-shot split.  This is the protocol referenced as
+# ``fixed`` by every model config; seeded5 is the five-seed expansion.
+name: fixed
+description: Frozen seed-42 3-shot split (18 train / 6 val)
+seeds: [42]
+split_root: data/sacm_3shot
+train_manifest: data/sacm_3shot/split_manifest.csv
+test_manifest: data/sacm_3shot/protocol_manifest.csv

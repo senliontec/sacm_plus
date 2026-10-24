@@ -38,6 +38,10 @@ class SACMOfficialAdapter(BaselineAdapter):
         'upstream selects by validation F1/loss.',
         'Predictions are restored to the original GT resolution for the '
         'shared evaluator; upstream evaluates at 1024.',
+        'Upstream test_sam.py thresholds raw logits at 0.5; this port '
+        'applies sigmoid first (logit > 0). The model is logits-in, so the '
+        'official threshold is an inference bug; this correction is '
+        'deliberate and gives the standard 0.5-probability decision.',
         'The official 60 epochs, AdamW 3e-4 with weight decay 0.01, cosine '
         'to 1e-6, gradient clipping 1.0, BCE 0.7 + Dice 0.3, frozen encoder '
         'except adapters, and the zero-prompt forward are preserved.',
@@ -52,7 +56,15 @@ class SACMOfficialAdapter(BaselineAdapter):
         parser.add_argument('--adapter-dim-ratio', type=float, default=0.1)
         parser.add_argument('--bce-weight', type=float, default=0.7)
         parser.add_argument('--dice-weight', type=float, default=0.3)
-        parser.add_argument('--clip-grad-norm', type=float, default=1.0)
+        # Official train_sam.py clips by 1.0.  The shared runtime reads
+        # ``grad_clip``; this alias keeps the upstream option name and sets
+        # the effective default instead of being a silent no-op.
+        parser.add_argument(
+            '--clip-grad-norm', dest='grad_clip', type=float,
+            help='gradient clipping norm (official default: 1.0)')
+        # argparse does not override the generic --grad-clip default when a
+        # second action shares the destination, so set it explicitly.
+        parser.set_defaults(grad_clip=1.0)
 
     def build_model(self, args):
         if not args.sam_checkpoint.is_file():
@@ -112,9 +124,9 @@ class SACMOfficialAdapter(BaselineAdapter):
         images, masks = [], []
         for sample in samples:
             image = load_rgb(sample.image_path).resize(
-                (self.input_size, self.input_size), Image.BICUBIC)
+                (self.input_size, self.input_size), Image.BILINEAR)
             mask = Image.open(sample.mask_path).convert('L').resize(
-                (self.input_size, self.input_size), Image.BICUBIC)
+                (self.input_size, self.input_size), Image.BILINEAR)
             images.append(torch.from_numpy(
                 np.asarray(image, dtype=np.float32).copy()
             ).permute(2, 0, 1) / 255.0)
@@ -140,7 +152,7 @@ class SACMOfficialAdapter(BaselineAdapter):
 
     def prepare_eval_sample(self, sample, device):
         image = load_rgb(sample.image_path).resize(
-            (self.input_size, self.input_size), Image.BICUBIC)
+            (self.input_size, self.input_size), Image.BILINEAR)
         tensor = torch.from_numpy(
             np.asarray(image, dtype=np.float32).copy()
         ).permute(2, 0, 1) / 255.0

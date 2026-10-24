@@ -10,14 +10,15 @@
   - `models/iou_loss.py` -> `iou_loss.py` (unchanged)
   - `models/mmseg/models/common.py` -> `common.py` (unchanged)
   - `models/mmseg/models/sam/image_encoder.py` -> `image_encoder.py`
-    (unchanged; optional `grad_checkpointing` flag added)
+    (unchanged; the vendored reference already contains the optional
+    `grad_checkpointing` branch)
   - `models/mmseg/models/sam/mask_decoder.py` -> `mask_decoder.py`
   - `models/mmseg/models/sam/transformer.py` -> `transformer.py`
 - Modifications:
   - Removed the mmseg package/`mmcv` import chain; the copied modules use
     local relative imports.
-  - Added an optional per-block activation-checkpointing switch, disabled
-    by default, for 11 GiB training.
+  - The adapter enables the reference's per-block activation-checkpointing
+    switch at runtime for 11 GiB training; the copied source is unchanged.
   - Instantiated at ViT-L scale per the paper's shared-backbone statement;
     the upstream SAR config uses ViT-B.
 - Runtime consumer: `baseline_zoo.adapters.cwsam.CWSAMAdapter`

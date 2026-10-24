@@ -110,12 +110,18 @@ class SAMViTLUNet(nn.Module):
             parameter.requires_grad_(False)
         self.decoder = SAMViTLUNetDecoder()
 
-    def forward(self, image):
+    @torch.no_grad()
+    def encode_features(self, image):
+        """Frozen ViT-L features: 4 intermediate maps + neck output."""
         self.encoder.eval()
-        with torch.no_grad():
-            output, features = self.encoder(normalize(image),
-                                            return_features=True)
-            maps = [feature.permute(0, 3, 1, 2).contiguous()
-                    for feature in features]
-            maps.append(output)
-        return self.decoder(image, maps)
+        output, features = self.encoder(normalize(image),
+                                        return_features=True)
+        maps = [feature.permute(0, 3, 1, 2).contiguous()
+                for feature in features]
+        maps.append(output)
+        return maps
+
+    def forward(self, image, features=None):
+        if features is None:
+            features = self.encode_features(image)
+        return self.decoder(image, features)

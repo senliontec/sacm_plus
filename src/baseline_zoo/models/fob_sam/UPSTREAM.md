@@ -51,3 +51,32 @@
   at evaluation, so test GT never influences prompts or masks.
 - SAM `best_pred_idx=0` (the official non-ISIC setting); expose
   `--fob-best-pred-idx` for completeness.
+
+## Paper vs released-code discrepancies (kept code-faithful)
+
+The CVPR 2026 paper and the released code differ in several method details.
+This port follows the released code; these are documented here so results
+are not mislabeled as a literal paper-formula reproduction:
+
+- RAC loss: paper Eq.16 uses InfoNCE with temperature 0.1 and an
+  outermost-foreground positive; the released `forward` uses
+  `clamp(0.5 + cosine, min=0)` over the full foreground prototype and never
+  calls the instantiated `InfoNCE`.
+- Support prompt ring: paper Eq.1 specifies dilation 15 minus 13
+  (`r=15`, `epsilon=2`); `get_ring()` in the released code uses dilation
+  21 minus 15.
+- Inference foreground threshold: paper §3.7 says 0.9; the released code
+  uses 0.96.
+- Training budget: paper says 36K iterations with 0.95 decay every 1K; the
+  released scripts use 39001 iterations with 0.98 decay every 3K.
+- Heatmap loss: paper Eq.17 normalizes the sum of coarse+refined MSE by
+  `N_p H W`; the released `JointsMSELoss` call applies an extra leading
+  dimension to the head output, effectively dividing the head term by 1
+  instead of `N_p`, and uses a 0.5 factor.
+- GCN: paper Eq.11 uses `D^{-1/2} A D^{-1/2} Q W_g`; the released `SPG`
+  row-normalizes A and applies a sigmoid channel gate.
+- `L_fore` is weighted NLL in code (`[0.1, 1.0]`) rather than the paper's
+  unweighted BCE; `L_corr` uses `nn.MSELoss` mean rather than `1/N_p` sum.
+
+The adapter's 20-dataset support/donor policy and 2D GT episodes are
+additional protocol adaptations, not paper/code details.

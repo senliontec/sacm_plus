@@ -36,7 +36,7 @@ class ProtocolConfig:
             raise ValueError(
                 f'protocol {self.name!r} has seeds {list(self.seeds)}, '
                 f'requested unknown {unknown}')
-        return list(requested)
+        return list(dict.fromkeys(requested))
 
     def split_for(self, seed: int) -> SeedSplit:
         if seed not in self.seeds:

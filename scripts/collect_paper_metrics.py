@@ -43,7 +43,7 @@ from evaluate_predictions import compute_selected  # noqa: E402
 from core.run_status import RunStatus  # noqa: E402
 
 MAIN_METRICS = ['dice', 'iou', 'cldice', 'hd95']
-CACHE_VERSION = 1
+CACHE_VERSION = 2
 DEFAULT_WORKERS = min(8, os.cpu_count() or 1)
 METHOD_META = {
     'unet': ('U-Net', '✗'),
@@ -51,12 +51,15 @@ METHOD_META = {
     'bcunet': ('BCUNet', '✗'),
     'maskvsc': ('MaskVSC', '✗'),
     'nnwnet': ('nnWNet', '✗'),
-    'sam-med2d': ('SAM-Med2D', '✓'),
-    'sam-octa': ('SAM-OCTA', '✓'),
+    'sam_med2d': ('SAM-Med2D', '✓'),
+    'sam_octa': ('SAM-OCTA', '✓'),
     'cwsam': ('CWSAM', '✓'),
     'knowsam': ('KnowSAM', '✓'),
     'segdino': ('SegDINO', '✓'),
-    'sacm': ('SACM', '✗'),
+    'fob_sam': ('FoB-SAM', '✓'),
+    'sacm_official': ('SACM (official)', '✗'),
+    'sam_vit_l_unet': ('SAM ViT-L + U-Net', '✗'),
+    'sacm_x': ('SACM-X', '✗'),
 }
 ROLE_ORDER = ['Seen', 'Unseen', 'Novel']
 
@@ -109,17 +112,20 @@ def missing_predictions(method, dataset, rows_ds, pred_root):
 
 
 def pred_signature(method, dataset, rows_ds, pred_root):
-    """Cheap fingerprint of the prediction files used by one dataset."""
+    """Cheap fingerprint of prediction *and* GT files for one dataset."""
     digest = hashlib.sha256()
     for row in rows_ds:
         stem = Path(row['mask_path']).stem
         pred_path = pred_root / method / dataset / f'{stem}.png'
-        try:
-            stat = pred_path.stat()
-            token = f'{stem}|{stat.st_size}|{stat.st_mtime_ns}'
-        except OSError:
-            token = f'{stem}|MISSING'
-        digest.update(token.encode('utf-8'))
+        gt_path = resolve(row['mask_path'])
+        tokens = [stem]
+        for path in (pred_path, gt_path):
+            try:
+                stat = path.stat()
+                tokens.append(f'{stat.st_size}|{stat.st_mtime_ns}')
+            except OSError:
+                tokens.append('MISSING')
+        digest.update('|'.join(tokens).encode('utf-8'))
         digest.update(b'\n')
     return digest.hexdigest()
 
@@ -175,6 +181,14 @@ def save_meta(out_root, method, dataset, meta):
         pass
 
 
+def _load_binary(path):
+    """Accept both 0/255 PNGs and literal 0/1 masks/predictions."""
+    values = np.array(Image.open(path).convert('L'))
+    if values.size and values.max() <= 1:
+        return values.astype(np.float32)
+    return values.astype(np.float32) / 255.0
+
+
 def collect_chunk(method, dataset, chunk_index, rows_chunk, pred_root,
                   metric_names):
     """Worker: compute a contiguous image chunk (process-pool safe)."""
@@ -187,10 +201,8 @@ def collect_chunk(method, dataset, chunk_index, rows_chunk, pred_root,
             missing.append(str(pred_path))
             continue
         gt_path = resolve(row['mask_path'])
-        pred = np.array(Image.open(pred_path).convert('L'),
-                        dtype=np.float32) / 255.0
-        gt = np.array(Image.open(gt_path).convert('L'),
-                      dtype=np.float32) / 255.0
+        pred = _load_binary(pred_path)
+        gt = _load_binary(gt_path)
         if pred.shape != gt.shape:
             raise SystemExit(
                 f'{pred_path}: prediction shape {pred.shape} != GT {gt.shape}')
@@ -516,6 +528,10 @@ def main():
                         help='per-dataset cap for smoke tests')
     parser.add_argument('--allow-missing', action='store_true',
                         help='write partial results instead of failing')
+    parser.add_argument(
+        '--allow-partial-overwrite', action='store_true',
+        help='allow a dataset/metric/max-images subset to overwrite an '
+             'existing complete paper_metrics.csv')
     parser.add_argument('--workers', type=int, default=DEFAULT_WORKERS,
                         help=f'parallel dataset workers (default: '
                              f'{DEFAULT_WORKERS})')
@@ -617,6 +633,17 @@ def main():
         metric_fields = []
         for m in metric_names:
             metric_fields += [f'{m}_mean', f'{m}_std', f'{m}_n']
+        metric_subset = (collect_metrics != 'all'
+                         and set(collect_metrics) != set(MAIN_METRICS))
+        partial_run = (bool(args.datasets) or args.max_images is not None
+                       or metric_subset)
+        canonical_metrics = args.out_root / 'paper_metrics.csv'
+        if (partial_run and canonical_metrics.is_file()
+                and not args.allow_partial_overwrite):
+            raise SystemExit(
+                f'refusing to overwrite complete {canonical_metrics} with a '
+                'partial run (--datasets/--metrics/--max-images); rerun the '
+                'full protocol or pass --allow-partial-overwrite')
         dataset_rows = []
         for method in methods:
             for dataset, vals in sorted(all_summaries[method].items()):

@@ -35,6 +35,7 @@ class SegDINOAdapter(BaselineAdapter):
     official_lr = 1e-4
     official_weight_decay = 1e-4
     train_batch_size = 4
+    drop_last = True
     selection = 'dice'
     deviations = (
         'Official checkpoint selection uses the test split; the protocol '
@@ -48,6 +49,14 @@ class SegDINOAdapter(BaselineAdapter):
         'shared evaluator.',
         'The official no-augmentation, BCEWithLogits, AdamW 1e-4/1e-4, '
         '50-epoch, batch-4 recipe is preserved.',
+        'The default backbone is small (the official README example); the '
+        'official argparse default is base. Pass --dino-size b for the '
+        'parser default or --dino-size l for ViT-L.',
+        'Training uses drop_last=True as in the official loader; the '
+        'backbone size is saved in the checkpoint and restored at prediction '
+        'time, constructing the timm backbone without a gated download.',
+        'DPT intermediate-layer indices now follow the selected backbone '
+        'size (official code for small/base/large).',
     )
 
     def add_args(self, parser):
@@ -64,6 +73,23 @@ class SegDINOAdapter(BaselineAdapter):
             args.dino_size,
             str(args.dino_ckpt) if args.dino_ckpt else None,
             args.random_init)
+
+    def save_config(self, args):
+        return {
+            'dino_size': args.dino_size,
+            'dino_ckpt': str(args.dino_ckpt) if args.dino_ckpt else None,
+            'random_init': bool(args.random_init),
+        }
+
+    def restore_config(self, args, config):
+        size = config.get('dino_size')
+        if size:
+            args.dino_size = size
+        # The checkpoint carries the full backbone and DPT state; building a
+        # random timm backbone avoids a gated download and is then fully
+        # overwritten by load_state_dict.
+        args.random_init = True
+        args.dino_ckpt = None
 
     def make_optimizer(self, model, args):
         return torch.optim.AdamW(

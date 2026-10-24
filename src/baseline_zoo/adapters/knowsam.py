@@ -7,7 +7,9 @@ trainer are copied into ``baseline_zoo.models.knowsam``.
 
 from __future__ import annotations
 
+import csv
 import json
+import shutil
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -17,7 +19,8 @@ import torch.nn.functional as F
 from PIL import Image
 from torch.utils.data import DataLoader
 
-from baseline_zoo.data import RawPairDataset, load_mask, load_rgb
+from baseline_zoo.data import (
+    RawPairDataset, load_mask, load_rgb, load_split_samples)
 from baseline_zoo.models.knowsam import KnowSAM, Trainer
 from baseline_zoo.models.knowsam.dataset import build_Dataset
 from baseline_zoo.models.knowsam.sampler import TwoStreamBatchSampler
@@ -25,7 +28,7 @@ from baseline_zoo.models.knowsam.transforms import (
     build_transforms,
     build_weak_strong_transforms,
 )
-from baseline_zoo.runtime import REPO_ROOT, BaselineAdapter
+from baseline_zoo.runtime import REPO_ROOT, BaselineAdapter, file_sha256
 from core.wandb_utils import (
     finish_run,
     log_artifact,
@@ -53,9 +56,13 @@ class KnowSAMAdapter(BaselineAdapter):
         'images; the 3-shot protocol supplies 18 labeled images, so the '
         'adapter uses a configurable 3+3 batch (default total 6).',
         'Unlabeled data are drawn from the six seen-domain full training '
-        'pools, excluding the 18 labeled and 6 val images (capped by '
-        '--unlabeled-limit). Upstream uses per-dataset unlabeled pools with '
-        'patients_to_slices.',
+        'pools. The exact 18 labeled and 6 validation source stems from '
+        'split_manifest.csv are excluded (capped by --unlabeled-limit); '
+        'upstream uses per-dataset unlabeled pools with patients_to_slices.',
+        'The custom loop uses --epochs as the iteration budget unless '
+        '--max-iterations is passed, seeds Python/NumPy/Torch with the '
+        'protocol seed, and requires labeled_batch == batch_size/2. It does '
+        'not implement nnU-Net-style intra-run resume.',
         'The official 50,000-iteration budget, consistency/MixUp schedule, '
         'losses, optimizers and SGDL validation selection are preserved; '
         'the seed is the protocol seed.',
@@ -86,7 +93,9 @@ class KnowSAMAdapter(BaselineAdapter):
         parser.add_argument(
             '--sam-checkpoint', type=Path,
             default=REPO_ROOT / 'checkpoints' / 'sam_vit_b_01ec64.pth')
-        parser.add_argument('--max-iterations', type=int, default=50000)
+        parser.add_argument(
+            '--max-iterations', type=int, default=None,
+            help='defaults to --epochs (official: 50000 iterations)')
         parser.add_argument('--val-interval', type=int, default=200)
         parser.add_argument('--unlabeled-limit', type=int, default=384)
         parser.add_argument('--labeled-batch', type=int, default=3)
@@ -104,21 +113,43 @@ class KnowSAMAdapter(BaselineAdapter):
             mask_dir / f'{stem}_mask.png')
 
     def _stage(self, root: Path, data_root: Path, unlabeled_limit: int):
-        labeled = RawPairDataset(data_root / 'train').samples
-        val = RawPairDataset(data_root / 'val').samples
-        excluded = {sample.stem for sample in (*labeled, *val)}
+        labeled = load_split_samples(data_root, 'train')
+        val = load_split_samples(data_root, 'val')
         for sample in labeled:
             self._save_pair(root / 'labeled', sample, sample.stem)
         for sample in val:
             self._save_pair(root / 'val', sample, sample.stem)
 
+        # The protocol stem is <DOMAIN>_<source stem>, while the source pool
+        # uses <source stem>.  Read split_manifest.csv to exclude exactly
+        # the 18 labeled + 6 validation source images; comparing protocol
+        # stems directly silently leaked validation images into the pool.
+        excluded = {}
+        manifest = data_root / 'split_manifest.csv'
+        if manifest.is_file():
+            with manifest.open(newline='') as handle:
+                for row in csv.DictReader(handle):
+                    if row.get('split') not in ('train', 'val'):
+                        continue
+                    excluded.setdefault(row['dataset'], set()).add(
+                        Path(row['source_image']).stem)
+        else:
+            for sample in (*labeled, *val):
+                source = sample.stem
+                prefix = f'{sample.dataset}_'
+                if source.startswith(prefix):
+                    source = source[len(prefix):]
+                excluded.setdefault(sample.dataset, set()).add(source)
+
         count = 0
         for domain in SOURCE_DOMAINS:
             domain_root = REPO_ROOT / 'datasets' / 'seen' / domain
-            if not domain_root.is_dir():
+            if domain == 'CORN':
+                domain_root = domain_root / 'train'
+            if not (domain_root / 'images').is_dir():
                 continue
             for sample in RawPairDataset(domain_root).samples:
-                if sample.stem in excluded:
+                if sample.stem in excluded.get(domain, set()):
                     continue
                 self._save_pair(root / 'unlabeled', sample,
                                 f'{domain}_{sample.stem}')
@@ -141,23 +172,42 @@ class KnowSAMAdapter(BaselineAdapter):
             batch_size=args.batch_size, labeled_bs=labeled_batch,
             seed=args.seed, mixed_iterations=12000,
             max_iterations=args.max_iterations, n_fold=1,
-            consistency=0.1, consistency_rampup=200.0, device='cuda',
+            consistency=0.1, consistency_rampup=200.0,
+            device=args.device,
             multimask=False, encoder_adapter=True,
             sam_checkpoint=str(args.sam_checkpoint),
         )
 
     # ---- training -----------------------------------------------------
     def run_training(self, args):
+        if args.resume:
+            raise SystemExit(
+                'KnowSAM does not support intra-run --resume; the custom '
+                'semi-supervised loop only writes the best SGDL checkpoint')
+        from baseline_zoo.runtime import seed_everything
+        seed_everything(args.seed)
         workdir = Path(args.workdir)
         workdir.mkdir(parents=True, exist_ok=True)
         root = workdir / 'knowsam_data'
+        # Staging is enumerated with os.listdir; stale files from a previous
+        # protocol/limit would silently change the training and val sets.
+        shutil.rmtree(root, ignore_errors=True)
         n_labeled, n_unlabeled, n_val = self._stage(
             root, Path(args.data_root), args.unlabeled_limit)
-        if args.labeled_batch * 2 > args.batch_size:
-            raise SystemExit('--labeled-batch must be <= batch-size / 2')
+        if args.labeled_batch * 2 != args.batch_size:
+            raise SystemExit(
+                'KnowSAM requires --labeled-batch == batch_size / 2 '
+                '(two equal streams); got '
+                f'{args.labeled_batch}+{args.batch_size - args.labeled_batch}')
+        iterations = (args.max_iterations if args.max_iterations is not None
+                      else args.epochs)
+        if iterations <= 0:
+            raise SystemExit('--max-iterations/--epochs must be positive')
 
-        torch.cuda.set_device(torch.device(args.device))
+        if torch.device(args.device).type == 'cuda':
+            torch.cuda.set_device(torch.device(args.device))
         kargs = self._args(args, root, args.labeled_batch)
+        kargs.max_iterations = iterations
         run_config = {
             'method': self.id,
             'official_source': self.official_source,
@@ -166,7 +216,7 @@ class KnowSAMAdapter(BaselineAdapter):
             'labeled': n_labeled, 'unlabeled': n_unlabeled, 'val': n_val,
             'batch_size': args.batch_size,
             'labeled_batch': args.labeled_batch,
-            'max_iterations': args.max_iterations,
+            'max_iterations': iterations,
             'seed': args.seed,
             'selection': 'SGDL validation Dice (official)',
         }
@@ -189,7 +239,7 @@ class KnowSAMAdapter(BaselineAdapter):
                                 num_workers=0)
 
         iteration = 0
-        while iteration < args.max_iterations:
+        while iteration < iterations:
             for batch in loader:
                 images = batch['image'].to(args.device)
                 labels = batch['label'].to(args.device)
@@ -205,7 +255,7 @@ class KnowSAMAdapter(BaselineAdapter):
                             'val/SAM_best_dice':
                                 trainer.best_performance_sam,
                         })
-                if iteration >= args.max_iterations:
+                if iteration >= iterations:
                     break
 
         best = workdir / 'SGDL_best_model.pth'
@@ -228,8 +278,12 @@ class KnowSAMAdapter(BaselineAdapter):
         root = workdir / 'knowsam_data'
         if not root.is_dir():
             root = workdir
-        torch.cuda.set_device(torch.device(args.device))
+        if torch.device(args.device).type == 'cuda':
+            torch.cuda.set_device(torch.device(args.device))
         kargs = self._args(args, root, args.labeled_batch)
+        kargs.max_iterations = (args.max_iterations
+                                if args.max_iterations is not None
+                                else args.epochs)
         model = KnowSAM(kargs, bilinear=False).to(args.device).eval()
         if args.checkpoint is None and (workdir / 'knowsam_model.txt').is_file():
             checkpoint = Path(
@@ -242,6 +296,9 @@ class KnowSAMAdapter(BaselineAdapter):
 
         pred_root = Path(args.pred_root)
         pred_root.mkdir(parents=True, exist_ok=True)
+        stale_meta = pred_root / '.prediction_meta.json'
+        if stale_meta.is_file():
+            stale_meta.unlink()
         for spec in args.test_datasets:
             name, sep, dataset_root = spec.partition(':')
             samples = RawPairDataset(Path(dataset_root)).samples
@@ -269,11 +326,16 @@ class KnowSAMAdapter(BaselineAdapter):
                 Image.fromarray((pred.astype(np.uint8) * 255)).save(
                     out_dir / f'{sample.stem}.png')
 
+        split_manifest = Path(args.data_root) / 'split_manifest.csv'
         meta = {
             'method': self.id,
             'official_source': self.official_source,
             'deviations': list(self.deviations),
             'checkpoint': str(checkpoint),
+            'checkpoint_sha256': (file_sha256(Path(checkpoint))
+                                  if Path(checkpoint).is_file() else None),
+            'split_manifest_sha256': (file_sha256(split_manifest)
+                                      if split_manifest.is_file() else None),
             'datasets': [spec.split(':', 1)[0]
                          for spec in args.test_datasets],
         }

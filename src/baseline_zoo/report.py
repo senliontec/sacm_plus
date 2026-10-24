@@ -52,17 +52,28 @@ def _role(value: str) -> str:
         text, value)
 
 
-def load_run(run_root: Path, model: str, seed: int) -> list[MetricRow]:
-    """Read one (model, seed) result directory."""
+def load_run(run_root: Path, model: str, seed: int,
+             preset: str | None = None) -> list[MetricRow]:
+    """Read one (model, seed) result directory.
+
+    SACM-X result roots may contain several preset tables in the same
+    ``all_metrics.csv``; ``preset`` selects one.  Baselines use
+    ``paper_metrics.csv`` directly.
+    """
     sacm_x = run_root / 'tables' / 'all_metrics.csv'
     baseline = run_root / 'paper_metrics.csv'
-    path = sacm_x if sacm_x.is_file() else baseline
+    if model == 'sacm_x':
+        path = sacm_x
+    else:
+        path = baseline if baseline.is_file() else sacm_x
     if not path.is_file():
         return []
 
     rows: list[MetricRow] = []
     with open(path, newline='') as f:
         for raw in csv.DictReader(f):
+            if preset is not None and raw.get('preset') not in (None, preset):
+                continue
             dataset = raw.get('dataset', '').strip()
             role = _role(raw.get('role', ''))
             if not dataset or not role:
@@ -84,13 +95,14 @@ def load_run(run_root: Path, model: str, seed: int) -> list[MetricRow]:
 
 
 def load_runs(models: Iterable[str], seeds: Iterable[int],
-              result_root: Path) -> tuple[list[MetricRow], list[str]]:
+              result_root: Path,
+              preset: str | None = None) -> tuple[list[MetricRow], list[str]]:
     rows: list[MetricRow] = []
     missing: list[str] = []
     for model in models:
         for seed in seeds:
             run_root = result_root / model / f'seed_{seed}'
-            current = load_run(run_root, model, seed)
+            current = load_run(run_root, model, seed, preset=preset)
             if not current:
                 missing.append(str(run_root))
             rows.extend(current)

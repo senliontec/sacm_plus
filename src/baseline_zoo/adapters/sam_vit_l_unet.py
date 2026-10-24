@@ -38,7 +38,13 @@ class SAMViTLUNetAdapter(BaselineAdapter):
         'This is the project SAM+U-Net probe, not one of the paper ten '
         'baselines; the decoder is unchanged from the previous adapter.',
         'Frozen ViT features are recomputed per batch instead of cached once '
-        'per split; the math is identical but training is slower.',
+        'per split. Features are quantized to float16 and back to float32, '
+        'and flips/rot90 are applied to the encoded feature maps (and the '
+        'image/mask) exactly as in the previous adapter, so the training '
+        'semantics match; only the cache/precision storage differs.',
+        'Best checkpoints store the decoder state dict only, matching the '
+        'previous adapter. Prediction rebuilds the frozen encoder from the '
+        'SAM checkpoint.',
         'Checkpoint selection uses the unified val Dice; the previous '
         'adapter also selected by validation Dice.',
         'Predictions are restored to the original GT resolution.',
@@ -51,6 +57,10 @@ class SAMViTLUNetAdapter(BaselineAdapter):
         parser.add_argument('--input-size', type=int, default=1024)
 
     def build_model(self, args):
+        if args.input_size != 1024:
+            raise SystemExit(
+                'SAM ViT-L expects --input-size 1024 (the frozen image '
+                'encoder has a fixed 64x64 positional embedding).')
         if not args.sam_checkpoint.is_file():
             raise SystemExit(
                 f'missing SAM ViT-L checkpoint: {args.sam_checkpoint}')
@@ -85,26 +95,65 @@ class SAMViTLUNetAdapter(BaselineAdapter):
             mask_t = torch.from_numpy(
                 (np.asarray(mask) > 127).astype(np.float32).copy()
             ).unsqueeze(0)
-            if rng.random() < 0.5:
-                image_t = image_t.flip(-1)
-                mask_t = mask_t.flip(-1)
-            if rng.random() < 0.5:
-                image_t = image_t.flip(-2)
-                mask_t = mask_t.flip(-2)
-            k = rng.randrange(4)
-            if k:
-                image_t = torch.rot90(image_t, k, [-2, -1])
-                mask_t = torch.rot90(mask_t, k, [-2, -1])
             images.append(image_t.contiguous())
             masks.append(mask_t.contiguous())
         return (torch.stack(images).to(self.device),
                 torch.stack(masks).to(self.device))
 
+    @staticmethod
+    def _augment(tensor, hflip, vflip, rot):
+        if hflip:
+            tensor = tensor.flip(-1)
+        if vflip:
+            tensor = tensor.flip(-2)
+        if rot:
+            tensor = torch.rot90(tensor, rot, [-2, -1])
+        return tensor.contiguous()
+
     def train_step(self, model, batch):
         images, masks = batch
-        logits = model(images)
+        # Encode the *unaugmented* image, then apply the same flips/rot90
+        # to the cached-style feature maps and to the image/mask.  This is
+        # the previous adapter's semantics: encoding a flipped image is not
+        # equivalent for a frozen ViT with absolute positional embeddings.
+        feature_maps = [feature.half().float()
+                        for feature in model.encode_features(images)]
+        aug_images, aug_masks = [], []
+        aug_maps = [[] for _ in feature_maps]
+        for index in range(images.shape[0]):
+            hflip = random.random() < 0.5
+            vflip = random.random() < 0.5
+            rot = random.randrange(4)
+            aug_images.append(
+                self._augment(images[index], hflip, vflip, rot))
+            aug_masks.append(
+                self._augment(masks[index], hflip, vflip, rot))
+            for map_index, feature_map in enumerate(feature_maps):
+                aug_maps[map_index].append(
+                    self._augment(feature_map[index], hflip, vflip, rot))
+        images = torch.stack(aug_images)
+        masks = torch.stack(aug_masks)
+        feature_maps = [torch.stack(values) for values in aug_maps]
+        logits = model.decoder(images, feature_maps)
         return (nn.BCEWithLogitsLoss()(logits, masks) +
                 dice_loss(logits, masks))
+
+    def state_dict(self, model):
+        # Match the previous adapter: only the trainable decoder is saved.
+        return model.decoder.state_dict()
+
+    def load_state_dict(self, model, state):
+        target = model.decoder.state_dict()
+        if all(key in target for key in state):
+            decoder_state = state
+        elif all(f'decoder.{key}' in state for key in target):
+            decoder_state = {key: state[f'decoder.{key}'] for key in target}
+        else:
+            # Accept a full SAMViTLUNet state dict by selecting decoder.*.
+            decoder_state = {
+                key: state[f'decoder.{key}'] for key in target
+                if f'decoder.{key}' in state}
+        model.decoder.load_state_dict(decoder_state)
 
     def prepare_eval_sample(self, sample, device):
         image = load_rgb(sample.image_path).resize(
@@ -115,9 +164,9 @@ class SAMViTLUNetAdapter(BaselineAdapter):
         return tensor.unsqueeze(0).to(device)
 
     def predict_sample(self, model, prepared, sample):
-        prob = torch.sigmoid(model(prepared))
+        logits = model(prepared)
         with Image.open(sample.mask_path) as mask:
             width, height = mask.size
-        prob = F.interpolate(prob, size=(height, width),
-                             mode='bilinear', align_corners=False)
-        return (prob[0, 0].cpu().numpy() > 0.5)
+        logits = F.interpolate(logits, size=(height, width),
+                               mode='bilinear', align_corners=False)
+        return (torch.sigmoid(logits)[0, 0].cpu().numpy() > 0.5)

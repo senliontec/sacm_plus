@@ -34,7 +34,12 @@ from torch import nn
 from torch.utils.data import DataLoader
 
 from core.console import console
-from core.metrics import cldice_score, hd95_score
+from core.metrics import (
+    cldice_score,
+    dice_score,
+    hd95_score,
+    iou_score,
+)
 from core.run_status import RunStatus
 from core.wandb_utils import (
     finish_run,
@@ -43,7 +48,8 @@ from core.wandb_utils import (
     setup_wandb,
 )
 
-from .data import RawPairDataset, Sample, load_mask
+from .data import (RawPairDataset, Sample, SampleListDataset, load_mask,
+                   load_split_samples)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -148,6 +154,14 @@ class BaselineAdapter(ABC):
             running += float(loss.detach()) * len(samples)
             seen += len(samples)
         if pending:
+            # The final partial group was divided by ``accum``, so scale it
+            # back to the group mean before stepping; otherwise its update
+            # is under-weighted by pending/accum.
+            if pending < accum:
+                scale = accum / pending
+                for parameter in model.parameters():
+                    if parameter.grad is not None:
+                        parameter.grad.mul_(scale)
             if args.grad_clip > 0:
                 torch.nn.utils.clip_grad_norm_(
                     [p for p in model.parameters() if p.requires_grad],
@@ -166,6 +180,14 @@ class BaselineAdapter(ABC):
 
     def add_args(self, parser: argparse.ArgumentParser) -> None:
         """Model-specific CLI flags."""
+
+    def save_config(self, args: argparse.Namespace) -> dict[str, Any]:
+        """Adapter-specific construction args stored in the checkpoint."""
+        return {}
+
+    def restore_config(self, args: argparse.Namespace,
+                       config: dict[str, Any]) -> None:
+        """Restore construction args before building a prediction model."""
 
     def run_training(self, args: argparse.Namespace) -> Path:
         """Override for frameworks with their own official training loop."""
@@ -193,12 +215,12 @@ def _mean(values: Iterable[float]) -> float:
 
 
 def binary_metrics(pred: np.ndarray, gt: np.ndarray) -> dict[str, float]:
-    inter = np.logical_and(pred, gt).sum()
-    denom = pred.sum() + gt.sum()
-    union = denom - inter
+    # Use the same canonical metric functions as paper-metric collection
+    # (medpy Dice/IoU conventions, no epsilon smoothing) so validation
+    # checkpoint selection and reported test metrics share one definition.
     return {
-        'dice': float((2.0 * inter + 1e-7) / (denom + 1e-7)),
-        'iou': float((inter + 1e-7) / (union + 1e-7)),
+        'dice': dice_score(pred, gt),
+        'iou': iou_score(pred, gt),
         'cldice': cldice_score(pred, gt),
         'hd95': hd95_score(pred, gt),
         'empty': float(pred.sum() == 0),
@@ -365,16 +387,17 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
     adapter.args = args
     adapter.device = device
 
-    train_set = RawPairDataset(Path(args.data_root) / 'train')
-    val_set = RawPairDataset(Path(args.data_root) / 'val')
+    train_samples = load_split_samples(Path(args.data_root), 'train')
+    val_samples = load_split_samples(Path(args.data_root), 'val')
     if args.limit_train:
-        train_set.samples = train_set.samples[:args.limit_train]
+        train_samples = train_samples[:args.limit_train]
     if args.limit_val:
-        val_set.samples = val_set.samples[:args.limit_val]
+        val_samples = val_samples[:args.limit_val]
 
     loader = DataLoader(
-        train_set, batch_size=args.batch_size, shuffle=True,
-        num_workers=args.num_workers, drop_last=False,
+        SampleListDataset(train_samples), batch_size=args.batch_size,
+        shuffle=True, num_workers=args.num_workers,
+        drop_last=getattr(adapter, 'drop_last', False),
         collate_fn=lambda batch: batch)
 
     model = adapter.build_model(args).to(device)
@@ -395,8 +418,8 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
         'official_entrypoint': adapter.official_entrypoint,
         'deviations': list(adapter.deviations),
         'data_root': str(args.data_root),
-        'train_images': len(train_set),
-        'val_images': len(val_set),
+        'train_images': len(train_samples),
+        'val_images': len(val_samples),
         'epochs': args.epochs,
         'batch_size': args.batch_size,
         'accum_steps': args.accum_steps,
@@ -404,6 +427,7 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
         'lr': args.lr,
         'weight_decay': args.weight_decay,
         'input_size': adapter.input_size,
+        'adapter_config': adapter.save_config(args),
         'selection': args.selection,
         'seed': args.seed,
         'optimizer': type(optimizer).__name__,
@@ -427,7 +451,7 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
     history = []
     history_path = workdir / 'metrics_history.json'
     dataset_csv_path = workdir / 'val_metrics_by_dataset.csv'
-    dataset_names = val_set.datasets
+    dataset_names = sorted({sample.dataset for sample in val_samples})
     csv_fields = (['epoch', 'train_loss', 'lr', 'is_best'] +
                   [f'{dataset}_{metric}'
                    for dataset in dataset_names for metric in METRIC_NAMES])
@@ -438,10 +462,16 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
     best_score = -float('inf')
     best_metric = float('nan')
     best_epoch = 0
+    saved_any = False
     start_epoch = 1
     if args.resume and ckpt_path.is_file():
         payload = torch.load(ckpt_path, map_location=device,
                              weights_only=False)
+        stored_selection = payload.get('selection')
+        if stored_selection and stored_selection != args.selection:
+            raise SystemExit(
+                f'checkpoint selection={stored_selection!r} but --selection '
+                f'is {args.selection!r}; scores are not comparable')
         adapter.load_state_dict(model, payload['model_state_dict'])
         if payload.get('optimizer_state_dict'):
             optimizer.load_state_dict(payload['optimizer_state_dict'])
@@ -452,10 +482,35 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
         best_epoch = int(payload.get('epoch', 0))
         best_metric = float(payload.get(
             'val_metrics', {}).get(args.selection, float('nan')))
+        # The existing checkpoint is a valid result even if no later epoch
+        # improves on it.
+        saved_any = True
         print(f'resume from {ckpt_path} at epoch {start_epoch}; '
               f'best_score={best_score:.4f}')
         if history_path.is_file():
-            history = json.loads(history_path.read_text()).get('history', [])
+            history = [
+                entry for entry in
+                json.loads(history_path.read_text()).get('history', [])
+                if int(entry.get('epoch', 0)) <= best_epoch]
+            # Rewrite the per-dataset CSV to the same truncated history;
+            # appending would duplicate rows after a weights-only resume.
+            with dataset_csv_path.open('w', newline='') as handle:
+                writer = csv.DictWriter(handle, fieldnames=csv_fields)
+                writer.writeheader()
+                for entry in history:
+                    row = {
+                        'epoch': entry.get('epoch', ''),
+                        'train_loss': _csv_value(entry.get('train_loss')),
+                        'lr': _csv_value(entry.get('lr')),
+                        'is_best': int(bool(entry.get('is_best', False))),
+                    }
+                    datasets = entry.get('datasets', {})
+                    for dataset in dataset_names:
+                        values = datasets.get(dataset, {})
+                        for metric in METRIC_NAMES:
+                            row[f'{dataset}_{metric}'] = _csv_value(
+                                values.get(metric))
+                    writer.writerow(row)
 
     write_history(history_path, run_config, history, best_epoch, best_score)
     print_epoch_header(adapter, args.epochs, args.seed, device, num_params,
@@ -471,7 +526,7 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
         train_loss = adapter.train_epoch(model, loader, optimizer, scheduler,
                                          args)
         val_metrics, val_per_dataset = evaluate(
-            adapter, model, val_set.samples, device)
+            adapter, model, val_samples, device)
         elapsed = time.time() - epoch_t0
         lr = optimizer.param_groups[0]['lr']
         score = adapter.selection_score(val_metrics, val_per_dataset)
@@ -491,7 +546,7 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
             best_score = score
             best_metric = selection_metric
             best_epoch = epoch
-            torch.save({
+            payload = {
                 'adapter': adapter.id,
                 'official_source': adapter.official_source,
                 'deviations': list(adapter.deviations),
@@ -509,7 +564,13 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
                 'input_size': adapter.input_size,
                 'split_manifest_sha256': split_sha256,
                 'config': run_config,
-            }, ckpt_path)
+            }
+            # Atomic replace: a kill during a multi-GB save must not destroy
+            # the previous best checkpoint.
+            tmp_path = ckpt_path.with_name(ckpt_path.name + '.tmp')
+            torch.save(payload, tmp_path)
+            os.replace(tmp_path, ckpt_path)
+            saved_any = True
 
         history.append({
             'epoch': epoch,
@@ -544,6 +605,11 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
         write_history(history_path, run_config, history,
                       best_epoch, best_score)
 
+    if not saved_any:
+        raise SystemExit(
+            'training finished without writing a checkpoint: every '
+            f'validation {args.selection} score was non-finite or never '
+            'improved. Check the validation masks/metric and rerun.')
     print_epoch_footer()
     console.print(
         f' [bold]Best[/]  E{best_epoch:03d}  '
@@ -568,10 +634,27 @@ def run_prediction(adapter: BaselineAdapter, args: argparse.Namespace,
     device = torch.device(args.device)
     adapter.args = args
     adapter.device = device
+    # A failed rerun must not leave metadata from the previous checkpoint.
+    previous_meta = Path(args.pred_root) / '.prediction_meta.json'
+    if previous_meta.is_file():
+        previous_meta.unlink()
     # Checkpoints may carry large optimizer states (e.g. SAM-Med2D Adapters);
     # load them on CPU and move only the model to the GPU.
     payload = torch.load(ckpt_path, map_location='cpu', weights_only=False)
+    stored_adapter = payload.get('adapter')
+    if stored_adapter and stored_adapter != adapter.id:
+        raise SystemExit(
+            f'checkpoint is for adapter {stored_adapter!r}, not '
+            f'{adapter.id!r}')
+    saved_input = payload.get('input_size')
+    if (saved_input is not None and hasattr(args, 'input_size')
+            and int(args.input_size) != int(saved_input)):
+        raise SystemExit(
+            f'checkpoint was trained with input_size={saved_input}, but '
+            f'current --input-size is {args.input_size}')
     adapter.checkpoint_config = payload.get('config', {}) or {}
+    adapter.restore_config(
+        args, adapter.checkpoint_config.get('adapter_config', {}))
     model = adapter.build_model(args)
     adapter.load_state_dict(model, payload['model_state_dict'])
     model.to(device).eval()
@@ -605,8 +688,14 @@ def run_prediction(adapter: BaselineAdapter, args: argparse.Namespace,
                 pred = np.asarray(pred)
                 if pred.dtype != bool:
                     pred = pred > 0.5
-                out = (pred.astype(np.uint8) * 255)
                 from PIL import Image
+                with Image.open(sample.mask_path) as mask_image:
+                    expected_shape = (mask_image.size[1], mask_image.size[0])
+                if pred.shape != expected_shape:
+                    raise RuntimeError(
+                        f'{adapter.id}: prediction shape {pred.shape} != '
+                        f'GT shape {expected_shape} for {sample.image_path}')
+                out = (pred.astype(np.uint8) * 255)
                 Image.fromarray(out, mode='L').save(
                     out_dir / f'{sample.stem}.png')
                 status.advance(1, write=(done % 10 == 0))
@@ -674,7 +763,11 @@ def build_parser(adapter: BaselineAdapter) -> argparse.ArgumentParser:
                         help='validation metric for checkpoint selection')
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--num-workers', type=int, default=0)
-    parser.add_argument('--resume', action='store_true')
+    parser.add_argument(
+        '--resume', action='store_true',
+        help='resume from the best checkpoint (weights-only unless '
+             '--save-optimizer was used; history/CSV are truncated to the '
+             'checkpoint epoch)')
     parser.add_argument('--save-optimizer', action='store_true',
                         help='store optimizer state in the best checkpoint '
                              '(large for SAM-Med2D Adapters; default off)')

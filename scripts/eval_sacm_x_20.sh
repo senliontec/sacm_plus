@@ -89,14 +89,20 @@ fi
 
 echo
 echo "== aggregate (partial results are kept if any dataset failed) =="
+agg_rc=0
 "$PYTHON" scripts/aggregate_results.py \
-  --root "$OUTPUT_ROOT" --out "$OUTPUT_ROOT/tables" || true
+  --root "$OUTPUT_ROOT" --out "$OUTPUT_ROOT/tables" || agg_rc=$?
 
 echo
 echo "== final report =="
+report_rc=0
 "$PYTHON" scripts/make_final_report.py \
   --tables-dir "$OUTPUT_ROOT/tables" \
   --preset "$PRESET" \
-  --checkpoint "$CKPT" || true
+  --checkpoint "$CKPT" || report_rc=$?
 
-exit "$rc"
+if [ "$rc" -ne 0 ] || [ "$agg_rc" -ne 0 ] || [ "$report_rc" -ne 0 ]; then
+  echo "ERROR: eval/aggregate/report failed (eval=$rc aggregate=$agg_rc report=$report_rc)" >&2
+  exit 1
+fi
+exit 0

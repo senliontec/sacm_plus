@@ -32,7 +32,11 @@ def dataset_specs(protocol: Path, datasets: set[str] | None = None,
             mask = Path(row['mask_path'])
             if not mask.is_absolute():
                 mask = repo / mask
-            roots[name] = mask.parent.parent
+            root = mask.parent.parent
+            previous = roots.setdefault(name, root)
+            if previous != root:
+                raise SystemExit(
+                    f'{name}: multiple test roots: {previous}, {root}')
     if not roots:
         raise SystemExit('no test datasets selected')
     return [f'{name}:{roots[name]}' for name in sorted(roots)]

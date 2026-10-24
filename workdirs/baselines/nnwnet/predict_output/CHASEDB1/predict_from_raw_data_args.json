@@ -1,0 +1,93 @@
+{
+    "folder_with_segs_from_prev_stage": null,
+    "list_of_lists_or_source_folder": [
+        [
+            "/home/dev/mywork/project/segment/sacm_plus/workdirs/baselines/nnwnet/predict_input/CHASEDB1/CHASEDB1_Image_01L_0000.png"
+        ],
+        [
+            "/home/dev/mywork/project/segment/sacm_plus/workdirs/baselines/nnwnet/predict_input/CHASEDB1/CHASEDB1_Image_01R_0000.png"
+        ],
+        [
+            "/home/dev/mywork/project/segment/sacm_plus/workdirs/baselines/nnwnet/predict_input/CHASEDB1/CHASEDB1_Image_02L_0000.png"
+        ],
+        [
+            "/home/dev/mywork/project/segment/sacm_plus/workdirs/baselines/nnwnet/predict_input/CHASEDB1/CHASEDB1_Image_02R_0000.png"
+        ],
+        [
+            "/home/dev/mywork/project/segment/sacm_plus/workdirs/baselines/nnwnet/predict_input/CHASEDB1/CHASEDB1_Image_03L_0000.png"
+        ],
+        [
+            "/home/dev/mywork/project/segment/sacm_plus/workdirs/baselines/nnwnet/predict_input/CHASEDB1/CHASEDB1_Image_03R_0000.png"
+        ],
+        [
+            "/home/dev/mywork/project/segment/sacm_plus/workdirs/baselines/nnwnet/predict_input/CHASEDB1/CHASEDB1_Image_05L_0000.png"
+        ],
+        [
+            "/home/dev/mywork/project/segment/sacm_plus/workdirs/baselines/nnwnet/predict_input/CHASEDB1/CHASEDB1_Image_05R_0000.png"
+        ],
+        [
+            "/home/dev/mywork/project/segment/sacm_plus/workdirs/baselines/nnwnet/predict_input/CHASEDB1/CHASEDB1_Image_08L_0000.png"
+        ],
+        [
+            "/home/dev/mywork/project/segment/sacm_plus/workdirs/baselines/nnwnet/predict_input/CHASEDB1/CHASEDB1_Image_08R_0000.png"
+        ],
+        [
+            "/home/dev/mywork/project/segment/sacm_plus/workdirs/baselines/nnwnet/predict_input/CHASEDB1/CHASEDB1_Image_09L_0000.png"
+        ],
+        [
+            "/home/dev/mywork/project/segment/sacm_plus/workdirs/baselines/nnwnet/predict_input/CHASEDB1/CHASEDB1_Image_09R_0000.png"
+        ],
+        [
+            "/home/dev/mywork/project/segment/sacm_plus/workdirs/baselines/nnwnet/predict_input/CHASEDB1/CHASEDB1_Image_10L_0000.png"
+        ],
+        [
+            "/home/dev/mywork/project/segment/sacm_plus/workdirs/baselines/nnwnet/predict_input/CHASEDB1/CHASEDB1_Image_10R_0000.png"
+        ],
+        [
+            "/home/dev/mywork/project/segment/sacm_plus/workdirs/baselines/nnwnet/predict_input/CHASEDB1/CHASEDB1_Image_11L_0000.png"
+        ],
+        [
+            "/home/dev/mywork/project/segment/sacm_plus/workdirs/baselines/nnwnet/predict_input/CHASEDB1/CHASEDB1_Image_11R_0000.png"
+        ],
+        [
+            "/home/dev/mywork/project/segment/sacm_plus/workdirs/baselines/nnwnet/predict_input/CHASEDB1/CHASEDB1_Image_12L_0000.png"
+        ],
+        [
+            "/home/dev/mywork/project/segment/sacm_plus/workdirs/baselines/nnwnet/predict_input/CHASEDB1/CHASEDB1_Image_12R_0000.png"
+        ],
+        [
+            "/home/dev/mywork/project/segment/sacm_plus/workdirs/baselines/nnwnet/predict_input/CHASEDB1/CHASEDB1_Image_13L_0000.png"
+        ],
+        [
+            "/home/dev/mywork/project/segment/sacm_plus/workdirs/baselines/nnwnet/predict_input/CHASEDB1/CHASEDB1_Image_13R_0000.png"
+        ]
+    ],
+    "num_parts": 1,
+    "num_processes_preprocessing": 1,
+    "num_processes_segmentation_export": 1,
+    "output_folder_or_list_of_truncated_output_files": [
+        "/home/dev/mywork/project/segment/sacm_plus/workdirs/baselines/nnwnet/predict_output/CHASEDB1/CHASEDB1_Image_01L",
+        "/home/dev/mywork/project/segment/sacm_plus/workdirs/baselines/nnwnet/predict_output/CHASEDB1/CHASEDB1_Image_01R",
+        "/home/dev/mywork/project/segment/sacm_plus/workdirs/baselines/nnwnet/predict_output/CHASEDB1/CHASEDB1_Image_02L",
+        "/home/dev/mywork/project/segment/sacm_plus/workdirs/baselines/nnwnet/predict_output/CHASEDB1/CHASEDB1_Image_02R",
+        "/home/dev/mywork/project/segment/sacm_plus/workdirs/baselines/nnwnet/predict_output/CHASEDB1/CHASEDB1_Image_03L",
+        "/home/dev/mywork/project/segment/sacm_plus/workdirs/baselines/nnwnet/predict_output/CHASEDB1/CHASEDB1_Image_03R",
+        "/home/dev/mywork/project/segment/sacm_plus/workdirs/baselines/nnwnet/predict_output/CHASEDB1/CHASEDB1_Image_05L",
+        "/home/dev/mywork/project/segment/sacm_plus/workdirs/baselines/nnwnet/predict_output/CHASEDB1/CHASEDB1_Image_05R",
+        "/home/dev/mywork/project/segment/sacm_plus/workdirs/baselines/nnwnet/predict_output/CHASEDB1/CHASEDB1_Image_08L",
+        "/home/dev/mywork/project/segment/sacm_plus/workdirs/baselines/nnwnet/predict_output/CHASEDB1/CHASEDB1_Image_08R",
+        "/home/dev/mywork/project/segment/sacm_plus/workdirs/baselines/nnwnet/predict_output/CHASEDB1/CHASEDB1_Image_09L",
+        "/home/dev/mywork/project/segment/sacm_plus/workdirs/baselines/nnwnet/predict_output/CHASEDB1/CHASEDB1_Image_09R",
+        "/home/dev/mywork/project/segment/sacm_plus/workdirs/baselines/nnwnet/predict_output/CHASEDB1/CHASEDB1_Image_10L",
+        "/home/dev/mywork/project/segment/sacm_plus/workdirs/baselines/nnwnet/predict_output/CHASEDB1/CHASEDB1_Image_10R",
+        "/home/dev/mywork/project/segment/sacm_plus/workdirs/baselines/nnwnet/predict_output/CHASEDB1/CHASEDB1_Image_11L",
+        "/home/dev/mywork/project/segment/sacm_plus/workdirs/baselines/nnwnet/predict_output/CHASEDB1/CHASEDB1_Image_11R",
+        "/home/dev/mywork/project/segment/sacm_plus/workdirs/baselines/nnwnet/predict_output/CHASEDB1/CHASEDB1_Image_12L",
+        "/home/dev/mywork/project/segment/sacm_plus/workdirs/baselines/nnwnet/predict_output/CHASEDB1/CHASEDB1_Image_12R",
+        "/home/dev/mywork/project/segment/sacm_plus/workdirs/baselines/nnwnet/predict_output/CHASEDB1/CHASEDB1_Image_13L",
+        "/home/dev/mywork/project/segment/sacm_plus/workdirs/baselines/nnwnet/predict_output/CHASEDB1/CHASEDB1_Image_13R"
+    ],
+    "overwrite": true,
+    "part_id": 0,
+    "save_probabilities": false
+}

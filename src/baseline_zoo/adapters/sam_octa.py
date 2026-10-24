@@ -13,7 +13,6 @@ from pathlib import Path
 import albumentations as A
 import numpy as np
 import torch
-import torch.nn.functional as F
 from PIL import Image
 
 from baseline_zoo.data import load_rgb
@@ -47,9 +46,10 @@ class SAMOCTAAdapter(BaselineAdapter):
         'protocol, RGB datasets use their three channels and OCTA-500 '
         'single-channel images are replicated to three channels.',
         'The official training path assumes square OCTA images and does not '
-        'pad after the longest-side resize; non-square protocol images are '
-        'right/bottom zero-padded to 1024x1024, matching SAM inference '
-        'semantics.',
+        'pad after the longest-side resize. Non-square protocol images use '
+        "SAM's standard pipeline: longest-side resize, normalize, then "
+        'zero-pad inside Sam.preprocess. The pre-pad shape is recorded as '
+        'input_size so postprocess crops the padding before GT resize.',
         'ViT-L is used as the shared SAM backbone (paper requirement); the '
         'upstream default is ViT-H.',
         'Checkpoint selection uses the 6-image validation split by Dice. '
@@ -126,10 +126,10 @@ class SAMOCTAAdapter(BaselineAdapter):
         tensor = torch.from_numpy(
             image.astype(np.float32).copy()).permute(2, 0, 1).unsqueeze(0)
         resize = ResizeLongestSide(self.input_size)
+        # Do not pad here: Sam.preprocess normalizes then pads, records the
+        # pre-pad input_size, and postprocess crops to it.  Padding before
+        # the model makes that crop a no-op and shifts predictions.
         tensor = resize.apply_image_torch(tensor)
-        pad_h = self.input_size - tensor.shape[-2]
-        pad_w = self.input_size - tensor.shape[-1]
-        tensor = F.pad(tensor, (0, pad_w, 0, pad_h), value=0.0)
 
         _, pos, neg = label_to_point_prompt_global(label, 1, 1)
         points = np.array(pos + neg, dtype=np.float32).reshape(-1, 2)

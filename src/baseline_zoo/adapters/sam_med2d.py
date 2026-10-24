@@ -56,6 +56,8 @@ class SamMed2DAdapter(BaselineAdapter):
         'Data protocol: the 18/6-shot split replaces the official JSON '
         'manifests; BGR + SAM-statistics preprocessing and the 256 '
         'pad/resize rule are preserved.',
+        'The protocol datasets are binary, so the official mask_num=5 '
+        'multi-mask sampler repeats the single available mask five times.',
         'Checkpoint selection uses the 6-image validation split by Dice; '
         'upstream selects the best training loss (there is no validation '
         'split).',
@@ -67,6 +69,8 @@ class SamMed2DAdapter(BaselineAdapter):
         'The official Adapter has ~646M trainable parameters, whose Adam '
         'state plus the ViT-L model exceeds 11 GiB; official training needs '
         'a >=24 GiB GPU (e.g. RTX 3090). Prediction fits in 11 GiB.',
+        'Per-block activation checkpointing is enabled for memory; it is '
+        'disabled in eval and does not change numerics.',
     )
 
     def add_args(self, parser):

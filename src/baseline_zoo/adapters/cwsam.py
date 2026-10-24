@@ -90,7 +90,7 @@ class CWSAMAdapter(BaselineAdapter):
 
     def _preprocess(self, sample, device):
         image = load_rgb(sample.image_path).resize(
-            (self.input_size, self.input_size), Image.BICUBIC)
+            (self.input_size, self.input_size), Image.BILINEAR)
         tensor = torch.from_numpy(
             np.asarray(image, dtype=np.float32).copy()
         ).permute(2, 0, 1) / 255.0

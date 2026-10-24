@@ -306,7 +306,7 @@ python -m baseline_zoo report
 Or a single shell entrypoint:
 
 ```bash
-bash scripts/run_baseline_zoo.sh --gpu 3 --methods all --datasets all
+bash scripts/run_paper.sh --model all --seeds all --gpus 3 --resume
 ```
 
 Runner responsibilities:

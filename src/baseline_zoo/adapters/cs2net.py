@@ -96,9 +96,16 @@ class CS2NetAdapter(BaselineAdapter):
 
     def make_scheduler(self, optimizer, args):
         max_epochs = max(args.epochs, 1)
+
+        def lr_lambda(epoch):
+            # Upstream calls adjust_lr(iter=epoch) *after* each 0-based epoch
+            # and its first call (iter=0) is a no-op.  LambdaLR applies
+            # lambda(0) at construction, so shift by one to avoid decaying
+            # one epoch early.
+            return (1.0 - max(epoch - 1, 0) / max_epochs) ** 0.9
+
         return torch.optim.lr_scheduler.LambdaLR(
-            optimizer, lr_lambda=lambda epoch: (
-                1.0 - float(epoch) / max_epochs) ** 0.9)
+            optimizer, lr_lambda=lr_lambda)
 
     @staticmethod
     def _enhance(image: Image.Image, rng: random.Random) -> Image.Image:
