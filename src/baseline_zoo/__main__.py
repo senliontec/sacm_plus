@@ -31,6 +31,23 @@ from .report import (
     write_report,
 )
 
+# Every baseline eval entrypoint writes <output_root>/paper_metrics.csv.
+# SACM-X aggregates into <output_root>/tables/all_metrics.csv instead.
+EVAL_ARTIFACTS = {'sacm_x': Path('tables') / 'all_metrics.csv'}
+DEFAULT_EVAL_ARTIFACT = Path('paper_metrics.csv')
+
+
+def _eval_artifact(model: ModelConfig, output_root: Path) -> Path:
+    return output_root / EVAL_ARTIFACTS.get(model.id, DEFAULT_EVAL_ARTIFACT)
+
+
+def _artifact_ready(path: Path) -> bool:
+    """A non-empty file is the minimum proof that eval wrote its tables."""
+    try:
+        return path.is_file() and path.stat().st_size > 0
+    except OSError:
+        return False
+
 
 def _repo_path(path: Path) -> str:
     try:
@@ -162,6 +179,7 @@ def _build_jobs(args: argparse.Namespace,
                 'marker': output_root / f'.{stage}_done',
                 'command': command,
                 'checkpoint': checkpoint,
+                'eval_artifact': _eval_artifact(model, output_root),
             })
             job_index += 1
     return jobs, gpus, protocol, seeds
@@ -201,8 +219,19 @@ def _run_job(job: dict, stage: str, resume: bool, dry_run: bool) -> bool:
     output_root = job['output_root']
     print(f"\n[{model.id}] seed={seed} gpu={gpu}", flush=True)
     if resume and _marker_matches(job):
-        print(f"skip: {job['marker']} matches the checkpoint", flush=True)
-        return True
+        # A stale eval marker must not hide deleted predictions/tables:
+        # report would otherwise fail while resume keeps skipping eval.
+        if stage == 'eval' and not _artifact_ready(job['eval_artifact']):
+            print(f"rerun: missing eval artifact {job['eval_artifact']}",
+                  flush=True)
+            if not dry_run:
+                try:
+                    job['marker'].unlink()
+                except OSError:
+                    pass
+        else:
+            print(f"skip: {job['marker']} matches the checkpoint", flush=True)
+            return True
     if not dry_run and not job['checkpoint'].is_file():
         # A stage marker must never hide a missing/renamed checkpoint.
         if stage == 'eval' or job['marker'].is_file():

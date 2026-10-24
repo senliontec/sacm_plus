@@ -6,7 +6,12 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / 'src'))
 
-from baseline_zoo.__main__ import main  # noqa: E402
+from baseline_zoo.__main__ import (  # noqa: E402
+    _eval_artifact,
+    _run_job,
+    _write_marker,
+    main,
+)
 from baseline_zoo.protocols import load_protocol  # noqa: E402
 from baseline_zoo.registry import load_models, resolve_models  # noqa: E402
 
@@ -46,6 +51,58 @@ def test_report_dry_run_tolerates_missing_runs(tmp_path, capsys):
                '--result-root', str(tmp_path / 'empty'), '--dry-run'])
     assert rc == 0
     assert 'no metric rows' in capsys.readouterr().out
+
+
+def test_eval_resume_requires_eval_artifact(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    import baseline_zoo.__main__ as cli
+
+    calls = []
+    monkeypatch.setattr(
+        cli, '_run',
+        lambda command, log_path, prefix: calls.append(command) or True)
+
+    checkpoint = tmp_path / 'best_model.pth'
+    checkpoint.write_bytes(b'checkpoint')
+    job = {
+        'model': SimpleNamespace(id='unet'),
+        'seed': 0,
+        'gpu': '0',
+        'output_root': tmp_path,
+        'marker': tmp_path / '.eval_done',
+        'command': 'evaluate',
+        'checkpoint': checkpoint,
+        'eval_artifact': tmp_path / 'paper_metrics.csv',
+    }
+    _write_marker(job)
+
+    # Dry-run reports the rerun but must not delete the stale marker.
+    assert _run_job(job, 'eval', resume=True, dry_run=True)
+    assert job['marker'].is_file()
+    assert len(calls) == 0
+
+    # Stale marker + missing table must rerun eval.
+    assert _run_job(job, 'eval', resume=True, dry_run=False)
+    assert len(calls) == 1
+
+    # Marker + a non-empty table is a valid eval result.
+    (tmp_path / 'paper_metrics.csv').write_text('metric\n')
+    assert _run_job(job, 'eval', resume=True, dry_run=False)
+    assert len(calls) == 1
+
+    # Deleting the table invalidates the marker again.
+    (tmp_path / 'paper_metrics.csv').unlink()
+    assert _run_job(job, 'eval', resume=True, dry_run=False)
+    assert len(calls) == 2
+
+
+def test_eval_artifact_paths(tmp_path):
+    from types import SimpleNamespace
+
+    assert _eval_artifact(SimpleNamespace(id='unet'), tmp_path) == \
+        tmp_path / 'paper_metrics.csv'
+    assert _eval_artifact(SimpleNamespace(id='sacm_x'), tmp_path) == \
+        tmp_path / 'tables' / 'all_metrics.csv'
 
 
 def test_resolve_models_all_returns_only_available():

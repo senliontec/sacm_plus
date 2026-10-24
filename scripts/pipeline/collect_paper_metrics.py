@@ -427,12 +427,36 @@ def fmt(value, metric, percent=True):
     return f'{value:.2f}'
 
 
-def write_csv(path, fieldnames, rows):
+def _atomic_write_text(path, text):
     path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, 'w', newline='') as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(rows)
+    tmp = path.with_name(path.name + '.tmp')
+    try:
+        tmp.write_text(text)
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            tmp.unlink()
+        except OSError:
+            pass
+        raise
+
+
+def write_csv(path, fieldnames, rows):
+    """Write a CSV atomically so a kill cannot leave a truncated cache."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + '.tmp')
+    try:
+        with open(tmp, 'w', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(rows)
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            tmp.unlink()
+        except OSError:
+            pass
+        raise
 
 
 def write_markdown(path, methods, summary, macros, metric_names):
@@ -447,7 +471,7 @@ def write_markdown(path, methods, summary, macros, metric_names):
                     for role in ROLE_ORDER + ['All']]
             lines.append(f'| {display} | {prompt} | ' + ' | '.join(vals) + ' |')
         lines.append('')
-    path.write_text('\n'.join(lines) + '\n')
+    _atomic_write_text(path, '\n'.join(lines) + '\n')
 
 
 def write_latex(out_dir, methods, summary, macros, metric_names):
@@ -471,8 +495,8 @@ def write_latex(out_dir, methods, summary, macros, metric_names):
                             f"{fmt(item['std'], metric)}")
             lines.append(f'{dataset} & ' + ' & '.join(vals) + ' \\\\')
         lines += ['\\bottomrule', '\\end{tabular}', '']
-        (out_dir / f'table_dataset_{metric}.tex').write_text(
-            '\n'.join(lines))
+        _atomic_write_text(out_dir / f'table_dataset_{metric}.tex',
+                           '\n'.join(lines))
         lines = [
             '\\begin{tabular}{l' + 'c' * (len(ROLE_ORDER) + 1) + '}',
             '\\toprule',
@@ -485,7 +509,8 @@ def write_latex(out_dir, methods, summary, macros, metric_names):
             lines.append(f'{METHOD_META.get(method, (method, "?"))[0]} & ' +
                          ' & '.join(vals) + ' \\\\')
         lines += ['\\bottomrule', '\\end{tabular}', '']
-        (out_dir / f'table_macro_{metric}.tex').write_text('\n'.join(lines))
+        _atomic_write_text(out_dir / f'table_macro_{metric}.tex',
+                           '\n'.join(lines))
 
 
 def print_summary(methods, summaries, macros, roles, metric_names):

@@ -4,10 +4,16 @@ import csv
 import sys
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / 'src'))
 
-from baseline_zoo.report import load_runs, write_report  # noqa: E402
+from baseline_zoo.report import (  # noqa: E402
+    load_runs,
+    write_csv,
+    write_report,
+)
 
 FIELDS = ['dice_mean', 'dice_std', 'iou_mean', 'iou_std',
           'cldice_mean', 'cldice_std', 'hd95_mean', 'hd95_std']
@@ -48,6 +54,15 @@ def _write_baseline(root, seed):
         writer = csv.DictWriter(f, fieldnames=['method', 'dataset', 'role'] + FIELDS)
         writer.writeheader()
         writer.writerows(rows)
+
+
+def test_write_csv_is_atomic_on_failure(tmp_path):
+    path = tmp_path / 'table.csv'
+    path.write_text('old\n')
+    with pytest.raises(ValueError):
+        write_csv(path, ['a'], [{'a': 1}, {'a': 2, 'b': 3}])
+    assert path.read_text() == 'old\n'
+    assert not path.with_name('table.csv.tmp').exists()
 
 
 def test_load_runs_reads_both_schemas(tmp_path):

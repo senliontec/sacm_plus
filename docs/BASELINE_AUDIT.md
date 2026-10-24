@@ -52,6 +52,12 @@ collector and report pipeline.
 - Reports select the requested SACM-X preset and fail on missing
   model/seed runs unless `--allow-missing` is passed.
 - `run_paper.sh --dry-run` no longer regenerates figures.
+- Eval resume now also requires a non-empty eval artifact
+  (`paper_metrics.csv` or SACM-X `tables/all_metrics.csv`); a stale
+  `.eval_done` can no longer hide deleted predictions/tables.
+- Per-dataset metric caches and report tables are written atomically
+  (`.tmp` + `os.replace`), so an interrupted write cannot leave a
+  truncated CSV/Markdown/LaTeX file.
 
 ## What is unified, and what is intentionally model-specific
 

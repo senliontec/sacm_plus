@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import csv
 import math
+import os
 import statistics
 from collections import defaultdict
 from dataclasses import dataclass
@@ -152,12 +153,35 @@ def build_tables(rows: list[MetricRow]):
     return macro, variance
 
 
+def _atomic_write_text(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + '.tmp')
+    try:
+        tmp.write_text(text)
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            tmp.unlink()
+        except OSError:
+            pass
+        raise
+
+
 def write_csv(path: Path, fieldnames: list[str], rows: list[dict]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, 'w', newline='') as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(rows)
+    tmp = path.with_name(path.name + '.tmp')
+    try:
+        with open(tmp, 'w', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(rows)
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            tmp.unlink()
+        except OSError:
+            pass
+        raise
 
 
 def _fmt(value: float, metric: str) -> str:
@@ -196,7 +220,7 @@ def write_markdown(path: Path, variance: list[dict]) -> None:
                     cells.append(f"{_fmt(item['mean'], metric)} ± {sd:.2f}")
             lines.append(f'| {model} | ' + ' | '.join(cells) + ' |')
         lines.append('')
-    path.write_text('\n'.join(lines) + '\n')
+    _atomic_write_text(path, '\n'.join(lines) + '\n')
 
 
 def write_report(rows: list[MetricRow], out_dir: Path) -> dict[str, Path]:
