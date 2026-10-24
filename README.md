@@ -239,6 +239,7 @@ Example for the U-Net adapter:
 
 ```bash
 # One-click every available model/seed: train -> eval -> tables -> figures
+# All NVIDIA compute processes are cleared before training; --no-kill opts out.
 bash scripts/run_paper.sh --model all --seeds all --gpus 0,1,2,3 --resume
 
 # One model/seed through the same registry

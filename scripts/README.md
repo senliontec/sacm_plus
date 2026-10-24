@@ -15,6 +15,11 @@ bash scripts/run_paper.sh --model all --seeds all --gpus 0,1,2,3 --resume
 `train_entrypoint`, then `eval_entrypoint`, and finally writes the
 cross-model tables and figures.
 
+Before training, `run_paper.sh` clears all NVIDIA compute processes via
+`tools/clear_gpus.sh` (the same behaviour as the fencing launcher).
+Pass `--no-kill` to skip cleanup; `--dry-run` and `--tables-only` never
+kill anything.
+
 Subsets and short runs:
 
 ```bash
@@ -79,6 +84,7 @@ scripts/
 │   └── datasets/           # per-dataset official converters
 └── tools/
     ├── setup_baselines.sh
+    ├── clear_gpus.sh
     ├── verify_against_official.py
     └── clean_pycache.sh
 ```
@@ -114,6 +120,8 @@ matrix and uses the same engine.
   a size-matched `.bin`/`.pth`/`.pt`/`.safetensors` file under
   `checkpoints/` (e.g. `checkpoints/dinov3/pytorch_model.bin`), so no
   environment variable is required.
+- `clear_gpus.sh` stops all NVIDIA compute processes; `run_paper.sh`
+  calls it before training and accepts `--no-kill` to opt out.
 - `setup_baselines.sh` installs every baseline extra;
   `verify_against_official.py` is the `make verify` cross-check;
   `clean_pycache.sh` is `make clean`.
