@@ -1,0 +1,23 @@
+id: cwsam
+display_name: CWSAM
+family: sam
+status: available
+checkpoint: "{output_root}/best_model.pth"
+train_entrypoint: >-
+  python -m baseline_zoo.run_one --model cwsam --stage train
+  --data-root {split_root} --workdir {output_root}
+  --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
+eval_entrypoint: >-
+  python scripts/run_baseline_test.py --method cwsam
+  --protocol {test_manifest}
+  --checkpoint {output_root}/best_model.pth
+  --pred-root {output_root}/predictions
+  --paper-root {output_root}
+  --device cuda:{gpu} --use_wandb true --skip-visualize
+protocols: [seeded5, fixed]
+defaults:
+  epochs: 200
+note: >-
+  Self-contained port of the official CWSAM frequency-prompt/adapter SAM.
+  Trained at ViT-L scale (paper's shared backbone) as a binary segmenter;
+  official ImageNet preprocessing and freeze policy preserved.

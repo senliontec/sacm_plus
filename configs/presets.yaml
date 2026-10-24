@@ -13,3 +13,11 @@ preset: full
 # use_geo_e: false
 # epochs: 30
 # pred_threshold: 0.5
+
+# SCNP (Same-Class Neighbor Penalization, CVPR 2026) — training-only
+# logit transform. Official SCNP(CEDice): only the transformed logits
+# feed BCE/Dice; set scnp_original_weight > 0 to add the raw-logit term.
+# Equivalent one-flag preset: `--preset full_scnp`.
+# scnp: true
+# scnp_window: 3
+# scnp_original_weight: 0.0

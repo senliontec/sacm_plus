@@ -1,6 +1,8 @@
 # SACM 论文 Baseline 代码
 
-本目录用于放置 SACM 官方论文中对比的 baseline 源码。**一个模型一个子目录**，每个子目录保留上游仓库自己的目录结构和许可证。
+本目录用于放置 SACM 官方论文中对比的 baseline 源码。
+
+> 注意：论文 baseline 的运行时实现已迁移到 `src/baseline_zoo/models/`，本目录仅作开发期参考，可安全删除。**一个模型一个子目录**，每个子目录保留上游仓库自己的目录结构和许可证。
 
 官方 SACM 源码不放在这里，仍位于：
 
@@ -12,16 +14,16 @@
 
 | 子目录 | 论文中的名称 | 类型 | 代码状态 |
 |---|---|---|---|
-| `unet/` | U-Net | 通用分割 | 待放入 |
-| `cs2net/` | CS²Net | 曲线结构分割 | 待放入 |
-| `bcunet/` | BCUNet | 曲线结构分割 | 待放入 |
-| `maskvsc/` | MaskVSC | 曲线结构分割 | 待放入 |
-| `nnwnet/` | nnWNet | 曲线结构分割 | 待放入 |
-| `sam-med2d/` | SAM-Med2D | 医学 SAM baseline | 待放入 |
-| `sam-octa/` | SAM-OCTA | OCTA SAM baseline | 待放入 |
-| `cwsam/` | CWSAM | SAM baseline | 待放入 |
-| `knowsam/` | KnowSAM | SAM baseline | 待放入 |
-| `segdino/` | SegDINO | SAM/DINO baseline | 待放入 |
+| `unet/` | U-Net | 通用分割 | 已迁移至 `src/baseline_zoo/models/` |
+| `cs2net/` | CS²Net | 曲线结构分割 | 已迁移至 `src/baseline_zoo/models/` |
+| `bcunet/` | BCUNet | 曲线结构分割 | 已迁移至 `src/baseline_zoo/models/` |
+| `maskvsc/` | MaskVSC | 曲线结构分割 | 已迁移至 `src/baseline_zoo/models/` |
+| `nnwnet/` | nnWNet | 曲线结构分割 | 已迁移至 `src/baseline_zoo/models/` |
+| `sam-med2d/` | SAM-Med2D | 医学 SAM baseline | 已迁移至 `src/baseline_zoo/models/` |
+| `sam-octa/` | SAM-OCTA | OCTA SAM baseline | 已迁移至 `src/baseline_zoo/models/` |
+| `cwsam/` | CWSAM | SAM baseline | 已迁移至 `src/baseline_zoo/models/` |
+| `knowsam/` | KnowSAM | SAM baseline | 已迁移至 `src/baseline_zoo/models/` |
+| `segdino/` | SegDINO | SAM/DINO baseline | 已迁移至 `src/baseline_zoo/models/` |
 
 `.gitkeep` 只用于让 Git 跟踪空目录，放入代码后可保留或删除。
 

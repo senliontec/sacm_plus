@@ -49,6 +49,9 @@ USE_WANDB="${USE_WANDB:-true}"
 TOPOLOGY_LOSS="${TOPOLOGY_LOSS:-none}"   # 默认 none:论文协议/SACM 基线是干净损失;需要拓扑项时显式开启
 TOPOLOGY_LOSS_WEIGHT="${TOPOLOGY_LOSS_WEIGHT:-0.002}"   # 0.002: topograph 原始量级~200,需对齐主损失 ~0.7(实测 0.1 时拓扑项占 97%)
 TOPOLOGY_RESOLUTION="${TOPOLOGY_RESOLUTION:-256}"   # 引擎损失分辨率;训练太慢降 128
+SCNP="${SCNP:-false}"                    # true: SACM-X 主 BCE/Dice 前接 SCNP 同类邻域惩罚(CVPR 2026)
+SCNP_WINDOW="${SCNP_WINDOW:-3}"          # SCNP 邻域窗口(正奇数)
+SCNP_ORIGINAL_WEIGHT="${SCNP_ORIGINAL_WEIGHT:-0.0}"  # >0 额外保留原始 logits 的 BCE/Dice 项
 FULL_DATA="${FULL_DATA:-false}"          # 默认 3-shot 论文协议(18 张);架构研究可设 FULL_DATA=true
 VAL_RATIO="${VAL_RATIO:-0.2}"
 SELECTION="${SELECTION:-auto}"           # auto: iou only when iou_loss_weight>0, else gating
@@ -241,6 +244,7 @@ if [ "$SKIP_TRAIN" -eq 0 ]; then
       --pred_threshold "$PRED_THRESHOLD" --batch_size "$BATCH_SIZE" \
       --topology_loss "$TOPOLOGY_LOSS" --topology_loss_weight "$TOPOLOGY_LOSS_WEIGHT" \
       --topology_resolution "$TOPOLOGY_RESOLUTION" \
+      --scnp "$SCNP" --scnp_window "$SCNP_WINDOW" --scnp_original_weight "$SCNP_ORIGINAL_WEIGHT" \
       --use_wandb "$USE_WANDB" --save_path "$RESULTS_ROOT/$PRESET/best_model.pth")
   if [ "$DDP" = "true" ]; then
     NG="$(nvidia-smi -L 2>/dev/null | wc -l)"

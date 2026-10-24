@@ -23,6 +23,7 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.." || exit 1
+export PYTHONPATH="$PWD/src${PYTHONPATH:+:$PYTHONPATH}"
 SELF="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
 source scripts/wandb_env.sh
 
@@ -51,7 +52,7 @@ WANDB_LOG_ARTIFACT="${WANDB_LOG_ARTIFACT:-false}"
 GPU="${GPU:-}"
 KILL_OLD="${KILL_OLD:-true}"
 KILL_GPU_PROCS="${KILL_GPU_PROCS:-true}"
-SAM_VIT_L_UNET_TRAIN_PATTERN='baselines/adapters/sam_vit_l_unet\.py --stage train'
+SAM_VIT_L_UNET_TRAIN_PATTERN='baseline_zoo.run_one --model sam_vit_l_unet --stage train'
 
 if [ ! -f "$SAM_CKPT" ]; then
   echo "ERROR: missing SAM ViT-L checkpoint: $SAM_CKPT" >&2
@@ -258,7 +259,7 @@ kill_gpu_processes
 kill_previous_sam_vit_l_unet
 
 echo "device=$DEVICE gpu=${GPU_INDEX:-none} CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-unset}"
-CMD=("$PYTHON" baselines/adapters/sam_vit_l_unet.py --stage train
+CMD=("$PYTHON" -m baseline_zoo.run_one --model sam_vit_l_unet --stage train
      --epochs "$EPOCHS" --batch-size "$BATCH_SIZE" --lr "$LR"
      --input-size "$INPUT_SIZE" --seed "$SEED" --device "$DEVICE"
      --workdir "$WORKDIR" --sam-checkpoint "$SAM_CKPT")

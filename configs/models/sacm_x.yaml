@@ -1,0 +1,22 @@
+# Model-level metadata for the unified experiment runner.  Commands are
+# templates: the planner fills split/seed/GPU/checkpoint placeholders.
+id: sacm_x
+display_name: SACM-X
+family: sam
+status: available
+adapter: models.sacm_x
+checkpoint: "{output_root}/{preset}/best_model.pth"
+train_entrypoint: >-
+  GPU={gpu} TRAIN_ROOT={split_root} OUTPUT_ROOT={output_root}
+  SEED={seed} PRESET={preset} MONITOR={monitor} EPOCHS={epochs}
+  INIT_STAGE2_FROM_STAGE1={init_stage2_from_stage1}
+  SKIP_TEST=true USE_WANDB=true bash scripts/run_sacm_x_quick.sh
+eval_entrypoint: >-
+  GPU={gpu} TRAIN_ROOT={split_root} OUTPUT_ROOT={output_root}
+  USE_WANDB=true bash scripts/eval_sacm_x_20.sh
+protocols: [seeded5, fixed]
+defaults:
+  preset: full
+  monitor: official
+  epochs: 200
+  init_stage2_from_stage1: false

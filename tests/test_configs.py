@@ -50,6 +50,11 @@ def test_apply_preset_overrides():
     assert args.use_geo_i is True
 
 
+def test_scnp_preset_is_opt_in():
+    assert PRESETS["full_scnp"]["scnp"] is True
+    assert "scnp" not in PRESETS["full"]
+
+
 def test_d8_supervision_modes_are_explicit():
     assert PRESETS["full"]["stage2_supervision"] == "soft"
     assert PRESETS["full_soft"]["stage2_supervision"] == "soft"

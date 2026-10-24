@@ -1,0 +1,23 @@
+id: bcunet
+display_name: BCUNet
+family: cnn
+status: available
+checkpoint: "{output_root}/best_model.pth"
+train_entrypoint: >-
+  python -m baseline_zoo.run_one --model bcunet --stage train
+  --data-root {split_root} --workdir {output_root}
+  --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
+eval_entrypoint: >-
+  python scripts/run_baseline_test.py --method bcunet
+  --protocol {test_manifest}
+  --checkpoint {output_root}/best_model.pth
+  --pred-root {output_root}/predictions
+  --paper-root {output_root}
+  --device cuda:{gpu} --use_wandb true --skip-visualize
+protocols: [seeded5, fixed]
+defaults:
+  epochs: 50
+note: >-
+  Upstream OutConv referenced an undefined upconv2x2; repaired as a 1x1
+  logits projection. The adapter bypasses upstream main.py (which imports
+  the missing warmlearnrate.py) and supplies the unified training loop.

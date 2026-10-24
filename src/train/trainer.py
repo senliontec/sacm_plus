@@ -29,7 +29,13 @@ from torchvision import transforms
 import models  # noqa: F401  (registers every model family's ModelSpecs)
 from core.augmentation import JointAugment
 from core.data import SegmentationDataset, TestDataset
-from core.losses import TOPOLOGY_LOSS_REGISTRY, DiceBCELoss, SoftclDiceLoss, build_topology_loss
+from core.losses import (
+    TOPOLOGY_LOSS_REGISTRY,
+    DiceBCELoss,
+    SCNPCriterion,
+    SoftclDiceLoss,
+    build_topology_loss,
+)
 from core.registry import MODEL_REGISTRY, get_model_spec
 from core.trainer import ForwardWrapper, Trainer
 from core.wandb_utils import WANDB_API_KEY_DEFAULT, redact_secrets
@@ -210,6 +216,16 @@ def train(args):
 
     # Losses
     criterion = DiceBCELoss(bce_weight=args.bce_weight, dice_weight=args.dice_weight)
+    if args.scnp:
+        criterion = SCNPCriterion(
+            criterion,
+            neighborhood_size=args.scnp_window,
+            original_weight=args.scnp_original_weight,
+        )
+        logging.info(
+            f"SCNP enabled: window={args.scnp_window}, "
+            f"original_weight={args.scnp_original_weight} "
+            f"(main BCE/Dice and Stage-1 deep supervision use SCNP logits)")
     soft_cl = SoftclDiceLoss(num_iter=args.cl_dice_iters)
     try:
         topo_loss = build_topology_loss(args.topology_loss,
@@ -387,6 +403,16 @@ if __name__ == '__main__':
     # Loss function weights
     parser.add_argument('--bce_weight', type=float, default=0.7, help='Weight for BCE loss in combined loss')
     parser.add_argument('--dice_weight', type=float, default=0.3, help='Weight for Dice loss in combined loss')
+    parser.add_argument('--scnp', type=str2bool, default=False,
+                        help='Enable Same-Class Neighbor Penalization (SCNP, CVPR 2026): '
+                             'replace each logit with the hardest same-class neighbor '
+                             'logit before BCE/Dice. Training-only, no inference cost; '
+                             'orthogonal to clDice/topology terms.')
+    parser.add_argument('--scnp_window', type=int, default=3,
+                        help='SCNP pooling window (positive odd integer; official default: 3)')
+    parser.add_argument('--scnp_original_weight', type=float, default=0.0,
+                        help='SCNP: extra weight of the raw-logit BCE/Dice term; '
+                             '0 = official SCNP(CEDice) objective (only transformed logits)')
 
     # Scheduler parameters
     parser.add_argument('--scheduler', type=str, default='cosine', choices=['cosine', 'step', 'reduce', 'none'], help='LR scheduler type')

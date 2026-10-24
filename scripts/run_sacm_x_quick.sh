@@ -13,7 +13,8 @@
 # Environment:
 #   PYTHON, GPU, PRESET, EPOCHS, VAL_INTERVAL, SEED, DATASETS, CKPT,
 #   TRAIN_ROOT, OUTPUT_ROOT, MONITOR, USE_WANDB, WANDB_MODE,
-#   INIT_STAGE2_FROM_STAGE1, SKIP_TEST
+#   INIT_STAGE2_FROM_STAGE1, SKIP_TEST, SCNP, SCNP_WINDOW,
+#   SCNP_ORIGINAL_WEIGHT
 #
 # MONITOR=official (default): official SACM-style loss/F1/LR terminal lines,
 #   no FOV in validation or test, and only loss/F1 during training validation.
@@ -45,6 +46,9 @@ TRAIN_ROOT="${TRAIN_ROOT:-data/sacm_3shot}"
 OUTPUT_ROOT="${OUTPUT_ROOT:-results/sacm_x_quick}"
 MONITOR="${MONITOR:-official}"
 INIT_STAGE2_FROM_STAGE1="${INIT_STAGE2_FROM_STAGE1:-false}"
+SCNP="${SCNP:-false}"
+SCNP_WINDOW="${SCNP_WINDOW:-3}"
+SCNP_ORIGINAL_WEIGHT="${SCNP_ORIGINAL_WEIGHT:-0.0}"
 SKIP_TEST="${SKIP_TEST:-false}"
 USE_WANDB="${USE_WANDB:-true}"
 WANDB_MODE="${WANDB_MODE:-online}"
@@ -70,6 +74,9 @@ case "$MONITOR" in
      exit 2 ;;
 esac
 
+TRAIN_EXTRA+=(--scnp "$SCNP" --scnp_window "$SCNP_WINDOW" \
+              --scnp_original_weight "$SCNP_ORIGINAL_WEIGHT")
+
 if [ "$INIT_STAGE2_FROM_STAGE1" = "true" ]; then
   TRAIN_EXTRA+=(--init_stage2_from_stage1 true)
 fi
@@ -78,34 +85,19 @@ if [ ! -f "$CKPT" ]; then
   echo "ERROR: missing SAM ViT-L checkpoint: $CKPT" >&2
   exit 2
 fi
+if [ ! -f "$TRAIN_ROOT/protocol_manifest.csv" ]; then
+  echo "ERROR: missing protocol: $TRAIN_ROOT/protocol_manifest.csv" >&2
+  exit 2
+fi
 
-SPECS="$("$PYTHON" - "$DATASETS" <<'PY'
-import csv
-import sys
-from pathlib import Path
-
-repo = Path.cwd()
-selected = set(sys.argv[1].split()) if sys.argv[1].strip() else None
-roots = {}
-with open(repo / 'data' / 'sacm_3shot' / 'protocol_manifest.csv') as f:
-    for row in csv.DictReader(f):
-        if not row['split'].endswith('_test'):
-            continue
-        name = row['dataset']
-        if selected and name not in selected:
-            continue
-        mask = Path(row['mask_path'])
-        if not mask.is_absolute():
-            mask = repo / mask
-        roots[name] = mask.parent.parent
-if not roots:
-    raise SystemExit('no test datasets selected')
-print(' '.join(f'{name}:{roots[name]}' for name in sorted(roots)))
-PY
-)"
+# Always take test roots from the same split root as training.  A seed-specific
+# TRAIN_ROOT must not silently fall back to data/sacm_3shot's test sets.
+SPECS="$("$PYTHON" scripts/protocol_specs.py \
+  --protocol "$TRAIN_ROOT/protocol_manifest.csv" \
+  --datasets "$DATASETS")"
 read -r -a spec_array <<< "$SPECS"
 
-echo "preset=$PRESET epochs=$EPOCHS gpu=$GPU monitor=$MONITOR init_stage2_from_stage1=$INIT_STAGE2_FROM_STAGE1 skip_test=$SKIP_TEST"
+echo "preset=$PRESET epochs=$EPOCHS gpu=$GPU monitor=$MONITOR init_stage2_from_stage1=$INIT_STAGE2_FROM_STAGE1 scnp=$SCNP($SCNP_WINDOW) skip_test=$SKIP_TEST"
 echo "datasets=${#spec_array[@]}  output=$OUTPUT_ROOT"
 RUN_EXTRA=()
 if [ "$SKIP_TEST" = "true" ]; then

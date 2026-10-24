@@ -21,6 +21,7 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.." || exit 1
+export PYTHONPATH="$PWD/src${PYTHONPATH:+:$PYTHONPATH}"
 SELF="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
 source scripts/wandb_env.sh
 
@@ -48,7 +49,7 @@ WANDB_LOG_ARTIFACT="${WANDB_LOG_ARTIFACT:-false}"
 GPU="${GPU:-}"
 KILL_OLD="${KILL_OLD:-true}"
 KILL_GPU_PROCS="${KILL_GPU_PROCS:-true}"
-UNET_TRAIN_PATTERN='baselines/adapters/unet\.py --stage train'
+UNET_TRAIN_PATTERN='baseline_zoo.run_one --model unet --stage train'
 
 # Resolve and validate the physical GPU before doing anything destructive.
 # GPU=1 (preferred) or DEVICE=cuda:1 selects nvidia-smi index 1; the process is
@@ -266,7 +267,7 @@ kill_gpu_processes
 kill_previous_unet
 
 echo "device=$DEVICE gpu=${GPU_INDEX:-none} CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-unset}"
-CMD=("$PYTHON" baselines/adapters/unet.py --stage train
+CMD=("$PYTHON" -m baseline_zoo.run_one --model unet --stage train
      --epochs "$EPOCHS" --batch-size "$BATCH_SIZE" --lr "$LR"
      --input-size "$INPUT_SIZE" --seed "$SEED" --device "$DEVICE"
      --workdir "$WORKDIR")

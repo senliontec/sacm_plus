@@ -93,19 +93,20 @@ def conv1x1(in_channels, out_channels, groups=1):
         stride=1),
         nn.BatchNorm2d(out_channels))
 class OutConv(nn.Module):
+    """Project the full-resolution U-Net branch to class logits.
+
+    Upstream called an undefined ``upconv2x2`` here.  The U-Net branch is
+    already back at the input resolution when it reaches this module, so the
+    only operation needed is the 1x1 projection (logits, no sigmoid: the
+    training script applies softmax/NLL to all three outputs).
+    """
+
     def __init__(self, in_channels, out_channels):
         super(OutConv, self).__init__()
-        self.up = nn.Sequential(
-            upconv2x2(in_channels, out_channels,mode=""),
-            conv1x1(in_channels, out_channels),
-        )
-        # nn.Upsample(scale_factor=in_channels//32, mode='nearest'),
-        # nn.Conv2d(out_channels,out_channels, kernel_size=1)
+        self.up = nn.Conv2d(in_channels, out_channels, kernel_size=1)
 
     def forward(self, x):
-        x=self.up(x)
-        outlayer = nn.Sigmoid()
-        return outlayer(x)
+        return self.up(x)
 
 
 class RecallCrossEntropy(nn.Module):

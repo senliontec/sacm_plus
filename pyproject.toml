@@ -16,6 +16,7 @@ dependencies = [
     "scikit-learn",
     "pillow",
     "matplotlib",
+    "opencv-python",
     "tqdm",
     "networkx",
     "PyYAML",
@@ -41,6 +42,22 @@ topology = [
 data = [
     "h5py",  # CREMI HDF5 conversion in scripts/organize_datasets.py
 ]
+sam2 = [
+    "hydra-core",
+    "omegaconf",
+    "imageio",
+]
+maskvsc = [
+    "skan",
+    "kornia",
+]
+bcunet = ["timm"]
+cwsam = ["timm"]
+sam_med2d = ["albumentations==1.3.1"]
+sam_octa = ["albumentations==1.3.1", "safetensors"]
+knowsam = ["medpy==0.4.0", "hausdorff", "albumentations==1.3.1"]
+nnwnet = ["nnunetv2==2.8.1"]
+segdino = ["timm>=1.0"]
 dev = [
     "pytest",
     "ruff",
@@ -52,16 +69,10 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
-packages = [
-    # framework layer
-    "core",
-    "core.losses",
-    "core.metrics",
-    # algorithm layer
-    "models",
-    "models.sacm_x",
-    "models.sam_network",
-]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["core*", "baseline_zoo*", "models*"]
 
 [tool.ruff]
 line-length = 120

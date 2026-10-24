@@ -139,6 +139,9 @@ class ImageEncoderViT(nn.Module):
                                                 img_size, patch_size)
         self.num_stages = self.depth
         self.out_indices = tuple(range(self.num_stages))
+        # Optional activation checkpointing.  Training the adapters at
+        # 1024x1024 does not fit on an 11 GiB card without it.
+        self.grad_checkpointing = False
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         inp = x  #[1,3,1024,1024]
@@ -157,7 +160,11 @@ class ImageEncoderViT(nn.Module):
         outs = []
         for i, blk in enumerate(self.blocks):
             x = prompt[i].reshape(B, H, W, -1) + x
-            x = blk(x)  #[1,64,64,768]
+            if self.grad_checkpointing and self.training:
+                x = torch.utils.checkpoint.checkpoint(
+                    blk, x, use_reentrant=False)
+            else:
+                x = blk(x)  #[1,64,64,768]
             if i in self.out_indices:
                 outs.append(x)
         ######################### adaptor end 

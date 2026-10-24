@@ -88,6 +88,9 @@ PRESETS = {
     "full_wta": {**FULL, "stage2_supervision": "wta"},
     "full_allhead": {**FULL, "stage2_supervision": "allhead"},
     "full_soft": {**FULL, "stage2_supervision": "soft"},
+    # Full model + Same-Class Neighbor Penalization (SCNP, CVPR 2026):
+    # training-only logit transform in front of BCE/Dice, no inference cost.
+    "full_scnp": {**FULL, "scnp": True},
     # Single-module ablations (full model minus one component).
     "no_geo_i": {**FULL, "use_geo_i": False},
     "no_geo_e": {**FULL, "use_geo_e": False},

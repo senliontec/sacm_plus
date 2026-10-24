@@ -1,0 +1,23 @@
+# CWSAM (ClassWise-SAM-Adapter)
+
+- Upstream: URL not recorded in the vendored README
+  (`baselines/cwsam/README.md`); the model derives from SAM-adapter.
+- Vendored snapshot: `baselines/cwsam` (development reference tree)
+- License: no LICENSE file in the vendored snapshot; add the upstream
+  license before redistributing this copy.
+- Files copied:
+  - `models/sam.py` -> `sam.py` (registry import/decorator removed)
+  - `models/iou_loss.py` -> `iou_loss.py` (unchanged)
+  - `models/mmseg/models/common.py` -> `common.py` (unchanged)
+  - `models/mmseg/models/sam/image_encoder.py` -> `image_encoder.py`
+    (unchanged; optional `grad_checkpointing` flag added)
+  - `models/mmseg/models/sam/mask_decoder.py` -> `mask_decoder.py`
+  - `models/mmseg/models/sam/transformer.py` -> `transformer.py`
+- Modifications:
+  - Removed the mmseg package/`mmcv` import chain; the copied modules use
+    local relative imports.
+  - Added an optional per-block activation-checkpointing switch, disabled
+    by default, for 11 GiB training.
+  - Instantiated at ViT-L scale per the paper's shared-backbone statement;
+    the upstream SAR config uses ViT-B.
+- Runtime consumer: `baseline_zoo.adapters.cwsam.CWSAMAdapter`

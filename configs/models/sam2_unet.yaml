@@ -1,0 +1,25 @@
+id: sam2_unet
+display_name: SAM2-UNet
+family: sam
+status: reference_only
+note: >-
+  Project extension, not part of the paper's ten baselines. Its legacy
+  adapter lives under baselines/ and requires the missing SAM2 Hiera-L
+  checkpoint; it is intentionally not part of the self-contained paper zoo.
+checkpoint: "{output_root}/best_model.pth"
+train_entrypoint: >-
+  python baselines/adapters/sam2_unet.py --stage train
+  --data-root {split_root} --workdir {output_root}
+  --sam2-checkpoint {sam2_checkpoint}
+  --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
+eval_entrypoint: >-
+  python scripts/run_baseline_test.py --method sam2_unet
+  --protocol {test_manifest}
+  --checkpoint {output_root}/best_model.pth
+  --sam2-checkpoint {sam2_checkpoint}
+  --pred-root {output_root}/predictions
+  --paper-root {output_root}
+  --device cuda:{gpu} --use_wandb true --skip-visualize
+protocols: [seeded5, fixed]
+defaults:
+  epochs: 200

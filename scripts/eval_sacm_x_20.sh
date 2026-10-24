@@ -60,30 +60,11 @@ if command -v nvidia-smi >/dev/null 2>&1; then
   fi
 fi
 
-SPECS="$("$PYTHON" - "$DATASETS" <<'PY'
-import csv
-import sys
-from pathlib import Path
-
-repo = Path.cwd()
-selected = set(sys.argv[1].split()) if sys.argv[1].strip() else None
-roots = {}
-with open(repo / 'data' / 'sacm_3shot' / 'protocol_manifest.csv') as f:
-    for row in csv.DictReader(f):
-        if not row['split'].endswith('_test'):
-            continue
-        name = row['dataset']
-        if selected and name not in selected:
-            continue
-        mask = Path(row['mask_path'])
-        if not mask.is_absolute():
-            mask = repo / mask
-        roots[name] = mask.parent.parent
-if not roots:
-    raise SystemExit('no test datasets selected')
-print(' '.join(f'{name}:{roots[name]}' for name in sorted(roots)))
-PY
-)"
+# Always take test roots from the same split root as training.  A seed-specific
+# TRAIN_ROOT must not silently fall back to data/sacm_3shot's test sets.
+SPECS="$("$PYTHON" scripts/protocol_specs.py \
+  --protocol "$TRAIN_ROOT/protocol_manifest.csv" \
+  --datasets "$DATASETS")"
 read -r -a spec_array <<< "$SPECS"
 
 echo "checkpoint=$CKPT"

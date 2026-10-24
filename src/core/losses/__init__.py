@@ -13,6 +13,7 @@ Direct usage:
 """
 
 from .core import DiceLoss, DiceBCELoss, soft_dice, SoftSkeletonize, SoftclDiceLoss
+from .scnp import SCNP, SCNPCriterion
 from .registry import TOPOLOGY_LOSS_REGISTRY, build_topology_loss, register
 
 # Import all loss modules: side effect = registration into the registry

@@ -1,0 +1,21 @@
+id: sam_vit_l_unet
+display_name: SAM ViT-L + U-Net
+family: sam
+status: available
+checkpoint: "{output_root}/best_model.pth"
+train_entrypoint: >-
+  python -m baseline_zoo.run_one --model sam_vit_l_unet --stage train
+  --data-root {split_root} --workdir {output_root}
+  --sam-checkpoint {sam_checkpoint}
+  --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
+eval_entrypoint: >-
+  python scripts/run_baseline_test.py --method sam_vit_l_unet
+  --protocol {test_manifest}
+  --checkpoint {output_root}/best_model.pth
+  --sam-checkpoint {sam_checkpoint}
+  --pred-root {output_root}/predictions
+  --paper-root {output_root}
+  --device cuda:{gpu} --use_wandb true --skip-visualize
+protocols: [seeded5, fixed]
+defaults:
+  epochs: 200

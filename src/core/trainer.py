@@ -475,6 +475,10 @@ class Trainer:
                     'log_style': getattr(self.args, 'log_style', 'table'),
                     'deep_sup_weight': self.args.deep_sup_weight,
                     'cl_dice_weight': self.args.cl_dice_weight,
+                    'scnp': bool(getattr(self.args, 'scnp', False)),
+                    'scnp_window': getattr(self.args, 'scnp_window', 3),
+                    'scnp_original_weight': getattr(
+                        self.args, 'scnp_original_weight', 0.0),
                     'topology_loss': self.args.topology_loss,
                     'topology_loss_weight': self.args.topology_loss_weight,
                 },
@@ -531,6 +535,10 @@ class Trainer:
             'soft_select_mix': getattr(self.args, 'soft_select_mix', 0.5),
             'soft_select_tau': getattr(self.args, 'soft_select_tau', 1.0),
             'cl_dice_weight': self.args.cl_dice_weight,
+            'scnp': bool(getattr(self.args, 'scnp', False)),
+            'scnp_window': getattr(self.args, 'scnp_window', 3),
+            'scnp_original_weight': getattr(
+                self.args, 'scnp_original_weight', 0.0),
             'iou_loss_weight': self.args.iou_loss_weight,
             'pred_threshold': getattr(self.args, 'pred_threshold', 0.0),
             'val_selection': getattr(self.args, 'val_selection', 'auto'),

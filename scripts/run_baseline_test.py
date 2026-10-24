@@ -34,15 +34,16 @@ from core.wandb_utils import (  # noqa: E402
     setup_wandb,
 )
 
-# Prediction adapters.  A method without an entry is assumed to have
-# predictions already on disk.
-ADAPTERS = {
-    'unet': REPO_ROOT / 'baselines' / 'adapters' / 'unet.py',
-    'sam_vit_l_unet': REPO_ROOT / 'baselines' / 'adapters' /
-    'sam_vit_l_unet.py',
-    'sacm_official': REPO_ROOT / 'baselines' / 'adapters' /
-    'sacm_official.py',
-}
+# Self-contained adapters.  A method without an entry is assumed to have
+# predictions already on disk (reference-only or externally produced).
+from baseline_zoo.adapters.registry import available_adapters  # noqa: E402
+
+PORTED = set(available_adapters())
+# nnWNet stores a model folder / KnowSAM a plain SGDL state dict; neither
+# carries the unified split-hash field.
+CUSTOM_CHECKPOINTS = {'nnwnet', 'knowsam'}
+SAM_CHECKPOINT_METHODS = {
+    'cwsam', 'sacm_official', 'sam_med2d', 'sam_octa', 'sam_vit_l_unet'}
 
 
 def read_specs(protocol: Path, dataset_filter):
@@ -78,9 +79,19 @@ def read_test_counts(protocol: Path, dataset_filter):
     return counts
 
 
-def run(cmd):
+def run(cmd, env=None):
     print('+', ' '.join(str(part) for part in cmd), flush=True)
-    subprocess.run([str(part) for part in cmd], cwd=REPO_ROOT, check=True)
+    subprocess.run([str(part) for part in cmd], cwd=REPO_ROOT, check=True,
+                   env=env)
+
+
+def repo_env():
+    """Environment for child ``python -m baseline_zoo`` processes."""
+    env = os.environ.copy()
+    src = str(REPO_ROOT / 'src')
+    existing = env.get('PYTHONPATH', '')
+    env['PYTHONPATH'] = src + (os.pathsep + existing if existing else '')
+    return env
 
 
 def file_sha256(path: Path) -> str:
@@ -209,6 +220,18 @@ def main():
                         'sam_vit_l_0b3195.pth',
                         help='frozen SAM ViT-L checkpoint for '
                              'sam_vit_l_unet')
+    parser.add_argument('--fob-sam-checkpoint', type=Path,
+                        default=REPO_ROOT / 'checkpoints' /
+                        'sam_vit_h_4b8939.pth',
+                        help='frozen SAM ViT-H checkpoint for fob_sam')
+    default_data_root = REPO_ROOT / 'data' / 'sacm_3shot'
+    parser.add_argument('--data-root', type=Path,
+                        default=default_data_root,
+                        help='training split used for FoB support images')
+    parser.add_argument('--sam2-checkpoint', type=Path,
+                        default=REPO_ROOT / 'checkpoints' /
+                        'sam2_hiera_large.pt',
+                        help='frozen SAM2 Hiera checkpoint for sam2_unet')
     parser.add_argument('--pred-root', type=Path,
                         default=REPO_ROOT / 'results' / 'predictions')
     parser.add_argument('--paper-root', type=Path,
@@ -254,6 +277,13 @@ def main():
     if args.checkpoint is None:
         args.checkpoint = (REPO_ROOT / 'workdirs' / 'baselines' /
                            args.method / 'best_model.pth')
+    # FoB needs labeled support images at test time.  If the caller did
+    # not override --data-root, follow the protocol's own split root so a
+    # seed-specific run never uses the frozen seed-42 support set.
+    if (args.method == 'fob_sam'
+            and args.data_root == default_data_root
+            and args.protocol.parent != default_data_root):
+        args.data_root = args.protocol.parent
 
     dataset_filter = set(args.datasets) if args.datasets else None
     specs = read_specs(args.protocol, dataset_filter)
@@ -263,7 +293,7 @@ def main():
     print('  ' + ' '.join(name for name, _ in specs))
 
     stage_names = []
-    if not args.skip_predict and args.method in ADAPTERS:
+    if not args.skip_predict and args.method in PORTED:
         stage_names.append('predict')
     if not args.skip_paper:
         stage_names.append('paper_metrics')
@@ -322,20 +352,22 @@ def main():
                           '(--allow-stale-checkpoint)')
 
         if not args.skip_predict:
-            adapter = ADAPTERS.get(args.method)
-            if adapter is not None:
+            if args.method in PORTED:
                 if not args.checkpoint.is_file():
                     hint = (
-                        'python baselines/adapters/sam_vit_l_unet.py '
-                        '--stage train --epochs 200'
-                        if args.method == 'sam_vit_l_unet' else
-                        'python baselines/adapters/unet.py '
-                        '--stage train --epochs 200')
+                        'python -m baseline_zoo.run_one '
+                        f'--model {args.method} --stage train --epochs 200')
                     raise SystemExit(
                         f'missing checkpoint: {args.checkpoint}\n'
                         f'train first: {hint}')
-                split = REPO_ROOT / 'data' / 'sacm_3shot' / 'split_manifest.csv'
-                if split.is_file() and not args.allow_stale_checkpoint:
+                # Use the split manifest belonging to the active protocol.
+                # Seed-specific checkpoints must not be compared against the
+                # frozen seed-42 split.
+                split = args.protocol.parent / 'split_manifest.csv'
+                if not split.is_file():
+                    split = REPO_ROOT / 'data' / 'sacm_3shot' / 'split_manifest.csv'
+                if (split.is_file() and not args.allow_stale_checkpoint
+                        and args.method not in CUSTOM_CHECKPOINTS):
                     expected_hash = file_sha256(split)
                     actual_hash = checkpoint_split_hash(args.checkpoint)
                     if actual_hash is None:
@@ -346,20 +378,24 @@ def main():
                         raise SystemExit(
                             'checkpoint was trained on a different split; '
                             'retrain first or pass --allow-stale-checkpoint')
-                cmd = [sys.executable, adapter, '--stage', 'predict',
+                cmd = [sys.executable, '-m', 'baseline_zoo.run_one',
+                       '--model', args.method, '--stage', 'predict',
                        '--checkpoint', args.checkpoint,
-                       '--pred-root', method_pred_root]
-                if args.method == 'sam_vit_l_unet':
+                       '--pred-root', method_pred_root,
+                       '--data-root', args.data_root]
+                if args.method == 'fob_sam':
+                    cmd += ['--sam-checkpoint', args.fob_sam_checkpoint]
+                elif args.method in SAM_CHECKPOINT_METHODS:
                     cmd += ['--sam-checkpoint', args.sam_checkpoint]
                 if args.device:
                     cmd += ['--device', args.device]
                 cmd += ['--test-datasets']
                 cmd += [f'{name}:{root}' for name, root in specs]
                 begin_stage('predict')
-                run(cmd)
+                run(cmd, repo_env())
             else:
-                print(f'[warn] no prediction adapter for {args.method}; '
-                      'assuming predictions already exist')
+                print(f'[warn] no self-contained prediction adapter for '
+                      f'{args.method}; assuming predictions already exist')
 
         if not args.skip_paper:
             begin_stage('paper_metrics')
@@ -378,7 +414,7 @@ def main():
                 cmd += ['--chunk-size', str(args.chunk_size)]
             if args.no_resume:
                 cmd += ['--no-resume']
-            run(cmd)
+            run(cmd, repo_env())
             if args.use_wandb:
                 log_paper_metrics(args, args.paper_root)
 
@@ -391,7 +427,8 @@ def main():
                  '--out-root', args.vis_root,
                  '--protocol', args.protocol,
                  '--num-samples', str(args.num_samples)] +
-                (['--datasets'] + list(args.datasets) if args.datasets else []))
+                (['--datasets'] + list(args.datasets) if args.datasets else []),
+                repo_env())
 
         status.refresh()
         status.finish('done')

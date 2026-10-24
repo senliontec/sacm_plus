@@ -1,0 +1,155 @@
+"""Official SACM baseline (SAM ViT-L + adapters, prompt-free decoder).
+
+The official ``segment_anything`` package is copied into
+``baseline_zoo.models.sacm_official``.  Training follows the released
+``train_sam.py`` loss/optimizer/forward; selection and export follow the
+unified protocol.
+"""
+
+from __future__ import annotations
+
+import random
+from pathlib import Path
+
+import numpy as np
+import torch
+import torch.nn.functional as F
+from PIL import Image
+from torch import nn
+
+from baseline_zoo.data import load_rgb
+from baseline_zoo.models.sacm_official import build_sam_vit_l
+from baseline_zoo.runtime import REPO_ROOT, BaselineAdapter
+
+
+class SACMOfficialAdapter(BaselineAdapter):
+    id = 'sacm_official'
+    display_name = 'SACM (official)'
+    official_source = 'kylechuuuuu/SACM (self-contained copy)'
+    official_entrypoint = 'upstream train_sam.py'
+    input_size = 1024
+    official_epochs = 60
+    official_lr = 3e-4
+    official_weight_decay = 0.01
+    train_batch_size = 1
+    selection = 'dice'
+    deviations = (
+        'Checkpoint selection uses the 6-image validation split by Dice; '
+        'upstream selects by validation F1/loss.',
+        'Predictions are restored to the original GT resolution for the '
+        'shared evaluator; upstream evaluates at 1024.',
+        'The official 60 epochs, AdamW 3e-4 with weight decay 0.01, cosine '
+        'to 1e-6, gradient clipping 1.0, BCE 0.7 + Dice 0.3, frozen encoder '
+        'except adapters, and the zero-prompt forward are preserved.',
+        'Per-block activation checkpointing is enabled for 11 GiB training; '
+        'it changes memory, not the computation.',
+    )
+
+    def add_args(self, parser):
+        parser.add_argument(
+            '--sam-checkpoint', type=Path,
+            default=REPO_ROOT / 'checkpoints' / 'sam_vit_l_0b3195.pth')
+        parser.add_argument('--adapter-dim-ratio', type=float, default=0.1)
+        parser.add_argument('--bce-weight', type=float, default=0.7)
+        parser.add_argument('--dice-weight', type=float, default=0.3)
+        parser.add_argument('--clip-grad-norm', type=float, default=1.0)
+
+    def build_model(self, args):
+        if not args.sam_checkpoint.is_file():
+            raise SystemExit(
+                f'missing SAM ViT-L checkpoint: {args.sam_checkpoint}')
+        return build_sam_vit_l(
+            checkpoint=str(args.sam_checkpoint), use_adapter=True,
+            adapter_dim_ratio=args.adapter_dim_ratio)
+
+    def configure_trainable(self, model):
+        for name, parameter in model.image_encoder.named_parameters():
+            parameter.requires_grad_('adapter' in name)
+        for parameter in model.prompt_encoder.parameters():
+            parameter.requires_grad_(False)
+        for parameter in model.mask_decoder.parameters():
+            parameter.requires_grad_(True)
+        model.image_encoder.grad_checkpointing = True
+
+    def make_optimizer(self, model, args):
+        adapter_params = [p for n, p in model.image_encoder.named_parameters()
+                          if 'adapter' in n and p.requires_grad]
+        decoder_params = [p for p in model.mask_decoder.parameters()
+                          if p.requires_grad]
+        return torch.optim.AdamW([
+            {'params': adapter_params, 'lr': args.lr,
+             'weight_decay': args.weight_decay},
+            {'params': decoder_params, 'lr': args.lr,
+             'weight_decay': args.weight_decay},
+        ])
+
+    def make_scheduler(self, optimizer, args):
+        return torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, T_max=max(args.epochs, 1), eta_min=1e-6)
+
+    def _forward(self, model, images):
+        batch = images.shape[0]
+        sparse = torch.zeros((batch, 0, 256), dtype=torch.float,
+                             device=self.device)
+        dense = torch.zeros((batch, 256, 64, 64), dtype=torch.float,
+                            device=self.device)
+        output = model.image_encoder(images, return_features=True)
+        if len(output) == 3:
+            embeddings, _, adapter_features = output
+        else:
+            embeddings, _ = output
+            adapter_features = None
+        low_res, _ = model.mask_decoder(
+            image_embeddings=embeddings,
+            image_pe=model.prompt_encoder.get_dense_pe(),
+            sparse_prompt_embeddings=sparse,
+            dense_prompt_embeddings=dense,
+            multimask_output=False,
+            adapter_features=adapter_features)
+        return low_res
+
+    def prepare_train_batch(self, samples, rng: random.Random):
+        images, masks = [], []
+        for sample in samples:
+            image = load_rgb(sample.image_path).resize(
+                (self.input_size, self.input_size), Image.BICUBIC)
+            mask = Image.open(sample.mask_path).convert('L').resize(
+                (self.input_size, self.input_size), Image.BICUBIC)
+            images.append(torch.from_numpy(
+                np.asarray(image, dtype=np.float32).copy()
+            ).permute(2, 0, 1) / 255.0)
+            masks.append(torch.from_numpy(
+                np.asarray(mask, dtype=np.float32).copy()
+            ).unsqueeze(0) / 255.0)
+        return (torch.stack(images).to(self.device),
+                torch.stack(masks).to(self.device))
+
+    def train_step(self, model, batch):
+        images, masks = batch
+        logits = self._forward(model, images)
+        logits = F.interpolate(logits, (1024, 1024), mode='bilinear',
+                               align_corners=False)
+        masks = F.interpolate(masks, (1024, 1024), mode='bilinear',
+                              align_corners=False)
+        bce = nn.BCEWithLogitsLoss()(logits, masks)
+        prob = torch.sigmoid(logits)
+        inter = (prob * masks).sum()
+        union = prob.sum() + masks.sum()
+        dice = 1.0 - (2.0 * inter + 1e-6) / (union + 1e-6)
+        return (self.args.bce_weight * bce + self.args.dice_weight * dice)
+
+    def prepare_eval_sample(self, sample, device):
+        image = load_rgb(sample.image_path).resize(
+            (self.input_size, self.input_size), Image.BICUBIC)
+        tensor = torch.from_numpy(
+            np.asarray(image, dtype=np.float32).copy()
+        ).permute(2, 0, 1) / 255.0
+        return tensor.unsqueeze(0).to(device)
+
+    def predict_sample(self, model, prepared, sample):
+        logits = self._forward(model, prepared)
+        with Image.open(sample.mask_path) as mask:
+            width, height = mask.size
+        logits = F.interpolate(logits, size=(height, width),
+                               mode='bilinear', align_corners=False)
+        return (torch.sigmoid(logits)[0, 0].cpu().numpy() > 0.5)

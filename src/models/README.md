@@ -16,4 +16,6 @@ from models.sacm_x.configs import PRESETS
 import the algorithm layer. Model registry names remain `sam_l`, `sam_b`,
 `sam_h`, and checkpoints are independent of these directory names.
 
-The official SACM baseline is separate and lives in `baselines/sacm/`.
+The official SACM baseline is self-contained at
+`src/baseline_zoo/models/sacm_official/`; `baselines/sacm/` is only a
+development reference snapshot and may be deleted.

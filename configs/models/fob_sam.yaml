@@ -1,0 +1,26 @@
+id: fob_sam
+display_name: FoB-SAM
+family: sam
+status: available
+checkpoint: "{output_root}/best_model.pth"
+train_entrypoint: >-
+  python -m baseline_zoo.run_one --model fob_sam --stage train
+  --data-root {split_root} --workdir {output_root}
+  --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
+eval_entrypoint: >-
+  python scripts/run_baseline_test.py --method fob_sam
+  --protocol {test_manifest}
+  --data-root {split_root}
+  --checkpoint {output_root}/best_model.pth
+  --pred-root {output_root}/predictions
+  --paper-root {output_root}
+  --device cuda:{gpu} --use_wandb true --skip-visualize
+protocols: [seeded5, fixed]
+defaults:
+  epochs: 13
+note: >-
+  Self-contained CVPR 2026 FoB-SAM: ResNet-101 background-prompt localizer
+  plus frozen SAM ViT-H. Official 39001 iterations (13 x 3000). Episodic
+  support/query; unseen datasets use a structurally matched donor support
+  set (documented in the adapter). Needs SAM ViT-H and DeepLabV3 COCO
+  ResNet-101 checkpoints; not prompt-free.

@@ -1,0 +1,23 @@
+id: segdino
+display_name: SegDINO
+family: dino
+status: available
+checkpoint: "{output_root}/best_model.pth"
+train_entrypoint: >-
+  python -m baseline_zoo.run_one --model segdino --stage train
+  --data-root {split_root} --workdir {output_root}
+  --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
+eval_entrypoint: >-
+  python scripts/run_baseline_test.py --method segdino
+  --protocol {test_manifest}
+  --checkpoint {output_root}/best_model.pth
+  --pred-root {output_root}/predictions
+  --paper-root {output_root}
+  --device cuda:{gpu} --use_wandb true --skip-visualize
+protocols: [seeded5, fixed]
+defaults:
+  epochs: 50
+note: >-
+  Self-contained DINOv3+DPT port. Requires gated DINOv3 weights: set HF_TOKEN
+  or pass --dino-ckpt. --random-init is code-smoke only and must not be used
+  for reported results.

@@ -6,12 +6,13 @@ from core.convnext import convnext_base
 from core.unet_parts import *
 
 
-class BCU-Net(nn.Module):
-    def __init__(self, n_channels, n_classes, bilinear=False):
-        super(BCU-Net, self).__init__()
+class BCUNet(nn.Module):
+    def __init__(self, n_channels, n_classes, bilinear=False,
+                 pretrained=True, in_22k=True):
+        super().__init__()
         self.n_channels = n_channels
         self.n_classes = n_classes
-        self.backbone = convnext_base(pretrained=True, in_22k=True)
+        self.backbone = convnext_base(pretrained=pretrained, in_22k=in_22k)
         self.bilinear = bilinear
         self.pool = nn.MaxPool2d((2, 2))
         self.conv = DoubleConv(n_channels, 32)
