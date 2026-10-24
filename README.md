@@ -2,7 +2,7 @@
 
 SACM-X is a PyTorch-based research framework for prompt-free curvilinear structure segmentation, built on the SACM baseline and the Segment Anything Model (SAM). The project provides custom training and testing scripts, and wraps SAM for easy extension and application.
 
-> SACM-X is the working name for the improved framework. The official SACM baseline remains under `baselines/sacm/` and `--preset sacm`; the local checkout/server directory may still be named `sacm_plus`/`sacm-plus`.
+> SACM-X is the working name for the improved framework. The official SACM baseline is self-contained under `src/baseline_zoo/models/sacm_official/` (registry id `sacm_official`); `--preset sacm` is the SACM-equivalent preset inside SACM-X. The local checkout/server directory may still be named `sacm_plus`/`sacm-plus`.
 
 ## Features
 
@@ -250,12 +250,11 @@ bash scripts/run_eval.sh --model unet --seeds 0 --gpus 1
 bash scripts/run_paper.sh --model all --seeds all --tables-only
 
 # Direct adapter invocation with W&B monitoring
-python baselines/adapters/unet.py --stage train --epochs 200 \
-    --use_wandb --wandb_mode online \
-    --wandb_project sacm
+PYTHONPATH=src python -m baseline_zoo.run_one --model unet --stage train \
+    --epochs 200 --use_wandb --wandb_mode online --wandb_project sacm
 
 # Predict on a subset (for a full run use scripts/pipeline/run_baseline_test.py)
-python baselines/adapters/unet.py --stage predict \
+PYTHONPATH=src python -m baseline_zoo.run_one --model unet --stage predict \
     --test-datasets DRIVE:data/sacm_3shot/test/DRIVE \
                    WIRE:datasets/novel/WIRE
 
