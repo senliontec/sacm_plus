@@ -25,8 +25,8 @@ def test_registry_contains_all_self_contained_models():
     assert models['cwsam'].status == 'available'
     assert models['sam_med2d'].status == 'available'
     assert 'prompt' in models['sam_med2d'].note.lower()
-    assert 'scripts/run_sacm_x_quick.sh' in models['sacm_x'].train_entrypoint
-    assert 'scripts/run_baseline_test.py' in models['unet'].eval_entrypoint
+    assert 'scripts/sacm_x/run_sacm_x_quick.sh' in models['sacm_x'].train_entrypoint
+    assert 'scripts/pipeline/run_baseline_test.py' in models['unet'].eval_entrypoint
     assert models['unet'].checkpoint_template == '{output_root}/best_model.pth'
     assert 'run_one' in models['unet'].train_entrypoint
     assert 'run_one' in models['knowsam'].train_entrypoint

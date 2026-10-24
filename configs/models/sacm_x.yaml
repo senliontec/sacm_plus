@@ -10,10 +10,10 @@ train_entrypoint: >-
   GPU={gpu} TRAIN_ROOT={split_root} OUTPUT_ROOT={output_root}
   SEED={seed} PRESET={preset} MONITOR={monitor} EPOCHS={epochs}
   INIT_STAGE2_FROM_STAGE1={init_stage2_from_stage1}
-  SKIP_TEST=true USE_WANDB=true bash scripts/run_sacm_x_quick.sh
+  SKIP_TEST=true USE_WANDB=true bash scripts/sacm_x/run_sacm_x_quick.sh
 eval_entrypoint: >-
   GPU={gpu} TRAIN_ROOT={split_root} OUTPUT_ROOT={output_root}
-  PRESET={preset} USE_WANDB=true bash scripts/eval_sacm_x_20.sh
+  PRESET={preset} USE_WANDB=true bash scripts/sacm_x/eval_sacm_x_20.sh
 protocols: [seeded5, fixed]
 defaults:
   preset: full

@@ -9,7 +9,7 @@ import sys
 import pytest
 from PIL import Image
 
-_SCRIPT = os.path.join(os.path.dirname(__file__), '..', 'scripts',
+_SCRIPT = os.path.join(os.path.dirname(__file__), '..', 'scripts', 'data',
                        'prepare_data.py')
 _spec = importlib.util.spec_from_file_location('prepare_data', _SCRIPT)
 pd = importlib.util.module_from_spec(_spec)

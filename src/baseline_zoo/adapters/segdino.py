@@ -1,8 +1,9 @@
 """SegDINO baseline: DINOv3 backbone + official DPT decoder.
 
 Official reference: vendored ``baselines/segdino``.  ``dpt.py`` and
-``blocks.py`` are copied into ``baseline_zoo.models.segdino``.  DINOv3
-weights are gated on Hugging Face; use ``HF_TOKEN`` or ``--dino-ckpt``.
+``blocks.py`` are copied into ``baseline_zoo.models.segdino``.  A local
+DINOv3 checkpoint under ``checkpoints/`` is detected automatically; set
+``DINO_CKPT`` / ``--dino-ckpt`` to override, or rely on HF authentication.
 """
 
 from __future__ import annotations
@@ -18,8 +19,11 @@ from PIL import Image
 from torch import nn
 
 from baseline_zoo.data import load_rgb
-from baseline_zoo.models.segdino import build_segdino
-from baseline_zoo.runtime import BaselineAdapter
+from baseline_zoo.models.segdino import (
+    build_segdino,
+    find_dinov3_checkpoint,
+)
+from baseline_zoo.runtime import REPO_ROOT, BaselineAdapter
 
 PIXEL_MEAN = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
 PIXEL_STD = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
@@ -41,8 +45,10 @@ class SegDINOAdapter(BaselineAdapter):
         'Official checkpoint selection uses the test split; the protocol '
         'uses the 6-image validation split by Dice.',
         'The official code loads a local DINOv3 repository and gated DINOv3 '
-        'weights. This port uses timm DINOv3 and accepts --dino-ckpt or an '
-        'HF token; --random-init exists only for a code smoke test.',
+        'weights. This port auto-detects a size-matched local checkpoint '
+        'under checkpoints/, accepts --dino-ckpt / DINO_CKPT, or falls back '
+        'to HF authentication; --random-init exists only for a code smoke '
+        'test.',
         'The official README trains/evaluates at 256 while test_segdino.py '
         'defaults to 1024; this port follows the README 256 setting.',
         'Predictions are restored to the original GT resolution for the '
@@ -69,9 +75,20 @@ class SegDINOAdapter(BaselineAdapter):
                             help='code smoke only: do not load DINOv3 weights')
 
     def build_model(self, args):
+        checkpoint = args.dino_ckpt
+        if checkpoint is None and not args.random_init:
+            try:
+                checkpoint = find_dinov3_checkpoint(
+                    args.dino_size, REPO_ROOT / 'checkpoints')
+            except ValueError as exc:
+                raise SystemExit(str(exc)) from exc
+            if checkpoint is not None:
+                print(f'[segdino] auto-detected DINOv3 weights: {checkpoint}',
+                      flush=True)
+                args.dino_ckpt = checkpoint
         return build_segdino(
             args.dino_size,
-            str(args.dino_ckpt) if args.dino_ckpt else None,
+            str(checkpoint) if checkpoint else None,
             args.random_init)
 
     def save_config(self, args):

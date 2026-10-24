@@ -8,7 +8,7 @@ train_entrypoint: >-
   --data-root {split_root} --workdir {output_root}
   --seed {seed} --device cuda:{gpu} --use_wandb
 eval_entrypoint: >-
-  python scripts/run_baseline_test.py --method knowsam
+  python scripts/pipeline/run_baseline_test.py --method knowsam
   --protocol {test_manifest}
   --checkpoint {output_root}/SGDL_best_model.pth
   --pred-root {output_root}/predictions

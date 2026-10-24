@@ -4,7 +4,7 @@ import csv
 import importlib.util
 import os
 
-_SCRIPT = os.path.join(os.path.dirname(__file__), '..', 'scripts',
+_SCRIPT = os.path.join(os.path.dirname(__file__), '..', 'scripts', 'pipeline',
                        'protocol_specs.py')
 _spec = importlib.util.spec_from_file_location('protocol_specs', _SCRIPT)
 ps = importlib.util.module_from_spec(_spec)

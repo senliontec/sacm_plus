@@ -66,10 +66,10 @@ class DistributedEvalSampler(Sampler):
 
 def setup_logging(args):
     # exist_ok: DDP 下 8 个 rank 同时建目录,避免 FileExistsError 竞态
-    os.makedirs('logs', exist_ok=True)
+    os.makedirs('results/logs', exist_ok=True)
 
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    log_file = f'logs/training_{timestamp}.log'
+    log_file = f'results/logs/training_{timestamp}.log'
 
     stream = logging.StreamHandler()
     stream.setLevel(logging.WARNING)  # 终端只显示警告/错误;INFO 全量进日志文件

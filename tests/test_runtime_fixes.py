@@ -11,6 +11,7 @@ from PIL import Image
 
 from baseline_zoo.adapters.registry import load_adapter
 from baseline_zoo.data import load_split_samples
+from baseline_zoo.models.segdino import find_dinov3_checkpoint
 from baseline_zoo.protocols import load_protocols
 from baseline_zoo.runtime import binary_metrics, build_parser
 from core.metrics import cldice_score, dice_score, hd95_score, iou_score
@@ -127,6 +128,31 @@ def test_knowsam_unlabeled_pool_excludes_protocol_images(tmp_path):
                 continue
             name = f"{row['dataset']}_{Path(row['source_image']).stem}_image.png"
             assert name not in staged
+
+
+def test_segdino_auto_detects_size_matched_checkpoint(tmp_path):
+    dino = tmp_path / 'dinov3'
+    dino.mkdir()
+    generic = dino / 'pytorch_model.bin'
+    generic.write_bytes(b'x')
+    base = tmp_path / 'vit_base_patch16_dinov3.pth'
+    base.write_bytes(b'x')
+    assert find_dinov3_checkpoint('small', tmp_path) == generic
+    assert find_dinov3_checkpoint('base', tmp_path) == base
+
+
+def test_segdino_ignores_wrong_size_checkpoint(tmp_path):
+    (tmp_path / 'vit_base_patch16_dinov3.pth').write_bytes(b'x')
+    assert find_dinov3_checkpoint('small', tmp_path) is None
+
+
+def test_segdino_ambiguous_checkpoints_fail(tmp_path):
+    dino = tmp_path / 'dinov3'
+    dino.mkdir()
+    (dino / 'model.pth').write_bytes(b'x')
+    (dino / 'dinov3.pth').write_bytes(b'x')
+    with pytest.raises(ValueError, match='multiple DINOv3'):
+        find_dinov3_checkpoint('small', tmp_path)
 
 
 def test_segdino_restores_backbone_config():

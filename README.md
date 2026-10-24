@@ -58,8 +58,8 @@ official SACM set; its vein masks are thin and fragmented (median 305
 8-connected components per image), so topology metrics on LEAF should be
 reported with that annotation caveat.
 
-Individual dataset converters live in `scripts/datasets/`. Each script can
-rebuild one dataset independently; see `scripts/datasets/README.md`.
+Individual dataset converters live in `scripts/data/datasets/`. Each script can
+rebuild one dataset independently; see `scripts/data/datasets/README.md`.
 
 ## Engineering quick start
 
@@ -197,7 +197,7 @@ weights when writing up the method.
 ```bash
 # 1. Build the 3-shot train/val split (6 datasets x 3 shots, +1 val shot).
 #    CORN uses its official validation/test splits:
-python scripts/prepare_data.py \
+python scripts/data/prepare_data.py \
     --train_dirs datasets/seen/DRIVE datasets/seen/CHASEDB1 datasets/seen/DCA1 \
                  datasets/seen/CREMI datasets/seen/CrackTree200 \
                  CORN:datasets/seen/CORN/train \
@@ -207,18 +207,18 @@ python scripts/prepare_data.py \
     --out_dir data/sacm_3shot --seed 42
 
 # 2. Run the whole ablation matrix on multiple GPUs (train + test per job)
-python scripts/run_experiments.py --gpus 0 1 2 3 4 5 6 7 \
+python scripts/sacm_x/run_experiments.py --gpus 0 1 2 3 4 5 6 7 \
     --checkpoint /path/sam_vit_l_0b3195.pth --train_root data/sacm_3shot \
     --test_datasets DRIVE:/data/DRIVE CHASEDB1:/data/CHASEDB1 \
     --presets sacm stage1 stage2 full --output_root results --epochs 50 --tta
 
 # 3. Aggregate per-job summaries into CSV + LaTeX tables
-python scripts/aggregate_results.py --root results --out results/tables
+python scripts/sacm_x/aggregate_results.py --root results --out results/tables
 
 # 4. AI-improvement-loop diagnostics: weakest metric -> suspect component
 #    -> suggested change (reads metrics_history.json written during training)
-python scripts/metrics_report.py --history results/full/DRIVE/metrics_history.json
-python scripts/metrics_report.py --root results --out results/tables/report.md
+python scripts/sacm_x/metrics_report.py --history results/full/DRIVE/metrics_history.json
+python scripts/sacm_x/metrics_report.py --root results --out results/tables/report.md
 
 # 4. Motivation diagnostics (head supervision + gating quality evidence)
 python -m models.sacm_x.diagnose --preset sacm --data_root /data/DRIVE \
@@ -253,31 +253,26 @@ python baselines/adapters/unet.py --stage train --epochs 200 \
     --use_wandb --wandb_mode online \
     --wandb_project sacm
 
-# Predict on a subset (for a full run use scripts/run_baseline_test.py)
+# Predict on a subset (for a full run use scripts/pipeline/run_baseline_test.py)
 python baselines/adapters/unet.py --stage predict \
     --test-datasets DRIVE:data/sacm_3shot/test/DRIVE \
                    WIRE:datasets/novel/WIRE
 
 # Collect paper tables for the same subset
-python scripts/collect_paper_metrics.py --methods unet \
+python scripts/pipeline/collect_paper_metrics.py --methods unet \
     --datasets DRIVE WIRE --out-root results/paper
 
 # Save qualitative panels for the same subset
-python scripts/visualize_predictions.py --methods unet \
+python scripts/pipeline/visualize_predictions.py --methods unet \
     --datasets DRIVE WIRE --num-samples 8
 
 # One command: predict on all protocol test sets, collect paper tables,
 # and save visualizations.  Requires the trained checkpoint.
-python scripts/run_baseline_test.py
+python scripts/pipeline/run_baseline_test.py
 ```
 
-Long test/evaluation runs write a live state file and print stage progress.
-Inspect it without hunting for PIDs:
-
-```bash
-python scripts/run_status.py --method unet
-watch -n 2 python scripts/run_status.py --method unet
-```
+Long test/evaluation runs print stage progress and keep a state file at
+`results/.run_status/<method>.json`.
 
 Prediction prints every 50 images; metric collection prints per dataset and
 every 100 images.  Per-dataset metric results are cached
@@ -287,29 +282,24 @@ is parallel across datasets (`--workers`, default `min(8, CPU count)`):
 
 ```bash
 # Resume a run that stopped during prediction or metrics
-python scripts/run_baseline_test.py --method unet --skip-predict
-python scripts/run_baseline_test.py --method unet --skip-predict --workers 8
+python scripts/pipeline/run_baseline_test.py --method unet --skip-predict
+python scripts/pipeline/run_baseline_test.py --method unet --skip-predict --workers 8
 
 # Recompute everything (ignore the cache)
-python scripts/collect_paper_metrics.py --methods unet --no-resume
+python scripts/pipeline/collect_paper_metrics.py --methods unet --no-resume
 ```
 
 The collector finishes by printing a per-dataset summary table plus
-Seen/Unseen/Novel/All macro rows; the same values are in `paper_metrics.csv`.
-Status files live under `results/.run_status/`.  To re-display a completed
-run at any time:
-
-```bash
-python scripts/show_paper_metrics.py --method unet
-```
+Seen/Unseen/Novel/All macro rows; the same values are in `paper_metrics.csv`
+and `paper_macro.csv`.
 
 U-Net training prints a rich one-line table (header + one row per epoch)
 and persists the same values next to its checkpoint:
 
 ```text
-workdirs/baselines/unet/metrics_history.json
+results/paper/unet/seed_<N>/metrics_history.json
     config + per-epoch overall and per-dataset metrics (AI-readable)
-workdirs/baselines/unet/val_metrics_by_dataset.csv
+results/paper/unet/seed_<N>/val_metrics_by_dataset.csv
     one row per epoch; 6 datasets x Dice/IoU/clDice/HD95 = 24 metric columns
 ```
 

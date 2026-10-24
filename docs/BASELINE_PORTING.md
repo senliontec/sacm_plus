@@ -56,7 +56,7 @@ adapter are outside the paper zoo.
 | SAM ViT-H | `checkpoints/sam_vit_h_4b8939.pth` (FoB-SAM; 2.4 GiB) |
 | ResNet-101 COCO | `checkpoints/deeplabv3_resnet101_coco-586e9e4e.pth` (FoB-SAM) |
 | SAM2 Hiera-L | missing; only needed by the reference-only SAM2-UNet |
-| DINOv3 | gated on Hugging Face; set `HF_TOKEN` or pass `--dino-ckpt` |
+| DINOv3 | auto-detected under `checkpoints/`; otherwise set `DINO_CKPT` / `--dino-ckpt` or `HF_TOKEN` |
 | nnU-Net | `nnunetv2==2.8.1` (installed via pip) |
 | KnowSAM metrics | `medpy==0.4.0`, `hausdorff` |
 | SAM-Med2D/SAM-OCTA/KnowSAM transforms | `albumentations==1.3.1` (official API) |

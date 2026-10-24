@@ -13,7 +13,7 @@ train_entrypoint: >-
   --sam2-checkpoint {sam2_checkpoint}
   --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
 eval_entrypoint: >-
-  python scripts/run_baseline_test.py --method sam2_unet
+  python scripts/pipeline/run_baseline_test.py --method sam2_unet
   --protocol {test_manifest}
   --checkpoint {output_root}/best_model.pth
   --sam2-checkpoint {sam2_checkpoint}

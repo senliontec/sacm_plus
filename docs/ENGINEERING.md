@@ -23,14 +23,20 @@ SACM/                              # 项目 = 分割算法平台（框架 + 算�
 │   │       └── diagnose.py         #   SACM 诊断（论文 motivation 证据）
 │   ├── train/                     # 训练 CLI（trainer.py，--algorithm + --model + --config）
 │   ├── eval/                      # 评测 CLI（evaluate.py）
-├── scripts/                      # 入口脚本（数据准备/实验调度/结果聚合/官方对拍）
-│   └── prepare_data.py / run_experiments.py / aggregate_results.py / verify_against_official.py
+├── scripts/                      # 一键入口 + 分组工具
+│   ├── run_paper.sh / run_train.sh / run_eval.sh / run_report.sh / run_figures.sh
+│   ├── pipeline/                 # 评测/指标/协议解析
+│   ├── sacm_x/                   # SACM-X 训练/评测/消融引擎
+│   ├── data/                     # 数据构建 + 各数据集转换器
+│   └── tools/                    # 安装/官方对拍/清理
 ├── configs/                       # YAML 配置（presets.yaml，--config 叠加覆盖）
 ├── datasets/                      # 协议数据: seen/unseen/novel（gitignored）
-├── datasets_legacy/               # 旧实验/无 GT 数据（gitignored）
 ├── data/sacm_3shot/               # 6 域 x 3-shot = 18 图（主协议；.gitignore 已放行）
-├── exports/                       # HDF 导出等中间数据（gitignored）
-├── outputs/                       # 输出：结果/日志/checkpoint（gitignored）
+├── results/                       # 统一运行产物（gitignored）
+│   ├── predictions/               #   预测 PNG
+│   ├── paper/                     #   每模型/种子结果 + tables/figures
+│   ├── logs/  wandb/  workdirs/   #   日志、W&B 本地缓存、临时训练目录
+│   └── visualizations/
 ├── tests/                         # pytest（指标手算值、损失冒烟、增强、预设、慢速训练一步）
 ├── docs/                          # 本手册 + 模型管理指南 + 设计书
 ├── pyproject.toml / Makefile / README.md / .gitignore

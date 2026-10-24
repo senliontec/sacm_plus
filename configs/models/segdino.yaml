@@ -8,7 +8,7 @@ train_entrypoint: >-
   --data-root {split_root} --workdir {output_root}
   --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
 eval_entrypoint: >-
-  python scripts/run_baseline_test.py --method segdino
+  python scripts/pipeline/run_baseline_test.py --method segdino
   --protocol {test_manifest}
   --checkpoint {output_root}/best_model.pth
   --pred-root {output_root}/predictions
@@ -18,6 +18,8 @@ protocols: [seeded5, fixed]
 defaults:
   epochs: 50
 note: >-
-  Self-contained DINOv3+DPT port. Requires gated DINOv3 weights: set HF_TOKEN
-  or pass --dino-ckpt. --random-init is code-smoke only and must not be used
+  Self-contained DINOv3+DPT port. Auto-detects a size-matched local checkpoint
+  under checkpoints/ (e.g. checkpoints/dinov3/pytorch_model.bin); override
+  with DINO_CKPT or --dino-ckpt. HF_TOKEN is only needed when no local
+  checkpoint exists. --random-init is code-smoke only and must not be used
   for reported results.

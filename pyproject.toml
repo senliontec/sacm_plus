@@ -40,7 +40,7 @@ topology = [
     # the official CubicalRipser repo when topo_tcripser is needed.
 ]
 data = [
-    "h5py",  # CREMI HDF5 conversion in scripts/organize_datasets.py
+    "h5py",  # CREMI HDF5 conversion in scripts/data/organize_datasets.py
 ]
 sam2 = [
     "hydra-core",

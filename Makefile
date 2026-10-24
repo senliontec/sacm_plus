@@ -23,7 +23,7 @@ format:
 # Numerical cross-check of our strict ports against the official repos
 # (requires the locally pulled repos in ../segment/3rd; CPU only).
 verify:
-	python scripts/verify_against_official.py
+	python scripts/tools/verify_against_official.py
 
 # Print which topology losses and models are registered in this environment.
 registry:
@@ -35,7 +35,7 @@ smoke:
 
 # Remove every __pycache__ dir and stray .pyc/.pyo file (dry-run: make clean-dry)
 clean:
-	bash scripts/clean_pycache.sh
+	bash scripts/tools/clean_pycache.sh
 
 clean-dry:
-	bash scripts/clean_pycache.sh -n
+	bash scripts/tools/clean_pycache.sh -n

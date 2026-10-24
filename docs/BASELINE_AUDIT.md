@@ -22,7 +22,7 @@ collector and report pipeline.
 | SAM-OCTA (`sam_octa`) | OK | removed pre-model padding; SAM now records the pre-pad size and crops postprocess correctly for non-square images |
 | CWSAM (`cwsam`) | OK | bilinear image resize matches `transforms.Resize`; UPSTREAM checkpointing claims corrected |
 | KnowSAM (`knowsam`) | OK | fixed protocol/validation leak in unlabeled pool; CORN source root; protocol seeding; CPU-safe import/training path; equal labeled/unlabeled streams; stale staging cleared; `--epochs` wired to iteration budget; docs updated |
-| SegDINO (`segdino`) | OK with gated-weight requirement | prediction reconstructs the saved backbone size without a gated download; DPT uses the selected backbone’s layer indices; strict `--dino-ckpt` coverage check; `drop_last=True`; config stored in checkpoint |
+| SegDINO (`segdino`) | OK with local-weight requirement | auto-detects a size-matched checkpoint under `checkpoints/` (no env setup); prediction reconstructs the saved backbone size without a gated download; DPT uses the selected backbone’s layer indices; strict checkpoint coverage check; `drop_last=True`; config stored in checkpoint |
 | FoB-SAM (`fob_sam`) | OK; code-faithful, not paper-formula exact | scheduler now steps once per 3000-iteration epoch; support-split fallback warns; 2D augmentation/normalization documented; paper-vs-code differences recorded |
 | SACM official (`sacm_official`) | OK | gradient clipping 1.0 is now effective (`--clip-grad-norm` → `grad_clip`); bilinear resize; sigmoid-threshold correction documented; UPSTREAM claims corrected |
 | SAM ViT-L + U-Net (`sam_vit_l_unet`) | OK | augmentation moved back after the frozen encoder (matching the previous adapter); decoder-only checkpoint format restored; 1024 input guard restored |
@@ -59,7 +59,7 @@ Unified interface:
 
 - **Data/protocol**: one `split_manifest.csv` membership check, 18 train /
   6 val, the same 20 frozen test roots and image stems for every model.
-  Test roots come from a single parser (`scripts/protocol_specs.py`);
+  Test roots come from a single parser (`scripts/pipeline/protocol_specs.py`);
   `run_baseline_test.read_specs` delegates to it, so baseline and SACM-X
   evaluation resolve the same roots and fail identically on a conflicting
   dataset root.
@@ -105,8 +105,9 @@ Not unified, by design or documented exception:
   soft protocol deviation.
 - **KnowSAM**: semi-supervised unlabeled pool from source domains; not a
   purely supervised baseline.
-- **SegDINO**: real training requires gated DINOv3 weights (`HF_TOKEN`,
-  `DINO_CKPT`, or `--dino-ckpt`); prediction no longer downloads them.
+- **SegDINO**: real training needs DINOv3 weights. A size-matched file under
+  `checkpoints/` is detected automatically; otherwise set `DINO_CKPT` /
+  `--dino-ckpt` or `HF_TOKEN`. Prediction no longer downloads them.
 - **U-Net**: the 3-shot recipe uses AdamW/cosine and a higher LR/batch than
   the upstream RMSprop example; these are explicitly listed as protocol
   deviations.

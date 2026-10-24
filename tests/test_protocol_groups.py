@@ -3,7 +3,7 @@
 import importlib.util
 import os
 
-_SCRIPT = os.path.join(os.path.dirname(__file__), '..', 'scripts',
+_SCRIPT = os.path.join(os.path.dirname(__file__), '..', 'scripts', 'data',
                        'build_protocol_manifest.py')
 _spec = importlib.util.spec_from_file_location('build_protocol_manifest',
                                               _SCRIPT)

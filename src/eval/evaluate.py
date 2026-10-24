@@ -38,10 +38,10 @@ from models.sacm_x.configs import PRESETS, apply_preset, str2bool
 
 
 def setup_logging():
-    os.makedirs('logs', exist_ok=True)
+    os.makedirs('results/logs', exist_ok=True)
 
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    log_file = f'logs/test_{timestamp}.log'
+    log_file = f'results/logs/test_{timestamp}.log'
 
     stream = logging.StreamHandler()
     stream.setLevel(logging.WARNING)  # 终端只显示警告/错误;INFO 全量进日志文件
@@ -167,7 +167,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Evaluate a trained segmentation model')
     parser.add_argument('--data_root', type=str, required=True, help='Path to dataset root directory')
     parser.add_argument('--trained_weights', type=str, default='best_model.pth', help='Path to trained weights')
-    parser.add_argument('--output_dir', type=str, default='outputs/tyre', help='Directory to save test results')
+    parser.add_argument('--output_dir', type=str, default='results/outputs/tyre', help='Directory to save test results')
     parser.add_argument('--adapter_dim_ratio', type=float, default=0.1, help='Ratio of adapter dimension to model dimension')
     parser.add_argument('--model', type=str, default='sam_l', choices=sorted(MODEL_REGISTRY),
                         help='Model architecture from the model registry (must match training)')

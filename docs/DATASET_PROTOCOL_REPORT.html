@@ -224,8 +224,8 @@
     <li><code>docs/DATASET_PROTOCOL_REPORT.html</code>：本报告。</li>
   </ul>
   <p>
-    20 个源池全部通过独立脚本生成，例如 <code>scripts/datasets/prepare_DRIVE.py</code>、
-    <code>scripts/datasets/prepare_OCTA-500.py</code>。源池不会被训练脚本直接修改；
+    20 个源池全部通过独立脚本生成，例如 <code>scripts/data/datasets/prepare_DRIVE.py</code>、
+    <code>scripts/data/datasets/prepare_OCTA-500.py</code>。源池不会被训练脚本直接修改；
     训练/测试只读取固定的 split 或外部测试源池。
   </p>
 </section>
@@ -608,7 +608,7 @@
   <h3>11.1 生成 split</h3>
   <pre><code>cd /home/dev/mywork/project/segment/sacm_plus
 
-/home/dev/anaconda3/envs/tsai/bin/python scripts/prepare_data.py \
+/home/dev/anaconda3/envs/tsai/bin/python scripts/data/prepare_data.py \
   --train_dirs \
     datasets/seen/DRIVE \
     datasets/seen/CHASEDB1 \
@@ -626,7 +626,7 @@
   --make_test
 
 # Optional: rebuild the full protocol manifest/summary
-python scripts/build_protocol_manifest.py \
+python scripts/data/build_protocol_manifest.py \
   --split-root data/sacm_3shot --datasets-root datasets</code></pre>
 
   <h3>11.2 关键产物</h3>

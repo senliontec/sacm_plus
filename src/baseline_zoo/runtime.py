@@ -742,8 +742,8 @@ def build_parser(adapter: BaselineAdapter) -> argparse.ArgumentParser:
     parser.add_argument('--data-root', type=Path,
                         default=REPO_ROOT / 'data' / 'sacm_3shot')
     parser.add_argument('--workdir', type=Path,
-                        default=REPO_ROOT / 'workdirs' / 'baselines' /
-                        adapter.id)
+                        default=REPO_ROOT / 'results' / 'workdirs' /
+                        'baselines' / adapter.id)
     parser.add_argument('--checkpoint', type=Path, default=None)
     parser.add_argument('--pred-root', type=Path,
                         default=REPO_ROOT / 'results' / 'predictions' /

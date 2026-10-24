@@ -2,7 +2,7 @@
 # Upload the full experiment bundle to the server (code + checkpoint + data).
 # Default uploads EVERYTHING needed to run: code, checkpoints/, datasets/, data/.
 #   ./up2server.sh --code-only   # 只传代码(快速迭代;数据/权重已在服务器上)
-# NOTE: results/outputs/logs 等运行产物永不传(服务器自己生成);
+# NOTE: results/ 等运行产物永不传(服务器自己生成);
 #       本脚本与 .gitignore 无关——git 提交仍排除 pth/数据集。
 set -euo pipefail
 
@@ -31,10 +31,9 @@ esac; done
 EXCLUDES=(--exclude '__pycache__' --exclude '*.pyc'
           --exclude '.git/' --exclude '.codegraph/' --exclude '.pytest_cache/'
           --exclude '.idea/' --exclude '.ruff_cache/'
-          --exclude 'results/' --exclude 'outputs/'
-          --exclude 'logs/' --exclude 'wandb/' --exclude '3rd/'
+          --exclude 'results/' --exclude '3rd/'
           # Runtime artifacts: never delete server-trained checkpoints.
-          --exclude 'workdirs/' --exclude 'checkpoints/')
+          --exclude 'checkpoints/')
 [ "$CODE_ONLY" -eq 1 ] && EXCLUDES+=(--exclude 'checkpoints/' --exclude '*.pth'
                                      --exclude 'datasets/' --exclude 'data/')
 
@@ -49,7 +48,7 @@ echo "Authenticating ${SERVER} (one password prompt) ..."
 ssh "${SSH_OPTS[@]}" "$SERVER" "mkdir -p '${TARGET}'"
 
 # 代码目录:--checksum 按内容比较，只传真正改动的文件；--update 不覆盖服务器上更新的文件。
-# 绝不使用 --delete: 服务器独有的 workdirs/checkpoints/results/日志/临时脚本
+# 绝不使用 --delete: 服务器独有的 checkpoints/results/临时脚本
 # 必须在上传后继续存在。需要清理服务器上的陈旧代码时，请手动处理。
 rsync -e "$RSYNC_SSH" -avz --partial --update --checksum \
     --info=progress2 \

@@ -1,6 +1,7 @@
 # scripts/
 
-Two one-click entry points cover the paper workflow.
+Top level contains only the one-click entry points.  Everything else lives
+in four subdirectories.
 
 ## 1. All experiments (train + evaluate + tables + figures)
 
@@ -44,20 +45,58 @@ metrics.  Missing runs fail the report unless `--allow-missing` is passed.
 All four accept `--model`, `--seeds`, `--gpus`, `--protocol`, `--resume`,
 `--dry-run`; `run_report.sh` also accepts `--allow-missing`.
 
+## Directory layout
+
+```text
+scripts/
+├── run_paper.sh            # one-click all experiments
+├── run_train.sh            # stage wrappers
+├── run_eval.sh
+├── run_report.sh
+├── run_figures.sh
+├── pipeline/               # evaluation helpers used by the configs
+│   ├── run_baseline_test.py
+│   ├── collect_paper_metrics.py
+│   ├── visualize_predictions.py
+│   ├── metrics.py
+│   └── protocol_specs.py
+├── sacm_x/                 # SACM-X training/eval engine
+│   ├── run_sacm_x_quick.sh
+│   ├── eval_sacm_x_20.sh
+│   ├── run_experiments.py
+│   ├── aggregate_results.py
+│   ├── make_final_report.py
+│   ├── run_ablation.sh
+│   ├── metrics_report.py
+│   ├── kill_runs.sh
+│   └── wandb_env.sh
+├── data/                   # one-time dataset/protocol construction
+│   ├── prepare_data.py
+│   ├── organize_datasets.py
+│   ├── group_datasets.py
+│   ├── build_protocol_manifest.py
+│   ├── make_shot3_split.sh
+│   └── datasets/           # per-dataset official converters
+└── tools/
+    ├── setup_baselines.sh
+    ├── verify_against_official.py
+    └── clean_pycache.sh
+```
+
 ## Data preparation (one-time)
 
 ```bash
 # Frozen seed-42 3-shot protocol already in data/sacm_3shot/
-bash scripts/make_shot3_split.sh 0 1 2 3 4   # five seeded splits
+bash scripts/data/make_shot3_split.sh 0 1 2 3 4   # five seeded splits
 
 # Rebuild raw dataset layout / manifests
-python scripts/organize_datasets.py --src ../datasets --out datasets
-python scripts/group_datasets.py --root datasets
-python scripts/build_protocol_manifest.py --split-root data/sacm_3shot \
+python scripts/data/organize_datasets.py --src ../datasets --out datasets
+python scripts/data/group_datasets.py --root datasets
+python scripts/data/build_protocol_manifest.py --split-root data/sacm_3shot \
     --datasets-root datasets --seed 42
 ```
 
-`scripts/datasets/prepare_*.py` build individual official test pools;
+`scripts/data/datasets/prepare_*.py` build individual official test pools;
 `prepare_data.py`, `make_shot3_split.sh` and `build_protocol_manifest.py`
 write the train/val/test manifests.
 
@@ -69,25 +108,12 @@ write the train/val/test manifests.
 `make_final_report.py`).  `run_ablation.sh` runs the SACM-X preset ablation
 matrix and uses the same engine.
 
-## Evaluation helpers
+## Notes
 
-| Script | Purpose |
-|---|---|
-| `run_baseline_test.py` | predict + paper metrics + visualization for one baseline |
-| `collect_paper_metrics.py` | per-dataset Dice/IoU/clDice/HD95 from prediction PNGs |
-| `show_paper_metrics.py` | print a completed paper-metric run |
-| `visualize_predictions.py` | qualitative panels for baseline predictions |
-| `visualize_sacm_x_all.*`, `visualize_sacm_x_errors.*` | SACM-X mask/overlay and worst-case panels |
-| `run_status.py` | live progress of a `run_baseline_test.py` job |
-| `protocol_specs.py` | single `NAME:TEST_ROOT` parser for evaluation |
-
-## Setup and maintenance
-
-| Script | Purpose |
-|---|---|
-| `setup_baselines.sh` | install every baseline extra (`pip install -e .[...]`) |
-| `diagnose_selection.py` | checkpoint/selection diagnostics |
-| `verify_against_official.py` | numerical cross-check against official repos (`make verify`) |
-| `kill_runs.sh` | stop this user's training/eval processes |
-| `clean_pycache.sh` | remove `__pycache__`/`.pyc` (`make clean`) |
-| `wandb_env.sh` | shared W&B environment/credential check |
+- SegDINO needs DINOv3 weights only for training.  The adapter auto-detects
+  a size-matched `.bin`/`.pth`/`.pt`/`.safetensors` file under
+  `checkpoints/` (e.g. `checkpoints/dinov3/pytorch_model.bin`), so no
+  environment variable is required.
+- `setup_baselines.sh` installs every baseline extra;
+  `verify_against_official.py` is the `make verify` cross-check;
+  `clean_pycache.sh` is `make clean`.

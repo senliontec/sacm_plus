@@ -7,7 +7,7 @@ import numpy as np
 from PIL import Image
 
 _SCRIPT = os.path.join(
-    os.path.dirname(__file__), '..', 'scripts', 'group_datasets.py'
+    os.path.dirname(__file__), '..', 'scripts', 'data', 'group_datasets.py'
 )
 _spec = importlib.util.spec_from_file_location('group_datasets', _SCRIPT)
 gd = importlib.util.module_from_spec(_spec)

@@ -8,7 +8,7 @@ train_entrypoint: >-
   --data-root {split_root} --workdir {output_root}
   --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
 eval_entrypoint: >-
-  python scripts/run_baseline_test.py --method cwsam
+  python scripts/pipeline/run_baseline_test.py --method cwsam
   --protocol {test_manifest}
   --checkpoint {output_root}/best_model.pth
   --pred-root {output_root}/predictions

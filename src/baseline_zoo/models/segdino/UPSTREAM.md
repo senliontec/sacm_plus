@@ -8,6 +8,8 @@
     (the official hub API uses `get_intermediate_layers`); the DPT/DPTHead
     math is unchanged.
   - The official code expects a local DINOv3 GitHub checkout and gated
-    DINOv3 weights. This port uses timm's `vit_*_patch16_dinov3` backbone
-    and accepts `--dino-ckpt` / HF authentication.
+    DINOv3 weights. This port uses timm's `vit_*_patch16_dinov3` backbone,
+    auto-detects a size-matched local checkpoint under `checkpoints/`,
+    accepts `--dino-ckpt` / `DINO_CKPT` / `.safetensors`, and falls back
+    to HF authentication only when no local file exists.
 - Runtime consumer: `baseline_zoo.adapters.segdino.SegDINOAdapter`

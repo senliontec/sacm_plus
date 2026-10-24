@@ -4,7 +4,7 @@ import importlib.util
 import os
 from argparse import Namespace
 
-_SCRIPT = os.path.join(os.path.dirname(__file__), '..', 'scripts',
+_SCRIPT = os.path.join(os.path.dirname(__file__), '..', 'scripts', 'sacm_x',
                        'run_experiments.py')
 _spec = importlib.util.spec_from_file_location('run_experiments', _SCRIPT)
 rex = importlib.util.module_from_spec(_spec)

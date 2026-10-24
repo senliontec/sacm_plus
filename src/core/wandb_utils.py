@@ -9,6 +9,9 @@ logging — wandb must never take down a training run.
 import logging
 import os
 import threading
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 # Read the self-hosted wandb key from the environment.  Never commit a
 # literal key: this file is tracked and the value would also appear in logs.
@@ -65,9 +68,10 @@ def setup_wandb(args, name, config):
         mode = getattr(args, 'wandb_mode', None) or None
         if mode == 'disabled':
             return None
-        wandb_dir = getattr(args, 'wandb_dir', None) or None
-        if wandb_dir:
-            os.makedirs(wandb_dir, exist_ok=True)
+        wandb_dir = (getattr(args, 'wandb_dir', None)
+                     or os.environ.get('WANDB_DIR')
+                     or str(REPO_ROOT / 'results' / 'wandb'))
+        os.makedirs(wandb_dir, exist_ok=True)
         run = wandb.init(
             project=getattr(args, 'wandb_project', 'sacm'),
             entity=getattr(args, 'wandb_entity', None) or None,
