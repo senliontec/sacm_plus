@@ -91,6 +91,45 @@ def test_preferred_group_order_keeps_cremi_volumes():
     assert {g for _, _, g in val} == {'CREMI/A'}
 
 
+def test_sample_within_group_varies_cremi_slices():
+    names = ([f'sample_B_z{i:03d}' for i in range(8)]
+             + [f'sample_A_z{i:03d}' for i in range(8)]
+             + ['sample_C_z000'])
+    groups = pd.group_pairs(_pairs(names), 'CREMI', r'sample_([ABC])')
+    selections = []
+    for seed in (0, 1):
+        random.seed(seed)
+        train, val = pd.select_group_split(
+            groups, shots=3, val_shots=1,
+            preferred_order=('CREMI/B', 'CREMI/A', 'CREMI/C'),
+            sample_within_group=True)
+
+        assert len(train) == 3
+        assert len({img for img, _, _ in train}) == 3
+        assert {g for _, _, g in train} == {'CREMI/B'}
+        assert {g for _, _, g in val} == {'CREMI/A'}
+        selections.append(
+            tuple(sorted(os.path.basename(img) for img, _, _ in train)))
+
+    assert selections[0] != selections[1]
+
+
+def test_legacy_group_split_default_preserves_file_order():
+    names = ['sample_B_z000', 'sample_B_z001', 'sample_B_z002',
+             'sample_A_z000', 'sample_C_z000']
+    groups = pd.group_pairs(_pairs(names), 'CREMI', r'sample_([ABC])')
+    random.seed(0)
+    train, val = pd.select_group_split(
+        groups, shots=3, val_shots=1,
+        preferred_order=('CREMI/B', 'CREMI/A', 'CREMI/C'))
+
+    assert [os.path.splitext(os.path.basename(img))[0]
+            for img, _, _ in train] == [
+        'sample_B_z000', 'sample_B_z001', 'sample_B_z002']
+    assert [os.path.splitext(os.path.basename(img))[0]
+            for img, _, _ in val] == ['sample_A_z000']
+
+
 def test_select_group_split_rejects_too_few_groups():
     groups = pd.group_pairs(_pairs(['Image_01L', 'Image_01R']),
                             'CHASEDB1', r'Image_(\d+)[LR]')

@@ -175,20 +175,34 @@ def select_group_images(groups, count):
     return picked
 
 
-def _legacy_group_split(groups, shots, val_shots, keys):
+def _legacy_group_split(groups, shots, val_shots, keys,
+                        sample_within_group=False):
     """Old image-filling policy, kept for image-level and volume-limited data.
 
     One group may contribute several train images.  This is correct for
     image-level datasets (each group has one image) and for CREMI, where
     only three volumes exist: train uses slices from one volume, val takes
     another volume, and test takes the remaining volume.
+
+    With ``sample_within_group`` the images inside each selected group are
+    shuffled before filling.  The group/volume assignment stays fixed, so
+    the seed only changes which slices are used inside that volume; this is
+    what makes CREMI's 3-shot sample seed-dependent without moving A/B/C
+    across train/val/test.
     """
     train, val = [], []
     used = set()
+
+    def items_for(key):
+        items = list(groups[key])
+        if sample_within_group:
+            random.shuffle(items)
+        return items
+
     for key in keys:
         if len(train) >= shots:
             break
-        for img, mask in groups[key]:
+        for img, mask in items_for(key):
             if len(train) >= shots:
                 break
             train.append((img, mask, key))
@@ -198,7 +212,7 @@ def _legacy_group_split(groups, shots, val_shots, keys):
             break
         if key in used:
             continue
-        for img, mask in groups[key]:
+        for img, mask in items_for(key):
             if len(val) >= val_shots:
                 break
             val.append((img, mask, key))
@@ -209,7 +223,8 @@ def _legacy_group_split(groups, shots, val_shots, keys):
     return train, val
 
 
-def select_group_split(groups, shots, val_shots, preferred_order=None):
+def select_group_split(groups, shots, val_shots, preferred_order=None,
+                       sample_within_group=False):
     """Pick exactly shots/val_shots images with disjoint group IDs.
 
     When the pool has enough distinct groups, train gets ``shots`` images
@@ -222,7 +237,9 @@ def select_group_split(groups, shots, val_shots, preferred_order=None):
     datasets such as CREMI also use the legacy fallback: with only A/B/C,
     requiring three train volumes plus a val volume plus a test volume is
     impossible, so train uses several slices from one volume while val and
-    test use the other volumes.
+    test use the other volumes.  Set ``sample_within_group`` to shuffle the
+    slices inside the selected volume, making the shot selection depend on
+    the seed while keeping the volume roles (train B, val A, test C) fixed.
     """
     keys = list(groups)
     if preferred_order:
@@ -234,7 +251,8 @@ def select_group_split(groups, shots, val_shots, preferred_order=None):
     enough_groups = len(keys) >= shots + val_shots + 1
 
     if all_singletons or not enough_groups:
-        return _legacy_group_split(groups, shots, val_shots, keys)
+        return _legacy_group_split(groups, shots, val_shots, keys,
+                                   sample_within_group=sample_within_group)
 
     # Reserve distinct groups for val and leave the last group for test.
     val = select_group_images(
@@ -272,6 +290,11 @@ def main():
     parser.add_argument('--group_regex', action='append', default=[],
                         help='NAME:REGEX (repeatable, one capture group), e.g. '
                              'CHASEDB1:Image_(\\d+)[LR] or CREMI:sample_([ABC])')
+    parser.add_argument('--sample_within_group', action='store_true',
+                        help='Shuffle images inside each selected group before '
+                             'taking shots (e.g. CREMI volume slices). Off by '
+                             'default to preserve the frozen split; enable for '
+                             'seeded multi-split generation.')
     parser.add_argument('--clean', action='store_true',
                         help='Clear existing train/val/test dirs before writing')
     parser.add_argument('--make_test', action='store_true',
@@ -378,7 +401,8 @@ def main():
             else:
                 train, val = select_group_split(
                     groups, args.shots, args.val_shots,
-                    preferred_order=PREFERRED_GROUP_ORDER.get(name))
+                    preferred_order=PREFERRED_GROUP_ORDER.get(name),
+                    sample_within_group=args.sample_within_group)
             subsets = [('train', train), ('val', val)]
             if args.make_test and name in test_specs:
                 test_pairs = find_pairs(test_specs[name])
