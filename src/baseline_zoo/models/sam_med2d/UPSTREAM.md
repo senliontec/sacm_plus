@@ -17,4 +17,10 @@
     used for `image_size=256`.
   - Input stays at the official 256x256; the BGR + SAM-statistics
     preprocessing quirk is preserved.
+  - `load_from()` no longer excludes `mask_tokens`,
+    `output_hypernetworks_mlps` or `iou_prediction_head`.  Those tensors
+    are shape-compatible between vanilla SAM and the 256-input model, and
+    the controlled "fine-tune from SAM" protocol requires inheriting the
+    full SAM decoder.  Positional embeddings and rel-pos tables are
+    interpolated by shape; incompatible tensors are skipped.
 - Runtime consumer: `baseline_zoo.adapters.sam_med2d.SamMed2DAdapter`

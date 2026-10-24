@@ -48,6 +48,11 @@ class SamMed2DAdapter(BaselineAdapter):
         'the official load_from interpolation. The paper requires the shared '
         'ViT-L encoder, but the decoder is initialized from SAM rather than '
         'SAM-Med2D.',
+        'The official load_from() excludes mask_tokens, '
+        'output_hypernetworks_mlps and iou_prediction_head. This port '
+        'inherits every shape-compatible SAM tensor, so the full SAM '
+        'decoder is loaded; only the SAM-Med2D Adapter stays randomly '
+        'initialized for the controlled fine-tune-from-SAM protocol.',
         'Data protocol: the 18/6-shot split replaces the official JSON '
         'manifests; BGR + SAM-statistics preprocessing and the 256 '
         'pad/resize rule are preserved.',
