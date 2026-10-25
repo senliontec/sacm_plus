@@ -89,6 +89,19 @@ extend-exclude = [
     "src/baseline_zoo/models/sam_adapter/iou_loss.py",
     "src/baseline_zoo/models/sam_adapter/mask_decoder.py",
     "src/baseline_zoo/models/sam_adapter/transformer.py",
+    "src/baseline_zoo/models/topolora/lora.py",
+    "src/baseline_zoo/models/topolora/adapters.py",
+    "src/baseline_zoo/models/topolora/topo_losses.py",
+    "src/baseline_zoo/models/topolora/segment_anything",
+    "src/baseline_zoo/models/samed/segment_anything",
+    "src/baseline_zoo/models/jtfn/jtfn.py",
+    "src/baseline_zoo/models/jtfn/modules.py",
+    "src/baseline_zoo/models/jtfn/backbone",
+    "src/baseline_zoo/models/dscnet/model.py",
+    "src/baseline_zoo/models/dscnet/dsconv.py",
+    "src/baseline_zoo/models/dscnet/losses.py",
+    "src/baseline_zoo/models/persam/per_segment_anything",
+    "src/baseline_zoo/models/matcher",
 ]
 
 [tool.ruff.lint]

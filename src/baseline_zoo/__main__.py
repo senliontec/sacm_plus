@@ -335,6 +335,10 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         # informational rather than a blocker for the paper zoo.
         ('SAM2 Hiera-L', REPO_ROOT / 'checkpoints' / 'sam2_hiera_large.pt',
          False),
+        # Matcher needs the public DINOv2 ViT-L/14 checkpoint; report it as
+        # an informational asset like the SAM2 appendix weight.
+        ('DINOv2 ViT-L/14', REPO_ROOT / 'checkpoints' /
+         'dinov2_vitl14_pretrain.pth', False),
     ]
     failures = 0
     for label, path, required in checks:
@@ -345,6 +349,9 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     print('SAM2 Hiera-L download: '
           'https://dl.fbaipublicfiles.com/segment_anything_2/072824/'
           'sam2_hiera_large.pt')
+    print('DINOv2 ViT-L/14 download: '
+          'https://dl.fbaipublicfiles.com/dinov2/dinov2_vitl14/'
+          'dinov2_vitl14_pretrain.pth')
     for label, module in (
             ('SAM2 deps', 'hydra'),
             ('SAM2 deps', 'omegaconf'),

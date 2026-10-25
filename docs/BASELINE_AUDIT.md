@@ -164,3 +164,94 @@ official COD metrics; predictions are exported at GT resolution; and the
 official batch 2 default can be overridden to batch 1 on ≤11 GiB.  The
 executable upstream wrapper applies horizontal flips even though its YAML
 sets `augment: false`; the port follows the code.
+
+## TopoLoRA-SAM addendum (2026-10-25)
+
+`topolora` was added as a prompt-free main-table baseline (vendored
+TopoLoRA-SAM from `salimkhazem/Seglab` HEAD `7de3a5f`, plus a minimal
+standard Meta SAM package; `tests/test_topolora.py`).  It preserves the
+official ViT-B, LoRA r=8 on `mlp`/`fc1`/`fc2`, 256-channel conv adapter,
+frozen SAM + trainable mask decoder, empty-prompt decode,
+BCE+Dice+0.5 clDice, AdamW 1e-4/1e-4/cosine, 50 epochs, batch 1×4 and
+gradient clipping 1.0.  Documented deviations: no 16-mixed AMP; the shared
+18/6 split and 20-dataset protocol instead of Seglab's HuggingFace split;
+GT-resolution export; and no official trained weights (training starts from
+SAM ViT-B).  Albumentations 1.3.1 uses `value`/`mask_value` instead of the
+upstream `fill`/`fill_mask`; the padding behaviour is identical.
+
+## SAMed addendum (2026-10-25)
+
+`samed` was added as a prompt-free, oracle-free main-table baseline (vendored
+SAMed modified SAM + rank-4 LoRA; `tests/test_samed.py`).  It preserves the
+official class-token mask decoder, q/v LoRA placement, CE 0.2 + Dice 0.8
+loss on 128×128 low-res logits, and AdamW 5e-3/0.1 poly recipe.  The port
+uses a binary 2-class head (the official model is 8-class Synapse), direct
+512 input (instead of lossy 224→512 test resampling), a 5-epoch warmup and
+per-epoch poly decay, batch 4/160 epochs on the 18-image split, and the
+shared validation-Dice selection.  The released 8-class SAMed/SAMed_s/
+SAMed_h LoRA weights are absent and not shape-compatible; training starts
+from SAM ViT-B.  Predictions are exported at original GT resolution.
+
+## JTFN addendum (2026-10-25)
+
+`jtfn` was added as a non-SAM from-scratch baseline (vendored `models/jtfn`,
+`modules.py` and both backbones; `tests/test_jtfn.py`).  It preserves the
+official DRIVE configuration: base64 backbone, three mask/boundary
+refinement steps, four-scale mask BCE + boundary BCE, 256 crop, batch 2,
+Adam 1e-3/5e-4 and 1000 epochs.  Boundary targets are generated from the
+binary GT masks with the official 3×3 max-pool difference.  Documented
+deviations: one shared model instead of per-dataset DRIVE/roads/Crack500
+configs, validation-Dice selection instead of test-split F1, per-epoch
+StepLR approximating the 500-iteration schedule, simplified augmentation,
+32-pixel padding for original-resolution inference, and no official
+weights.  The upstream repository has no LICENSE file; see
+`src/baseline_zoo/models/jtfn/UPSTREAM.md`.
+
+## DSCNet addendum (2026-10-25)
+
+`dscnet` was added as a non-SAM from-scratch baseline (vendored DSCNet 2D
+model, DSConv and soft-BCE loss; `tests/test_dscnet.py`).  It preserves the
+official dynamic-snake U-Net, 16 basic channels, kernel 9, 224 crop, batch
+1, AdamW 1e-4 with betas (0.9,0.95), 400 epochs and constant LR.  The
+NIfTI/MONAI/SimpleITK pipeline is replaced by PIL grayscale I/O, simple
+flips/rotations/noise, train-split scalar mean/std and the official
+224/112 patch inference.  The upstream blending kernel's 1/0 center is
+replaced by a finite `1/(1+d^4)` window and explicit edge coverage; the
+initial clamp was also corrected to avoid suppressing edge probabilities.
+Documented deviations: validation-Dice selection instead of test-set Dice,
+GT-resolution export, and no official weights.  See
+`src/baseline_zoo/models/dscnet/UPSTREAM.md`.
+
+## PerSAM addendum (2026-10-25)
+
+`persam` was added as a support-based training-free baseline (vendored
+Personalize-SAM modified SAM predictor/model, `tests/test_persam.py`).  It
+preserves the official one-shot inference sequence: reference mask
+embedding, target feature cosine similarity, top-1 foreground and
+least-similar background points, target-guided attention, mask-input
+refinement and the box/mask second refinement.  SAM ViT-H is loaded at
+prediction; the training stage writes a metadata-only checkpoint through
+the new `training_free` runtime path.  The 3-shot protocol is an extension:
+each of the three support images is run independently and the binary masks
+are majority-voted; unseen/novel datasets use a structurally matched donor
+support domain.  The support mask is converted to RGB 0/255 as the official
+predictor requires, empty first-pass masks skip refinement, and the
+PerSAM-F fine-tuned variant is not used.  No target GT or target prompts
+are used; the method is support-based, not prompt-free.
+
+## Matcher addendum (2026-10-25)
+
+`matcher` was added as a support-based training-free baseline (vendored
+Matcher, modified SAM fork and DINOv2 ViT-L/14; `tests/test_matcher.py`).
+It preserves the official support/target 518 square preprocessing, DINOv2
+patch matching, k-means prompt selection, modified SAM mask generation and
+official filter defaults (EMD/purity/coverage off, top-k 0.7, 10 merging
+masks).  It natively consumes the three project support shots; unseen/novel
+datasets use a structurally matched donor domain.  Predictions at 518 are
+bilinearly upsampled to the original GT resolution.  The training stage
+writes a metadata-only checkpoint through the shared `training_free` path;
+SAM ViT-H is present, while DINOv2 ViT-L/14 weights must be downloaded to
+`checkpoints/dinov2_vitl14_pretrain.pth` (`--matcher-random-init` is a
+code-smoke-only option).  Support DINOv2 features are cached after
+`set_reference` to avoid re-encoding the three supports for every target.
+No target GT or target prompts are used.

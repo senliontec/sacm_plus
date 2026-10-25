@@ -1,0 +1,26 @@
+id: topolora
+display_name: TopoLoRA-SAM
+family: sam
+status: available
+checkpoint: "{output_root}/best_model.pth"
+train_entrypoint: >-
+  python -m baseline_zoo.run_one --model topolora --stage train
+  --data-root {split_root} --workdir {output_root}
+  --epochs {epochs} --seed {seed} --device cuda:{gpu}
+  --grad-clip 1.0 --use_wandb
+eval_entrypoint: >-
+  python scripts/pipeline/run_baseline_test.py --method topolora
+  --protocol {test_manifest}
+  --checkpoint {output_root}/best_model.pth
+  --pred-root {output_root}/predictions
+  --paper-root {output_root}
+  --device cuda:{gpu} --use_wandb true --skip-visualize
+protocols: [seeded5, fixed]
+defaults:
+  epochs: 50
+note: >-
+  Self-contained port of TopoLoRA-SAM (Seglab), official ViT-B, prompt-free.
+  LoRA r=8 on the ViT MLP layers + 256-channel conv adapter + trainable mask
+  decoder; BCE + Dice + 0.5 clDice; AdamW 1e-4/1e-4, cosine, 50 epochs,
+  batch 1 x 4 accumulation, grad clip 1.0. Upstream uses 16-mixed AMP; this
+  port is plain fp32. Requires checkpoints/sam_vit_b_01ec64.pth.

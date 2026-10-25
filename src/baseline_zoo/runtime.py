@@ -48,8 +48,7 @@ from core.wandb_utils import (
     setup_wandb,
 )
 
-from .data import (RawPairDataset, Sample, SampleListDataset, load_mask,
-                   load_split_samples)
+from .data import RawPairDataset, Sample, SampleListDataset, load_mask, load_split_samples
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -75,6 +74,7 @@ class BaselineAdapter(ABC):
     selection: str = 'dice'
     deviations: tuple[str, ...] = ()
     custom_pipeline: bool = False
+    training_free: bool = False
 
     def __init__(self):
         self.args: argparse.Namespace | None = None
@@ -381,7 +381,91 @@ def seed_everything(seed: int):
 # Training
 # ---------------------------------------------------------------------------
 
+def run_training_free(adapter: BaselineAdapter,
+                      args: argparse.Namespace) -> Path:
+    """Write a metadata-only checkpoint for a training-free adapter.
+
+    The method's official weights are loaded by ``adapter.build_model`` at
+    prediction time; the support bank is reconstructed from ``data_root``.
+    The checkpoint carries the split hash and adapter config so the normal
+    evaluation pipeline can validate and restore it.
+    """
+    seed_everything(args.seed)
+    device = torch.device(args.device)
+    adapter.args = args
+    adapter.device = device
+
+    train_samples = load_split_samples(Path(args.data_root), 'train')
+    val_samples = load_split_samples(Path(args.data_root), 'val')
+    if args.limit_train:
+        train_samples = train_samples[:args.limit_train]
+    if args.limit_val:
+        val_samples = val_samples[:args.limit_val]
+
+    split_manifest = Path(args.data_root) / 'split_manifest.csv'
+    split_sha = (file_sha256(split_manifest)
+                 if split_manifest.is_file() else None)
+    run_config = {
+        'method': adapter.id,
+        'display_name': adapter.display_name,
+        'official_source': adapter.official_source,
+        'official_entrypoint': adapter.official_entrypoint,
+        'deviations': list(adapter.deviations),
+        'data_root': str(args.data_root),
+        'train_images': len(train_samples),
+        'val_images': len(val_samples),
+        'epochs': 0,
+        'batch_size': args.batch_size,
+        'input_size': adapter.input_size,
+        'adapter_config': adapter.save_config(args),
+        'selection': args.selection,
+        'seed': args.seed,
+        'training_free': True,
+        'split_manifest_sha256': split_sha,
+    }
+
+    workdir = Path(args.workdir)
+    workdir.mkdir(parents=True, exist_ok=True)
+    ckpt_path = workdir / 'best_model.pth'
+    if ckpt_path.is_file() and not args.resume:
+        backup = ckpt_path.with_name(
+            f'best_model.before_{time.strftime("%Y%m%d_%H%M%S")}.pth')
+        shutil.copy2(ckpt_path, backup)
+        print(f'backup previous checkpoint -> {backup}')
+
+    payload = {
+        'adapter': adapter.id,
+        'official_source': adapter.official_source,
+        'deviations': list(adapter.deviations),
+        'model_state_dict': {},
+        'optimizer_state_dict': None,
+        'scheduler_state_dict': None,
+        'epoch': 0,
+        'best_score': 0.0,
+        'selection': args.selection,
+        'val_dice': float('nan'),
+        'val_metrics': {},
+        'val_per_dataset': {},
+        'input_size': adapter.input_size,
+        'split_manifest_sha256': split_sha,
+        'config': run_config,
+    }
+    tmp_path = ckpt_path.with_name(ckpt_path.name + '.tmp')
+    torch.save(payload, tmp_path)
+    os.replace(tmp_path, ckpt_path)
+    write_history(workdir / 'metrics_history.json', run_config, [], 0, 0.0)
+
+    console.print(
+        f'[bold]{adapter.display_name}[/] is training-free; '
+        f'metadata checkpoint -> {ckpt_path}')
+    for deviation in adapter.deviations:
+        console.print(f' [yellow]deviation:[/] {deviation}')
+    return ckpt_path
+
+
 def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
+    if getattr(adapter, 'training_free', False):
+        return run_training_free(adapter, args)
     seed_everything(args.seed)
     device = torch.device(args.device)
     adapter.args = args
@@ -656,7 +740,9 @@ def run_prediction(adapter: BaselineAdapter, args: argparse.Namespace,
     adapter.restore_config(
         args, adapter.checkpoint_config.get('adapter_config', {}))
     model = adapter.build_model(args)
-    adapter.load_state_dict(model, payload['model_state_dict'])
+    state = payload.get('model_state_dict') or {}
+    if state:
+        adapter.load_state_dict(model, state)
     model.to(device).eval()
 
     datasets = []

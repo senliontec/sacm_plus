@@ -36,8 +36,12 @@ METHOD_META = {
     'unet': ('U-Net', '✗'),
     'cs2net': ('CS²Net', '✗'),
     'bcunet': ('BCUNet', '✗'),
+    'dscnet': ('DSCNet', '✗'),
     'maskvsc': ('MaskVSC', '✗'),
     'nnwnet': ('nnWNet', '✗'),
+    'jtfn': ('JTFN', '✗'),
+    'persam': ('PerSAM', '✓'),
+    'matcher': ('Matcher', '✓'),
     'sam-med2d': ('SAM-Med2D', '✓'),
     'sam-octa': ('SAM-OCTA', '✓'),
     'cwsam': ('CWSAM', '✓'),
@@ -45,6 +49,8 @@ METHOD_META = {
     'segdino': ('SegDINO', '✓'),
     'sacm': ('SACM', '✗'),
     'sam_adapter': ('SAM-Adapter', '✓'),
+    'samed': ('SAMed', '✓'),
+    'topolora': ('TopoLoRA-SAM', '✓'),
     'ucs': ('UCS', '✓'),
 }
 

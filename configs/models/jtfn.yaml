@@ -1,0 +1,26 @@
+id: jtfn
+display_name: JTFN
+family: cnn
+status: available
+checkpoint: "{output_root}/best_model.pth"
+train_entrypoint: >-
+  python -m baseline_zoo.run_one --model jtfn --stage train
+  --data-root {split_root} --workdir {output_root}
+  --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
+eval_entrypoint: >-
+  python scripts/pipeline/run_baseline_test.py --method jtfn
+  --protocol {test_manifest}
+  --checkpoint {output_root}/best_model.pth
+  --pred-root {output_root}/predictions
+  --paper-root {output_root}
+  --device cuda:{gpu} --use_wandb true --skip-visualize
+protocols: [seeded5, fixed]
+defaults:
+  epochs: 1000
+note: >-
+  Self-contained JTFN port (non-SAM, from scratch). Official DRIVE
+  configuration: base64 5-stage backbone, three mask/boundary refinement
+  steps, 256 crop, batch 2, Adam 1e-3/5e-4, mask BCE + boundary BCE over
+  four scales, StepLR 500/0.9 approximated per epoch. The repository has no
+  license file; see models/jtfn/UPSTREAM.md. Official JTFN weights are not
+  present; training starts from scratch.

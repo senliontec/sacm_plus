@@ -1,0 +1,26 @@
+id: dscnet
+display_name: DSCNet
+family: cnn
+status: available
+checkpoint: "{output_root}/best_model.pth"
+train_entrypoint: >-
+  python -m baseline_zoo.run_one --model dscnet --stage train
+  --data-root {split_root} --workdir {output_root}
+  --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
+eval_entrypoint: >-
+  python scripts/pipeline/run_baseline_test.py --method dscnet
+  --protocol {test_manifest}
+  --checkpoint {output_root}/best_model.pth
+  --pred-root {output_root}/predictions
+  --paper-root {output_root}
+  --device cuda:{gpu} --use_wandb true --skip-visualize
+protocols: [seeded5, fixed]
+defaults:
+  epochs: 400
+note: >-
+  Self-contained DSCNet 2D port (non-SAM, from scratch). Dynamic Snake
+  Convolution U-Net with 4 levels, 16 basic channels, kernel 9; grayscale
+  224 crop, batch 1, soft BCE, AdamW 1e-4 betas (0.9,0.95), 400 epochs,
+  constant LR, 224/112 patch inference. The official NIfTI/MONAI/SimpleITK
+  pipeline is replaced by a dependency-free PIL implementation; no official
+  weights are present.

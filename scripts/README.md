@@ -10,9 +10,10 @@ bash scripts/run_paper.sh --model all --seeds all --gpus 0,1,2,3 --resume
 ```
 
 `--model all` resolves every `status: available` model in
-`configs/models/` (SACM-X plus the 16 runnable baselines, including the
-appendix `sam2_unet`, the prompt-free `sam_adapter` and the oracle-prompted
-`ucs`).  For each (model, seed)
+`configs/models/` (SACM-X plus the 22 runnable baselines, including the
+appendix `sam2_unet`, the prompt-free `sam_adapter`/`samed`/`topolora`, the
+non-SAM `jtfn`/`dscnet`, the support-based `persam`/`matcher`, and the
+oracle-prompted `ucs`).  For each (model, seed)
 job it runs the config's
 `train_entrypoint`, then `eval_entrypoint`, and finally writes the
 cross-model tables and figures.

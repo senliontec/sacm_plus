@@ -1,0 +1,26 @@
+id: persam
+display_name: PerSAM
+family: sam
+status: available
+checkpoint: "{output_root}/best_model.pth"
+train_entrypoint: >-
+  python -m baseline_zoo.run_one --model persam --stage train
+  --data-root {split_root} --workdir {output_root}
+  --seed {seed} --device cuda:{gpu} --use_wandb
+eval_entrypoint: >-
+  python scripts/pipeline/run_baseline_test.py --method persam
+  --protocol {test_manifest}
+  --checkpoint {output_root}/best_model.pth
+  --pred-root {output_root}/predictions
+  --paper-root {output_root}
+  --device cuda:{gpu} --use_wandb true --skip-visualize
+protocols: [seeded5, fixed]
+defaults:
+  epochs: 0
+note: >-
+  Training-free PerSAM (Personalize-SAM) with SAM ViT-H. One support
+  image/mask drives target-guided point/box prompting; the project's 3-shot
+  protocol runs the three supports independently and majority-votes the
+  masks. The training stage writes a metadata-only checkpoint; prediction
+  loads the SAM ViT-H base and support bank. Not a prompt-free method:
+  support-based, no target GT/prompts.

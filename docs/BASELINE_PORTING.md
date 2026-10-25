@@ -38,6 +38,12 @@ prints them at the start of training and stores them in every checkpoint.
 | SAM-OCTA | LoRA rank 4, 1024 longest-side+pad, SAM normalization, p=0.3 augmentations, GT per-component point prompts, 0.8*Dice+0.2*clDice, warmup/0.98 decay, 0.8 threshold | ViT-L base; RGB/grayscale-replicated input; non-square pad; val Dice |
 | CWSAM | frequency prompt generator + per-block adapters + mask decoder, ImageNet normalization, no augmentation, AdamW 2e-4/cosine 1e-7, 200 epochs | binary 2-class port; ViT-L (paper backbone); val Dice; activation checkpointing |
 | SAM-Adapter | FFT high-pass prompt generator injected into every ViT block, empty sparse + `no_mask_embed` prompt-free decoder, ImageNet normalization, horizontal flip p=0.5, BCE+IoU, AdamW 2e-4/cosine 1e-7, 20 epochs, frozen encoder except prompt generator | retrained from SAM ViT-L (authors' Google-Drive weights unused); val Dice instead of COD metrics; GT-size export; batch 2 official, use `--batch-size 1 --accum-steps 2 --grad-checkpointing` on ≤11 GiB |
+| TopoLoRA-SAM | official ViT-B, LoRA r=8 on ViT MLP layers, depthwise-separable conv adapter, frozen SAM + trainable mask decoder, empty-prompt decode, 384 input, BCE+Dice+0.5 clDice, AdamW 1e-4/1e-4/cosine, 50 epochs, batch 1×4, grad clip 1.0 | no mixed precision; shared 18/6 split instead of Seglab's HF split; val Dice; GT-size export; no official trained weights (starts from SAM ViT-B) |
+| SAMed | official ViT-B, rank-4 q/v LoRA, trainable prompt encoder + class-wise mask decoder, empty-prompt decode, 512 input, binary 2-class head, CE 0.2 + Dice 0.8 on 128×128 low-res logits, AdamW 5e-3/0.1/poly, 160 epochs, batch 4 | binary adaptation of the 8-class Synapse recipe; official batch 24 and epoch-159 selection adapted to the 18-image split; val Dice; GT-size export; released 8-class LoRA weights unused |
+| JTFN | official DRIVE config: base64 5-stage backbone, three mask/boundary refinements, 256 crop, batch 2, Adam 1e-3/5e-4, mask BCE + boundary BCE over four scales, StepLR 500/0.9, 1000 epochs | one shared model instead of per-dataset DRIVE/roads/Crack500 configs; val Dice instead of test-split F1; per-epoch StepLR approximation; simplified augmentation; GT-size export; no official weights |
+| DSCNet | official 2D DSCNet: dynamic-snake U-Net, 16 basic channels, kernel 9, grayscale 224 crop, batch 1, soft BCE, AdamW 1e-4 betas (0.9,0.95), 400 epochs, constant LR, 224/112 patch inference | NIfTI/MONAI/SimpleITK pipeline replaced by PIL + simple augmentation; train-split mean/std; val Dice; finite quartic blending kernel; GT-size export; no official weights |
+| PerSAM | training-free PerSAM (Personalize-SAM) with SAM ViT-H: support mask → object embedding, target-guided points, two point/mask/box refinement stages; no target GT or prompts | official method is one-shot; 3-shot support is majority-voted; support donor for unseen/novel domains; training-free metadata checkpoint; original-resolution output |
+| Matcher | training-free DINOv2 ViT-L/14 + SAM ViT-H patch matching; support-based, native n-shot; 518 square inputs, modified SAM mask generator, official filters | 518 output upsampled to GT; shared 3-shot supports / donor domains; support-feature cache; DINOv2 weights required; training-free metadata checkpoint |
 | KnowSAM | official semi-supervised Trainer/weak-strong transforms/two-stream sampler/SGDL validation | 3+3 batch; source-domain unlabeled pool; ViT-B as upstream; GT-size export |
 | SegDINO | official DPT decoder, 256/ImageNet, BCEWithLogits, AdamW 1e-4/1e-4, 50 epochs, batch 4, no augmentation | timm DINOv3 instead of local hub repo; val Dice; GT-size export |
 | FoB-SAM | official ResNet-101 background-prompt localizer, contour/Gaussian keypoint prompts, SPR refinement, frozen SAM point-prompt inference, 39001 iterations (13×3000), Adam 1e-4, MultiStepLR 0.98 | 2D GT support episodes instead of 3D/supervoxels; same-domain support for seen, donor support for unseen; ViT-H required; val Dice; GT-size export |
@@ -48,6 +54,40 @@ high-pass prompt generator is injected into every ViT block, and the mask
 decoder receives an empty sparse prompt plus `no_mask_embed`.  It is
 retrained from SAM ViT-L because the authors' trained weights are not in the
 released tree.
+
+`topolora` is a prompt-free main-table baseline from Seglab: official
+SAM ViT-B with LoRA on the ViT MLP layers, a depthwise-separable conv
+adapter, a trainable mask decoder and the empty-prompt decode.  The paper
+table records its ViT-B backbone; the port preserves the official 384-input,
+50-epoch, batch-1×4 recipe.
+
+`samed` is a prompt-free, oracle-free SAM baseline: official ViT-B with
+rank-4 q/v LoRA, a trainable prompt encoder and class-wise mask decoder.
+It is a fully supervised per-dataset segmenter (not a few-shot matcher), so
+the shared 18-image train split is used for a binary fine-tune.  The paper
+table records the binary adaptation and the ViT-B backbone.
+
+`jtfn` is a non-SAM, from-scratch curvilinear baseline: the official DRIVE
+base64 configuration with mask/boundary multi-task refinement and boundary
+targets generated from the GT masks.  It uses the shared 18-image split and
+is reported in the non-SAM group.
+
+`dscnet` is the non-SAM Dynamic Snake Convolution U-Net: official 2D model
+and soft-BCE recipe, with a dependency-free PIL training/patch-inference
+port.  It is also reported in the non-SAM group.
+
+`persam` is a **support-based** SAM baseline, not prompt-free: one support
+image/mask produces target-guided point/box prompts for a frozen SAM ViT-H.
+The official method is one-shot; the 3-shot protocol runs the three supports
+independently and majority-votes.  It is training-free and writes a
+metadata-only checkpoint.
+
+`matcher` is also **support-based** and training-free: DINOv2 ViT-L patch
+matching between the support masks and target produces SAM point prompts,
+and the modified SAM mask generator merges candidate masks.  It natively
+accepts multiple supports, so the three project shots are passed directly;
+it writes a metadata-only checkpoint.  Its DINOv2 ViT-L checkpoint is not
+bundled.
 
 Two extensions are intentionally separate from the paper ten:
 `sam_vit_l_unet` is self-contained (frozen SAM ViT-L + decoder), and
@@ -67,7 +107,8 @@ Dice; it is not part of the prompt-free main table.
 | Asset | Status / action |
 |---|---|
 | SAM ViT-L | `checkpoints/sam_vit_l_0b3195.pth` (present) |
-| SAM ViT-B | `checkpoints/sam_vit_b_01ec64.pth` (present; KnowSAM) |
+| SAM ViT-B | `checkpoints/sam_vit_b_01ec64.pth` (present; KnowSAM, TopoLoRA-SAM) |
+| DINOv2 ViT-L/14 | missing; required for `matcher`; `https://dl.fbaipublicfiles.com/dinov2/dinov2_vitl14/dinov2_vitl14_pretrain.pth` |
 | SAM ViT-H | `checkpoints/sam_vit_h_4b8939.pth` (FoB-SAM; 2.4 GiB) |
 | ResNet-101 COCO | `checkpoints/deeplabv3_resnet101_coco-586e9e4e.pth` (FoB-SAM) |
 | SAM2 Hiera-L | missing; required for real `sam2_unet` training (`--random-init` is smoke-only); `https://dl.fbaipublicfiles.com/segment_anything_2/072824/sam2_hiera_large.pt` |
@@ -139,6 +180,16 @@ python -m baseline_zoo.run_one --model sam_adapter --stage train \
   --data-root data/sacm_3shot_seed0 --workdir /tmp/sam_adapter \
   --epochs 1 --limit-train 1 --limit-val 1 \
   --batch-size 1 --accum-steps 2 --grad-checkpointing --device cuda:0
+```
+
+TopoLoRA-SAM uses the official ViT-B and 384 input; its official batch is
+already 1 with four accumulation steps:
+
+```bash
+python -m baseline_zoo.run_one --model topolora --stage train \
+  --data-root data/sacm_3shot_seed0 --workdir /tmp/topolora \
+  --epochs 1 --limit-train 4 --limit-val 1 \
+  --accum-steps 4 --grad-clip 1.0 --device cuda:0
 ```
 
 ## Verification
