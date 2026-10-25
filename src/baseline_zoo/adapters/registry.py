@@ -12,6 +12,8 @@ _ADAPTERS = {
     'knowsam': ('baseline_zoo.adapters.knowsam', 'KnowSAMAdapter'),
     'maskvsc': ('baseline_zoo.adapters.maskvsc', 'MaskVSCAdapter'),
     'nnwnet': ('baseline_zoo.adapters.nnwnet', 'NNWNetAdapter'),
+    'sam2_unet': ('baseline_zoo.adapters.sam2_unet', 'SAM2UNetAdapter'),
+    'sam_adapter': ('baseline_zoo.adapters.sam_adapter', 'SAMAdapter'),
     'sam_med2d': ('baseline_zoo.adapters.sam_med2d', 'SamMed2DAdapter'),
     'sacm_official': ('baseline_zoo.adapters.sacm_official',
                       'SACMOfficialAdapter'),
@@ -19,6 +21,7 @@ _ADAPTERS = {
     'sam_vit_l_unet': ('baseline_zoo.adapters.sam_vit_l_unet',
                        'SAMViTLUNetAdapter'),
     'segdino': ('baseline_zoo.adapters.segdino', 'SegDINOAdapter'),
+    'ucs': ('baseline_zoo.adapters.ucs', 'UCSAdapter'),
     'unet': ('baseline_zoo.adapters.unet', 'UNetAdapter'),
 }
 

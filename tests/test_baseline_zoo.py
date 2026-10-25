@@ -20,12 +20,15 @@ def test_registry_contains_all_self_contained_models():
     models = load_models()
     expected = {
         'bcunet', 'cs2net', 'cwsam', 'fob_sam', 'knowsam', 'maskvsc',
-        'nnwnet', 'sacm_official', 'sacm_x', 'sam2_unet',
-        'sam_med2d', 'sam_octa', 'sam_vit_l_unet', 'segdino', 'unet'}
+        'nnwnet', 'sacm_official', 'sacm_x', 'sam2_unet', 'sam_adapter',
+        'sam_med2d', 'sam_octa', 'sam_vit_l_unet', 'segdino', 'ucs',
+        'unet'}
     assert set(models) == expected
     available = {model.id for model in models.values() if model.available}
-    assert available == expected - {'sam2_unet'}
-    assert models['sam2_unet'].status == 'reference_only'
+    assert available == expected
+    assert models['sam2_unet'].status == 'available'
+    assert 'run_one' in models['sam2_unet'].train_entrypoint
+    assert '--sam2-checkpoint' in models['sam2_unet'].train_entrypoint
     assert models['bcunet'].status == 'available'
     assert models['cwsam'].status == 'available'
     assert models['sam_med2d'].status == 'available'
@@ -153,8 +156,9 @@ def test_train_dry_run_does_not_create_marker(capsys):
 def test_doctor_reports_self_contained_models(capsys):
     main(['doctor'])
     output = capsys.readouterr().out
-    assert 'models: 15  available: 14' in output
+    assert 'models: 17  available: 17' in output
     assert 'sam2_hiera_large.pt' in output
+    assert 'SAM2 Hiera-L download' in output
     assert 'DINOv3' in output or 'segdino' in output
 
 

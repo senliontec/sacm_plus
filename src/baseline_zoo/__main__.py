@@ -342,9 +342,14 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         if not path.is_file() and required:
             failures += 1
         print(f'asset {label:18s} {state:7s} {path}')
+    print('SAM2 Hiera-L download: '
+          'https://dl.fbaipublicfiles.com/segment_anything_2/072824/'
+          'sam2_hiera_large.pt')
     for label, module in (
             ('SAM2 deps', 'hydra'),
             ('SAM2 deps', 'omegaconf'),
+            ('UCS deps', 'sklearn'),
+            ('UCS deps', 'albumentations'),
             ('MaskVSC deps', 'skan'),
             ('MaskVSC deps', 'kornia'),
             ('nnWNet dep', 'nnunetv2'),

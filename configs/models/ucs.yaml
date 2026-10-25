@@ -1,0 +1,25 @@
+id: ucs
+display_name: UCS
+family: sam
+status: available
+checkpoint: "{output_root}/best_model.pth"
+note: >-
+  Oracle-prompted UCS (official code derives GT boxes/points and uses
+  GT-guided refinement clicks). Official 20-epoch recipe; prompted/reference
+  group, not prompt-free. Requires the SAM ViT-L checkpoint.
+train_entrypoint: >-
+  python -m baseline_zoo.run_one --model ucs --stage train
+  --data-root {split_root} --workdir {output_root}
+  --sam-checkpoint {sam_checkpoint}
+  --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
+eval_entrypoint: >-
+  python scripts/pipeline/run_baseline_test.py --method ucs
+  --protocol {test_manifest}
+  --checkpoint {output_root}/best_model.pth
+  --sam-checkpoint {sam_checkpoint}
+  --pred-root {output_root}/predictions
+  --paper-root {output_root}
+  --device cuda:{gpu} --use_wandb true --skip-visualize
+protocols: [seeded5, fixed]
+defaults:
+  epochs: 20

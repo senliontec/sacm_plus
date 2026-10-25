@@ -1,0 +1,27 @@
+id: sam_adapter
+display_name: SAM-Adapter
+family: sam
+status: available
+checkpoint: "{output_root}/best_model.pth"
+train_entrypoint: >-
+  python -m baseline_zoo.run_one --model sam_adapter --stage train
+  --data-root {split_root} --workdir {output_root}
+  --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
+eval_entrypoint: >-
+  python scripts/pipeline/run_baseline_test.py --method sam_adapter
+  --protocol {test_manifest}
+  --checkpoint {output_root}/best_model.pth
+  --pred-root {output_root}/predictions
+  --paper-root {output_root}
+  --device cuda:{gpu} --use_wandb true --skip-visualize
+protocols: [seeded5, fixed]
+defaults:
+  epochs: 20
+note: >-
+  Self-contained port of SAM-Adapter (ICCV 2023), ViT-L, prompt-free.
+  The official FFT high-pass prompt generator is injected into every ViT
+  block; the decoder receives empty sparse prompts plus no_mask_embed.
+  Official 20-epoch AdamW 2e-4/cosine recipe; only the prompt generator
+  and mask decoder are trained. Official batch size is 2; on <=11 GiB add
+  --batch-size 1 --accum-steps 2 --grad-checkpointing to keep the effective
+  batch while reducing peak memory.

@@ -44,6 +44,8 @@ METHOD_META = {
     'knowsam': ('KnowSAM', '✓'),
     'segdino': ('SegDINO', '✓'),
     'sacm': ('SACM', '✗'),
+    'sam_adapter': ('SAM-Adapter', '✓'),
+    'ucs': ('UCS', '✓'),
 }
 
 

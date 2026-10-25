@@ -1,14 +1,15 @@
 id: sam2_unet
 display_name: SAM2-UNet
 family: sam
-status: reference_only
+status: available
 note: >-
-  Project extension, not part of the paper's ten baselines. Its legacy
-  adapter lives under baselines/ and requires the missing SAM2 Hiera-L
-  checkpoint; it is intentionally not part of the self-contained paper zoo.
+  Self-contained appendix/extended baseline (not one of the paper's ten).
+  Vendored SAM2 Hiera-L encoder with per-block prompt-learn adapters and a
+  U-Net decoder. Real training requires checkpoints/sam2_hiera_large.pt;
+  --random-init is a code-smoke option only.
 checkpoint: "{output_root}/best_model.pth"
 train_entrypoint: >-
-  python baselines/adapters/sam2_unet.py --stage train
+  python -m baseline_zoo.run_one --model sam2_unet --stage train
   --data-root {split_root} --workdir {output_root}
   --sam2-checkpoint {sam2_checkpoint}
   --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb

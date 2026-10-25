@@ -46,7 +46,8 @@ PORTED = set(available_adapters())
 # carries the unified split-hash field.
 CUSTOM_CHECKPOINTS = {'nnwnet', 'knowsam'}
 SAM_CHECKPOINT_METHODS = {
-    'cwsam', 'sacm_official', 'sam_med2d', 'sam_octa', 'sam_vit_l_unet'}
+    'cwsam', 'sacm_official', 'sam_adapter', 'sam_med2d', 'sam_octa',
+    'sam_vit_l_unet', 'ucs'}
 
 
 def read_specs(protocol: Path, dataset_filter):
@@ -389,6 +390,8 @@ def main():
                        '--data-root', args.data_root]
                 if args.method == 'fob_sam':
                     cmd += ['--sam-checkpoint', args.fob_sam_checkpoint]
+                elif args.method == 'sam2_unet':
+                    cmd += ['--sam2-checkpoint', args.sam2_checkpoint]
                 elif args.method in SAM_CHECKPOINT_METHODS:
                     cmd += ['--sam-checkpoint', args.sam_checkpoint]
                 if args.device:

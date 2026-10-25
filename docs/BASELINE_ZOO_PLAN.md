@@ -208,7 +208,7 @@ epochs: 50
 batch_size: 1
 lr: 0.0003
 checkpoint: null
-pretrained: checkpoints/sam2.1_hiera_large.pt
+pretrained: checkpoints/sam2_hiera_large.pt
 wandb: true
 ```
 

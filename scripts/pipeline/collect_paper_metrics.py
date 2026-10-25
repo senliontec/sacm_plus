@@ -59,6 +59,9 @@ METHOD_META = {
     'fob_sam': ('FoB-SAM', '✓'),
     'sacm_official': ('SACM (official)', '✗'),
     'sam_vit_l_unet': ('SAM ViT-L + U-Net', '✗'),
+    'sam2_unet': ('SAM2-UNet', '✗'),
+    'sam_adapter': ('SAM-Adapter', '✓'),
+    'ucs': ('UCS', '✓'),
     'sacm_x': ('SACM-X', '✗'),
 }
 ROLE_ORDER = ['Seen', 'Unseen', 'Novel']

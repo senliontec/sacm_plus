@@ -3,7 +3,8 @@
 Date: 2026-10-24
 
 Scope: all self-contained models in `src/baseline_zoo/adapters/`
-(13 runnable adapters).  Each port was compared against the vendored
+(13 runnable adapters at audit time; the `sam2_unet` appendix was added
+later).  Each port was compared against the vendored
 reference in `baselines/` and, where applicable, the released entrypoint
 (`train.py`, `test.py`, shell scripts, or framework docs).  This audit also
 covers the shared runtime, protocol loader, prediction path, metric
@@ -132,3 +133,34 @@ Not unified, by design or documented exception:
 - Non-square SAM-OCTA prediction verified on a 600×800 CrackTree200 image.
 - KnowSAM staging verified on all six source domains, including CORN, with
   zero protocol labeled/validation images in the unlabeled pool.
+
+## Addendum (2026-10-25)
+
+`sam2_unet` was added as a self-contained appendix baseline after this
+audit (vendored SAM2 Hiera-L + prompt-learn adapters + U-Net decoder,
+`tests/test_sam2_unet.py`, Hydra/import isolation checks).  It is outside
+the paper-ten audit scope and not part of the main table.
+
+## UCS addendum (2026-10-25)
+
+`ucs` was added as an oracle-prompted reference baseline (vendored UCS SAM
+fork, `tests/test_ucs.py`).  The released code derives GT boxes/points and
+samples refinement clicks from prediction-vs-GT errors, so it is not
+prompt-free.  It uses the official 20-epoch recipe and training-Dice
+selection.  HEAD `cff2db1` also refactored away the paper Sparse Adapter/HFC
+modules; see `src/baseline_zoo/models/ucs/UPSTREAM.md`.
+
+## SAM-Adapter addendum (2026-10-25)
+
+`sam_adapter` was added as a prompt-free main-table baseline (vendored
+SAM-Adapter/EVP ViT-L with the FFT high-pass prompt generator, per-block
+prompt injection and `no_mask_embed` decoder; `tests/test_sam_adapter.py`).
+It preserves the official 20-epoch AdamW 2e-4/cosine recipe, the
+BCEWithLogits+IoU loss and the freeze policy (image encoder frozen except
+the prompt generator; mask decoder trained).  Documented deviations: it is
+retrained from SAM ViT-L because the authors' Google-Drive weights are not
+in the released tree; validation uses the shared 6-image Dice instead of the
+official COD metrics; predictions are exported at GT resolution; and the
+official batch 2 default can be overridden to batch 1 on ≤11 GiB.  The
+executable upstream wrapper applies horizontal flips even though its YAML
+sets `augment: false`; the port follows the code.

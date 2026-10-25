@@ -44,6 +44,31 @@ def test_src_does_not_import_reference_tree():
     assert not violations, '\n'.join(violations)
 
 
+def test_vendored_sam2_uses_package_internal_imports():
+    root = SRC / 'baseline_zoo' / 'models' / 'sam2_unet'
+    violations = []
+    for path in root.rglob('*.py'):
+        tree = ast.parse(path.read_text(), filename=str(path))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.name == 'sam2' or alias.name.startswith('sam2.'):
+                        violations.append(f'{path}: import {alias.name}')
+            elif isinstance(node, ast.ImportFrom):
+                module = node.module or ''
+                if (node.level == 0
+                        and (module == 'sam2'
+                             or module.startswith('sam2.'))):
+                    violations.append(f'{path}: from {module}')
+    assert not violations, '\n'.join(violations)
+
+
+def test_vendored_sam2_does_not_initialize_hydra():
+    init = (SRC / 'baseline_zoo' / 'models' / 'sam2_unet' / 'sam2'
+            / '__init__.py')
+    assert 'initialize_config_module' not in init.read_text()
+
+
 def test_unet_imports_from_self_contained_package(tmp_path):
     env = os.environ.copy()
     env['PYTHONPATH'] = str(SRC)

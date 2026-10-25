@@ -37,15 +37,30 @@ prints them at the start of training and stores them in every checkpoint.
 | SAM-Med2D | 256 BGR/SAM-stat preprocessing, per-block Adapter, GT box/point + 8 refinement passes, 20*Focal+Dice+IoU, Adam 1e-4, 15 epochs, multimask max-IoU/0.5 | vanilla SAM ViT-L because the official SAM-Med2D checkpoint is absent; val Dice; ≥24 GiB for official batch |
 | SAM-OCTA | LoRA rank 4, 1024 longest-side+pad, SAM normalization, p=0.3 augmentations, GT per-component point prompts, 0.8*Dice+0.2*clDice, warmup/0.98 decay, 0.8 threshold | ViT-L base; RGB/grayscale-replicated input; non-square pad; val Dice |
 | CWSAM | frequency prompt generator + per-block adapters + mask decoder, ImageNet normalization, no augmentation, AdamW 2e-4/cosine 1e-7, 200 epochs | binary 2-class port; ViT-L (paper backbone); val Dice; activation checkpointing |
+| SAM-Adapter | FFT high-pass prompt generator injected into every ViT block, empty sparse + `no_mask_embed` prompt-free decoder, ImageNet normalization, horizontal flip p=0.5, BCE+IoU, AdamW 2e-4/cosine 1e-7, 20 epochs, frozen encoder except prompt generator | retrained from SAM ViT-L (authors' Google-Drive weights unused); val Dice instead of COD metrics; GT-size export; batch 2 official, use `--batch-size 1 --accum-steps 2 --grad-checkpointing` on ≤11 GiB |
 | KnowSAM | official semi-supervised Trainer/weak-strong transforms/two-stream sampler/SGDL validation | 3+3 batch; source-domain unlabeled pool; ViT-B as upstream; GT-size export |
 | SegDINO | official DPT decoder, 256/ImageNet, BCEWithLogits, AdamW 1e-4/1e-4, 50 epochs, batch 4, no augmentation | timm DINOv3 instead of local hub repo; val Dice; GT-size export |
 | FoB-SAM | official ResNet-101 background-prompt localizer, contour/Gaussian keypoint prompts, SPR refinement, frozen SAM point-prompt inference, 39001 iterations (13×3000), Adam 1e-4, MultiStepLR 0.98 | 2D GT support episodes instead of 3D/supervoxels; same-domain support for seen, donor support for unseen; ViT-H required; val Dice; GT-size export |
 | SACM (official) | zero-prompt ViT-L + adapters, AdamW 3e-4/0.01, cosine 1e-6, BCE 0.7+Dice 0.3, 60 epochs, grad clip 1.0 | val Dice; GT-size export; activation checkpointing |
 
+`sam_adapter` is a prompt-free main-table baseline: the official FFT
+high-pass prompt generator is injected into every ViT block, and the mask
+decoder receives an empty sparse prompt plus `no_mask_embed`.  It is
+retrained from SAM ViT-L because the authors' trained weights are not in the
+released tree.
+
 Two extensions are intentionally separate from the paper ten:
-`sam_vit_l_unet` is self-contained (frozen SAM ViT-L + decoder), while
-`sam2_unet` is `reference_only` because its SAM2 Hiera checkpoint and legacy
-adapter are outside the paper zoo.
+`sam_vit_l_unet` is self-contained (frozen SAM ViT-L + decoder), and
+`sam2_unet` is a self-contained appendix baseline (frozen SAM2 Hiera-L +
+prompt-learn adapters + U-Net decoder).  `sam2_unet` requires
+`checkpoints/sam2_hiera_large.pt` for real training; `--random-init` is a
+code-smoke-only option.
+
+`ucs` is an **oracle-prompted reference baseline**: the released code derives
+boxes/points from the GT mask and samples refinement clicks from
+prediction-vs-GT errors.  It is not prompt-free.  The port keeps the official
+20-epoch, batch-1, `iter_point=8` recipe and selects checkpoints by training
+Dice; it is not part of the prompt-free main table.
 
 ## Assets
 
@@ -55,7 +70,7 @@ adapter are outside the paper zoo.
 | SAM ViT-B | `checkpoints/sam_vit_b_01ec64.pth` (present; KnowSAM) |
 | SAM ViT-H | `checkpoints/sam_vit_h_4b8939.pth` (FoB-SAM; 2.4 GiB) |
 | ResNet-101 COCO | `checkpoints/deeplabv3_resnet101_coco-586e9e4e.pth` (FoB-SAM) |
-| SAM2 Hiera-L | missing; only needed by the reference-only SAM2-UNet |
+| SAM2 Hiera-L | missing; required for real `sam2_unet` training (`--random-init` is smoke-only); `https://dl.fbaipublicfiles.com/segment_anything_2/072824/sam2_hiera_large.pt` |
 | DINOv3 | auto-detected under `checkpoints/`; otherwise set `DINO_CKPT` / `--dino-ckpt` or `HF_TOKEN` |
 | nnU-Net | `nnunetv2==2.8.1` (installed via pip) |
 | KnowSAM metrics | `medpy==0.4.0`, `hausdorff` |
@@ -105,6 +120,26 @@ episodes; `--fob-shots 1` is the official episode size (set `3` for a
 3-shot support variant).  Unseen datasets use a structurally matched donor
 support set; override with `--fob-support-dataset DRIVE` (or
 `CrackTree200`).
+
+SAM2-UNet code-only smoke (no SAM2 weights; slow but runs on CPU):
+
+```bash
+python -m baseline_zoo.run_one --model sam2_unet --stage train \
+  --data-root data/sacm_3shot_seed0 --workdir /tmp/sam2_unet \
+  --random-init --epochs 1 --limit-train 1 --limit-val 1 --device cpu
+```
+
+For real training, put `sam2_hiera_large.pt` under `checkpoints/` first.
+
+SAM-Adapter uses the official ViT-L, so its official batch 2 needs more than
+11 GiB.  A batch-1 smoke with block checkpointing fits a 10.6 GiB card:
+
+```bash
+python -m baseline_zoo.run_one --model sam_adapter --stage train \
+  --data-root data/sacm_3shot_seed0 --workdir /tmp/sam_adapter \
+  --epochs 1 --limit-train 1 --limit-val 1 \
+  --batch-size 1 --accum-steps 2 --grad-checkpointing --device cuda:0
+```
 
 ## Verification
 

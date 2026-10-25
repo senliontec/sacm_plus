@@ -74,9 +74,22 @@ package-dir = {"" = "src"}
 where = ["src"]
 include = ["core*", "baseline_zoo*", "models*"]
 
+[tool.setuptools.package-data]
+"baseline_zoo.models.sam2_unet" = ["sam2_configs/*.yaml", "LICENSE", "UPSTREAM.md"]
+
 [tool.ruff]
 line-length = 120
 target-version = "py310"
+# Vendored upstream code is kept verbatim; the adapter/tests stay lint-clean.
+extend-exclude = [
+    "src/baseline_zoo/models/sam2_unet/model.py",
+    "src/baseline_zoo/models/sam2_unet/sam2",
+    "src/baseline_zoo/models/sam_adapter/common.py",
+    "src/baseline_zoo/models/sam_adapter/image_encoder.py",
+    "src/baseline_zoo/models/sam_adapter/iou_loss.py",
+    "src/baseline_zoo/models/sam_adapter/mask_decoder.py",
+    "src/baseline_zoo/models/sam_adapter/transformer.py",
+]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W"]
