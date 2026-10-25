@@ -1,0 +1,72 @@
+# 每个 baseline 复制一份，填入全文后交给
+# 01_official_sensitivity / 02_port_vs_official_audit / 03_numeric_harness。
+baseline: ""                  # e.g. samed
+profile: ""                   # 复合 profile，见 README 第 2 节
+method:
+  training_mode: ""           # supervised | training_free | semi_supervised
+  prompt_modality: ""         # prompt_free | oracle_prompted | support_based | standard
+  backbone: ""                # sam | non_sam | hybrid
+  paper_group: ""             # main | supplement | reference | probe
+official:
+  repo: ""
+  commit: ""
+  license: ""
+  files:
+    - path: ""
+      role: ""                # model_def | loss | transforms | train | eval | metrics | dataset | support | config | weights_loader | README | requirements | LICENSE | dependency
+      text: |
+        # 粘贴完整文件内容；只给路径视为不存在
+ported:
+  files:
+    - path: ""
+      role: ""                # model_def | adapter | config | test
+      text: |
+        # 粘贴完整文件内容
+shared_runtime:
+  - path: src/baseline_zoo/runtime.py
+    text: |
+      # 粘贴与训练/eval/checkpoint/metric 相关的完整段落
+  - path: src/baseline_zoo/data.py
+    text: |
+      # 粘贴 split/loader 相关段落
+  - path: src/baseline_zoo/support.py
+    text: |
+      # support-based 方法需要
+  - path: src/baseline_zoo/protocols.py
+    text: |
+      # 18/6、20 数据集、seed 相关
+assets:
+  official_weights: []
+  official_checkpoint: ""
+  checkpoint_sha256: ""
+  base_weights: []            # SAM/DINOv2 等
+  local_paths: {}
+  missing: []
+determinism:
+  seeds: ""
+  cudnn_deterministic: ""
+  versions: {}                # torch/cuda/cudnn/numpy/timm/albumentations/sklearn...
+  nondeterministic_ops: []    # k-means/AMG/PCA/DSConv/CUDA
+  repeats: 3
+known_deviations:
+  - id: ""
+    level: ""                 # L0-L6
+    fidelity_gate: ""         # G0-G6
+    category: ""              # official_recipe | protocol_adaptation | bug_fix | wrapper_change | missing_asset | unverified
+    text: ""
+    verification: ""          # 可执行的验证命令/断言
+    disclosure: ""
+    undocumented: false
+    blocking: false
+tolerances:
+  forward_atol: 1e-5
+  forward_rtol: 1e-4
+  custom_op_atol: 1e-3
+  grad_atol: 1e-4
+  optimizer_step_atol: 1e-4
+  mask_iou: 0.9999
+  loss_atol: 1e-4
+gates:
+  main_table_requires: [G0, G1, G2, G3, G4, G5, G6]
+  g6_pass: "supervised: official checkpoint output parity OR >=20-step loss/grad parity on identical data and identical init/state_dict when shareable; training-free: same support/target mask/prompt parity"
+  g6_unverified_action: "supplement_or_reference_only"
