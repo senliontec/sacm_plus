@@ -5,6 +5,7 @@
 
 <context>
 使用 context pack 中的官方全文。缺外部引用时写入 <unverified>，不猜测内容。
+本文件的输出是 02 的强制输入：每条敏感点必须有稳定 id，02 必须逐条回流。
 </context>
 
 <rules>
@@ -16,6 +17,9 @@
 4. 同时列出“官方看起来奇怪但必须原样保留”的写法（冗余、弃用 API、可疑默认值、泄漏）。
 5. 区分“必须保留”和“官方 bug，移植时应显式决定保留还是修复”。
 6. 未提供的外部引用列入 <unverified>，说明缺哪个文件、缺它会掩盖哪类差异。
+7. 每个 item 必须有稳定 id `S-<baseline>-nn`；02 按 id 回流，id 不得复用、重排或省略。
+8. 01 的 item 是 02 的必查清单；02 发现 01 遗漏时，必须新增 `S-NEW-nn` 并触发 01 重跑。
+9. 本文件只看官方，不写移植版行为、不判断差异、不提前写 verdict。
 </rules>
 
 <categories>
@@ -35,7 +39,8 @@
 
 <output_format>
 <sensitivity_inventory>
-  <item ref="文件:行号 | 3–5 行原文" category="" must_preserve=""
+  <item id="S-<baseline>-01" ref="文件:行号 | 3–5 行原文" category=""
+        expected_gate="G0|G1|G2|G3|G4|G5|G6a|G6b|G6c" must_preserve=""
         failure_symptom="" confidence="high|medium|low"
         official_bug="true|false" />
   ...
@@ -46,4 +51,7 @@
 <unverified>
   缺什么外部文件/权重/数据；缺它会掩盖什么
 </unverified>
+<handoff>
+  item_count=<n> ids=<S-...;...> gate_histogram=<G0:n,...>
+</handoff>
 </output_format>

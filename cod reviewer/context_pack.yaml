@@ -7,6 +7,26 @@ method:
   prompt_modality: ""         # prompt_free | oracle_prompted | support_based | standard
   backbone: ""                # sam | non_sam | hybrid
   paper_group: ""             # main | supplement | reference | probe
+auditor:
+  model: ""
+  prompt_version: ""
+  protocol_version: ""
+  calibration_report: ""      # calibration_report.json
+  calibration_pack_sha256: ""
+  a0: ""                      # pass | fail
+  recall_high: 0.0
+  recall_all: 0.0
+  precision: 0.0
+  evidence_validity: 0.0
+  overclaim: 0
+  dual_audit: false
+  agreement: 0.0
+audit_inputs:
+  sensitivity_inventory: ""   # 01 output
+  sensitivity_inventory_sha256: ""
+  sensitivity_item_count: 0
+  sensitivity_closure: ""     # 02 output
+  closure: 0.0
 official:
   repo: ""
   commit: ""
@@ -51,7 +71,7 @@ determinism:
 known_deviations:
   - id: ""
     level: ""                 # L0-L6
-    fidelity_gate: ""         # G0-G6
+    fidelity_gate: ""         # G0-G6c / G6a|G6b|G6c
     category: ""              # official_recipe | protocol_adaptation | bug_fix | wrapper_change | missing_asset | unverified
     text: ""
     verification: ""          # 可执行的验证命令/断言
@@ -67,6 +87,13 @@ tolerances:
   mask_iou: 0.9999
   loss_atol: 1e-4
 gates:
-  main_table_requires: [G0, G1, G2, G3, G4, G5, G6]
-  g6_pass: "supervised: official checkpoint output parity OR >=20-step loss/grad parity on identical data and identical init/state_dict when shareable; training-free: same support/target mask/prompt parity"
-  g6_unverified_action: "supplement_or_reference_only"
+  main_table_requires: [A0, G0, G1, G2, G3, G4, G5, G6a, G6c]
+  a0_required: true
+  closure_required: 1.0
+  g6a_path_parity: "same preprocessed batch + same init/state_dict when shareable + fixed seed + >=20 optimizer steps; training-free mask/prompt/support parity repeated >=3"
+  g6b_checkpoint_parity: "official checkpoint on fixed input matrix; class-count fallback to official num_classes; N/A if no official checkpoint"
+  g6c_table_metric_provenance: "full training/eval, saved masks/metrics/config/manifest hash, recomputed metrics, rerun eval, seed mean/std; this does NOT imply official paper number parity"
+  official_metric_match_policy: "verified only with same protocol/data/checkpoint or same-scope official numbers; otherwise unverified; never inferred from G6a/G6b/G6c"
+  g6b_required_for_official_weight_claim: true
+  bare_g6_valid: false
+  g6c_unverified_action: "supplement_or_reference_only"

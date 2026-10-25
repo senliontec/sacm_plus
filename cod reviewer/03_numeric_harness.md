@@ -15,6 +15,22 @@
 - `probe_standard_sam`：L1–L5（训练时含 loss/grad）；不做 L6。
 </context>
 
+<g6_semantics>
+- **G6a path parity**：同一预处理 batch（transform 输出 hash 相同）+ 同一初始化/state_dict
+  （能共享时）+ 固定 seed，≥20 个 optimizer steps 的 loss/grad/optimizer step 对比；
+  training-free 比较 mask/prompt/support 选择，重复≥3。
+- **G6b official asset parity**：官方 checkpoint 加载到官方与移植两侧，固定输入矩阵
+  （batch 1/2、奇数尺寸、空 mask、train/eval）比较 forward/输出；类数不一致先用官方
+  同一 num_classes 配置；无官方 checkpoint 则 N/A。
+- **G6c metric reproduction**：完成表格要求的全量训练/评测，保存 masks/metrics/config/
+  manifest hash；从 masks 重算指标与表格值一致；同 checkpoint 复跑 eval 一致；
+  报告 seed 均值/方差。
+- **只有 G6c 支持“本表指标可复现”**；G6a/G6b 只证明路径/资产一致，不能替代 G6c。
+- **G6c 不等于官方论文数字一致**；`official_metric_match` 是独立字段，只有同一协议/
+  同一数据/同一 checkpoint 或同口径官方数字才可为 `verified`。
+- 禁止裸 `G6=pass`；必须分别报告 G6a/G6b/G6c。
+</g6_semantics>
+
 <requirements>
 1. 固定 torch/numpy/random 种子；固定输入张量（shape、dtype、生成方式写死）；
    记录 torch/CUDA/cuDNN/库版本和 deterministic 设置。
@@ -25,7 +41,7 @@
    首选官方 checkpoint 映射到两侧；次选把同一 state_dict 复制到两侧。
    若两侧只能各自独立随机初始化（不能共享同一 state_dict），L2 必须
    `skipped`/`unverified`；共享同一随机 state_dict 可以做 L2 实现等价性对比，
-   但不能替代官方权重对比；G6 仍需官方 checkpoint 或短程 loss/grad parity。
+   但不能替代官方权重对比；G6a 仍需官方 checkpoint 或短程 parity，G6c 仍需全量运行。
    记录 `weights.match`（`full|partial|none`）、权重来源、sha256、成功映射的 key 数。
    `full`=共享键全部映射且无 unexpected；`partial`=只映射共享模块（如类数/输出空间改变）；
    `none`=无可共享权重，L2 必须 skipped/unverified。
@@ -60,6 +76,14 @@
     loss/grad 建议 atol=1e-4。可按 baseline 覆盖，但必须记录。
 11. 任一项超差：打印 key、两侧数值、差值，继续跑完，最后非零退出。
 12. 输出 JSON 到 stdout，字段严格遵循下方 schema，便于批量汇总。
+13. G6a：必须证明两侧吃的是**同一预处理 batch**，记录 transform 输出 hash；只给同一
+    dataset 不够。共享同一初始化/state_dict（能共享时），至少 20 个 optimizer steps。
+14. G6b：官方 checkpoint/固定输入矩阵（batch 1/2、奇数尺寸、空 mask、train/eval）；
+    类数/输出空间不同先用官方同一 num_classes 配置，否则只比共享模块并标 unverified。
+15. G6c：必须完成全量训练/评测并保存 masks；从 masks 重算指标、复跑 eval、记录 seed
+    均值/方差。20-step parity 不能代替 G6c；G6c 未跑时不得声称本表指标可复现。
+16. 官方论文数字对齐（`official_metric_match`）独立记录：只有同一协议/数据/checkpoint
+    或同口径官方数字才可标 `verified`，否则 `unverified`；不得由 G6b/G6c 自动推出。
 </requirements>
 
 <json_schema>
@@ -111,6 +135,42 @@
     "scheduler": {"official_lr": 0.0, "ported_lr": 0.0,
                   "official_step": 0, "ported_step": 0}
   },
+  "g6": {
+    "a_path_parity": {
+      "applicable": true,
+      "same_preprocessed_batch": true,
+      "transform_hash": {"official": "<sha256>", "ported": "<sha256>"},
+      "same_init": true,
+      "steps": 20,
+      "loss_max_abs_diff": 0.0,
+      "grad_max_abs_diff": 0.0,
+      "optimizer_step_max_abs_diff": 0.0,
+      "passed": true,
+      "skip_reason": null
+    },
+    "b_checkpoint_parity": {
+      "applicable": true,
+      "weights_match": "full|partial|none",
+      "inputs": ["batch1", "batch2", "odd_size", "empty_mask", "train", "eval"],
+      "outputs": {"<name>": {"max_abs_diff": 0.0, "allclose": true}},
+      "passed": true,
+      "skip_reason": null
+    },
+    "c_metric_provenance": {
+      "applicable": true,
+      "full_training_completed": false,
+      "seeds": [],
+      "datasets": [],
+      "saved_masks": true,
+      "metrics_recomputed": false,
+      "metric_max_abs_diff": null,
+      "rerun_eval_identical": null,
+      "seed_mean_std": {},
+      "passed": false,
+      "skip_reason": "full run not executed"
+    },
+    "official_metric_match": "verified|unverified|N/A"
+  },
   "training_free": {
     "applicable": false,
     "support_set": "<str>", "target": "<str>",
@@ -140,12 +200,12 @@
 <cannot_cover>
 每项：无法验证什么、为什么、应改用什么方式验证。至少逐项检查：
 - 官方 dataset/transform 入口不可运行 → 用固定 tensor 直接调 transform；
-- 官方 checkpoint 缺失 → 用同一随机 state_dict 做 L2 实现等价性对比；G2 可 pass，
-  G6 标 unverified（除非官方代码+同一数据短程 parity）；
+- 官方 checkpoint 缺失 → 用同一随机 state_dict 做 L2 实现等价性对比；G2 可 pass；
+  G6b 标 N/A；G6a 可用官方代码+同一预处理 batch 短程 parity；G6c 仍需全量运行；
 - DDP/SyncBN → 单卡无法验证，改用单卡等价 batch 或标 unverified；
 - EMA → 单独比较 EMA 权重/更新公式；
-- 全量训练 → 同一份数据（官方或项目 18/6）+同一初始化/state_dict（能共享时）短程 N≥20 steps loss/grad 对比；
-  短程只证明训练路径一致，最终精度仍需全量训练；
+- 全量训练 → G6a 用同一预处理 batch +同一初始化/state_dict（能共享时）短程 N≥20 steps 对比；
+  G6c 必须完成全量训练/评测并保存 masks；G6a 不能代替 G6c；G6c 也不代表官方论文数字一致；
 - 非确定性算子 → 重复运行并记录方差；稳定超差仍判 fail，只有波动且无法收敛时标 skipped/unverified；
 - 目标 GPU 不可得 → 标 unverified，不用 CPU 结果代替。
 </cannot_cover>
