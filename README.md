@@ -239,7 +239,8 @@ Example for the U-Net adapter:
 
 ```bash
 # One-click every available model/seed: train -> eval -> tables -> figures
-# All NVIDIA compute processes are cleared before training; --no-kill opts out.
+# Compute processes on the --gpus GPUs are cleared before training;
+# --no-kill opts out.
 # --model all includes the appendix sam2_unet, which needs
 # checkpoints/sam2_hiera_large.pt.
 bash scripts/run_paper.sh --model all --seeds all --gpus 0,1,2,3 --resume

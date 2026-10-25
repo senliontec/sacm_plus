@@ -861,7 +861,10 @@ def build_parser(adapter: BaselineAdapter) -> argparse.ArgumentParser:
                         help='debug only: truncate the train split')
     parser.add_argument('--limit-val', type=int, default=0,
                         help='debug only: truncate the val split')
-    parser.add_argument('--use_wandb', action='store_true')
+    parser.add_argument(
+        '--use_wandb', nargs='?', const=True, default=True,
+        type=lambda value: str(value).lower() in ('1', 'true', 'yes', 'on'),
+        help='log to W&B (default: true; pass --use_wandb false to disable)')
     parser.add_argument('--wandb_project', default='sacm')
     parser.add_argument('--wandb_entity',
                         default=os.environ.get('WANDB_ENTITY', 'buaazqk'))
@@ -872,7 +875,7 @@ def build_parser(adapter: BaselineAdapter) -> argparse.ArgumentParser:
                         default=f'{adapter.id},3shot')
     parser.add_argument('--wandb_mode',
                         choices=['online', 'offline', 'disabled'],
-                        default=None)
+                        default=os.environ.get('WANDB_MODE'))
     parser.add_argument('--wandb_host',
                         default=os.environ.get(
                             'WANDB_BASE_URL', 'http://172.16.1.7:8080'))

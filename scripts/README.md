@@ -18,8 +18,8 @@ job it runs the config's
 `train_entrypoint`, then `eval_entrypoint`, and finally writes the
 cross-model tables and figures.
 
-Before training, `run_paper.sh` clears all NVIDIA compute processes via
-`tools/clear_gpus.sh` (the same behaviour as the fencing launcher).
+Before training, `run_paper.sh` clears compute processes on the GPUs
+selected by `--gpus` via `tools/clear_gpus.sh`; other GPUs are not touched.
 Pass `--no-kill` to skip cleanup; `--dry-run` and `--tables-only` never
 kill anything.
 
@@ -30,6 +30,15 @@ bash scripts/run_paper.sh --model unet --seeds 0 --gpus 2
 bash scripts/run_paper.sh --model unet,sacm_x --seeds 0 1 --gpus 2,3
 bash scripts/run_paper.sh --model all --seeds all --dry-run
 ```
+
+## W&B
+
+Baseline training and evaluation default to W&B. `run_train.sh` and
+`run_eval.sh` source `scripts/sacm_x/wandb_env.sh` and require credentials
+when `WANDB_MODE` is online; missing credentials fail fast with a clear
+message. Use `WANDB_MODE=offline` for local W&B files or
+`WANDB_MODE=disabled` to turn it off. Direct `run_one` also defaults to
+W&B; pass `--use_wandb false` to disable it for a single run.
 
 ## 2. Paper tables and figures only
 
@@ -123,8 +132,9 @@ matrix and uses the same engine.
   a size-matched `.bin`/`.pth`/`.pt`/`.safetensors` file under
   `checkpoints/` (e.g. `checkpoints/dinov3/pytorch_model.bin`), so no
   environment variable is required.
-- `clear_gpus.sh` stops all NVIDIA compute processes; `run_paper.sh`
-  calls it before training and accepts `--no-kill` to opt out.
+- `clear_gpus.sh` stops compute processes on the selected GPU(s);
+  `run_paper.sh` passes `--gpus` to it before training and accepts
+  `--no-kill` to opt out.
 - `setup_baselines.sh` installs every baseline extra;
   `verify_against_official.py` is the `make verify` cross-check;
   `clean_pycache.sh` is `make clean`.

@@ -21,4 +21,22 @@ if [ -z "${PYTHON:-}" ]; then
 fi
 
 export PYTHONPATH="$PWD/src${PYTHONPATH:+:$PYTHONPATH}"
+
+# Default W&B: load the self-hosted env and require credentials unless the
+# caller explicitly chooses offline/disabled.  The configs already pass
+# --use_wandb for every baseline.
+source "$PWD/scripts/sacm_x/wandb_env.sh"
+export WANDB_MODE="${WANDB_MODE:-online}"
+DRY_RUN=0
+for arg in "$@"; do
+  [[ "$arg" == "--dry-run" ]] && DRY_RUN=1
+done
+if [[ "$DRY_RUN" -eq 0 && "$WANDB_MODE" != "offline" && "$WANDB_MODE" != "disabled" ]]; then
+  if ! wandb_auth_ok; then
+    echo "ERROR: W&B is enabled by default but no credentials were found." >&2
+    echo "Set WANDB_API_KEY or run 'wandb login', or use WANDB_MODE=offline/disabled." >&2
+    exit 1
+  fi
+fi
+
 exec "$PYTHON" -m baseline_zoo eval "$@"

@@ -8,8 +8,8 @@
 #   bash scripts/run_paper.sh --model all --seeds all --dry-run
 #   bash scripts/run_paper.sh --model all --seeds all --no-kill
 #
-# Before training, all NVIDIA compute processes are cleared (same behaviour
-# as fencing-algs/run_experiments.sh).  --no-kill skips that cleanup.
+# Before training, compute processes on the GPUs selected by --gpus are
+# cleared.  --no-kill skips that cleanup; other GPUs are never touched.
 #
 # --tables-only skips training/evaluation and only regenerates the paper
 # tables and figures from existing metrics.
@@ -34,8 +34,28 @@ for arg in "${ARGS[@]}"; do
   [ "$arg" = "--dry-run" ] && DRY_RUN=1
 done
 
+# Match the planner's default GPU set.  Accept --gpus 0 and --gpus=0.
+GPU_SPEC="0"
+idx=0
+while [ "$idx" -lt "${#ARGS[@]}" ]; do
+  arg="${ARGS[$idx]}"
+  case "$arg" in
+    --gpus)
+      GPU_SPEC="${ARGS[$((idx + 1))]:-0}"
+      idx=$((idx + 2))
+      ;;
+    --gpus=*)
+      GPU_SPEC="${arg#--gpus=}"
+      idx=$((idx + 1))
+      ;;
+    *)
+      idx=$((idx + 1))
+      ;;
+  esac
+done
+
 if [ "$TABLES_ONLY" -eq 0 ] && [ "$DRY_RUN" -eq 0 ] && [ "$KILL_GPU" -eq 1 ]; then
-  bash scripts/tools/clear_gpus.sh
+  bash scripts/tools/clear_gpus.sh --gpus "$GPU_SPEC"
 fi
 
 if [ "$TABLES_ONLY" -eq 0 ]; then
