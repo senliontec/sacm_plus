@@ -1,0 +1,51 @@
+{
+  "baseline": "sam_octa",
+  "official_commit": "9edc56247a3e30c96e5c6f1e8fe01250b8338527",
+  "official_ref": "3rd/SAM-OCTA/sam_lora_image_encoder.py; segment_anything/",
+  "ported_ref": "src/baseline_zoo/models/sam_octa/lora.py; segment_anything/",
+  "probe_config": {
+    "model_type": "vit_l",
+    "rank": 4,
+    "weights": "random init; official LoRA state_dict copied into port",
+    "note": "official paper default is vit_h; vit_l used because port uses vit_l and official registry supports it",
+    "env_workaround": "icecream not installed; stubbed in sys.modules only (debug prints); official files untouched"
+  },
+  "base_state_dict": {
+    "keys_equal": true,
+    "shapes_equal": true
+  },
+  "state_dict": {
+    "keys_equal": true,
+    "shapes_equal": true,
+    "missing_count": 0,
+    "unexpected_count": 0,
+    "missing_sample": [],
+    "unexpected_sample": [],
+    "shape_mismatch": [],
+    "param_count": {
+      "official": 312736048,
+      "ported": 312736048
+    },
+    "copy_official_to_port_strict": true,
+    "error": null
+  },
+  "forward": {
+    "input": "1x3x1024x1024; prompts=2 points (1 pos, 1 neg)",
+    "preprocess_max_abs_diff": 0.0,
+    "image_encoder_shape": [
+      1,
+      256,
+      64,
+      64
+    ],
+    "image_encoder_max_abs_diff": 0.0,
+    "output_shape": [
+      1,
+      1,
+      1024,
+      1024
+    ],
+    "output_max_abs_diff": 0.0,
+    "allclose_1e-5": true
+  }
+}

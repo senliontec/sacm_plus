@@ -1,0 +1,52 @@
+{
+  "baseline": "cwsam",
+  "official_commit": "7bbb32ad3769ffc3f41f4361a074c55a7299fa27",
+  "official_ref": "3rd/CWSAM/models/sam.py; models/mmseg/models/sam/",
+  "ported_ref": "src/baseline_zoo/models/cwsam/sam.py",
+  "probe_config": {
+    "num_classes": 2,
+    "inp_size": 1024,
+    "encoder_mode": "ViT-L (port config)",
+    "weights": "random init; official state_dict copied into port",
+    "note": "official released configs are ViT-B 5/10-class; this probe matches the port 2-class ViT-L adaptation to test module equivalence, not the official SAR configuration",
+    "env_workaround": "models/mmseg/__init__.py imports mmcv (not installed); bypassed only at import-harness level, official model files untouched"
+  },
+  "state_dict": {
+    "keys_equal": true,
+    "shapes_equal": true,
+    "missing_count": 0,
+    "unexpected_count": 0,
+    "missing_sample": [],
+    "unexpected_sample": [],
+    "shape_mismatch": [],
+    "param_count": {
+      "official_2cls_vitl": 350511652,
+      "ported_2cls_vitl": 350511652
+    },
+    "buffer_count": {
+      "official": 1,
+      "ported": 1
+    },
+    "copy_official_to_port_strict": true,
+    "error": null
+  },
+  "forward": {
+    "input": "1x3x1024x1024",
+    "prompt_free": "empty sparse + no_mask_embed",
+    "image_encoder_shape": [
+      1,
+      256,
+      64,
+      64
+    ],
+    "image_encoder_max_abs_diff": 0.0,
+    "logits_shape": [
+      1,
+      2,
+      1024,
+      1024
+    ],
+    "logits_max_abs_diff": 0.0,
+    "allclose_1e-5": true
+  }
+}

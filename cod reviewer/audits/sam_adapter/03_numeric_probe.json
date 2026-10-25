@@ -1,0 +1,50 @@
+{
+  "baseline": "sam_adapter",
+  "official_ref": "3rd/SAM-Adapter-PyTorch/models/sam.py; models/mmseg/models/sam/",
+  "ported_ref": "src/baseline_zoo/models/sam_adapter/model.py",
+  "official_commit": "unavailable: vendored .git gitdir points to missing ../../.git/modules/3rd/SAM-Adapter-PyTorch",
+  "probe_config": {
+    "inp_size": 1024,
+    "encoder_mode": "official configs/cod-sam-vit-l.yaml",
+    "loss": "iou (official constructor only)",
+    "weights": "random init; official state_dict copied into port",
+    "env_workaround": "models/mmseg/__init__.py imports mmcv (not installed); bypassed only at import-harness level, official model files untouched"
+  },
+  "state_dict": {
+    "keys_equal": true,
+    "shapes_equal": true,
+    "missing_count": 0,
+    "unexpected_count": 0,
+    "missing_sample": [],
+    "unexpected_sample": [],
+    "shape_mismatch": [],
+    "param_count": {
+      "official": 312453412,
+      "ported": 312453412
+    },
+    "buffer_count": {
+      "official": 1,
+      "ported": 1
+    },
+    "copy_official_to_port_strict": true,
+    "error": null
+  },
+  "forward": {
+    "input": "1x3x1024x1024",
+    "image_encoder_shape": [
+      1,
+      256,
+      64,
+      64
+    ],
+    "image_encoder_max_abs_diff": 0.0,
+    "infer_shape": [
+      1,
+      1,
+      1024,
+      1024
+    ],
+    "infer_max_abs_diff": 0.0,
+    "infer_allclose_1e-5": true
+  }
+}
