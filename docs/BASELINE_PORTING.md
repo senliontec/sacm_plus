@@ -89,7 +89,7 @@ accepts multiple supports, so the three project shots are passed directly;
 it writes a metadata-only checkpoint.  Its DINOv2 ViT-L checkpoint is not
 bundled.
 
-Two extensions are intentionally separate from the paper ten:
+Two self-contained probes are separate from the original paper-ten audit:
 `sam_vit_l_unet` is self-contained (frozen SAM ViT-L + decoder), and
 `sam2_unet` is a self-contained appendix baseline (frozen SAM2 Hiera-L +
 prompt-learn adapters + U-Net decoder).  `sam2_unet` requires
@@ -115,6 +115,7 @@ Dice; it is not part of the prompt-free main table.
 | DINOv3 | auto-detected under `checkpoints/`; otherwise set `DINO_CKPT` / `--dino-ckpt` or `HF_TOKEN` |
 | nnU-Net | `nnunetv2==2.8.1` (installed via pip) |
 | KnowSAM metrics | `medpy==0.4.0`, `hausdorff` |
+| Matcher EMD | `POT` (`pip install POT`; already in the `topology` extra) |
 | SAM-Med2D/SAM-OCTA/KnowSAM transforms | `albumentations==1.3.1` (official API) |
 
 ## Commands

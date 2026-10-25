@@ -24,3 +24,5 @@ note: >-
   original GT resolution. The training stage writes a metadata-only
   checkpoint. Requires checkpoints/dinov2_vitl14_pretrain.pth and
   checkpoints/sam_vit_h_4b8939.pth. --matcher-random-init is smoke-only.
+  Heavy: local random-init smoke was ~15s/image for 1 support and ~70s/image
+  for 3 supports; use --support-shots 1 or a dataset subset for triage.

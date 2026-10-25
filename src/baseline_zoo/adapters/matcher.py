@@ -18,7 +18,6 @@ import torch.nn.functional as F
 from PIL import Image
 
 from baseline_zoo.data import load_mask, load_rgb
-from baseline_zoo.models.matcher import build_matcher
 from baseline_zoo.runtime import REPO_ROOT, BaselineAdapter, file_sha256
 from baseline_zoo.support import load_support_groups, select_supports
 
@@ -82,6 +81,12 @@ class MatcherAdapter(BaselineAdapter):
         parser.add_argument('--support-dataset', default='auto')
 
     def build_model(self, args) -> torch.nn.Module:
+        try:
+            from baseline_zoo.models.matcher import build_matcher
+        except ImportError as exc:
+            raise SystemExit(
+                'Matcher requires the POT package (`pip install POT`): '
+                f'{exc}') from exc
         sam_weights = Path(args.sam_weights)
         if not sam_weights.is_file():
             raise SystemExit(

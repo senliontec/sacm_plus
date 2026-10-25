@@ -72,3 +72,11 @@ Semantic-SAM path are not vendored.  The method itself is inference-only.
 - Target GT is never used: matching points come from the support masks and
   DINOv2 features.  The method is support-based, not prompt-free.
 - No test-time augmentation.
+
+## Dependencies
+
+- `POT` (`import ot`) is required by the official EMD scoring path; install
+  it with `pip install POT`.  `cv2`, `scikit-learn` and `matplotlib` are
+  already project dependencies.  `xformers` is optional; DINOv2 falls back
+  to the PyTorch attention implementation when it is absent.
+
