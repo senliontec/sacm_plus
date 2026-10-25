@@ -11,6 +11,7 @@
   `layout.json`、`content_list*.json` 和 `images/` 是版面/图片解析结果。
 - **未收录** 表示 `parsing/` 中没有对应论文目录；不是链接失效。
 - 同一篇论文在 `parsing/` 中可能存在大小写不同的重复目录，表中列主目录，并在备注中标出重复项。
+- 当前覆盖：22 个 adapter 中，12 个在 `parsing/` 有论文目录，10 个标记为“未收录”。
 
 ## Baseline ↔ 3rd 代码 ↔ parsing 论文
 
@@ -55,6 +56,19 @@
 | `sam2_unet` | SAM2-UNet | `3rd/SAM2-UNet` | `parsing/[2024 arxiv] SAM2-UNet: Segment Anything 2 Makes Strong Encoder for Natural and Medical Image Segmentation` | 附录扩展 baseline；需 SAM2 Hiera-L 权重 |
 | `sam_vit_l_unet` | SAM ViT-L + U-Net | `3rd/segment-anything` | `parsing/[2023 iccv] Segment Anything` | 本项目扩展，不是论文 baseline；3rd 仅提供 SAM 基座，U-Net decoder 为自包含实现 |
 | `ucs` | UCS | `3rd/UCS` | `parsing/[2023 iccv] UCS: A Universal Model for Curvilinear Structure Segmentation` | oracle-prompted reference，不是 prompt-free |
+
+## 未集成 / 已排除（不属于 22 个 registry baseline）
+
+以下方法的 `3rd/` 代码和 `parsing/` 论文都在本地，但未进入 `baseline_zoo` 的 adapter 列表，
+不计入上表 22 个 baseline。
+
+| 方法 | 3rd 代码目录 | parsing 论文目录 | 状态 |
+|---|---|---|---|
+| CoroSAM | `3rd/CoroSAM` | `parsing/[2026] CoroSAM: adaptation of the Segment Anything Model for interactive segmentation in Coronary angiograms` | 已排除：代码不完整，不作为定量 baseline |
+| MedSAM | `3rd/MedSAM` | `parsing/[2024 nature communication] Segment anything in medical images` | 未集成 |
+| MSA-SAM | `3rd/Mult-scale-SAM` | `parsing/[2025 JSTARS] Multiscale Adapter Based on SAM for Remote Sensing Semantic Segmentation` | 未集成 |
+| FlowSDF | `3rd/FlowSDF` | `parsing/[2025 ijcv] FlowSDF: Flow Matching for Medical Image Segmentation Using Distance Transforms` | 未集成 |
+| SAMIX | `3rd/SAMIX` | `parsing/[2026 cvpr] SAMIX: Reinforcing SAM2 with Semantic Adapter and Reference Selecting Policy for Mix-Supervised Segmentation` | 未集成 |
 
 ## 快速核对
 
