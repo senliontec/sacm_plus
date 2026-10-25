@@ -1,0 +1,63 @@
+{
+  "baseline": "cs2net",
+  "official_commit": "f1f8bbb011ebabc39b3ce6b552b8a0d881e587f6",
+  "ported_ref": "src/baseline_zoo/models/cs2net/csnet.py; src/baseline_zoo/adapters/cs2net.py",
+  "weights": {
+    "match": "full",
+    "source": "state_dict_copy",
+    "note": "official model state_dict copied into the port; no official trained checkpoint exists"
+  },
+  "state_dict": {
+    "keys_equal": true,
+    "shapes_equal": true,
+    "param_count": {"official": 8925603, "ported": 8925603},
+    "buffer_count": {"official": 6164, "ported": 6164},
+    "init_max_abs_diff_same_seed": 0.0
+  },
+  "forward_eval": {
+    "inputs": ["1x3x512x512", "2x3x256x256"],
+    "max_abs_diff_512": 0.0,
+    "max_abs_diff_256": 0.0,
+    "allclose": true
+  },
+  "loss": {
+    "official": "MSE + official dice_coeff_loss (custom autograd)",
+    "ported": "MSE + vectorized _official_dice_loss",
+    "one_batch_loss_max_abs_diff": 0.0,
+    "one_batch_grad_max_abs_diff": 1.5e-8,
+    "one_step_param_max_abs_diff": 1.37e-5,
+    "optimizer_step_tolerance": 1e-4,
+    "twenty_step_loss_max_abs_diff": 9.5e-7,
+    "twenty_step_param_max_abs_diff": 6.6e-4,
+    "twenty_step_note": "cumulative drift from floating-point reduction order plus Adam amplification; single-step diff is within tolerance"
+  },
+  "optimizer_scheduler": {
+    "optimizer": "Adam lr=1e-4 weight_decay=5e-4",
+    "lr_sequence_official": [0.0001, 0.0001, 9.990999549834914e-05, 9.981998198678613e-05, 9.972995945537971e-05, 9.96399278941777e-05],
+    "lr_sequence_ported": [0.0001, 0.0001, 9.990999549834914e-05, 9.981998198678613e-05, 9.972995945537971e-05, 9.96399278941777e-05],
+    "lr_max_abs_diff": 0.0
+  },
+  "preprocessing": {
+    "sample": "data/sacm_3shot_seed0/train/images/DRIVE_31_training.tif",
+    "train_image_max_abs_diff": 0.0,
+    "train_mask_max_abs_diff": 0.0,
+    "eval_image_max_abs_diff": 0.0,
+    "note": "same RNG seed and sequence; DRIVE sample only"
+  },
+  "otsu": {
+    "cv2": 127.0,
+    "skimage": 127.0,
+    "binary_equal": true
+  },
+  "inference": {
+    "prediction_max_abs_diff": 0.0,
+    "binary_mask_equal": true,
+    "restored_gt_shape_equal": true
+  },
+  "unverified": [
+    "official 2-GPU DataParallel training trajectory",
+    "official DataLoader num_workers=2 RNG stream",
+    "official no-seed training trajectory",
+    "full 1000-epoch training and paper metrics (G6c)"
+  ]
+}
