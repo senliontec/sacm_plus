@@ -36,7 +36,8 @@ class SAMAdapter(BaselineAdapter):
     # Upstream constructs AdamW with only lr, so PyTorch's default
     # weight_decay=0.01 is the executable recipe.
     official_weight_decay = 0.01
-    train_batch_size = 2
+    train_batch_size = 1
+    accumulation_steps = 2
     selection = 'dice'
     deviations = (
         'Retrained from the official SAM ViT-L checkpoint. The authors\' '
@@ -57,12 +58,14 @@ class SAMAdapter(BaselineAdapter):
         'and eval loops; the port uses the dataset wrapper\'s ImageNet '
         'normalization.',
         'Official training uses 4 GPUs x batch 2 (effective 8), workers=8 '
-        'and an unseeded global RNG; this port runs one GPU with batch 2 '
-        '(optionally accumulation) and the shared seeded runtime.',
-        'The official batch size is 2. On a <=11 GiB GPU use --batch-size 1 '
-        '(non-official) or gradient accumulation; batch 2 is the default.',
-        'Optional --grad-checkpointing checkpoints each ViT block; it changes '
-        'memory only and is off by default, matching the official computation.',
+        'and an unseeded global RNG; this port runs one GPU with batch 1 + '
+        '2-step accumulation (effective batch 2) and the shared seeded '
+        'runtime.',
+        'The official batch size is 2. This port defaults to batch 1 + '
+        '2-step accumulation and gradient checkpointing because batch 2 at '
+        '1024x1024 OOMs on a 24 GiB card; effective batch remains 2.',
+        'Gradient checkpointing is on by default for the ViT blocks; it '
+        'changes memory only, not the computation.',
         'The upstream prompt path hardcodes bs=1 and broadcasts one prompt '
         'set over the image batch; the port preserves that behaviour.',
         'The dead evp branch and the upstream DDP/training plumbing are '
@@ -79,7 +82,10 @@ class SAMAdapter(BaselineAdapter):
             '--sam-checkpoint', type=Path,
             default=REPO_ROOT / 'checkpoints' / 'sam_vit_l_0b3195.pth')
         parser.add_argument('--input-size', type=int, default=1024)
-        parser.add_argument('--grad-checkpointing', action='store_true')
+        parser.add_argument(
+            '--grad-checkpointing', action='store_true', default=True,
+            help='checkpoint ViT blocks to reduce activation memory '
+                 '(default: on; memory-only)')
 
     def build_model(self, args) -> nn.Module:
         from baseline_zoo.models.sam_adapter import build_sam_adapter
@@ -89,7 +95,7 @@ class SAMAdapter(BaselineAdapter):
         self.input_size = int(args.input_size)
         model = build_sam_adapter(inp_size=self.input_size)
         model.image_encoder.grad_checkpointing = bool(
-            getattr(args, 'grad_checkpointing', False))
+            getattr(args, 'grad_checkpointing', True))
         return model
 
     def load_pretrained(self, model, args) -> None:
@@ -206,7 +212,7 @@ class SAMAdapter(BaselineAdapter):
             'sam_checkpoint': str(checkpoint) if checkpoint else None,
             'sam_checkpoint_sha256': self._sam_sha,
             'grad_checkpointing': bool(
-                getattr(args, 'grad_checkpointing', False)),
+                getattr(args, 'grad_checkpointing', True)),
         }
 
     def restore_config(self, args, config):
@@ -214,7 +220,7 @@ class SAMAdapter(BaselineAdapter):
             args.input_size = int(config['input_size'])
             self.input_size = args.input_size
         args.grad_checkpointing = bool(
-            config.get('grad_checkpointing', False))
+            config.get('grad_checkpointing', True))
         stored = config.get('sam_checkpoint_sha256')
         current = getattr(args, 'sam_checkpoint', None)
         if stored and current is not None and Path(current).is_file():

@@ -68,7 +68,8 @@ def test_registry_and_metadata():
     assert adapter.input_size == 1024
     assert adapter.official_epochs == 20
     assert adapter.official_weight_decay == 0.01
-    assert adapter.train_batch_size == 2
+    assert adapter.train_batch_size == 1
+    assert adapter.accumulation_steps == 2
     assert 'Retrained' in adapter.deviations[0]
 
 

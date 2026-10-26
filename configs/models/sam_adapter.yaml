@@ -22,6 +22,6 @@ note: >-
   The official FFT high-pass prompt generator is injected into every ViT
   block; the decoder receives empty sparse prompts plus no_mask_embed.
   Official 20-epoch AdamW 2e-4/cosine recipe; only the prompt generator
-  and mask decoder are trained. Official batch size is 2; on <=11 GiB add
-  --batch-size 1 --accum-steps 2 --grad-checkpointing to keep the effective
-  batch while reducing peak memory.
+  and mask decoder are trained. Official batch size is 2; this port defaults
+  to batch 1 + 2-step accumulation + gradient checkpointing to fit a 24 GiB
+  card, preserving effective batch 2.

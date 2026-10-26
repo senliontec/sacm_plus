@@ -102,6 +102,9 @@ for m in "${MODELS[@]}"; do
     fob_sam)
       extra=(--epochs 1 --fob-iters-per-epoch 1)
       ;;
+    sam_adapter)
+      extra=(--epochs 1 --batch-size 1 --accum-steps 2 --grad-checkpointing)
+      ;;
     matcher|persam)
       extra=(--epochs 0)
       ;;
