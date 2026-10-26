@@ -56,6 +56,28 @@ def test_tiny_forward_and_loss():
     assert any(p.grad is not None for p in model.parameters())
 
 
+def test_train_step_adds_soft_dice():
+    adapter = DSCNetAdapter()
+    adapter.args = SimpleNamespace(dsc_dice_weight=1.0)
+
+    class ProbModel(nn.Module):
+        def forward(self, x):
+            return torch.full_like(x, 0.6)
+
+    images = torch.zeros(1, 1, 8, 8)
+    masks = torch.zeros(1, 1, 8, 8)
+    masks[..., :4] = 1
+    pred = torch.full_like(images, 0.6)
+    expected_bce = adapter._criterion(masks, pred)
+    expected_dice = adapter._soft_dice(pred, masks)
+    loss = adapter.train_step(ProbModel(), (images, masks))
+    assert torch.allclose(loss, expected_bce + expected_dice)
+
+    adapter.args.dsc_dice_weight = 0.0
+    loss = adapter.train_step(ProbModel(), (images, masks))
+    assert torch.allclose(loss, expected_bce)
+
+
 def test_preprocess_shapes(tmp_path):
     adapter = DSCNetAdapter()
     adapter.input_size = 224

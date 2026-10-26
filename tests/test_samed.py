@@ -140,3 +140,16 @@ def test_poly_scheduler_does_not_zero_last_epoch():
     for _ in range(160):
         scheduler.step()
     assert optimizer.param_groups[0]['lr'] > 0
+
+
+def test_warmup_is_scaled_by_iterations():
+    adapter = SAMedAdapter()
+    args = SimpleNamespace(epochs=200, batch_size=4)
+    # 18 images / batch 4 -> 5 batches per epoch; 250 iterations -> 50 epochs.
+    assert adapter._warmup_epochs(args) == 50
+
+    model = torch.nn.Linear(1, 1)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=5e-3)
+    adapter.make_scheduler(optimizer, args)
+    # The first LR must be about base_lr / 50, not the old base_lr / 5.
+    assert 8e-5 < optimizer.param_groups[0]['lr'] < 1.2e-4

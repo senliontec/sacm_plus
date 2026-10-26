@@ -8,6 +8,7 @@ encoder, so inference is prompt-free and oracle-free.
 
 from __future__ import annotations
 
+import math
 import random
 from pathlib import Path
 
@@ -18,7 +19,7 @@ from PIL import Image
 from scipy.ndimage import rotate as nd_rotate
 from torch import nn
 
-from baseline_zoo.data import load_mask, load_rgb
+from baseline_zoo.data import load_mask, load_rgb, load_split_samples
 from baseline_zoo.models.samed import DiceLoss, build_samed
 from baseline_zoo.runtime import REPO_ROOT, BaselineAdapter, file_sha256
 
@@ -59,11 +60,11 @@ class SAMedAdapter(BaselineAdapter):
         'AdamW recipe and discloses the source-default ambiguity. Official '
         '2-GPU DataParallel/batch24 and NumPy worker RNG are replaced by '
         'single-GPU/batch4 and the shared seeded runtime.',
-        'The official 250-iteration warmup is replaced by a 5-epoch warmup, '
-        'and the polynomial decay is stepped per epoch; the 18-image epoch '
-        'has only a few iterations. The poly horizon is max(epochs, 200), '
-        'matching the official 200-epoch schedule, so the final epoch is '
-        'not assigned lr=0.',
+        'The official 250-iteration warmup is preserved in iteration units: '
+        'with the 18-image loader it spans about 50 epochs at batch 4 '
+        '(250 / ceil(18 / 4)). The polynomial decay is stepped per epoch; '
+        'the poly horizon is max(epochs, 200), matching the official '
+        '200-epoch schedule, so the final epoch is not assigned lr=0.',
         'Predictions are exported at original GT resolution; the official '
         'evaluator argmaxes at 512 and zooms to the native slice size.',
         'No mixed precision and no test-time augmentation.',
@@ -122,8 +123,21 @@ class SAMedAdapter(BaselineAdapter):
             [p for p in model.parameters() if p.requires_grad],
             lr=args.lr, weight_decay=args.weight_decay)
 
+    @staticmethod
+    def _warmup_epochs(args) -> int:
+        """Convert the official 250-iteration warmup to epoch units."""
+        train_images = 18
+        data_root = getattr(args, 'data_root', None)
+        if data_root is not None and (
+                Path(data_root) / 'split_manifest.csv').is_file():
+            train_images = len(load_split_samples(Path(data_root), 'train'))
+        batch_size = max(
+            1, int(getattr(args, 'batch_size', SAMedAdapter.train_batch_size)))
+        batches_per_epoch = max(1, math.ceil(train_images / batch_size))
+        return max(1, math.ceil(250 / batches_per_epoch))
+
     def make_scheduler(self, optimizer, args):
-        warmup_epochs = 5
+        warmup_epochs = self._warmup_epochs(args)
         # Official max_iterations uses max_epochs=200; the port stops at 160
         # but keeps the 200-epoch poly horizon so the last epoch is nonzero.
         total = max(int(args.epochs), 200)

@@ -51,7 +51,9 @@ class DSCNetAdapter(BaselineAdapter):
         'shared 6-image validation Dice.',
         'The official 400-epoch, batch-1, 224-crop, AdamW 1e-4 with '
         'betas (0.9,0.95) recipe and the soft BCE loss are preserved. The '
-        'built-but-never-stepped ReduceLROnPlateau is omitted (constant LR).',
+        'built-but-never-stepped ReduceLROnPlateau is omitted (constant LR). '
+        'A soft Dice term is added to the official BCE for the 3-shot '
+        'class-imbalance protocol; --dsc-dice-weight=0 restores BCE-only.',
         'The official patch-blending kernel has a singular 1/0 center; the '
         'port uses a finite 1/(1+d^4) quartic window and explicit last-patch '
         'coverage. No official weights are present; training starts from '
@@ -72,6 +74,10 @@ class DSCNetAdapter(BaselineAdapter):
         parser.add_argument('--dsc-basic-layer', type=int, default=16)
         parser.add_argument('--dsc-kernel-size', type=int, default=9)
         parser.add_argument('--dsc-stride', type=int, default=112)
+        parser.add_argument(
+            '--dsc-dice-weight', type=float, default=1.0,
+            help='soft Dice weight added to the official soft BCE '
+                 '(0 restores the official BCE-only loss)')
 
     @staticmethod
     def _compute_stats(data_root: Path) -> tuple[float, float]:
@@ -175,10 +181,22 @@ class DSCNetAdapter(BaselineAdapter):
         return (torch.stack(images).to(self.device),
                 torch.stack(masks).to(self.device))
 
+    @staticmethod
+    def _soft_dice(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        dims = (1, 2, 3)
+        intersection = (pred * target).sum(dims)
+        denominator = pred.sum(dims) + target.sum(dims)
+        return (1.0 - (2.0 * intersection + 1e-5)
+                / (denominator + 1e-5)).mean()
+
     def train_step(self, model, batch):
         images, masks = batch
         pred = model(images)
-        return self._criterion(masks, pred)
+        loss = self._criterion(masks, pred)
+        weight = float(getattr(self.args, 'dsc_dice_weight', 1.0))
+        if weight:
+            loss = loss + weight * self._soft_dice(pred, masks)
+        return loss
 
     def prepare_eval_sample(self, sample, device):
         values, _ = self._load(sample)
@@ -235,13 +253,14 @@ class DSCNetAdapter(BaselineAdapter):
             'dsc_basic_layer': int(getattr(args, 'dsc_basic_layer', 16)),
             'dsc_kernel_size': int(getattr(args, 'dsc_kernel_size', 9)),
             'dsc_stride': int(getattr(args, 'dsc_stride', 112)),
+            'dsc_dice_weight': float(getattr(args, 'dsc_dice_weight', 1.0)),
             'mean': float(self._mean if self._mean is not None else 0.0),
             'std': float(self._std if self._std is not None else 1.0),
         }
 
     def restore_config(self, args, config):
         for key in ('input_size', 'dsc_basic_layer', 'dsc_kernel_size',
-                    'dsc_stride'):
+                    'dsc_stride', 'dsc_dice_weight'):
             if key in config:
                 setattr(args, key, config[key])
         if 'mean' in config:
