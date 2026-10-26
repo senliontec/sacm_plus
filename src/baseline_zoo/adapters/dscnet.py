@@ -30,7 +30,6 @@ class DSCNetAdapter(BaselineAdapter):
     official_source = 'YaoleiQi/DSCNet (self-contained 2D copy)'
     official_entrypoint = 'https://github.com/YaoleiQi/DSCNet'
     input_size = 224
-    official_epochs = 400
     official_lr = 1e-4
     official_weight_decay = 0.01
     train_batch_size = 1

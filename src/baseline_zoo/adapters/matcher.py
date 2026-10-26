@@ -28,7 +28,6 @@ class MatcherAdapter(BaselineAdapter):
     official_source = 'aim-uofa/Matcher (self-contained copy)'
     official_entrypoint = 'https://github.com/aim-uofa/Matcher'
     input_size = 518
-    official_epochs = 0
     official_lr = 0.0
     train_batch_size = 1
     selection = 'dice'

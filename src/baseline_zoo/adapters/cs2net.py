@@ -64,7 +64,6 @@ class CS2NetAdapter(BaselineAdapter):
     official_source = 'ineedzx/CSNet (self-contained copy)'
     official_entrypoint = 'https://github.com/ineedzx/CSNet'
     input_size = 512
-    official_epochs = 1000
     official_lr = 1e-4
     official_weight_decay = 5e-4
     train_batch_size = 8

@@ -55,7 +55,6 @@ class KnowSAMAdapter(BaselineAdapter):
     official_source = 'KnowSAM (self-contained copy)'
     official_entrypoint = 'upstream train_semi_SAM.py'
     input_size = 256
-    official_epochs = 50000
     official_lr = 1e-4
     official_weight_decay = 1e-4
     train_batch_size = 6

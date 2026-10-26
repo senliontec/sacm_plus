@@ -50,9 +50,8 @@ class FoBSAMAdapter(BaselineAdapter):
     official_source = 'FoB (CVPR 2026)'
     official_entrypoint = 'upstream train.py/test.py (FewShotSeg + frozen SAM)'
     input_size = SIZE
-    # 39001 optimizer iterations with max_iters_per_load=3000 in the
-    # official scripts; 13 epochs x 3000 iterations = 39000.
-    official_epochs = 13
+    # Official training is iteration-based; each port epoch is one
+    # --fob-iters-per-epoch block and the total comes from model config/CLI.
     official_lr = 1e-4
     official_weight_decay = 0.0
     train_batch_size = 1

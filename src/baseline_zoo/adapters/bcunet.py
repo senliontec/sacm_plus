@@ -28,7 +28,6 @@ class BCUNetAdapter(BaselineAdapter):
     official_source = 'BCU-Net (self-contained copy)'
     official_entrypoint = 'upstream code/main.py (vendored snapshot)'
     input_size = 512
-    official_epochs = 50
     official_lr = 1.5e-4
     official_weight_decay = 0.0
     train_batch_size = 1

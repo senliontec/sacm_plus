@@ -67,7 +67,6 @@ class BaselineAdapter(ABC):
     official_source: str
     official_entrypoint: str
     input_size: int
-    official_epochs: int
     official_lr: float
     official_weight_decay: float = 0.0
     train_batch_size: int = 1
@@ -924,6 +923,20 @@ def run_prediction(adapter: BaselineAdapter, args: argparse.Namespace,
 # CLI
 # ---------------------------------------------------------------------------
 
+def _configured_epochs(adapter: BaselineAdapter) -> int:
+    """Read the training budget from the model config, the single source."""
+    from .registry import load_models
+
+    model = load_models().get(adapter.id)
+    if model is None or 'epochs' not in model.defaults:
+        raise SystemExit(
+            f'{adapter.id}: missing defaults.epochs in configs/models')
+    epochs = int(model.defaults['epochs'])
+    if epochs < 0:
+        raise SystemExit(f'{adapter.id}: negative epochs: {epochs}')
+    return epochs
+
+
 def build_parser(adapter: BaselineAdapter) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=f'{adapter.display_name} baseline '
@@ -940,7 +953,8 @@ def build_parser(adapter: BaselineAdapter) -> argparse.ArgumentParser:
                         default=REPO_ROOT / 'results' / 'predictions' /
                         adapter.id)
     parser.add_argument('--test-datasets', nargs='+', default=[])
-    parser.add_argument('--epochs', type=int, default=adapter.official_epochs)
+    parser.add_argument('--epochs', type=int,
+                        default=_configured_epochs(adapter))
     parser.add_argument('--batch-size', type=int,
                         default=adapter.train_batch_size)
     parser.add_argument('--accum-steps', type=int,

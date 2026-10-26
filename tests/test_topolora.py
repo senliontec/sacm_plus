@@ -66,7 +66,6 @@ def test_registry_and_metadata():
     assert isinstance(adapter, TopoLoRAAdapter)
     assert adapter.id == 'topolora'
     assert adapter.input_size == 384
-    assert adapter.official_epochs == 50
     assert adapter.train_batch_size == 1
     assert adapter.accumulation_steps == 4
     assert 'ViT-B' in adapter.deviations[0]

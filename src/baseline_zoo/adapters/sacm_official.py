@@ -28,7 +28,6 @@ class SACMOfficialAdapter(BaselineAdapter):
     official_source = 'kylechuuuuu/SACM (self-contained copy)'
     official_entrypoint = 'upstream train_sam.py'
     input_size = 1024
-    official_epochs = 60
     official_lr = 3e-4
     official_weight_decay = 0.01
     train_batch_size = 1

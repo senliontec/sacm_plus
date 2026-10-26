@@ -36,7 +36,6 @@ class SAMOCTAAdapter(BaselineAdapter):
     official_source = 'SAM-OCTA (self-contained copy)'
     official_entrypoint = 'upstream train_sam_octa.py'
     input_size = 1024
-    official_epochs = 100
     official_lr = 1e-4
     official_weight_decay = 1e-4
     train_batch_size = 1

@@ -43,7 +43,6 @@ class UNetAdapter(BaselineAdapter):
     official_source = 'milesial/PyTorch-UNet (self-contained copy)'
     official_entrypoint = 'https://github.com/milesial/Pytorch-UNet'
     input_size = 512
-    official_epochs = 800
     official_lr = 1e-3
     official_weight_decay = 1e-4
     train_batch_size = 4

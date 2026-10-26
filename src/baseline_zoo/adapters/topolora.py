@@ -35,7 +35,6 @@ class TopoLoRAAdapter(BaselineAdapter):
     official_source = 'Seglab / TopoLoRA-SAM (self-contained copy)'
     official_entrypoint = 'https://github.com/salimkhazem/Seglab'
     input_size = 384
-    official_epochs = 50
     official_lr = 1e-4
     official_weight_decay = 1e-4
     train_batch_size = 1

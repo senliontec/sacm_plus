@@ -25,7 +25,6 @@ def test_registry_and_metadata():
     assert isinstance(adapter, PerSAMAdapter)
     assert adapter.id == 'persam'
     assert adapter.training_free is True
-    assert adapter.official_epochs == 0
     assert 'one-shot' in adapter.deviations[0]
 
 

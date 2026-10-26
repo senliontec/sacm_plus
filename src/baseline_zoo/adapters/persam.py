@@ -31,7 +31,6 @@ class PerSAMAdapter(BaselineAdapter):
     official_source = 'ZrrSkywalker/Personalize-SAM (PerSAM)'
     official_entrypoint = 'https://github.com/ZrrSkywalker/Personalize-SAM'
     input_size = 1024
-    official_epochs = 0
     official_lr = 0.0
     train_batch_size = 1
     selection = 'dice'

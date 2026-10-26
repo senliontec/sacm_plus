@@ -59,7 +59,6 @@ def test_registry_and_metadata():
     assert isinstance(adapter, SAMedAdapter)
     assert adapter.id == 'samed'
     assert adapter.input_size == 512
-    assert adapter.official_epochs == 160
     assert adapter.train_batch_size == 4
     assert 'fully supervised' in adapter.deviations[0]
 

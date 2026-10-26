@@ -31,7 +31,6 @@ class JTFNAdapter(BaselineAdapter):
     official_source = 'zkl20061823/JTFN (self-contained copy)'
     official_entrypoint = 'https://github.com/zkl20061823/JTFN'
     input_size = 256
-    official_epochs = 1000
     official_lr = 1e-3
     official_weight_decay = 5e-4
     train_batch_size = 2

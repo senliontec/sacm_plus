@@ -40,7 +40,6 @@ class MaskVSCAdapter(BaselineAdapter):
     official_source = 'Zhouyi-Zura/MaskVSC (self-contained copy)'
     official_entrypoint = 'https://github.com/Zhouyi-Zura/MaskVSC'
     input_size = 512
-    official_epochs = 200
     official_lr = 2e-4
     official_weight_decay = 0.0
     train_batch_size = 4
@@ -77,8 +76,10 @@ class MaskVSCAdapter(BaselineAdapter):
             weight_decay=args.weight_decay)
 
     def prepare_train_batch(self, samples, rng: random.Random):
+        if self.args is None:
+            raise RuntimeError('MaskVSC requires configured args before training')
         ratio = mask_ratio(getattr(self, '_epoch', 1),
-                           self.args.epochs if self.args else 800)
+                           int(self.args.epochs))
         images, labels = [], []
         for sample in samples:
             image = load_rgb(sample.image_path)

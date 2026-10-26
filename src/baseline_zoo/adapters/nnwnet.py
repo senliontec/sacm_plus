@@ -65,7 +65,6 @@ class NNWNetAdapter(BaselineAdapter):
     official_source = 'nnWNet official nnU-Net trainer plugin'
     official_entrypoint = 'nnUNetv2_train ... -tr nnUNetTrainer_WNet2D'
     input_size = 512
-    official_epochs = 200
     official_lr = 1e-2
     official_weight_decay = 3e-5
     train_batch_size = 1

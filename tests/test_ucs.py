@@ -34,7 +34,6 @@ def test_registry_and_metadata():
     adapter = load_adapter('ucs')
     assert adapter.id == 'ucs'
     assert adapter.input_size == 1024
-    assert adapter.official_epochs == 20
     assert 'Oracle-prompted' in adapter.deviations[0]
 
 

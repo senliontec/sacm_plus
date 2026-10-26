@@ -37,7 +37,6 @@ class SamMed2DAdapter(BaselineAdapter):
     official_source = 'OpenGVLab/SAM-Med2D (self-contained copy)'
     official_entrypoint = 'upstream train.py (prompt refinement loop)'
     input_size = 256
-    official_epochs = 15
     official_lr = 1e-4
     official_weight_decay = 0.0
     train_batch_size = 2

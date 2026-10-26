@@ -30,7 +30,6 @@ class SAMedAdapter(BaselineAdapter):
     official_source = 'hitachinsk/SAMed (self-contained copy)'
     official_entrypoint = 'https://github.com/hitachinsk/SAMed'
     input_size = 512
-    official_epochs = 160
     official_lr = 5e-3
     official_weight_decay = 0.1
     train_batch_size = 4
@@ -63,8 +62,8 @@ class SAMedAdapter(BaselineAdapter):
         'The official 250-iteration warmup is preserved in iteration units: '
         'with the 18-image loader it spans about 50 epochs at batch 4 '
         '(250 / ceil(18 / 4)). The polynomial decay is stepped per epoch; '
-        'the poly horizon is max(epochs, 200); with the 800-epoch project '
-        'budget this is 800, so the final epoch is not assigned lr=0.',
+        'the poly horizon follows the configured epochs (800 for the shared '
+        'project budget), so the final epoch is not assigned lr=0.',
         'Predictions are exported at original GT resolution; the official '
         'evaluator argmaxes at 512 and zooms to the native slice size.',
         'No mixed precision and no test-time augmentation.',
@@ -138,9 +137,9 @@ class SAMedAdapter(BaselineAdapter):
 
     def make_scheduler(self, optimizer, args):
         warmup_epochs = self._warmup_epochs(args)
-        # Official max_iterations uses max_epochs=200; keep at least the
-        # official 200-epoch poly horizon. The project budget is 800.
-        total = max(int(args.epochs), 200)
+        # The poly horizon follows the configured/CLI epoch budget; no epoch
+        # count is hardcoded here.
+        total = max(int(args.epochs), 1)
 
         def lr_lambda(epoch: int) -> float:
             warmup = min(1.0, (epoch + 1) / warmup_epochs)

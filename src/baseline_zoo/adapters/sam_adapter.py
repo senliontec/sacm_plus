@@ -31,7 +31,6 @@ class SAMAdapter(BaselineAdapter):
     official_source = 'SAM-Adapter-PyTorch (self-contained copy)'
     official_entrypoint = 'https://github.com/tianrun-chen/SAM-Adapter-PyTorch'
     input_size = 1024
-    official_epochs = 20
     official_lr = 2e-4
     # Upstream constructs AdamW with only lr, so PyTorch's default
     # weight_decay=0.01 is the executable recipe.

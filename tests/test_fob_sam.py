@@ -103,8 +103,10 @@ def test_eval_sample_uses_dummy_query_label(tmp_path):
 
 
 def test_epoch_budget_matches_official_iterations():
+    from baseline_zoo.registry import load_models
     adapter = FoBSAMAdapter()
-    assert adapter.official_epochs * 3000 >= 39000
+    epochs = load_models()['fob_sam'].defaults['epochs']
+    assert epochs * 3000 >= 39000
     assert adapter.official_lr == 1e-4
 
 

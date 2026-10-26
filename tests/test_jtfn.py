@@ -31,7 +31,6 @@ def test_registry_and_metadata():
     assert isinstance(adapter, JTFNAdapter)
     assert adapter.id == 'jtfn'
     assert adapter.input_size == 256
-    assert adapter.official_epochs == 1000
     assert adapter.train_batch_size == 2
     assert any('scratch' in deviation for deviation in adapter.deviations)
 

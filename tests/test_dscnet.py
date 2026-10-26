@@ -38,7 +38,6 @@ def test_registry_and_metadata():
     assert isinstance(adapter, DSCNetAdapter)
     assert adapter.id == 'dscnet'
     assert adapter.input_size == 224
-    assert adapter.official_epochs == 400
     assert adapter.train_batch_size == 1
     assert 'DSCNet' in adapter.official_source
 

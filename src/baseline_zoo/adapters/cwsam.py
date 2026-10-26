@@ -30,7 +30,6 @@ class CWSAMAdapter(BaselineAdapter):
     official_source = 'ClassWise-SAM-Adapter (self-contained copy)'
     official_entrypoint = 'upstream train.py with ViT-L encoder'
     input_size = 1024
-    official_epochs = 200
     official_lr = 2e-4
     official_weight_decay = 0.01
     train_batch_size = 1

@@ -35,7 +35,6 @@ class SegDINOAdapter(BaselineAdapter):
     official_source = 'SegDINO (self-contained DPT + timm DINOv3)'
     official_entrypoint = 'upstream train_segdino.py'
     input_size = 256
-    official_epochs = 50
     official_lr = 1e-4
     official_weight_decay = 1e-4
     train_batch_size = 4

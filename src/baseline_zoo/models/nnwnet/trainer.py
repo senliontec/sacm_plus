@@ -346,9 +346,7 @@ class nnUNetTrainer_WNet2D(nnUNetTrainer):
         self.enable_deep_supervision = True
         self.initial_lr = 1e-2
         # self.weight_decay = 3e-5
-        # self.num_epochs = 1000
-        self.num_epochs = 200
-        # self.num_epochs = 50
+        # num_epochs is injected from the model config by NNWNetAdapter.
 
     def set_deep_supervision_enabled(self, enabled: bool):
         """

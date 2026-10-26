@@ -54,7 +54,6 @@ class SAM2UNetAdapter(BaselineAdapter):
     official_source = 'WZH0120/SAM2-UNet (self-contained copy, Apache-2.0)'
     official_entrypoint = 'https://github.com/WZH0120/SAM2-UNet'
     input_size = 352
-    official_epochs = 800  # project protocol budget; upstream uses 20
     official_lr = 1e-3
     official_weight_decay = 5e-4
     train_batch_size = 4  # upstream 12; Hiera-L memory

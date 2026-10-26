@@ -37,7 +37,6 @@ def test_registry_and_metadata():
     assert adapter.id == 'matcher'
     assert adapter.training_free is True
     assert adapter.input_size == 518
-    assert adapter.official_epochs == 0
 
 
 def test_support_and_target_shapes(tmp_path):
