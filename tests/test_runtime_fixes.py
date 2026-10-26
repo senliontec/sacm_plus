@@ -278,6 +278,42 @@ def test_nnwnet_discovers_checkpoint_extension(tmp_path):
         'checkpoint_best.safetensors'
 
 
+def test_nnwnet_uses_requested_cuda_device(monkeypatch):
+    from baseline_zoo.adapters import nnwnet
+
+    calls = []
+    monkeypatch.setattr(
+        nnwnet.torch.cuda, 'set_device',
+        lambda device: calls.append(device))
+    monkeypatch.setattr(nnwnet.torch.cuda, 'current_device', lambda: 2)
+
+    assert nnwnet._resolve_device('cuda:4') == torch.device('cuda:4')
+    assert calls == [torch.device('cuda:4')]
+
+    calls.clear()
+    assert nnwnet._resolve_device('cuda') == torch.device('cuda:2')
+    assert calls == [torch.device('cuda:2')]
+
+    calls.clear()
+    assert nnwnet._resolve_device('cpu') == torch.device('cpu')
+    assert calls == []
+
+
+def test_nnwnet_restores_trainer_device():
+    from baseline_zoo.adapters import nnwnet
+
+    class DummyTrainer:
+        def __init__(self):
+            self.device = torch.device('cuda:0')
+            self.my_init_kwargs = {'device': torch.device('cuda:0')}
+
+    trainer = DummyTrainer()
+    requested = torch.device('cuda:4')
+    nnwnet._restore_trainer_device(trainer, requested)
+    assert trainer.device == requested
+    assert trainer.my_init_kwargs['device'] == requested
+
+
 def test_sam_octa_eval_seed_and_batch_guard(tmp_path):
     _write_pair(tmp_path, 'TEST_0', size=(32, 24))
     from baseline_zoo.data import RawPairDataset

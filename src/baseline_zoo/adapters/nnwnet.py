@@ -33,6 +33,31 @@ DATASET_ID = 501
 DATASET_NAME = f'Dataset{DATASET_ID}_Curvilinear3Shot'
 
 
+def _resolve_device(spec: str) -> torch.device:
+    """Resolve the requested device and make CUDA devices current.
+
+    ``nnUNetTrainer.__init__`` rewrites every CUDA device to ``cuda:0``
+    because the official CLI selects cards with ``CUDA_VISIBLE_DEVICES``.
+    We construct the trainer directly, so the current device must be set
+    here as well; otherwise the model silently trains on physical GPU 0.
+    """
+    device = torch.device(spec)
+    if device.type == 'cuda':
+        if device.index is None:
+            device = torch.device('cuda', torch.cuda.current_device())
+        torch.cuda.set_device(device)
+    return device
+
+
+def _restore_trainer_device(trainer, device: torch.device) -> None:
+    """Undo nnUNetTrainer's ``cuda:0`` rewrite before ``initialize()``."""
+    trainer.device = device
+    init_kwargs = getattr(trainer, 'my_init_kwargs', None)
+    if isinstance(init_kwargs, dict):
+        # Keep checkpoint provenance consistent with the actual device.
+        init_kwargs['device'] = device
+
+
 class NNWNetAdapter(BaselineAdapter):
     id = 'nnwnet'
     display_name = 'nnWNet'
@@ -279,8 +304,12 @@ class NNWNetAdapter(BaselineAdapter):
         plans.setdefault('plans_name', 'nnUNetPlans')
         plans['continue_training'] = False
         trainer_class = get_trainer_class()
+        device = _resolve_device(args.device)
         trainer = trainer_class(
-            plans, '2d', 0, dataset_json, device=torch.device(args.device))
+            plans, '2d', 0, dataset_json, device=device)
+        # nnUNetTrainer changes a non-DDP CUDA device to cuda:0; restore the
+        # adapter-requested card before initialize() moves the network.
+        _restore_trainer_device(trainer, device)
         trainer.num_epochs = args.epochs
         trainer.initialize()
 
@@ -369,10 +398,11 @@ class NNWNetAdapter(BaselineAdapter):
 
         from nnunetv2.inference.predict_from_raw_data import nnUNetPredictor
 
+        device = _resolve_device(args.device)
         predictor = nnUNetPredictor(
             tile_step_size=0.5, use_gaussian=True, use_mirroring=True,
             perform_everything_on_device=False,
-            device=torch.device(args.device), verbose=False,
+            device=device, verbose=False,
             allow_tqdm=True)
         resolved = self._find_checkpoint(model_dir, 'best')
         if resolved is None:
