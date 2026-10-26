@@ -43,7 +43,7 @@ class UNetAdapter(BaselineAdapter):
     official_source = 'milesial/PyTorch-UNet (self-contained copy)'
     official_entrypoint = 'https://github.com/milesial/Pytorch-UNet'
     input_size = 512
-    official_epochs = 200
+    official_epochs = 800
     official_lr = 1e-3
     official_weight_decay = 1e-4
     train_batch_size = 4
@@ -53,7 +53,7 @@ class UNetAdapter(BaselineAdapter):
         'architecture and BCE+Dice loss are used.',
         'Fixed 512x512 input instead of upstream img_scale=0.5 dynamic '
         'resize, so mixed-resolution domains can share batches.',
-        'AdamW lr 1e-3/wd 1e-4/batch 4 + cosine over 200 epochs instead of '
+        'AdamW lr 1e-3/wd 1e-4/batch 4 + cosine over 800 epochs instead of '
         'upstream RMSprop lr 1e-5/wd 1e-8/batch 1 + ReduceLROnPlateau over '
         '5 epochs; the 3-shot budget and optimizer are the protocol choice '
         'used for every baseline.',

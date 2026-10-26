@@ -49,8 +49,9 @@ class DSCNetAdapter(BaselineAdapter):
         'The official checkpoint selection predicts the test set from epoch '
         '200 onward and selects by test Dice; this port selects on the '
         'shared 6-image validation Dice.',
-        'The official 400-epoch, batch-1, 224-crop, AdamW 1e-4 with '
-        'betas (0.9,0.95) recipe and the soft BCE loss are preserved. The '
+        'The official batch-1, 224-crop, AdamW 1e-4 with betas (0.9,0.95) '
+        'recipe and the soft BCE loss are preserved; the official 400-epoch '
+        'schedule is extended to the shared 800-epoch budget. The '
         'built-but-never-stepped ReduceLROnPlateau is omitted (constant LR). '
         'A soft Dice term is added to the official BCE for the 3-shot '
         'class-imbalance protocol; --dsc-dice-weight=0 restores BCE-only.',

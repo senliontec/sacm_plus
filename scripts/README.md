@@ -40,6 +40,95 @@ message. Use `WANDB_MODE=offline` for local W&B files or
 `WANDB_MODE=disabled` to turn it off. Direct `run_one` also defaults to
 W&B; pass `--use_wandb false` to disable it for a single run.
 
+## cue-ml GPU queue
+
+`tools/run_paper_cue.sh` is the dynamic-GPU alternative to the static
+round-robin in `run_paper.sh`.  It requires `pip install cue-ml` and an idle
+set of GPUs (cue does not detect existing VRAM users; the wrapper preflights
+`nvidia-smi` and refuses to start while compute processes exist).
+
+```bash
+# one-click train queue -> eval queue -> tables/figures
+bash scripts/tools/run_paper_cue.sh --seeds 0
+
+# force the two repaired models to rerun even though their old markers exist
+bash scripts/tools/run_paper_cue.sh --models samed,dscnet --seeds 0 --no-resume
+
+# generate/validate all YAML without running models
+bash scripts/tools/run_paper_cue.sh --seeds 0 --dry-run
+```
+
+Each cue job is dispatched through `tools/cue_job.py`, which uses the GPU
+assigned by `CUDA_VISIBLE_DEVICES` and maps it to `--device cuda:0`.
+
+## Optuna tuning
+
+`tools/tune_baselines.py` reads per-model sections from
+`configs/tuning/spaces.yaml`, runs validation-only trials in isolated
+`results/tuning/trials/` workdirs, and writes the best parameters to
+`results/tuning/<model>/best_<protocol>_seed<seed>_<selection>_ep<N>.json`
+(where `<N>` is the effective budget: `--epochs` if provided, otherwise the
+model config default).  Install with `pip install optuna`.
+
+```bash
+# inspect spaces without optuna / without running
+python scripts/tools/tune_baselines.py --models all --dry-run
+
+# screen a model on one GPU, then rerun the selected config at full budget
+python scripts/tools/tune_baselines.py --models dscnet --trials 8 --gpus 0
+
+# parallel trials on four GPUs, using a shorter search budget
+python scripts/tools/tune_baselines.py --models unet,samed --trials 12 \
+    --gpus 0,1,2,3 --epochs 50
+
+# batch seeds 0-4; each (model, seed) gets its own study/best file
+python scripts/tools/tune_baselines.py --models all --seeds 0 1 2 3 4 \
+    --trials 8 --gpus 0,1,2,3,4,5,6
+```
+
+### One-click batch HPO on GPU 0-6
+
+After uploading the code to the server:
+
+```bash
+bash scripts/tools/run_optuna_paper.sh
+```
+
+It defaults to all paper baselines, **seed `0`**, 8 trials per
+(model, seed), and physical GPUs `0,1,2,3,4,5,6`.  GPU 7 is reserved for
+SACM-X: the script never queries it or includes it in
+`CUDA_VISIBLE_DEVICES`.  It refuses to start if any selected GPU already
+has more than 512 MiB in use, and installs Optuna if it is missing.
+
+Useful overrides:
+
+```bash
+# one-click smoke / inspect the plan
+bash scripts/tools/run_optuna_paper.sh --dry-run
+
+# smaller search, then detach to a timestamped log
+bash scripts/tools/run_optuna_paper.sh --models dscnet,unet \
+    --seeds 0 --trials 4 --epochs 50 --detach
+
+# custom interpreter or storage; per-trial weights are deleted by default
+PYTHON=/path/to/tsai/bin/python STORAGE=results/tuning/optuna.db \
+    bash scripts/tools/run_optuna_paper.sh
+
+# keep trial weights for debugging and cap a stuck trial at 6 hours
+bash scripts/tools/run_optuna_paper.sh --keep-trial-checkpoints \
+    --trial-timeout 21600
+```
+
+The runner dynamically assigns each trial to the next free GPU in the
+selected pool.  `nnWNet` and `KnowSAM` are skipped because their custom
+official pipelines do not yet expose the shared scheduler/LR interface;
+`Matcher` and `PerSAM` are training-free.  Thus 18 of the 22 baselines are
+tuned.  Trial `best_model*.pth` files are deleted after scoring unless
+`--keep-trial-checkpoints` is passed; the metrics history and trainer log
+are kept.  The selected configuration must be applied to a fresh
+full-budget run before reporting.  Test data is never used by the tuning
+runner.
+
 ## 2. Paper tables and figures only
 
 ```bash

@@ -54,7 +54,7 @@ class SAMOCTAAdapter(BaselineAdapter):
         'upstream default is ViT-H.',
         'Checkpoint selection uses the 6-image validation split by Dice. '
         'Upstream saves every 10 epochs and selects manually. The official '
-        '100-epoch budget is replaced by 200 epochs for the 18-image 3-shot '
+        '100-epoch budget is replaced by 800 epochs for the 18-image 3-shot '
         'protocol.',
         'Per-block activation checkpointing is enabled for 11 GiB training; '
         'it changes memory, not the computation.',

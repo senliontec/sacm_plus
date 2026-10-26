@@ -16,7 +16,7 @@ eval_entrypoint: >-
   --device cuda:{gpu} --use_wandb true --skip-visualize
 protocols: [seeded5, fixed]
 defaults:
-  epochs: 200
+  epochs: 800
 note: >-
   Self-contained port of the official CWSAM frequency-prompt/adapter SAM.
   Trained at ViT-L scale (paper's shared backbone) as a binary segmenter;

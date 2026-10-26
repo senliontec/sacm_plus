@@ -44,7 +44,7 @@ class SAMAdapter(BaselineAdapter):
         'SAM-Adapter Google-Drive weights are not part of the released tree '
         'and are not used.',
         'Uses the official AdamW 2e-4, cosine eta_min 1e-7 recipe; the '
-        'official 20-epoch budget is replaced by 200 epochs for the 18-image '
+        'official 20-epoch budget is replaced by 800 epochs for the 18-image '
         '3-shot protocol. The upstream optimizer passes only lr, so the '
         'executable weight decay is PyTorch AdamW default 0.01; this port '
         'uses 0.01.',

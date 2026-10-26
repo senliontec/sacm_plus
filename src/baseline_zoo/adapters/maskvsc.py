@@ -61,6 +61,8 @@ class MaskVSCAdapter(BaselineAdapter):
         'Augmentation RNG order therefore differs from upstream.',
         'Connect_Loss uses the input device instead of a hardcoded .cuda(); '
         'the computation is identical on GPU.',
+        'The shared 3-shot project budget is 800 epochs instead of the '
+        'official 200.',
     )
 
     def build_model(self, args) -> nn.Module:
@@ -76,7 +78,7 @@ class MaskVSCAdapter(BaselineAdapter):
 
     def prepare_train_batch(self, samples, rng: random.Random):
         ratio = mask_ratio(getattr(self, '_epoch', 1),
-                           self.args.epochs if self.args else 200)
+                           self.args.epochs if self.args else 800)
         images, labels = [], []
         for sample in samples:
             image = load_rgb(sample.image_path)

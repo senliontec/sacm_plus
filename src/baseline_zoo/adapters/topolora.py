@@ -46,7 +46,7 @@ class TopoLoRAAdapter(BaselineAdapter):
         'other SAM baselines in this zoo; the table records the backbone.',
         'The official AdamW 1e-4/1e-4, cosine, batch-1 x4 accumulation and '
         'gradient-clip 1.0 recipe is preserved; the official 50-epoch '
-        'budget is replaced by 200 epochs for the 18-image 3-shot protocol.',
+        'budget is replaced by 800 epochs for the 18-image 3-shot protocol.',
         'No mixed precision: upstream trains with 16-mixed. This changes '
         'speed and numerical details, not the model graph.',
         'Uses the shared 18/6 split and 20-dataset test protocol instead of '

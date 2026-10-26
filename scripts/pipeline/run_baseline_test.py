@@ -359,9 +359,16 @@ def main():
         if not args.skip_predict:
             if args.method in PORTED:
                 if not args.checkpoint.is_file():
+                    from baseline_zoo.registry import load_models
+                    model = load_models().get(args.method)
+                    epochs = (
+                        model.defaults.get('epochs') if model is not None
+                        else None)
+                    epochs_arg = (
+                        f' --epochs {epochs}' if epochs is not None else '')
                     hint = (
                         'python -m baseline_zoo.run_one '
-                        f'--model {args.method} --stage train --epochs 200')
+                        f'--model {args.method} --stage train{epochs_arg}')
                     raise SystemExit(
                         f'missing checkpoint: {args.checkpoint}\n'
                         f'train first: {hint}')

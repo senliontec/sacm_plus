@@ -1,0 +1,54 @@
+# Optuna search spaces for the paper baselines.
+#
+# Relative factors are multiplied by the adapter's official_lr /
+# official_weight_decay.  The runner uses the 6-image validation Dice for
+# model selection; the test split is never used.
+defaults:
+  tunable: true
+  lr:
+    type: loguniform
+    low_factor: 0.2
+    high_factor: 5.0
+  weight_decay:
+    type: loguniform
+    low_factor: 0.1
+    high_factor: 10.0
+  scheduler:
+    choices: [official, constant, cosine, poly, onecycle]
+  warmup_epochs:
+    choices: [0, 5, 10, 20, 50]
+
+models:
+  # Iteration-based custom trainer; its internal optimizers/schedulers are
+  # not covered by the shared --scheduler/--warmup-epochs interface yet.
+  nnwnet:
+    tunable: false
+  knowsam:
+    tunable: false
+
+  # Training-free methods have no LR to tune.
+  matcher:
+    tunable: false
+  persam:
+    tunable: false
+
+  # SAMed's official 5e-3 recipe is sensitive to an over-high peak LR.
+  samed:
+    lr:
+      type: loguniform
+      low_factor: 0.2
+      high_factor: 2.0
+
+  # DSCNet's empty-prediction failure is sensitive to the added Dice term.
+  dscnet:
+    extra:
+      dsc_dice_weight:
+        choices: [0.0, 0.5, 1.0, 2.0]
+
+  # SAM-OCTA's optimizer has a nominal 1.0 LR and scales it through its
+  # scheduler; the generic scheduler sets the effective base to --lr.
+  sam_octa:
+    lr:
+      type: loguniform
+      low_factor: 0.2
+      high_factor: 3.0

@@ -16,7 +16,7 @@ eval_entrypoint: >-
   --device cuda:{gpu} --use_wandb true --skip-visualize
 protocols: [seeded5, fixed]
 defaults:
-  epochs: 200
+  epochs: 800
 note: >-
   Self-contained port of the official LoRA SAM-OCTA. Uses GT-derived point
   prompts (oracle-prompted), ViT-L base, official Dice/clDice vessel loss,

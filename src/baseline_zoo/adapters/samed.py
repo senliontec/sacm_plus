@@ -41,7 +41,7 @@ class SAMedAdapter(BaselineAdapter):
         'train split and evaluates it on all 20 datasets.',
         'Official Synapse training uses batch 24 and 200 epochs (stop at '
         '159); the 3-shot split has 18 images, so this port uses batch 4 and '
-        'the full 200-epoch budget. The official lr 5e-3 / wd 0.1 are kept; '
+        'the full 800-epoch project budget. The official lr 5e-3 / wd 0.1 are kept; '
         'users can override --lr for linear scaling.',
         'The official 8-class head is replaced by a binary head '
         '(background + foreground); the released 8-class SAMed LoRA '
@@ -63,8 +63,8 @@ class SAMedAdapter(BaselineAdapter):
         'The official 250-iteration warmup is preserved in iteration units: '
         'with the 18-image loader it spans about 50 epochs at batch 4 '
         '(250 / ceil(18 / 4)). The polynomial decay is stepped per epoch; '
-        'the poly horizon is max(epochs, 200), matching the official '
-        '200-epoch schedule, so the final epoch is not assigned lr=0.',
+        'the poly horizon is max(epochs, 200); with the 800-epoch project '
+        'budget this is 800, so the final epoch is not assigned lr=0.',
         'Predictions are exported at original GT resolution; the official '
         'evaluator argmaxes at 512 and zooms to the native slice size.',
         'No mixed precision and no test-time augmentation.',
@@ -138,8 +138,8 @@ class SAMedAdapter(BaselineAdapter):
 
     def make_scheduler(self, optimizer, args):
         warmup_epochs = self._warmup_epochs(args)
-        # Official max_iterations uses max_epochs=200; the port stops at 160
-        # but keeps the 200-epoch poly horizon so the last epoch is nonzero.
+        # Official max_iterations uses max_epochs=200; keep at least the
+        # official 200-epoch poly horizon. The project budget is 800.
         total = max(int(args.epochs), 200)
 
         def lr_lambda(epoch: int) -> float:

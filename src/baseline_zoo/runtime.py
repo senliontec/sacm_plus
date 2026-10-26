@@ -19,6 +19,7 @@ import argparse
 import csv
 import hashlib
 import json
+import math
 import os
 import random
 import shutil
@@ -384,6 +385,93 @@ def seed_everything(seed: int):
         torch.cuda.manual_seed_all(seed)
 
 
+def make_training_scheduler(adapter: BaselineAdapter,
+                            optimizer: torch.optim.Optimizer,
+                            args: argparse.Namespace):
+    """Build either the adapter's official scheduler or a generic override.
+
+    The shared runtime calls ``scheduler.step()`` once per epoch.  The
+    generic ``onecycle`` mode is therefore an epoch-granular OneCycle, not
+    PyTorch's usual per-iteration schedule.
+    """
+    choice = getattr(args, 'scheduler', 'official') or 'official'
+    if choice == 'official':
+        return adapter.make_scheduler(optimizer, args)
+
+    # A few adapters (notably SAM-OCTA) keep a nominal optimizer LR and
+    # apply the effective LR through their own scheduler.  Generic
+    # overrides are expressed in effective LR, so normalize the base first.
+    for group in optimizer.param_groups:
+        group['lr'] = float(args.lr)
+
+    epochs = max(1, int(getattr(args, 'epochs', 1)))
+    warmup_raw = getattr(args, 'warmup_epochs', None)
+    warmup = 0 if warmup_raw is None else max(
+        0, min(int(warmup_raw), epochs - 1))
+
+    def warmup_factor(epoch: int) -> float:
+        if warmup <= 0:
+            return 1.0
+        return min(1.0, (epoch + 1) / warmup)
+
+    if choice == 'constant':
+        return torch.optim.lr_scheduler.LambdaLR(
+            optimizer,
+            lambda epoch: warmup_factor(epoch),
+        )
+
+    if choice == 'cosine':
+        def cosine_lambda(epoch: int) -> float:
+            if epoch < warmup:
+                return warmup_factor(epoch)
+            progress = (epoch - warmup + 1) / max(1, epochs - warmup)
+            progress = min(max(progress, 0.0), 1.0)
+            return 0.5 * (1.0 + math.cos(math.pi * progress))
+
+        return torch.optim.lr_scheduler.LambdaLR(
+            optimizer, cosine_lambda)
+
+    if choice == 'poly':
+        def poly_lambda(epoch: int) -> float:
+            poly = max(0.0, 1.0 - (epoch + 1) / epochs) ** 0.9
+            return warmup_factor(epoch) * poly
+
+        return torch.optim.lr_scheduler.LambdaLR(
+            optimizer, poly_lambda)
+
+    if choice == 'onecycle':
+        # Epoch-granular OneCycle implemented with LambdaLR.  PyTorch's
+        # OneCycleLR assumes a larger number of steps and divides by zero for
+        # very short schedules; this form has the same shape for the shared
+        # once-per-epoch stepping.
+        steps = max(2, epochs)
+        if warmup_raw is None:
+            pct_start = 0.3
+        elif warmup <= 0:
+            pct_start = 1.0 / steps
+        else:
+            pct_start = warmup / epochs
+        pct_start = min(max(pct_start, 1.0 / steps), 0.9)
+        div_factor = 25.0
+        final_div_factor = 1e4
+
+        def onecycle_lambda(epoch: int) -> float:
+            pct = min(max(epoch / max(1, steps - 1), 0.0), 1.0)
+            if pct <= pct_start:
+                return (1.0 / div_factor
+                        + (1.0 - 1.0 / div_factor)
+                        * (pct / pct_start))
+            progress = (pct - pct_start) / max(1e-8, 1.0 - pct_start)
+            final = 1.0 / final_div_factor
+            return final + (1.0 - final) * 0.5 * (
+                1.0 + math.cos(math.pi * progress))
+
+        return torch.optim.lr_scheduler.LambdaLR(
+            optimizer, onecycle_lambda)
+
+    raise ValueError(f'unknown scheduler override: {choice!r}')
+
+
 # ---------------------------------------------------------------------------
 # Training
 # ---------------------------------------------------------------------------
@@ -495,7 +583,7 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
     adapter.load_pretrained(model, args)
     adapter.configure_trainable(model)
     optimizer = adapter.make_optimizer(model, args)
-    scheduler = adapter.make_scheduler(optimizer, args)
+    scheduler = make_training_scheduler(adapter, optimizer, args)
 
     split_manifest = Path(args.data_root) / 'split_manifest.csv'
     split_sha256 = (file_sha256(split_manifest)
@@ -523,6 +611,8 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
         'seed': args.seed,
         'optimizer': type(optimizer).__name__,
         'scheduler': type(scheduler).__name__ if scheduler else None,
+        'scheduler_override': getattr(args, 'scheduler', 'official'),
+        'warmup_epochs': getattr(args, 'warmup_epochs', None),
         'split_manifest_sha256': split_sha256,
         'num_params': num_params,
         'trainable_params': trainable,
@@ -859,6 +949,15 @@ def build_parser(adapter: BaselineAdapter) -> argparse.ArgumentParser:
     parser.add_argument('--weight-decay', type=float,
                         default=adapter.official_weight_decay)
     parser.add_argument('--grad-clip', type=float, default=0.0)
+    parser.add_argument(
+        '--scheduler', default='official',
+        choices=['official', 'constant', 'cosine', 'poly', 'onecycle'],
+        help='scheduler override; official keeps the adapter recipe. '
+             'Shared-runtime onecycle steps once per epoch.')
+    parser.add_argument(
+        '--warmup-epochs', type=int, default=None,
+        help='warmup for generic schedulers; official schedulers keep their '
+             'own warmup')
     parser.add_argument('--selection', default=adapter.selection,
                         choices=['dice', 'iou', 'cldice', 'hd95'],
                         help='validation metric for checkpoint selection')
@@ -916,6 +1015,12 @@ def main_for(adapter: BaselineAdapter, argv: list[str] | None = None) -> int:
     if args.stage in ('train', 'all') and args.checkpoint is not None:
         raise SystemExit('--checkpoint is a predict-time option; '
                          'use --workdir for training output')
+    if (adapter.custom_pipeline and args.stage in ('train', 'all')
+            and (args.scheduler != 'official'
+                 or args.warmup_epochs is not None)):
+        raise SystemExit(
+            f'{adapter.id}: scheduler overrides are not wired into this '
+            'custom official pipeline')
     if adapter.custom_pipeline:
         if args.stage in ('train', 'all'):
             ckpt_path = adapter.run_training(args)

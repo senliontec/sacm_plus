@@ -48,6 +48,8 @@ class CWSAMAdapter(BaselineAdapter):
         'ViT-L training on 11 GiB; it changes memory, not the computation.',
         'Official ImageNet normalization and the absence of augmentation '
         'are preserved; predictions are restored to GT resolution.',
+        'The shared 3-shot project budget is 800 epochs instead of the '
+        'official 200.',
         'Official training uses 2-GPU DDP with per-GPU batch 1 (effective '
         'batch 2), workers=8 and DistributedSampler; this port uses one '
         'GPU, batch 1, workers=0 and the shared seed. Optimizer steps per '

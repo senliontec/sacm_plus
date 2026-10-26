@@ -16,11 +16,11 @@ eval_entrypoint: >-
   --device cuda:{gpu} --use_wandb true --skip-visualize
 protocols: [seeded5, fixed]
 defaults:
-  epochs: 400
+  epochs: 800
 note: >-
   Self-contained DSCNet 2D port (non-SAM, from scratch). Dynamic Snake
   Convolution U-Net with 4 levels, 16 basic channels, kernel 9; grayscale
   224 crop, batch 1, soft BCE + soft Dice (--dsc-dice-weight), AdamW 1e-4
-  betas (0.9,0.95), 400 epochs, constant LR, 224/112 patch inference. The
+  betas (0.9,0.95), 800 epochs, constant LR, 224/112 patch inference. The
   official NIfTI/MONAI/SimpleITK pipeline is replaced by a dependency-free
   PIL implementation; no official weights are present.

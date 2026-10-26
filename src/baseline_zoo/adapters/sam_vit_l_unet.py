@@ -29,7 +29,7 @@ class SAMViTLUNetAdapter(BaselineAdapter):
     official_source = 'project extension (not a paper baseline)'
     official_entrypoint = 'previous project adapter, self-contained now'
     input_size = 1024
-    official_epochs = 200
+    official_epochs = 800
     official_lr = 1e-3
     official_weight_decay = 1e-4
     train_batch_size = 4

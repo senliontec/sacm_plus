@@ -7,8 +7,8 @@ samples refinement clicks by comparing predictions to GT.  It is therefore
 labels it in the paper table.
 
 Training follows the official batch-1, Adam 1e-4 and MultiStepLR recipe,
-with milestones scaled from the official 20-epoch [5,10] to the 200-epoch
-3-shot budget [50,100].  Checkpoints are selected by training Dice.  The
+with milestones scaled from the official 20-epoch [5,10] to the 800-epoch
+3-shot budget [200,400].  Checkpoints are selected by training Dice.  The
 shared runtime still owns data splits,
 checkpointing, history, W&B and prediction export.
 """
@@ -49,7 +49,7 @@ class UCSAdapter(BaselineAdapter):
         'UCS must not be reported as prompt-free.',
         'Uses the official batch-1, Adam 1e-4, MultiStepLR gamma 0.5 and '
         'iter_point=8 recipe with milestones scaled from [5,10] at 20 epochs '
-        'to [50,100] at the 200-epoch 3-shot budget.',
+        'to [200,400] at the 800-epoch 3-shot budget.',
         'Checkpoint selection uses training Dice (official), not the 6-image '
         'validation Dice used by other baselines; validation is still logged.',
         'Bypasses the UCS JSON dataset manifests and consumes the shared '
@@ -136,11 +136,12 @@ class UCSAdapter(BaselineAdapter):
 
     def make_optimizer(self, model, args):
         return torch.optim.Adam(
-            [p for p in model.parameters() if p.requires_grad], lr=args.lr)
+            [p for p in model.parameters() if p.requires_grad],
+            lr=args.lr, weight_decay=args.weight_decay)
 
     def make_scheduler(self, optimizer, args):
         # Official 20-epoch schedule is [5, 10] (25%, 50%).  The 3-shot
-        # protocol uses 200 epochs, so keep the same proportions.
+        # protocol uses 800 epochs, so keep the same proportions.
         milestones = [
             max(1, int(args.epochs) // 4),
             max(2, int(args.epochs) // 2),

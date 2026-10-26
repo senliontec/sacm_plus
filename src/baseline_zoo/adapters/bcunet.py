@@ -49,7 +49,7 @@ class BCUNetAdapter(BaselineAdapter):
         'imports a missing warmlearnrate.py and cannot run; this adapter '
         'supplies the official loss/optimizer loop instead.',
         'The official Adam 1.5e-4, no scheduler and no augmentation are '
-        'preserved. The official 50-epoch budget is replaced by 200 epochs '
+        'preserved. The official 50-epoch budget is replaced by 800 epochs '
         'for the 18-image 3-shot protocol.',
     )
 

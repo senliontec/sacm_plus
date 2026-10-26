@@ -2,6 +2,7 @@
 
 import argparse
 import csv
+import importlib.util
 import json
 import random
 from pathlib import Path
@@ -15,6 +16,7 @@ from baseline_zoo.adapters.registry import load_adapter
 from baseline_zoo.data import load_split_samples
 from baseline_zoo.models.segdino import find_dinov3_checkpoint
 from baseline_zoo.protocols import load_protocols
+from baseline_zoo.registry import load_models
 from baseline_zoo.runtime import binary_metrics, build_parser
 from core.metrics import cldice_score, dice_score, hd95_score, iou_score
 
@@ -98,6 +100,46 @@ def test_begin_prediction_resets_seed_latch():
     adapter.begin_prediction()
     assert adapter.prediction_mode is True
     assert adapter._prediction_seeded is False
+
+
+def test_generic_scheduler_modes():
+    from baseline_zoo.runtime import make_training_scheduler
+
+    adapter = load_adapter('unet')
+    for mode in ('constant', 'cosine', 'poly', 'onecycle'):
+        model = torch.nn.Linear(1, 1)
+        optimizer = torch.optim.SGD(model.parameters(), lr=1e-3)
+        args = argparse.Namespace(
+            epochs=5, warmup_epochs=1, scheduler=mode, lr=1e-3)
+        scheduler = make_training_scheduler(adapter, optimizer, args)
+        lrs = []
+        for _ in range(5):
+            scheduler.step()
+            lrs.append(optimizer.param_groups[0]['lr'])
+        assert all(lr >= 0 and lr == lr for lr in lrs)
+        if mode == 'constant':
+            assert lrs[-1] == pytest.approx(1e-3)
+        else:
+            assert lrs[-1] < 1e-3
+
+
+def test_official_scheduler_override_delegates():
+    from baseline_zoo.runtime import make_training_scheduler
+
+    class DummyAdapter:
+        def make_scheduler(self, optimizer, args):
+            return 'official-scheduler'
+
+    assert make_training_scheduler(
+        DummyAdapter(), object(),
+        argparse.Namespace(scheduler='official')) == 'official-scheduler'
+
+
+def test_scheduler_parser_defaults_preserve_official():
+    parser = build_parser(load_adapter('unet'))
+    args = parser.parse_args([])
+    assert args.scheduler == 'official'
+    assert args.warmup_epochs is None
 
 
 def test_cs2net_schedule_does_not_decay_before_first_epoch():
@@ -427,3 +469,53 @@ def test_sam_vit_l_unet_records_and_checks_base_sha(tmp_path, capsys):
     adapter.restore_config(restored, config)
     assert restored.input_size == 1024
     assert 'WARNING: SAM base checkpoint differs' in capsys.readouterr().out
+
+
+def _load_tuning_module():
+    path = (Path(__file__).resolve().parents[1] /
+            'scripts' / 'tools' / 'tune_baselines.py')
+    spec = importlib.util.spec_from_file_location(
+        'tune_baselines_regression', path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_tuning_seed_and_gpu_parsing():
+    tune = _load_tuning_module()
+    protocol = load_protocols()['seeded5']
+    assert tune._parse_seeds(['0,1', '2'], None, protocol) == [0, 1, 2]
+    assert tune._parse_seeds(['all'], None, protocol) == [0, 1, 2, 3, 4]
+    with pytest.raises(SystemExit):
+        tune._parse_seeds(['9'], None, protocol)
+    with pytest.raises(SystemExit):
+        tune._parse_gpus('0,0')
+
+
+def test_tuning_trial_command_passes_selection_and_seed():
+    tune = _load_tuning_module()
+    model = load_models()['unet']
+    protocol = load_protocols()['seeded5']
+    command = tune._trial_command(
+        model=model,
+        model_id='unet',
+        protocol=protocol,
+        seed=3,
+        gpu='2',
+        trial_dir=Path('/tmp/tune_trial'),
+        params={
+            'lr': 1e-3,
+            'weight_decay': 1e-4,
+            'scheduler': 'cosine',
+            'warmup_epochs': 5,
+            '_trial_number': 7,
+        },
+        epochs=50,
+        selection='iou',
+        train_entrypoint=model.train_entrypoint,
+    )
+    assert '--device cuda:2' in command
+    assert '--selection iou' in command
+    assert '--scheduler cosine' in command
+    assert '--warmup-epochs 5' in command
+    assert '--wandb_name unet-seed3-trial7' in command

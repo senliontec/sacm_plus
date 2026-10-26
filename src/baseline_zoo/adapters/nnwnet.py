@@ -79,8 +79,9 @@ class NNWNetAdapter(BaselineAdapter):
         'only; the 6 val cases are staged after planning and preprocessed '
         'with the frozen plans. Val images therefore do not affect planner '
         'choices or normalization statistics.',
-        'The official 2D trainer defaults are kept (200 epochs, SGD 1e-2, '
-        'AMP, deep supervision, sliding-window/TTA inference); checkpoint '
+        'The official 2D trainer recipe (SGD 1e-2, AMP, deep supervision, '
+        'sliding-window/TTA inference) is kept; the official 200-epoch '
+        'default is replaced by the shared 800-epoch budget. Checkpoint '
         'selection is nnU-Net EMA pseudo-Dice on the val split.',
         'The adapter seeds Python/NumPy/Torch before training, but nnU-Net '
         'may use additional internal RNGs; --seed is not a bitwise guarantee.',

@@ -29,7 +29,7 @@ prints them at the start of training and stores them in every checkpoint.
 
 | Model | Official logic preserved | Main documented deviations |
 |---|---|---|
-| U-Net | milesial architecture, BCE+Dice | fixed 512 input, 200-epoch few-shot recipe, flips/rot90, val Dice |
+| U-Net | milesial architecture, BCE+Dice | fixed 512 input, 800-epoch shared few-shot budget, flips/rot90, val Dice |
 | CS2Net | centre-square crop→512, ±40° rotation, ImageEnhance, MSE+Dice(1e-4), Adam 1e-4/5e-4, poly LR, 1000 epochs, Otsu | val Dice instead of the unreachable/test-leaking official rule; GT-size export |
 | BCUNet | BGR [0,255]/INTER_AREA, 3-way CE, Adam 1.5e-4, 50 epochs, no augmentation | batch 1×2 accumulation on 11 GiB; val Dice instead of test IOU; repaired `OutConv` |
 | MaskVSC | Fundus UNet, masked-vessel corruption schedule, BCE+Connect_Loss, Adam 2e-4, 200 epochs | val Dice instead of test Dice; GT-size export |
@@ -48,6 +48,14 @@ prints them at the start of training and stores them in every checkpoint.
 | SegDINO | official DPT decoder, 256/ImageNet, BCEWithLogits, AdamW 1e-4/1e-4, 50 epochs, batch 4, no augmentation | timm DINOv3 instead of local hub repo; val Dice; GT-size export |
 | FoB-SAM | official ResNet-101 background-prompt localizer, contour/Gaussian keypoint prompts, SPR refinement, frozen SAM point-prompt inference, 39001 iterations (13×3000), Adam 1e-4, MultiStepLR 0.98 | 2D GT support episodes instead of 3D/supervoxels; same-domain support for seen, donor support for unseen; ViT-H required; val Dice; GT-size export |
 | SACM (official) | zero-prompt ViT-L + adapters, AdamW 3e-4/0.01, cosine 1e-6, BCE 0.7+Dice 0.3, 60 epochs, grad clip 1.0 | val Dice; GT-size export; activation checkpointing |
+
+The shared 3-shot project budget in `configs/models/` is now **800 epochs**
+for every baseline whose previous budget was 200 or 400, including DSCNet's
+official 400-epoch recipe. The epoch numbers in the table above remain the
+upstream recipe values where they describe official logic. Exceptions to
+the 800-epoch project budget are CS2Net/JTFN (1000), FoB-SAM (13×3000
+iterations), KnowSAM (50,000 iterations), and training-free Matcher/PerSAM
+(0). SACM-X is the proposed method, not a baseline, and is unchanged.
 
 `sam_adapter` is a prompt-free main-table baseline: the official FFT
 high-pass prompt generator is injected into every ViT block, and the mask

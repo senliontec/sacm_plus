@@ -160,10 +160,11 @@ class FoBSAMAdapter(BaselineAdapter):
             parameter.requires_grad_(True)
 
     def make_optimizer(self, model, args):
-        # Upstream: Adam(model.parameters(), lr=...), no weight decay.
+        # Upstream uses no weight decay, which is the default adapter value.
+        # Keep it CLI-controlled so Optuna can search it under our protocol.
         return torch.optim.Adam(
             [p for p in model.parameters() if p.requires_grad],
-            lr=args.lr, weight_decay=0.0)
+            lr=args.lr, weight_decay=args.weight_decay)
 
     def make_scheduler(self, optimizer, args):
         # Official MultiStepLR milestones are every max_iters_per_load

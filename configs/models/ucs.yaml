@@ -6,7 +6,7 @@ checkpoint: "{output_root}/best_model.pth"
 note: >-
   Oracle-prompted UCS (official code derives GT boxes/points and uses
   GT-guided refinement clicks). Official 20-epoch recipe extended to the
-  200-epoch 3-shot budget, with MultiStepLR milestones scaled to [50,100];
+  800-epoch 3-shot budget, with MultiStepLR milestones scaled to [200,400];
   prompted/reference group, not prompt-free. Requires the SAM ViT-L
   checkpoint.
 train_entrypoint: >-
@@ -24,4 +24,4 @@ eval_entrypoint: >-
   --device cuda:{gpu} --use_wandb true --skip-visualize
 protocols: [seeded5, fixed]
 defaults:
-  epochs: 200
+  epochs: 800

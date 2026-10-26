@@ -54,7 +54,7 @@ class SAM2UNetAdapter(BaselineAdapter):
     official_source = 'WZH0120/SAM2-UNet (self-contained copy, Apache-2.0)'
     official_entrypoint = 'https://github.com/WZH0120/SAM2-UNet'
     input_size = 352
-    official_epochs = 200  # project protocol budget; upstream uses 20
+    official_epochs = 800  # project protocol budget; upstream uses 20
     official_lr = 1e-3
     official_weight_decay = 5e-4
     train_batch_size = 4  # upstream 12; Hiera-L memory
@@ -63,7 +63,7 @@ class SAM2UNetAdapter(BaselineAdapter):
         'Appendix extended baseline, not one of the paper ten and not in '
         'the main table.',
         'Upstream trains 20 epochs, batch 12, with no validation; this port '
-        'uses the shared 3-shot protocol (200 epochs), batch 4 for Hiera-L '
+        'uses the shared 3-shot protocol (800 epochs), batch 4 for Hiera-L '
         'memory, and selects the best checkpoint on the 6-image val split '
         'by Dice.',
         'Upstream train.py never calls model.train(); the shared runtime '

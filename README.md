@@ -245,6 +245,9 @@ Example for the U-Net adapter:
 # checkpoints/sam2_hiera_large.pt.
 bash scripts/run_paper.sh --model all --seeds all --gpus 0,1,2,3 --resume
 
+# One-click Optuna HPO on GPU 0-6, seed 0; GPU 7 stays free for SACM-X.
+bash scripts/tools/run_optuna_paper.sh
+
 # One model/seed through the same registry
 bash scripts/run_train.sh --model unet --seeds 0 --gpus 1
 bash scripts/run_eval.sh --model unet --seeds 0 --gpus 1
@@ -254,7 +257,7 @@ bash scripts/run_paper.sh --model all --seeds all --tables-only
 
 # Direct adapter invocation with W&B monitoring
 PYTHONPATH=src python -m baseline_zoo.run_one --model unet --stage train \
-    --epochs 200 --use_wandb --wandb_mode online --wandb_project sacm
+    --epochs 800 --use_wandb --wandb_mode online --wandb_project sacm
 
 # Predict on a subset (for a full run use scripts/pipeline/run_baseline_test.py)
 PYTHONPATH=src python -m baseline_zoo.run_one --model unet --stage predict \

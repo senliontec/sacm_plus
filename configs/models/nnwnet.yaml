@@ -16,7 +16,7 @@ eval_entrypoint: >-
   --device cuda:{gpu} --use_wandb true --skip-visualize
 protocols: [seeded5, fixed]
 defaults:
-  epochs: 200
+  epochs: 800
 note: >-
   Self-contained port of the official nnWNet nnU-Net trainer plugin, run
   through nnunetv2==2.8.1. Uses a fixed 18/6 one-fold split and official
