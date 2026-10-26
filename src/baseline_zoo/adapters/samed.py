@@ -137,13 +137,13 @@ class SAMedAdapter(BaselineAdapter):
 
     def make_scheduler(self, optimizer, args):
         warmup_epochs = self._warmup_epochs(args)
-        # The poly horizon follows the configured/CLI epoch budget; no epoch
-        # count is hardcoded here.
-        total = max(int(args.epochs), 1)
+        # Follow the configured/CLI epoch budget.  The extra step keeps the
+        # last training epoch nonzero; no epoch count is hardcoded here.
+        total = max(int(args.epochs), 1) + 1
 
         def lr_lambda(epoch: int) -> float:
             warmup = min(1.0, (epoch + 1) / warmup_epochs)
-            poly = max(0.0, 1.0 - (epoch + 1) / total) ** 0.9
+            poly = max(0.0, 1.0 - epoch / total) ** 0.9
             return warmup * poly
 
         return torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
