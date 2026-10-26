@@ -40,8 +40,8 @@ class SAMedAdapter(BaselineAdapter):
         'train split and evaluates it on all 20 datasets.',
         'Official Synapse training uses batch 24 and 200 epochs (stop at '
         '159); the 3-shot split has 18 images, so this port uses batch 4 and '
-        '160 epochs. The official lr 5e-3 / wd 0.1 are kept; users can '
-        'override --lr for linear scaling.',
+        'the full 200-epoch budget. The official lr 5e-3 / wd 0.1 are kept; '
+        'users can override --lr for linear scaling.',
         'The official 8-class head is replaced by a binary head '
         '(background + foreground); the released 8-class SAMed LoRA '
         'checkpoints are absent and not shape-compatible.',

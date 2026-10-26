@@ -63,9 +63,10 @@ class SamMed2DAdapter(BaselineAdapter):
         'split).',
         'Predictions are postprocessed to the original GT resolution for the '
         'shared evaluator.',
-        'Official 15 epochs, Adam 1e-4, batch 2, mask_num 5, iter_point 8, '
-        'point_list [1,3,5,9], 20*Focal+Dice+IoU loss, multimask max-IoU and '
-        '0.5 threshold are preserved.',
+        'Official Adam 1e-4, batch 2, mask_num 5, iter_point 8, point_list '
+        '[1,3,5,9], 20*Focal+Dice+IoU loss, multimask max-IoU and 0.5 '
+        'threshold are preserved; the official 15-epoch budget is replaced '
+        'by 200 epochs for the 18-image 3-shot protocol.',
         'Official train.py uses workers=4 and unseeded global random/NumPy; '
         'this port uses workers=0 and the shared seeded runtime. The decoder '
         'initialization difference is documented above.',

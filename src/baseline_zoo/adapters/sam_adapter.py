@@ -43,10 +43,11 @@ class SAMAdapter(BaselineAdapter):
         'Retrained from the official SAM ViT-L checkpoint. The authors\' '
         'SAM-Adapter Google-Drive weights are not part of the released tree '
         'and are not used.',
-        'Uses the official 20-epoch, AdamW 2e-4, cosine eta_min 1e-7 recipe, '
-        'not the project 200-epoch budget. The upstream optimizer passes only '
-        'lr, so the executable weight decay is PyTorch AdamW default 0.01; '
-        'this port uses 0.01.',
+        'Uses the official AdamW 2e-4, cosine eta_min 1e-7 recipe; the '
+        'official 20-epoch budget is replaced by 200 epochs for the 18-image '
+        '3-shot protocol. The upstream optimizer passes only lr, so the '
+        'executable weight decay is PyTorch AdamW default 0.01; this port '
+        'uses 0.01.',
         'Checkpoint selection uses the shared 6-image validation Dice, not '
         'the official COD S-measure/E-measure/weighted-F/MAE validation.',
         'Predictions are exported at original GT resolution; the upstream '

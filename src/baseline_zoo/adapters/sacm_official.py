@@ -43,9 +43,11 @@ class SACMOfficialAdapter(BaselineAdapter):
         'applies sigmoid first (logit > 0). The model is logits-in, so the '
         'official threshold is an inference bug; this correction is '
         'deliberate and gives the standard 0.5-probability decision.',
-        'The official 60 epochs, AdamW 3e-4 with weight decay 0.01, cosine '
-        'to 1e-6, gradient clipping 1.0, BCE 0.7 + Dice 0.3, frozen encoder '
-        'except adapters, and the zero-prompt forward are preserved.',
+        'The official AdamW 3e-4 with weight decay 0.01, cosine to 1e-6, '
+        'gradient clipping 1.0, BCE 0.7 + Dice 0.3, frozen encoder except '
+        'adapters, and the zero-prompt forward are preserved; the official '
+        '60-epoch budget is replaced by 200 epochs for the 18-image 3-shot '
+        'protocol.',
         'Per-block activation checkpointing is enabled for 11 GiB training; '
         'it changes memory, not the computation.',
         'Official train_sam.py uses DataLoader workers=4 and no explicit seed; '

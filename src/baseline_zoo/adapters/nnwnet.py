@@ -20,8 +20,7 @@ import numpy as np
 import torch
 from PIL import Image
 
-from baseline_zoo.data import (
-    RawPairDataset, load_mask, load_rgb, load_split_samples)
+from baseline_zoo.data import RawPairDataset, load_mask, load_rgb, load_split_samples
 from baseline_zoo.runtime import BaselineAdapter, file_sha256
 from core.wandb_utils import (
     finish_run,
@@ -250,6 +249,7 @@ class NNWNetAdapter(BaselineAdapter):
         from batchgenerators.utilities.file_and_folder_operations import (
             load_json,
         )
+
         from baseline_zoo.models.nnwnet import get_trainer_class
 
         plans = load_json(str(plans_path))
@@ -283,6 +283,49 @@ class NNWNetAdapter(BaselineAdapter):
             plans, '2d', 0, dataset_json, device=torch.device(args.device))
         trainer.num_epochs = args.epochs
         trainer.initialize()
+
+        # nnU-Net has no W&B logger.  Log one point per epoch from its own
+        # logger before the original on_epoch_end advances current_epoch.
+        if run is not None:
+            from types import MethodType
+
+            original_on_epoch_end = trainer.on_epoch_end
+
+            def _last_scalar(key):
+                try:
+                    value = trainer.logger.get_value(key, step=-1)
+                except Exception:
+                    return None
+                if value is None:
+                    return None
+                array = np.asarray(value)
+                if array.size == 0:
+                    return None
+                return float(array.reshape(-1)[-1])
+
+            def _on_epoch_end(self):
+                scalars = {}
+                for key in ('train_losses', 'val_losses', 'ema_fg_dice'):
+                    value = _last_scalar(key)
+                    if value is not None:
+                        scalars[f'nnunet/{key}'] = value
+                try:
+                    dice = self.logger.get_value(
+                        'dice_per_class_or_region', step=-1)
+                    if dice is not None:
+                        values = np.asarray(dice).reshape(-1)
+                        if values.size:
+                            scalars['nnunet/mean_fg_dice'] = float(
+                                np.mean(values))
+                except Exception:
+                    pass
+                if scalars:
+                    scalars['epoch'] = int(self.current_epoch) + 1
+                    log_scalars(run, scalars)
+                original_on_epoch_end()
+
+            trainer.on_epoch_end = MethodType(_on_epoch_end, trainer)
+
         trainer.run_training()
 
         logs = getattr(trainer.logger, 'my_fantastic_logging', {})

@@ -21,7 +21,8 @@ note: >-
   Self-contained port of SAM-Adapter (ICCV 2023), ViT-L, prompt-free.
   The official FFT high-pass prompt generator is injected into every ViT
   block; the decoder receives empty sparse prompts plus no_mask_embed.
-  Official 20-epoch AdamW 2e-4/cosine recipe; only the prompt generator
-  and mask decoder are trained. Official batch size is 2; this port defaults
-  to batch 1 + 2-step accumulation + gradient checkpointing to fit a 24 GiB
-  card, preserving effective batch 2.
+  Official AdamW 2e-4/cosine recipe extended from 20 to the 200-epoch
+  3-shot budget; only the prompt generator and mask decoder are trained.
+  Official batch size is 2; this port defaults to batch 1 + 2-step
+  accumulation + gradient checkpointing to fit a 24 GiB card, preserving
+  effective batch 2.

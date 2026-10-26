@@ -21,6 +21,7 @@ defaults:
 note: >-
   Self-contained port of TopoLoRA-SAM (Seglab), official ViT-B, prompt-free.
   LoRA r=8 on the ViT MLP layers + 256-channel conv adapter + trainable mask
-  decoder; BCE + Dice + 0.5 clDice; AdamW 1e-4/1e-4, cosine, 50 epochs,
-  batch 1 x 4 accumulation, grad clip 1.0. Upstream uses 16-mixed AMP; this
-  port is plain fp32. Requires checkpoints/sam_vit_b_01ec64.pth.
+  decoder; BCE + Dice + 0.5 clDice; AdamW 1e-4/1e-4, cosine, official
+  50 epochs extended to the 200-epoch 3-shot budget, batch 1 x 4
+  accumulation, grad clip 1.0. Upstream uses 16-mixed AMP; this port is
+  plain fp32. Requires checkpoints/sam_vit_b_01ec64.pth.

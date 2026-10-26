@@ -38,8 +38,23 @@ def test_registry_and_metadata():
     assert 'Oracle-prompted' in adapter.deviations[0]
 
 
+def test_multistep_milestones_scale_with_epochs():
+    adapter = UCSAdapter()
+    parameter = torch.nn.Parameter(torch.tensor(1.0))
+    optimizer = torch.optim.SGD([parameter], lr=1e-4)
+
+    scheduler = adapter.make_scheduler(
+        optimizer, SimpleNamespace(epochs=20))
+    assert [step for step, _ in scheduler.milestones.items()] == [5, 10]
+
+    scheduler = adapter.make_scheduler(
+        optimizer, SimpleNamespace(epochs=200))
+    assert [step for step, _ in scheduler.milestones.items()] == [50, 100]
+
+
 def test_prompt_helpers():
     import numpy as np
+
     from baseline_zoo.models.ucs import utils
 
     mask = np.zeros((24, 32), dtype=np.float32)

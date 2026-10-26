@@ -6,8 +6,10 @@ samples refinement clicks by comparing predictions to GT.  It is therefore
 **oracle-prompted**, not prompt-free; this adapter preserves that behaviour and
 labels it in the paper table.
 
-Training follows the official 20-epoch, batch-1, MultiStepLR recipe and selects
-checkpoints by training Dice.  The shared runtime still owns data splits,
+Training follows the official batch-1, Adam 1e-4 and MultiStepLR recipe,
+with milestones scaled from the official 20-epoch [5,10] to the 200-epoch
+3-shot budget [50,100].  Checkpoints are selected by training Dice.  The
+shared runtime still owns data splits,
 checkpointing, history, W&B and prediction export.
 """
 
@@ -45,8 +47,9 @@ class UCSAdapter(BaselineAdapter):
         'Oracle-prompted: the official inference derives boxes/points from the '
         'GT mask and samples refinement clicks from prediction-vs-GT errors. '
         'UCS must not be reported as prompt-free.',
-        'Uses the official 20-epoch, batch-1, Adam 1e-4, MultiStepLR [5,10] '
-        'gamma 0.5, iter_point=8 recipe; not the project 200-epoch budget.',
+        'Uses the official batch-1, Adam 1e-4, MultiStepLR gamma 0.5 and '
+        'iter_point=8 recipe with milestones scaled from [5,10] at 20 epochs '
+        'to [50,100] at the 200-epoch 3-shot budget.',
         'Checkpoint selection uses training Dice (official), not the 6-image '
         'validation Dice used by other baselines; validation is still logged.',
         'Bypasses the UCS JSON dataset manifests and consumes the shared '
@@ -136,8 +139,14 @@ class UCSAdapter(BaselineAdapter):
             [p for p in model.parameters() if p.requires_grad], lr=args.lr)
 
     def make_scheduler(self, optimizer, args):
+        # Official 20-epoch schedule is [5, 10] (25%, 50%).  The 3-shot
+        # protocol uses 200 epochs, so keep the same proportions.
+        milestones = [
+            max(1, int(args.epochs) // 4),
+            max(2, int(args.epochs) // 2),
+        ]
         return torch.optim.lr_scheduler.MultiStepLR(
-            optimizer, milestones=[5, 10], gamma=0.5)
+            optimizer, milestones=milestones, gamma=0.5)
 
     @staticmethod
     def _ucs_utils():

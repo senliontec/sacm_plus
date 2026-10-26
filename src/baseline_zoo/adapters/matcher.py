@@ -88,8 +88,7 @@ class MatcherAdapter(BaselineAdapter):
             from baseline_zoo.models.matcher import build_matcher
         except ImportError as exc:
             raise SystemExit(
-                'Matcher requires the POT package (`pip install POT`): '
-                f'{exc}') from exc
+                f'Matcher import failed: {exc}') from exc
         sam_weights = Path(args.sam_weights)
         if not sam_weights.is_file():
             raise SystemExit(

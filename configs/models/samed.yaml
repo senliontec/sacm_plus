@@ -22,6 +22,6 @@ note: >-
   SAM ViT-B with rank-4 q/v LoRA, trainable prompt encoder and class-wise
   mask decoder; binary head; 512 input; CE 0.2 + Dice 0.8 on 128x128
   low-res logits; AdamW 5e-3/0.1 with poly decay. Official Synapse recipe
-  adapted to the shared 18-image 3-shot split (batch 4, 160 epochs).
+  adapted to the shared 18-image 3-shot split (batch 4, full 200 epochs).
   Requires checkpoints/sam_vit_b_01ec64.pth; released 8-class SAMed LoRA
   weights are not used.

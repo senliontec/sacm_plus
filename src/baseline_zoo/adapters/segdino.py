@@ -54,7 +54,8 @@ class SegDINOAdapter(BaselineAdapter):
         'Predictions are restored to the original GT resolution for the '
         'shared evaluator.',
         'The official no-augmentation, BCEWithLogits, AdamW 1e-4/1e-4, '
-        '50-epoch, batch-4 recipe is preserved.',
+        'batch-4 recipe is preserved; the official 50-epoch budget is '
+        'replaced by 200 epochs for the 18-image 3-shot protocol.',
         'The default backbone is small (the official README example); the '
         'official argparse default is base. Pass --dino-size b for the '
         'parser default or --dino-size l for ViT-L.',

@@ -19,7 +19,7 @@ from PIL import Image
 from torch import nn
 
 from baseline_zoo.models.bcunet import BCUNet
-from baseline_zoo.runtime import BaselineAdapter, REPO_ROOT, file_sha256
+from baseline_zoo.runtime import REPO_ROOT, BaselineAdapter
 
 
 class BCUNetAdapter(BaselineAdapter):
@@ -48,8 +48,9 @@ class BCUNetAdapter(BaselineAdapter):
         '1x1 logits projection at full resolution. Upstream main.py also '
         'imports a missing warmlearnrate.py and cannot run; this adapter '
         'supplies the official loss/optimizer loop instead.',
-        'The official 50 epochs, Adam 1.5e-4, no scheduler and no '
-        'augmentation are preserved.',
+        'The official Adam 1.5e-4, no scheduler and no augmentation are '
+        'preserved. The official 50-epoch budget is replaced by 200 epochs '
+        'for the 18-image 3-shot protocol.',
     )
 
     def add_args(self, parser):
