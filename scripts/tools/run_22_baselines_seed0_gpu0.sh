@@ -58,8 +58,9 @@ MODELS=(
 )
 MODELS_CSV=$(IFS=,; echo "${MODELS[*]}")
 
+GPUS=${GPUS:-0}
 echo "============================================================"
-echo "SACM baseline run: seed 0, GPU 0, sequential"
+echo "SACM baseline run: seed 0, GPU(s) ${GPUS}, sequential per GPU"
 echo "python: $PYTHON"
 echo "models (${#MODELS[@]}): ${MODELS[*]}"
 echo "============================================================"
@@ -82,5 +83,5 @@ echo "Starting train -> eval -> report -> figures..."
 exec bash scripts/run_paper.sh \
   --model "$MODELS_CSV" \
   --seeds 0 \
-  --gpus 0 \
+  --gpus "$GPUS" \
   --resume
