@@ -14,6 +14,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import numpy as np
@@ -296,6 +297,9 @@ class NNWNetAdapter(BaselineAdapter):
             'effective_batch_size': actual_batch,
             'seed': args.seed,
             'selection': 'nnU-Net EMA pseudo-Dice (official)',
+            'val_dice_source': 'nnU-Net mean_fg_dice (patch-based pseudo Dice); '
+                               'IoU/clDice/HD95 are computed by the final '
+                               'evaluator',
         }
         run = setup_wandb(args, name=f'nnwnet-seed{args.seed}',
                           config=run_config)
@@ -313,49 +317,103 @@ class NNWNetAdapter(BaselineAdapter):
         trainer.num_epochs = args.epochs
         trainer.initialize()
 
-        # nnU-Net has no W&B logger.  Log one point per epoch from its own
-        # logger before the original on_epoch_end advances current_epoch.
-        if run is not None:
-            from types import MethodType
+        # nnU-Net has no shared-runtime epoch table.  Keep its official
+        # training loop, but render the same table and W&B keys as every
+        # other baseline.  nnU-Net only exposes patch-based pseudo Dice
+        # during training; the shared evaluator supplies IoU/clDice/HD95
+        # on the final test predictions.
+        from baseline_zoo.runtime import (
+            print_epoch_footer,
+            print_epoch_header,
+            print_epoch_row,
+        )
 
-            original_on_epoch_end = trainer.on_epoch_end
+        num_params = sum(p.numel() for p in trainer.network.parameters())
+        trainable = sum(p.numel() for p in trainer.network.parameters()
+                        if p.requires_grad)
+        from core.console import console
 
-            def _last_scalar(key):
-                try:
-                    value = trainer.logger.get_value(key, step=-1)
-                except Exception:
-                    return None
-                if value is None:
-                    return None
-                array = np.asarray(value)
-                if array.size == 0:
-                    return None
-                return float(array.reshape(-1)[-1])
+        for deviation in self.deviations:
+            console.print(f' [yellow]deviation:[/] {deviation}')
+        print_epoch_header(self, args.epochs, args.seed, device,
+                           num_params, trainable)
+        print('note: Dice is nnU-Net pseudo Dice (patch-based); '
+              'IoU/clDice/HD95 are computed by the final evaluator.',
+              flush=True)
 
-            def _on_epoch_end(self):
-                scalars = {}
-                for key in ('train_losses', 'val_losses', 'ema_fg_dice'):
-                    value = _last_scalar(key)
-                    if value is not None:
-                        scalars[f'nnunet/{key}'] = value
-                try:
-                    dice = self.logger.get_value(
-                        'dice_per_class_or_region', step=-1)
-                    if dice is not None:
-                        values = np.asarray(dice).reshape(-1)
-                        if values.size:
-                            scalars['nnunet/mean_fg_dice'] = float(
-                                np.mean(values))
-                except Exception:
-                    pass
-                if scalars:
-                    scalars['epoch'] = int(self.current_epoch) + 1
-                    log_scalars(run, scalars)
-                original_on_epoch_end()
+        from types import MethodType
 
-            trainer.on_epoch_end = MethodType(_on_epoch_end, trainer)
+        original_on_epoch_end = trainer.on_epoch_end
+
+        def _last_scalar(key):
+            try:
+                value = trainer.logger.get_value(key, step=-1)
+            except Exception:
+                return None
+            if value is None:
+                return None
+            array = np.asarray(value)
+            if array.size == 0:
+                return None
+            return float(array.reshape(-1)[-1])
+
+        def _on_epoch_end(self):
+            epoch = int(self.current_epoch) + 1
+            train_loss = _last_scalar('train_losses')
+            val_loss = _last_scalar('val_losses')
+            dice = _last_scalar('mean_fg_dice')
+            ema = _last_scalar('ema_fg_dice')
+            lr = float(self.optimizer.param_groups[0]['lr'])
+            start = _last_scalar('epoch_start_timestamps')
+            elapsed = (time.time() - start) if start is not None else 0.0
+            previous_best = getattr(self, '_best_ema', None)
+            improved = (ema is not None
+                        and (previous_best is None or ema > previous_best))
+            table_metrics = {
+                'dice': float('nan') if dice is None else dice,
+                'iou': float('nan'),
+                'cldice': float('nan'),
+                'hd95': float('nan'),
+            }
+            print_epoch_row(
+                epoch,
+                float('nan') if train_loss is None else train_loss,
+                table_metrics, lr, elapsed, improved)
+
+            scalars = {
+                'epoch': epoch,
+                'train/loss': train_loss,
+                'lr': lr,
+                'val/selection': ema if ema is not None else dice,
+                'val/dice': dice,
+                'val/loss': val_loss,
+                'val/pseudo_dice': dice,
+                'val/ema_pseudo_dice': ema,
+            }
+            scalars = {key: value for key, value in scalars.items()
+                       if value is not None}
+            for key in ('train_losses', 'val_losses', 'ema_fg_dice'):
+                value = _last_scalar(key)
+                if value is not None:
+                    scalars[f'nnunet/{key}'] = value
+            try:
+                dice_values = self.logger.get_value(
+                    'dice_per_class_or_region', step=-1)
+                if dice_values is not None:
+                    values = np.asarray(dice_values).reshape(-1)
+                    if values.size:
+                        scalars['nnunet/mean_fg_dice'] = float(
+                            np.mean(values))
+            except Exception:
+                pass
+            if run is not None:
+                log_scalars(run, scalars)
+            original_on_epoch_end()
+
+        trainer.on_epoch_end = MethodType(_on_epoch_end, trainer)
 
         trainer.run_training()
+        print_epoch_footer()
 
         logs = getattr(trainer.logger, 'my_fantastic_logging', {})
         if run is not None:
