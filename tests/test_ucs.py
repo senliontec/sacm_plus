@@ -5,6 +5,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
+import pytest
 import torch
 from PIL import Image
 
@@ -127,7 +128,7 @@ def test_training_validation_does_not_reseed_rng(tmp_path):
     assert adapter._prediction_seeded is False
 
 
-def test_prediction_seeds_rng_once():
+def test_prediction_seeds_rng_once(tmp_path):
     adapter = UCSAdapter()
     adapter.iter_point = 1
     adapter.point_num = 1
@@ -159,9 +160,18 @@ def test_prediction_seeds_rng_once():
     }
     torch.manual_seed(123)
     np.random.seed(123)
-    result = adapter.predict_sample(FakeModel(), prepared, _sample(Path('/tmp')))
+    result = adapter.predict_sample(FakeModel(), prepared, _sample(tmp_path))
     assert result.shape == (4, 4) and not result.any()
     assert adapter._prediction_seeded is True
     assert torch.initial_seed() == 5
-    np.random.seed(5)
+    # These draws prove the adapter seeded the global RNGs; do not reseed.
+    assert random.random() == pytest.approx(0.6229016948897019)
     assert np.random.randint(0, 2**31 - 1) == 953453411
+
+    # A second call must not silently reseed (the once-only latch).
+    random.seed(999)
+    np.random.seed(999)
+    adapter.predict_sample(FakeModel(), prepared, _sample(tmp_path))
+    assert torch.initial_seed() == 5
+    assert random.random() == pytest.approx(0.7813468849570298)
+    assert np.random.randint(0, 2**31 - 1) == 1303213504

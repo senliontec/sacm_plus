@@ -56,10 +56,20 @@
 
 ```bash
 /home/dev/anaconda3/envs/tsai/bin/python -m pytest tests
-# 182 collected, 179 passed, 3 skipped (slow)
+# 185 collected, 182 passed, 3 skipped (slow)
 /home/dev/anaconda3/envs/tsai/bin/python 'cod reviewer/audits/_shared/03_unet_hetero_probe.py'
 # official_global_dice == port_mean_dice; loss_absdiff=0.0; grad_maxdiff=0.0
 ```
+
+## Code-review P0 修复（2026-10-26）
+
+代码审查后确认并修复的 P0 项：
+
+- `nnwnet`：planning 命令加 `--no_pp`，避免先用 8 workers 预处理 18 例又被第二次 24 例预处理覆盖；stage val 后把 raw `dataset.json` 刷新到 `preprocessed/dataset.json`，删除无效的 `plans['numTraining']` 补丁和死 guard。
+- `matcher` 测试：POT 依赖的 import 移入测试并 `pytest.importorskip('ot')`；`setup_baselines.sh` 增加 `matcher` extra，干净安装不再在 pytest collection 阶段失败。
+- `runtime`：新增 `BaselineAdapter.begin_prediction()`，在 `run_prediction` 开始时重置 `prediction_mode` 和 `_prediction_seeded`，结束后清 `prediction_mode`；同一 adapter 实例换 seed 再预测不会复用旧 latch。
+- `knowsam`：更新 `_stage` 注释，明确排除 train/val/test 全部 manifest 行。
+- 回归测试：nnWNet `--no_pp` 命令、preprocessed `dataset.json` 同步、两阶段 staging（18 train + 6 disjoint val + `numTraining=24`）；prediction latch 重置测试。
 
 ## 仍未解决（阻断主表）
 

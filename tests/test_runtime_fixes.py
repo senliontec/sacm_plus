@@ -76,6 +76,15 @@ def test_sacm_official_clip_default_is_effective():
     assert parser.parse_args(['--grad-clip', '0.25']).grad_clip == 0.25
 
 
+def test_begin_prediction_resets_seed_latch():
+    adapter = load_adapter('matcher')
+    adapter.prediction_mode = False
+    adapter._prediction_seeded = True
+    adapter.begin_prediction()
+    assert adapter.prediction_mode is True
+    assert adapter._prediction_seeded is False
+
+
 def test_cs2net_schedule_does_not_decay_before_first_epoch():
     adapter = load_adapter('cs2net')
     model = torch.nn.Linear(1, 1)
@@ -145,6 +154,24 @@ def test_knowsam_largest_cc():
     assert np.array_equal(_largest_cc(empty), empty)
 
 
+def test_nnwnet_plan_command_skips_first_preprocess():
+    adapter = load_adapter('nnwnet')
+    command = adapter._plan_command()
+    assert '--no_pp' in command
+    assert 'plan_and_preprocess_entrypoints' in ' '.join(command)
+
+
+def test_nnwnet_syncs_preprocessed_dataset_json(tmp_path):
+    adapter = load_adapter('nnwnet')
+    raw = tmp_path / 'raw' / 'Dataset501_Curvilinear3Shot'
+    raw.mkdir(parents=True)
+    (raw / 'dataset.json').write_text(json.dumps({'numTraining': 24}))
+    preprocessed = tmp_path / 'preprocessed' / 'Dataset501_Curvilinear3Shot'
+    adapter._sync_preprocessed_dataset_json(tmp_path, preprocessed)
+    assert json.loads(
+        (preprocessed / 'dataset.json').read_text())['numTraining'] == 24
+
+
 def test_nnwnet_planning_stage_excludes_val(tmp_path):
     adapter = load_adapter('nnwnet')
     raw = tmp_path / 'raw'
@@ -158,6 +185,20 @@ def test_nnwnet_planning_stage_excludes_val(tmp_path):
     labels = list(
         (raw / 'Dataset501_Curvilinear3Shot' / 'labelsTr').glob('*.png'))
     assert len(labels) == 18
+
+    # The real two-phase flow stages val only after planning.  Re-staging
+    # with val must keep the 18 train cases and add exactly 6 disjoint val
+    # cases; the raw dataset.json must advertise 24 cases for the second
+    # preprocessing pass.
+    train_all, val_all = adapter._stage_raw(
+        raw, Path('data/sacm_3shot_seed0'), include_val=True)
+    assert len(train_all) == 18
+    assert len(val_all) == 6
+    assert set(train_all) == set(train)
+    assert not set(train_all) & set(val_all)
+    dataset_json = json.loads(
+        (raw / 'Dataset501_Curvilinear3Shot' / 'dataset.json').read_text())
+    assert dataset_json['numTraining'] == 24
 
 
 def test_segdino_auto_detects_size_matched_checkpoint(tmp_path):

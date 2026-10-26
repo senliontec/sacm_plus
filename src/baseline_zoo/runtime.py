@@ -80,6 +80,13 @@ class BaselineAdapter(ABC):
         self.args: argparse.Namespace | None = None
         self.device = torch.device('cpu')
         self.checkpoint_config: dict[str, Any] = {}
+        self.prediction_mode = False
+        self._prediction_seeded = False
+
+    def begin_prediction(self) -> None:
+        """Reset per-run prediction state before a new eval pass."""
+        self.prediction_mode = True
+        self._prediction_seeded = False
 
     # ---- construction -------------------------------------------------
     @abstractmethod
@@ -720,8 +727,10 @@ def run_prediction(adapter: BaselineAdapter, args: argparse.Namespace,
     adapter.device = device
     # Distinguish final prediction from validation inside a training run.
     # Adapters that seed eval-time prompt sampling use this flag so they do
-    # not reset the training RNG during per-epoch validation.
-    adapter.prediction_mode = True
+    # not reset the training RNG during per-epoch validation.  This also
+    # clears the once-only seed latch when one adapter object is reused for
+    # a second prediction run.
+    adapter.begin_prediction()
     # A failed rerun must not leave metadata from the previous checkpoint.
     previous_meta = Path(args.pred_root) / '.prediction_meta.json'
     if previous_meta.is_file():
@@ -817,6 +826,8 @@ def run_prediction(adapter: BaselineAdapter, args: argparse.Namespace,
     except BaseException as exc:
         status.fail(exc)
         raise
+    finally:
+        adapter.prediction_mode = False
 
 
 # ---------------------------------------------------------------------------

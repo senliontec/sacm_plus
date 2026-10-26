@@ -144,9 +144,9 @@ class KnowSAMAdapter(BaselineAdapter):
             self._save_pair(root / 'val', sample, sample.stem)
 
         # The protocol stem is <DOMAIN>_<source stem>, while the source pool
-        # uses <source stem>.  Read split_manifest.csv to exclude exactly
-        # the 18 labeled + 6 validation source images; comparing protocol
-        # stems directly silently leaked validation images into the pool.
+        # uses <source stem>.  Read split_manifest.csv and exclude every
+        # train/val/test source image; comparing protocol stems directly
+        # silently leaked validation/test images into the pool.
         excluded = {}
         manifest = data_root / 'split_manifest.csv'
         if not manifest.is_file():

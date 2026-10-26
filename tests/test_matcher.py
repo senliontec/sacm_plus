@@ -1,19 +1,19 @@
 """Fast Matcher adapter tests (no DINOv2/SAM build)."""
 
 import inspect
+import random
 import tempfile
 from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
+import pytest
 import torch
 from PIL import Image
 
 from baseline_zoo.adapters.matcher import MatcherAdapter
 from baseline_zoo.adapters.registry import available_adapters, load_adapter
 from baseline_zoo.data import Sample
-from baseline_zoo.models.matcher.Matcher import Matcher
-from baseline_zoo.models.matcher.model import build_matcher
 from baseline_zoo.runtime import run_training_free
 
 
@@ -92,6 +92,12 @@ def test_config_roundtrip(tmp_path):
 
 
 def test_official_fss_score_defaults():
+    # Matcher.py imports POT at module level.  POT is an optional extra, so
+    # keep this test importable on the documented `make install` / dev setup.
+    pytest.importorskip('ot')
+    from baseline_zoo.models.matcher.Matcher import Matcher
+    from baseline_zoo.models.matcher.model import build_matcher
+
     matcher = inspect.signature(Matcher.__init__).parameters
     assert matcher['alpha'].default == 0.8
     assert matcher['beta'].default == 0.2
@@ -131,5 +137,19 @@ def test_prediction_seeds_rng_once():
     assert result.shape == (8, 8) and result.all()
     assert adapter._prediction_seeded is True
     assert torch.initial_seed() == 7
-    np.random.seed(7)
+    # Do not reseed here: these draws prove the adapter seeded the global
+    # Python/NumPy RNGs, not that the test itself did.
+    assert random.random() == pytest.approx(0.32383276483316237)
     assert np.random.randint(0, 2**31 - 1) == 327741615
+
+    # A second call must not silently reseed (the once-only latch).  The
+    # caller's 999 state must remain in effect.
+    random.seed(999)
+    np.random.seed(999)
+    adapter.predict_sample(
+        FakeModel(), {'image': torch.zeros(1, 3, 8, 8),
+                      'original_size': (8, 8)},
+        SimpleNamespace(dataset='TEST'))
+    assert torch.initial_seed() == 7
+    assert random.random() == pytest.approx(0.7813468849570298)
+    assert np.random.randint(0, 2**31 - 1) == 1303213504

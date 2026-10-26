@@ -128,6 +128,24 @@ class NNWNetAdapter(BaselineAdapter):
         return train_cases, val_cases
 
     @staticmethod
+    def _plan_command():
+        return [
+            sys.executable, '-m',
+            'nnunetv2.experiment_planning.'
+            'plan_and_preprocess_entrypoints',
+            '-d', str(DATASET_ID), '-c', '2d',
+            '--verify_dataset_integrity', '--no_pp',
+        ]
+
+    @staticmethod
+    def _sync_preprocessed_dataset_json(nn_root: Path,
+                                        preprocessed: Path) -> None:
+        preprocessed.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(
+            nn_root / 'raw' / DATASET_NAME / 'dataset.json',
+            preprocessed / 'dataset.json')
+
+    @staticmethod
     def _write_splits(preprocessed: Path, train_cases, val_cases):
         preprocessed.mkdir(parents=True, exist_ok=True)
         (preprocessed / 'splits_final.json').write_text(
@@ -194,24 +212,22 @@ class NNWNetAdapter(BaselineAdapter):
 
         preprocessed = nn_root / 'preprocessed' / DATASET_NAME
         plans_path = preprocessed / 'nnUNetPlans.json'
-        if not plans_path.is_file():
-            command = [
-                sys.executable, '-m',
-                'nnunetv2.experiment_planning.'
-                'plan_and_preprocess_entrypoints',
-                '-d', str(DATASET_ID), '-c', '2d',
-                '--verify_dataset_integrity',
-            ]
-            print('+ ' + ' '.join(command), flush=True)
-            subprocess.run(command, env=env, check=True, cwd=workdir)
+        # Plan on the 18 train cases only; --no_pp is essential here.
+        # Without it nnU-Net also preprocesses those 18 cases with its
+        # default 8 workers, and the second preprocess below would discard
+        # that work and rebuild all 24 cases.
+        command = self._plan_command()
+        print('+ ' + ' '.join(command), flush=True)
+        subprocess.run(command, env=env, check=True, cwd=workdir)
 
         # Add val only after the plans are frozen, then preprocess it with
         # the existing plans.  nnUNetv2_preprocess does not re-plan.
         train_cases, val_cases = self._stage_raw(
             nn_root / 'raw', Path(args.data_root), include_val=True)
-        plans_data = json.loads(plans_path.read_text())
-        plans_data['numTraining'] = len(train_cases) + len(val_cases)
-        plans_path.write_text(json.dumps(plans_data, indent=2) + '\n')
+        # DefaultPreprocessor reads preprocessed/dataset.json, not the raw
+        # copy.  The planning pass wrote the 18-case file; refresh it to the
+        # 24-case raw metadata before the second preprocessing pass.
+        self._sync_preprocessed_dataset_json(nn_root, preprocessed)
 
         preprocess_bin = Path(sys.executable).with_name('nnUNetv2_preprocess')
         if preprocess_bin.is_file():

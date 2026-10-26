@@ -15,7 +15,7 @@ if [ -z "${PYTHON:-}" ]; then
 fi
 
 "$PYTHON" -m pip install -e \
-  '.[maskvsc,bcunet,cwsam,sam_med2d,sam_octa,knowsam,nnwnet,segdino]'
+  '.[maskvsc,bcunet,cwsam,sam_med2d,sam_octa,knowsam,nnwnet,segdino,matcher]'
 
 echo "Installed. Next:"
 echo "  export PYTHONPATH=$PWD/src"
