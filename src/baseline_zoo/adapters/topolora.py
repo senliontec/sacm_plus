@@ -59,12 +59,18 @@ class TopoLoRAAdapter(BaselineAdapter):
         'checkpoint.',
         'The upstream PyTorch Lightning trainer, CSV/W&B loggers and '
         'artifact figures are replaced by the shared baseline runtime; the '
-        'model, loss, optimizer, schedule and accumulation are preserved.',
+        'model, loss, optimizer and schedule are preserved, and accumulation '
+        'uses the same batch-1 x4 granularity (partial-group handling differs; '
+        'see below).',
         'Albumentations 1.3.1 has no per-Compose seed; the adapter seeds the '
         'global Python/NumPy RNG from the shared per-epoch RNG before each '
         'train batch.',
         'The prompt path is prompt-free: points/boxes/masks are all None and '
         'the learned no_mask_embed dense prompt is used, matching upstream.',
+        'The shared runtime rescales the final partial accumulation group by '
+        'accum/pending and filters optimizer parameters to requires_grad; '
+        'upstream Lightning accumulation has no equivalent partial-group '
+        'rescale. The 18-image batch-1 x4 run ends with a 2-step group.',
         'No test-time augmentation.',
     )
 

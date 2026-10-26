@@ -1,0 +1,35 @@
+{
+  "meta": {
+    "generated_by": "/home/dev/anaconda3/envs/tsai/bin/python cod reviewer/audits/_shared/03_same_state_probes.py",
+    "project_commit": "fc7d8f4711c025d75240581541fa0a067427a011",
+    "date": "2026-10-25",
+    "environment": {
+      "device": "cuda",
+      "torch": "2.13.0+cu130"
+    },
+    "seed_policy": "one fixed state dict copied official->port; deterministic input tensors; no training"
+  },
+  "official": {
+    "repo": "nnWNet",
+    "commit": "cfcd2e09754fc832c3099a2ed39d86a90007dbcb"
+  },
+  "state": {
+    "keys_equal": true,
+    "shapes_equal": true,
+    "param_count_off": 7044042,
+    "param_count_port": 7044042,
+    "buffer_count_off": 10268,
+    "buffer_count_port": 10268,
+    "official_loads_port_state": true
+  },
+  "forward_num_outputs": [
+    5,
+    5
+  ],
+  "forward_maxdiff_all_outputs": 0.0,
+  "official_file_imports": true,
+  "loss_grad": "NOT PROBED: loss/optimizer inherited from nnU-Net trainer; no trained state/checkpoint",
+  "notes": [
+    "Only model construction/forward parity was probed. G2 remains unverified."
+  ]
+}

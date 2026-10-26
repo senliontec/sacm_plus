@@ -50,9 +50,10 @@ class NNWNetAdapter(BaselineAdapter):
         'One pooled 18-image train / 6-image val model replaces the official '
         'per-dataset 5-fold CV; training uses fold 0 only via a fixed '
         'splits_final.json.',
-        'nnU-Net planning sees all 24 staged cases (train+val), so '
-        'normalization statistics and planner choices include the 6 val '
-        'cases. This is a soft protocol deviation of the official pipeline.',
+        'nnU-Net planning and normalization are fitted on the 18 train cases '
+        'only; the 6 val cases are staged after planning and preprocessed '
+        'with the frozen plans. Val images therefore do not affect planner '
+        'choices or normalization statistics.',
         'The official 2D trainer defaults are kept (200 epochs, SGD 1e-2, '
         'AMP, deep supervision, sliding-window/TTA inference); checkpoint '
         'selection is nnU-Net EMA pseudo-Dice on the val split.',
@@ -93,7 +94,8 @@ class NNWNetAdapter(BaselineAdapter):
             index += 1
         return case
 
-    def _stage_raw(self, raw: Path, data_root: Path):
+    def _stage_raw(self, raw: Path, data_root: Path,
+                   include_val: bool = True):
         dataset_dir = raw / DATASET_NAME
         images_tr = dataset_dir / 'imagesTr'
         labels_tr = dataset_dir / 'labelsTr'
@@ -101,7 +103,7 @@ class NNWNetAdapter(BaselineAdapter):
         labels_tr.mkdir(parents=True, exist_ok=True)
 
         train = load_split_samples(data_root, 'train')
-        val = load_split_samples(data_root, 'val')
+        val = load_split_samples(data_root, 'val') if include_val else []
         used: set[str] = set()
         train_cases, val_cases = [], []
         for samples, cases in ((train, train_cases), (val, val_cases)):
@@ -184,8 +186,11 @@ class NNWNetAdapter(BaselineAdapter):
         shutil.rmtree(nn_root / 'raw' / DATASET_NAME, ignore_errors=True)
         shutil.rmtree(nn_root / 'preprocessed' / DATASET_NAME,
                       ignore_errors=True)
-        train_cases, val_cases = self._stage_raw(
-            nn_root / 'raw', Path(args.data_root))
+        # Fit the planner/preprocessor on train only.  Staging val before
+        # planning leaked the 6 validation images into normalization and
+        # planner choices.
+        train_cases, _ = self._stage_raw(
+            nn_root / 'raw', Path(args.data_root), include_val=False)
 
         preprocessed = nn_root / 'preprocessed' / DATASET_NAME
         plans_path = preprocessed / 'nnUNetPlans.json'
@@ -199,6 +204,28 @@ class NNWNetAdapter(BaselineAdapter):
             ]
             print('+ ' + ' '.join(command), flush=True)
             subprocess.run(command, env=env, check=True, cwd=workdir)
+
+        # Add val only after the plans are frozen, then preprocess it with
+        # the existing plans.  nnUNetv2_preprocess does not re-plan.
+        train_cases, val_cases = self._stage_raw(
+            nn_root / 'raw', Path(args.data_root), include_val=True)
+        plans_data = json.loads(plans_path.read_text())
+        plans_data['numTraining'] = len(train_cases) + len(val_cases)
+        plans_path.write_text(json.dumps(plans_data, indent=2) + '\n')
+
+        preprocess_bin = Path(sys.executable).with_name('nnUNetv2_preprocess')
+        if preprocess_bin.is_file():
+            command = [str(preprocess_bin)]
+        else:
+            command = [
+                sys.executable, '-c',
+                'from nnunetv2.experiment_planning.'
+                'plan_and_preprocess_entrypoints import preprocess_entry; '
+                'preprocess_entry()',
+            ]
+        command += ['-d', str(DATASET_ID), '-c', '2d', '-np', '2']
+        print('+ ' + ' '.join(command), flush=True)
+        subprocess.run(command, env=env, check=True, cwd=workdir)
         self._write_splits(preprocessed, train_cases, val_cases)
 
         from batchgenerators.utilities.file_and_folder_operations import (
@@ -209,6 +236,8 @@ class NNWNetAdapter(BaselineAdapter):
         plans = load_json(str(plans_path))
         dataset_json = load_json(
             str(nn_root / 'raw' / DATASET_NAME / 'dataset.json'))
+        plan_config = plans.get('configurations', {}).get('2d', {})
+        actual_batch = int(plan_config.get('batch_size', args.batch_size))
         run_config = {
             'method': self.id,
             'official_source': self.official_source,
@@ -218,6 +247,9 @@ class NNWNetAdapter(BaselineAdapter):
             'train_cases': len(train_cases),
             'val_cases': len(val_cases),
             'epochs': args.epochs,
+            'batch_size': actual_batch,
+            'patch_size': list(plan_config.get('patch_size', [])),
+            'effective_batch_size': actual_batch,
             'seed': args.seed,
             'selection': 'nnU-Net EMA pseudo-Dice (official)',
         }

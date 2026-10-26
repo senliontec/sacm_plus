@@ -54,6 +54,11 @@ class SAMedAdapter(BaselineAdapter):
         'pixel_std=1.',
         'Checkpoint selection uses the shared 6-image validation Dice; the '
         'official trainer has no best-checkpoint rule and tests epoch 159.',
+        'Official train.py defaults to SGD unless --AdamW is passed; the '
+        'README training command uses --AdamW. This port follows the README '
+        'AdamW recipe and discloses the source-default ambiguity. Official '
+        '2-GPU DataParallel/batch24 and NumPy worker RNG are replaced by '
+        'single-GPU/batch4 and the shared seeded runtime.',
         'The official 250-iteration warmup is replaced by a 5-epoch warmup, '
         'and the polynomial decay is stepped per epoch; the 18-image epoch '
         'has only a few iterations.',

@@ -52,7 +52,8 @@ Semantic-SAM path are not vendored.  The method itself is inference-only.
   `points_per_batch=64`, `pred_iou_thresh=0.88`,
   `stability_score_thresh=0.95`, `sel_output_layer=3`, dense/mm output off.
 - Official score filters: EMD/purity/coverage off, `topk_scores_threshold`
-  0.7, `num_merging_mask=10`, alpha 1.0, beta 0.0, exp 0.0.
+  0.7, `num_merging_mask=10`, alpha 0.8, beta 0.2, exp 1.0
+  (official `scripts/fss.sh` FSS recipe).
 - Matcher natively accepts n-shot supports; the three project train shots
   are passed for seen datasets; unseen/novel datasets use a structurally
   matched donor domain.

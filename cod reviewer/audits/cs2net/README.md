@@ -1,5 +1,8 @@
 # CS2Net 移植审计（手工 pilot）
 
+> **修复后（2026-10-26）：** 本报告表格是修复前审计证据；当前代码状态和回归证据见
+> [`../POST_FIX.md`](../POST_FIX.md)。A0/G6c 仍未完成，gate 结论不变。
+
 - 官方仓库：`3rd/CS-Net`
 - 官方 commit：`f1f8bbb011ebabc39b3ce6b552b8a0d881e587f6`
 - 移植版本：`src/baseline_zoo/models/cs2net/csnet.py` + `src/baseline_zoo/adapters/cs2net.py`

@@ -43,6 +43,9 @@ class DSCNetAdapter(BaselineAdapter):
         'The official global scalar mean/std is computed over all training '
         'images; this port computes it over the shared 18-image train split '
         'for each seed and stores it in the checkpoint.',
+        'Official DataLoader workers and RNG are not preserved: this port '
+        'uses workers=0 and the shared seed. The checkpoint-selection rule '
+        'also differs (see next item).',
         'The official checkpoint selection predicts the test set from epoch '
         '200 onward and selects by test Dice; this port selects on the '
         'shared 6-image validation Dice.',

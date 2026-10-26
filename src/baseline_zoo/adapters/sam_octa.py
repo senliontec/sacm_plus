@@ -57,8 +57,14 @@ class SAMOCTAAdapter(BaselineAdapter):
         'Per-block activation checkpointing is enabled for 11 GiB training; '
         'it changes memory, not the computation.',
         'GT-derived point prompts (one positive per component plus one '
-        'negative in the 8-pixel ring) and the official 0.8*Dice + '
-        '0.2*clDice vessel loss are preserved.',
+        'negative in the 8-pixel ring) are preserved. Official loss applies '
+        'clDice only to Artery/Vein/LargeVessel classes; the binary '
+        '20-dataset port applies 0.8*Dice+0.2*clDice uniformly. Official '
+        'train_sam_octa.py uses an unseeded global RNG and DataParallel on one '
+        'visible GPU; this port uses the shared protocol seed and a single '
+        'module, so data/prompt order is not bitwise identical. Official '
+        'metrics are Dice/Jaccard/Hausdorff; the shared evaluator reports '
+        'Dice/IoU/clDice/HD95.',
     )
 
     def add_args(self, parser):

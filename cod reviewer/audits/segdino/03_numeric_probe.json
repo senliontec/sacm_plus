@@ -1,0 +1,29 @@
+{
+  "meta": {
+    "generated_by": "/home/dev/anaconda3/envs/tsai/bin/python cod reviewer/audits/_shared/03_same_state_probes.py",
+    "project_commit": "fc7d8f4711c025d75240581541fa0a067427a011",
+    "date": "2026-10-25",
+    "environment": {
+      "device": "cuda",
+      "torch": "2.13.0+cu130"
+    },
+    "seed_policy": "one fixed state dict copied official->port; deterministic input tensors; no training"
+  },
+  "official": {
+    "repo": "SegDINO",
+    "commit": "c078ca0e2c7578304e80eaa4e9d3f7c6dd0f3c41"
+  },
+  "local_ckpt": "/home/dev/mywork/project/segment/sacm_plus/checkpoints/dinov3/pytorch_model.bin",
+  "local_ckpt_bytes": 86407250,
+  "port_build_with_local_ckpt": true,
+  "port_param_count": 24062881,
+  "timm_has_get_intermediate_layers": false,
+  "timm_embed_dim": 384,
+  "head_keys_equal": true,
+  "head_shapes_equal": true,
+  "head_param_count": 2475937,
+  "full_model_same_state_forward": "NOT RUN: official hub repo/backbone not present locally; DPT head parity only",
+  "notes": [
+    "Local DINOv3 weights are not an official SegDINO task checkpoint. G2 remains unverified."
+  ]
+}

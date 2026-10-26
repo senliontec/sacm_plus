@@ -5,11 +5,17 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
+import pytest
 import torch
 
 from baseline_zoo.adapters.persam import PerSAMAdapter
 from baseline_zoo.adapters.registry import available_adapters, load_adapter
-from baseline_zoo.models.persam import majority_vote, point_selection
+from baseline_zoo.models.persam import (
+    majority_vote,
+    point_selection,
+    prepare_reference_embedding,
+    predict_with_embedding,
+)
 from baseline_zoo.runtime import run_training_free
 
 
@@ -79,3 +85,55 @@ def test_config_roundtrip(tmp_path):
     assert restore.support_shots == 3
     assert restore.sam_type == 'vit_h'
     assert restore.input_size == 1024
+
+
+def test_reference_embedding_split_matches_official():
+    class FakePredictor:
+        def set_image(self, image, mask):
+            self.features = torch.tensor([[[[1.0, 2.0], [3.0, 4.0]],
+                                          [[2.0, 4.0], [6.0, 8.0]],
+                                          [[1.0, 1.0], [1.0, 1.0]],
+                                          [[0.0, 1.0], [2.0, 3.0]]]])
+            return torch.tensor([[[[1.0, 0.0], [0.0, 0.0]],
+                                  [[1.0, 0.0], [0.0, 0.0]],
+                                  [[1.0, 0.0], [0.0, 0.0]]]])
+
+    similarity, raw = prepare_reference_embedding(
+        FakePredictor(), np.zeros((2, 2, 3), dtype=np.uint8),
+        np.ones((2, 2, 3), dtype=np.uint8))
+    assert similarity.shape == (1, 1, 4)
+    assert raw.shape == (1, 1, 4)
+    assert similarity.norm().item() == pytest.approx(1.0)
+    assert raw.norm().item() == pytest.approx(6.0 ** 0.5)
+    assert torch.allclose(
+        similarity, raw / raw.norm(dim=-1, keepdim=True))
+
+
+def test_predict_passes_raw_embedding_to_target_prompting():
+    class FakeModel:
+        def postprocess_masks(self, sim, input_size, original_size):
+            return sim
+
+    class FakePredictor:
+        def __init__(self):
+            self.model = FakeModel()
+            self.calls = []
+
+        def predict(self, point_coords, point_labels, multimask_output,
+                    **kwargs):
+            self.calls.append(kwargs)
+            masks = np.zeros((1, 8, 8), dtype=bool)
+            masks[0, 2:5, 2:5] = True
+            scores = np.array([0.9])
+            logits = torch.zeros(1, 1, 8, 8)
+            return masks, scores, logits, None
+
+    predictor = FakePredictor()
+    features = torch.randn(1, 4, 2, 2)
+    similarity = torch.tensor([[[0.5, 0.5, 0.5, 0.5]]])
+    raw = torch.tensor([[[2.0, 2.0, 2.0, 2.0]]])
+    result = predict_with_embedding(
+        predictor, features, (8, 8), (8, 8), similarity, raw)
+    assert result.shape == (8, 8) and result.any()
+    assert predictor.calls[0]['target_embedding'] is raw
+    assert predictor.calls[0]['attn_sim'] is not None

@@ -2,6 +2,7 @@
 
 import argparse
 import csv
+import json
 from pathlib import Path
 
 import numpy as np
@@ -124,10 +125,39 @@ def test_knowsam_unlabeled_pool_excludes_protocol_images(tmp_path):
     manifest = Path('data/sacm_3shot_seed0/split_manifest.csv')
     with manifest.open(newline='') as handle:
         for row in csv.DictReader(handle):
-            if row['split'] not in ('train', 'val'):
-                continue
+            # The unlabeled pool must exclude train, val and test rows.
             name = f"{row['dataset']}_{Path(row['source_image']).stem}_image.png"
             assert name not in staged
+
+
+def test_knowsam_largest_cc():
+    from baseline_zoo.adapters.knowsam import _largest_cc
+
+    mask = np.zeros((8, 8), dtype=bool)
+    mask[1:3, 1:3] = True       # 4 pixels
+    mask[5:8, 5:8] = True       # 9 pixels
+    result = _largest_cc(mask)
+    assert int(result.sum()) == 9
+    assert result[5:8, 5:8].all()
+    assert not result[1:3, 1:3].any()
+
+    empty = np.zeros((4, 4), dtype=bool)
+    assert np.array_equal(_largest_cc(empty), empty)
+
+
+def test_nnwnet_planning_stage_excludes_val(tmp_path):
+    adapter = load_adapter('nnwnet')
+    raw = tmp_path / 'raw'
+    train, val = adapter._stage_raw(
+        raw, Path('data/sacm_3shot_seed0'), include_val=False)
+    assert len(train) == 18
+    assert val == []
+    dataset_json = json.loads(
+        (raw / 'Dataset501_Curvilinear3Shot' / 'dataset.json').read_text())
+    assert dataset_json['numTraining'] == 18
+    labels = list(
+        (raw / 'Dataset501_Curvilinear3Shot' / 'labelsTr').glob('*.png'))
+    assert len(labels) == 18
 
 
 def test_segdino_auto_detects_size_matched_checkpoint(tmp_path):

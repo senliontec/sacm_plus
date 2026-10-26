@@ -111,9 +111,9 @@ class PerSAMAdapter(BaselineAdapter):
             mask = load_mask(support.mask_path)
             mask_rgb = np.repeat(
                 (mask.astype(np.uint8) * 255)[..., None], 3, axis=2)
-            embedding = prepare_reference_embedding(
+            similarity, target_embedding = prepare_reference_embedding(
                 model.predictor, image, mask_rgb)
-            embeddings.append(embedding.detach())
+            embeddings.append((similarity.detach(), target_embedding.detach()))
         self._support_embeddings[dataset] = embeddings
         return embeddings
 
@@ -128,11 +128,12 @@ class PerSAMAdapter(BaselineAdapter):
         original_size = predictor.original_size
         input_size = predictor.input_size
         masks = []
-        for embedding in embeddings:
+        for similarity, target_embedding in embeddings:
             try:
                 masks.append(predict_with_embedding(
                     predictor, features, original_size, input_size,
-                    embedding.to(features.device)))
+                    similarity.to(features.device),
+                    target_embedding.to(features.device)))
             except Exception as exc:
                 print(f'WARNING: PerSAM support failed for '
                       f'{sample.dataset}/{sample.stem}: {exc}')

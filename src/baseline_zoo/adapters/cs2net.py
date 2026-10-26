@@ -84,6 +84,9 @@ class CS2NetAdapter(BaselineAdapter):
         'state_dict schema so every baseline shares one evaluator.',
         'Per-epoch validation runs once per epoch (upstream also tests every '
         'epoch but returns after the first image).',
+        'Official train.py uses nn.DataParallel on two GPUs, DataLoader workers=2 '
+        'and an unseeded global RNG; this port runs one GPU, workers=0 and a '
+        'seeded runtime RNG. Training trajectories are not bitwise identical.',
     )
 
     def build_model(self, args) -> nn.Module:

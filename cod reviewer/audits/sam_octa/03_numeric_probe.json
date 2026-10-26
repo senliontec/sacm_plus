@@ -47,5 +47,29 @@
     ],
     "output_max_abs_diff": 0.0,
     "allclose_1e-5": true
+  },
+  "loss_grad_probe": {
+    "probe": "one-step official 0.8*Dice+0.2*clDice loss/grad parity (reduced-width matched config)",
+    "config": "img_size=256, embed_dim=128, depth=4, heads=4, LoRA rank 4, 1 pos + 1 neg point; official DiceLoss/clDiceLoss on both sides",
+    "weights": "random init; official state_dict copied into port (strict)",
+    "loss_official_side": 0.7004100680351257,
+    "loss_port_side": 0.7004100680351257,
+    "loss_abs_diff": 0.0,
+    "grads_compared": 16,
+    "grad_count_official": 16,
+    "grad_count_port": 16,
+    "grad_max_abs_diff": 2.546585164964199e-11,
+    "grad_norm_official": 0.0010289705607168585,
+    "grad_norm_port": 0.0010289705500456906,
+    "allclose_1e-5": true,
+    "sample_diffs": {
+      "sam.image_encoder.blocks.3.attn.qkv.linear_b_v.weight": 2.546585e-11,
+      "sam.image_encoder.blocks.2.attn.qkv.linear_b_v.weight": 2.182787e-11,
+      "sam.image_encoder.blocks.0.attn.qkv.linear_b_v.weight": 1.455192e-11,
+      "sam.image_encoder.blocks.1.attn.qkv.linear_b_v.weight": 1.091394e-11,
+      "sam.image_encoder.blocks.0.attn.qkv.linear_b_q.weight": 4.067098e-13
+    },
+    "optimizer_step": "not probed",
+    "scope_note": "reduced-width implementation equivalence; official default is ViT-H at 1024 and full official training uses class-conditional loss, which this probe does not reproduce"
   }
 }

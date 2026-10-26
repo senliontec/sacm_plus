@@ -28,11 +28,13 @@ def dice_loss(logits: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
     epsilon is added to numerator and denominator.
     """
     prob = torch.sigmoid(logits)
-    inter = 2.0 * (prob * target).sum(dim=(1, 2, 3))
-    sets_sum = prob.sum(dim=(1, 2, 3)) + target.sum(dim=(1, 2, 3))
+    # Upstream calls dice_coeff(..., reduce_batch_first=True): one Dice
+    # value over the whole batch/spatial extent, not a per-image mean.
+    inter = 2.0 * (prob * target).sum()
+    sets_sum = prob.sum() + target.sum()
     sets_sum = torch.where(sets_sum == 0, inter, sets_sum)
     dice = (inter + 1e-6) / (sets_sum + 1e-6)
-    return 1.0 - dice.mean()
+    return 1.0 - dice
 
 
 class UNetAdapter(BaselineAdapter):
@@ -64,6 +66,9 @@ class UNetAdapter(BaselineAdapter):
         'upstream performs no augmentation.',
         'Checkpoint selected on the 6-image val split by Dice; upstream '
         'saves every epoch and evaluates a random 10% split.',
+        'Official DataLoader workers=os.cpu_count(), shuffle=True and a global '
+        'RNG; this port uses workers=0 and a per-epoch seeded RNG, so data '
+        'order and floating-point accumulation are not bitwise identical.',
     )
 
     def add_args(self, parser):

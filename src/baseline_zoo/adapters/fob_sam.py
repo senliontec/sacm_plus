@@ -80,6 +80,10 @@ class FoBSAMAdapter(BaselineAdapter):
         'SAM masks are predicted at 256x256 and resized to the original GT '
         'resolution before the shared metrics; the official protocol keeps '
         'volumes at 256.',
+        'Official test support is a held-out volume inside the test fold and '
+        'only labeled query slices are evaluated; this port uses training/'
+        'donor support and evaluates all query images. Metrics are therefore '
+        'not directly comparable.',
         'The unused InfoNCE attribute is kept as a dependency-free '
         'placeholder; it is never called by the official forward.',
         '2D protocol images use per-image grayscale standardization or '

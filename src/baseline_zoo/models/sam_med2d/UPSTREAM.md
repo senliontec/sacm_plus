@@ -1,7 +1,8 @@
 # SAM-Med2D
 
 - Upstream: https://github.com/OpenGVLab/SAM-Med2D
-- Vendored snapshot: `baselines/sam-med2d` (development reference tree)
+- Vendored snapshot: `3rd/SAM-Med2D`, HEAD
+  `bfd2b93b1158100c8abd81f61766a2de92c1c175`.
 - License: Apache-2.0 (`LICENSE`, copied verbatim)
 - Files copied:
   - `segment_anything/` -> `segment_anything/` (absolute imports made

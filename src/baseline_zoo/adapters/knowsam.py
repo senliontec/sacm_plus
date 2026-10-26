@@ -15,7 +15,7 @@ from types import SimpleNamespace
 
 import numpy as np
 import torch
-import torch.nn.functional as F
+from scipy.ndimage import zoom
 from PIL import Image
 from torch.utils.data import DataLoader
 
@@ -39,6 +39,17 @@ from core.wandb_utils import (
 SOURCE_DOMAINS = ('DRIVE', 'CHASEDB1', 'DCA1', 'CREMI', 'CrackTree200', 'CORN')
 
 
+def _largest_cc(mask: np.ndarray) -> np.ndarray:
+    """Official ``getLargestCC``: keep only the largest foreground component."""
+    from skimage.measure import label
+
+    labels = label(mask)
+    if labels.max() == 0:
+        return mask
+    largest = int(np.argmax(np.bincount(labels.flat)[1:])) + 1
+    return labels == largest
+
+
 class KnowSAMAdapter(BaselineAdapter):
     id = 'knowsam'
     display_name = 'KnowSAM'
@@ -56,9 +67,18 @@ class KnowSAMAdapter(BaselineAdapter):
         'images; the 3-shot protocol supplies 18 labeled images, so the '
         'adapter uses a configurable 3+3 batch (default total 6).',
         'Unlabeled data are drawn from the six seen-domain full training '
-        'pools. The exact 18 labeled and 6 validation source stems from '
-        'split_manifest.csv are excluded (capped by --unlabeled-limit); '
-        'upstream uses per-dataset unlabeled pools with patients_to_slices.',
+        'pools. Every source stem present in split_manifest.csv (train, '
+        'validation and test) is excluded, so the semi-supervised pool '
+        'cannot see any protocol test image; capped by --unlabeled-limit. '
+        'Upstream uses per-dataset unlabeled pools with patients_to_slices. '
+        'After excluding all protocol images, only CHASEDB1 (4), CREMI (246) '
+        'and CORN (134) contribute non-test unlabeled images; DRIVE, DCA1 and '
+        'CrackTree200 have none because their full pools are in the test '
+        'manifest. The 384-image cap is therefore dominated by CREMI/CORN, '
+        'not six-domain coverage; this limitation must be reported.',
+        'Official DataLoader workers are 2 (labeled) and 1 (unlabeled); this '
+        'port uses workers=0 and the shared seeded per-epoch RNG, so '
+        'augmentation/data order is not bitwise identical.',
         'The custom loop uses --epochs as the iteration budget unless '
         '--max-iterations is passed, seeds Python/NumPy/Torch with the '
         'protocol seed, and requires labeled_batch == batch_size/2. It does '
@@ -68,10 +88,13 @@ class KnowSAMAdapter(BaselineAdapter):
         'the seed is the protocol seed.',
         'ViT-B is used as in the official KnowSAM code; the paper states the '
         'shared ViT-L backbone, but KnowSAM ships a ViT-B SAM adapter.',
-        'Predictions are restored to the original GT resolution; upstream '
-        'reports metrics at 256x256. The shipped prediction.py '
-        '(bilinear=True) is incompatible with the trainer checkpoint '
-        '(bilinear=False), so this port uses the trainer architecture.',
+        'Upstream postprocessing takes argmax over the 256x256 logits, zooms '
+        'with order=0 and keeps the largest connected component per class. '
+        'This port matches the trainer architecture (the shipped prediction.py '
+        'bilinear=True is incompatible with its own checkpoint), zooms the '
+        'argmax mask to GT size with scipy order=0 exactly as prediction_ACDC.py, '
+        'and keeps the largest connected component. Upstream reports metrics '
+        'at 256x256; the shared evaluator uses GT resolution.',
     )
 
     def build_model(self, args):
@@ -126,20 +149,17 @@ class KnowSAMAdapter(BaselineAdapter):
         # stems directly silently leaked validation images into the pool.
         excluded = {}
         manifest = data_root / 'split_manifest.csv'
-        if manifest.is_file():
-            with manifest.open(newline='') as handle:
-                for row in csv.DictReader(handle):
-                    if row.get('split') not in ('train', 'val'):
-                        continue
-                    excluded.setdefault(row['dataset'], set()).add(
-                        Path(row['source_image']).stem)
-        else:
-            for sample in (*labeled, *val):
-                source = sample.stem
-                prefix = f'{sample.dataset}_'
-                if source.startswith(prefix):
-                    source = source[len(prefix):]
-                excluded.setdefault(sample.dataset, set()).add(source)
+        if not manifest.is_file():
+            raise SystemExit(
+                'KnowSAM requires split_manifest.csv to exclude test images '
+                f'from the unlabeled pool: {manifest}')
+        # Exclude every protocol image (train, val and seen_test).  Test
+        # images are not unlabeled training data and must never enter the
+        # semi-supervised pool.
+        with manifest.open(newline='') as handle:
+            for row in csv.DictReader(handle):
+                excluded.setdefault(row['dataset'], set()).add(
+                    Path(row['source_image']).stem)
 
         count = 0
         for domain in SOURCE_DOMAINS:
@@ -317,12 +337,22 @@ class KnowSAMAdapter(BaselineAdapter):
                 with torch.no_grad():
                     outputs = model(tensor)
                     fusion = outputs[-1]
-                    prob = torch.softmax(fusion, dim=1)[0, 1]
+                    # Official ACDC prediction: argmax at the network
+                    # resolution, nearest zoom to the original size, then
+                    # keep the largest connected component.
+                    pred_low = torch.argmax(
+                        torch.softmax(fusion, dim=1), dim=1)[0]
                 gt = load_mask(sample.mask_path)
-                prob = F.interpolate(
-                    prob[None, None], size=(gt.shape[0], gt.shape[1]),
-                    mode='bilinear', align_corners=False)[0, 0]
-                pred = prob.cpu().numpy() > 0.5
+                # Official ACDC path: scipy.ndimage.zoom(..., order=0) from
+                # the 256x256 argmax to the native slice size.  PyTorch
+                # ``mode='nearest'`` is not equivalent for non-integer
+                # scales, so use the same scipy mapping.
+                pred = zoom(
+                    pred_low.cpu().numpy().astype(np.uint8),
+                    (gt.shape[0] / pred_low.shape[0],
+                     gt.shape[1] / pred_low.shape[1]),
+                    order=0) > 0
+                pred = _largest_cc(pred)
                 Image.fromarray((pred.astype(np.uint8) * 255)).save(
                     out_dir / f'{sample.stem}.png')
 

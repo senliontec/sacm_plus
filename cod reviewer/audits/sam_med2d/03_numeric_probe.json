@@ -72,5 +72,29 @@
       "masks_max_abs_diff": 1.825392246246338e-07,
       "allclose_1e-5": true
     }
+  },
+  "loss_grad_probe": {
+    "probe": "one-step official loss/grad parity (matched config)",
+    "config": "ViT-L, image_size=256, encoder_adapter=True, box prompt, multimask max-IoU; official FocalDiceloss_IoULoss on both sides",
+    "weights": "random init; official state_dict copied into port (strict)",
+    "loss_official_side": 3.0393178462982178,
+    "loss_port_side": 3.0393178462982178,
+    "loss_abs_diff": 0.0,
+    "grads_compared": 264,
+    "grad_count_official": 267,
+    "grad_count_port": 267,
+    "grad_max_abs_diff": 2.0837851479882374e-06,
+    "grad_norm_official": 7.585201869670705,
+    "grad_norm_port": 7.5852017420259426,
+    "allclose_1e-5": true,
+    "sample_diffs": {
+      "image_encoder.blocks.13.Adapter.spatial.2.weight": 2.083785e-06,
+      "image_encoder.blocks.18.Adapter.spatial.0.weight": 7.631085e-07,
+      "image_encoder.blocks.11.Adapter.spatial.0.weight": 6.714108e-07,
+      "image_encoder.blocks.2.Adapter.spatial.0.weight": 6.159389e-07,
+      "image_encoder.blocks.13.Adapter.spatial.0.weight": 1.666012e-07
+    },
+    "optimizer_step": "not probed",
+    "scope_note": "forward/loss/grad implementation equivalence only; does not use or reproduce official trained weights"
   }
 }

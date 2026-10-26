@@ -50,6 +50,9 @@ class JTFNAdapter(BaselineAdapter):
         'The official arbitrary-angle/color augmentation is simplified to '
         'flips, 90-degree rotations, +/-20-degree rotations and '
         'brightness/contrast jitter before the 256 crop.',
+        'Official DataLoader workers and global RNG are not preserved: this '
+        'port uses workers=0 and the shared per-epoch RNG; augmentation is '
+        'also simplified (see above).',
         'Boundary targets are generated from the binary GT masks with the '
         'official 3x3 max-pool difference; the upstream boundary PNGs are '
         'not required.',

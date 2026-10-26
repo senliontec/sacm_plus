@@ -1,0 +1,32 @@
+{
+  "meta": {
+    "generated_by": "/home/dev/anaconda3/envs/tsai/bin/python cod reviewer/audits/_shared/03_same_state_probes.py",
+    "project_commit": "fc7d8f4711c025d75240581541fa0a067427a011",
+    "date": "2026-10-25",
+    "environment": {
+      "device": "cuda",
+      "torch": "2.13.0+cu130"
+    },
+    "seed_policy": "one fixed state dict copied official->port; deterministic input tensors; no training"
+  },
+  "official": {
+    "repo": "MaskVSC",
+    "commit": "5e60565b5ec63cb91295e06b9b502d6350e89d76"
+  },
+  "state": {
+    "keys_equal": true,
+    "shapes_equal": true,
+    "param_count_off": 7764065,
+    "param_count_port": 7764065,
+    "buffer_count_off": 3978,
+    "buffer_count_port": 3978,
+    "official_loads_port_state": true
+  },
+  "forward_maxdiff": 0.0,
+  "loss_official": 0.8885400891304016,
+  "loss_port": 0.8885400891304016,
+  "loss_absdiff": 0.0,
+  "grad_maxdiff": 4.470348358154297e-08,
+  "grad_missing": [],
+  "grad_both_none": 0
+}

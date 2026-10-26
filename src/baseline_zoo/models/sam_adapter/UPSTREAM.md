@@ -76,7 +76,8 @@ owns training and checkpointing.
   policy.
 - Loss: `BCEWithLogitsLoss()` plus `1 - IoU` (`iou_loss.IOU`), both averaged
   over the batch.
-- Optimizer/schedule: AdamW, lr 2e-4, no weight decay, 20 epochs,
+- Optimizer/schedule: AdamW, lr 2e-4, executable weight decay 0.01
+  (PyTorch default; upstream passes only lr), 20 epochs,
   `CosineAnnealingLR(T_max=20, eta_min=1e-7)`, official batch size 2.
 - Inference: prompt-free.  Empty sparse prompt plus the learned
   `no_mask_embed` dense prompt; sigmoid threshold 0.5.

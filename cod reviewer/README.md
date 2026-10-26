@@ -305,3 +305,14 @@ fix → 重新 02/03 复核 → 更新 ledger 与 closure
 `03_numeric_harness.md` 的脚本输出 JSON，建议按 `${baseline}.json` 保存；
 `deviation_ledger.csv` 按 `${baseline}.csv` 保存；原始 tensor dump 放
 `${baseline}/tensors/`，便于复核。
+
+---
+
+## 8. Pilot audit outputs（provisional）
+
+- `audits/ALL_MODELS.md`：22 个模型的总表与最高优先级缺陷。
+- `audits/all_models_status.csv`：机器可读状态表。
+- `audits/<model>/README.md`：每个模型的 01/02/closure/03/04/05/07 pilot 报告。
+
+当前 **A0=unverified**，所有报告都是 provisional，`main_table=blocked`；
+没有 G6c 全量训练/评测，也没有任何模型被标为主表通过。

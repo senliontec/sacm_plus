@@ -1,15 +1,19 @@
 """Fast Matcher adapter tests (no DINOv2/SAM build)."""
 
+import inspect
 import tempfile
 from pathlib import Path
 from types import SimpleNamespace
 
+import numpy as np
 import torch
 from PIL import Image
 
 from baseline_zoo.adapters.matcher import MatcherAdapter
 from baseline_zoo.adapters.registry import available_adapters, load_adapter
 from baseline_zoo.data import Sample
+from baseline_zoo.models.matcher.Matcher import Matcher
+from baseline_zoo.models.matcher.model import build_matcher
 from baseline_zoo.runtime import run_training_free
 
 
@@ -85,3 +89,47 @@ def test_config_roundtrip(tmp_path):
     assert restore.support_shots == 3
     assert restore.matcher_random_init is True
     assert restore.input_size == 518
+
+
+def test_official_fss_score_defaults():
+    matcher = inspect.signature(Matcher.__init__).parameters
+    assert matcher['alpha'].default == 0.8
+    assert matcher['beta'].default == 0.2
+    assert matcher['exp'].default == 1.0
+    builder = inspect.signature(build_matcher)
+    # build_matcher hardcodes the official FSS score in the Matcher call.
+    source = inspect.getsource(build_matcher)
+    assert 'alpha=0.8' in source
+    assert 'beta=0.2' in source
+    assert 'exp=1.0' in source
+
+
+def test_prediction_seeds_rng_once():
+    adapter = MatcherAdapter()
+    adapter.args = SimpleNamespace(seed=7)
+    adapter._current_dataset = 'TEST'
+
+    class FakeMatcher:
+        def set_target(self, image):
+            pass
+
+        def predict(self):
+            return torch.ones(1, 8, 8)
+
+    class FakeModel(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.dummy = torch.nn.Parameter(torch.zeros(1))
+            self.matcher = FakeMatcher()
+
+    torch.manual_seed(123)
+    np.random.seed(123)
+    result = adapter.predict_sample(
+        FakeModel(), {'image': torch.zeros(1, 3, 8, 8),
+                      'original_size': (8, 8)},
+        SimpleNamespace(dataset='TEST'))
+    assert result.shape == (8, 8) and result.all()
+    assert adapter._prediction_seeded is True
+    assert torch.initial_seed() == 7
+    np.random.seed(7)
+    assert np.random.randint(0, 2**31 - 1) == 327741615

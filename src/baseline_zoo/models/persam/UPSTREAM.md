@@ -48,6 +48,9 @@ target-semantic prompting.  The official PerSAM driver is
   for the foreground feature to be found.
 - SAM ViT-H (`sam_vit_h_4b8939.pth`), original image resolution output,
   mask threshold logit 0.0 / probability 0.5.
+- The mean object feature is L2-normalized for cosine similarity, while the
+  raw mean is passed to target-semantic prompting, matching
+  `3rd/Personalize-SAM/persam.py:90-92`.
 - The internal positive/negative points and the refinement box are
   generated automatically from the support and target similarity map; no
   target GT or target prompts are used.

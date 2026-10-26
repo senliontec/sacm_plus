@@ -1,6 +1,8 @@
 # FoB-SAM (CVPR 2026)
 
-- Upstream: `baselines/FoB_SAM` (vendored snapshot)
+- Upstream: https://github.com/primebo1/FoB_SAM
+- Vendored snapshot: `3rd/FoB_SAM`, HEAD
+  `40d0e23d75f81f07bb7f34cb641db51ef490d025`.
 - Paper: *Focus on the Background: Exploring SAM's Potential in Few-shot
   Medical Image Segmentation with Background-centric Prompting*, CVPR 2026
 - License: Apache License 2.0 (copied as `LICENSE`)

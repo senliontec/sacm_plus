@@ -56,6 +56,9 @@ class MaskVSCAdapter(BaselineAdapter):
         'the original GT resolution so every baseline shares one evaluator.',
         'The protocol seeds 0-4 replace upstream seed 1234 and deterministic '
         'cuDNN.',
+        'The official corruption sampler still consumes RNG when ratio=0; this '
+        'port early-returns before that draw, and also uses workers=0. '
+        'Augmentation RNG order therefore differs from upstream.',
         'Connect_Loss uses the input device instead of a hardcoded .cuda(); '
         'the computation is identical on GPU.',
     )

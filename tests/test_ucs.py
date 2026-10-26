@@ -4,6 +4,7 @@ import random
 from pathlib import Path
 from types import SimpleNamespace
 
+import numpy as np
 import torch
 from PIL import Image
 
@@ -95,3 +96,72 @@ def test_pca_uses_device_not_cuda():
               / 'segment_anything' / 'modeling' / 'mask_decoder.py').read_text()
     assert 'to(mask_tokens_out.device)' in source
     assert '.cuda().reshape(-1)' not in source
+
+
+def test_eval_preparation_seeds_initial_prompt(tmp_path):
+    sample = _sample(tmp_path)
+
+    def prepare(prior_seed):
+        adapter = UCSAdapter()
+        adapter.input_size = 1024
+        adapter.args = SimpleNamespace(seed=5, stage='predict')
+        np.random.seed(prior_seed)
+        return adapter, adapter.prepare_eval_sample(
+            sample, torch.device('cpu'))
+
+    first_adapter, first = prepare(999)
+    second_adapter, second = prepare(111)
+    assert first_adapter._prediction_seeded is True
+    assert second_adapter._prediction_seeded is True
+    assert torch.equal(first['image'], second['image'])
+    assert torch.equal(first['boxes'], second['boxes'])
+    assert torch.equal(first['point_coords'], second['point_coords'])
+    assert torch.equal(first['point_labels'], second['point_labels'])
+
+
+def test_training_validation_does_not_reseed_rng(tmp_path):
+    adapter = UCSAdapter()
+    adapter.input_size = 1024
+    adapter.args = SimpleNamespace(seed=5, stage='train')
+    adapter.prepare_eval_sample(_sample(tmp_path), torch.device('cpu'))
+    assert adapter._prediction_seeded is False
+
+
+def test_prediction_seeds_rng_once():
+    adapter = UCSAdapter()
+    adapter.iter_point = 1
+    adapter.point_num = 1
+    adapter.device = torch.device('cpu')
+    adapter.args = SimpleNamespace(seed=5, stage='predict')
+
+    class FakeEncoder:
+        def __call__(self, images):
+            return torch.zeros(1, 1), []
+
+    class FakeModel(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.dummy = torch.nn.Parameter(torch.zeros(1))
+            self.image_encoder = FakeEncoder()
+
+    def fake_decode(model, batch, image_embeddings, interm_embeddings):
+        return torch.zeros(1, 1, 4, 4), torch.zeros(1, 1, 4, 4), None
+
+    adapter._decode = fake_decode
+    prepared = {
+        'image': torch.zeros(1, 3, 1024, 1024),
+        'label': torch.zeros(1, 1, 1024, 1024),
+        'boxes': None,
+        'point_coords': torch.zeros(1, 1, 2),
+        'point_labels': torch.ones(1, 1, dtype=torch.int),
+        'mask_inputs': None,
+        'original_size': (4, 4),
+    }
+    torch.manual_seed(123)
+    np.random.seed(123)
+    result = adapter.predict_sample(FakeModel(), prepared, _sample(Path('/tmp')))
+    assert result.shape == (4, 4) and not result.any()
+    assert adapter._prediction_seeded is True
+    assert torch.initial_seed() == 5
+    np.random.seed(5)
+    assert np.random.randint(0, 2**31 - 1) == 953453411

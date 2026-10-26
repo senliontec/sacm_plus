@@ -1,7 +1,8 @@
 # U-Net
 
 - Upstream: https://github.com/milesial/Pytorch-UNet
-- Vendored snapshot: `baselines/unet` (development reference tree)
+- Vendored snapshot: `3rd/Pytorch-UNet`, HEAD
+  `21d7850f2af30a9695bbeea75f3136aa538cfc4a`.
 - License: GPL-3.0 (`LICENSE`, copied verbatim)
 - Files copied: `unet/__init__.py`, `unet/unet_model.py`,
   `unet/unet_parts.py`

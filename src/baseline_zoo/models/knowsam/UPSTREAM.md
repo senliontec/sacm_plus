@@ -1,6 +1,8 @@
 # KnowSAM
 
-- Upstream: vendored `baselines/knowsam` (URL not recorded in the README)
+- Upstream: https://github.com/taozh2017/KnowSAM
+- Vendored snapshot: `3rd/KnowSAM`, HEAD
+  `b5de98d7f5538e39447d8f6e143c8292875cd22e`.
 - License: no LICENSE file in the vendored snapshot; add the upstream
   license before redistributing this copy.
 - Files copied and flattened:

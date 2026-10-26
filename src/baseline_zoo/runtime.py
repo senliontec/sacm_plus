@@ -718,6 +718,10 @@ def run_prediction(adapter: BaselineAdapter, args: argparse.Namespace,
     device = torch.device(args.device)
     adapter.args = args
     adapter.device = device
+    # Distinguish final prediction from validation inside a training run.
+    # Adapters that seed eval-time prompt sampling use this flag so they do
+    # not reset the training RNG during per-epoch validation.
+    adapter.prediction_mode = True
     # A failed rerun must not leave metadata from the previous checkpoint.
     previous_meta = Path(args.pred_root) / '.prediction_meta.json'
     if previous_meta.is_file():

@@ -1,0 +1,48 @@
+{
+  "meta": {
+    "generated_by": "/home/dev/anaconda3/envs/tsai/bin/python cod reviewer/audits/_shared/03_unet_hetero_probe.py",
+    "date": "2026-10-26",
+    "purpose": "re-run the heterogeneous-batch loss/grad probe after the global-Dice fix",
+    "seed_policy": "same fixed official/port state dict and deterministic input as the pre-fix probe"
+  },
+  "official": {
+    "repo": "Pytorch-UNet",
+    "commit": "21d7850f2af30a9695bbeea75f3136aa538cfc4a"
+  },
+  "per_image_official": [
+    4.793891950072293e-10,
+    0.6749199628829956,
+    0.1470756083726883,
+    0.44231554865837097
+  ],
+  "per_image_port": [
+    4.793891950072293e-10,
+    0.6749199628829956,
+    0.1470756083726883,
+    0.44231554865837097
+  ],
+  "official_global_dice": 0.428108811378479,
+  "port_mean_dice": 0.428108811378479,
+  "dice_diff": 0.0,
+  "loss_official": 1.26997971534729,
+  "loss_port": 1.26997971534729,
+  "loss_absdiff": 0.0,
+  "grad_maxdiff": 0.0,
+  "forward_maxdiff": 0.0,
+  "repeat_runs": {
+    "0": {
+      "loss_official": 1.26997971534729,
+      "loss_port": 1.26997971534729,
+      "grad_maxdiff": 0.0
+    },
+    "1": {
+      "loss_official": 1.26997971534729,
+      "loss_port": 1.26997971534729,
+      "grad_maxdiff": 0.0
+    }
+  },
+  "notes": [
+    "The pre-fix probe (03_numeric_probe.json) recorded loss_absdiff=0.11203 and grad_maxdiff=0.0072573.",
+    "The port now uses the official global B,H,W Dice reduction; loss and gradients match exactly on this probe."
+  ]
+}

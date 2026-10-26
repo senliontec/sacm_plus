@@ -51,6 +51,9 @@ class UCSAdapter(BaselineAdapter):
         'validation Dice used by other baselines; validation is still logged.',
         'Bypasses the UCS JSON dataset manifests and consumes the shared '
         '18/6 split Samples directly.',
+        'Official train.py uses DataLoader workers=4; this port uses '
+        'workers=0 and the shared seeded runtime, so data order is not '
+        'bitwise identical.',
         'Ports HEAD cff2db1: the paper Sparse Adapter and HQ-feature '
         'compression were refactored out upstream; paper-faithful modules '
         'exist only in git history.',
@@ -58,6 +61,12 @@ class UCSAdapter(BaselineAdapter):
         'CPU each forward; the hardcoded .cuda() was patched to the tensor '
         'device.',
         'No official UCS weights were found; training starts from SAM ViT-L.',
+        'Evaluation prompt sampling is seeded from --seed (Python/NumPy/'
+        'Torch) so repeated prediction runs are deterministic; upstream does '
+        'not seed it. This is a reproducibility adaptation.',
+        'The official evaluator reports IoU/Dice/F1/precision/recall; the '
+        'shared evaluator reports Dice/IoU/clDice/HD95. official_metric_match '
+        'is therefore unverified.',
         'No TTA beyond the official iterative prompt refinement.',
     )
 
@@ -65,6 +74,7 @@ class UCSAdapter(BaselineAdapter):
         super().__init__()
         self._sam_sha: str | None = None
         self._train_dice = -1.0
+        self._prediction_seeded = False
         self.iter_point = 8
         self.point_num = 1
         self.mask_num = 1
@@ -292,10 +302,34 @@ class UCSAdapter(BaselineAdapter):
     def selection_score(self, metrics, per_dataset):
         return self._train_dice
 
+    def _prediction_rng_active(self) -> bool:
+        return bool(getattr(self, 'prediction_mode', False)
+                    or getattr(self.args, 'stage', None) == 'predict')
+
+    def _seed_prediction_rng(self):
+        """Seed before the first eval prompt draw, not after it.
+
+        ``_prepare_sample`` calls ``init_point_sampling``, which draws from
+        the global NumPy RNG.  Seeding only in ``predict_sample`` would leave
+        the initial point of the first image unseeded.  This is skipped for
+        per-epoch validation so evaluation does not reset the training RNG.
+        """
+        if self._prediction_seeded or not self._prediction_rng_active():
+            return
+        seed = int(getattr(self.args, 'seed', 0) or 0)
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(seed)
+        self._prediction_seeded = True
+
     def prepare_eval_sample(self, sample, device):
+        self._seed_prediction_rng()
         return self._prepare_sample(sample, False, random.Random(0))
 
     def predict_sample(self, model, prepared, sample):
+        self._seed_prediction_rng()
         utils = self._ucs_utils()
         batch = self._to_device(prepared)
         labels = batch['label']

@@ -1,6 +1,8 @@
 # SAM-OCTA
 
-- Upstream: vendored `baselines/sam-octa` (URL not recorded in the README)
+- Upstream: https://github.com/ShellRedia/SAM-OCTA
+- Vendored snapshot: `3rd/SAM-OCTA`, HEAD
+  `9edc56247a3e30c96e5c6f1e8fe01250b8338527`.
 - License: no LICENSE file in the vendored snapshot; add the upstream
   license before redistributing this copy.
 - Files copied:

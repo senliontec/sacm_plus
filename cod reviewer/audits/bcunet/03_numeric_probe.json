@@ -1,0 +1,21 @@
+{
+  "meta": {
+    "generated_by": "/home/dev/anaconda3/envs/tsai/bin/python cod reviewer/audits/_shared/03_same_state_probes.py",
+    "project_commit": "fc7d8f4711c025d75240581541fa0a067427a011",
+    "date": "2026-10-25",
+    "environment": {
+      "device": "cuda",
+      "torch": "2.13.0+cu130"
+    },
+    "seed_policy": "one fixed state dict copied official->port; deterministic input tensors; no training"
+  },
+  "official": {
+    "repo": "BCU-Net",
+    "commit": "008ff9292097791a3f12c2776aea398f71b7c996"
+  },
+  "official_model_ast_parse": "SyntaxError: line 9 offset 10: invalid syntax",
+  "outconv_construct": "NameError: name 'upconv2x2' is not defined",
+  "outconv_first_line": "upconv2x2(in_channels, out_channels,mode=\"\"),",
+  "official_model_construct": "NOT ATTEMPTED: pretrained ConvNeXt would download; OutConv already fails",
+  "numeric_parity": "NOT RUN: official model is not constructible locally without downloads"
+}

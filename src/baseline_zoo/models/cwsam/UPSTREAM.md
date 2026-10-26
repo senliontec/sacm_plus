@@ -1,8 +1,9 @@
 # CWSAM (ClassWise-SAM-Adapter)
 
-- Upstream: URL not recorded in the vendored README
-  (`baselines/cwsam/README.md`); the model derives from SAM-adapter.
-- Vendored snapshot: `baselines/cwsam` (development reference tree)
+- Upstream: https://github.com/xypu98/CWSAM; the model derives from
+  SAM-adapter.
+- Vendored snapshot: `3rd/CWSAM`, HEAD
+  `7bbb32ad3769ffc3f41f4361a074c55a7299fa27`.
 - License: no LICENSE file in the vendored snapshot; add the upstream
   license before redistributing this copy.
 - Files copied:

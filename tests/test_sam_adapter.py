@@ -10,6 +10,7 @@ from PIL import Image
 from baseline_zoo.adapters.registry import available_adapters, load_adapter
 from baseline_zoo.adapters.sam_adapter import SAMAdapter
 from baseline_zoo.data import Sample
+from baseline_zoo.runtime import build_parser
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -66,8 +67,19 @@ def test_registry_and_metadata():
     assert adapter.id == 'sam_adapter'
     assert adapter.input_size == 1024
     assert adapter.official_epochs == 20
+    assert adapter.official_weight_decay == 0.01
     assert adapter.train_batch_size == 2
     assert 'Retrained' in adapter.deviations[0]
+
+
+def test_optimizer_uses_executable_official_weight_decay():
+    adapter = SAMAdapter()
+    model = torch.nn.Linear(2, 2)
+    args = SimpleNamespace(
+        lr=adapter.official_lr,
+        weight_decay=adapter.official_weight_decay)
+    optimizer = adapter.make_optimizer(model, args)
+    assert optimizer.param_groups[0]['weight_decay'] == 0.01
 
 
 def test_preprocess_shapes_and_flip(tmp_path):
@@ -135,3 +147,8 @@ def test_config_roundtrip(tmp_path):
     adapter.restore_config(restore, config)
     assert restore.input_size == 1024
     assert adapter.input_size == 1024
+
+
+def test_parser_default_matches_official_weight_decay():
+    parser = build_parser(load_adapter('sam_adapter'))
+    assert parser.parse_args([]).weight_decay == 0.01

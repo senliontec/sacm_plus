@@ -1,0 +1,77 @@
+{
+  "meta": {
+    "generated_by": "/home/dev/anaconda3/envs/tsai/bin/python cod reviewer/audits/_shared/03_same_state_probes.py",
+    "project_commit": "fc7d8f4711c025d75240581541fa0a067427a011",
+    "date": "2026-10-25",
+    "environment": {
+      "device": "cuda",
+      "torch": "2.13.0+cu130"
+    },
+    "seed_policy": "one fixed state dict copied official->port; deterministic input tensors; no training"
+  },
+  "official": {
+    "repo": "Pytorch-UNet",
+    "commit": "21d7850f2af30a9695bbeea75f3136aa538cfc4a"
+  },
+  "state": {
+    "keys_equal": true,
+    "shapes_equal": true,
+    "param_count_off": 31037633,
+    "param_count_port": 31037633,
+    "buffer_count_off": 11794,
+    "buffer_count_port": 11794,
+    "official_loads_port_state": true
+  },
+  "forward_maxdiff": 0.0,
+  "homogeneous_b2": {
+    "input_shape": [
+      2,
+      3,
+      64,
+      64
+    ],
+    "loss_official": 1.3757247924804688,
+    "loss_port": 1.3757764101028442,
+    "loss_absdiff": 5.161762237548828e-05,
+    "grad_maxdiff": 5.734153091907501e-06,
+    "grad_missing": [],
+    "grad_both_none": 0
+  },
+  "heterogeneous_b4": {
+    "per_image_official": [
+      4.793891950072293e-10,
+      0.6749199628829956,
+      0.1470756083726883,
+      0.44231554865837097
+    ],
+    "per_image_port": [
+      4.793891950072293e-10,
+      0.6749199628829956,
+      0.1470756083726883,
+      0.44231554865837097
+    ],
+    "official_global_dice": 0.428108811378479,
+    "port_mean_dice": 0.3160777688026428,
+    "dice_diff": 0.11203104257583618,
+    "loss_official": 1.26997971534729,
+    "loss_port": 1.3820106983184814,
+    "loss_absdiff": 0.1120309829711914,
+    "grad_maxdiff": 0.007257301360368729,
+    "forward_maxdiff": 0.0,
+    "repeat_runs": {
+      "0": {
+        "loss_official": 1.26997971534729,
+        "loss_port": 1.3820106983184814,
+        "grad_maxdiff": 0.007257301360368729
+      },
+      "1": {
+        "loss_official": 1.26997971534729,
+        "loss_port": 1.3820106983184814,
+        "grad_maxdiff": 0.007257301360368729
+      }
+    }
+  },
+  "notes": [
+    "U-Net loss mismatch is a reduction-order difference, not float noise; see 03_unet_hetero_probe.py."
+  ]
+}

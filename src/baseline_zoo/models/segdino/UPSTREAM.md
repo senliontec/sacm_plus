@@ -1,6 +1,8 @@
 # SegDINO
 
-- Upstream: vendored `baselines/segdino` (URL not recorded in the README)
+- Upstream: https://github.com/script-Yang/segdino
+- Vendored snapshot: `3rd/segdino`, HEAD
+  `c078ca0e2c7578304e80eaa4e9d3f7c6dd0f3c41`.
 - License: MIT in the vendored snapshot (`LICENSE`, copied verbatim).
 - Files copied: `dpt.py`, `blocks.py` (relative `blocks` import).
 - Modifications:

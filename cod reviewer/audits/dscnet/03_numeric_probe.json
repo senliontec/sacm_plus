@@ -1,0 +1,35 @@
+{
+  "meta": {
+    "generated_by": "/home/dev/anaconda3/envs/tsai/bin/python cod reviewer/audits/_shared/03_same_state_probes.py",
+    "project_commit": "fc7d8f4711c025d75240581541fa0a067427a011",
+    "date": "2026-10-25",
+    "environment": {
+      "device": "cuda",
+      "torch": "2.13.0+cu130"
+    },
+    "seed_policy": "one fixed state dict copied official->port; deterministic input tensors; no training"
+  },
+  "official": {
+    "repo": "DSCNet",
+    "commit": "0e35b2b6ea748a5e8ce7557ea3e580b9951471d6"
+  },
+  "state": {
+    "keys_equal": true,
+    "shapes_equal": true,
+    "param_count_off": 2094169,
+    "param_count_port": 2094169,
+    "buffer_count_off": 518,
+    "buffer_count_port": 518,
+    "official_loads_port_state": true
+  },
+  "forward_maxdiff": 0.0,
+  "loss_official": 0.6880562901496887,
+  "loss_port": 0.6880562901496887,
+  "loss_absdiff": 0.0,
+  "grad_maxdiff": 1.30385160446167e-07,
+  "grad_missing": [],
+  "grad_both_none": 28,
+  "notes": [
+    "28 unused dsc_conv_x/y parameters have grad=None on both sides; not missing gradients."
+  ]
+}

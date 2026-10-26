@@ -1,7 +1,8 @@
 # MaskVSC
 
 - Upstream: https://github.com/Zhouyi-Zura/MaskVSC
-- Vendored snapshot: `baselines/maskvsc` (development reference tree)
+- Vendored snapshot: `3rd/MaskVSC`, HEAD
+  `5e60565b5ec63cb91295e06b9b502d6350e89d76`.
 - License: not present in the vendored snapshot. The upstream README links a
   `LICENSE` file; add it verbatim before redistributing this copy.
 - Files copied:

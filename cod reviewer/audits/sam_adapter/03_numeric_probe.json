@@ -46,5 +46,29 @@
     ],
     "infer_max_abs_diff": 0.0,
     "infer_allclose_1e-5": true
+  },
+  "loss_grad_probe": {
+    "probe": "one-step official BCE+IoU loss/grad parity (reduced-width matched config)",
+    "config": "inp_size=256, embed_dim=256, depth=4, heads=4, prompt-free; official BCEWithLogits+_iou_loss on both sides",
+    "weights": "random init; official state_dict copied into port (strict)",
+    "loss_official_side": 1.5202431678771973,
+    "loss_port_side": 1.5202431678771973,
+    "loss_abs_diff": 0.0,
+    "grads_compared": 129,
+    "grad_count_official": 129,
+    "grad_count_port": 129,
+    "grad_max_abs_diff": 3.725290298461914e-09,
+    "grad_norm_official": 0.5811172751352593,
+    "grad_norm_port": 0.5811172620920639,
+    "allclose_1e-5": true,
+    "sample_diffs": {
+      "mask_decoder.output_upscaling.3.bias": 3.72529e-09,
+      "mask_decoder.output_hypernetworks_mlps.0.layers.2.bias": 3.72529e-09,
+      "mask_decoder.transformer.layers.0.self_attn.v_proj.weight": 2.328306e-09,
+      "mask_decoder.transformer.layers.0.self_attn.v_proj.bias": 1.862645e-09,
+      "mask_decoder.output_upscaling.0.weight": 1.862645e-09
+    },
+    "optimizer_step": "not probed",
+    "scope_note": "reduced-width implementation equivalence; official trained adapter weights are absent, so this does not validate the released checkpoint"
   }
 }

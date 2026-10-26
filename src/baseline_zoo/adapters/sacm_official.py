@@ -36,8 +36,9 @@ class SACMOfficialAdapter(BaselineAdapter):
     deviations = (
         'Checkpoint selection uses the 6-image validation split by Dice; '
         'upstream selects by validation F1/loss.',
-        'Predictions are restored to the original GT resolution for the '
-        'shared evaluator; upstream evaluates at 1024.',
+        'Upstream test_sam.py resizes predictions back to the original image '
+        'size (test_sam.py:260-261); this port exports GT-resolution masks '
+        'for the shared evaluator.',
         'Upstream test_sam.py thresholds raw logits at 0.5; this port '
         'applies sigmoid first (logit > 0). The model is logits-in, so the '
         'official threshold is an inference bug; this correction is '
@@ -47,6 +48,11 @@ class SACMOfficialAdapter(BaselineAdapter):
         'except adapters, and the zero-prompt forward are preserved.',
         'Per-block activation checkpointing is enabled for 11 GiB training; '
         'it changes memory, not the computation.',
+        'Official train_sam.py uses DataLoader workers=4 and no explicit seed; '
+        'this port uses workers=0 and the shared seeded runtime. Official '
+        'test_sam.py reads its own SegmentationDataset(root_dir) over '
+        'images/ and masks/ with no split argument; this port evaluates '
+        'held-out 20-dataset test roots.',
     )
 
     def add_args(self, parser):

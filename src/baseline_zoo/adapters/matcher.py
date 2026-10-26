@@ -44,9 +44,11 @@ class MatcherAdapter(BaselineAdapter):
         'three training shots for seen datasets and a structurally matched '
         'donor domain for unseen/novel datasets.',
         'The official COCO/FSS datasets and CLI are replaced by the shared '
-        'Sample protocol. The official filter defaults are kept: EMD, '
-        'purity and coverage filters off, top-k score threshold 0.7, '
-        '10 merging masks, 8 k-means centers, sample range (4,6).',
+        'Sample protocol. The official FSS score recipe is kept: '
+        'alpha=0.8, beta=0.2, exp=1.0; EMD, purity and coverage filters '
+        'off, top-k score threshold 0.7, 10 merging masks, 8 k-means '
+        'centers, sample range (4,6). Prediction seeds Python/NumPy/Torch '
+        'from --seed before stochastic matching.',
         'Support DINOv2 features are cached after set_reference so each '
         'target image is encoded once; this is a throughput change only.',
         'DINOv2 ViT-L weights are not bundled. --matcher-random-init is a '
@@ -66,6 +68,7 @@ class MatcherAdapter(BaselineAdapter):
         self._support_cache: dict[str, tuple[torch.Tensor, torch.Tensor]] = {}
         self._current_dataset: str | None = None
         self._support_root: Path | None = None
+        self._prediction_seeded = False
 
     def add_args(self, parser):
         parser.add_argument(
@@ -164,6 +167,14 @@ class MatcherAdapter(BaselineAdapter):
                 'original_size': (height, width)}
 
     def predict_sample(self, model, prepared, sample):
+        if not self._prediction_seeded:
+            seed = int(getattr(self.args, 'seed', 0) or 0)
+            random.seed(seed)
+            np.random.seed(seed)
+            torch.manual_seed(seed)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed_all(seed)
+            self._prediction_seeded = True
         device = next(model.parameters()).device
         matcher = model.matcher
         if self._current_dataset != sample.dataset:

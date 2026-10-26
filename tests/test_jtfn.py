@@ -33,7 +33,7 @@ def test_registry_and_metadata():
     assert adapter.input_size == 256
     assert adapter.official_epochs == 1000
     assert adapter.train_batch_size == 2
-    assert 'scratch' in adapter.deviations[6]
+    assert any('scratch' in deviation for deviation in adapter.deviations)
 
 
 def test_tiny_forward_and_boundary_loss():

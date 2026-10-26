@@ -33,8 +33,12 @@ def point_selection(mask_sim: torch.Tensor, topk: int = 1):
 
 
 def prepare_reference_embedding(predictor, ref_image: np.ndarray,
-                                ref_mask_rgb: np.ndarray) -> torch.Tensor:
-    """Encode one reference image and return its normalized object feature."""
+                                ref_mask_rgb: np.ndarray):
+    """Return the official (similarity, target-semantic) embedding pair.
+
+    Upstream normalizes the mean object feature only for cosine similarity
+    and passes the *raw* mean to target-semantic prompting.
+    """
     ref_mask = predictor.set_image(ref_image, ref_mask_rgb)
     ref_feat = predictor.features.squeeze().permute(1, 2, 0)
     ref_mask = F.interpolate(
@@ -44,19 +48,20 @@ def prepare_reference_embedding(predictor, ref_image: np.ndarray,
     if target_feat.numel() == 0:
         raise RuntimeError('PerSAM reference mask has no foreground features')
     embedding = target_feat.mean(0).unsqueeze(0)
-    embedding = embedding / embedding.norm(dim=-1, keepdim=True)
-    return embedding.unsqueeze(0)
+    similarity = embedding / embedding.norm(dim=-1, keepdim=True)
+    return similarity.unsqueeze(0), embedding.unsqueeze(0)
 
 
 def predict_with_embedding(predictor, target_features: torch.Tensor,
                            original_size, input_size,
+                           similarity_embedding: torch.Tensor,
                            target_embedding: torch.Tensor) -> np.ndarray:
     """Run the official PerSAM point/box refinement for one support."""
     test_feat = target_features.squeeze()
     c, h, w = test_feat.shape
     test_feat = test_feat / test_feat.norm(dim=0, keepdim=True)
     test_feat = test_feat.reshape(c, h * w)
-    sim = target_embedding.reshape(1, c) @ test_feat
+    sim = similarity_embedding.reshape(1, c) @ test_feat
     sim = sim.reshape(1, 1, h, w)
     sim = F.interpolate(sim, scale_factor=4, mode='bilinear')
     sim = predictor.model.postprocess_masks(

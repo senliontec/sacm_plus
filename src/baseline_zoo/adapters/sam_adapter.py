@@ -33,7 +33,9 @@ class SAMAdapter(BaselineAdapter):
     input_size = 1024
     official_epochs = 20
     official_lr = 2e-4
-    official_weight_decay = 0.0
+    # Upstream constructs AdamW with only lr, so PyTorch's default
+    # weight_decay=0.01 is the executable recipe.
+    official_weight_decay = 0.01
     train_batch_size = 2
     selection = 'dice'
     deviations = (
@@ -41,7 +43,9 @@ class SAMAdapter(BaselineAdapter):
         'SAM-Adapter Google-Drive weights are not part of the released tree '
         'and are not used.',
         'Uses the official 20-epoch, AdamW 2e-4, cosine eta_min 1e-7 recipe, '
-        'not the project 200-epoch budget.',
+        'not the project 200-epoch budget. The upstream optimizer passes only '
+        'lr, so the executable weight decay is PyTorch AdamW default 0.01; '
+        'this port uses 0.01.',
         'Checkpoint selection uses the shared 6-image validation Dice, not '
         'the official COD S-measure/E-measure/weighted-F/MAE validation.',
         'Predictions are exported at original GT resolution; the upstream '
@@ -52,6 +56,9 @@ class SAMAdapter(BaselineAdapter):
         'The upstream data_norm block is unused by the executable training '
         'and eval loops; the port uses the dataset wrapper\'s ImageNet '
         'normalization.',
+        'Official training uses 4 GPUs x batch 2 (effective 8), workers=8 '
+        'and an unseeded global RNG; this port runs one GPU with batch 2 '
+        '(optionally accumulation) and the shared seeded runtime.',
         'The official batch size is 2. On a <=11 GiB GPU use --batch-size 1 '
         '(non-official) or gradient accumulation; batch 2 is the default.',
         'Optional --grad-checkpointing checkpoints each ViT block; it changes '

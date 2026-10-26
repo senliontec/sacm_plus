@@ -48,5 +48,26 @@
     ],
     "logits_max_abs_diff": 0.0,
     "allclose_1e-5": true
+  },
+  "loss_grad_probe": {
+    "probe": "one-step neutral CE loss/grad parity (reduced-width matched config)",
+    "config": "2-class, inp_size=256, embed_dim=256, depth=4, heads=4, no grad checkpointing; neutral CrossEntropyLoss on both sides",
+    "weights": "random init; official state_dict copied into port (strict)",
+    "loss_official_side": 0.6987874507904053,
+    "loss_port_side": 0.6987874507904053,
+    "loss_abs_diff": 0.0,
+    "grads_compared": 166,
+    "grad_count_official": 167,
+    "grad_count_port": 167,
+    "grad_max_abs_diff": 2.9802322387695312e-08,
+    "grad_norm_official": 1.6917170713762673,
+    "grad_norm_port": 1.691717038307889,
+    "allclose_1e-5": true,
+    "sample_diffs": {
+      "mask_decoder.output_hypernetworks_mlps.0.layers.2.bias": 2.980232e-08,
+      "mask_decoder.transformer.layers.1.self_attn.out_proj.bias": 9.313226e-09
+    },
+    "optimizer_step": "not probed",
+    "scope_note": "neutral loss, not the official class-weighted CE; reduced width is not the released ViT-B 5/10-class configuration"
   }
 }
