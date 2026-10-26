@@ -9,6 +9,7 @@ projection; everything else follows the official training script.
 from __future__ import annotations
 
 import random
+from pathlib import Path
 
 import cv2
 import numpy as np
@@ -18,7 +19,7 @@ from PIL import Image
 from torch import nn
 
 from baseline_zoo.models.bcunet import BCUNet
-from baseline_zoo.runtime import BaselineAdapter
+from baseline_zoo.runtime import BaselineAdapter, REPO_ROOT, file_sha256
 
 
 class BCUNetAdapter(BaselineAdapter):
@@ -55,18 +56,61 @@ class BCUNetAdapter(BaselineAdapter):
         parser.add_argument(
             '--no-pretrained', dest='pretrained', action='store_false',
             help='do not load ImageNet-22k ConvNeXt weights')
+        parser.add_argument(
+            '--convnext-checkpoint', type=Path,
+            default=REPO_ROOT / 'checkpoints' / 'convnext_base_22k_224.pth',
+            help='local ImageNet-22k ConvNeXt initialization')
 
     def build_model(self, args) -> nn.Module:
         # Prediction loads a complete self-contained checkpoint next; do
-        # not download ImageNet-22k backbone weights only to overwrite them.
-        # Training still uses the official pretrained initialization.
+        # not load ImageNet-22k backbone weights only to overwrite them.
         predicting = bool(
             getattr(self, 'prediction_mode', False)
             or getattr(args, 'stage', None) == 'predict'
             or getattr(args, 'checkpoint', None) is not None)
-        pretrained = (getattr(args, 'pretrained', True) and not predicting)
-        return BCUNet(n_channels=3, n_classes=2, bilinear=False,
-                      pretrained=pretrained, in_22k=True)
+        load_pretrained = (
+            getattr(args, 'pretrained', True) and not predicting)
+        # Build without torch.hub: the official ConvNeXt URL/cache is not
+        # used.  Training loads the local checkpoint below; prediction uses
+        # the full baseline checkpoint and must not touch the backbone cache.
+        model = BCUNet(n_channels=3, n_classes=2, bilinear=False,
+                       pretrained=False, in_22k=True)
+        if load_pretrained:
+            self._load_local_convnext(model, args)
+        return model
+
+    def _load_local_convnext(self, model: nn.Module, args) -> None:
+        checkpoint_path = Path(getattr(
+            args, 'convnext_checkpoint',
+            REPO_ROOT / 'checkpoints' / 'convnext_base_22k_224.pth'))
+        if not checkpoint_path.is_file():
+            raise SystemExit(
+                f'missing ConvNeXt checkpoint: {checkpoint_path}\n'
+                'download: https://dl.fbaipublicfiles.com/convnext/'
+                'convnext_base_22k_224.pth\n'
+                'put it in checkpoints/ or pass --convnext-checkpoint')
+        payload = torch.load(
+            checkpoint_path, map_location='cpu', weights_only=False)
+        state = payload.get('model', payload) if isinstance(payload, dict) else payload
+        if not isinstance(state, dict):
+            raise SystemExit(
+                f'unexpected ConvNeXt checkpoint format: {checkpoint_path}')
+        target = model.backbone.state_dict()
+        matched = {
+            key: value for key, value in state.items()
+            if key in target and getattr(value, 'shape', None) == target[key].shape
+        }
+        if not matched:
+            raise SystemExit(
+                f'ConvNeXt checkpoint has no matching backbone tensors: '
+                f'{checkpoint_path}')
+        missing = [key for key in target if key not in matched]
+        target.update(matched)
+        # Match the official loader: it filters to shape-compatible keys and
+        # leaves the small number of absent norm layers at their initialization.
+        model.backbone.load_state_dict(target, strict=True)
+        print(f'loaded ConvNeXt initialization: {checkpoint_path} '
+              f'({len(matched)} matched, {len(missing)} left initialized)')
 
     def make_optimizer(self, model, args):
         return torch.optim.Adam(

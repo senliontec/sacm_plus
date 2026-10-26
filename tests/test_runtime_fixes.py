@@ -305,6 +305,7 @@ def test_sam_octa_eval_seed_and_batch_guard(tmp_path):
 
 def test_bcunet_prediction_skips_pretrained_backbone(monkeypatch):
     captured = {}
+    loaded = []
 
     class DummyBCUNet:
         def __init__(self, **kwargs):
@@ -312,16 +313,23 @@ def test_bcunet_prediction_skips_pretrained_backbone(monkeypatch):
 
     monkeypatch.setattr('baseline_zoo.adapters.bcunet.BCUNet', DummyBCUNet)
     adapter = load_adapter('bcunet')
+    monkeypatch.setattr(
+        adapter, '_load_local_convnext',
+        lambda model, args: loaded.append(True))
+
     adapter.prediction_mode = True
     adapter.build_model(argparse.Namespace(
         pretrained=True, checkpoint=None, stage='predict'))
     assert captured['pretrained'] is False
+    assert loaded == []
 
     captured.clear()
     adapter.prediction_mode = False
     adapter.build_model(argparse.Namespace(
-        pretrained=True, checkpoint=None, stage='train'))
-    assert captured['pretrained'] is True
+        pretrained=True, checkpoint=None, stage='train',
+        convnext_checkpoint=Path('unused.pth')))
+    assert captured['pretrained'] is False
+    assert loaded == [True]
 
 
 def test_sacm_prediction_skips_missing_base_checkpoint(monkeypatch):
