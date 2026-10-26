@@ -10,6 +10,8 @@ train_entrypoint: >-
 eval_entrypoint: >-
   python scripts/pipeline/run_baseline_test.py --method nnwnet
   --protocol {test_manifest}
+  --seed {seed}
+  --data-root {split_root}
   --checkpoint {output_root}/nnunet_model_dir.txt
   --pred-root {output_root}/predictions
   --paper-root {output_root}

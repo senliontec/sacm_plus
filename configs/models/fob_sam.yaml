@@ -10,6 +10,7 @@ train_entrypoint: >-
 eval_entrypoint: >-
   python scripts/pipeline/run_baseline_test.py --method fob_sam
   --protocol {test_manifest}
+  --seed {seed}
   --data-root {split_root}
   --checkpoint {output_root}/best_model.pth
   --pred-root {output_root}/predictions

@@ -236,6 +236,7 @@ class SAM2UNetAdapter(BaselineAdapter):
         if stored and current is not None and Path(current).is_file():
             actual = file_sha256(Path(current))
             if actual != stored:
-                raise SystemExit(
-                    f'SAM2 checkpoint changed since training: {current}\n'
-                    f'stored sha256={stored}, current sha256={actual}')
+                print(
+                    f'WARNING: SAM2 base checkpoint differs from training: '
+                    f'{current}; the full state dict will overwrite it',
+                    flush=True)

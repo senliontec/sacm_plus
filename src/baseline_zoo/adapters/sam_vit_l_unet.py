@@ -93,8 +93,10 @@ class SAMViTLUNetAdapter(BaselineAdapter):
         if stored_sha and current is not None and Path(current).is_file():
             actual = file_sha256(Path(current))
             if actual != stored_sha:
-                print(f'WARNING: SAM base checkpoint differs from training: '
-                      f'{current}; predictions will use this encoder')
+                raise SystemExit(
+                    f'SAM base checkpoint differs from training: {current}\n'
+                    'this adapter stores decoder-only weights, so the '
+                    'frozen encoder must match bit-for-bit')
 
     def configure_trainable(self, model):
         for parameter in model.encoder.parameters():

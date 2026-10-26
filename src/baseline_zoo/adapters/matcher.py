@@ -191,12 +191,21 @@ class MatcherAdapter(BaselineAdapter):
     def save_config(self, args):
         sam_weights = getattr(args, 'sam_weights', None)
         dinov2_weights = getattr(args, 'dinov2_weights', None)
+        sam_sha = self._sam_sha
+        dinov2_sha = self._dinov2_sha
+        # run_training_free() does not build the model, so compute provenance
+        # hashes here instead of leaving them None.
+        if sam_sha is None and sam_weights is not None and Path(sam_weights).is_file():
+            sam_sha = file_sha256(Path(sam_weights))
+        if (dinov2_sha is None and dinov2_weights is not None
+                and Path(dinov2_weights).is_file()):
+            dinov2_sha = file_sha256(Path(dinov2_weights))
         return {
             'input_size': int(self.input_size),
             'sam_weights': str(sam_weights) if sam_weights else None,
             'dinov2_weights': str(dinov2_weights) if dinov2_weights else None,
-            'sam_weights_sha256': self._sam_sha,
-            'dinov2_weights_sha256': self._dinov2_sha,
+            'sam_weights_sha256': sam_sha,
+            'dinov2_weights_sha256': dinov2_sha,
             'matcher_random_init': bool(
                 getattr(args, 'matcher_random_init', False)),
             'support_shots': int(getattr(args, 'support_shots', 3)),
@@ -218,4 +227,15 @@ class MatcherAdapter(BaselineAdapter):
             args.matcher_random_init = bool(config['matcher_random_init'])
         if config.get('data_root'):
             self._support_root = Path(config['data_root'])
+        for path_key, sha_key in (
+                ('sam_weights', 'sam_weights_sha256'),
+                ('dinov2_weights', 'dinov2_weights_sha256')):
+            stored = config.get(sha_key)
+            current = getattr(args, path_key, None)
+            if stored and current is not None and Path(current).is_file():
+                actual = file_sha256(Path(current))
+                if actual != stored:
+                    print(
+                        f'WARNING: {path_key} differs from training: '
+                        f'{current}; prediction uses this weight file')
         self.input_size = int(getattr(args, 'input_size', 518))

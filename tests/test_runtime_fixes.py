@@ -460,7 +460,7 @@ def test_sacm_adapter_dim_ratio_roundtrip():
     assert restored.dice_weight == 0.4
 
 
-def test_sam_vit_l_unet_records_and_checks_base_sha(tmp_path, capsys):
+def test_sam_vit_l_unet_rejects_changed_base_sha(tmp_path):
     from baseline_zoo.runtime import file_sha256
     adapter = load_adapter('sam_vit_l_unet')
     first = tmp_path / 'sam_a.pth'
@@ -473,9 +473,9 @@ def test_sam_vit_l_unet_records_and_checks_base_sha(tmp_path, capsys):
     assert config['sam_checkpoint_sha256'] == file_sha256(first)
     restored = argparse.Namespace(
         sam_checkpoint=second, input_size=0)
-    adapter.restore_config(restored, config)
+    with pytest.raises(SystemExit):
+        adapter.restore_config(restored, config)
     assert restored.input_size == 1024
-    assert 'WARNING: SAM base checkpoint differs' in capsys.readouterr().out
 
 
 def _load_tuning_module():

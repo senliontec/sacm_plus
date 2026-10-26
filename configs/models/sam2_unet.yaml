@@ -16,6 +16,7 @@ train_entrypoint: >-
 eval_entrypoint: >-
   python scripts/pipeline/run_baseline_test.py --method sam2_unet
   --protocol {test_manifest}
+  --seed {seed}
   --checkpoint {output_root}/best_model.pth
   --sam2-checkpoint {sam2_checkpoint}
   --pred-root {output_root}/predictions

@@ -17,6 +17,7 @@ train_entrypoint: >-
 eval_entrypoint: >-
   python scripts/pipeline/run_baseline_test.py --method ucs
   --protocol {test_manifest}
+  --seed {seed}
   --checkpoint {output_root}/best_model.pth
   --sam-checkpoint {sam_checkpoint}
   --pred-root {output_root}/predictions

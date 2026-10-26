@@ -231,6 +231,9 @@ def main():
     parser.add_argument('--num-samples', type=int, default=8)
     parser.add_argument('--metrics', default='dice,iou,cldice,hd95')
     parser.add_argument('--device', default=None)
+    parser.add_argument(
+        '--seed', type=int, default=42,
+        help='protocol seed forwarded to prediction adapter')
     parser.add_argument('--skip-predict', action='store_true')
     parser.add_argument('--skip-paper', action='store_true')
     parser.add_argument('--skip-visualize', action='store_true')
@@ -393,8 +396,10 @@ def main():
                 cmd = [sys.executable, '-m', 'baseline_zoo.run_one',
                        '--model', args.method, '--stage', 'predict',
                        '--checkpoint', args.checkpoint,
+                       '--workdir', str(args.checkpoint.parent),
                        '--pred-root', method_pred_root,
-                       '--data-root', args.data_root]
+                       '--data-root', args.data_root,
+                       '--seed', str(args.seed)]
                 if args.method == 'fob_sam':
                     cmd += ['--sam-checkpoint', args.fob_sam_checkpoint]
                 elif args.method == 'sam2_unet':

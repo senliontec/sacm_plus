@@ -296,7 +296,7 @@ def _run_trial(trial_number: int, model_id: str, model, protocol, args,
 
 
 def _sample_params(trial, defaults: dict, overrides: dict,
-                   adapter) -> dict:
+                   adapter, max_epochs: int | None = None) -> dict:
     lr_spec = _merged_spec(defaults, overrides, 'lr')
     wd_spec = _merged_spec(defaults, overrides, 'weight_decay')
     sched_spec = _merged_spec(defaults, overrides, 'scheduler')
@@ -309,8 +309,12 @@ def _sample_params(trial, defaults: dict, overrides: dict,
     scheduler = _suggest(trial, 'scheduler', sched_spec, None)
     warmup = None
     if scheduler != 'official' and warm_spec.get('choices'):
-        warmup = trial.suggest_categorical(
-            'warmup_epochs', warm_spec['choices'])
+        choices = [
+            int(value) for value in warm_spec['choices']
+            if max_epochs is None or int(value) < max_epochs
+        ]
+        if choices:
+            warmup = trial.suggest_categorical('warmup_epochs', choices)
 
     params = {
         'lr': float(lr),
@@ -346,9 +350,13 @@ def _run_model(model_id: str, model, adapter, protocol, args,
     gpu_queue: queue.Queue = queue.Queue()
     for gpu in args.gpus:
         gpu_queue.put(gpu)
+    effective_epochs = (
+        int(args.epochs) if args.epochs is not None
+        else int(model.defaults.get('epochs', 0) or 0))
 
     def objective(trial):
-        params = _sample_params(trial, defaults, overrides, adapter)
+        params = _sample_params(
+            trial, defaults, overrides, adapter, effective_epochs)
         try:
             return _run_trial(
                 trial.number, model_id, model, protocol, args,

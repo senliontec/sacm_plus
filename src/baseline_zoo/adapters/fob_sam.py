@@ -138,8 +138,12 @@ class FoBSAMAdapter(BaselineAdapter):
 
     # ---- model --------------------------------------------------------
     def build_model(self, args):
+        predicting = bool(
+            getattr(self, 'prediction_mode', False)
+            or getattr(args, 'stage', None) == 'predict'
+            or getattr(args, 'checkpoint', None) is not None)
         weights = None
-        if not args.fob_random_init:
+        if not args.fob_random_init and not predicting:
             if not args.resnet_checkpoint.is_file():
                 raise SystemExit(
                     f'missing ResNet-101 COCO checkpoint: '
@@ -149,6 +153,8 @@ class FoBSAMAdapter(BaselineAdapter):
                     'https://download.pytorch.org/models/'
                     'deeplabv3_resnet101_coco-586e9e4e.pth')
             weights = args.resnet_checkpoint
+        # Prediction loads the complete localizer state immediately after
+        # construction, so the eval host does not need the ResNet file.
         model = FewShotSeg({}, pretrained_weights=weights)
         return model
 
@@ -478,8 +484,12 @@ class FoBSAMAdapter(BaselineAdapter):
             if key in config:
                 setattr(args, key, str(config[key]))
         for key in ('data_root', 'sam_checkpoint', 'resnet_checkpoint'):
-            if config.get(key):
-                setattr(args, key, Path(config[key]))
+            stored = config.get(key)
+            if not stored:
+                continue
+            current = getattr(args, key, None)
+            if current is None or not Path(current).exists():
+                setattr(args, key, Path(stored))
 
     def _ensure_sam(self):
         if self._sam is None:

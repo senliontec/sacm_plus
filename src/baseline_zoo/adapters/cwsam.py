@@ -73,6 +73,27 @@ class CWSAMAdapter(BaselineAdapter):
                              weights_only=False)
         state = payload.get('model', payload)
         missing, unexpected = model.load_state_dict(state, strict=False)
+        def allowed_missing(key):
+            if key.startswith('image_encoder.prompt_generator.'):
+                return True
+            if key.startswith('mask_decoder.cls_upscaling.'):
+                return True
+            if key in ('pe_layer.positional_encoding_gaussian_matrix',
+                       'no_mask_embed.weight'):
+                return True
+            return (key.startswith('image_encoder.blocks.')
+                    and any(tag in key for tag in (
+                        '.MLP_Adapter.', '.Space_Adapter.',
+                        '.Depth_Adapter.')))
+        bad_missing = [key for key in missing if not allowed_missing(key)]
+        bad_unexpected = [
+            key for key in unexpected
+            if not key.startswith('prompt_encoder.')]
+        if bad_missing or bad_unexpected:
+            raise SystemExit(
+                f'SAM checkpoint is incompatible with CWSAM: '
+                f'{checkpoint}; missing={bad_missing[:3]}, '
+                f'unexpected={bad_unexpected[:3]}')
         print(f'loaded SAM weights: {len(missing)} missing '
               f'(adapters/prompt generator), {len(unexpected)} unexpected '
               f'(prompt encoder)')

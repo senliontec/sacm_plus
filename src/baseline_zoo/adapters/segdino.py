@@ -75,6 +75,9 @@ class SegDINOAdapter(BaselineAdapter):
                             default=Path(default_ckpt) if default_ckpt else None)
         parser.add_argument('--random-init', action='store_true',
                             help='code smoke only: do not load DINOv3 weights')
+        parser.add_argument(
+            '--allow-random-init', action='store_true',
+            help='allow evaluating a smoke-only random-init checkpoint')
 
     def build_model(self, args):
         checkpoint = args.dino_ckpt
@@ -104,6 +107,11 @@ class SegDINOAdapter(BaselineAdapter):
         size = config.get('dino_size')
         if size:
             args.dino_size = size
+        if (config.get('random_init', False)
+                and not getattr(args, 'allow_random_init', False)):
+            raise SystemExit(
+                'checkpoint was trained with --random-init (smoke only); '
+                'pass --allow-random-init to evaluate it anyway')
         # The checkpoint carries the full backbone and DPT state; building a
         # random timm backbone avoids a gated download and is then fully
         # overwritten by load_state_dict.

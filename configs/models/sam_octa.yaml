@@ -10,6 +10,7 @@ train_entrypoint: >-
 eval_entrypoint: >-
   python scripts/pipeline/run_baseline_test.py --method sam_octa
   --protocol {test_manifest}
+  --seed {seed}
   --checkpoint {output_root}/best_model.pth
   --pred-root {output_root}/predictions
   --paper-root {output_root}

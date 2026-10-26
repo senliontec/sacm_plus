@@ -120,6 +120,23 @@ class SAMAdapter(BaselineAdapter):
         if 'image_encoder.patch_embed.proj.weight' not in state:
             raise SystemExit(
                 f'{checkpoint} does not contain SAM image-encoder weights')
+        allowed_missing = (
+            'image_encoder.prompt_generator.',
+            'pe_layer.positional_encoding_gaussian_matrix',
+            'no_mask_embed.weight',
+        )
+        bad_missing = [
+            key for key in missing
+            if not any(key.startswith(prefix) or key == prefix
+                       for prefix in allowed_missing)]
+        bad_unexpected = [
+            key for key in unexpected
+            if not key.startswith('prompt_encoder.')]
+        if bad_missing or bad_unexpected:
+            raise SystemExit(
+                f'SAM checkpoint is incompatible with SAM-Adapter: '
+                f'{checkpoint}; missing={bad_missing[:3]}, '
+                f'unexpected={bad_unexpected[:3]}')
         self._sam_sha = file_sha256(checkpoint)
         print('loaded SAM ViT-L weights: '
               f'{len(state)} keys, {len(missing)} missing '

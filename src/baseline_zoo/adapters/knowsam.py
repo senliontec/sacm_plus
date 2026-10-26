@@ -123,6 +123,12 @@ class KnowSAMAdapter(BaselineAdapter):
             help='iterations between shared train/loss and lr W&B points')
         parser.add_argument('--unlabeled-limit', type=int, default=384)
         parser.add_argument('--labeled-batch', type=int, default=3)
+        parser.add_argument(
+            '--input-size', type=int, default=256,
+            help='KnowSAM network/transform resolution (official: 256)')
+        parser.add_argument(
+            '--unet-lr', type=float, default=0.01,
+            help='SGD LR for the SGDL/UNet-VNet branch (official: 0.01)')
 
     # ---- staging ------------------------------------------------------
     @staticmethod
@@ -187,7 +193,7 @@ class KnowSAMAdapter(BaselineAdapter):
     def _args(args, root: Path, labeled_batch: int):
         return SimpleNamespace(
             data_path=str(root), dataset='', num_classes=2, in_channels=3,
-            lr=args.lr, UNet_lr=0.01, VNet_lr=0.01,
+            lr=args.lr, UNet_lr=args.unet_lr, VNet_lr=0.01,
             weight_decay=args.weight_decay,
             image_size=int(args.input_size), point_nums=5, box_nums=1, mod='sam_adpt',
             model_type='vit_b', thd=False,
@@ -210,6 +216,11 @@ class KnowSAMAdapter(BaselineAdapter):
         seed_everything(args.seed)
         workdir = Path(args.workdir)
         workdir.mkdir(parents=True, exist_ok=True)
+        # A rerun must not silently keep a checkpoint from an earlier run.
+        for stale_name in (
+                'SGDL_best_model.pth', 'sam_best_model.pth',
+                'knowsam_model.txt', 'knowsam_config.json'):
+            (workdir / stale_name).unlink(missing_ok=True)
         root = workdir / 'knowsam_data'
         # Staging is enumerated with os.listdir; stale files from a previous
         # protocol/limit would silently change the training and val sets.
@@ -232,6 +243,20 @@ class KnowSAMAdapter(BaselineAdapter):
             torch.cuda.set_device(torch.device(args.device))
         kargs = self._args(args, root, args.labeled_batch)
         kargs.max_iterations = iterations
+        sam_checkpoint = Path(args.sam_checkpoint)
+        construction = {
+            'input_size': int(args.input_size),
+            'sam_checkpoint': str(sam_checkpoint),
+            'sam_checkpoint_sha256': (
+                file_sha256(sam_checkpoint)
+                if sam_checkpoint.is_file() else None),
+            'labeled_batch': int(args.labeled_batch),
+            'batch_size': int(args.batch_size),
+            'max_iterations': int(iterations),
+            'unet_lr': float(kargs.UNet_lr),
+        }
+        (workdir / 'knowsam_config.json').write_text(
+            json.dumps(construction, indent=2) + '\n')
         run_config = {
             'method': self.id,
             'official_source': self.official_source,
@@ -335,6 +360,18 @@ class KnowSAMAdapter(BaselineAdapter):
             root = workdir
         if torch.device(args.device).type == 'cuda':
             torch.cuda.set_device(torch.device(args.device))
+        sidecar = workdir / 'knowsam_config.json'
+        if sidecar.is_file():
+            construction = json.loads(sidecar.read_text())
+            args.input_size = int(construction.get(
+                'input_size', args.input_size))
+            args.labeled_batch = int(construction.get(
+                'labeled_batch', args.labeled_batch))
+            # KnowSAM inference uses the SGDL checkpoint only; SAM is a
+            # training-time pseudo-label teacher and is not rebuilt here.
+        else:
+            print('[knowsam] warning: missing knowsam_config.json; '
+                  'using eval-time defaults', flush=True)
         kargs = self._args(args, root, args.labeled_batch)
         kargs.max_iterations = (args.max_iterations
                                 if args.max_iterations is not None
