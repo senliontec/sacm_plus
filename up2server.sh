@@ -31,11 +31,14 @@ esac; done
 EXCLUDES=(--exclude '__pycache__' --exclude '*.pyc'
           --exclude '.git/' --exclude '.codegraph/' --exclude '.pytest_cache/'
           --exclude '.idea/' --exclude '.ruff_cache/'
-          --exclude 'results/' --exclude '3rd/'
+          # Leading slash anchors these to the transfer root.  Unanchored
+          # 'data/' would also drop vendored trees such as
+          # src/baseline_zoo/models/matcher/dinov2/data/.
+          --exclude '/results/' --exclude '/3rd/'
           # Runtime artifacts: never delete server-trained checkpoints.
-          --exclude 'checkpoints/')
-[ "$CODE_ONLY" -eq 1 ] && EXCLUDES+=(--exclude 'checkpoints/' --exclude '*.pth'
-                                     --exclude 'datasets/' --exclude 'data/')
+          --exclude '/checkpoints/')
+[ "$CODE_ONLY" -eq 1 ] && EXCLUDES+=(--exclude '/checkpoints/' --exclude '*.pth'
+                                     --exclude '/datasets/' --exclude '/data/')
 
 if [ "$CODE_ONLY" -eq 1 ]; then
   echo "Uploading ${SRC} → ${SERVER}:${TARGET} (code only) ..."
@@ -52,7 +55,7 @@ ssh "${SSH_OPTS[@]}" "$SERVER" "mkdir -p '${TARGET}'"
 # 必须在上传后继续存在。需要清理服务器上的陈旧代码时，请手动处理。
 rsync -e "$RSYNC_SSH" -avz --partial --update --checksum \
     --info=progress2 \
-    "${EXCLUDES[@]}" --exclude 'datasets/' --exclude 'data/' \
+    "${EXCLUDES[@]}" --exclude '/datasets/' --exclude '/data/' \
     "${SRC}/" "${SERVER}:${TARGET}/"
 
 # 数据目录:同样按内容增量上传、不带 --delete —— 本地数据不完整时绝不删除服务器文件
