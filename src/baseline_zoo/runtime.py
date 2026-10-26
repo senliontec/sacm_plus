@@ -832,15 +832,19 @@ def run_prediction(adapter: BaselineAdapter, args: argparse.Namespace,
         raise SystemExit(
             f'checkpoint is for adapter {stored_adapter!r}, not '
             f'{adapter.id!r}')
-    saved_input = payload.get('input_size')
-    if (saved_input is not None and hasattr(args, 'input_size')
-            and int(args.input_size) != int(saved_input)):
-        raise SystemExit(
-            f'checkpoint was trained with input_size={saved_input}, but '
-            f'current --input-size is {args.input_size}')
     adapter.checkpoint_config = payload.get('config', {}) or {}
     adapter.restore_config(
         args, adapter.checkpoint_config.get('adapter_config', {}))
+    # The checkpoint's construction size is authoritative.  Checking it
+    # before restore_config rejected valid non-default configurations.
+    saved_input = payload.get('input_size')
+    if saved_input is not None and hasattr(args, 'input_size'):
+        saved_input = int(saved_input)
+        if int(args.input_size) != saved_input:
+            print(
+                f'[predict] checkpoint input_size={saved_input}; using it '
+                f'instead of --input-size={args.input_size}', flush=True)
+        args.input_size = saved_input
     model = adapter.build_model(args)
     state = payload.get('model_state_dict') or {}
     if state:

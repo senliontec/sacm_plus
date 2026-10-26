@@ -30,7 +30,7 @@ class Trainer(nn.Module):
 
         self.optimizer_sam = optim.Adam(self.sam_model.parameters(), lr=args.lr)
         self.optimizer_SGDL = torch.optim.SGD(self.SGDL.parameters(), lr=args.UNet_lr, momentum=0.9,
-                                              weight_decay=0.0001)
+                                              weight_decay=args.weight_decay)
 
         self.best_performance_sam = 0.0
         self.best_performance_SGDL = 0.0

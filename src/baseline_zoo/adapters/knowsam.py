@@ -188,7 +188,8 @@ class KnowSAMAdapter(BaselineAdapter):
         return SimpleNamespace(
             data_path=str(root), dataset='', num_classes=2, in_channels=3,
             lr=args.lr, UNet_lr=0.01, VNet_lr=0.01,
-            image_size=256, point_nums=5, box_nums=1, mod='sam_adpt',
+            weight_decay=args.weight_decay,
+            image_size=int(args.input_size), point_nums=5, box_nums=1, mod='sam_adpt',
             model_type='vit_b', thd=False,
             batch_size=args.batch_size, labeled_bs=labeled_batch,
             seed=args.seed, mixed_iterations=12000,

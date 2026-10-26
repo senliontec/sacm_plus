@@ -85,6 +85,7 @@ class SamMed2DAdapter(BaselineAdapter):
         parser.add_argument('--point-list', default='1,3,5,9')
 
     def build_model(self, args):
+        self.input_size = int(getattr(args, 'input_size', self.input_size))
         if not args.sam_checkpoint.is_file():
             raise SystemExit(
                 f'missing SAM ViT-L checkpoint: {args.sam_checkpoint}')
@@ -98,6 +99,29 @@ class SamMed2DAdapter(BaselineAdapter):
         for name, parameter in model.image_encoder.named_parameters():
             parameter.requires_grad_('Adapter' in name)
         model.image_encoder.grad_checkpointing = True
+
+    def save_config(self, args):
+        checkpoint = getattr(args, 'sam_checkpoint', None)
+        return {
+            'input_size': int(self.input_size),
+            'sam_checkpoint': str(checkpoint) if checkpoint else None,
+            'mask_num': int(getattr(args, 'mask_num', 5)),
+            'iter_point': int(getattr(args, 'iter_point', 8)),
+            'point_list': str(getattr(args, 'point_list', '1,3,5,9')),
+        }
+
+    def restore_config(self, args, config):
+        for key in ('mask_num', 'iter_point'):
+            if key in config:
+                setattr(args, key, int(config[key]))
+        if 'point_list' in config:
+            args.point_list = str(config['point_list'])
+        if 'input_size' in config:
+            args.input_size = int(config['input_size'])
+            self.input_size = args.input_size
+        stored_checkpoint = config.get('sam_checkpoint')
+        if stored_checkpoint and Path(stored_checkpoint).is_file():
+            args.sam_checkpoint = Path(stored_checkpoint)
 
     def make_optimizer(self, model, args):
         return torch.optim.Adam(

@@ -314,7 +314,11 @@ class NNWNetAdapter(BaselineAdapter):
         # nnUNetTrainer changes a non-DDP CUDA device to cuda:0; restore the
         # adapter-requested card before initialize() moves the network.
         _restore_trainer_device(trainer, device)
-        trainer.num_epochs = args.epochs
+        # The shared CLI/config is the source of truth for optimizer
+        # hyperparameters; configure_optimizers() runs inside initialize().
+        trainer.initial_lr = float(args.lr)
+        trainer.weight_decay = float(args.weight_decay)
+        trainer.num_epochs = int(args.epochs)
         trainer.initialize()
 
         # nnU-Net has no shared-runtime epoch table.  Keep its official
