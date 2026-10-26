@@ -29,6 +29,9 @@ sys.path.insert(0, str(REPO_ROOT / 'scripts' / 'pipeline'))
 
 from protocol_specs import dataset_specs  # noqa: E402
 
+# Self-contained adapters.  A method without an entry is assumed to have
+# predictions already on disk (reference-only or externally produced).
+from baseline_zoo.adapters.registry import available_adapters  # noqa: E402
 from core.run_status import RunStatus  # noqa: E402
 from core.wandb_utils import (  # noqa: E402
     finish_run,
@@ -36,10 +39,6 @@ from core.wandb_utils import (  # noqa: E402
     log_scalars,
     setup_wandb,
 )
-
-# Self-contained adapters.  A method without an entry is assumed to have
-# predictions already on disk (reference-only or externally produced).
-from baseline_zoo.adapters.registry import available_adapters  # noqa: E402
 
 PORTED = set(available_adapters())
 # nnWNet stores a model folder / KnowSAM a plain SGDL state dict; neither
