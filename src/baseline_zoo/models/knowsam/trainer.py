@@ -1,17 +1,17 @@
+import logging
 import os
+
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from .sam.build_sam import sam_model_registry
 import torch.optim as optim
-from .losses import dice_loss, loss_diff1, loss_diff2, KDLoss, DiceLoss
-import logging
+
+from .losses import DiceLoss, KDLoss, loss_diff1, loss_diff2
 from .metrics import dice_coef
-
-import numpy as np
-
 from .model import KnowSAM
 from .prediction_acdc import test_single_volume
+from .sam.build_sam import sam_model_registry
 
 ce_loss = torch.nn.CrossEntropyLoss()
 
@@ -34,6 +34,11 @@ class Trainer(nn.Module):
 
         self.best_performance_sam = 0.0
         self.best_performance_SGDL = 0.0
+        # Exposed for the project W&B monitor; the official loop itself does
+        # not consume these attributes.
+        self.last_losses = {}
+        self.last_lrs = {}
+        self.last_val_dice = {}
 
         for n, value in self.sam_model.named_parameters():
             if "Adapter" in n:
@@ -170,7 +175,7 @@ class Trainer(nn.Module):
         pred_sam_soft = torch.softmax(pred_sam, dim=1)
 
         fusion_loss = ce_loss(fusion_map[:self.args.labeled_bs], label_batch[:self.args.labeled_bs].long()) + self.dice_loss(fusion_map_soft[:self.args.labeled_bs], label_batch[:self.args.labeled_bs])
-        
+
         UNet_sup_loss = ce_loss(pred_UNet[:self.args.labeled_bs], label_batch[:self.args.labeled_bs].long()) + self.dice_loss(pred_UNet_soft[:self.args.labeled_bs], label_batch[:self.args.labeled_bs])
         UNet_cons_loss = loss_diff1(pred_UNet_soft, pred_VNet_soft.clone().detach())
         UNet_enp_loss = self.entropy_loss(pred_UNet_soft, C=2)
@@ -219,7 +224,7 @@ class Trainer(nn.Module):
         logging.info('iteration %d : '
                      '  sam_loss : %f'
                      '  sam_lr_ : %10f'
-                     
+
                      '  SGDL_loss : %f'
                      '  UNet_VNet_loss : %f'
                      '  fusion_loss : %f'
@@ -228,6 +233,20 @@ class Trainer(nn.Module):
                      % (iter_num, sam_loss.item(), lr_,
                         SGDL_loss.item(), (UNet_loss + VNet_loss) / 2, fusion_loss,  UNet_lr_,
                         ))
+
+        # Current values for the shared W&B monitor.  Training itself still
+        # uses exactly the official losses/optimizers above.
+        self.last_losses = {
+            'sam_loss': float(sam_loss.detach().item()),
+            'SGDL_loss': float(SGDL_loss.detach().item()),
+            'unet_vnet_loss': float(
+                ((UNet_loss + VNet_loss) / 2).detach().item()),
+            'fusion_loss': float(fusion_loss.detach().item()),
+        }
+        self.last_lrs = {
+            'sam': float(lr_),
+            'sgdl': float(UNet_lr_),
+        }
 
     def val(self, val_loader, snapshot_path, iter_num):
         self.sam_model.eval()
@@ -289,6 +308,15 @@ class Trainer(nn.Module):
                      '  unet_mean_dice : %f '
                      '  vnet_mean_dice : %f '
                     % (iter_num, avg_dice_sam, avg_dice_SGDL, avg_dice_unet, avg_dice_vnet))
+
+        # Current validation Dice for the shared W&B monitor; best_* remain
+        # the official checkpoint-selection values below.
+        self.last_val_dice = {
+            'sam': float(avg_dice_sam),
+            'SGDL': float(avg_dice_SGDL),
+            'unet': float(avg_dice_unet),
+            'vnet': float(avg_dice_vnet),
+        }
 
         if avg_dice_sam > self.best_performance_sam:
             self.best_performance_sam = avg_dice_sam

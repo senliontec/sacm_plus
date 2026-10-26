@@ -141,6 +141,13 @@ def test_sam_vit_l_unet_state_dict_is_decoder_only():
     assert all(key in model.decoder.state_dict() for key in state)
 
 
+def test_knowsam_shared_wandb_interval_default():
+    parser = build_parser(load_adapter('knowsam'))
+    args = parser.parse_args([])
+    assert args.log_interval == 50
+    assert args.val_interval == 200
+
+
 def test_knowsam_unlabeled_pool_excludes_protocol_images(tmp_path):
     adapter = load_adapter('knowsam')
     root = tmp_path / 'stage'

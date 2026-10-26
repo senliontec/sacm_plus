@@ -15,12 +15,11 @@ from types import SimpleNamespace
 
 import numpy as np
 import torch
-from scipy.ndimage import zoom
 from PIL import Image
+from scipy.ndimage import zoom
 from torch.utils.data import DataLoader
 
-from baseline_zoo.data import (
-    RawPairDataset, load_mask, load_rgb, load_split_samples)
+from baseline_zoo.data import RawPairDataset, load_mask, load_rgb, load_split_samples
 from baseline_zoo.models.knowsam import KnowSAM, Trainer
 from baseline_zoo.models.knowsam.dataset import build_Dataset
 from baseline_zoo.models.knowsam.sampler import TwoStreamBatchSampler
@@ -120,6 +119,9 @@ class KnowSAMAdapter(BaselineAdapter):
             '--max-iterations', type=int, default=None,
             help='defaults to --epochs (official: 50000 iterations)')
         parser.add_argument('--val-interval', type=int, default=200)
+        parser.add_argument(
+            '--log-interval', type=int, default=50,
+            help='iterations between shared train/loss and lr W&B points')
         parser.add_argument('--unlabeled-limit', type=int, default=384)
         parser.add_argument('--labeled-batch', type=int, default=3)
 
@@ -223,6 +225,8 @@ class KnowSAMAdapter(BaselineAdapter):
                       else args.epochs)
         if iterations <= 0:
             raise SystemExit('--max-iterations/--epochs must be positive')
+        if args.val_interval <= 0 or args.log_interval <= 0:
+            raise SystemExit('--val-interval and --log-interval must be positive')
 
         if torch.device(args.device).type == 'cuda':
             torch.cuda.set_device(torch.device(args.device))
@@ -237,8 +241,12 @@ class KnowSAMAdapter(BaselineAdapter):
             'batch_size': args.batch_size,
             'labeled_batch': args.labeled_batch,
             'max_iterations': iterations,
+            'log_interval': args.log_interval,
+            'val_interval': args.val_interval,
             'seed': args.seed,
             'selection': 'SGDL validation Dice (official)',
+            'val_dice_source': 'current SGDL validation Dice; best_* remain '
+                               'the official best-so-far checkpoint values',
         }
         run = setup_wandb(args, name=f'knowsam-seed{args.seed}',
                           config=run_config)
@@ -265,16 +273,43 @@ class KnowSAMAdapter(BaselineAdapter):
                 labels = batch['label'].to(args.device)
                 trainer.train(images, labels, iteration)
                 iteration += 1
+                if run is not None and iteration % args.log_interval == 0:
+                    losses = getattr(trainer, 'last_losses', {})
+                    lrs = getattr(trainer, 'last_lrs', {})
+                    scalars = {
+                        'iteration': iteration,
+                        'train/loss': losses.get('SGDL_loss'),
+                        'train/sgdl_loss': losses.get('SGDL_loss'),
+                        'train/sam_loss': losses.get('sam_loss'),
+                        'train/unet_vnet_loss': losses.get('unet_vnet_loss'),
+                        'train/fusion_loss': losses.get('fusion_loss'),
+                        'lr': lrs.get('sgdl'),
+                        'lr/sam': lrs.get('sam'),
+                        'lr/sgdl': lrs.get('sgdl'),
+                    }
+                    log_scalars(run, {
+                        key: value for key, value in scalars.items()
+                        if value is not None})
                 if iteration % args.val_interval == 0:
                     trainer.val(val_loader, str(workdir), iteration)
                     if run is not None:
-                        log_scalars(run, {
+                        current = getattr(trainer, 'last_val_dice', {})
+                        scalars = {
                             'iteration': iteration,
+                            'val/dice': current.get('SGDL'),
+                            'val/sgdl_dice': current.get('SGDL'),
+                            'val/sam_dice': current.get('sam'),
+                            'val/unet_dice': current.get('unet'),
+                            'val/vnet_dice': current.get('vnet'),
+                            'val/selection': current.get('SGDL'),
                             'val/SGDL_best_dice':
                                 trainer.best_performance_SGDL,
                             'val/SAM_best_dice':
                                 trainer.best_performance_sam,
-                        })
+                        }
+                        log_scalars(run, {
+                            key: value for key, value in scalars.items()
+                            if value is not None})
                 if iteration >= iterations:
                     break
 
