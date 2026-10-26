@@ -155,6 +155,9 @@ class NNWNetAdapter(BaselineAdapter):
     @staticmethod
     def _nnunet_env(nn_root: Path):
         env = os.environ.copy()
+        # nnU-Net subprocesses run with cwd=workdir; relative nnUNet_* paths
+        # would then be resolved twice and point at a nonexistent Dataset501.
+        nn_root = Path(nn_root).resolve()
         env['nnUNet_raw'] = str(nn_root / 'raw')
         env['nnUNet_preprocessed'] = str(nn_root / 'preprocessed')
         env['nnUNet_results'] = str(nn_root / 'results')
