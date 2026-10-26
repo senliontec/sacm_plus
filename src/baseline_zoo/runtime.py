@@ -604,12 +604,12 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
                     writer.writerow(row)
 
     write_history(history_path, run_config, history, best_epoch, best_score)
-    print_epoch_header(adapter, args.epochs, args.seed, device, num_params,
-                       trainable)
     print(f'metrics history -> {history_path}')
     print(f'per-dataset metrics -> {dataset_csv_path}')
     for deviation in adapter.deviations:
         console.print(f' [yellow]deviation:[/] {deviation}')
+    print_epoch_header(adapter, args.epochs, args.seed, device, num_params,
+                       trainable)
 
     for epoch in range(start_epoch, args.epochs + 1):
         epoch_t0 = time.time()
