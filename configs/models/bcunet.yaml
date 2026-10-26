@@ -16,7 +16,7 @@ eval_entrypoint: >-
   --device cuda:{gpu} --use_wandb true --skip-visualize
 protocols: [seeded5, fixed]
 defaults:
-  epochs: 50
+  epochs: 200
 note: >-
   Upstream OutConv referenced an undefined upconv2x2; repaired as a 1x1
   logits projection. The adapter bypasses upstream main.py (which imports

@@ -22,4 +22,4 @@ eval_entrypoint: >-
   --device cuda:{gpu} --use_wandb true --skip-visualize
 protocols: [seeded5, fixed]
 defaults:
-  epochs: 20
+  epochs: 200

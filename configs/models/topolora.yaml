@@ -17,7 +17,7 @@ eval_entrypoint: >-
   --device cuda:{gpu} --use_wandb true --skip-visualize
 protocols: [seeded5, fixed]
 defaults:
-  epochs: 50
+  epochs: 200
 note: >-
   Self-contained port of TopoLoRA-SAM (Seglab), official ViT-B, prompt-free.
   LoRA r=8 on the ViT MLP layers + 256-channel conv adapter + trainable mask

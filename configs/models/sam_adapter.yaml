@@ -16,7 +16,7 @@ eval_entrypoint: >-
   --device cuda:{gpu} --use_wandb true --skip-visualize
 protocols: [seeded5, fixed]
 defaults:
-  epochs: 20
+  epochs: 200
 note: >-
   Self-contained port of SAM-Adapter (ICCV 2023), ViT-L, prompt-free.
   The official FFT high-pass prompt generator is injected into every ViT

@@ -16,7 +16,7 @@ eval_entrypoint: >-
   --device cuda:{gpu} --use_wandb true --skip-visualize
 protocols: [seeded5, fixed]
 defaults:
-  epochs: 15
+  epochs: 200
 note: >-
   Self-contained port of official SAM-Med2D: 256 input, per-block Adapter,
   GT box/point prompts plus 8 error-feedback decoder passes, focal+dice+IoU.

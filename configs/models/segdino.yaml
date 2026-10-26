@@ -16,7 +16,7 @@ eval_entrypoint: >-
   --device cuda:{gpu} --use_wandb true --skip-visualize
 protocols: [seeded5, fixed]
 defaults:
-  epochs: 50
+  epochs: 200
 note: >-
   Self-contained DINOv3+DPT port. Auto-detects a size-matched local checkpoint
   under checkpoints/ (e.g. checkpoints/dinov3/pytorch_model.bin); override

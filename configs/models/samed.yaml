@@ -16,7 +16,7 @@ eval_entrypoint: >-
   --device cuda:{gpu} --use_wandb true --skip-visualize
 protocols: [seeded5, fixed]
 defaults:
-  epochs: 160
+  epochs: 200
 note: >-
   Self-contained SAMed port (MICCAI 2023), prompt-free and oracle-free.
   SAM ViT-B with rank-4 q/v LoRA, trainable prompt encoder and class-wise
