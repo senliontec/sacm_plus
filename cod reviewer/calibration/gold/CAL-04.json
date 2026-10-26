@@ -1,0 +1,42 @@
+{
+  "kind": "positive",
+  "high_case": true,
+  "expected_sensitivity_keys": [
+    "scheduler_step_timing"
+  ],
+  "expected_discrepancies": [
+    {
+      "key": "scheduler_step_timing",
+      "allowed_verdicts": [
+        "differ"
+      ],
+      "category": "official_recipe",
+      "impact": "numeric",
+      "allowed_gates": [
+        "G3"
+      ],
+      "undocumented": true,
+      "high_severity": true,
+      "required_evidence": [
+        {
+          "file": "official.py",
+          "snippet": "    scheduler.step()",
+          "line": 11,
+          "sha256": "a5529bdd5e8d59b91377b602f4766fa1121162976df2b339609c192341dd7572"
+        },
+        {
+          "file": "port.py",
+          "snippet": "        scheduler.step()",
+          "line": 11,
+          "sha256": "98f003f0c84f9d6ca5457d1e7caa255c61ef072636002f76a04d96329966a84a"
+        }
+      ]
+    }
+  ],
+  "allowed_equivalent_keys": [],
+  "forbidden_claims": [
+    "table_metric_reproduced",
+    "official_metric_match=verified"
+  ],
+  "case_id": "CAL-04"
+}

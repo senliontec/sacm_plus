@@ -169,3 +169,9 @@ official_metric_match = unverified
 仍缺：补 decoder checkpoint 或完成一次可复现训练；把 image/mask fp16 差异和
 DataLoader 顺序写入 deviations；补同初始化 G6a；修复 `paper_metrics` 失败并跑
 G6c；补模型目录 LICENSE；冻结 A0 calibration pack。
+
+## Post-review fixes (2026-10-26)
+
+- Checkpoint config now stores the SAM base path and SHA-256.
+- Prediction warns when a different SAM encoder file is supplied.
+- Only the decoder is saved, so the encoder must still be reproduced from the recorded base file.

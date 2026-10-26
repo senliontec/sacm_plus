@@ -209,3 +209,8 @@ official_metric_match = unverified
 - 训练/推理并非逐位官方：mean/std 口径、MONAI→PIL 增强、kernel 修复、test→val 选择
   都是实质适配，其中 mean/std 只在 UPSTREAM 完整披露。
 - 当前 `G2=pass`，但 `G3=unverified`；只能作为 path-level 参考，不能进主表。
+
+## Post-review fixes (2026-10-26)
+
+- `--dsc-stride` greater than `--input-size` now raises; previously it silently left uncovered stripes as background.
+- Test: `test_patch_prediction_rejects_stride_gap`.

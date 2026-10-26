@@ -1,0 +1,52 @@
+{
+  "case_id": "CAL-10",
+  "sensitivity_keys": [
+    "checkpoint_provenance",
+    "model_initialization_source"
+  ],
+  "closure": {
+    "checkpoint_provenance": "missing_asset",
+    "model_initialization_source": "missing_asset"
+  },
+  "discrepancies": [
+    {
+      "key": "checkpoint_provenance",
+      "verdict": "unverified",
+      "category": "missing_asset",
+      "impact": "numeric",
+      "gate": "G6b",
+      "undocumented": false,
+      "evidence": [
+        {
+          "file": "official.py",
+          "line": 7,
+          "snippet": "def build_model(loader):\n    if not CHECKPOINT.is_file():\n        raise FileNotFoundError(CHECKPOINT)",
+          "sha256": "91b59dc567f5173803292914f909dff1f55e1e6fedfbb0276b7993c53eebf3c0"
+        },
+        {
+          "file": "port.py",
+          "line": 4,
+          "snippet": "def build_model(loader):\n    return loader(None)  # random initialization; no official weights",
+          "sha256": "730216289779411ad3f015230033621af3a8c9a9a5fe18f6fd2ec55759ca22c8"
+        },
+        {
+          "file": "assets.json",
+          "line": 3,
+          "snippet": "\"present\": false,",
+          "sha256": "0d987f75def95eff521764db4ac1fc0e602679a633ea6f0782623a48a1af9995"
+        },
+        {
+          "file": "deviations.md",
+          "line": 3,
+          "snippet": "- No official checkpoint is available; the port uses random\n  initialization.",
+          "sha256": "55b63fe7ef025a0cc086062b9929c758d33dd575a76a1e1db25e1b0c7268fbfb"
+        }
+      ]
+    }
+  ],
+  "claims": {
+    "main_table": "blocked",
+    "claim_label": "none",
+    "official_metric_match": "unverified"
+  }
+}

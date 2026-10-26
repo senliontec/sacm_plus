@@ -11,15 +11,15 @@ auditor:
   model: ""
   prompt_version: ""
   protocol_version: ""
-  calibration_report: ""      # calibration_report.json
-  calibration_pack_sha256: ""
-  a0: ""                      # pass | fail
-  recall_high: 0.0
-  recall_all: 0.0
-  precision: 0.0
-  evidence_validity: 0.0
+  calibration_report: "cod reviewer/calibration/audits/v3/calibration_report.json"
+  calibration_pack_sha256: "df593177d7213f6f1452f61062a41a67539acaef3009a0c43feb9e5905cedd1a"
+  a0: "pass"                  # pass | fail
+  recall_high: 1.0
+  recall_all: 1.0
+  precision: 1.0
+  evidence_validity: 1.0
   overclaim: 0
-  dual_audit: false
+  dual_audit: true
   agreement: 0.0
 audit_inputs:
   sensitivity_inventory: ""   # 01 output

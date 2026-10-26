@@ -200,3 +200,10 @@ claim_label = path_verified  # 仅指二分类模型/损失/训练路径，不�
   DataParallel 和 RNG；之后才能按“单卡二分类适配”重开 G3。
 - 待办：1) 补齐 D-02/D-03/D-08 disclosure；2) 冻结 A0；3) 跑 G6c；
   4) 若需要 8 类对照，单独审计官方 8 类 checkpoint 路径。
+
+## Post-review fixes (2026-10-26)
+
+- Low-resolution target is now `input_size/4` (64 at 256, 128 at 512), fixing non-default input-size training.
+- Poly LR horizon is `max(epochs, 200)`; the final epoch is no longer assigned lr=0.
+- Tests: `test_low_res_tracks_input_size`, `test_poly_scheduler_does_not_zero_last_epoch`.
+- Remaining: AdamW vs source-default SGD ambiguity and G3 evidence remain.

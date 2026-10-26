@@ -1,0 +1,40 @@
+{
+  "case_id": "CAL-03",
+  "sensitivity_keys": [
+    "bce_loss_weight",
+    "dice_loss_formula"
+  ],
+  "closure": {
+    "bce_loss_weight": "covered_by_discrepancy",
+    "dice_loss_formula": "preserved"
+  },
+  "discrepancies": [
+    {
+      "key": "bce_loss_weight",
+      "verdict": "differ",
+      "category": "official_recipe",
+      "impact": "numeric",
+      "gate": "G2",
+      "undocumented": true,
+      "evidence": [
+        {
+          "file": "official.py",
+          "line": 15,
+          "snippet": "return 0.5 * bce + 0.5 * dice_loss(logits, target)",
+          "sha256": "d71abbdda0d861bf1eade6f3cff49f3b4560a8ea8ec097b64e22104c805e9cba"
+        },
+        {
+          "file": "port.py",
+          "line": 15,
+          "snippet": "return 1.0 * bce + 0.5 * dice_loss(logits, target)",
+          "sha256": "96f00c470c8690f77af28c1b3cabbdad14117e04ea74e15a95a61b8a3950aac5"
+        }
+      ]
+    }
+  ],
+  "claims": {
+    "main_table": "blocked",
+    "claim_label": "none",
+    "official_metric_match": "unverified"
+  }
+}

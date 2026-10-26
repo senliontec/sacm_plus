@@ -181,3 +181,7 @@ claim_label = none
 ## 最终一行状态
 
 `sam_med2d: G0=pass G1=pass G2=pass G3=unverified G4=pass G5=pass G6a=unverified G6b=N/A G6c=unverified`
+
+## Post-review fixes (2026-10-26)
+
+- Train loss is averaged per batch, matching the official `np.mean(train_losses)` convention; weights and selection were already unaffected.

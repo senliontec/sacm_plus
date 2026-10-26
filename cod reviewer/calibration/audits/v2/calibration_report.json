@@ -1,0 +1,984 @@
+{
+  "pack": {
+    "version": "a0-cal-2026-10-26-v1",
+    "sha256": "30058e81e3eccf768ceb9c184e943d9566784766907cea9f4c29173f6522a224",
+    "case_count": 12,
+    "errors": []
+  },
+  "auditors": [
+    {
+      "audit_dir": "cod reviewer/calibration/audits/v2/run-a",
+      "pack_sha256": "30058e81e3eccf768ceb9c184e943d9566784766907cea9f4c29173f6522a224",
+      "errors": [],
+      "metrics": {
+        "sensitivity_recall_01": 1.0,
+        "recall_high_02": 0.875,
+        "recall_all_02": 0.9,
+        "precision_02": 0.9,
+        "evidence_validity": 1.0,
+        "closure": 1.0,
+        "gate_accuracy": 0.8,
+        "category_accuracy": 0.9,
+        "overclaim": 0,
+        "negative_false_positives": 0
+      },
+      "a0_pass": false,
+      "cases": [
+        {
+          "case_id": "CAL-01",
+          "kind": "negative",
+          "expected_keys": [],
+          "reported_keys": [],
+          "missed_keys": [],
+          "false_positive_keys": [],
+          "sensitivity_recall_01": 1.0,
+          "recall_high_02": 1.0,
+          "recall_all_02": 1.0,
+          "precision_02": 1.0,
+          "evidence_validity": 1.0,
+          "closure": 1.0,
+          "gate_accuracy": 1.0,
+          "category_accuracy": 1.0,
+          "overclaim": 0,
+          "hit_keys": [],
+          "hit_signatures": [],
+          "tp": 0,
+          "fp": 0,
+          "sensitivity_total": 0,
+          "sensitivity_hit": 0,
+          "high_total": 0,
+          "high_hit": 0,
+          "expected_total": 0,
+          "evidence_total": 0,
+          "evidence_valid": 0,
+          "closure_total": 2,
+          "closure_ok": 2,
+          "gate_ok": 0,
+          "category_ok": 0
+        },
+        {
+          "case_id": "CAL-02",
+          "kind": "positive",
+          "expected_keys": [
+            "eval_resize_interpolation"
+          ],
+          "reported_keys": [
+            "eval_resize_interpolation"
+          ],
+          "missed_keys": [],
+          "false_positive_keys": [],
+          "sensitivity_recall_01": 1.0,
+          "recall_high_02": 1.0,
+          "recall_all_02": 1.0,
+          "precision_02": 1.0,
+          "evidence_validity": 1.0,
+          "closure": 1.0,
+          "gate_accuracy": 1.0,
+          "category_accuracy": 1.0,
+          "overclaim": 0,
+          "hit_keys": [
+            "eval_resize_interpolation"
+          ],
+          "hit_signatures": [
+            "eval_resize_interpolation|differ|official_recipe|G4"
+          ],
+          "tp": 1,
+          "fp": 0,
+          "sensitivity_total": 1,
+          "sensitivity_hit": 1,
+          "high_total": 1,
+          "high_hit": 1,
+          "expected_total": 1,
+          "evidence_total": 2,
+          "evidence_valid": 2,
+          "closure_total": 1,
+          "closure_ok": 1,
+          "gate_ok": 1,
+          "category_ok": 1
+        },
+        {
+          "case_id": "CAL-03",
+          "kind": "positive",
+          "expected_keys": [
+            "loss_weights"
+          ],
+          "reported_keys": [
+            "total_loss_weighting"
+          ],
+          "missed_keys": [],
+          "false_positive_keys": [],
+          "sensitivity_recall_01": 1.0,
+          "recall_high_02": 1.0,
+          "recall_all_02": 1.0,
+          "precision_02": 1.0,
+          "evidence_validity": 1.0,
+          "closure": 1.0,
+          "gate_accuracy": 0.0,
+          "category_accuracy": 1.0,
+          "overclaim": 0,
+          "hit_keys": [
+            "loss_weights"
+          ],
+          "hit_signatures": [
+            "loss_weights|differ|official_recipe|G2"
+          ],
+          "tp": 1,
+          "fp": 0,
+          "sensitivity_total": 1,
+          "sensitivity_hit": 1,
+          "high_total": 1,
+          "high_hit": 1,
+          "expected_total": 1,
+          "evidence_total": 2,
+          "evidence_valid": 2,
+          "closure_total": 2,
+          "closure_ok": 2,
+          "gate_ok": 0,
+          "category_ok": 1
+        },
+        {
+          "case_id": "CAL-04",
+          "kind": "positive",
+          "expected_keys": [
+            "scheduler_step_timing"
+          ],
+          "reported_keys": [
+            "scheduler_step_timing"
+          ],
+          "missed_keys": [],
+          "false_positive_keys": [],
+          "sensitivity_recall_01": 1.0,
+          "recall_high_02": 1.0,
+          "recall_all_02": 1.0,
+          "precision_02": 1.0,
+          "evidence_validity": 1.0,
+          "closure": 1.0,
+          "gate_accuracy": 1.0,
+          "category_accuracy": 1.0,
+          "overclaim": 0,
+          "hit_keys": [
+            "scheduler_step_timing"
+          ],
+          "hit_signatures": [
+            "scheduler_step_timing|differ|official_recipe|G3"
+          ],
+          "tp": 1,
+          "fp": 0,
+          "sensitivity_total": 1,
+          "sensitivity_hit": 1,
+          "high_total": 1,
+          "high_hit": 1,
+          "expected_total": 1,
+          "evidence_total": 2,
+          "evidence_valid": 2,
+          "closure_total": 1,
+          "closure_ok": 1,
+          "gate_ok": 1,
+          "category_ok": 1
+        },
+        {
+          "case_id": "CAL-05",
+          "kind": "positive",
+          "expected_keys": [
+            "empty_prompt"
+          ],
+          "reported_keys": [
+            "prompt_construction"
+          ],
+          "missed_keys": [],
+          "false_positive_keys": [],
+          "sensitivity_recall_01": 1.0,
+          "recall_high_02": 1.0,
+          "recall_all_02": 1.0,
+          "precision_02": 1.0,
+          "evidence_validity": 1.0,
+          "closure": 1.0,
+          "gate_accuracy": 1.0,
+          "category_accuracy": 1.0,
+          "overclaim": 0,
+          "hit_keys": [
+            "empty_prompt"
+          ],
+          "hit_signatures": [
+            "empty_prompt|differ|official_recipe|G1"
+          ],
+          "tp": 1,
+          "fp": 0,
+          "sensitivity_total": 1,
+          "sensitivity_hit": 1,
+          "high_total": 1,
+          "high_hit": 1,
+          "expected_total": 1,
+          "evidence_total": 4,
+          "evidence_valid": 4,
+          "closure_total": 4,
+          "closure_ok": 4,
+          "gate_ok": 1,
+          "category_ok": 1
+        },
+        {
+          "case_id": "CAL-06",
+          "kind": "positive",
+          "expected_keys": [
+            "support_leak"
+          ],
+          "reported_keys": [
+            "support_source_split"
+          ],
+          "missed_keys": [],
+          "false_positive_keys": [],
+          "sensitivity_recall_01": 1.0,
+          "recall_high_02": 1.0,
+          "recall_all_02": 1.0,
+          "precision_02": 1.0,
+          "evidence_validity": 1.0,
+          "closure": 1.0,
+          "gate_accuracy": 1.0,
+          "category_accuracy": 1.0,
+          "overclaim": 0,
+          "hit_keys": [
+            "support_leak"
+          ],
+          "hit_signatures": [
+            "support_leak|differ|protocol_adaptation|G5"
+          ],
+          "tp": 1,
+          "fp": 0,
+          "sensitivity_total": 1,
+          "sensitivity_hit": 1,
+          "high_total": 1,
+          "high_hit": 1,
+          "expected_total": 1,
+          "evidence_total": 2,
+          "evidence_valid": 2,
+          "closure_total": 2,
+          "closure_ok": 2,
+          "gate_ok": 1,
+          "category_ok": 1
+        },
+        {
+          "case_id": "CAL-07",
+          "kind": "positive",
+          "expected_keys": [
+            "class_head"
+          ],
+          "reported_keys": [
+            "class_head_num_classes"
+          ],
+          "missed_keys": [
+            "class_head"
+          ],
+          "false_positive_keys": [
+            "class_head_num_classes"
+          ],
+          "sensitivity_recall_01": 1.0,
+          "recall_high_02": 0.0,
+          "recall_all_02": 0.0,
+          "precision_02": 0.0,
+          "evidence_validity": 1.0,
+          "closure": 1.0,
+          "gate_accuracy": 0.0,
+          "category_accuracy": 0.0,
+          "overclaim": 0,
+          "hit_keys": [],
+          "hit_signatures": [],
+          "tp": 0,
+          "fp": 1,
+          "sensitivity_total": 1,
+          "sensitivity_hit": 1,
+          "high_total": 1,
+          "high_hit": 0,
+          "expected_total": 1,
+          "evidence_total": 3,
+          "evidence_valid": 3,
+          "closure_total": 2,
+          "closure_ok": 2,
+          "gate_ok": 0,
+          "category_ok": 0
+        },
+        {
+          "case_id": "CAL-08",
+          "kind": "positive",
+          "expected_keys": [
+            "predict_threshold"
+          ],
+          "reported_keys": [
+            "postprocess_threshold"
+          ],
+          "missed_keys": [],
+          "false_positive_keys": [],
+          "sensitivity_recall_01": 1.0,
+          "recall_high_02": 1.0,
+          "recall_all_02": 1.0,
+          "precision_02": 1.0,
+          "evidence_validity": 1.0,
+          "closure": 1.0,
+          "gate_accuracy": 1.0,
+          "category_accuracy": 1.0,
+          "overclaim": 0,
+          "hit_keys": [
+            "predict_threshold"
+          ],
+          "hit_signatures": [
+            "predict_threshold|differ|official_recipe|G4"
+          ],
+          "tp": 1,
+          "fp": 0,
+          "sensitivity_total": 1,
+          "sensitivity_hit": 1,
+          "high_total": 1,
+          "high_hit": 1,
+          "expected_total": 1,
+          "evidence_total": 2,
+          "evidence_valid": 2,
+          "closure_total": 1,
+          "closure_ok": 1,
+          "gate_ok": 1,
+          "category_ok": 1
+        },
+        {
+          "case_id": "CAL-09",
+          "kind": "ambiguous",
+          "expected_keys": [
+            "sigmoid_threshold"
+          ],
+          "reported_keys": [
+            "threshold_sigmoid_application"
+          ],
+          "missed_keys": [],
+          "false_positive_keys": [],
+          "sensitivity_recall_01": 1.0,
+          "recall_high_02": 1.0,
+          "recall_all_02": 1.0,
+          "precision_02": 1.0,
+          "evidence_validity": 1.0,
+          "closure": 1.0,
+          "gate_accuracy": 1.0,
+          "category_accuracy": 1.0,
+          "overclaim": 0,
+          "hit_keys": [
+            "sigmoid_threshold"
+          ],
+          "hit_signatures": [
+            "sigmoid_threshold|intentional_deviation|bug_fix|G4"
+          ],
+          "tp": 1,
+          "fp": 0,
+          "sensitivity_total": 1,
+          "sensitivity_hit": 1,
+          "high_total": 0,
+          "high_hit": 0,
+          "expected_total": 1,
+          "evidence_total": 3,
+          "evidence_valid": 3,
+          "closure_total": 2,
+          "closure_ok": 2,
+          "gate_ok": 1,
+          "category_ok": 1
+        },
+        {
+          "case_id": "CAL-10",
+          "kind": "missing_asset",
+          "expected_keys": [
+            "official_checkpoint_missing"
+          ],
+          "reported_keys": [
+            "official_checkpoint_availability"
+          ],
+          "missed_keys": [],
+          "false_positive_keys": [],
+          "sensitivity_recall_01": 1.0,
+          "recall_high_02": 1.0,
+          "recall_all_02": 1.0,
+          "precision_02": 1.0,
+          "evidence_validity": 1.0,
+          "closure": 1.0,
+          "gate_accuracy": 1.0,
+          "category_accuracy": 1.0,
+          "overclaim": 0,
+          "hit_keys": [
+            "official_checkpoint_missing"
+          ],
+          "hit_signatures": [
+            "official_checkpoint_missing|unverified|missing_asset|G6b"
+          ],
+          "tp": 1,
+          "fp": 0,
+          "sensitivity_total": 1,
+          "sensitivity_hit": 1,
+          "high_total": 0,
+          "high_hit": 0,
+          "expected_total": 1,
+          "evidence_total": 3,
+          "evidence_valid": 3,
+          "closure_total": 2,
+          "closure_ok": 2,
+          "gate_ok": 1,
+          "category_ok": 1
+        },
+        {
+          "case_id": "CAL-11",
+          "kind": "negative",
+          "expected_keys": [],
+          "reported_keys": [
+            "device_transfer"
+          ],
+          "missed_keys": [],
+          "false_positive_keys": [],
+          "sensitivity_recall_01": 1.0,
+          "recall_high_02": 1.0,
+          "recall_all_02": 1.0,
+          "precision_02": 1.0,
+          "evidence_validity": 1.0,
+          "closure": 1.0,
+          "gate_accuracy": 1.0,
+          "category_accuracy": 1.0,
+          "overclaim": 0,
+          "hit_keys": [],
+          "hit_signatures": [],
+          "tp": 0,
+          "fp": 0,
+          "sensitivity_total": 0,
+          "sensitivity_hit": 0,
+          "high_total": 0,
+          "high_hit": 0,
+          "expected_total": 0,
+          "evidence_total": 2,
+          "evidence_valid": 2,
+          "closure_total": 1,
+          "closure_ok": 1,
+          "gate_ok": 0,
+          "category_ok": 0
+        },
+        {
+          "case_id": "CAL-12",
+          "kind": "positive",
+          "expected_keys": [
+            "support_no_grad"
+          ],
+          "reported_keys": [
+            "support_autograd_context"
+          ],
+          "missed_keys": [],
+          "false_positive_keys": [],
+          "sensitivity_recall_01": 1.0,
+          "recall_high_02": 1.0,
+          "recall_all_02": 1.0,
+          "precision_02": 1.0,
+          "evidence_validity": 1.0,
+          "closure": 1.0,
+          "gate_accuracy": 1.0,
+          "category_accuracy": 1.0,
+          "overclaim": 0,
+          "hit_keys": [
+            "support_no_grad"
+          ],
+          "hit_signatures": [
+            "support_no_grad|differ|official_recipe|G3"
+          ],
+          "tp": 1,
+          "fp": 0,
+          "sensitivity_total": 1,
+          "sensitivity_hit": 1,
+          "high_total": 1,
+          "high_hit": 1,
+          "expected_total": 1,
+          "evidence_total": 2,
+          "evidence_valid": 2,
+          "closure_total": 2,
+          "closure_ok": 2,
+          "gate_ok": 1,
+          "category_ok": 1
+        }
+      ]
+    },
+    {
+      "audit_dir": "cod reviewer/calibration/audits/v2/run-b",
+      "pack_sha256": "30058e81e3eccf768ceb9c184e943d9566784766907cea9f4c29173f6522a224",
+      "errors": [],
+      "metrics": {
+        "sensitivity_recall_01": 1.0,
+        "recall_high_02": 0.875,
+        "recall_all_02": 0.9,
+        "precision_02": 0.9,
+        "evidence_validity": 1.0,
+        "closure": 1.0,
+        "gate_accuracy": 0.9,
+        "category_accuracy": 0.9,
+        "overclaim": 0,
+        "negative_false_positives": 0
+      },
+      "a0_pass": false,
+      "cases": [
+        {
+          "case_id": "CAL-01",
+          "kind": "negative",
+          "expected_keys": [],
+          "reported_keys": [],
+          "missed_keys": [],
+          "false_positive_keys": [],
+          "sensitivity_recall_01": 1.0,
+          "recall_high_02": 1.0,
+          "recall_all_02": 1.0,
+          "precision_02": 1.0,
+          "evidence_validity": 1.0,
+          "closure": 1.0,
+          "gate_accuracy": 1.0,
+          "category_accuracy": 1.0,
+          "overclaim": 0,
+          "hit_keys": [],
+          "hit_signatures": [],
+          "tp": 0,
+          "fp": 0,
+          "sensitivity_total": 0,
+          "sensitivity_hit": 0,
+          "high_total": 0,
+          "high_hit": 0,
+          "expected_total": 0,
+          "evidence_total": 0,
+          "evidence_valid": 0,
+          "closure_total": 2,
+          "closure_ok": 2,
+          "gate_ok": 0,
+          "category_ok": 0
+        },
+        {
+          "case_id": "CAL-02",
+          "kind": "positive",
+          "expected_keys": [
+            "eval_resize_interpolation"
+          ],
+          "reported_keys": [
+            "eval_resize_interpolation"
+          ],
+          "missed_keys": [],
+          "false_positive_keys": [],
+          "sensitivity_recall_01": 1.0,
+          "recall_high_02": 1.0,
+          "recall_all_02": 1.0,
+          "precision_02": 1.0,
+          "evidence_validity": 1.0,
+          "closure": 1.0,
+          "gate_accuracy": 1.0,
+          "category_accuracy": 1.0,
+          "overclaim": 0,
+          "hit_keys": [
+            "eval_resize_interpolation"
+          ],
+          "hit_signatures": [
+            "eval_resize_interpolation|differ|official_recipe|G4"
+          ],
+          "tp": 1,
+          "fp": 0,
+          "sensitivity_total": 1,
+          "sensitivity_hit": 1,
+          "high_total": 1,
+          "high_hit": 1,
+          "expected_total": 1,
+          "evidence_total": 2,
+          "evidence_valid": 2,
+          "closure_total": 1,
+          "closure_ok": 1,
+          "gate_ok": 1,
+          "category_ok": 1
+        },
+        {
+          "case_id": "CAL-03",
+          "kind": "positive",
+          "expected_keys": [
+            "loss_weights"
+          ],
+          "reported_keys": [
+            "loss_weighting"
+          ],
+          "missed_keys": [],
+          "false_positive_keys": [],
+          "sensitivity_recall_01": 1.0,
+          "recall_high_02": 1.0,
+          "recall_all_02": 1.0,
+          "precision_02": 1.0,
+          "evidence_validity": 1.0,
+          "closure": 1.0,
+          "gate_accuracy": 1.0,
+          "category_accuracy": 1.0,
+          "overclaim": 0,
+          "hit_keys": [
+            "loss_weights"
+          ],
+          "hit_signatures": [
+            "loss_weights|differ|official_recipe|G3"
+          ],
+          "tp": 1,
+          "fp": 0,
+          "sensitivity_total": 1,
+          "sensitivity_hit": 1,
+          "high_total": 1,
+          "high_hit": 1,
+          "expected_total": 1,
+          "evidence_total": 2,
+          "evidence_valid": 2,
+          "closure_total": 1,
+          "closure_ok": 1,
+          "gate_ok": 1,
+          "category_ok": 1
+        },
+        {
+          "case_id": "CAL-04",
+          "kind": "positive",
+          "expected_keys": [
+            "scheduler_step_timing"
+          ],
+          "reported_keys": [
+            "scheduler_step_timing"
+          ],
+          "missed_keys": [],
+          "false_positive_keys": [],
+          "sensitivity_recall_01": 1.0,
+          "recall_high_02": 1.0,
+          "recall_all_02": 1.0,
+          "precision_02": 1.0,
+          "evidence_validity": 1.0,
+          "closure": 1.0,
+          "gate_accuracy": 1.0,
+          "category_accuracy": 1.0,
+          "overclaim": 0,
+          "hit_keys": [
+            "scheduler_step_timing"
+          ],
+          "hit_signatures": [
+            "scheduler_step_timing|differ|official_recipe|G3"
+          ],
+          "tp": 1,
+          "fp": 0,
+          "sensitivity_total": 1,
+          "sensitivity_hit": 1,
+          "high_total": 1,
+          "high_hit": 1,
+          "expected_total": 1,
+          "evidence_total": 2,
+          "evidence_valid": 2,
+          "closure_total": 1,
+          "closure_ok": 1,
+          "gate_ok": 1,
+          "category_ok": 1
+        },
+        {
+          "case_id": "CAL-05",
+          "kind": "positive",
+          "expected_keys": [
+            "empty_prompt"
+          ],
+          "reported_keys": [
+            "decoder_prompt_construction"
+          ],
+          "missed_keys": [],
+          "false_positive_keys": [],
+          "sensitivity_recall_01": 1.0,
+          "recall_high_02": 1.0,
+          "recall_all_02": 1.0,
+          "precision_02": 1.0,
+          "evidence_validity": 1.0,
+          "closure": 1.0,
+          "gate_accuracy": 1.0,
+          "category_accuracy": 1.0,
+          "overclaim": 0,
+          "hit_keys": [
+            "empty_prompt"
+          ],
+          "hit_signatures": [
+            "empty_prompt|differ|official_recipe|G1"
+          ],
+          "tp": 1,
+          "fp": 0,
+          "sensitivity_total": 1,
+          "sensitivity_hit": 1,
+          "high_total": 1,
+          "high_hit": 1,
+          "expected_total": 1,
+          "evidence_total": 6,
+          "evidence_valid": 6,
+          "closure_total": 3,
+          "closure_ok": 3,
+          "gate_ok": 1,
+          "category_ok": 1
+        },
+        {
+          "case_id": "CAL-06",
+          "kind": "positive",
+          "expected_keys": [
+            "support_leak"
+          ],
+          "reported_keys": [
+            "support_source"
+          ],
+          "missed_keys": [],
+          "false_positive_keys": [],
+          "sensitivity_recall_01": 1.0,
+          "recall_high_02": 1.0,
+          "recall_all_02": 1.0,
+          "precision_02": 1.0,
+          "evidence_validity": 1.0,
+          "closure": 1.0,
+          "gate_accuracy": 1.0,
+          "category_accuracy": 1.0,
+          "overclaim": 0,
+          "hit_keys": [
+            "support_leak"
+          ],
+          "hit_signatures": [
+            "support_leak|differ|protocol_adaptation|G5"
+          ],
+          "tp": 1,
+          "fp": 0,
+          "sensitivity_total": 1,
+          "sensitivity_hit": 1,
+          "high_total": 1,
+          "high_hit": 1,
+          "expected_total": 1,
+          "evidence_total": 3,
+          "evidence_valid": 3,
+          "closure_total": 1,
+          "closure_ok": 1,
+          "gate_ok": 1,
+          "category_ok": 1
+        },
+        {
+          "case_id": "CAL-07",
+          "kind": "positive",
+          "expected_keys": [
+            "class_head"
+          ],
+          "reported_keys": [
+            "head_width"
+          ],
+          "missed_keys": [
+            "class_head"
+          ],
+          "false_positive_keys": [
+            "head_width"
+          ],
+          "sensitivity_recall_01": 1.0,
+          "recall_high_02": 0.0,
+          "recall_all_02": 0.0,
+          "precision_02": 0.0,
+          "evidence_validity": 1.0,
+          "closure": 1.0,
+          "gate_accuracy": 0.0,
+          "category_accuracy": 0.0,
+          "overclaim": 0,
+          "hit_keys": [],
+          "hit_signatures": [],
+          "tp": 0,
+          "fp": 1,
+          "sensitivity_total": 1,
+          "sensitivity_hit": 1,
+          "high_total": 1,
+          "high_hit": 0,
+          "expected_total": 1,
+          "evidence_total": 3,
+          "evidence_valid": 3,
+          "closure_total": 1,
+          "closure_ok": 1,
+          "gate_ok": 0,
+          "category_ok": 0
+        },
+        {
+          "case_id": "CAL-08",
+          "kind": "positive",
+          "expected_keys": [
+            "predict_threshold"
+          ],
+          "reported_keys": [
+            "eval_binarization_threshold"
+          ],
+          "missed_keys": [],
+          "false_positive_keys": [],
+          "sensitivity_recall_01": 1.0,
+          "recall_high_02": 1.0,
+          "recall_all_02": 1.0,
+          "precision_02": 1.0,
+          "evidence_validity": 1.0,
+          "closure": 1.0,
+          "gate_accuracy": 1.0,
+          "category_accuracy": 1.0,
+          "overclaim": 0,
+          "hit_keys": [
+            "predict_threshold"
+          ],
+          "hit_signatures": [
+            "predict_threshold|differ|official_recipe|G4"
+          ],
+          "tp": 1,
+          "fp": 0,
+          "sensitivity_total": 1,
+          "sensitivity_hit": 1,
+          "high_total": 1,
+          "high_hit": 1,
+          "expected_total": 1,
+          "evidence_total": 2,
+          "evidence_valid": 2,
+          "closure_total": 1,
+          "closure_ok": 1,
+          "gate_ok": 1,
+          "category_ok": 1
+        },
+        {
+          "case_id": "CAL-09",
+          "kind": "ambiguous",
+          "expected_keys": [
+            "sigmoid_threshold"
+          ],
+          "reported_keys": [
+            "inference_threshold"
+          ],
+          "missed_keys": [],
+          "false_positive_keys": [],
+          "sensitivity_recall_01": 1.0,
+          "recall_high_02": 1.0,
+          "recall_all_02": 1.0,
+          "precision_02": 1.0,
+          "evidence_validity": 1.0,
+          "closure": 1.0,
+          "gate_accuracy": 1.0,
+          "category_accuracy": 1.0,
+          "overclaim": 0,
+          "hit_keys": [
+            "sigmoid_threshold"
+          ],
+          "hit_signatures": [
+            "sigmoid_threshold|intentional_deviation|bug_fix|G4"
+          ],
+          "tp": 1,
+          "fp": 0,
+          "sensitivity_total": 1,
+          "sensitivity_hit": 1,
+          "high_total": 0,
+          "high_hit": 0,
+          "expected_total": 1,
+          "evidence_total": 4,
+          "evidence_valid": 4,
+          "closure_total": 1,
+          "closure_ok": 1,
+          "gate_ok": 1,
+          "category_ok": 1
+        },
+        {
+          "case_id": "CAL-10",
+          "kind": "missing_asset",
+          "expected_keys": [
+            "official_checkpoint_missing"
+          ],
+          "reported_keys": [
+            "official_checkpoint"
+          ],
+          "missed_keys": [],
+          "false_positive_keys": [],
+          "sensitivity_recall_01": 1.0,
+          "recall_high_02": 1.0,
+          "recall_all_02": 1.0,
+          "precision_02": 1.0,
+          "evidence_validity": 1.0,
+          "closure": 1.0,
+          "gate_accuracy": 1.0,
+          "category_accuracy": 1.0,
+          "overclaim": 0,
+          "hit_keys": [
+            "official_checkpoint_missing"
+          ],
+          "hit_signatures": [
+            "official_checkpoint_missing|unverified|missing_asset|G6b"
+          ],
+          "tp": 1,
+          "fp": 0,
+          "sensitivity_total": 1,
+          "sensitivity_hit": 1,
+          "high_total": 0,
+          "high_hit": 0,
+          "expected_total": 1,
+          "evidence_total": 5,
+          "evidence_valid": 5,
+          "closure_total": 1,
+          "closure_ok": 1,
+          "gate_ok": 1,
+          "category_ok": 1
+        },
+        {
+          "case_id": "CAL-11",
+          "kind": "negative",
+          "expected_keys": [],
+          "reported_keys": [
+            "device_transfer"
+          ],
+          "missed_keys": [],
+          "false_positive_keys": [],
+          "sensitivity_recall_01": 1.0,
+          "recall_high_02": 1.0,
+          "recall_all_02": 1.0,
+          "precision_02": 1.0,
+          "evidence_validity": 1.0,
+          "closure": 1.0,
+          "gate_accuracy": 1.0,
+          "category_accuracy": 1.0,
+          "overclaim": 0,
+          "hit_keys": [],
+          "hit_signatures": [],
+          "tp": 0,
+          "fp": 0,
+          "sensitivity_total": 0,
+          "sensitivity_hit": 0,
+          "high_total": 0,
+          "high_hit": 0,
+          "expected_total": 0,
+          "evidence_total": 3,
+          "evidence_valid": 3,
+          "closure_total": 1,
+          "closure_ok": 1,
+          "gate_ok": 0,
+          "category_ok": 0
+        },
+        {
+          "case_id": "CAL-12",
+          "kind": "positive",
+          "expected_keys": [
+            "support_no_grad"
+          ],
+          "reported_keys": [
+            "support_encoding_autograd"
+          ],
+          "missed_keys": [],
+          "false_positive_keys": [],
+          "sensitivity_recall_01": 1.0,
+          "recall_high_02": 1.0,
+          "recall_all_02": 1.0,
+          "precision_02": 1.0,
+          "evidence_validity": 1.0,
+          "closure": 1.0,
+          "gate_accuracy": 1.0,
+          "category_accuracy": 1.0,
+          "overclaim": 0,
+          "hit_keys": [
+            "support_no_grad"
+          ],
+          "hit_signatures": [
+            "support_no_grad|differ|official_recipe|G3"
+          ],
+          "tp": 1,
+          "fp": 0,
+          "sensitivity_total": 1,
+          "sensitivity_hit": 1,
+          "high_total": 1,
+          "high_hit": 1,
+          "expected_total": 1,
+          "evidence_total": 2,
+          "evidence_valid": 2,
+          "closure_total": 1,
+          "closure_ok": 1,
+          "gate_ok": 1,
+          "category_ok": 1
+        }
+      ]
+    }
+  ],
+  "consistency": 0.9166666666666666,
+  "a0_pass": false
+}

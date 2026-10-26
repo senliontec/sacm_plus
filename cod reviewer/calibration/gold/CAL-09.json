@@ -1,0 +1,49 @@
+{
+  "kind": "ambiguous",
+  "high_case": false,
+  "expected_sensitivity_keys": [
+    "sigmoid_threshold"
+  ],
+  "expected_discrepancies": [
+    {
+      "key": "sigmoid_threshold",
+      "allowed_verdicts": [
+        "intentional_deviation"
+      ],
+      "category": "bug_fix",
+      "impact": "numeric",
+      "allowed_gates": [
+        "G4",
+        "G6c"
+      ],
+      "undocumented": false,
+      "high_severity": false,
+      "required_evidence": [
+        {
+          "file": "official.py",
+          "snippet": "return (logits > 0.5).float()",
+          "line": 6,
+          "sha256": "710b434d4ddd61a8ac3908acf9fe74dccd6f680d17ca59364653041728699cd7"
+        },
+        {
+          "file": "port.py",
+          "snippet": "torch.sigmoid(logits)",
+          "line": 7,
+          "sha256": "ff579abfc9d0597dc65837aec3b10a2d9ae797a3a5f2e411d42946eecfa94192"
+        },
+        {
+          "file": "deviations.md",
+          "snippet": "intentional bug fix",
+          "line": 5,
+          "sha256": "d5ef2dc50a0e2751b104dda09d7728e64f9738a862d7131d98f9cc05e545f7ff"
+        }
+      ]
+    }
+  ],
+  "allowed_equivalent_keys": [],
+  "forbidden_claims": [
+    "table_metric_reproduced",
+    "official_metric_match=verified"
+  ],
+  "case_id": "CAL-09"
+}

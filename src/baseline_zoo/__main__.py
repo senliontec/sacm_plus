@@ -11,6 +11,7 @@ import argparse
 import importlib.util
 import json
 import os
+import shlex
 import subprocess
 import sys
 from collections import defaultdict
@@ -114,16 +115,32 @@ def _format_template(model: ModelConfig, template: str | None,
             f'{model.id}: unknown command placeholder {{{exc.args[0]}}}') from None
 
 
+def _pythonize_command(command: str) -> str:
+    """Resolve a leading `python`/`python3` to the running interpreter.
+
+    Model YAML templates are executed through a shell.  A bare `python`
+    would select the shell PATH (often base conda), not the interpreter that
+    launched `baseline_zoo train/eval`.  Keep non-python commands unchanged.
+    """
+    parts = command.lstrip().split(None, 1)
+    if not parts or parts[0] not in ('python', 'python3'):
+        return command
+    suffix = f' {parts[1]}' if len(parts) > 1 else ''
+    return shlex.quote(sys.executable) + suffix
+
+
 def _train_command(model: ModelConfig, protocol: ProtocolConfig,
                    seed: int, gpu: str, output_root: str) -> str:
     context = _job_context(model, protocol, seed, gpu, output_root)
-    return _format_template(model, model.train_entrypoint, context)
+    return _pythonize_command(
+        _format_template(model, model.train_entrypoint, context))
 
 
 def _eval_command(model: ModelConfig, protocol: ProtocolConfig,
                   seed: int, gpu: str, output_root: str) -> str:
     context = _job_context(model, protocol, seed, gpu, output_root)
-    return _format_template(model, model.eval_entrypoint, context)
+    return _pythonize_command(
+        _format_template(model, model.eval_entrypoint, context))
 
 
 def _output_root(model: ModelConfig, seed: int) -> Path:
@@ -165,9 +182,9 @@ def _build_jobs(args: argparse.Namespace,
             output_root = _output_root(model, seed)
             context = _job_context(
                 model, protocol, seed, gpu, _repo_path(output_root))
-            command = _format_template(
+            command = _pythonize_command(_format_template(
                 model, model.train_entrypoint if stage == 'train'
-                else model.eval_entrypoint, context)
+                else model.eval_entrypoint, context))
             checkpoint = Path(context['checkpoint'])
             if not checkpoint.is_absolute():
                 checkpoint = REPO_ROOT / checkpoint

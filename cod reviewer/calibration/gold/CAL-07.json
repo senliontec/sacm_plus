@@ -1,0 +1,44 @@
+{
+  "kind": "positive",
+  "high_case": true,
+  "expected_sensitivity_keys": [
+    "class_head"
+  ],
+  "expected_discrepancies": [
+    {
+      "key": "class_head",
+      "allowed_verdicts": [
+        "differ",
+        "unverified"
+      ],
+      "category": "protocol_adaptation",
+      "impact": "protocol",
+      "allowed_gates": [
+        "G1",
+        "G2"
+      ],
+      "undocumented": true,
+      "high_severity": true,
+      "required_evidence": [
+        {
+          "file": "official.py",
+          "snippet": "NUM_CLASSES = 8",
+          "line": 4,
+          "sha256": "c5fbd76c687e51b8df860a1b401cc5c7d06320a879e8e47510504c5beb9be806"
+        },
+        {
+          "file": "port.py",
+          "snippet": "NUM_CLASSES = 2",
+          "line": 4,
+          "sha256": "f714fbdb404bc4e5e5f7f33bdd0cc4897b65abc563e6657f2f808fd8fad19774"
+        }
+      ]
+    }
+  ],
+  "allowed_equivalent_keys": [],
+  "forbidden_claims": [
+    "table_metric_reproduced",
+    "official_metric_match=verified"
+  ],
+  "case_id": "CAL-07"
+}

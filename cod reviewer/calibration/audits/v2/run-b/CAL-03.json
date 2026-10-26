@@ -1,0 +1,38 @@
+{
+  "case_id": "CAL-03",
+  "sensitivity_keys": [
+    "loss_weighting"
+  ],
+  "closure": {
+    "loss_weighting": "covered_by_discrepancy"
+  },
+  "discrepancies": [
+    {
+      "key": "loss_weighting",
+      "verdict": "differ",
+      "category": "official_recipe",
+      "impact": "training",
+      "gate": "G3",
+      "undocumented": true,
+      "evidence": [
+        {
+          "file": "official.py",
+          "line": 15,
+          "snippet": "0.5 * bce",
+          "sha256": "d71abbdda0d861bf1eade6f3cff49f3b4560a8ea8ec097b64e22104c805e9cba"
+        },
+        {
+          "file": "port.py",
+          "line": 15,
+          "snippet": "1.0 * bce",
+          "sha256": "96f00c470c8690f77af28c1b3cabbdad14117e04ea74e15a95a61b8a3950aac5"
+        }
+      ]
+    }
+  ],
+  "claims": {
+    "main_table": "blocked",
+    "claim_label": "none",
+    "official_metric_match": "unverified"
+  }
+}

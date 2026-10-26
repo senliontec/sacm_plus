@@ -73,12 +73,36 @@ class SACMOfficialAdapter(BaselineAdapter):
         parser.set_defaults(grad_clip=1.0)
 
     def build_model(self, args):
-        if not args.sam_checkpoint.is_file():
-            raise SystemExit(
-                f'missing SAM ViT-L checkpoint: {args.sam_checkpoint}')
+        # Prediction loads a full SACM state dict.  Upstream test_sam.py
+        # constructs with checkpoint=None, so a base SAM file is not
+        # required (or consumed) in that phase.
+        predicting = bool(
+            getattr(self, 'prediction_mode', False)
+            or getattr(args, 'stage', None) == 'predict'
+            or getattr(args, 'checkpoint', None) is not None)
+        checkpoint = None
+        if not predicting:
+            if not args.sam_checkpoint.is_file():
+                raise SystemExit(
+                    f'missing SAM ViT-L checkpoint: {args.sam_checkpoint}')
+            checkpoint = str(args.sam_checkpoint)
         return build_sam_vit_l(
-            checkpoint=str(args.sam_checkpoint), use_adapter=True,
+            checkpoint=checkpoint, use_adapter=True,
             adapter_dim_ratio=args.adapter_dim_ratio)
+
+    def save_config(self, args):
+        return {
+            'input_size': int(self.input_size),
+            'adapter_dim_ratio': float(
+                getattr(args, 'adapter_dim_ratio', 0.1)),
+            'bce_weight': float(getattr(args, 'bce_weight', 0.7)),
+            'dice_weight': float(getattr(args, 'dice_weight', 0.3)),
+        }
+
+    def restore_config(self, args, config):
+        for key in ('adapter_dim_ratio', 'bce_weight', 'dice_weight'):
+            if key in config:
+                setattr(args, key, config[key])
 
     def configure_trainable(self, model):
         for name, parameter in model.image_encoder.named_parameters():

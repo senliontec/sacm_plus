@@ -195,7 +195,7 @@ class SamMed2DAdapter(BaselineAdapter):
         point_list = [int(x) for x in args.point_list.split(',') if x]
         rng = random.Random(args.seed + self._epoch)
         total = 0.0
-        seen = 0
+        batches = 0
         for samples in loader:
             batch = self._to_device(
                 self.prepare_train_batch(samples, rng), self.device)
@@ -249,10 +249,11 @@ class SamMed2DAdapter(BaselineAdapter):
                     batch = self._to_device(batch, self.device)
 
             total += float(loss.detach())
-            seen += len(samples)
+            batches += 1
         if scheduler is not None:
             scheduler.step()
-        return total / max(seen, 1)
+        # The official loop averages one loss per batch, not per sample.
+        return total / max(batches, 1)
 
     def train_step(self, model, batch):
         raise RuntimeError('SAM-Med2D uses the custom train_epoch loop')

@@ -60,8 +60,11 @@ class BCUNetAdapter(BaselineAdapter):
         # Prediction loads a complete self-contained checkpoint next; do
         # not download ImageNet-22k backbone weights only to overwrite them.
         # Training still uses the official pretrained initialization.
-        pretrained = (getattr(args, 'pretrained', True)
-                      and getattr(args, 'checkpoint', None) is None)
+        predicting = bool(
+            getattr(self, 'prediction_mode', False)
+            or getattr(args, 'stage', None) == 'predict'
+            or getattr(args, 'checkpoint', None) is not None)
+        pretrained = (getattr(args, 'pretrained', True) and not predicting)
         return BCUNet(n_channels=3, n_classes=2, bilinear=False,
                       pretrained=pretrained, in_22k=True)
 

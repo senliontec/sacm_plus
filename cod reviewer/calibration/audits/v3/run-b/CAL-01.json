@@ -1,0 +1,60 @@
+{
+  "case_id": "CAL-01",
+  "sensitivity_keys": [
+    "normalization_mean_std",
+    "normalization_formula",
+    "helper_rename"
+  ],
+  "closure": {
+    "normalization_mean_std": "preserved",
+    "normalization_formula": "preserved",
+    "helper_rename": "covered_by_discrepancy"
+  },
+  "discrepancies": [
+    {
+      "key": "helper_rename",
+      "verdict": "equivalent",
+      "category": "wrapper_change",
+      "impact": "none",
+      "gate": "G1",
+      "undocumented": false,
+      "evidence": [
+        {
+          "file": "official.py",
+          "line": 5,
+          "snippet": "def normalize(image, mean, std):",
+          "sha256": "6a6ecf4b73dfbc336ed6be5cd4d5dfd13e4531a404a5fe3cdfe464446e574fcd"
+        },
+        {
+          "file": "port.py",
+          "line": 8,
+          "snippet": "def normalize_image(value, center, scale):",
+          "sha256": "802b1b5b57165848a3a068b2dc6867724ff384b9c12671255ab198afadd04610"
+        },
+        {
+          "file": "official.py",
+          "line": 10,
+          "snippet": "    mean = np.array([0.5, 0.5, 0.5])\n    std = np.array([0.25, 0.25, 0.25])",
+          "sha256": "6a6ecf4b73dfbc336ed6be5cd4d5dfd13e4531a404a5fe3cdfe464446e574fcd"
+        },
+        {
+          "file": "port.py",
+          "line": 4,
+          "snippet": "PIXEL_MEAN = np.array([0.5, 0.5, 0.5])\nPIXEL_STD = np.array([0.25, 0.25, 0.25])",
+          "sha256": "802b1b5b57165848a3a068b2dc6867724ff384b9c12671255ab198afadd04610"
+        },
+        {
+          "file": "context.md",
+          "line": 2,
+          "snippet": "is intended to preserve the official computation while using the\nproject's naming conventions.",
+          "sha256": "95d4d423052372a508bbf70024322e9d354c8b0b39f533aa7b10abc123f4216f"
+        }
+      ]
+    }
+  ],
+  "claims": {
+    "main_table": "blocked",
+    "claim_label": "none",
+    "official_metric_match": "unverified"
+  }
+}

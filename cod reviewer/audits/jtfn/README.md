@@ -204,3 +204,10 @@ LICENSE；A0。
 - 模型、24 输出、loss、梯度：**精确一致**，这是强证据。
 - 训练并非官方逐位复现：StepLR 按 batch→按 epoch、增强简化、RNG/worker 不同。
 - 当前 `G2=pass`，但 `G3=unverified`；不能进主表或声称官方指标复现。
+
+## Post-review fixes (2026-10-26)
+
+- Added `--jtfn-eval-max-side` (default 1024): oversized eval images are downscaled before forward and predictions are upsampled to GT, avoiding full-resolution OOM on the 11 GiB host.
+- This is a disclosed memory adaptation, not official full-resolution inference; high-resolution metrics may change.
+- Test: `test_eval_downscales_oversized_image_and_restores_gt_shape`.
+- Remaining: G3/G6a and the official full-resolution path.

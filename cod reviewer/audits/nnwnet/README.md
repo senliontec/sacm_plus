@@ -1,7 +1,7 @@
 # nnWNet 移植审计（手工 pilot）
 
-> **修复后（2026-10-26）：** 本报告表格是修复前审计证据；当前代码状态和回归证据见
-> [`../POST_FIX.md`](../POST_FIX.md)。A0/G6c 仍未完成，gate 结论不变。
+> **Post-A0 重审（2026-10-26）：** 本报告表格仍是修复前证据；A0 已 pass
+> （pack v3），当前代码级 gate 状态见 [`../A0_REAUDIT.md`](../A0_REAUDIT.md)。
 
 - 官方仓库：`3rd/nnWNet`
 - 官方 commit：`cfcd2e09754fc832c3099a2ed39d86a90007dbcb`
@@ -168,7 +168,11 @@ G3 不能 pass：loss/optimizer 未做数值探针，batch 实际值未核对，
 
 ---
 
-## 07. 门禁结论（provisional）
+## 07. 门禁结论（pre-fix snapshot）
+
+> **Superseded:** this is the pre-fix gate snapshot. Post-A0 status is in
+> [`../A0_REAUDIT.md`](../A0_REAUDIT.md).
+
 
 ```text
 A0 = unverified            # 无 calibration；正式 07 = <blocked>
@@ -195,3 +199,11 @@ batch/patch；补 loss/grad 或 20-step G6a；补 G6c；URL/LICENSE；A0。
 - 但**协议上 val 参与了 planner/normalization**，不是 held-out；G5=fail。
 - 训练 loss/优化器由 nnU-Net 外部实现承担，未做数值探针；G2=unverified。
 - 不能进入主表，也不能声称官方指标复现。
+
+
+## Post-A0 re-audit (2026-10-26)
+
+- A0: pass (`a0-cal-2026-10-26-v3`, `df593177d7213f6f1452f61062a41a67539acaef3009a0c43feb9e5905cedd1a`).
+- Resolved: train-only planner/preprocessing (`D-nnw-03`), actual plans batch/patch metadata (`D-nnw-05`), G0 URL/commit (`D-nnw-11`). Staging tests cover 18 train + 6 disjoint val.
+- Post-fix gates: G0 pass, G1 pass, G2 unverified, G3 unverified, G4 pass, G5 pass (code-level), G6a unverified, G6b N/A, G6c unverified.
+- `main_table=blocked`: full nnU-Net run and G2/G3/G6a/G6c remain.

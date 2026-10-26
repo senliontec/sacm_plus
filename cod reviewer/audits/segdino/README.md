@@ -210,3 +210,7 @@ official_metric_match = unverified
 - 官方训练把 test 当 val，移植改成 6 图 val，这是正确的协议修复；但官方资源缺失使
   训练/推理保真无法数值验证。
 - 当前只能给 `G5=pass` 和 head-level 证据；不能进主表，也不能声称官方指标复现。
+
+## Post-review fixes (2026-10-26)
+
+- Added disclosure for official seed 42/workers=16 vs port protocol seed/workers=0.

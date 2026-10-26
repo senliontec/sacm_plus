@@ -1,0 +1,15 @@
+{
+  "case_id": "CAL-12",
+  "title": "Support encoding",
+  "profile": {
+    "training_mode": "training-free",
+    "prompt_modality": "support",
+    "backbone": "sam"
+  },
+  "files": [
+    "official.py",
+    "port.py",
+    "context.md"
+  ],
+  "task": "Audit this case using calibration/AUDIT_OUTPUT.md; do not read calibration/gold/."
+}

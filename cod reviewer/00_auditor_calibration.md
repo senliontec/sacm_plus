@@ -1,7 +1,9 @@
 # A0：审计者校准与资格门禁
 
-> 当前状态：仓库只有本协议和案例矩阵；实际的 `cases/`、`gold/` 尚未冻结，A0 还不能运行。
-> 在 A0 完成前，任何真实 baseline 审计一律按 `blocked` 处理。
+> 当前状态：synthetic pack `a0-cal-2026-10-26-v3` 已冻结（12 cases，8 high，2 negative，
+> 1 ambiguous，1 missing-asset）；双审计通过，**A0 = pass**（consistency 0.917）。
+> Pack SHA-256: `df593177d7213f6f1452f61062a41a67539acaef3009a0c43feb9e5905cedd1a`；report: `cod reviewer/calibration/audits/v3/calibration_report.json`。
+> 该资格只适用于本次双审计的 auditor/prompt；22 份旧模型报告产生于 A0 之前，必须重审。
 
 A0 不是 baseline 门禁，而是**审计者资格门禁**。A0 未通过时，审计者产出的任何
 G0–G6a/b/c 结论都无效。它解决的是“20 份报告的召回率未知”的问题，而不是替代

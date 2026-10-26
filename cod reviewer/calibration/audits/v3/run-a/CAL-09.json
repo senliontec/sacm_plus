@@ -1,0 +1,40 @@
+{
+  "case_id": "CAL-09",
+  "sensitivity_keys": [
+    "inference_threshold_activation",
+    "threshold_value"
+  ],
+  "closure": {
+    "inference_threshold_activation": "covered_by_discrepancy",
+    "threshold_value": "preserved"
+  },
+  "discrepancies": [
+    {
+      "key": "inference_threshold_activation",
+      "verdict": "intentional_deviation",
+      "category": "bug_fix",
+      "impact": "eval",
+      "gate": "G4",
+      "undocumented": false,
+      "evidence": [
+        {
+          "file": "official.py",
+          "line": 6,
+          "snippet": "return (logits > 0.5).float()",
+          "sha256": "710b434d4ddd61a8ac3908acf9fe74dccd6f680d17ca59364653041728699cd7"
+        },
+        {
+          "file": "port.py",
+          "line": 7,
+          "snippet": "return (torch.sigmoid(logits) > 0.5).float()",
+          "sha256": "ff579abfc9d0597dc65837aec3b10a2d9ae797a3a5f2e411d42946eecfa94192"
+        }
+      ]
+    }
+  ],
+  "claims": {
+    "main_table": "blocked",
+    "claim_label": "none",
+    "official_metric_match": "unverified"
+  }
+}

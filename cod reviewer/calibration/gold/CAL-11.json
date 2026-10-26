@@ -1,0 +1,14 @@
+{
+  "kind": "negative",
+  "high_case": false,
+  "expected_sensitivity_keys": [],
+  "expected_discrepancies": [],
+  "allowed_equivalent_keys": [
+    "device_wrapper"
+  ],
+  "forbidden_claims": [
+    "table_metric_reproduced",
+    "official_metric_match=verified"
+  ],
+  "case_id": "CAL-11"
+}

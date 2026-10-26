@@ -1,0 +1,50 @@
+{
+  "case_id": "CAL-05",
+  "sensitivity_keys": [
+    "prompt_construction"
+  ],
+  "closure": {
+    "prompt_construction": "covered_by_discrepancy"
+  },
+  "discrepancies": [
+    {
+      "key": "prompt_construction",
+      "verdict": "differ",
+      "category": "official_recipe",
+      "impact": "numeric",
+      "gate": "G2",
+      "undocumented": true,
+      "evidence": [
+        {
+          "file": "official.py",
+          "line": 8,
+          "snippet": "(batch, 0, 256), dtype=torch.float,",
+          "sha256": "36f13b0e236daa0e8092ac32c1dd6fbc21e7b75d519d87037d9f51d4b1c7d60c"
+        },
+        {
+          "file": "port.py",
+          "line": 7,
+          "snippet": "sparse = model.learned_sparse.expand(batch, -1, -1)",
+          "sha256": "29b4998e42737fd9ea01032a4c5fffaf6b350af6cde10f7893bd47513facc64d"
+        },
+        {
+          "file": "official.py",
+          "line": 10,
+          "snippet": "dense = model.no_mask_embed.weight.reshape(",
+          "sha256": "36f13b0e236daa0e8092ac32c1dd6fbc21e7b75d519d87037d9f51d4b1c7d60c"
+        },
+        {
+          "file": "port.py",
+          "line": 8,
+          "snippet": "dense = model.learned_dense.expand(batch, -1, 64, 64)",
+          "sha256": "29b4998e42737fd9ea01032a4c5fffaf6b350af6cde10f7893bd47513facc64d"
+        }
+      ]
+    }
+  ],
+  "claims": {
+    "main_table": "blocked",
+    "claim_label": "none",
+    "official_metric_match": "unverified"
+  }
+}

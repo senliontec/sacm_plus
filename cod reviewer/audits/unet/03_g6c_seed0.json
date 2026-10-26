@@ -1,0 +1,41 @@
+{
+  "meta": {
+    "gate": "G6c",
+    "status": "partial_seed0",
+    "purpose": "U-Net seed0 full train/eval + independent eval repeat",
+    "device": "cuda:0",
+    "epochs": 200,
+    "best_epoch": 195,
+    "best_val_dice": 0.390508,
+    "train_wandb": "http://172.16.1.7:8080/buaazqk/sacm/runs/cxnfs6r3",
+    "paper_metrics_wandb": "http://172.16.1.7:8080/buaazqk/sacm/runs/zs9plt3y",
+    "checkpoint": "results/paper/unet/seed_0/best_model.pth",
+    "checkpoint_sha256": "d1f191eeb7406314d4940290d0f94011df8cccd160212fb930dc83f9d553ae7a",
+    "split_manifest_sha256": "d5e5293359bb17c02a61a8dba64c61187c90e02d7937e3aba3e45a6b09e30888",
+    "prediction_dir": "results/paper/unet/seed_0/predictions/unet",
+    "repeat_prediction_dir": "results/paper/unet/seed_0/predictions_repeat/unet",
+    "mask_count": 3580,
+    "repeat_mask_count": 3580,
+    "mask_hash_differences": 0,
+    "paper_metrics_identical": true,
+    "note": "One seed is not a seed variance; G6c remains unverified until seeds 1-4 and recomputation.",
+    "seed1_4_status": "stopped at seed1 epoch 144 to avoid OOM on the 11 GiB host; seed variance not measured"
+  },
+  "macro_all": {
+    "method": "unet",
+    "role": "All",
+    "dice_mean": 0.2877754203243351,
+    "dice_std": 0.2670493589455875,
+    "dice_n_datasets": 20.0,
+    "iou_mean": 0.20534777364949738,
+    "iou_std": 0.20812551719125377,
+    "iou_n_datasets": 20.0,
+    "cldice_mean": 0.3132808875743382,
+    "cldice_std": 0.2681253146817425,
+    "cldice_n_datasets": 20.0,
+    "hd95_mean": 131.32902075088356,
+    "hd95_std": 92.75408178776155,
+    "hd95_n_datasets": 20.0
+  },
+  "datasets": 20
+}

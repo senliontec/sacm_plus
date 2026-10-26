@@ -1,0 +1,38 @@
+{
+  "case_id": "CAL-11",
+  "sensitivity_keys": [
+    "device_transfer"
+  ],
+  "closure": {
+    "device_transfer": "preserved"
+  },
+  "discrepancies": [
+    {
+      "key": "device_transfer",
+      "verdict": "equivalent",
+      "category": "wrapper_change",
+      "impact": "none",
+      "gate": "G0",
+      "undocumented": false,
+      "evidence": [
+        {
+          "file": "official.py",
+          "line": 6,
+          "snippet": "    return tensor.cuda()",
+          "sha256": "c8fcb624929fa944cf7e827be38d99ae18bf74faf9505f098958f564763c0dac"
+        },
+        {
+          "file": "port.py",
+          "line": 6,
+          "snippet": "    return tensor.to(device)",
+          "sha256": "1f0be1a7302940b68f284032103760e0094f9c04af15ba4b7acd5989a363c401"
+        }
+      ]
+    }
+  ],
+  "claims": {
+    "main_table": "blocked",
+    "claim_label": "none",
+    "official_metric_match": "unverified"
+  }
+}

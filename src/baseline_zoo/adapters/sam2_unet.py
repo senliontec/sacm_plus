@@ -85,6 +85,8 @@ class SAM2UNetAdapter(BaselineAdapter):
         'Fixed 352x352 square input; the Hiera window/positional embedding '
         'and the decoder 16/8/4 upsampling factors follow the upstream 352 '
         'recipe. No aspect-ratio preservation.',
+        'Official train.py uses workers=8 and has its seed code commented '
+        'out; this port uses workers=0 and the shared protocol seed.',
         'No TTA or sliding-window inference.',
     )
 

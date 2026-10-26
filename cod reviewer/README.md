@@ -12,6 +12,10 @@
 
 A0 是**审计者资格门禁**，不是 baseline 门禁。A0 不是 `pass`，任何 G0–G6a/b/c 结论都无效。
 
+> 当前 A0 状态：**pass**（pack `a0-cal-2026-10-26-v3`，双审计 consistency 0.917，
+> report `cod reviewer/calibration/audits/v3/calibration_report.json`）。该资格只适用于本次 auditor/prompt；22 份旧模型报告产生于
+> A0 之前，仍是 provisional，需按本协议重审。
+
 - 使用冻结、带 hash 的 calibration pack；审计者看不到 gold；scorer 独立。
 - 案例必须包含：负控（语义等价重构，不得误报）、正控（单点植入偏差，必须发现）、
   歧义控（官方 bug/缺资产，必须 `intentional_deviation`/`unverified`，不得猜）。
@@ -314,5 +318,5 @@ fix → 重新 02/03 复核 → 更新 ledger 与 closure
 - `audits/all_models_status.csv`：机器可读状态表。
 - `audits/<model>/README.md`：每个模型的 01/02/closure/03/04/05/07 pilot 报告。
 
-当前 **A0=unverified**，所有报告都是 provisional，`main_table=blocked`；
-没有 G6c 全量训练/评测，也没有任何模型被标为主表通过。
+当前 **A0=pass**（pack v3, `df593177d7213f6f1452f61062a41a67539acaef3009a0c43feb9e5905cedd1a`），但 22 份旧模型报告仍产生于 A0 之前，
+必须重审；`main_table=blocked`，没有 G6c 全量训练/评测，也没有任何模型被标为主表通过。

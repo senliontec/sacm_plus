@@ -3,6 +3,7 @@
 import argparse
 import csv
 import json
+import random
 from pathlib import Path
 
 import numpy as np
@@ -74,6 +75,20 @@ def test_sacm_official_clip_default_is_effective():
     parser = build_parser(load_adapter('sacm_official'))
     assert parser.parse_args([]).grad_clip == 1.0
     assert parser.parse_args(['--grad-clip', '0.25']).grad_clip == 0.25
+
+
+def test_pipeline_commands_use_current_interpreter():
+    import shlex
+    import sys
+
+    from baseline_zoo.__main__ import _pythonize_command
+
+    assert shlex.split(_pythonize_command(
+        'python -m baseline_zoo.run_one --model unet'))[0] == sys.executable
+    assert shlex.split(_pythonize_command(
+        'python3 scripts/pipeline/x.py'))[0] == sys.executable
+    unchanged = '/usr/bin/python -m example'
+    assert _pythonize_command(unchanged) == unchanged
 
 
 def test_begin_prediction_resets_seed_latch():
@@ -261,3 +276,103 @@ def test_nnwnet_discovers_checkpoint_extension(tmp_path):
     (fold / 'checkpoint_best.safetensors').write_bytes(b'safe')
     assert adapter._find_checkpoint(tmp_path, 'best').name == \
         'checkpoint_best.safetensors'
+
+
+def test_sam_octa_eval_seed_and_batch_guard(tmp_path):
+    _write_pair(tmp_path, 'TEST_0', size=(32, 24))
+    from baseline_zoo.data import RawPairDataset
+    sample = RawPairDataset(tmp_path).samples[0]
+
+    def prepare(prior_seed):
+        adapter = load_adapter('sam_octa')
+        adapter.args = argparse.Namespace(seed=5, stage='predict')
+        adapter.device = torch.device('cpu')
+        np.random.seed(prior_seed)
+        random.seed(prior_seed)
+        return adapter.prepare_eval_sample(sample, torch.device('cpu'))
+
+    first = prepare(999)
+    second = prepare(111)
+    assert torch.equal(first['point_coords'], second['point_coords'])
+    assert torch.equal(first['point_labels'], second['point_labels'])
+
+    adapter = load_adapter('sam_octa')
+    adapter.args = argparse.Namespace(seed=5, stage='train')
+    adapter.device = torch.device('cpu')
+    with pytest.raises(RuntimeError, match='batch-size 1'):
+        adapter.prepare_train_batch([sample, sample], random.Random(0))
+
+
+def test_bcunet_prediction_skips_pretrained_backbone(monkeypatch):
+    captured = {}
+
+    class DummyBCUNet:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+    monkeypatch.setattr('baseline_zoo.adapters.bcunet.BCUNet', DummyBCUNet)
+    adapter = load_adapter('bcunet')
+    adapter.prediction_mode = True
+    adapter.build_model(argparse.Namespace(
+        pretrained=True, checkpoint=None, stage='predict'))
+    assert captured['pretrained'] is False
+
+    captured.clear()
+    adapter.prediction_mode = False
+    adapter.build_model(argparse.Namespace(
+        pretrained=True, checkpoint=None, stage='train'))
+    assert captured['pretrained'] is True
+
+
+def test_sacm_prediction_skips_missing_base_checkpoint(monkeypatch):
+    captured = {}
+
+    class Dummy:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+    monkeypatch.setattr(
+        'baseline_zoo.adapters.sacm_official.build_sam_vit_l', Dummy)
+    adapter = load_adapter('sacm_official')
+    adapter.prediction_mode = True
+    adapter.build_model(argparse.Namespace(
+        sam_checkpoint=Path('/missing/vit_l.pth'),
+        adapter_dim_ratio=0.2))
+    assert captured['checkpoint'] is None
+    assert captured['adapter_dim_ratio'] == 0.2
+
+    adapter.prediction_mode = False
+    with pytest.raises(SystemExit):
+        adapter.build_model(argparse.Namespace(
+            sam_checkpoint=Path('/missing/vit_l.pth'),
+            adapter_dim_ratio=0.2))
+
+
+def test_sacm_adapter_dim_ratio_roundtrip():
+    adapter = load_adapter('sacm_official')
+    args = argparse.Namespace(
+        adapter_dim_ratio=0.25, bce_weight=0.6, dice_weight=0.4)
+    config = adapter.save_config(args)
+    restored = argparse.Namespace()
+    adapter.restore_config(restored, config)
+    assert restored.adapter_dim_ratio == 0.25
+    assert restored.bce_weight == 0.6
+    assert restored.dice_weight == 0.4
+
+
+def test_sam_vit_l_unet_records_and_checks_base_sha(tmp_path, capsys):
+    from baseline_zoo.runtime import file_sha256
+    adapter = load_adapter('sam_vit_l_unet')
+    first = tmp_path / 'sam_a.pth'
+    second = tmp_path / 'sam_b.pth'
+    first.write_bytes(b'a')
+    second.write_bytes(b'b')
+    adapter._sam_sha = file_sha256(first)
+    config = adapter.save_config(
+        argparse.Namespace(sam_checkpoint=first))
+    assert config['sam_checkpoint_sha256'] == file_sha256(first)
+    restored = argparse.Namespace(
+        sam_checkpoint=second, input_size=0)
+    adapter.restore_config(restored, config)
+    assert restored.input_size == 1024
+    assert 'WARNING: SAM base checkpoint differs' in capsys.readouterr().out

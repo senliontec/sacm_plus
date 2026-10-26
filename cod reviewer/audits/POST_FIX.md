@@ -1,7 +1,7 @@
 # 修复后状态（代码级，2026-10-26）
 
-> **这不是重新审计。** A0 calibration pack 仍未冻结，G6c 未运行，因此所有 gate
-> 结论仍是 provisional，主表仍为 `blocked`。本文件只记录已确认缺陷的代码/文档修复
+> **这不是重新审计。** A0 已通过（pack v3: `df593177d7213f6f1452f61062a41a67539acaef3009a0c43feb9e5905cedd1a`），但本文件基于 A0 之前的
+> 22 份模型报告，G6c 仍未运行，因此所有 gate 结论仍是 provisional，主表仍为 `blocked`。本文件只记录已确认缺陷的代码/文档修复
 > 和回归证据；各模型 `README.md` 保留修复前的审计证据。
 
 ## 已修复的代码缺陷
@@ -56,10 +56,46 @@
 
 ```bash
 /home/dev/anaconda3/envs/tsai/bin/python -m pytest tests
-# 185 collected, 182 passed, 3 skipped (slow)
+# 199 collected, 196 passed, 3 skipped (slow)
 /home/dev/anaconda3/envs/tsai/bin/python 'cod reviewer/audits/_shared/03_unet_hetero_probe.py'
 # official_global_dice == port_mean_dice; loss_absdiff=0.0; grad_maxdiff=0.0
 ```
+
+### Remaining-model P1 fixes（2026-10-26）
+
+- `sacm_official`：prediction 允许 base SAM 缺失（`checkpoint=None`），并持久化 `adapter_dim_ratio`/loss weights；非默认配置可重建。
+- `sam_vit_l_unet`：checkpoint config 记录 SAM base 路径与 SHA-256；预测使用不同 encoder 时打印明确 warning。
+- `dscnet`：`--dsc-stride > --input-size` 直接报错，不再留下未覆盖条带。
+- `sam_med2d`：train loss 按 batch 平均，修复日志约为官方值 1/batch_size 的问题。
+- `fob_sam`：save/restore inference config（shots、donor、best-pred idx、SAM type、data root、checkpoint paths）。
+- 披露补齐：`cwsam` 的 2-GPU/batch-1/workers=8，`sam2_unet`/`segdino`/`fob_sam` 的 official seed/workers 差异。
+
+### Post-fix smoke evidence
+
+- JTFN HRF 3504×2336 at max-side 1024: peak allocated 3.72 GiB / reserved 4.49 GiB; FIVES 2048²: 5.33 / 6.22 GiB; both fit the 10.8 GiB GPU.
+- FoB DeepCrack sample: canonical `DeepCrack`, donor `CrackTree200`, query not cached (one support entry).
+- SAM-OCTA two fresh processes with seed 7: all 26 prompt coordinates/labels identical.
+- Full suite: 194 collected, 191 passed, 3 skipped.
+
+## Other-model review fixes（2026-10-26）
+
+在 `OTHER_MODELS_REVIEW.md` 的 P0 和同批 P1 范围内修复：
+
+- `fob_sam`：test stem → dataset root 的 canonical 解析，修复 unseen/novel donor 全部落到 DRIVE；`masked_attention.sin_pos` 加入 ignore key；test query 不再写入 `_pair_cache`（避免约 3.5 GiB CPU 缓存）。
+- `sam_octa`：最终 prediction 的 prompt 采样在首次 eval 前按 `--seed` 播种；`prepare_train_batch` 对 `batch-size > 1` 明确报错，不再静默丢样本。
+- `jtfn`：新增 `--jtfn-eval-max-side`（默认 1024）；超长 eval 图像先降采样，预测再双线性恢复到 GT，避免 11 GiB 下的 full-res OOM；这是已披露的 memory adaptation。
+- `bcunet`：prediction / `--stage all` 的 `build_model` 不再请求 ImageNet-22k 下载，只有训练阶段使用预训练初始化。
+- `samed`：low-res target 改为 `input_size/4`；poly horizon 改为 `max(epochs, 200)`，最后 epoch 不再 lr=0。
+- 回归测试覆盖 donor 解析、sin_pos、cache、SAM-OCTA seed/batch guard、JTFN downscale、BCUNet pretrained 选择、SAMed low-res/poly。
+
+仍未修：DSCNet stride gap、SACM base/ratio 持久化、SAM ViT-L provenance、CWSAM/SAM2-UNet/SegDINO/FoB workers 披露、SAM-Med2D loss logging 等；见 `OTHER_MODELS_REVIEW.md`。
+
+## Post-A0 re-audit（7 个修复模型）
+
+A0 v3 通过后，7 个修复模型做了代码级重审；结果与剩余阻断见
+[`A0_REAUDIT.md`](A0_REAUDIT.md) / [`A0_REAUDIT.csv`](A0_REAUDIT.csv)。
+`unet` 的 G2 已转为 pass；其余模型仍因缺 G6a/G6c、缺权重或未跑全量而
+`main_table=blocked`。这份重审不是新的双审计。
 
 ## Code-review P0 修复（2026-10-26）
 
@@ -69,11 +105,12 @@
 - `matcher` 测试：POT 依赖的 import 移入测试并 `pytest.importorskip('ot')`；`setup_baselines.sh` 增加 `matcher` extra，干净安装不再在 pytest collection 阶段失败。
 - `runtime`：新增 `BaselineAdapter.begin_prediction()`，在 `run_prediction` 开始时重置 `prediction_mode` 和 `_prediction_seeded`，结束后清 `prediction_mode`；同一 adapter 实例换 seed 再预测不会复用旧 latch。
 - `knowsam`：更新 `_stage` 注释，明确排除 train/val/test 全部 manifest 行。
+- `baseline_zoo.__main__`：训练/评测 YAML 命令里的裸 `python`/`python3` 现在解析为当前 `sys.executable`；修复 G6c 首次启动误用 base conda 的 `torch` 缺失。回归测试 `test_pipeline_commands_use_current_interpreter`。
 - 回归测试：nnWNet `--no_pp` 命令、preprocessed `dataset.json` 同步、两阶段 staging（18 train + 6 disjoint val + `numTraining=24`）；prediction latch 重置测试。
 
 ## 仍未解决（阻断主表）
 
-1. **A0**：没有冻结的 calibration cases/gold pack，审计者召回率未知。
+1. **A0**：已通过 v3 双审计；但现有 22 份报告是 A0 之前产出，必须按新资格重审。
 2. **G6c**：所有模型都没有全量训练/评测/重算/复跑；没有任何模型满足主表。
 3. **G6a**：`unet`、`knowsam`、`matcher`、`nnwnet`、`ucs` 等仍缺官方同状态多步训练对照。
 4. **资产**：`matcher` 缺 DINOv2 ViT-L；`sam2_unet` 缺 SAM2 Hiera-L；多个模型无官方 checkpoint，G6b=N/A。

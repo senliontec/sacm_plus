@@ -1,0 +1,44 @@
+{
+  "case_id": "CAL-06",
+  "sensitivity_keys": [
+    "support_source"
+  ],
+  "closure": {
+    "support_source": "covered_by_discrepancy"
+  },
+  "discrepancies": [
+    {
+      "key": "support_source",
+      "verdict": "differ",
+      "category": "protocol_adaptation",
+      "impact": "protocol",
+      "gate": "G5",
+      "undocumented": true,
+      "evidence": [
+        {
+          "file": "official.py",
+          "line": 7,
+          "snippet": "(split_root / 'train' / 'images')",
+          "sha256": "56aed13b416c6eb8ded9b12a3e2dadad76c67d78d82b704162188638b7065587"
+        },
+        {
+          "file": "port.py",
+          "line": 7,
+          "snippet": "(split_root / 'test' / 'images')",
+          "sha256": "3ee2be9c9fa6184a7698ba4bac06377de0366a92d3da86f0657eb566bf1dbbea"
+        },
+        {
+          "file": "context.md",
+          "line": 3,
+          "snippet": "The protocol treats `test/` as held out.",
+          "sha256": "7afadf12d2974181e0fd541e2a68c693cd6b1811a61d063f97914e3d9e3b4e42"
+        }
+      ]
+    }
+  ],
+  "claims": {
+    "main_table": "blocked",
+    "claim_label": "none",
+    "official_metric_match": "unverified"
+  }
+}

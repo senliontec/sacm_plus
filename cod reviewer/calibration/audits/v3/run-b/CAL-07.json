@@ -1,0 +1,38 @@
+{
+  "case_id": "CAL-07",
+  "sensitivity_keys": [
+    "output_head_num_classes"
+  ],
+  "closure": {
+    "output_head_num_classes": "covered_by_discrepancy"
+  },
+  "discrepancies": [
+    {
+      "key": "output_head_num_classes",
+      "verdict": "differ",
+      "category": "official_recipe",
+      "impact": "numeric",
+      "gate": "G1",
+      "undocumented": true,
+      "evidence": [
+        {
+          "file": "official.py",
+          "line": 4,
+          "snippet": "NUM_CLASSES = 8",
+          "sha256": "c5fbd76c687e51b8df860a1b401cc5c7d06320a879e8e47510504c5beb9be806"
+        },
+        {
+          "file": "port.py",
+          "line": 4,
+          "snippet": "NUM_CLASSES = 2",
+          "sha256": "f714fbdb404bc4e5e5f7f33bdd0cc4897b65abc563e6657f2f808fd8fad19774"
+        }
+      ]
+    }
+  ],
+  "claims": {
+    "main_table": "blocked",
+    "claim_label": "none",
+    "official_metric_match": "unverified"
+  }
+}

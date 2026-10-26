@@ -1,0 +1,66 @@
+{
+  "case_id": "CAL-01",
+  "sensitivity_keys": [
+    "pixel_mean_std_values",
+    "normalization_affine_formula",
+    "normalization_helper_refactor"
+  ],
+  "closure": {
+    "pixel_mean_std_values": "preserved",
+    "normalization_affine_formula": "preserved",
+    "normalization_helper_refactor": "preserved"
+  },
+  "discrepancies": [
+    {
+      "key": "normalization_helper_refactor",
+      "verdict": "equivalent",
+      "category": "wrapper_change",
+      "impact": "none",
+      "gate": "G2",
+      "undocumented": false,
+      "evidence": [
+        {
+          "file": "official.py",
+          "line": 6,
+          "snippet": "return (image - mean) / std",
+          "sha256": "6a6ecf4b73dfbc336ed6be5cd4d5dfd13e4531a404a5fe3cdfe464446e574fcd"
+        },
+        {
+          "file": "port.py",
+          "line": 9,
+          "snippet": "return (value - center) / scale",
+          "sha256": "802b1b5b57165848a3a068b2dc6867724ff384b9c12671255ab198afadd04610"
+        },
+        {
+          "file": "official.py",
+          "line": 10,
+          "snippet": "mean = np.array([0.5, 0.5, 0.5])",
+          "sha256": "6a6ecf4b73dfbc336ed6be5cd4d5dfd13e4531a404a5fe3cdfe464446e574fcd"
+        },
+        {
+          "file": "port.py",
+          "line": 4,
+          "snippet": "PIXEL_MEAN = np.array([0.5, 0.5, 0.5])",
+          "sha256": "802b1b5b57165848a3a068b2dc6867724ff384b9c12671255ab198afadd04610"
+        },
+        {
+          "file": "official.py",
+          "line": 11,
+          "snippet": "std = np.array([0.25, 0.25, 0.25])",
+          "sha256": "6a6ecf4b73dfbc336ed6be5cd4d5dfd13e4531a404a5fe3cdfe464446e574fcd"
+        },
+        {
+          "file": "port.py",
+          "line": 5,
+          "snippet": "PIXEL_STD = np.array([0.25, 0.25, 0.25])",
+          "sha256": "802b1b5b57165848a3a068b2dc6867724ff384b9c12671255ab198afadd04610"
+        }
+      ]
+    }
+  ],
+  "claims": {
+    "main_table": "blocked",
+    "claim_label": "none",
+    "official_metric_match": "unverified"
+  }
+}

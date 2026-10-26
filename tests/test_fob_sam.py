@@ -14,6 +14,7 @@ import torch
 from PIL import Image
 
 from baseline_zoo.adapters.fob_sam import FoBSAMAdapter
+from baseline_zoo.data import Sample
 
 
 def _write_pair(root: Path, dataset: str, index: int, color=False):
@@ -105,3 +106,61 @@ def test_epoch_budget_matches_official_iterations():
     adapter = FoBSAMAdapter()
     assert adapter.official_epochs * 3000 >= 39000
     assert adapter.official_lr == 1e-4
+
+
+def test_canonical_dataset_from_unprefixed_test_stem(tmp_path):
+    sample = Sample(
+        Path('/tmp/DeepCrack/images/111212-1.jpg'),
+        Path('/tmp/DeepCrack/masks/111212-1.png'), '111212-1', '111212-1')
+    assert FoBSAMAdapter._canonical_dataset(sample) == 'DeepCrack'
+    adapter = _adapter(tmp_path)
+    name = adapter._canonical_dataset(sample)
+    assert adapter._support_dataset(name) == 'CrackTree200'
+
+
+def test_masked_attention_sin_pos_is_ignorable():
+    class Inner(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.register_buffer('sin_pos', torch.zeros(1, 1, 1, 4))
+
+    class Dummy(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.masked_attention = Inner()
+            self.weight = torch.nn.Parameter(torch.zeros(1))
+
+    model = Dummy()
+    state = {key: value for key, value in model.state_dict().items()
+             if not key.endswith('sin_pos')}
+    FoBSAMAdapter().load_state_dict(model, state)
+
+
+def test_eval_query_pair_is_not_cached(tmp_path):
+    adapter = _adapter(tmp_path)
+    sample = adapter._support_pairs('DRIVE')[0]
+    adapter._pair_cache.clear()
+    adapter._load_pair(sample, cache=False)
+    assert sample not in adapter._pair_cache
+
+
+def test_inference_config_roundtrip(tmp_path):
+    adapter = FoBSAMAdapter()
+    args = argparse.Namespace(
+        data_root=tmp_path,
+        sam_checkpoint=tmp_path / 'sam.pth',
+        resnet_checkpoint=tmp_path / 'resnet.pth',
+        sam_model_type='vit_h',
+        fob_shots=2,
+        fob_support_dataset='DRIVE',
+        fob_best_pred_idx=1,
+        fob_iters_per_epoch=100,
+    )
+    config = adapter.save_config(args)
+    restored = argparse.Namespace()
+    adapter.restore_config(restored, config)
+    assert restored.data_root == tmp_path
+    assert restored.sam_checkpoint == tmp_path / 'sam.pth'
+    assert restored.fob_shots == 2
+    assert restored.fob_support_dataset == 'DRIVE'
+    assert restored.fob_best_pred_idx == 1

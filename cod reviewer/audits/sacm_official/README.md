@@ -216,3 +216,9 @@ claim_label = path_verified  # 仅指模型/loss/20-step 路径，不含官方�
   差异同时阻断 G3。
 - 待办：1) 修 D-03/D-04/D-07/D-08；2) 冻结 A0；3) 跑 G6c；4) 若获取官方
   checkpoint 再补 G6b。
+
+## Post-review fixes (2026-10-26)
+
+- Prediction builds with `checkpoint=None` (official `test_sam.py` path), so only the full SACM checkpoint is required.
+- `adapter_dim_ratio`, BCE weight and Dice weight are saved/restored; non-default checkpoints can be reconstructed.
+- Remaining: G5 protocol split ambiguity and official metric set.

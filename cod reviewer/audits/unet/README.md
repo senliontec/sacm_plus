@@ -1,7 +1,7 @@
 # U-Net 移植审计（手工 pilot）
 
-> **修复后（2026-10-26）：** 本报告表格是修复前审计证据；当前代码状态和回归证据见
-> [`../POST_FIX.md`](../POST_FIX.md)。A0/G6c 仍未完成，gate 结论不变。
+> **Post-A0 重审（2026-10-26）：** 本报告表格仍是修复前证据；A0 已 pass
+> （pack v3），当前代码级 gate 状态见 [`../A0_REAUDIT.md`](../A0_REAUDIT.md)。
 
 - 官方仓库：`3rd/Pytorch-UNet`
 - 官方 commit：`21d7850f2af30a9695bbeea75f3136aa538cfc4a`
@@ -183,7 +183,11 @@ G4 可 pass（推理顺序和阈值有明确代码证据），但 G5 的协议�
 
 ---
 
-## 07. 门禁结论（provisional）
+## 07. 门禁结论（pre-fix snapshot）
+
+> **Superseded:** this is the pre-fix gate snapshot. Post-A0 status is in
+> [`../A0_REAUDIT.md`](../A0_REAUDIT.md).
+
 
 ```text
 A0 = unverified            # 无冻结 calibration pack；正式 07 = <blocked>
@@ -210,3 +214,13 @@ official_metric_match = unverified
 - **训练 loss 不是官方实现**：官方全局 batch Dice，移植逐图平均；这会让小 batch/稀疏
   mask 的梯度明显不同，当前 `G2=fail`。
 - 因此不能标 `path_verified`，更不能声称官方指标复现；`claim_label=none`。
+
+
+## Post-A0 re-audit (2026-10-26)
+
+- A0: pass (`a0-cal-2026-10-26-v3`, `df593177d7213f6f1452f61062a41a67539acaef3009a0c43feb9e5905cedd1a`).
+- Resolved: `D-unet-03` global Dice; after-fix probe loss/grad diff `0.0`. `D-unet-09` workers/RNG disclosed; `D-unet-13` UPSTREAM path fixed.
+- Post-fix gates: G0 pass, G1 pass, **G2 pass**, G3 unverified, G4 pass, G5 pass, **G6a pass**, G6b N/A, G6c unverified.
+- G6a evidence: `03_g6a_20step.json` — 20 steps, shared AdamW, real 3-shot batch hash, loss/grad/param/forward max diff `0.0`; the batch is 128/batch2 and this is path-only, not the official RMSprop recipe.
+- G6c seed0 evidence: `03_g6c_seed0.md` / `03_g6c_seed0.json` — full 200-epoch train, 3580 masks, independent eval repeat with 0 mask-hash differences and identical `paper_metrics.csv`. This is one seed, so seed variance (1–4) is still missing.
+- `main_table=blocked`: G3 recipe evidence and seeds 1–4 variance remain.

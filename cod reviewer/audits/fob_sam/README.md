@@ -219,3 +219,11 @@ claim_label = path_verified  # 仅指模型/loss/prompt 路径，不含官方 3D
   “2D GT + donor support”而非官方 “3D supervoxel + test-fold support”。
 - 待办：1) 补 D-03/D-04/D-11；2) 冻结 A0；3) 获取官方 HF checkpoint 后补
   G6b；4) 跑 G6c 全量训练/评测。
+
+## Post-review fixes (2026-10-26)
+
+- `_canonical_dataset` resolves unprefixed test stems from the dataset root; unseen/novel donors now reach `CrackTree200`/`DRIVE` as documented.
+- `load_state_dict` ignores both `sin_pos` and `masked_attention.sin_pos`.
+- Test query pairs are loaded with `cache=False`; the 3.5 GiB all-test CPU cache is gone.
+- Tests: `test_fob_sam.py` canonical-root, sin_pos, and no-query-cache cases.
+- Remaining: G5 official held-out support semantics still fail; inference config persistence and workers/seed disclosure remain.

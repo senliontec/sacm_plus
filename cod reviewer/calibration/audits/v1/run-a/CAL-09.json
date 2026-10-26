@@ -1,0 +1,46 @@
+{
+  "case_id": "CAL-09",
+  "sensitivity_keys": [
+    "sigmoid_before_threshold",
+    "threshold_value"
+  ],
+  "closure": {
+    "sigmoid_before_threshold": "covered_by_discrepancy",
+    "threshold_value": "preserved"
+  },
+  "discrepancies": [
+    {
+      "key": "sigmoid_before_threshold",
+      "verdict": "intentional_deviation",
+      "category": "bug_fix",
+      "impact": "numeric",
+      "gate": "G4",
+      "undocumented": false,
+      "evidence": [
+        {
+          "file": "official.py",
+          "line": 6,
+          "snippet": "    return (logits > 0.5).float()",
+          "sha256": "710b434d4ddd61a8ac3908acf9fe74dccd6f680d17ca59364653041728699cd7"
+        },
+        {
+          "file": "port.py",
+          "line": 7,
+          "snippet": "    return (torch.sigmoid(logits) > 0.5).float()",
+          "sha256": "ff579abfc9d0597dc65837aec3b10a2d9ae797a3a5f2e411d42946eecfa94192"
+        },
+        {
+          "file": "deviations.md",
+          "line": 3,
+          "snippet": "- The official test path thresholds raw logits at 0.5 without\n  applying sigmoid. The port applies sigmoid first. This is an\n  intentional bug fix.",
+          "sha256": "d5ef2dc50a0e2751b104dda09d7728e64f9738a862d7131d98f9cc05e545f7ff"
+        }
+      ]
+    }
+  ],
+  "claims": {
+    "main_table": "blocked",
+    "claim_label": "none",
+    "official_metric_match": "unverified"
+  }
+}

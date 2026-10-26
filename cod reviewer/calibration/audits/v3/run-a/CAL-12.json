@@ -1,0 +1,46 @@
+{
+  "case_id": "CAL-12",
+  "sensitivity_keys": [
+    "support_encoding_autograd_context",
+    "support_embedding_values"
+  ],
+  "closure": {
+    "support_encoding_autograd_context": "covered_by_discrepancy",
+    "support_embedding_values": "preserved"
+  },
+  "discrepancies": [
+    {
+      "key": "support_encoding_autograd_context",
+      "verdict": "differ",
+      "category": "official_recipe",
+      "impact": "training",
+      "gate": "G3",
+      "undocumented": true,
+      "evidence": [
+        {
+          "file": "official.py",
+          "line": 6,
+          "snippet": "with torch.no_grad():",
+          "sha256": "7d49d2bf79a7ca1671d8e58a0b41e1f5776aa96e3b726fbb6e46d90da8975442"
+        },
+        {
+          "file": "official.py",
+          "line": 7,
+          "snippet": "return model.encode(support)",
+          "sha256": "7d49d2bf79a7ca1671d8e58a0b41e1f5776aa96e3b726fbb6e46d90da8975442"
+        },
+        {
+          "file": "port.py",
+          "line": 6,
+          "snippet": "return model.encode(support)",
+          "sha256": "7ed5ee3e3359c155f6b8a9384086651a4391ec44399622856cf1439c10ad9603"
+        }
+      ]
+    }
+  ],
+  "claims": {
+    "main_table": "blocked",
+    "claim_label": "none",
+    "official_metric_match": "unverified"
+  }
+}

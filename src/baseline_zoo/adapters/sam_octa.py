@@ -25,7 +25,7 @@ from baseline_zoo.models.sam_octa import (
 from baseline_zoo.models.sam_octa.segment_anything.utils.transforms import (
     ResizeLongestSide,
 )
-from baseline_zoo.runtime import REPO_ROOT, BaselineAdapter
+from baseline_zoo.runtime import REPO_ROOT, BaselineAdapter, seed_everything
 
 PROB = 0.3
 
@@ -62,8 +62,10 @@ class SAMOCTAAdapter(BaselineAdapter):
         '20-dataset port applies 0.8*Dice+0.2*clDice uniformly. Official '
         'train_sam_octa.py uses an unseeded global RNG and DataParallel on one '
         'visible GPU; this port uses the shared protocol seed and a single '
-        'module, so data/prompt order is not bitwise identical. Official '
-        'metrics are Dice/Jaccard/Hausdorff; the shared evaluator reports '
+        'module, so data/augmentation order is not bitwise identical. Final '
+        'prediction prompt sampling is seeded from --seed before the first '
+        'eval sample; upstream leaves it unseeded. Official metrics are '
+        'Dice/Jaccard/Hausdorff; the shared evaluator reports '
         'Dice/IoU/clDice/HD95.',
     )
 
@@ -154,9 +156,23 @@ class SAMOCTAAdapter(BaselineAdapter):
             'target': target.to(device),
         }
 
+    def _prediction_rng_active(self) -> bool:
+        return bool(getattr(self, 'prediction_mode', False)
+                    or getattr(self.args, 'stage', None) == 'predict')
+
+    def _seed_prediction_rng(self):
+        """Seed before the first eval prompt draw, not after it."""
+        if self._prediction_seeded or not self._prediction_rng_active():
+            return
+        seed_everything(int(getattr(self.args, 'seed', 0) or 0))
+        self._prediction_seeded = True
+
     def prepare_train_batch(self, samples, rng: random.Random):
-        # Only one sample per step: the official prompt encoder handles
-        # variable-length prompt lists.
+        # The official prompt encoder handles one variable-length prompt list;
+        # silently dropping extra samples would under-train the batch.
+        if len(samples) != 1:
+            raise RuntimeError(
+                'SAM-OCTA requires --batch-size 1 (official prompt encoder)')
         return self._prepare(samples[0], rng, self.device)
 
     def train_step(self, model, batch):
@@ -166,9 +182,11 @@ class SAMOCTAAdapter(BaselineAdapter):
         return 0.8 * DiceLoss()(pred, target) + 0.2 * clDiceLoss()(pred, target)
 
     def prepare_eval_sample(self, sample, device):
+        self._seed_prediction_rng()
         return self._prepare(sample, None, device)
 
     def predict_sample(self, model, prepared, sample):
+        self._seed_prediction_rng()
         pred = model(prepared['image'], prepared['original_size'],
                      prepared['point_coords'], prepared['point_labels'])
         pred = pred[0, 0].detach().cpu().numpy()

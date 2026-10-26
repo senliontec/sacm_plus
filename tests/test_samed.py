@@ -121,3 +121,22 @@ def test_config_roundtrip(tmp_path):
     assert restore.input_size == 512
     assert restore.lora_rank == 4
     assert restore.sam_type == 'vit_b'
+
+
+def test_low_res_tracks_input_size(tmp_path):
+    adapter = SAMedAdapter()
+    adapter.input_size = 256
+    _, _, low = adapter._preprocess(
+        _sample(tmp_path), random.Random(0), train=False)
+    assert low.shape == (64, 64)
+
+
+def test_poly_scheduler_does_not_zero_last_epoch():
+    adapter = SAMedAdapter()
+    model = torch.nn.Linear(1, 1)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=5e-3)
+    scheduler = adapter.make_scheduler(
+        optimizer, SimpleNamespace(epochs=160))
+    for _ in range(160):
+        scheduler.step()
+    assert optimizer.param_groups[0]['lr'] > 0

@@ -1,0 +1,23 @@
+model,architecture,recipe,inference,weights,placement,note
+unet,"exact code, binary head",adapted,adapted,retrained,main-adapted,1-class head + AdamW/cosine 200; disclose
+cs2net,exact,official,adapted,retrained,main-adapted,official predict.py unrunnable; rewritten inference
+bcunet,repaired,approximate,adapted,retrained,appendix,official code unrunnable; loss/fused semantics changed
+maskvsc,exact,official,adapted,retrained,main-adapted,protocol/seed/GT export adapted
+nnwnet,exact + official trainer,official,official,retrained,main-adapted,official nnU-Net trainer; 18/6 protocol
+jtfn,exact,adapted,adapted,retrained,main-adapted,StepLR/aug approximated; eval downscale >1024
+dscnet,exact,official,adapted,retrained,main-adapted,PIL/patch inference; GT export
+segdino,backbone-changed,official,adapted,missing,appendix,"timm DINOv3 instead of official hub/backbone; local timm small weights may be present, official hub weights absent"
+sam_med2d,backbone/init-changed,adapted,oracle,retrained,reference,"adapter code exact; ViT-L vs official ViT-B checkpoint; SAM decoder init, not SAM-Med2D; GT-box prompted; not prompt-free"
+sam_octa,backbone/loss-changed,adapted,oracle,retrained,reference,ViT-L vs ViT-H; binary clDice; GT prompts
+cwsam,backbone/head/loss-changed,adapted,prompt-free,retrained,supplement,ViT-L vs ViT-B; 2-class neutral CE
+sam_adapter,exact,official,prompt-free,retrained,main-adapted,author weights absent
+topolora,exact ViT-B,official,prompt-free,retrained,main-adapted,partial accumulation/PT runtime differences
+samed,head-changed,adapted,prompt-free,retrained,supplement,8-class to binary head; AdamW ambiguity
+fob_sam,"exact FewShotSeg + SAM, 2D adaptation",adapted,support,retrained,reference,support protocol G5 fail
+sacm_official,exact,official,prompt-free,retrained,main-adapted,threshold fix + 20-dataset protocol
+persam,exact training-free,training-free,support (one-shot),base-only,reference,3-shot majority extension
+matcher,exact training-free,training-free,support,missing,reference,DINOv2 ViT-L absent
+knowsam,"exact, 2-class head",adapted,semi-supervised,retrained,supplement,ACDC official 4-class -> 2-class head; 3+3/pool only CHASEDB1/CREMI/CORN; test exclusion fixed
+sam2_unet,exact (Hiera-L missing),adapted,adapted,missing,probe/appendix,"official SAM2-UNet architecture, not extension; Hiera-L checkpoint absent; 200-epoch/batch-4 protocol"
+sam_vit_l_unet,extension,adapted,adapted,base-only,probe,"project probe, not paper baseline"
+ucs,"exact HEAD, paper drift",official,oracle,retrained,reference,GT prompts; HEAD differs from paper

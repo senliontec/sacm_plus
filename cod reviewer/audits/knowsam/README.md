@@ -1,7 +1,7 @@
 # KnowSAM 移植审计（手工 pilot）
 
-> **修复后（2026-10-26）：** 本报告表格是修复前审计证据；当前代码状态和回归证据见
-> [`../POST_FIX.md`](../POST_FIX.md)。A0/G6c 仍未完成，gate 结论不变。
+> **Post-A0 重审（2026-10-26）：** 本报告表格仍是修复前证据；A0 已 pass
+> （pack v3），当前代码级 gate 状态见 [`../A0_REAUDIT.md`](../A0_REAUDIT.md)。
 
 - 官方：`3rd/KnowSAM`，commit `b5de98d7f5538e39447d8f6e143c8292875cd22e`
 - 移植：`src/baseline_zoo/models/knowsam/**` + `src/baseline_zoo/adapters/knowsam.py`
@@ -144,7 +144,11 @@ G3=fail：D-kn-02 是数据泄漏，D-kn-03 覆盖截断未披露，D-kn-06 work
 G4=fail：D-kn-04 缺 largest-CC、D-kn-05 fusion/zoom 不同，且 test 泄漏使任何 test 指标
 都不是 held-out 证据。G5=fail：unlabeled pool 含 test；cap 只覆盖 4 域。
 
-## 07. 门禁结论（provisional）
+## 07. 门禁结论（pre-fix snapshot）
+
+> **Superseded:** this is the pre-fix gate snapshot. Post-A0 status is in
+> [`../A0_REAUDIT.md`](../A0_REAUDIT.md).
+
 
 ```text
 A0  = unverified
@@ -166,3 +170,12 @@ official_metric_match = unverified
 仍缺：重建排除 test 的 unlabeled pool，并披露 4 域 cap；补 largest-CC 与官方
 argmax/nearest zoom 路径，或完整披露替代协议；把 workers/seed/3+3 写入 deviations；
 补同权重 G2 与 ≥20-step G6a；跑全量 G6c；冻结 A0 calibration pack。
+
+
+## Post-A0 re-audit (2026-10-26)
+
+- A0: pass (`a0-cal-2026-10-26-v3`, `df593177d7213f6f1452f61062a41a67539acaef3009a0c43feb9e5905cedd1a`).
+- Resolved: test-image exclusion (`D-kn-02`), largest-CC (`D-kn-04`), argmax + scipy `zoom(order=0)` (`D-kn-05`); 384-cap/workers disclosed (`D-kn-03`/`D-kn-06`).
+- Post-fix unlabeled pool: CHASEDB1 4, CREMI 246, CORN 134; DRIVE/DCA1/CrackTree200 have no non-test unlabeled images.
+- Post-fix gates: G0 pass, G1 pass, G2 unverified, G3 unverified, G4 unverified, G5 pass, G6a unverified, G6b N/A, G6c unverified.
+- `main_table=blocked`: no post-fix numerical probes and G6c.

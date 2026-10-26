@@ -178,3 +178,10 @@ metric 集披露、20-step G6a、全量训练/评测产物。**不能声称官�
 ## 最终一行状态
 
 `sam_octa: G0=pass G1=pass G2=pass G3=unverified G4=unverified G5=pass G6a=unverified G6b=N/A G6c=unverified`
+
+## Post-review fixes (2026-10-26)
+
+- Final prediction prompt sampling is seeded from `--seed` before the first eval sample; training validation does not reseed.
+- `prepare_train_batch` now raises for `--batch-size > 1` instead of silently dropping samples.
+- Tests: `test_sam_octa_eval_seed_and_batch_guard`.
+- Remaining: class-conditional clDice and official metric set are not reproduced; G3/G4 remain unverified.

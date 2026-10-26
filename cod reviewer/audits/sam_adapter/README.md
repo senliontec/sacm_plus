@@ -1,7 +1,7 @@
 # SAM-Adapter 移植审计（手工 pilot）
 
-> **修复后（2026-10-26）：** 本报告表格是修复前审计证据；当前代码状态和回归证据见
-> [`../POST_FIX.md`](../POST_FIX.md)。A0/G6c 仍未完成，gate 结论不变。
+> **Post-A0 重审（2026-10-26）：** 本报告表格仍是修复前证据；A0 已 pass
+> （pack v3），当前代码级 gate 状态见 [`../A0_REAUDIT.md`](../A0_REAUDIT.md)。
 
 - 官方仓库：`3rd/SAM-Adapter-PyTorch`（`tianrun-chen/SAM-Adapter-PyTorch`）
 - 官方 commit：**不可用**（`.git` 指向缺失的 `../../.git/modules/3rd/SAM-Adapter-PyTorch`）
@@ -162,7 +162,11 @@ adapter 的 `train_step` 才加这一项，因此探针从官方 `models.sam` �
 指标集和 GT 导出差异都在 `UPSTREAM.md:84-96` 与 adapter deviations 中明确写出。
 这不代表作者权重或官方指标已复现（G6b=N/A，G6c=unverified）。
 
-## 07. 门禁结论（provisional）
+## 07. 门禁结论（pre-fix snapshot）
+
+> **Superseded:** this is the pre-fix gate snapshot. Post-A0 status is in
+> [`../A0_REAUDIT.md`](../A0_REAUDIT.md).
+
 
 ```text
 A0  = unverified            # calibration pack 未冻结
@@ -186,3 +190,11 @@ claim_label = none
 ## 最终一行状态
 
 `sam_adapter: G0=unverified G1=pass G2=pass G3=unverified G4=pass G5=pass G6a=unverified G6b=N/A G6c=unverified`
+
+
+## Post-A0 re-audit (2026-10-26)
+
+- A0: pass (`a0-cal-2026-10-26-v3`, `df593177d7213f6f1452f61062a41a67539acaef3009a0c43feb9e5905cedd1a`).
+- Resolved: `D-05` AdamW weight decay `0.01`; `D-03`/`D-04`/`D-06` 4-GPU, workers and seed differences disclosed.
+- Post-fix gates: G0 unverified, G1 pass, G2 pass, G3 unverified, G4 pass, G5 pass, G6a unverified, G6b N/A, G6c unverified.
+- `main_table=blocked`: G0 provenance and G3/G6a/G6c remain.

@@ -3,6 +3,7 @@
 import random
 from types import SimpleNamespace
 
+import pytest
 import torch
 from PIL import Image
 from torch import nn
@@ -92,3 +93,15 @@ def test_patch_prediction_and_config(tmp_path):
     adapter.restore_config(restore, config)
     assert restore.input_size == 224
     assert restore.dsc_basic_layer == 16
+
+
+def test_patch_prediction_rejects_stride_gap(tmp_path):
+    adapter = DSCNetAdapter()
+    adapter.input_size = 224
+    adapter.args = SimpleNamespace(dsc_stride=300)
+    prepared = {
+        'image': torch.zeros(1, 1, 64, 48),
+        'original_size': (64, 48),
+    }
+    with pytest.raises(SystemExit, match='dsc-stride'):
+        adapter.predict_sample(_DummyModel(), prepared, _sample(tmp_path))

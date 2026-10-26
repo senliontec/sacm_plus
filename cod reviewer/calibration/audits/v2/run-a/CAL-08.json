@@ -1,0 +1,38 @@
+{
+  "case_id": "CAL-08",
+  "sensitivity_keys": [
+    "postprocess_threshold"
+  ],
+  "closure": {
+    "postprocess_threshold": "covered_by_discrepancy"
+  },
+  "discrepancies": [
+    {
+      "key": "postprocess_threshold",
+      "verdict": "differ",
+      "category": "official_recipe",
+      "impact": "eval",
+      "gate": "G4",
+      "undocumented": true,
+      "evidence": [
+        {
+          "file": "official.py",
+          "line": 5,
+          "snippet": "binary = probabilities > 0.5",
+          "sha256": "6f3adc810eb30a496bf85b70d5ec883682335a26180e8d13b46185f91ef04056"
+        },
+        {
+          "file": "port.py",
+          "line": 5,
+          "snippet": "binary = probabilities > 0.4",
+          "sha256": "26ee739d0616513e937c5af300be2711d0adcf4eb6a250bf215592cf4eefec95"
+        }
+      ]
+    }
+  ],
+  "claims": {
+    "main_table": "blocked",
+    "claim_label": "none",
+    "official_metric_match": "unverified"
+  }
+}

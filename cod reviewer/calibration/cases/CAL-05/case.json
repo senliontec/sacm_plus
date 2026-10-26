@@ -1,0 +1,15 @@
+{
+  "case_id": "CAL-05",
+  "title": "Decoder prompt construction",
+  "profile": {
+    "training_mode": "supervised",
+    "prompt_modality": "prompt-free",
+    "backbone": "sam"
+  },
+  "files": [
+    "official.py",
+    "port.py",
+    "context.md"
+  ],
+  "task": "Audit this case using calibration/AUDIT_OUTPUT.md; do not read calibration/gold/."
+}

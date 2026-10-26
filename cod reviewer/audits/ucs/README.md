@@ -1,7 +1,7 @@
 # UCS 移植审计（手工 pilot）
 
-> **修复后（2026-10-26）：** 本报告表格是修复前审计证据；当前代码状态和回归证据见
-> [`../POST_FIX.md`](../POST_FIX.md)。A0/G6c 仍未完成，gate 结论不变。
+> **Post-A0 重审（2026-10-26）：** 本报告表格仍是修复前证据；A0 已 pass
+> （pack v3），当前代码级 gate 状态见 [`../A0_REAUDIT.md`](../A0_REAUDIT.md)。
 
 - 官方：`3rd/UCS`，commit `cff2db167ea096648b520e78b3c1c20af6da57eb`
 - 论文：UCS: A Universal Model for Curvilinear Structure Segmentation（arXiv:2504.04034）
@@ -186,7 +186,11 @@ G4=pass（caveat）：transform/postprocess/threshold/export 与官方一致；o
 无 support/donor；**oracle GT prompt 是设计的一部分，UCS 必须单独标为 oracle/reference，
 不得与 prompt-free 方法同列比较**。
 
-## 07. 门禁结论（provisional）
+## 07. 门禁结论（pre-fix snapshot）
+
+> **Superseded:** this is the pre-fix gate snapshot. Post-A0 status is in
+> [`../A0_REAUDIT.md`](../A0_REAUDIT.md).
+
 
 ```text
 A0  = unverified
@@ -208,3 +212,11 @@ official_metric_match = unverified
 仍缺：把 eval prompt 的随机性固定或显式声明（并修正 `UPSTREAM.md:60-61` 的
 seed 声明）；补 workers/seed/metric 到 deviations；明确 HEAD 与 paper 架构差异；
 补官方 20-step/G6a 和全量 G6c；补 LICENSE；冻结 A0 calibration pack。
+
+
+## Post-A0 re-audit (2026-10-26)
+
+- A0: pass (`a0-cal-2026-10-26-v3`, `df593177d7213f6f1452f61062a41a67539acaef3009a0c43feb9e5905cedd1a`).
+- Resolved: initial eval prompt sampling now seeded before `prepare_eval_sample` (`D-ucs-06`); workers/metrics disclosed (`D-ucs-07`/`D-ucs-10`).
+- Post-fix gates: G0 pass (caveat), G1 pass, G2 pass (caveat), G3 unverified, G4 pass (caveat), G5 pass (caveat), G6a unverified, G6b N/A, G6c unverified.
+- `main_table=blocked`; this is an oracle/reference row, not prompt-free. Training/G6a and G6c remain.

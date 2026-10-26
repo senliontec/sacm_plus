@@ -1,0 +1,55 @@
+{
+  "kind": "positive",
+  "high_case": true,
+  "expected_sensitivity_keys": [
+    "empty_prompt"
+  ],
+  "expected_discrepancies": [
+    {
+      "key": "empty_prompt",
+      "allowed_verdicts": [
+        "differ"
+      ],
+      "category": "official_recipe",
+      "impact": "numeric",
+      "allowed_gates": [
+        "G1",
+        "G2"
+      ],
+      "undocumented": true,
+      "high_severity": true,
+      "required_evidence": [
+        {
+          "file": "official.py",
+          "snippet": "torch.zeros(",
+          "line": 7,
+          "sha256": "36f13b0e236daa0e8092ac32c1dd6fbc21e7b75d519d87037d9f51d4b1c7d60c"
+        },
+        {
+          "file": "official.py",
+          "snippet": "model.no_mask_embed",
+          "line": 10,
+          "sha256": "36f13b0e236daa0e8092ac32c1dd6fbc21e7b75d519d87037d9f51d4b1c7d60c"
+        },
+        {
+          "file": "port.py",
+          "snippet": "LEARNED_SPARSE",
+          "line": 5,
+          "sha256": "2cc8fc0426646f2690e0fada0d8f96795964c701a43f06c2cdaf37e1ef1c4753"
+        },
+        {
+          "file": "port.py",
+          "snippet": "LEARNED_DENSE",
+          "line": 6,
+          "sha256": "2cc8fc0426646f2690e0fada0d8f96795964c701a43f06c2cdaf37e1ef1c4753"
+        }
+      ]
+    }
+  ],
+  "allowed_equivalent_keys": [],
+  "forbidden_claims": [
+    "table_metric_reproduced",
+    "official_metric_match=verified"
+  ],
+  "case_id": "CAL-05"
+}

@@ -1,0 +1,17 @@
+{
+  "case_id": "CAL-10",
+  "title": "Checkpoint provenance",
+  "profile": {
+    "training_mode": "supervised",
+    "prompt_modality": "prompted",
+    "backbone": "sam"
+  },
+  "files": [
+    "official.py",
+    "port.py",
+    "context.md",
+    "assets.json",
+    "deviations.md"
+  ],
+  "task": "Audit this case using calibration/AUDIT_OUTPUT.md; do not read calibration/gold/."
+}

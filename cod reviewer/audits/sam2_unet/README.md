@@ -150,3 +150,7 @@ official_metric_match = unverified
 仍缺：补 SAM2 Hiera-L 权重；把 workers=0/seed 写入 deviations；补同权重 forward
 与 20-step G6a；如要比较官方 SOD 指标，需另存概率图并做双口径；跑全量 G6c；
 冻结 A0 calibration pack。
+
+## Post-review fixes (2026-10-26)
+
+- Added disclosure for official workers=8 and commented-out seed vs port workers=0/shared seed.

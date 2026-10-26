@@ -1,0 +1,15 @@
+{
+  "case_id": "CAL-01",
+  "title": "Normalization helper",
+  "profile": {
+    "training_mode": "supervised",
+    "prompt_modality": "none",
+    "backbone": "none"
+  },
+  "files": [
+    "official.py",
+    "port.py",
+    "context.md"
+  ],
+  "task": "Audit this case using calibration/AUDIT_OUTPUT.md; do not read calibration/gold/."
+}

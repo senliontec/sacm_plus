@@ -1,23 +1,23 @@
-model,G0,G1,G2,G3,G4,G5,G6a,G6b,G6c,main_blocker,post_fix
-unet,pass,pass,fail,unverified,pass,pass,unverified,N/A,unverified,G2: official global Dice vs port per-image Dice,fixed G2 global Dice; after-fix probe loss/grad diff=0
-cs2net,pass,pass,pass,unverified,pass,pass,pass,N/A,unverified,G3: single-GPU vs 2-GPU DataParallel; workers/RNG undocumented,disclosed GPU/workers/RNG; G0 path/commit
-bcunet,pass,unverified,unverified,unverified,unverified,pass,unverified,N/A,unverified,official model is not constructible (SyntaxError/upconv2x2),G0 URL/commit/path
-maskvsc,pass,pass,pass,unverified,pass,pass,unverified,N/A,unverified,"G3: ratio=0 RNG, flip/worker differences",disclosed RNG/workers; G0 path/commit
-nnwnet,pass,pass,unverified,unverified,pass,fail,unverified,N/A,unverified,G5: val images enter planner/normalization before split,fixed train-only planning and batch metadata; G0 path/commit
-jtfn,pass,pass,pass,unverified,pass,pass,unverified,N/A,unverified,G3: per-batch StepLR vs per-epoch; augmentation/workers,disclosed workers/RNG
-dscnet,pass,pass,pass,unverified,pass,pass,unverified,N/A,unverified,"G3: train/test mean/std, MONAI->PIL, seed/worker",disclosed workers/RNG
-segdino,pass,unverified,unverified,unverified,unverified,pass,unverified,N/A,unverified,official DINOv3 backbone absent; head-only evidence,G0 URL/commit/path
-sam_med2d,pass,pass,pass,unverified,pass,pass,unverified,N/A,unverified,G3: workers/RNG; decoder-head inheritance differs,disclosed workers/RNG; G0 path/commit
-sam_octa,pass,pass,pass,unverified,unverified,pass,unverified,N/A,unverified,G4: official ViT-H/class-conditional clDice/metrics not preserved,disclosed class loss/metrics/RNG; G0 path/commit
-cwsam,pass,pass,pass,unverified,unverified,pass,unverified,N/A,unverified,G4: official 5-class weighted CE/ViT-B/metrics differ,G0 URL/commit/path
-sam_adapter,unverified,pass,pass,unverified,pass,pass,unverified,N/A,unverified,G3: official AdamW wd=0.01 vs port 0.0; 4-GPU/batch2,fixed AdamW wd=0.01; disclosed 4GPU/workers/selection
-topolora,pass,pass,pass,unverified,pass,pass,pass,N/A,unverified,G3: runtime partial-accumulation rescale/param filtering undocumented,disclosed partial accumulation
-samed,pass,pass,pass,unverified,pass,pass,pass,N/A,unverified,G3: official default SGD vs README AdamW; DataParallel/RNG,disclosed SGD/AdamW ambiguity and DataParallel
-fob_sam,pass,pass,pass,unverified,pass,fail,pass,N/A,unverified,G5: official test support from held-out volume; 3D supervoxel vs 2D GT,disclosed official support protocol; G5 remains fail
-sacm_official,unverified,pass,pass,unverified,pass,fail,pass,N/A,unverified,G5: false 1024-eval claim; official resizes to original; G0 no commit/LICENSE,corrected 1024 claim; commit/license/split/workers
-persam,pass,pass,pass,pass,pass,pass,pass,N/A,unverified,G6c only; D-persam-01 first-pass normalization undocumented,fixed raw-vs-normalized reference embedding split; tests added
-matcher,pass,unverified,unverified,unverified,fail,pass,unverified,N/A,unverified,G4: FSS alpha/beta/exp 0.8/0.2/1 vs 1/0/0; unseeded; DINOv2 missing,fixed FSS 0.8/0.2/1.0 and prediction seed flag
-knowsam,pass,pass,unverified,fail,fail,fail,unverified,N/A,unverified,test leakage: 166/384 unlabeled images are exact test images,fixed test-pool exclusion/CC/argmax; unlabeled pool now only CHASEDB1/CREMI/CORN (cap limited)
-sam2_unet,pass,pass,unverified,unverified,pass,pass,unverified,N/A,unverified,missing SAM2 Hiera-L weights; no same-state parity,
-sam_vit_l_unet,pass,pass,unverified,unverified,pass,pass,unverified,N/A,unverified,no official decoder checkpoint; full run failed paper_metrics,removed stale baselines path
-ucs,pass,pass,pass,unverified,pass,pass,unverified,N/A,unverified,oracle-prompted; eval prompt sampling unseeded; no full G6a/G6c,fixed prediction seed; disclosed workers/metrics
+model,G0,G1,G2,G3,G4,G5,G6a,G6b,G6c,main_blocker,post_fix,a0_reaudit
+unet,pass,pass,fail,unverified,pass,pass,unverified,N/A,unverified,G2: official global Dice vs port per-image Dice,fixed G2 global Dice; after-fix probe loss/grad diff=0,post-A0 code-level
+cs2net,pass,pass,pass,unverified,pass,pass,pass,N/A,unverified,G3: single-GPU vs 2-GPU DataParallel; workers/RNG undocumented,disclosed GPU/workers/RNG; G0 path/commit,not yet
+bcunet,pass,unverified,unverified,unverified,unverified,pass,unverified,N/A,unverified,official model is not constructible (SyntaxError/upconv2x2),fixed prediction pretrained download,not yet
+maskvsc,pass,pass,pass,unverified,pass,pass,unverified,N/A,unverified,"G3: ratio=0 RNG, flip/worker differences",disclosed RNG/workers; G0 path/commit,not yet
+nnwnet,pass,pass,unverified,unverified,pass,fail,unverified,N/A,unverified,G5: val images enter planner/normalization before split,fixed train-only planning and batch metadata; G0 path/commit,post-A0 code-level
+jtfn,pass,pass,pass,unverified,pass,pass,unverified,N/A,unverified,G3: per-batch StepLR vs per-epoch; augmentation/workers,fixed oversized eval downscale (max-side 1024); G3 remains unverified,not yet
+dscnet,pass,pass,pass,unverified,pass,pass,unverified,N/A,unverified,"G3: train/test mean/std, MONAI->PIL, seed/worker",fixed stride>patch guard,not yet
+segdino,pass,unverified,unverified,unverified,unverified,pass,unverified,N/A,unverified,official DINOv3 backbone absent; head-only evidence,disclosed official workers/seed,not yet
+sam_med2d,pass,pass,pass,unverified,pass,pass,unverified,N/A,unverified,G3: workers/RNG; decoder-head inheritance differs,fixed train loss batch averaging; disclosures,not yet
+sam_octa,pass,pass,pass,unverified,unverified,pass,unverified,N/A,unverified,G4: official ViT-H/class-conditional clDice/metrics not preserved,fixed eval prompt seed and batch guard; class loss/metrics still disclosed,not yet
+cwsam,pass,pass,pass,unverified,unverified,pass,unverified,N/A,unverified,G4: official 5-class weighted CE/ViT-B/metrics differ,disclosed effective batch/workers; class-weighted CE disclosed,not yet
+sam_adapter,unverified,pass,pass,unverified,pass,pass,unverified,N/A,unverified,G3: official AdamW wd=0.01 vs port 0.0; 4-GPU/batch2,fixed AdamW wd=0.01; disclosed 4GPU/workers/selection,post-A0 code-level
+topolora,pass,pass,pass,unverified,pass,pass,pass,N/A,unverified,G3: runtime partial-accumulation rescale/param filtering undocumented,disclosed partial accumulation,not yet
+samed,pass,pass,pass,unverified,pass,pass,pass,N/A,unverified,G3: official default SGD vs README AdamW; DataParallel/RNG,fixed low-res input_size/4 and poly horizon; optimizer ambiguity remains,not yet
+fob_sam,pass,pass,pass,unverified,pass,fail,pass,N/A,unverified,G5: official test support from held-out volume; 3D supervoxel vs 2D GT,fixed donor/sin_pos/cache/config; G5 remains fail,not yet
+sacm_official,unverified,pass,pass,unverified,pass,fail,pass,N/A,unverified,G5: false 1024-eval claim; official resizes to original; G0 no commit/LICENSE,fixed prediction without base SAM; config ratio saved; G5 unverified,not yet
+persam,pass,pass,pass,pass,pass,pass,pass,N/A,unverified,G6c only; D-persam-01 first-pass normalization undocumented,fixed raw-vs-normalized reference embedding split; tests added,post-A0 code-level
+matcher,pass,unverified,unverified,unverified,fail,pass,unverified,N/A,unverified,G4: FSS alpha/beta/exp 0.8/0.2/1 vs 1/0/0; unseeded; DINOv2 missing,fixed FSS 0.8/0.2/1.0 and prediction seed flag,post-A0 code-level
+knowsam,pass,pass,unverified,fail,fail,fail,unverified,N/A,unverified,test leakage: 166/384 unlabeled images are exact test images,fixed test-pool exclusion/CC/argmax; unlabeled pool now only CHASEDB1/CREMI/CORN (cap limited),post-A0 code-level
+sam2_unet,pass,pass,unverified,unverified,pass,pass,unverified,N/A,unverified,missing SAM2 Hiera-L weights; no same-state parity,disclosed official workers/seed,not yet
+sam_vit_l_unet,pass,pass,unverified,unverified,pass,pass,unverified,N/A,unverified,no official decoder checkpoint; full run failed paper_metrics,fixed SAM base path/SHA provenance and warning,not yet
+ucs,pass,pass,pass,unverified,pass,pass,unverified,N/A,unverified,oracle-prompted; eval prompt sampling unseeded; no full G6a/G6c,fixed prediction seed; disclosed workers/metrics,post-A0 code-level

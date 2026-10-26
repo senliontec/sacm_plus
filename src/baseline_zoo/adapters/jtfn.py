@@ -58,7 +58,10 @@ class JTFNAdapter(BaselineAdapter):
         'not required.',
         'Inference pads the original image to a multiple of 32 for shape '
         'safety and crops the prediction back; the official test runs '
-        'full-resolution images without padding.',
+        'full-resolution images without padding. Images whose longest side '
+        'exceeds --jtfn-eval-max-side (default 1024) are downscaled before '
+        'the forward pass and the prediction is upsampled to GT resolution; '
+        'this memory adaptation can change high-resolution metrics.',
         'No official JTFN checkpoints are present; training starts from '
         'scratch.',
         'No test-time augmentation.',
@@ -70,6 +73,10 @@ class JTFNAdapter(BaselineAdapter):
             '--jtfn-backbone', default='base64',
             choices=['base64', 'base32', 'resbase32', 'resbase64'])
         parser.add_argument('--jtfn-steps', type=int, default=3)
+        parser.add_argument(
+            '--jtfn-eval-max-side', type=int, default=1024,
+            help='downscale eval images whose longest side exceeds this '
+                 'value before the forward pass (memory safety)')
 
     def build_model(self, args) -> nn.Module:
         self.input_size = int(args.input_size)
@@ -183,19 +190,34 @@ class JTFNAdapter(BaselineAdapter):
         image, _, _ = self._preprocess(
             sample, random.Random(0), train=False)
         height, width = image.shape[-2:]
-        pad_h = (-height) % 32
-        pad_w = (-width) % 32
+        max_side = max(int(getattr(self.args, 'jtfn_eval_max_side', 1024)), 32)
+        model_h, model_w = height, width
+        if max(height, width) > max_side:
+            scale = max_side / max(height, width)
+            model_h = max(32, int(round(height * scale)))
+            model_w = max(32, int(round(width * scale)))
+            image = F.interpolate(
+                image.unsqueeze(0), size=(model_h, model_w),
+                mode='bilinear', align_corners=False)[0]
+        pad_h = (-model_h) % 32
+        pad_w = (-model_w) % 32
         if pad_h or pad_w:
             image = F.pad(image.unsqueeze(0), (0, pad_w, 0, pad_h))
         else:
             image = image.unsqueeze(0)
         return {'image': image.to(device),
-                'original_size': (height, width)}
+                'original_size': (height, width),
+                'model_size': (model_h, model_w)}
 
     def predict_sample(self, model, prepared, sample):
         output = model({'img': prepared['image']})['output']
         height, width = prepared['original_size']
-        output = output[..., :height, :width]
+        model_h, model_w = prepared['model_size']
+        output = output[..., :model_h, :model_w]
+        if (model_h, model_w) != (height, width):
+            output = F.interpolate(
+                output, size=(height, width), mode='bilinear',
+                align_corners=False)
         return output[0, 0].detach().cpu().numpy() > 0.5
 
     def save_config(self, args):
@@ -203,10 +225,13 @@ class JTFNAdapter(BaselineAdapter):
             'input_size': int(self.input_size),
             'jtfn_backbone': str(getattr(args, 'jtfn_backbone', 'base64')),
             'jtfn_steps': int(getattr(args, 'jtfn_steps', 3)),
+            'jtfn_eval_max_side': int(
+                getattr(args, 'jtfn_eval_max_side', 1024)),
         }
 
     def restore_config(self, args, config):
-        for key in ('input_size', 'jtfn_backbone', 'jtfn_steps'):
+        for key in ('input_size', 'jtfn_backbone', 'jtfn_steps',
+                    'jtfn_eval_max_side'):
             if key in config:
                 setattr(args, key, config[key])
         self.input_size = int(getattr(args, 'input_size', 256))

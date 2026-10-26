@@ -1,6 +1,6 @@
 # All-model provisional audit summary
 
-> A0 = unverified for every report (no frozen calibration pack). No model is main-table eligible.
+> A0 = pass (calibration pack v3, 2026-10-26). The 22 model reports below were produced before A0 and remain pre-A0/provisional; no model is main-table eligible.
 > G6b is N/A because no compatible official method checkpoint was used. G6c is unverified for all models.
 > `pass` means the stated gate has evidence in that model report; it does not mean official metric reproduction.
 
@@ -8,6 +8,10 @@
 > missing deviation disclosures were added; 13 `UPSTREAM.md` provenance records
 > were corrected. The gate table below is intentionally the pre-fix audit snapshot.
 > Current code-level status and evidence: [`POST_FIX.md`](POST_FIX.md).
+> Seven fixed models now have a post-A0 code-level re-audit: see
+> [`A0_REAUDIT.md`](A0_REAUDIT.md). They remain blocked; no main-table claim.
+> Paper-placement and architecture-fidelity classification:
+> [`BASELINE_FIDELITY.md`](BASELINE_FIDELITY.md).
 
 | model | G0 | G1 | G2 | G3 | G4 | G5 | G6a | G6b | G6c | main blocker |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -59,12 +63,12 @@
 
 - Model/state_dict/forward parity has evidence for 14 models, but several probes are scoped: `sam_octa`/`cwsam` use reduced-width or 2-class setups, and `sam_med2d` has decoder-head inheritance differences. `G2=pass` is therefore not a full official-config parity claim.
 - This establishes **implementation/path equivalence**, not official checkpoint reproduction or official paper metrics.
-- No model has G6c full training/eval; no model can be placed in the main table until A0 and G6c are completed.
+- No model has G6c full training/eval; no model can be placed in the main table until the pre-A0 reports are re-audited and G6c is completed.
 
 
 ## Post-fix code status
 
-These are code-level outcomes, not re-audited gate results. A0 and G6c remain unverified for every model, so the main table remains blocked.
+These are code-level outcomes, not re-audited gate results. A0 is pass (pack v3), but the 22 reports are pre-A0 and G6c remains unverified, so the main table remains blocked.
 
 | model | post-fix | evidence |
 |---|---|---|
@@ -81,7 +85,24 @@ These are code-level outcomes, not re-audited gate results. A0 and G6c remain un
 | docs-only | `cs2net`, `jtfn`, `dscnet`, `maskvsc`, `sam_med2d`, `topolora`, `samed` received missing worker/RNG/accumulation disclosures | deviations |
 | G0 | stale `baselines/...` paths and missing commits fixed for 13 UPSTREAM records | `POST_FIX.md` |
 
-Still blocking: A0 calibration, G6c for all models, G6a for most models, missing DINOv2/SAM2 checkpoints, and protocol gaps such as FoB-SAM support semantics. The fixed models (including `persam`) still need a 02-style re-audit; a code fix is not a gate pass.
+Still blocking: re-auditing the 22 pre-A0 reports, G6c for all models, G6a for most models, missing DINOv2/SAM2 checkpoints, and protocol gaps such as FoB-SAM support semantics. The fixed models (including `persam`) still need a 02-style re-audit; a code fix is not a gate pass.
+
+## Post-A0 re-audit (7 fixed models)
+
+`A0_REAUDIT.md` and `A0_REAUDIT.csv` record the post-fix, post-A0 status for
+`unet`, `sam_adapter`, `knowsam`, `matcher`, `ucs`, `nnwnet`, and `persam`.
+
+Highlights:
+
+- `unet`: G2 pass (global Dice, after-fix probe diff 0.0); G6a 20-step path pass; G6c seed0 full run + repeated eval identical (3580 masks), seeds 1–4 pending.
+- `sam_adapter`: weight decay fixed; G3 still unverified and G0 still lacks a usable commit.
+- `knowsam`: test leakage, largest-CC and scipy zoom fixed; pool now only CHASEDB1/CREMI/CORN; G2/G3/G4 probes still missing.
+- `matcher`: FSS score and prediction seed fixed; DINOv2 weights still missing, so G4 remains unverified.
+- `ucs`: initial eval prompt seed fixed; training/G6a remains unverified.
+- `nnwnet`: train-only planning and metadata fixed; full nnU-Net run still missing.
+- `persam`: raw/normalized embedding split fixed; post-fix G6a re-run is still needed.
+
+Every model remains `main_table=blocked`; G6c is unverified for all.
 
 ## Reports
 

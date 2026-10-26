@@ -1,0 +1,8 @@
+model,A0,G0,G1,G2,G3,G4,G5,G6a,G6b,G6c,main_table,claim_label,reason
+unet,pass,pass,pass,pass,unverified,pass,pass,pass,N/A,unverified,blocked,none,D-unet-03 fixed; G6a 20-step diff=0; G6c seed0 full run + eval repeat identical (3580 masks). G3 recipe and seeds 1-4 variance remain.
+sam_adapter,pass,unverified,pass,pass,unverified,pass,pass,unverified,N/A,unverified,blocked,none,D-05 fixed (wd=0.01); 4-GPU/batch/workers/seed disclosed. G0 has no usable commit/license; G3 lacks G6a.
+knowsam,pass,pass,pass,unverified,unverified,unverified,pass,unverified,N/A,unverified,blocked,none,"Test leakage fixed; only 3 domains remain eligible, disclosed. G2/G3/G4 lack post-fix probes; G6c unrun."
+matcher,pass,pass,unverified,unverified,unverified,unverified,pass,unverified,N/A,unverified,blocked,none,"FSS score and prediction seed fixed in code, but DINOv2 weights are missing; G4 cannot be numerically verified. Empty-support path still undisclosed."
+ucs,pass,pass,pass,pass,unverified,pass,pass,unverified,N/A,unverified,blocked,none,Prediction prompt seeding fixed; workers/metrics disclosed. G3 lacks training/G6a; G6c unrun. Oracle/reference only.
+nnwnet,pass,pass,pass,unverified,unverified,pass,pass,unverified,N/A,unverified,blocked,none,Train-only planning and metadata fixed with tests; full nnU-Net run still needed. G2/G3 lack loss/grad and G6a; G6c unrun.
+persam,pass,pass,pass,pass,pass,pass,pass,unverified,N/A,unverified,blocked,none,D-persam-01 fixed; final-mask G2 remains pass. G6a must be re-run after the first-stage change; G6c unrun.

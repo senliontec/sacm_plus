@@ -46,8 +46,8 @@ class SAMedAdapter(BaselineAdapter):
         '(background + foreground); the released 8-class SAMed LoRA '
         'checkpoints are absent and not shape-compatible.',
         'Direct 512x512 resize is used instead of the official test path\'s '
-        'lossy 224->512 resampling; the low-resolution supervision is '
-        '128x128 as in SAMed.',
+        'lossy 224->512 resampling; low-resolution supervision is '
+        'input_size/4 as in SAMed (128 at the default 512).',
         'The official CT intensity window is not applicable to the natural '
         'and medical RGB/grayscale protocol images; grayscale is replicated '
         'to RGB and pixels are scaled to [0,1] with SAM pixel_mean=0 / '
@@ -61,7 +61,9 @@ class SAMedAdapter(BaselineAdapter):
         'single-GPU/batch4 and the shared seeded runtime.',
         'The official 250-iteration warmup is replaced by a 5-epoch warmup, '
         'and the polynomial decay is stepped per epoch; the 18-image epoch '
-        'has only a few iterations.',
+        'has only a few iterations. The poly horizon is max(epochs, 200), '
+        'matching the official 200-epoch schedule, so the final epoch is '
+        'not assigned lr=0.',
         'Predictions are exported at original GT resolution; the official '
         'evaluator argmaxes at 512 and zooms to the native slice size.',
         'No mixed precision and no test-time augmentation.',
@@ -122,7 +124,9 @@ class SAMedAdapter(BaselineAdapter):
 
     def make_scheduler(self, optimizer, args):
         warmup_epochs = 5
-        total = max(int(args.epochs), 1)
+        # Official max_iterations uses max_epochs=200; the port stops at 160
+        # but keeps the 200-epoch poly horizon so the last epoch is nonzero.
+        total = max(int(args.epochs), 200)
 
         def lr_lambda(epoch: int) -> float:
             warmup = min(1.0, (epoch + 1) / warmup_epochs)
@@ -162,8 +166,9 @@ class SAMedAdapter(BaselineAdapter):
         image_t = torch.from_numpy(
             image.astype(np.float32).copy()).permute(2, 0, 1) / 255.0
         mask_t = torch.from_numpy(mask.astype(np.int64).copy())
+        low_size = max(1, self.input_size // 4)
         low_res = F.interpolate(
-            mask_t[None, None].float(), size=(128, 128),
+            mask_t[None, None].float(), size=(low_size, low_size),
             mode='nearest').squeeze(1).squeeze(0).long()
         return image_t, mask_t, low_res
 

@@ -1,0 +1,43 @@
+{
+  "kind": "positive",
+  "high_case": true,
+  "expected_sensitivity_keys": [
+    "support_no_grad"
+  ],
+  "expected_discrepancies": [
+    {
+      "key": "support_no_grad",
+      "allowed_verdicts": [
+        "differ"
+      ],
+      "category": "official_recipe",
+      "impact": "numeric",
+      "allowed_gates": [
+        "G2",
+        "G3"
+      ],
+      "undocumented": true,
+      "high_severity": true,
+      "required_evidence": [
+        {
+          "file": "official.py",
+          "snippet": "with torch.no_grad():",
+          "line": 6,
+          "sha256": "7d49d2bf79a7ca1671d8e58a0b41e1f5776aa96e3b726fbb6e46d90da8975442"
+        },
+        {
+          "file": "port.py",
+          "snippet": "return model.encode(support)",
+          "line": 6,
+          "sha256": "7ed5ee3e3359c155f6b8a9384086651a4391ec44399622856cf1439c10ad9603"
+        }
+      ]
+    }
+  ],
+  "allowed_equivalent_keys": [],
+  "forbidden_claims": [
+    "table_metric_reproduced",
+    "official_metric_match=verified"
+  ],
+  "case_id": "CAL-12"
+}

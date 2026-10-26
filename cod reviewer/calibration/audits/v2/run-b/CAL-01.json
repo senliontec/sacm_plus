@@ -1,0 +1,17 @@
+{
+  "case_id": "CAL-01",
+  "sensitivity_keys": [
+    "normalization_formula",
+    "normalization_mean_std"
+  ],
+  "closure": {
+    "normalization_formula": "preserved",
+    "normalization_mean_std": "preserved"
+  },
+  "discrepancies": [],
+  "claims": {
+    "main_table": "blocked",
+    "claim_label": "none",
+    "official_metric_match": "unverified"
+  }
+}

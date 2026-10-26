@@ -1,0 +1,42 @@
+{
+  "kind": "positive",
+  "high_case": true,
+  "expected_sensitivity_keys": [
+    "support_leak"
+  ],
+  "expected_discrepancies": [
+    {
+      "key": "support_leak",
+      "allowed_verdicts": [
+        "differ"
+      ],
+      "category": "protocol_adaptation",
+      "impact": "protocol",
+      "allowed_gates": [
+        "G5"
+      ],
+      "undocumented": true,
+      "high_severity": true,
+      "required_evidence": [
+        {
+          "file": "official.py",
+          "snippet": "split_root / 'train'",
+          "line": 7,
+          "sha256": "56aed13b416c6eb8ded9b12a3e2dadad76c67d78d82b704162188638b7065587"
+        },
+        {
+          "file": "port.py",
+          "snippet": "split_root / 'test'",
+          "line": 7,
+          "sha256": "3ee2be9c9fa6184a7698ba4bac06377de0366a92d3da86f0657eb566bf1dbbea"
+        }
+      ]
+    }
+  ],
+  "allowed_equivalent_keys": [],
+  "forbidden_claims": [
+    "table_metric_reproduced",
+    "official_metric_match=verified"
+  ],
+  "case_id": "CAL-06"
+}

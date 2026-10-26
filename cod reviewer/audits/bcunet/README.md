@@ -194,3 +194,9 @@ G6a/G6c；A0。
 - 移植的 `OutConv` 修复可运行，但把 `out1` 从概率改成 logits，改变了官方融合定义；
   在官方语义未裁决前不能称等价。
 - 当前只能 `G0=pass`（来源/许可有 caveat）与 `G5=pass`，其余关键门禁 unverified；不能进入主表。
+
+## Post-review fixes (2026-10-26)
+
+- Prediction and `--stage all` no longer request ImageNet-22k pretrained downloads; training keeps the official initialization.
+- Test: `test_bcunet_prediction_skips_pretrained_backbone`.
+- Remaining: online/offline prediction no longer blocks, but official constructibility/G2/G4 caveats remain.

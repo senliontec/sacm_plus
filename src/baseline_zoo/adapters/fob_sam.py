@@ -24,7 +24,7 @@ from PIL import Image
 from torchvision.transforms import Compose
 
 from baseline_zoo.data import Sample, list_pairs, load_mask, load_rgb
-from baseline_zoo.models.fob_sam import FewShotSeg, SAM
+from baseline_zoo.models.fob_sam import SAM, FewShotSeg
 from baseline_zoo.models.fob_sam.transforms import ElasticTransform, RandomAffine
 from baseline_zoo.runtime import REPO_ROOT, BaselineAdapter
 
@@ -90,6 +90,8 @@ class FoBSAMAdapter(BaselineAdapter):
         'ImageNet RGB normalization; upstream standardizes per volume. '
         'Gamma and geometry augmentation choose their branch independently, '
         'matching the released dataset code.',
+        'Official training uses seed 2021 and workers=16; this port uses the '
+        'protocol seed and workers=0, so the data/RNG stream differs.',
     )
 
     def __init__(self):
@@ -178,7 +180,7 @@ class FoBSAMAdapter(BaselineAdapter):
         result = model.load_state_dict(state, strict=False)
         # Upstream checkpoints do not contain the sin_pos buffer added by
         # this device-agnostic port; everything else must match.
-        ignorable = {'sin_pos'}
+        ignorable = {'sin_pos', 'masked_attention.sin_pos'}
         missing = [key for key in result.missing_keys
                    if key not in ignorable]
         if missing:
@@ -213,14 +215,15 @@ class FoBSAMAdapter(BaselineAdapter):
         return (torch.from_numpy(np.asarray(image) > 127)
                 .float().unsqueeze(0))
 
-    def _load_pair(self, sample: Sample
+    def _load_pair(self, sample: Sample, cache: bool = True
                    ) -> tuple[torch.Tensor, torch.Tensor]:
-        cached = self._pair_cache.get(sample)
+        cached = self._pair_cache.get(sample) if cache else None
         if cached is None:
             image = self._normalize(load_rgb(sample.image_path))
             mask = self._resize_mask(sample.mask_path)
             cached = (image, mask)
-            self._pair_cache[sample] = cached
+            if cache:
+                self._pair_cache[sample] = cached
         return cached
 
     @staticmethod
@@ -280,6 +283,20 @@ class FoBSAMAdapter(BaselineAdapter):
             self._train_by_dataset[sample.dataset].append(sample)
         for values in self._train_by_dataset.values():
             values.sort(key=lambda item: item.stem)
+
+    @staticmethod
+    def _canonical_dataset(sample: Sample) -> str:
+        """Resolve an unprefixed test stem back to its dataset root.
+
+        ``RawPairDataset`` derives ``sample.dataset`` from the first
+        underscore-separated stem token, which is only correct for the flat
+        training split.  Test roots use names such as ``DeepCrack/111212-1``,
+        so prefer the dataset root directory when it is meaningful.
+        """
+        root_name = sample.image_path.parent.parent.name
+        if root_name and root_name not in {'train', 'val', 'test'}:
+            return root_name
+        return sample.dataset
 
     def _support_dataset(self, name: str) -> str:
         self._ensure_train_pairs()
@@ -417,8 +434,11 @@ class FoBSAMAdapter(BaselineAdapter):
 
     # ---- inference ----------------------------------------------------
     def prepare_eval_sample(self, sample: Sample, device):
-        support_images, support_masks = self._query_support(sample.dataset)
-        query_image, _ = self._load_pair(sample)
+        dataset = self._canonical_dataset(sample)
+        support_images, support_masks = self._query_support(dataset)
+        # Test queries are streamed; caching all 3,580 pairs would retain
+        # ~3.5 GiB of CPU RAM.  Support pairs remain cached (1-3 per domain).
+        query_image, _ = self._load_pair(sample, cache=False)
         height, width = load_mask(sample.mask_path).shape
         return {
             'support_images': [
@@ -431,6 +451,35 @@ class FoBSAMAdapter(BaselineAdapter):
             'query_label': torch.ones(1, SIZE, SIZE, device=device),
             'original_size': (height, width),
         }
+
+    def save_config(self, args):
+        return {
+            'input_size': int(self.input_size),
+            'data_root': str(getattr(args, 'data_root', '')),
+            'sam_checkpoint': str(getattr(args, 'sam_checkpoint', '')),
+            'resnet_checkpoint': str(
+                getattr(args, 'resnet_checkpoint', '')),
+            'sam_model_type': str(getattr(args, 'sam_model_type', 'vit_h')),
+            'fob_shots': int(getattr(args, 'fob_shots', 1)),
+            'fob_support_dataset': str(
+                getattr(args, 'fob_support_dataset', 'auto')),
+            'fob_best_pred_idx': int(
+                getattr(args, 'fob_best_pred_idx', 0)),
+            'fob_iters_per_epoch': int(
+                getattr(args, 'fob_iters_per_epoch', 3000)),
+        }
+
+    def restore_config(self, args, config):
+        for key in ('fob_shots', 'fob_best_pred_idx',
+                    'fob_iters_per_epoch'):
+            if key in config:
+                setattr(args, key, int(config[key]))
+        for key in ('sam_model_type', 'fob_support_dataset'):
+            if key in config:
+                setattr(args, key, str(config[key]))
+        for key in ('data_root', 'sam_checkpoint', 'resnet_checkpoint'):
+            if config.get(key):
+                setattr(args, key, Path(config[key]))
 
     def _ensure_sam(self):
         if self._sam is None:

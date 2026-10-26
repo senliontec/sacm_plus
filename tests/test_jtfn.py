@@ -88,3 +88,27 @@ def test_config_roundtrip():
     adapter.restore_config(restore, config)
     assert restore.input_size == 256
     assert restore.jtfn_backbone == 'base64'
+
+
+def test_eval_downscales_oversized_image_and_restores_gt_shape(tmp_path):
+    image = tmp_path / 'BIG_0_image.png'
+    mask = tmp_path / 'BIG_0_mask.png'
+    Image.new('RGB', (128, 96), (120, 120, 120)).save(image)
+    label = Image.new('L', (128, 96), 0)
+    label.save(mask)
+    sample = Sample(image_path=image, mask_path=mask,
+                    dataset='BIG', stem='BIG_0')
+    adapter = JTFNAdapter()
+    adapter.args = SimpleNamespace(jtfn_eval_max_side=64)
+    prepared = adapter.prepare_eval_sample(sample, torch.device('cpu'))
+    assert prepared['original_size'] == (96, 128)
+    assert prepared['model_size'] == (48, 64)
+    assert prepared['image'].shape[-2:] == (64, 64)
+
+    class Dummy(torch.nn.Module):
+        def forward(self, batch):
+            h, w = batch['img'].shape[-2:]
+            return {'output': torch.zeros(1, 1, h, w)}
+
+    pred = adapter.predict_sample(Dummy(), prepared, sample)
+    assert pred.shape == (96, 128)

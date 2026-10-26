@@ -1,7 +1,7 @@
 # PerSAM 移植审计（手工 pilot）
 
-> **修复后（2026-10-26）：** 本报告表格是修复前审计证据；当前代码状态和回归证据见
-> [`../POST_FIX.md`](../POST_FIX.md)。A0/G6c 仍未完成，gate 结论不变。
+> **Post-A0 重审（2026-10-26）：** 本报告表格仍是修复前证据；A0 已 pass
+> （pack v3），当前代码级 gate 状态见 [`../A0_REAUDIT.md`](../A0_REAUDIT.md)。
 
 - 官方：`3rd/Personalize-SAM`，commit `a7e87245156e0b8efcba10a15a745e699c679d9d`
 - 移植：`src/baseline_zoo/models/persam/{algorithm.py,model.py,UPSTREAM.md}` + `src/baseline_zoo/adapters/persam.py`
@@ -137,7 +137,11 @@ G3=pass：无训练项；support 只来自 train，donor 已披露，固定 DRIV
 G4=pass：导出、指标、3-shot 均为已披露 protocol adaptation；D-01 属内部 L2 路径，
 不是 eval transform。但 D-01 仍阻断主表。
 
-## 07. 门禁结论（provisional）
+## 07. 门禁结论（pre-fix snapshot）
+
+> **Superseded:** this is the pre-fix gate snapshot. Post-A0 status is in
+> [`../A0_REAUDIT.md`](../A0_REAUDIT.md).
+
 
 ```text
 A0  = unverified
@@ -158,3 +162,11 @@ official_metric_match = unverified
 
 仍缺：修复/披露 D-persam-01；在 20 数据集、3 shots 下重跑 G6a（只能算 extension）；
 补空 mask/全背景 support；跑全量 G6c 并冻结 artifacts；冻结 A0 calibration pack。
+
+
+## Post-A0 re-audit (2026-10-26)
+
+- A0: pass (`a0-cal-2026-10-26-v3`, `df593177d7213f6f1452f61062a41a67539acaef3009a0c43feb9e5905cedd1a`).
+- Resolved: `D-persam-01` raw-vs-normalized reference embedding split now matches official `persam.py:90-92`.
+- Post-fix gates: G0 pass, G1 pass, G2 pass (final-mask caveat), G3 pass, G4 pass, G5 pass, G6a unverified (post-fix re-run pending), G6b N/A, G6c unverified.
+- `main_table=blocked`: the pre-fix G6a pass cannot be reused after the first-stage change; G6c is unrun.

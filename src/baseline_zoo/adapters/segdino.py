@@ -63,6 +63,8 @@ class SegDINOAdapter(BaselineAdapter):
         'time, constructing the timm backbone without a gated download.',
         'DPT intermediate-layer indices now follow the selected backbone '
         'size (official code for small/base/large).',
+        'Official training uses seed 42 and workers=16; this port uses the '
+        'protocol seed and workers=0, so the data/RNG stream differs.',
     )
 
     def add_args(self, parser):

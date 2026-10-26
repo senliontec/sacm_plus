@@ -1,0 +1,56 @@
+{
+  "case_id": "CAL-05",
+  "sensitivity_keys": [
+    "prompt_construction",
+    "sparse_prompt_construction",
+    "dense_prompt_construction",
+    "decoder_call_arguments"
+  ],
+  "closure": {
+    "sparse_prompt_construction": "covered_by_discrepancy",
+    "dense_prompt_construction": "covered_by_discrepancy",
+    "decoder_call_arguments": "preserved",
+    "prompt_construction": "covered_by_discrepancy"
+  },
+  "discrepancies": [
+    {
+      "key": "prompt_construction",
+      "verdict": "differ",
+      "category": "official_recipe",
+      "impact": "numeric",
+      "gate": "G1",
+      "undocumented": true,
+      "evidence": [
+        {
+          "file": "official.py",
+          "line": 7,
+          "snippet": "sparse = torch.zeros(\n        (batch, 0, 256), dtype=torch.float,",
+          "sha256": "36f13b0e236daa0e8092ac32c1dd6fbc21e7b75d519d87037d9f51d4b1c7d60c"
+        },
+        {
+          "file": "port.py",
+          "line": 5,
+          "snippet": "LEARNED_SPARSE = torch.nn.Parameter(torch.zeros(1, 4, 256))",
+          "sha256": "2cc8fc0426646f2690e0fada0d8f96795964c701a43f06c2cdaf37e1ef1c4753"
+        },
+        {
+          "file": "official.py",
+          "line": 10,
+          "snippet": "dense = model.no_mask_embed.weight.reshape(\n        1, -1, 1, 1).expand(batch, -1, 64, 64)",
+          "sha256": "36f13b0e236daa0e8092ac32c1dd6fbc21e7b75d519d87037d9f51d4b1c7d60c"
+        },
+        {
+          "file": "port.py",
+          "line": 6,
+          "snippet": "LEARNED_DENSE = torch.nn.Parameter(torch.zeros(1, 256, 64, 64))",
+          "sha256": "2cc8fc0426646f2690e0fada0d8f96795964c701a43f06c2cdaf37e1ef1c4753"
+        }
+      ]
+    }
+  ],
+  "claims": {
+    "main_table": "blocked",
+    "claim_label": "none",
+    "official_metric_match": "unverified"
+  }
+}

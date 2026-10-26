@@ -13,7 +13,7 @@ from torch import nn
 
 from baseline_zoo.data import load_rgb
 from baseline_zoo.models.sam_vit_l_unet import SAMViTLUNet
-from baseline_zoo.runtime import REPO_ROOT, BaselineAdapter
+from baseline_zoo.runtime import REPO_ROOT, BaselineAdapter, file_sha256
 
 
 def dice_loss(logits: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
@@ -50,6 +50,10 @@ class SAMViTLUNetAdapter(BaselineAdapter):
         'Predictions are restored to the original GT resolution.',
     )
 
+    def __init__(self):
+        super().__init__()
+        self._sam_sha: str | None = None
+
     def add_args(self, parser):
         parser.add_argument(
             '--sam-checkpoint', type=Path,
@@ -65,7 +69,33 @@ class SAMViTLUNetAdapter(BaselineAdapter):
             raise SystemExit(
                 f'missing SAM ViT-L checkpoint: {args.sam_checkpoint}')
         self.input_size = args.input_size
-        return SAMViTLUNet(str(args.sam_checkpoint))
+        checkpoint = Path(args.sam_checkpoint)
+        self._sam_sha = file_sha256(checkpoint)
+        return SAMViTLUNet(str(checkpoint))
+
+    def save_config(self, args):
+        checkpoint = getattr(args, 'sam_checkpoint', None)
+        return {
+            'input_size': int(self.input_size),
+            'sam_checkpoint': str(checkpoint) if checkpoint else None,
+            'sam_checkpoint_sha256': self._sam_sha,
+        }
+
+    def restore_config(self, args, config):
+        if 'input_size' in config:
+            args.input_size = int(config['input_size'])
+            self.input_size = args.input_size
+        stored_path = config.get('sam_checkpoint')
+        current = getattr(args, 'sam_checkpoint', None)
+        if stored_path and (current is None or not Path(current).is_file()):
+            args.sam_checkpoint = Path(stored_path)
+            current = args.sam_checkpoint
+        stored_sha = config.get('sam_checkpoint_sha256')
+        if stored_sha and current is not None and Path(current).is_file():
+            actual = file_sha256(Path(current))
+            if actual != stored_sha:
+                print(f'WARNING: SAM base checkpoint differs from training: '
+                      f'{current}; predictions will use this encoder')
 
     def configure_trainable(self, model):
         for parameter in model.encoder.parameters():

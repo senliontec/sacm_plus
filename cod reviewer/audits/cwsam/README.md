@@ -180,3 +180,8 @@ claim_label = none
 ## 最终一行状态
 
 `cwsam: G0=pass G1=pass G2=pass G3=unverified G4=unverified G5=pass G6a=unverified G6b=N/A G6c=unverified`
+
+## Post-review fixes (2026-10-26)
+
+- Added disclosure for official 2-GPU/batch-1/workers=8 vs single-GPU/batch-1/workers=0.
+- Class-weighted CE remains a disclosed, unresolved high-risk adaptation.

@@ -199,6 +199,10 @@ class DSCNetAdapter(BaselineAdapter):
         height, width = prepared['original_size']
         patch = self.input_size
         stride = max(1, int(getattr(self.args, 'dsc_stride', patch // 2)))
+        if stride > patch:
+            raise SystemExit(
+                f'--dsc-stride ({stride}) must be <= --input-size ({patch}); '
+                'larger strides leave uncovered image stripes')
         side = max(height, width)
         side_p = max(patch, (side // patch + 1) * patch)
         pad_h = side_p - height
