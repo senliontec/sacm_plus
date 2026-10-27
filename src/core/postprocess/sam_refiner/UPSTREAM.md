@@ -26,14 +26,22 @@
    distance, but it preserves the interior-point selection used by the
    prompt generator; install `FastGeodis` for the official behavior.
 2. The wrapper exposes one binary mask per call; multi-object `split-then-
-   merge` and HQ-SAM are not exposed by the CLI.
+   merge` (STM), HQ-SAM and the SAMRefiner++ IoU-adapter are not exposed by
+   the CLI.  These are separate paper components, not needed for universal
+   binary-mask refinement.
 3. The CLI resolves source images from the protocol manifest, because the
    prediction tree contains masks only.
-4. No SAM weights are bundled. The user must pass a local SAM/HQ-SAM
-   checkpoint; CPU execution is supported but slow.
-5. Upstream's 2-D mask branch uses `coarse_masks[None: ,]`, which is a
-   no-op slice rather than a new batch axis. The wrapper passes an explicit
-   `[1,H,W]` array to `sam_refiner`; the vendored upstream file is kept
-   verbatim.
+4. No SAM weights are bundled. The user must pass a local standard SAM
+   (ViT-H/L/B) checkpoint; CPU execution is supported but slow.
+5. The paper uses a single refinement pass with box margin 0.1, Gaussian
+   amplitude 15 and span 4.  The released `sam_refiner.py` defaults are 5
+   passes, margin 0.0 and amplitude 30.  The wrapper/CLI default to the
+   paper values; pass `--iterations 5 --margin 0.0 --strength 30` to
+   reproduce the released-code default.  Iterative cascades are an appendix
+   experiment, not the paper's main setting.
+6. Upstream's 2-D mask branch uses `coarse_masks[None: ,]`, which is a
+   no-op slice rather than a new batch axis.  The vendored copy changes it
+   to `coarse_masks[None, ...]`; the wrapper also passes an explicit
+   `[1,H,W]` array.
 
 The code under `3rd/SAMRefiner` is not imported or modified at runtime.

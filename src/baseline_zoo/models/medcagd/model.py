@@ -1,4 +1,4 @@
-"""MedCAGD architecture (ICML 2026), vendored from the MIT upstream.
+"""MedCAGD architecture (ECCV 2026), vendored from the MIT upstream.
 
 The upstream ``model.py`` imports its config module (``cfgs``) for the
 encoder name, image size and class count.  This copy takes those values as
@@ -539,6 +539,7 @@ class MedCAGD(nn.Module):
         input_size: int = 256,
         num_classes: int = 1,
         pretrained: bool = True,
+        use_stage0: bool = False,
     ):
         super().__init__()
         try:
@@ -584,22 +585,23 @@ class MedCAGD(nn.Module):
         self.d1 = decoder_block(512, 320, 320)
         self.d2 = decoder_block(320, 128, 128)
         self.d3 = decoder_block(128, 64, 64)
-        self.d4 = decoder_block(64, 64, 64)
-
 
         self.ref1 = RefinementBlock(320, spatial_focus=False)
         self.ref2 = RefinementBlock(128, spatial_focus=True)
         self.ref3 = RefinementBlock(64, spatial_focus=True)
-        self.ref4 = RefinementBlock(64, spatial_focus=True)
-
 
         self.context1 = ContextAggregator([64, 128, 320, 512], 320)
         self.context2 = ContextAggregator([64, 128, 320, 512], 128)
         self.context3 = ContextAggregator([64, 128, 320, 512], 64)
-        self.context4 = None  # full-resolution context omitted
 
-
-        self.skip0_proj = nn.Conv2d(3 + DEC_C[0], DEC_C[0], 1)
+        # The paper's ablation excludes the extra raw-image Stage 0 path
+        # from the final model.  Keep it behind an explicit switch so the
+        # upstream code-default variant can still be reproduced.
+        self.use_stage0 = bool(use_stage0)
+        if self.use_stage0:
+            self.d4 = decoder_block(64, 64, 64)
+            self.ref4 = RefinementBlock(64, spatial_focus=True)
+            self.skip0_proj = nn.Conv2d(3 + DEC_C[0], DEC_C[0], 1)
 
 
         out_ch = num_classes if num_classes > 2 else 1
@@ -648,15 +650,20 @@ class MedCAGD(nn.Module):
         d3 = self.ref3(d3 + self.context3([p1, p2, p3, b], d3.shape[2:]))
 
 
-        p1_up = F.interpolate(p1, size=x.shape[2:], mode='bilinear', align_corners=False)
-        skip0 = self.skip0_proj(torch.cat([x, p1_up], dim=1))
+        if self.use_stage0:
+            p1_up = F.interpolate(
+                p1, size=x.shape[2:], mode='bilinear', align_corners=False)
+            skip0 = self.skip0_proj(torch.cat([x, p1_up], dim=1))
+            d4 = self.d4(d3, skip0)
+            d4 = self.ref4(d4)
+            final_features = d4
+        else:
+            final_features = d3
 
-        d4 = self.d4(d3, skip0)
-        d4 = self.ref4(d4)
 
-
-        out_main = self.final(d4)
-        out_main = F.interpolate(out_main, size=x.shape[2:], mode='bilinear', align_corners=False)
+        out_main = self.final(final_features)
+        out_main = F.interpolate(
+            out_main, size=x.shape[2:], mode='bilinear', align_corners=False)
 
         # Deep supervision outputs
         aux1 = F.interpolate(self.final_d1(d1), size=x.shape[2:], mode='bilinear', align_corners=False)
@@ -677,6 +684,7 @@ def build_medcagd(
     input_size: int = 256,
     num_classes: int = 1,
     pretrained: bool = True,
+    use_stage0: bool = False,
 ) -> MedCAGD:
     """Build the binary MedCAGD segmenter.
 
@@ -689,5 +697,6 @@ def build_medcagd(
         input_size=input_size,
         num_classes=num_classes,
         pretrained=pretrained,
+        use_stage0=use_stage0,
     )
 

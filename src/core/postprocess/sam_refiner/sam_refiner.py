@@ -71,7 +71,7 @@ def sam_refiner(image_path,
         coarse_masks = np.stack(coarse_masks, axis=0)
 
     if len(coarse_masks.shape) == 2:
-        coarse_masks = coarse_masks[None: ,]
+        coarse_masks = coarse_masks[None, ...]
     coarse_masks = torch.tensor(coarse_masks, dtype=torch.uint8).to(sam.device)
 
     assert len(coarse_masks.shape) == 3, "coarse mask dim must be (n, h, w), but got {}".format(coarse_masks.shape)

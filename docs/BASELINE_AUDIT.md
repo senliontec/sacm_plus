@@ -267,26 +267,38 @@ No target GT or target prompts are used.
 
 ## MedCAGD addendum (2026-10-27)
 
-`medcagd` is a non-SAM binary medical baseline (ICML 2026, MIT; vendored
+`medcagd` is a non-SAM binary medical baseline (ECCV 2026, MIT; vendored
 context-aware gated decoder, PVTv2-B2 timm encoder, deep supervision and
-edge BCE).  The upstream `cfgs`-driven constructor is parameterized; training
-uses 256 crops on the shared 18-image split.  Full-resolution inference tiles
-overlapping 256 patches (stride 128) and averages probabilities.  Documented
-deviations: Albumentations/CutMix replaced by seeded crops/flips/rot90,
-shared epoch budget with validation-Dice selection, no CuPy evaluator, and
+edge BCE).  The upstream `cfgs`-driven constructor is parameterized.  The
+paper uses 256/128 patches for DRIVE/FIVES and 224 full images for its
+large-object benchmarks.  All 20 protocol datasets are thin curvilinear
+structures, so the default task adaptation uses the patch recipe for every
+dataset: 256 crops for training and overlapping 256 patches (stride 128)
+with probability averaging at inference.  `--medcagd-input-policy paper`
+reproduces the paper's 224-full/256-patch mapping.  The paper's final
+model excludes the released code's raw-image Stage 0 path, so
+`use_stage0=False` is the default (`--medcagd-use-stage0 1` reproduces the
+code variant).  Documented deviations: batch 8 instead of paper 16,
+Albumentations/CutMix replaced by seeded crops/flips/rot90, shared
+800-epoch budget with validation-Dice selection, no CuPy evaluator, and
 no official trained weights.  See
 `src/baseline_zoo/models/medcagd/UPSTREAM.md`.
 
 ## BLO-SAM addendum (2026-10-27)
 
-`blo_sam` is a limited-data SAM baseline (SAM ViT-B, rank-4 LoRA on encoder
-and mask-decoder attention, trainable no-mask prompt embedding, binary
-background+foreground head).  The official bilevel update is preserved, but
-the meta-validation level uses the previous training batch because the
-shared runtime does not expose the val loader to adapters.  Documented
-deviations: shared 18-image split, flips/rot90, shared epoch budget/scheduler,
-and no official BLO-SAM weights.  The upstream README claims MIT but the
-checkout has no LICENSE file; verify before redistribution.  See
+`blo_sam` is a limited-data SAM baseline (SAM ViT-B with the image encoder
+frozen, rank-4 LoRA on mask-decoder self/cross attention and the final
+token-to-image attention, trainable no-mask prompt embedding, binary
+background+foreground head).  The official bilevel update is preserved: a
+fixed seeded 9/9 D1/D2 split stratified across the six pooled domains,
+network update on D1, prompt-embedding update on D2, D2-Dice checkpoint
+selection, and the effective per-step polynomial LR (the upstream
+`OneCycleLR` is constructed but never stepped).  The
+released loop rereads only the first D2 batch every step; the port cycles
+through all D2 batches.  Other documented deviations: shared 18-image
+split, flips/rot90, official 100-epoch budget, and no official BLO-SAM
+weights.  The upstream README claims MIT but the checkout has no LICENSE
+file; verify before redistribution.  See
 `src/baseline_zoo/models/blo_sam/UPSTREAM.md`.
 
 ## SAMRefiner addendum (2026-10-27)
@@ -295,6 +307,10 @@ checkout has no LICENSE file; verify before redistribution.  See
 MIT), vendored with its modified SAM package and exposed through
 `scripts/tools/apply_sam_refiner.py`.  It is not a backbone baseline and is
 not part of the main table; compare it only as a post-processing ablation.
-FastGeodis is optional, with a SciPy distance-transform fallback; the
-upstream 2-D mask slicing bug is handled in the wrapper.  See
+Defaults now follow the paper (one refinement pass, box margin 0.1,
+Gaussian amplitude 15, span 4); the released code defaults (5/0.0/30) are
+available explicitly.  Multi-object STM, HQ-SAM and SAMRefiner++ are not
+exposed.  FastGeodis is optional, with a SciPy distance-transform fallback;
+the upstream 2-D mask slicing bug is fixed in the vendored copy and also
+worked around in the wrapper.  See
 `src/core/postprocess/sam_refiner/UPSTREAM.md`.

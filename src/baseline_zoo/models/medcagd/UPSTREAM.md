@@ -7,8 +7,8 @@
 - Local reference: `3rd/MedCAGD`
 - HEAD: `fe2cbfc3656e72e033cfeb2bf4af162ded4656d0` (2026-10-05)
 - License: MIT (copyright 2026 Saad Wazir); copied as `LICENSE`.
-- Paper: "MedCAGD: Context-Aware Gated Decoder for Robust Medical Image
-  Segmentation", ICML 2026. This is not the S2M-Net paper.
+- Paper: "MedCAGD: Context-Aware Gated Decoder for Efficient Medical Image
+  Segmentation", ECCV 2026. This is not the S2M-Net paper.
 
 ## What was preserved
 
@@ -28,17 +28,31 @@
 2. Upstream training uses pre-patched DRIVE 256x256 directories, 8 epochs
    per `xrun` iteration and up to 16 iterations. This port trains on the
    shared 18-image 3-shot split with the project epoch budget and
-   validation-Dice checkpoint selection.
-3. Inference tiles full-resolution protocol images with overlapping 256
-   patches (default stride 128) and averages probabilities. The upstream
-   pre-patched test directory, `patch.py`/`unpatch.py` and CuPy evaluator
-   are not used.
-4. Albumentations/CutMix augmentation is replaced by seeded random crops,
+   validation-Dice checkpoint selection. The paper uses 256x256 crops for
+   DRIVE/FIVES and 224x224 full images for its large-object benchmarks
+   (CellSeg uses 384/192 patches). All 20 protocol datasets are thin
+   curvilinear structures, so the default task adaptation applies the
+   DRIVE/FIVES patch recipe to all datasets; `--medcagd-input-policy paper`
+   reproduces the paper dataset mapping.
+3. The default inference tiles full-resolution protocol images with
+   overlapping 256 patches (default stride 128) and averages probabilities.
+   In paper mode, DRIVE/FIVES are tiled the same way while other datasets
+   are resized to 224x224 and the prediction is mapped back to GT
+   resolution. The upstream pre-patched test directory,
+   `patch.py`/`unpatch.py` and CuPy evaluator are not used.
+4. The paper's final model excludes the upstream raw-image Stage 0 decoder
+   path, although the released code builds it. The port defaults to
+   `use_stage0=False`; `--medcagd-use-stage0 1` reproduces the released code
+   variant.
+5. Albumentations/CutMix augmentation is replaced by seeded random crops,
    foreground-biased crops, flips, 90-degree rotations and mild photometric
    jitter. This keeps the baseline dependency-free and reproducible.
-5. The upstream xrun scheduler/resume orchestration is replaced by the
+6. Upstream reads images with OpenCV (BGR) and scales to [0,1] without
+   ImageNet mean/std normalization. This port uses PIL RGB with the same
+   [0,1] scaling; the encoder is ImageNet-pretrained on RGB.
+7. The upstream xrun scheduler/resume orchestration is replaced by the
    shared runtime and a cosine warm-restart scheduler.
-6. No official trained checkpoint is present. Training uses ImageNet
+8. No official trained checkpoint is present. Training uses ImageNet
    initialization through timm; prediction builds the same architecture and
    loads the zoo checkpoint.
 

@@ -6,6 +6,7 @@ checkpoint: "{output_root}/best_model.pth"
 train_entrypoint: >-
   python -m baseline_zoo.run_one --model medcagd --stage train
   --data-root {split_root} --workdir {output_root}
+  --medcagd-input-policy patches --medcagd-use-stage0 0
   --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
 eval_entrypoint: >-
   python scripts/pipeline/run_baseline_test.py --method medcagd
@@ -19,10 +20,18 @@ protocols: [seeded5, fixed]
 defaults:
   epochs: 800
 note: >-
-  Self-contained MedCAGD binary port (ICML 2026, MIT). Context-aware gated
-  decoder with PVTv2-B2 encoder, deep supervision and edge supervision,
-  trained on 256x256 crops. The shared 18-image 3-shot split replaces the
-  upstream DRIVE patch split; full-resolution test images are evaluated with
-  overlapping 256 patches (stride 128). The upstream Albumentations/CutMix
-  recipe and CuPy evaluator are not used. No official trained checkpoint is
-  present; ImageNet encoder initialization is used for training.
+  Self-contained MedCAGD binary port (ECCV 2026, MIT). Context-aware gated
+  decoder with PVTv2-B2 encoder, deep supervision and edge supervision.
+  The paper uses 256x256/stride-128 patches for DRIVE/FIVES and 224x224
+  full images for its large-object benchmarks. All protocol datasets are
+  thin curvilinear structures, so the default task adaptation applies the
+  DRIVE/FIVES patch recipe to every dataset (training crops and
+  overlapping-patch inference). Pass --medcagd-input-policy paper to
+  reproduce the paper's 224-full/256-patch dataset mapping. The shared
+  18-image 3-shot split replaces the upstream patch directories. The
+  raw-image Stage 0 path is disabled by default because the paper's final
+  model excludes it (--medcagd-use-stage0 1 reproduces the code variant).
+  The upstream
+  Albumentations/CutMix recipe and CuPy evaluator are not used. No official
+  trained checkpoint is present; ImageNet encoder initialization is used for
+  training.

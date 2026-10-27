@@ -25,8 +25,11 @@ PYTHONPATH=src python scripts/tools/apply_sam_refiner.py \
   --device cuda:0
 ```
 
-Use `--limit 5` for a first smoke test, `--overwrite` to replace existing
-outputs, and `--iterations` to control refinement passes.
+Use `--limit 5` for a first smoke test and `--overwrite` to replace existing
+outputs.  The defaults follow the paper: one refinement pass, box expansion
+`--margin 0.1`, Gaussian amplitude `--strength 15`, span `--gamma 4.0`.
+The released code defaults to `--iterations 5 --margin 0.0 --strength 30`;
+pass those explicitly to reproduce the code-default variant.
 
 For a single mask, pass `--image path/to/source.png` and point
 `--input`/`--output` at files.
@@ -44,6 +47,9 @@ For a single mask, pass `--image path/to/source.png` and point
 - SAMRefiner can change boundary placement and may add/remove regions; it is
   not guaranteed to improve Dice.
 - The wrapper refines one binary mask per call; the upstream multi-object
-  `split-then-merge` pipeline is not exposed.
+  `split-then-merge` pipeline, HQ-SAM path and SAMRefiner++ IoU adapter are
+  not exposed.  They are separate components in the paper/upstream tree.
+- One refinement pass is the paper default; cascaded refinement is an
+  appendix experiment and may or may not help this task.
 - `FastGeodis` is optional; the SciPy fallback is slower/approximate.
 - No SAM weights are bundled.

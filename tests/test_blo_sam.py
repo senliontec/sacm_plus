@@ -47,6 +47,34 @@ def test_pair_shapes(tmp_path):
     assert low.shape == (16, 16)
     assert set(mask.unique().tolist()) <= {0, 1}
     assert set(low.unique().tolist()) <= {0, 1}
+    clean_a = adapter._pair(_sample(tmp_path), random.Random(0),
+                            augment=False)
+    clean_b = adapter._pair(_sample(tmp_path), random.Random(99),
+                            augment=False)
+    assert torch.equal(clean_a[0], clean_b[0])
+    assert torch.equal(clean_a[1], clean_b[1])
+
+
+def test_bilevel_split_is_fixed_disjoint_and_stratified(tmp_path):
+    adapter = BLOSAMAdapter()
+    samples = [
+        Sample(image_path=tmp_path / f'{domain}_{i}.png',
+               mask_path=tmp_path / f'{domain}_{i}_m.png',
+               dataset=domain, stem=f'{domain}_{i}')
+        for domain in ('DOMAIN_A', 'DOMAIN_B')
+        for i in range(3)
+    ]
+    d1, d2 = adapter._bilevel_split(samples, seed=7)
+    assert len(d1) == 3 and len(d2) == 3
+    assert not ({s.stem for s in d1} & {s.stem for s in d2})
+    assert {s.stem for s in d1} | {s.stem for s in d2} == {
+        s.stem for s in samples}
+    # Every pooled domain must appear in both bilevel levels.
+    assert {s.dataset for s in d1} == {'DOMAIN_A', 'DOMAIN_B'}
+    assert {s.dataset for s in d2} == {'DOMAIN_A', 'DOMAIN_B'}
+    d1b, d2b = adapter._bilevel_split(list(reversed(samples)), seed=7)
+    assert [s.stem for s in d1b] == [s.stem for s in d1]
+    assert [s.stem for s in d2b] == [s.stem for s in d2]
 
 
 def test_config_roundtrip():

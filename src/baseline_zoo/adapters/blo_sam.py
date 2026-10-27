@@ -2,10 +2,9 @@
 
 Official reference: ``3rd/BLO-SAM`` (ICML 2024, MIT claimed in README; no
 license file in the checkout).  The official trainer splits the training
-set in half for the two bilevel levels.  This port keeps the two-level
-update but uses the previous training batch as the meta-validation batch,
-because the shared runtime does not expose the validation loader to the
-adapter.  This is recorded as a deviation.
+set once into disjoint D1/D2 halves: the network is updated on D1 and the
+learnable no-mask prompt on D2.  This port keeps that split and uses D2
+for checkpoint selection, matching the official trainer.
 """
 
 from __future__ import annotations
@@ -39,18 +38,21 @@ class BLOSAMAdapter(BaselineAdapter):
         'BLO-SAM is a limited-data SAM finetuning method, not a 3-shot '
         'segmenter; this port trains it on the shared 18-image split and '
         'evaluates all protocol datasets.',
-        'The official trainer splits the training directory into two halves '
-        'for bilevel levels. The shared runtime does not expose the val '
-        'loader to adapters, so the meta-validation level uses the previous '
-        'training batch (the first batch reuses itself).',
+        'The official bilevel trainer splits the training set once into '
+        'disjoint D1/D2 halves. This port uses a fixed seeded 9/9 split '
+        'across epochs, stratified by source domain so all six pooled '
+        'domains appear in both levels; the upper-level prompt update runs '
+        'on D2 and checkpoint selection uses D2 Dice. Unlike the released '
+        'loop, which repeatedly reads only the first D2 batch, the port '
+        'cycles through all D2 batches.',
         'Official datasets are preprocessed folders of images/masks with '
         'five foreground classes; this port supports the binary protocol '
         'head (background + one foreground token) and converts GT masks to '
         'long labels at 256 and 64 resolution.',
         'Official optimizer is AdamW lr 5e-3, prompt lr 5e-3, weight decay '
-        '0.1, rank 4, batch 1 and OneCycleLR over all iterations. This port '
-        'uses the shared epoch budget and scheduler override; prompt '
-        'optimizer settings follow the official defaults.',
+        '0.1, rank 4, batch 1 and lr_i = lr_0 (1 - i / Iter_max)^0.9. This '
+        'port follows that per-step polynomial schedule; the epoch budget '
+        'remains configurable (the model config uses the official 100).',
         'The official image preprocessing uses the model pixel_mean=0 / '
         'pixel_std=1 with RGB images; this port follows that setting and '
         'adds flips/90-degree rotations for the tiny 3-shot split.',
@@ -65,8 +67,12 @@ class BLOSAMAdapter(BaselineAdapter):
         self._ce = nn.CrossEntropyLoss()
         self._dice = DiceLoss(2)
         self._prompt: Prompt | None = None
-        self._prev_batch = None
         self._iter = 0
+        self._d2_dice: float | None = None
+        self._split_key: tuple | None = None
+        self._d1_samples: list | None = None
+        self._d2_samples: list | None = None
+        self._multimask_output = False  # official binary setting
 
     def add_args(self, parser):
         parser.add_argument(
@@ -90,8 +96,11 @@ class BLOSAMAdapter(BaselineAdapter):
                 'sam_vit_b_01ec64.pth')
         self._sam_sha = file_sha256(checkpoint)
         self._prompt = None
-        self._prev_batch = None
         self._iter = 0
+        self._d2_dice = None
+        self._split_key = None
+        self._d1_samples = None
+        self._d2_samples = None
         return build_blo_sam(
             checkpoint=str(checkpoint),
             image_size=self.input_size,
@@ -124,26 +133,24 @@ class BLOSAMAdapter(BaselineAdapter):
             params, lr=args.lr, weight_decay=args.weight_decay)
 
     def make_scheduler(self, optimizer, args):
-        return torch.optim.lr_scheduler.OneCycleLR(
-            optimizer,
-            max_lr=float(args.lr),
-            total_steps=max(1, int(args.epochs)),
-        )
+        # The official trainer applies lr_i = lr_0 (1 - i / Iter_max)^0.9
+        # once per global step; train_epoch owns that schedule.
+        return None
 
-    def _pair(self, sample, rng: random.Random):
+    def _pair(self, sample, rng: random.Random, augment: bool = True):
         image = load_rgb(sample.image_path).resize(
             (self.input_size, self.input_size), Image.BICUBIC)
         mask = Image.open(sample.mask_path).convert('L').resize(
             (self.input_size, self.input_size), Image.NEAREST)
         image_np = np.asarray(image, dtype=np.float32).copy() / 255.0
         mask_np = (np.asarray(mask) > 127).astype(np.int64)
-        if rng.random() < 0.5:
+        if augment and rng.random() < 0.5:
             image_np = np.flip(image_np, axis=1).copy()
             mask_np = np.flip(mask_np, axis=1).copy()
-        if rng.random() < 0.5:
+        if augment and rng.random() < 0.5:
             image_np = np.flip(image_np, axis=0).copy()
             mask_np = np.flip(mask_np, axis=0).copy()
-        k = rng.randrange(4)
+        k = rng.randrange(4) if augment else 0
         if k:
             image_np = np.rot90(image_np, k).copy()
             mask_np = np.rot90(mask_np, k).copy()
@@ -156,10 +163,11 @@ class BLOSAMAdapter(BaselineAdapter):
         )[0, 0].long()
         return image_t, mask_t, low
 
-    def prepare_train_batch(self, samples, rng: random.Random):
+    def prepare_train_batch(self, samples, rng: random.Random,
+                            augment: bool = True):
         images, masks, lows = [], [], []
         for sample in samples:
-            image, mask, low = self._pair(sample, rng)
+            image, mask, low = self._pair(sample, rng, augment=augment)
             images.append(image)
             masks.append(mask)
             lows.append(low)
@@ -178,54 +186,162 @@ class BLOSAMAdapter(BaselineAdapter):
 
     def train_step(self, model, batch):
         outputs = model(
-            batch['image'], multimask_output=True, image_size=self.input_size)
+            batch['image'], multimask_output=self._multimask_output,
+            image_size=self.input_size)
         return self._loss(outputs, batch['low_res_label'])
+
+    @torch.no_grad()
+    def _meta_dice(self, model, batches, rng: random.Random) -> float | None:
+        """Dice on the upper-level D2 subset, used for checkpoint selection."""
+        if not batches:
+            return None
+        was_training = model.training
+        model.eval()
+        scores = []
+        for samples in batches:
+            # Deterministic selection, as the official validate transform.
+            batch = self.prepare_train_batch(samples, rng, augment=False)
+            outputs = model(
+                batch['image'], multimask_output=self._multimask_output,
+                image_size=self.input_size)
+            # Official validate: foreground Dice from the low-resolution
+            # logits and low-resolution target.
+            pred = outputs['low_res_logits'].argmax(dim=1)
+            target = batch['low_res_label'].long()
+            true_positive = ((pred == 1) & (target == 1)).sum().float()
+            false_positive = ((pred == 1) & (target != 1)).sum().float()
+            false_negative = ((pred != 1) & (target == 1)).sum().float()
+            denom = 2 * true_positive + false_positive + false_negative
+            scores.append(
+                float(2 * true_positive / denom) if denom > 0 else 0.0)
+        model.train(was_training)
+        return float(np.mean(scores)) if scores else None
+
+    def selection_score(self, metrics, per_dataset):
+        # The paper selects the checkpoint on the upper-level D2 subset.
+        if (self._d2_dice is not None
+                and getattr(self.args, 'selection', 'dice') == 'dice'):
+            return float(self._d2_dice)
+        return super().selection_score(metrics, per_dataset)
+
+    def _bilevel_split(self, samples, seed: int):
+        """Fixed, domain-stratified D1/D2 membership.
+
+        The official trainer splits one dataset in half.  This protocol
+        pools six domains, so an unstratified split can leave a domain out
+        of D1 entirely; the port keeps fixed disjoint halves but allocates
+        each domain proportionally to both levels.
+        """
+        key = (int(seed), tuple(sorted(
+            (str(s.image_path), str(s.mask_path)) for s in samples)))
+        if self._split_key != key:
+            by_domain: dict[str, list] = {}
+            for sample in sorted(
+                    samples,
+                    key=lambda s: (str(s.image_path), str(s.mask_path))):
+                by_domain.setdefault(sample.dataset, []).append(sample)
+            rng = random.Random(int(seed))
+            domains = sorted(by_domain)
+            rng.shuffle(domains)
+            for domain in domains:
+                rng.shuffle(by_domain[domain])
+
+            total = len(samples)
+            half = max(1, total // 2)
+            exact = {
+                domain: len(by_domain[domain]) * half / total
+                for domain in domains
+            }
+            alloc = {domain: int(exact[domain]) for domain in domains}
+            remainder = half - sum(alloc.values())
+            for domain in sorted(
+                    domains, key=lambda d: exact[d] - alloc[d],
+                    reverse=True)[:max(0, remainder)]:
+                alloc[domain] += 1
+
+            self._d1_samples = []
+            self._d2_samples = []
+            for domain in domains:
+                group = by_domain[domain]
+                self._d1_samples.extend(group[:alloc[domain]])
+                self._d2_samples.extend(group[alloc[domain]:])
+            if not self._d1_samples:
+                self._d1_samples = list(self._d2_samples[:1])
+            if not self._d2_samples:
+                self._d2_samples = list(self._d1_samples)
+            self._split_key = key
+        return list(self._d1_samples), list(self._d2_samples)
 
     def train_epoch(self, model, loader, optimizer, scheduler, args) -> float:
         model.train()
         rng = random.Random(args.seed + getattr(self, '_epoch', 0))
+        samples = list(getattr(getattr(loader, 'dataset', None),
+                               'samples', []))
+        if not samples:
+            raise RuntimeError('BLO-SAM requires a sample list for D1/D2')
+        d1_samples, d2_samples = self._bilevel_split(samples, args.seed)
+        # Membership is fixed; only the order within each half changes.
+        order_rng = random.Random(
+            int(args.seed) * 100003 + int(getattr(self, '_epoch', 0)))
+        order_rng.shuffle(d1_samples)
+        order_rng.shuffle(d2_samples)
+        batch_size = max(1, int(getattr(args, 'batch_size', 1)))
+        d1_batches = [d1_samples[i:i + batch_size]
+                      for i in range(0, len(d1_samples), batch_size)]
+        d2_batches = [d2_samples[i:i + batch_size]
+                      for i in range(0, len(d2_samples), batch_size)]
+        steps = max(len(d1_batches), len(d2_batches))
+        max_iterations = max(1, int(args.epochs) * steps)
+
+        args.num_classes = 1
+        args.img_size = self.input_size
+        args.dice_param = float(
+            getattr(args, 'blo_sam_dice_weight', 0.8))
+        args.prompt_base_lr = float(
+            getattr(args, 'blo_sam_prompt_lr', 5e-3))
+        args.prompt_weight_decay = float(
+            getattr(args, 'blo_sam_prompt_wd', 0.1))
+        args.base_lr = float(args.lr)
+        args.weight_decay = float(args.weight_decay)
         if self._prompt is None:
-            args.num_classes = 1
-            args.img_size = self.input_size
-            args.dice_param = float(
-                getattr(args, 'blo_sam_dice_weight', 0.8))
-            args.prompt_base_lr = float(
-                getattr(args, 'blo_sam_prompt_lr', 5e-3))
-            args.prompt_weight_decay = float(
-                getattr(args, 'blo_sam_prompt_wd', 0.1))
-            args.base_lr = float(args.lr)
-            args.weight_decay = float(args.weight_decay)
-            max_iterations = max(1, int(args.epochs) * max(len(loader), 1))
             self._prompt = Prompt(model, args, max_iterations)
+
         running = 0.0
         seen = 0
-        for samples in loader:
-            batch = self.prepare_train_batch(samples, rng)
+        for step in range(steps):
+            d1 = self.prepare_train_batch(
+                d1_batches[step % len(d1_batches)], rng)
+            d2 = self.prepare_train_batch(
+                d2_batches[step % len(d2_batches)], rng)
             optimizer.zero_grad(set_to_none=True)
-            loss = self.train_step(model, batch)
+            loss = self.train_step(model, d1)
             loss.backward()
             if args.grad_clip > 0:
                 torch.nn.utils.clip_grad_norm_(
                     [p for p in model.parameters() if p.requires_grad],
                     args.grad_clip)
             optimizer.step()
-            valid_batch = self._prev_batch or batch
+            # Official order: the prompt step sees the LR used by the
+            # network step, then the polynomial LR is advanced for the next
+            # iteration.
+            current_lr = float(optimizer.param_groups[0]['lr'])
             self._prompt.step(
-                batch,
-                valid_batch,
-                float(optimizer.param_groups[0]['lr']),
+                d1,
+                d2,
+                current_lr,
                 optimizer,
                 bool(int(getattr(args, 'blo_sam_unrolled', 0))),
                 self._iter,
             )
-            self._prev_batch = {
-                key: value.detach() for key, value in batch.items()
-            }
+            lr = args.base_lr * max(
+                0.0, 1.0 - self._iter / max_iterations) ** 0.9
+            for group in optimizer.param_groups:
+                group['lr'] = lr
             self._iter += 1
-            running += float(loss.detach()) * len(samples)
-            seen += len(samples)
-        if scheduler is not None:
-            scheduler.step()
+            running += float(loss.detach()) * len(d1_batches[step % len(
+                d1_batches)])
+            seen += len(d1_batches[step % len(d1_batches)])
+        self._d2_dice = self._meta_dice(model, d2_batches, rng)
         return running / max(seen, 1)
 
     def prepare_eval_sample(self, sample, device):
@@ -242,7 +358,8 @@ class BLOSAMAdapter(BaselineAdapter):
     def predict_sample(self, model, prepared, sample):
         image, (width, height) = prepared
         outputs = model(
-            image, multimask_output=True, image_size=self.input_size)
+            image, multimask_output=self._multimask_output,
+            image_size=self.input_size)
         pred = outputs['masks'].argmax(dim=1)[0].float()
         pred = F.interpolate(
             pred[None, None], size=(height, width), mode='nearest')[0, 0]

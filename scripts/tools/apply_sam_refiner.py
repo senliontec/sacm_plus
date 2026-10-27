@@ -39,7 +39,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--output', required=True,
                         help='Output file or directory (same layout)')
     parser.add_argument('--checkpoint', required=True,
-                        help='SAM or HQ-SAM checkpoint')
+                        help='standard SAM checkpoint (ViT-H/L/B)')
     parser.add_argument('--manifest', default=None,
                         help='protocol_manifest.csv with dataset/image_path '
                              '(required for a prediction tree)')
@@ -51,8 +51,15 @@ def parse_args() -> argparse.Namespace:
                         help='cuda/cpu; default = cuda when available')
     parser.add_argument('--threshold', type=float, default=0.5,
                         help='Threshold on input mask values (default 0.5)')
-    parser.add_argument('--iterations', type=int, default=5,
-                        help='SAMRefiner iterative refinement passes')
+    parser.add_argument('--iterations', type=int, default=1,
+                        help='refinement passes (paper default: 1; the '
+                             'released code default is 5)')
+    parser.add_argument('--margin', type=float, default=0.1,
+                        help='box expansion ratio (paper: 0.1; code: 0.0)')
+    parser.add_argument('--gamma', type=float, default=4.0,
+                        help='Gaussian mask span (paper and code: 4.0)')
+    parser.add_argument('--strength', type=float, default=15.0,
+                        help='Gaussian mask amplitude (paper: 15; code: 30)')
     parser.add_argument('--overwrite', action='store_true',
                         help='Overwrite existing output masks')
     parser.add_argument('--limit', type=int, default=None,
@@ -131,6 +138,9 @@ def main() -> int:
         model_type=args.model_type,
         device=device,
         iterations=args.iterations,
+        margin=args.margin,
+        gamma=args.gamma,
+        strength=args.strength,
     )
     if source.is_dir():
         destination.mkdir(parents=True, exist_ok=True)

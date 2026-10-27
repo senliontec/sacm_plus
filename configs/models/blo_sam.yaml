@@ -18,13 +18,15 @@ eval_entrypoint: >-
   --device cuda:{gpu} --use_wandb true --skip-visualize
 protocols: [seeded5, fixed]
 defaults:
-  epochs: 800
+  epochs: 100
 note: >-
-  Self-contained BLO-SAM port (limited-data bilevel LoRA SAM). SAM ViT-B,
-  rank-4 LoRA, no-mask prompt embedding and mask decoder; 256 input,
-  binary background+foreground head, AdamW 5e-3/0.1 with prompt optimizer
-  5e-3/0.1 and OneCycle over the shared budget. Official trainer splits the
-  training set in half for bilevel levels; this port uses the previous
-  training batch as the meta-validation batch because the shared runtime
-  does not expose val to adapters. No official BLO-SAM weights; starts from
+  Self-contained BLO-SAM port (limited-data bilevel LoRA SAM). SAM ViT-B
+  with a frozen image encoder, rank-4 LoRA on the mask-decoder attention
+  (official sam_lora_mask_decoder), trainable no-mask prompt embedding and
+  mask decoder; 256 input, binary background+foreground head, AdamW
+  5e-3/0.1 with prompt optimizer 5e-3/0.1 and the effective per-step
+  polynomial LR. The 18 training images are split once into seeded disjoint
+  9/9 D1/D2 subsets, stratified across the six pooled domains; prompt
+  updates and checkpoint selection use D2, matching the official trainer.
+  Official 100-epoch budget. No official BLO-SAM weights; starts from
   sam_vit_b_01ec64.pth.
