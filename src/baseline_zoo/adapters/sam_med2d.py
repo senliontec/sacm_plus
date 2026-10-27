@@ -214,6 +214,10 @@ class SamMed2DAdapter(BaselineAdapter):
         return masks
 
     def train_epoch(self, model, loader, optimizer, scheduler, args):
+        if int(args.accum_steps) != 1 or float(args.grad_clip) != 0:
+            raise SystemExit(
+                'SAM-Med2D custom loop does not implement --accum-steps/'
+                '--grad-clip')
         model.train()
         criterion = FocalDiceloss_IoULoss()
         point_list = [int(x) for x in args.point_list.split(',') if x]

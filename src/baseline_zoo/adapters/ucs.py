@@ -249,6 +249,10 @@ class UCSAdapter(BaselineAdapter):
         return self._prepare_sample(samples[0], True, rng)
 
     def train_epoch(self, model, loader, optimizer, scheduler, args):
+        if int(args.accum_steps) != 1 or float(args.grad_clip) != 0:
+            raise SystemExit(
+                'UCS custom loop does not implement --accum-steps/'
+                '--grad-clip')
         utils = self._ucs_utils()
         criterion = utils.FocalDiceloss_IoULoss().to(self.device)
         model.train()

@@ -212,6 +212,21 @@ class KnowSAMAdapter(BaselineAdapter):
             raise SystemExit(
                 'KnowSAM does not support intra-run --resume; the custom '
                 'semi-supervised loop only writes the best SGDL checkpoint')
+        unsupported = []
+        if int(args.accum_steps) != 1:
+            unsupported.append('--accum-steps')
+        if float(args.grad_clip) != 0:
+            unsupported.append('--grad-clip')
+        if args.selection != self.selection:
+            unsupported.append('--selection (SGDL Dice is official)')
+        if int(getattr(args, 'num_workers', 0)) != 0:
+            unsupported.append('--num-workers (custom loader uses 0)')
+        if int(args.input_size) % 16:
+            unsupported.append('--input-size must be divisible by 16')
+        if unsupported:
+            raise SystemExit(
+                'KnowSAM custom pipeline does not implement: '
+                + ', '.join(unsupported))
         from baseline_zoo.runtime import seed_everything
         seed_everything(args.seed)
         workdir = Path(args.workdir)

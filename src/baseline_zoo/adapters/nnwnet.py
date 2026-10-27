@@ -222,6 +222,21 @@ class NNWNetAdapter(BaselineAdapter):
             raise SystemExit(
                 'nnWNet does not support intra-run --resume; nnU-Net '
                 'continue-training is not wired into this custom pipeline')
+        unsupported = []
+        if int(args.accum_steps) != 1:
+            unsupported.append('--accum-steps')
+        if float(args.grad_clip) != 0:
+            unsupported.append('--grad-clip')
+        if int(args.batch_size) != 1:
+            unsupported.append('--batch-size (planner-controlled)')
+        if args.selection != self.selection:
+            unsupported.append('--selection (EMA pseudo-Dice is fixed)')
+        if int(getattr(args, 'num_workers', 0)) != 0:
+            unsupported.append('--num-workers (nnU-Net loader-controlled)')
+        if unsupported:
+            raise SystemExit(
+                'nnWNet custom pipeline does not implement: '
+                + ', '.join(unsupported))
         from baseline_zoo.runtime import seed_everything
         seed_everything(args.seed)
         workdir = Path(args.workdir)

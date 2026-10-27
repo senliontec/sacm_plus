@@ -387,6 +387,10 @@ class FoBSAMAdapter(BaselineAdapter):
         return self._episode_loss(model, batch)
 
     def train_epoch(self, model, loader, optimizer, scheduler, args):
+        if int(args.accum_steps) != 1 or int(args.batch_size) != 1:
+            raise SystemExit(
+                'FoB custom episode loop requires batch-size=1 and '
+                'accum-steps=1')
         # Official training is iteration-based (39001 iterations with
         # 3000-iteration "epochs"), not one pass over the 18 images.
         model.train()
