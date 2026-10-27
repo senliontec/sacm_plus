@@ -53,6 +53,8 @@ maskvsc = [
 ]
 bcunet = ["timm"]
 cwsam = ["timm"]
+medcagd = ["timm"]
+sam_refiner = ["FastGeodis"]
 sam_med2d = ["albumentations==1.3.1"]
 sam_octa = ["albumentations==1.3.1", "safetensors"]
 knowsam = ["medpy==0.4.0", "hausdorff", "albumentations==1.3.1"]
@@ -105,6 +107,13 @@ extend-exclude = [
     "src/baseline_zoo/models/dscnet/losses.py",
     "src/baseline_zoo/models/persam/per_segment_anything",
     "src/baseline_zoo/models/matcher",
+    "src/baseline_zoo/models/medcagd/model.py",
+    "src/baseline_zoo/models/blo_sam/segment_anything",
+    "src/baseline_zoo/models/blo_sam/lora.py",
+    "src/baseline_zoo/models/blo_sam/prompt.py",
+    "src/core/postprocess/sam_refiner/sam_refiner.py",
+    "src/core/postprocess/sam_refiner/utils.py",
+    "src/core/postprocess/sam_refiner/segment_anything",
 ]
 
 [tool.ruff.lint]

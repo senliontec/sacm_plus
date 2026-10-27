@@ -49,6 +49,8 @@ INIT_STAGE2_FROM_STAGE1="${INIT_STAGE2_FROM_STAGE1:-false}"
 SCNP="${SCNP:-false}"
 SCNP_WINDOW="${SCNP_WINDOW:-3}"
 SCNP_ORIGINAL_WEIGHT="${SCNP_ORIGINAL_WEIGHT:-0.0}"
+DEEP_CLOSING_CKPT="${DEEP_CLOSING_CKPT:-}"
+DEEP_CLOSING_THRESHOLD="${DEEP_CLOSING_THRESHOLD:-}"
 SKIP_TEST="${SKIP_TEST:-false}"
 USE_WANDB="${USE_WANDB:-true}"
 WANDB_MODE="${WANDB_MODE:-online}"
@@ -77,6 +79,17 @@ esac
 TRAIN_EXTRA+=(--scnp "$SCNP" --scnp_window "$SCNP_WINDOW" \
               --scnp_original_weight "$SCNP_ORIGINAL_WEIGHT")
 
+if [ -n "$DEEP_CLOSING_CKPT" ]; then
+  if [ ! -f "$DEEP_CLOSING_CKPT" ]; then
+    echo "ERROR: missing Deep Closing checkpoint: $DEEP_CLOSING_CKPT" >&2
+    exit 2
+  fi
+  EVAL_EXTRA+=" --deep_closing_checkpoint $DEEP_CLOSING_CKPT"
+  if [ -n "$DEEP_CLOSING_THRESHOLD" ]; then
+    EVAL_EXTRA+=" --deep_closing_threshold $DEEP_CLOSING_THRESHOLD"
+  fi
+fi
+
 if [ "$INIT_STAGE2_FROM_STAGE1" = "true" ]; then
   TRAIN_EXTRA+=(--init_stage2_from_stage1 true)
 fi
@@ -97,7 +110,7 @@ SPECS="$("$PYTHON" scripts/pipeline/protocol_specs.py \
   --datasets "$DATASETS")"
 read -r -a spec_array <<< "$SPECS"
 
-echo "preset=$PRESET epochs=$EPOCHS gpu=$GPU monitor=$MONITOR init_stage2_from_stage1=$INIT_STAGE2_FROM_STAGE1 scnp=$SCNP($SCNP_WINDOW) skip_test=$SKIP_TEST"
+echo "preset=$PRESET epochs=$EPOCHS gpu=$GPU monitor=$MONITOR init_stage2_from_stage1=$INIT_STAGE2_FROM_STAGE1 scnp=$SCNP($SCNP_WINDOW) deep_closing=${DEEP_CLOSING_CKPT:-none} skip_test=$SKIP_TEST"
 echo "datasets=${#spec_array[@]}  output=$OUTPUT_ROOT"
 RUN_EXTRA=()
 if [ "$SKIP_TEST" = "true" ]; then

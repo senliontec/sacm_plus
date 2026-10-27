@@ -264,3 +264,37 @@ SAM ViT-H is present, while DINOv2 ViT-L/14 weights must be downloaded to
 code-smoke-only option).  Support DINOv2 features are cached after
 `set_reference` to avoid re-encoding the three supports for every target.
 No target GT or target prompts are used.
+
+## MedCAGD addendum (2026-10-27)
+
+`medcagd` is a non-SAM binary medical baseline (ICML 2026, MIT; vendored
+context-aware gated decoder, PVTv2-B2 timm encoder, deep supervision and
+edge BCE).  The upstream `cfgs`-driven constructor is parameterized; training
+uses 256 crops on the shared 18-image split.  Full-resolution inference tiles
+overlapping 256 patches (stride 128) and averages probabilities.  Documented
+deviations: Albumentations/CutMix replaced by seeded crops/flips/rot90,
+shared epoch budget with validation-Dice selection, no CuPy evaluator, and
+no official trained weights.  See
+`src/baseline_zoo/models/medcagd/UPSTREAM.md`.
+
+## BLO-SAM addendum (2026-10-27)
+
+`blo_sam` is a limited-data SAM baseline (SAM ViT-B, rank-4 LoRA on encoder
+and mask-decoder attention, trainable no-mask prompt embedding, binary
+background+foreground head).  The official bilevel update is preserved, but
+the meta-validation level uses the previous training batch because the
+shared runtime does not expose the val loader to adapters.  Documented
+deviations: shared 18-image split, flips/rot90, shared epoch budget/scheduler,
+and no official BLO-SAM weights.  The upstream README claims MIT but the
+checkout has no LICENSE file; verify before redistribution.  See
+`src/baseline_zoo/models/blo_sam/UPSTREAM.md`.
+
+## SAMRefiner addendum (2026-10-27)
+
+`sam_refiner` is a model-agnostic binary-mask post-processor (ICLR 2025,
+MIT), vendored with its modified SAM package and exposed through
+`scripts/tools/apply_sam_refiner.py`.  It is not a backbone baseline and is
+not part of the main table; compare it only as a post-processing ablation.
+FastGeodis is optional, with a SciPy distance-transform fallback; the
+upstream 2-D mask slicing bug is handled in the wrapper.  See
+`src/core/postprocess/sam_refiner/UPSTREAM.md`.

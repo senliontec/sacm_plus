@@ -6,6 +6,7 @@ import importlib
 
 _ADAPTERS = {
     'bcunet': ('baseline_zoo.adapters.bcunet', 'BCUNetAdapter'),
+    'blo_sam': ('baseline_zoo.adapters.blo_sam', 'BLOSAMAdapter'),
     'cs2net': ('baseline_zoo.adapters.cs2net', 'CS2NetAdapter'),
     'cwsam': ('baseline_zoo.adapters.cwsam', 'CWSAMAdapter'),
     'dscnet': ('baseline_zoo.adapters.dscnet', 'DSCNetAdapter'),
@@ -13,6 +14,7 @@ _ADAPTERS = {
     'knowsam': ('baseline_zoo.adapters.knowsam', 'KnowSAMAdapter'),
     'maskvsc': ('baseline_zoo.adapters.maskvsc', 'MaskVSCAdapter'),
     'matcher': ('baseline_zoo.adapters.matcher', 'MatcherAdapter'),
+    'medcagd': ('baseline_zoo.adapters.medcagd', 'MedCAGDAdapter'),
     'nnwnet': ('baseline_zoo.adapters.nnwnet', 'NNWNetAdapter'),
     'persam': ('baseline_zoo.adapters.persam', 'PerSAMAdapter'),
     'sam2_unet': ('baseline_zoo.adapters.sam2_unet', 'SAM2UNetAdapter'),

@@ -57,13 +57,17 @@ def select_mask(masks, iou_pred, selection):
 class Evaluator:
     """Unified evaluation engine (model-agnostic via ModelSpec)."""
 
-    def __init__(self, model, spec, device, criterion, args, metric_keys):
+    def __init__(self, model, spec, device, criterion, args, metric_keys,
+                 deep_closing=None):
         self.model = model
         self.spec = spec
         self.device = device
         self.criterion = criterion
         self.args = args
         self.metric_keys = metric_keys
+        # Optional Deep Closing refiner (post-processing only).  It never
+        # changes the model forward or the raw segmentation loss.
+        self.deep_closing = deep_closing
         self.sparse, self.dense = spec.prompt_builder(model, 1)
 
     def run(self, loader, output_dir):
@@ -84,6 +88,11 @@ class Evaluator:
                 'tta': self.args.tta,
                 'pred_threshold': self.args.pred_threshold,
                 'nsd_tolerance': self.args.nsd_tolerance,
+                'deep_closing': self.deep_closing is not None,
+                'deep_closing_checkpoint': getattr(
+                    self.args, 'deep_closing_checkpoint', None),
+                'deep_closing_threshold': getattr(
+                    self.args, 'deep_closing_threshold', None),
             },
         )
 
@@ -147,9 +156,29 @@ class Evaluator:
                 loss = self.criterion(low_res_masks, original_mask)
                 loss_values.append(loss.item())
 
+                # Deep Closing is a post-processing refiner: metrics and
+                # saved masks use the refined binary map, while the logged
+                # segmentation loss remains the raw model objective.
+                refined_mask = None
+                metric_logits = low_res_masks
+                if self.deep_closing is not None:
+                    raw_binary = (
+                        low_res_masks[0, 0] > self.args.pred_threshold
+                    ).detach().cpu().numpy()
+                    refined_mask = self.deep_closing.refine(
+                        raw_binary, threshold=0.5)
+                    refined_logits = (
+                        refined_mask.astype(np.float32) * 2.0 - 1.0) * 10.0
+                    metric_logits = torch.from_numpy(
+                        refined_logits).to(self.device)[None, None]
+
+                metric_threshold = (
+                    0.0 if refined_mask is not None
+                    else self.args.pred_threshold
+                )
                 m = compute_metrics(
-                    low_res_masks[0], original_mask[0],
-                    threshold=self.args.pred_threshold,
+                    metric_logits[0], original_mask[0],
+                    threshold=metric_threshold,
                     nsd_tolerance=self.args.nsd_tolerance,
                     compute_auc=self.args.auc,
                     compute_betti_matching=self.args.betti_matching,
@@ -166,9 +195,13 @@ class Evaluator:
 
                 # Save prediction visualization (non-fatal if matplotlib fails)
                 try:
-                    pred_mask = (
-                        low_res_masks[0, 0] > getattr(self.args, 'pred_threshold', 0.0)
-                    ).cpu().numpy().astype(np.uint8) * 255
+                    if refined_mask is not None:
+                        pred_mask = refined_mask.astype(np.uint8) * 255
+                    else:
+                        pred_mask = (
+                            low_res_masks[0, 0]
+                            > getattr(self.args, 'pred_threshold', 0.0)
+                        ).cpu().numpy().astype(np.uint8) * 255
 
                     width, height = original_size
                     width = width.item() if torch.is_tensor(width) else width
@@ -224,6 +257,9 @@ class Evaluator:
             f.write(f"Selection: {args.selection}\n")
             f.write(f"TTA: {args.tta}\n")
             f.write(f"No FOV: {getattr(args, 'no_fov', False)}\n")
+            f.write(
+                "Deep Closing: "
+                f"{getattr(args, 'deep_closing_checkpoint', None)}\n")
             for k, (mean, std) in summary.items():
                 f.write(f"Average {k.capitalize()}: {mean:.4f} ± {std:.4f}\n")
             f.write(f"Average Loss: {avg_loss:.4f}\n")

@@ -150,7 +150,25 @@ def evaluate(args):
         BETTI_MATCHING_KEYS if args.betti_matching else []) + (
         TOPOGRAPH_KEYS if args.topograph_metric else [])
 
-    evaluator = Evaluator(sam, spec, device, criterion, args, metric_keys)
+    deep_closing = None
+    if getattr(args, 'deep_closing_checkpoint', None):
+        from core.postprocess.deep_closing import DeepClosingRefiner
+        deep_closing = DeepClosingRefiner.from_checkpoint(
+            args.deep_closing_checkpoint,
+            device=device,
+            resolution=args.deep_closing_resolution,
+            dilation_threshold=args.deep_closing_threshold,
+            max_iters=args.deep_closing_max_iters,
+        )
+        logging.info(
+            "Deep Closing enabled: checkpoint=%s resolution=%d "
+            "dilation_threshold=%.3f max_iters=%s",
+            args.deep_closing_checkpoint, deep_closing.resolution,
+            deep_closing.dilation_threshold, deep_closing.max_iters)
+
+    evaluator = Evaluator(
+        sam, spec, device, criterion, args, metric_keys,
+        deep_closing=deep_closing)
     loader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=False, num_workers=4)
     summary, csv_rows, n_hd95_nan, avg_loss = evaluator.run(loader, args.output_dir)
 
@@ -201,6 +219,19 @@ if __name__ == '__main__':
     parser.add_argument('--nsd_tolerance', type=float, default=1.0,
                         help='Tolerance (pixels) for the surface Dice / NSD metric')
     parser.add_argument('--tta', action='store_true', help='Enable four-way flip test-time augmentation')
+    parser.add_argument(
+        '--deep_closing_checkpoint', type=str, default=None,
+        help='Optional Deep Closing shape-prior checkpoint; applies Deep '
+             'Dilation + Simple Component Erosion before metrics.')
+    parser.add_argument(
+        '--deep_closing_threshold', type=float, default=None,
+        help='Override Deep Dilation threshold (checkpoint default: 0.2)')
+    parser.add_argument(
+        '--deep_closing_resolution', type=int, default=None,
+        help='Override shape-prior working resolution (checkpoint default: 512)')
+    parser.add_argument(
+        '--deep_closing_max_iters', type=int, default=None,
+        help='Override Simple Point Erosion iteration cap')
     parser.add_argument('--auc', action='store_true',
                         help='Additionally compute dice_auc / cldice_auc (mean over a '
                              'probability-threshold sweep in [0.1, 0.9]); ~9x slower '

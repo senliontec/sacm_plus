@@ -1,0 +1,30 @@
+id: blo_sam
+display_name: BLO-SAM
+family: sam
+status: available
+checkpoint: "{output_root}/best_model.pth"
+train_entrypoint: >-
+  python -m baseline_zoo.run_one --model blo_sam --stage train
+  --data-root {split_root} --workdir {output_root}
+  --blo-sam-checkpoint checkpoints/sam_vit_b_01ec64.pth
+  --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
+eval_entrypoint: >-
+  python scripts/pipeline/run_baseline_test.py --method blo_sam
+  --protocol {test_manifest}
+  --seed {seed}
+  --checkpoint {output_root}/best_model.pth
+  --pred-root {output_root}/predictions
+  --paper-root {output_root}
+  --device cuda:{gpu} --use_wandb true --skip-visualize
+protocols: [seeded5, fixed]
+defaults:
+  epochs: 800
+note: >-
+  Self-contained BLO-SAM port (limited-data bilevel LoRA SAM). SAM ViT-B,
+  rank-4 LoRA, no-mask prompt embedding and mask decoder; 256 input,
+  binary background+foreground head, AdamW 5e-3/0.1 with prompt optimizer
+  5e-3/0.1 and OneCycle over the shared budget. Official trainer splits the
+  training set in half for bilevel levels; this port uses the previous
+  training batch as the meta-validation batch because the shared runtime
+  does not expose val to adapters. No official BLO-SAM weights; starts from
+  sam_vit_b_01ec64.pth.

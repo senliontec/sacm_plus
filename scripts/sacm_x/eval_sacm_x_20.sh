@@ -33,6 +33,8 @@ DATASETS="${DATASETS:-}"
 USE_WANDB="${USE_WANDB:-true}"
 WANDB_MODE="${WANDB_MODE:-online}"
 TRAIN_ROOT="${TRAIN_ROOT:-data/sacm_3shot}"
+DEEP_CLOSING_CKPT="${DEEP_CLOSING_CKPT:-}"
+DEEP_CLOSING_THRESHOLD="${DEEP_CLOSING_THRESHOLD:-}"
 SKIP_EVAL="${SKIP_EVAL:-false}"
 export WANDB_MODE
 source scripts/sacm_x/wandb_env.sh
@@ -69,12 +71,26 @@ read -r -a spec_array <<< "$SPECS"
 
 echo "checkpoint=$CKPT"
 echo "datasets=${#spec_array[@]}  output=$OUTPUT_ROOT"
+if [ -n "$DEEP_CLOSING_CKPT" ]; then
+  if [ ! -f "$DEEP_CLOSING_CKPT" ]; then
+    echo "ERROR: missing Deep Closing checkpoint: $DEEP_CLOSING_CKPT" >&2
+    exit 2
+  fi
+  echo "deep_closing=$DEEP_CLOSING_CKPT"
+fi
 
 if [ "$SKIP_EVAL" = "true" ] || [ "$SKIP_EVAL" = "1" ]; then
   echo "SKIP_EVAL=$SKIP_EVAL: using existing per-dataset results"
   rc=0
 else
   echo "no retraining; evaluating with --skip_train"
+  EXTRA_EVAL="--use_wandb $USE_WANDB --no-fov"
+  if [ -n "$DEEP_CLOSING_CKPT" ]; then
+    EXTRA_EVAL+=" --deep_closing_checkpoint $DEEP_CLOSING_CKPT"
+    if [ -n "$DEEP_CLOSING_THRESHOLD" ]; then
+      EXTRA_EVAL+=" --deep_closing_threshold $DEEP_CLOSING_THRESHOLD"
+    fi
+  fi
   "$PYTHON" scripts/sacm_x/run_experiments.py \
     --gpus "$GPU" \
     --checkpoint "$SAM_CKPT" \
@@ -83,7 +99,7 @@ else
     --presets "$PRESET" \
     --output_root "$OUTPUT_ROOT" \
     --skip_train \
-    --extra_eval_args "--use_wandb $USE_WANDB --no-fov"
+    --extra_eval_args "$EXTRA_EVAL"
   rc=$?
 fi
 
