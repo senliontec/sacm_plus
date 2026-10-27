@@ -176,16 +176,19 @@ upstream `fill`/`fill_mask`; the padding behaviour is identical.
 
 ## SAMed addendum (2026-10-25)
 
-`samed` was added as a prompt-free, oracle-free main-table baseline (vendored
-SAMed modified SAM + rank-4 LoRA; `tests/test_samed.py`).  It preserves the
-official class-token mask decoder, q/v LoRA placement, CE 0.2 + Dice 0.8
-loss on 128×128 low-res logits, and AdamW 5e-3/0.1 poly recipe.  The port
-uses a binary 2-class head (the official model is 8-class Synapse), direct
-512 input (instead of lossy 224→512 test resampling), a 5-epoch warmup and
-per-epoch poly decay, batch 4/160 epochs on the 18-image split, and the
-shared validation-Dice selection.  The released 8-class SAMed/SAMed_s/
-SAMed_h LoRA weights are absent and not shape-compatible; training starts
-from SAM ViT-B.  Predictions are exported at original GT resolution.
+`samed` is a prompt-free, oracle-free SAMed-inspired baseline (vendored
+SAMed modified SAM + rank-4 q/v LoRA; `tests/test_samed.py`).  It preserves
+the class-token mask decoder, q/v LoRA placement, frozen image encoder and
+trainable prompt/mask decoder.  The binary objective is adapted for the
+0.17%-8% curvilinear foreground: class-weighted CE (background 0.1,
+foreground 1.0) + foreground-only Dice on 128×128 logits, plus a 512
+full-resolution auxiliary CE+Dice term (0.5).  AdamW uses the batch-4
+default 1e-3 (paper 5e-3 was for batch 24), weight decay 0.1, gradient
+clipping 1.0, 50-epoch warmup and per-epoch poly decay, batch 4/800 epochs
+on the 18-image split, and shared validation-Dice selection.  The released
+8-class SAMed/SAMed_s/SAMed_h LoRA weights are absent and not
+shape-compatible; training starts from SAM ViT-B.  Evaluation uses argmax
+at 512 followed by nearest resize to the original GT resolution.
 
 ## JTFN addendum (2026-10-25)
 

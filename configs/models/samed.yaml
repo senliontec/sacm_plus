@@ -7,6 +7,8 @@ train_entrypoint: >-
   python -m baseline_zoo.run_one --model samed --stage train
   --data-root {split_root} --workdir {output_root}
   --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
+  --grad-clip 1.0 --samed-bg-weight 0.1 --samed-fg-weight 1.0
+  --samed-aux-weight 0.5
 eval_entrypoint: >-
   python scripts/pipeline/run_baseline_test.py --method samed
   --protocol {test_manifest}
@@ -19,10 +21,13 @@ protocols: [seeded5, fixed]
 defaults:
   epochs: 800
 note: >-
-  Self-contained SAMed port (MICCAI 2023), prompt-free and oracle-free.
-  SAM ViT-B with rank-4 q/v LoRA, trainable prompt encoder and class-wise
-  mask decoder; binary head; 512 input; CE 0.2 + Dice 0.8 on 128x128
-  low-res logits; AdamW 5e-3/0.1 with poly decay. Official Synapse recipe
-  adapted to the shared 18-image 3-shot split (batch 4, full 800 epochs).
-  Requires checkpoints/sam_vit_b_01ec64.pth; released 8-class SAMed LoRA
-  weights are not used.
+  SAMed-inspired prompt-free baseline (MICCAI 2023). SAM ViT-B with rank-4
+  q/v LoRA, trainable prompt encoder and mask decoder; 512 input. The
+  binary objective is adapted to the curvilinear foreground: class-weighted
+  CE (background 0.1/foreground 1.0) + foreground-only Dice on 128x128
+  logits, plus a 512 full-resolution auxiliary CE+Dice term (weight 0.5).
+  AdamW 1e-3/0.1 (paper 5e-3 was for batch 24), gradient clipping 1.0,
+  poly decay, batch 4, full 800-epoch project budget. Official Synapse
+  recipe adapted to the shared 18-image 3-shot split; released 8-class
+  SAMed LoRA weights are not used. Requires
+  checkpoints/sam_vit_b_01ec64.pth.

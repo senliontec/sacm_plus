@@ -6,6 +6,35 @@ import torch
 from torch import nn
 
 
+class ForegroundDiceLoss(nn.Module):
+    """Soft Dice loss on the foreground channel only.
+
+    SAMed's official class-wise Dice includes the background class.  For a
+    binary curvilinear task with a very small foreground (0.17%-8% of the
+    image), averaging background and foreground equally makes an
+    all-background prediction too cheap.  This loss keeps the semantic
+    foreground objective but removes that background shortcut.
+    """
+
+    def __init__(self, smooth: float = 1e-5):
+        super().__init__()
+        self.smooth = float(smooth)
+
+    def forward(self, logits, target, softmax=True):
+        if softmax:
+            prob = torch.softmax(logits, dim=1)[:, 1]
+        else:
+            prob = logits[:, 1]
+        target = target.float()
+        prob = prob.flatten(1)
+        target = target.flatten(1)
+        intersection = (prob * target).sum(dim=1)
+        denominator = prob.square().sum(dim=1) + target.square().sum(dim=1)
+        dice = ((2 * intersection + self.smooth)
+                / (denominator + self.smooth))
+        return (1 - dice).mean()
+
+
 class DiceLoss(nn.Module):
     """Class-wise soft Dice loss on logits/softmax probabilities."""
 

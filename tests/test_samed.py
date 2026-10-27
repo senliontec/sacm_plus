@@ -11,7 +11,11 @@ from torch import nn
 from baseline_zoo.adapters.registry import available_adapters, load_adapter
 from baseline_zoo.adapters.samed import SAMedAdapter
 from baseline_zoo.data import Sample
-from baseline_zoo.models.samed import DiceLoss, SAMedNet
+from baseline_zoo.models.samed import (
+    DiceLoss,
+    ForegroundDiceLoss,
+    SAMedNet,
+)
 from baseline_zoo.models.samed.segment_anything.modeling import (
     ImageEncoderViT,
     MaskDecoder,
@@ -60,6 +64,8 @@ def test_registry_and_metadata():
     assert adapter.id == 'samed'
     assert adapter.input_size == 512
     assert adapter.train_batch_size == 4
+    assert adapter.paper_lr == 5e-3
+    assert adapter.official_lr == 1e-3
     assert 'fully supervised' in adapter.deviations[0]
 
 
@@ -87,6 +93,59 @@ def test_tiny_forward_loss_and_policy():
     assert model.lora_sam.sam.image_encoder.blocks[0].attn.qkv.linear_a_q.weight.grad is not None
 
 
+def test_foreground_dice_penalizes_all_background():
+    loss_fn = ForegroundDiceLoss()
+    target = torch.zeros(1, 16, 16, dtype=torch.long)
+    target[:, :8] = 1
+    background_logits = torch.stack([
+        torch.full_like(target, 10.0),
+        torch.full_like(target, -10.0),
+    ], dim=1).float()
+    perfect_logits = torch.stack([
+        torch.where(target == 1, -10.0, 10.0),
+        torch.where(target == 1, 10.0, -10.0),
+    ], dim=1).float()
+    assert loss_fn(background_logits, target) > 0.9
+    assert loss_fn(perfect_logits, target) < 0.01
+
+
+def test_train_step_weighted_aux_loss_and_backward():
+    adapter = SAMedAdapter()
+    adapter.input_size = 64
+    adapter.device = torch.device('cpu')
+    adapter.args = SimpleNamespace(
+        samed_bg_weight=0.1, samed_fg_weight=1.0,
+        samed_aux_weight=0.5)
+    model = _tiny_model()
+    adapter.configure_trainable(model)
+    images = torch.randn(1, 3, 64, 64)
+    targets = torch.zeros(1, 64, 64, dtype=torch.long)
+    targets[:, :32] = 1
+    low_res = torch.zeros(1, 16, 16, dtype=torch.long)
+    low_res[:, :8] = 1
+    loss = adapter.train_step(model, (images, targets, low_res))
+    assert torch.isfinite(loss)
+    loss.backward()
+    assert (model.lora_sam.sam.image_encoder.blocks[0].attn.qkv
+            .linear_a_q.weight.grad is not None)
+    assert (model.lora_sam.sam.mask_decoder.mask_tokens.weight.grad
+            is not None)
+
+
+def test_predict_sample_uses_argmax_and_nearest(tmp_path):
+    adapter = SAMedAdapter()
+    adapter.input_size = 64
+    adapter.device = torch.device('cpu')
+    sample = _sample(tmp_path)
+    prepared = adapter.prepare_eval_sample(
+        sample, torch.device('cpu'))
+    model = _tiny_model()
+    model.eval()
+    pred = adapter.predict_sample(model, prepared, sample)
+    assert pred.shape == (24, 32)
+    assert pred.dtype == bool
+
+
 def test_preprocess_shapes(tmp_path):
     adapter = SAMedAdapter()
     adapter.input_size = 512
@@ -108,11 +167,14 @@ def test_config_roundtrip(tmp_path):
     adapter._sam_sha = 'abc'
     args = SimpleNamespace(
         sam_checkpoint=tmp_path / 'missing.pth', sam_type='vit_b',
-        lora_rank=4)
+        lora_rank=4, samed_bg_weight=0.1, samed_fg_weight=1.0,
+        samed_aux_weight=0.5)
     config = adapter.save_config(args)
     assert config['input_size'] == 512
     assert config['sam_checkpoint_sha256'] == 'abc'
     assert config['num_classes'] == 1
+    assert config['samed_bg_weight'] == 0.1
+    assert config['samed_aux_weight'] == 0.5
 
     restore = SimpleNamespace(sam_checkpoint=None, input_size=0,
                               lora_rank=0)
@@ -120,6 +182,8 @@ def test_config_roundtrip(tmp_path):
     assert restore.input_size == 512
     assert restore.lora_rank == 4
     assert restore.sam_type == 'vit_b'
+    assert restore.samed_bg_weight == 0.1
+    assert restore.samed_aux_weight == 0.5
 
 
 def test_low_res_tracks_input_size(tmp_path):

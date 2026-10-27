@@ -32,12 +32,14 @@ models:
   persam:
     tunable: false
 
-  # SAMed's official 5e-3 recipe is sensitive to an over-high peak LR.
+  # SAMed's paper LR 5e-3 is for batch 24; the adapted batch-4 default is
+  # 1e-3.  Search below the paper value as well: collapse at the warmup peak
+  # was observed at the unscaled 5e-3.
   samed:
     lr:
       type: loguniform
-      low_factor: 0.2
-      high_factor: 2.0
+      low: 0.0001
+      high: 0.005
 
   # DSCNet's empty-prediction failure is sensitive to the added Dice term.
   dscnet:

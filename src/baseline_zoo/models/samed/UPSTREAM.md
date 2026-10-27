@@ -39,9 +39,10 @@ the builders and `Sam` export.
 - The Lightning/Synapse training loop, H5/NPZ dataset class, per-class
   metrics and volume test helper are replaced by the shared baseline
   adapter/runtime.  The model graph, binary class-token decoder, LoRA
-  placement and loss are preserved.
+  placement and prompt-free decoder are preserved; the loss is adapted for
+  the tiny curvilinear foreground (see below).
 
-## Official recipe preserved by the adapter
+## Official recipe elements preserved by the adapter
 
 - Base SAM ViT-B, image size 512, binary head: the mask decoder has
   background + foreground tokens (SAMed's `num_classes=1`), no prompt is
@@ -50,37 +51,49 @@ the builders and `Sam` export.
 - LoRA rank 4 on the q and v projections of every image-encoder block; the
   image encoder is frozen.  The prompt encoder and mask decoder are
   trainable.
-- Input preprocessing: RGB [0,1], direct resize to 512 (the official test
-  path's lossy 224→512 resampling is not used), SAM pixel mean 0 / std 1,
-  bottom/right padding to square.
-- Loss: `0.2 * CrossEntropy(low_res_logits) + 0.8 * DiceLoss(2)` on the
-  128×128 low-resolution logits.
-- Optimizer: AdamW, lr 5e-3, weight decay 0.1.  The official polynomial
-  decay `(1 - iter/max_iter)^0.9` is applied per epoch with a short warmup.
+- Input preprocessing: RGB [0,1], direct resize to 512, SAM pixel mean 0 /
+  std 1, bottom/right padding to square.  The official 2D test branch also
+  resizes directly to 512; its 224→512 resampling belongs to the 3D volume
+  path.
+- Loss: SAMed's class-wise CE+Dice idea is retained, but adapted to the
+  binary curvilinear task: class-weighted CE (background 0.1, foreground
+  1.0) plus foreground-only Dice on the 128×128 low-resolution logits, and
+  an auxiliary full-resolution (512) CE+Dice term with weight 0.5.  The
+  official equal-weight 2-class CE+Dice is not used for the adapted
+  baseline.
+- Optimizer: AdamW, weight decay 0.1; paper lr 5e-3 was tuned for batch 24,
+  so the batch-4 default is 1e-3.  The official polynomial decay
+  `(1 - epoch/total)^0.9` is applied per epoch with the 250-iteration
+  warmup converted to 50 epochs at batch 4.  Gradient clipping 1.0 is added
+  for stability.
 - Augmentation: official random 90° rotations + axis flips, and ±20°
   in-plane rotation; grayscale is replicated to three channels.
-- Inference: softmax over the two decoder channels, foreground probability
-  > 0.5, upsampled to the original GT resolution.
+- Inference: argmax over the two decoder logits at 512, followed by
+  nearest-neighbour resize to the original GT resolution (official 2D
+  evaluator semantics).
 
 ## Deviations in this port
 
 - SAMed's official training is per-dataset full supervision (Synapse: 2211
   slices, batch 24, 200 epochs with a stop at epoch 159).  The 3-shot
   protocol has 18 training images across six seen domains, so this port uses
-  batch 4, 160 epochs and the shared 6-image validation Dice for checkpoint
-  selection.  The official lr 5e-3 / wd 0.1 are kept; linear LR scaling for
-  the smaller batch is left to the user.
-- The official 250-iteration warmup is replaced by a 5-epoch warmup because
-  an 18-image epoch has only a few iterations.
+  batch 4, 800 epochs and the shared 6-image validation Dice for checkpoint
+  selection.  The paper lr 5e-3 is kept as `paper_lr`; the adapted batch-4
+  default is 1e-3.
+- The official 250-iteration warmup is preserved in iteration units; with
+  the 18-image loader and batch 4 it spans about 50 epochs.
+- The binary objective is adapted to the curvilinear foreground because the
+  official equal-weight background/foreground CE+Dice collapses to an
+  all-background solution at 0.17%-8% foreground.  Foreground-only Dice,
+  class-weighted CE and 512-resolution auxiliary supervision are the
+  task-specific adaptations; they are not claimed as SAMed's Synapse
+  recipe.
 - The official root SAMed has no mixed precision; this port is also fp32.
 - The released SAMed/SAMed_s/SAMed_h LoRA checkpoints are 8-class and are
   not present in the repository; they are not shape-compatible with the
   binary head.  Training starts from the official SAM ViT-B checkpoint.
-- The binary head is a protocol adaptation; the official Synapse result is
-  8-class.  The released per-class evaluation, HD95 and volume inference are
-  replaced by the shared image-level Dice/IoU/clDice/HD95 metrics.
 - The official CT intensity window is not used; project images are loaded as
   RGB/grayscale and resized directly.  Grayscale is replicated to RGB.
-- Predictions are exported at original GT resolution rather than the
-  official 512 argmax + zoom.
+- Predictions use argmax + nearest resize, not the official 8-class
+  per-volume evaluation; the shared Dice/IoU/clDice/HD95 metrics are used.
 - No test-time augmentation.

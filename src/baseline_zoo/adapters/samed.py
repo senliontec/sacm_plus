@@ -20,7 +20,7 @@ from scipy.ndimage import rotate as nd_rotate
 from torch import nn
 
 from baseline_zoo.data import load_mask, load_rgb, load_split_samples
-from baseline_zoo.models.samed import DiceLoss, build_samed
+from baseline_zoo.models.samed import ForegroundDiceLoss, build_samed
 from baseline_zoo.runtime import REPO_ROOT, BaselineAdapter, file_sha256
 
 
@@ -30,7 +30,11 @@ class SAMedAdapter(BaselineAdapter):
     official_source = 'hitachinsk/SAMed (self-contained copy)'
     official_entrypoint = 'https://github.com/hitachinsk/SAMed'
     input_size = 512
-    official_lr = 5e-3
+    # The paper's 5e-3 is for an effective batch of 24 (2 x 12 GPUs).
+    # The project runs one GPU at batch 4, so the default is the linearly
+    # scaled 1e-3; ``paper_lr`` keeps the upstream value for provenance.
+    paper_lr = 5e-3
+    official_lr = 1e-3
     official_weight_decay = 0.1
     train_batch_size = 4
     selection = 'dice'
@@ -40,14 +44,22 @@ class SAMedAdapter(BaselineAdapter):
         'train split and evaluates it on all 20 datasets.',
         'Official Synapse training uses batch 24 and 200 epochs (stop at '
         '159); the 3-shot split has 18 images, so this port uses batch 4 and '
-        'the full 800-epoch project budget. The official lr 5e-3 / wd 0.1 are kept; '
-        'users can override --lr for linear scaling.',
+        'the full 800-epoch project budget. The paper lr 5e-3 was tuned for '
+        'batch 24; the port default is 1e-3 (~linear scaling to batch 4), '
+        'weight decay 0.1 is retained, and HPO searches 1e-4-5e-3.',
         'The official 8-class head is replaced by a binary head '
         '(background + foreground); the released 8-class SAMed LoRA '
         'checkpoints are absent and not shape-compatible.',
-        'Direct 512x512 resize is used instead of the official test path\'s '
-        'lossy 224->512 resampling; low-resolution supervision is '
-        'input_size/4 as in SAMed (128 at the default 512).',
+        'The binary objective is adapted to the tiny curvilinear foreground: '
+        'class-weighted CE (background 0.1, foreground 1.0) plus '
+        'foreground-only Dice on the 128x128 low-res logits, and an auxiliary '
+        'full-resolution CE+Dice term (weight 0.5). The official equal-weight '
+        'class-wise CE/Dice is kept only as the SAMed reference recipe.',
+        'Official training uses 224x224 training data upsampled to 512; '
+        'this port resizes native 2D images directly to 512. The official '
+        '2D test branch is also direct 512; the 224->512 resampling belongs '
+        'to the 3D volume path. Gradient clipping 1.0 is added for stability '
+        'at batch 4.',
         'The official CT intensity window is not applicable to the natural '
         'and medical RGB/grayscale protocol images; grayscale is replicated '
         'to RGB and pixels are scaled to [0,1] with SAM pixel_mean=0 / '
@@ -64,15 +76,17 @@ class SAMedAdapter(BaselineAdapter):
         '(250 / ceil(18 / 4)). The polynomial decay is stepped per epoch; '
         'the poly horizon follows the configured epochs (800 for the shared '
         'project budget), so the final epoch is not assigned lr=0.',
-        'Predictions are exported at original GT resolution; the official '
-        'evaluator argmaxes at 512 and zooms to the native slice size.',
+        'Predictions use argmax of the two-class logits at 512 followed by '
+        'nearest-neighbour resize to the original GT resolution, matching '
+        'the official 2D evaluator. The official 3D volume path resamples '
+        '224->512; that path is not used by this 2D protocol.',
         'No mixed precision and no test-time augmentation.',
     )
 
     def __init__(self):
         super().__init__()
         self._sam_sha: str | None = None
-        self._dice = DiceLoss(2)
+        self._fg_dice = ForegroundDiceLoss()
 
     def add_args(self, parser):
         parser.add_argument(
@@ -81,6 +95,16 @@ class SAMedAdapter(BaselineAdapter):
         parser.add_argument('--sam-type', default='vit_b')
         parser.add_argument('--input-size', type=int, default=512)
         parser.add_argument('--lora-rank', type=int, default=4)
+        parser.add_argument(
+            '--samed-bg-weight', type=float, default=0.1,
+            help='CE weight for the background class (foreground is 1.0)')
+        parser.add_argument(
+            '--samed-fg-weight', type=float, default=1.0,
+            help='CE weight for the foreground class')
+        parser.add_argument(
+            '--samed-aux-weight', type=float, default=0.5,
+            help='weight of the full-resolution auxiliary CE+Dice term; '
+                 '0 disables it')
 
     def build_model(self, args) -> nn.Module:
         self.input_size = int(args.input_size)
@@ -196,12 +220,29 @@ class SAMedAdapter(BaselineAdapter):
                 torch.stack(masks).to(self.device),
                 torch.stack(low_res).to(self.device))
 
+    def _loss_weights(self, logits):
+        args = getattr(self, 'args', None)
+        bg = float(getattr(args, 'samed_bg_weight', 0.1))
+        fg = float(getattr(args, 'samed_fg_weight', 1.0))
+        return torch.tensor([bg, fg], dtype=logits.dtype,
+                            device=logits.device)
+
     def train_step(self, model, batch):
-        images, _, low_res = batch
-        low_logits, _ = model(images)
-        ce = F.cross_entropy(low_logits, low_res)
-        dice = self._dice(low_logits, low_res, softmax=True)
-        return 0.2 * ce + 0.8 * dice
+        images, targets, low_res = batch
+        low_logits, full_logits = model(images)
+        weights = self._loss_weights(low_logits)
+        ce = F.cross_entropy(low_logits, low_res, weight=weights)
+        dice = self._fg_dice(low_logits, low_res, softmax=True)
+        loss = 0.2 * ce + 0.8 * dice
+        args = getattr(self, 'args', None)
+        aux_weight = float(getattr(args, 'samed_aux_weight', 0.5))
+        if aux_weight > 0:
+            aux_ce = F.cross_entropy(
+                full_logits, targets, weight=weights)
+            aux_dice = self._fg_dice(
+                full_logits, targets, softmax=True)
+            loss = loss + aux_weight * (0.2 * aux_ce + 0.8 * aux_dice)
+        return loss
 
     def prepare_eval_sample(self, sample, device):
         image, _, _ = self._preprocess(
@@ -209,14 +250,13 @@ class SAMedAdapter(BaselineAdapter):
         return image.unsqueeze(0).to(device)
 
     def predict_sample(self, model, prepared, sample):
-        _, masks = model(prepared)
-        prob = torch.softmax(masks, dim=1)[0, 1]
+        _, full_logits = model(prepared)
+        pred = torch.argmax(full_logits, dim=1)[0].float()
         with Image.open(sample.mask_path) as mask:
             width, height = mask.size
-        prob = F.interpolate(
-            prob[None, None], size=(height, width), mode='bilinear',
-            align_corners=False)[0, 0]
-        return prob.cpu().numpy() > 0.5
+        pred = F.interpolate(
+            pred[None, None], size=(height, width), mode='nearest')[0, 0]
+        return pred.cpu().numpy() > 0.5
 
     def save_config(self, args):
         checkpoint = getattr(args, 'sam_checkpoint', None)
@@ -227,12 +267,22 @@ class SAMedAdapter(BaselineAdapter):
             'num_classes': 1,
             'sam_checkpoint': str(checkpoint) if checkpoint else None,
             'sam_checkpoint_sha256': self._sam_sha,
+            'samed_bg_weight': float(
+                getattr(args, 'samed_bg_weight', 0.1)),
+            'samed_fg_weight': float(
+                getattr(args, 'samed_fg_weight', 1.0)),
+            'samed_aux_weight': float(
+                getattr(args, 'samed_aux_weight', 0.5)),
         }
 
     def restore_config(self, args, config):
         for key in ('input_size', 'lora_rank'):
             if key in config:
                 setattr(args, key, config[key])
+        for key in ('samed_bg_weight', 'samed_fg_weight',
+                    'samed_aux_weight'):
+            if key in config:
+                setattr(args, key, float(config[key]))
         if 'sam_type' in config:
             args.sam_type = config['sam_type']
         self.input_size = int(getattr(args, 'input_size', 512))
