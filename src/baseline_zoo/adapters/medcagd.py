@@ -31,6 +31,26 @@ from baseline_zoo.models.medcagd.losses import MedCAGDLoss
 from baseline_zoo.runtime import REPO_ROOT, BaselineAdapter
 
 
+def resolve_medcagd_encoder_weights(requested: str | Path) -> Path:
+    """Resolve an explicit path or a descriptively named local file.
+
+    The canonical name is ``checkpoints/pvt_v2_b2.in1k.safetensors``.
+    ``.pth``/``.bin``/``.pt`` variants with the same stem are accepted.
+    A generic ``model.safetensors`` is deliberately not accepted, so the
+    checkpoint cannot be confused with another backbone.
+    """
+    requested = Path(requested)
+    if requested.is_file():
+        return requested
+    checkpoint_dir = REPO_ROOT / 'checkpoints'
+    for name in ('pvt_v2_b2.in1k.safetensors', 'pvt_v2_b2.in1k.pth',
+                 'pvt_v2_b2.in1k.bin', 'pvt_v2_b2.in1k.pt'):
+        candidate = checkpoint_dir / name
+        if candidate.is_file():
+            return candidate
+    return requested
+
+
 class MedCAGDAdapter(BaselineAdapter):
     # The paper uses 224x224 full images for its large-object benchmarks and
     # 256/128 overlapping patches for DRIVE and FIVES.  Every dataset in this
@@ -90,6 +110,7 @@ class MedCAGDAdapter(BaselineAdapter):
     def __init__(self):
         super().__init__()
         self._criterion = MedCAGDLoss()
+        self._encoder_weights: Path | None = None
         self._full_size = 224
         self._input_policy = 'patches'
         self._eval_stride = 128
@@ -151,19 +172,26 @@ class MedCAGDAdapter(BaselineAdapter):
         training = getattr(args, 'stage', 'train') in ('train', 'all')
         load_pretrained = (
             bool(int(getattr(args, 'medcagd_pretrained', 1))) and training)
-        weights = Path(getattr(
+        requested_weights = Path(getattr(
             args, 'medcagd_encoder_weights',
             REPO_ROOT / 'checkpoints' / 'pvt_v2_b2.in1k.safetensors'))
+        weights = (resolve_medcagd_encoder_weights(requested_weights)
+                   if load_pretrained else requested_weights)
+        self._encoder_weights = weights
+        if load_pretrained and weights != requested_weights:
+            print(f'MedCAGD: resolved encoder weights to {weights}')
         if load_pretrained and not weights.is_file():
             raise SystemExit(
                 f'missing MedCAGD encoder weights: {weights}\n'
                 'Download once on a networked machine:\n'
                 '  https://huggingface.co/timm/pvt_v2_b2.in1k/resolve/'
                 'main/model.safetensors\n'
-                f'  -> {weights}\n'
-                'or pass --medcagd-encoder-weights /path/to/model'
-                '.safetensors\n'
-                '(.pth/.bin state dicts are also accepted). '
+                'and rename it to:\n'
+                f'  {weights}\n'
+                'Accepted names: checkpoints/pvt_v2_b2.in1k.safetensors, '
+                'pvt_v2_b2.in1k.pth, pvt_v2_b2.in1k.bin or '
+                'pvt_v2_b2.in1k.pt; or pass '
+                '--medcagd-encoder-weights /path/to/file.\n'
                 'No network access is attempted at runtime.')
         return build_medcagd(
             encoder_name=str(getattr(args, 'medcagd_encoder', 'pvt_v2_b2')),
@@ -368,8 +396,9 @@ class MedCAGDAdapter(BaselineAdapter):
             'input_policy': str(
                 getattr(args, 'medcagd_input_policy', 'patches')),
             'encoder': str(getattr(args, 'medcagd_encoder', 'pvt_v2_b2')),
-            'encoder_weights': str(getattr(
-                args, 'medcagd_encoder_weights', '')),
+            'encoder_weights': str(
+                self._encoder_weights
+                or getattr(args, 'medcagd_encoder_weights', '')),
             'num_classes': 1,
             'eval_stride': int(getattr(args, 'medcagd_eval_stride', 128)),
             'eval_batch': int(getattr(args, 'medcagd_eval_batch', 8)),

@@ -59,7 +59,9 @@
    contact Hugging Face; this port builds with `pretrained=False` and never
    accesses the network. Download `model.safetensors` (101 MB) from
    `https://huggingface.co/timm/pvt_v2_b2.in1k` on a networked machine and
-   place it at that path. The loader converts timm's classification keys
+   rename it to `checkpoints/pvt_v2_b2.in1k.safetensors` (the descriptive
+   name avoids confusion with other backbones). The loader converts timm's
+   classification keys
    (`stages.0.*`, `head.*`) to the features-only wrapper keys
    (`stages_0.*`). Prediction builds the same architecture and loads the
    zoo checkpoint.

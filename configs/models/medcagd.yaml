@@ -38,4 +38,4 @@ note: >-
   local timm `pvt_v2_b2.in1k` weights at
   checkpoints/pvt_v2_b2.in1k.safetensors (download the 101 MB
   model.safetensors from https://huggingface.co/timm/pvt_v2_b2.in1k on a
-  networked machine; runtime never accesses the network).
+  networked machine and rename it; runtime never accesses the network).

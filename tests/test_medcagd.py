@@ -7,7 +7,10 @@ import pytest
 import torch
 from PIL import Image
 
-from baseline_zoo.adapters.medcagd import MedCAGDAdapter
+from baseline_zoo.adapters.medcagd import (
+    MedCAGDAdapter,
+    resolve_medcagd_encoder_weights,
+)
 from baseline_zoo.adapters.registry import available_adapters, load_adapter
 from baseline_zoo.data import Sample
 from baseline_zoo.models.medcagd.losses import (
@@ -104,7 +107,9 @@ def test_local_encoder_state_formats(tmp_path):
     assert set(loaded) == expected
 
 
-def test_missing_encoder_weights_fails_before_network(tmp_path):
+def test_missing_encoder_weights_fails_before_network(tmp_path, monkeypatch):
+    import baseline_zoo.adapters.medcagd as medcagd_module
+    monkeypatch.setattr(medcagd_module, 'REPO_ROOT', tmp_path)
     adapter = MedCAGDAdapter()
     missing = tmp_path / 'missing.safetensors'
     args = SimpleNamespace(
@@ -124,6 +129,17 @@ def test_missing_encoder_weights_fails_before_network(tmp_path):
         assert 'No network access' in message
     else:
         raise AssertionError('expected SystemExit for missing weights')
+
+
+def test_encoder_weight_named_fallback(tmp_path, monkeypatch):
+    import baseline_zoo.adapters.medcagd as medcagd_module
+    checkpoint_dir = tmp_path / 'checkpoints'
+    checkpoint_dir.mkdir()
+    fallback = checkpoint_dir / 'pvt_v2_b2.in1k.pth'
+    fallback.write_bytes(b'placeholder')
+    monkeypatch.setattr(medcagd_module, 'REPO_ROOT', tmp_path)
+    requested = tmp_path / 'missing.safetensors'
+    assert resolve_medcagd_encoder_weights(requested) == fallback
 
 
 def test_config_roundtrip():
