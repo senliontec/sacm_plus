@@ -14,6 +14,7 @@ from baseline_zoo.models.medcagd.losses import (
     MedCAGDLoss,
     generate_edge_targets,
 )
+from baseline_zoo.models.medcagd.model import load_encoder_state
 
 
 def _sample(tmp_path, dataset='TEST'):
@@ -80,6 +81,51 @@ def test_train_batch_and_tiling(tmp_path):
     assert adapter._tile_positions(41, 16, 8) == [0, 8, 16, 24, 25]
 
 
+def test_local_encoder_state_formats(tmp_path):
+    import safetensors.torch as st
+    state = {'patch_embed.proj.weight': torch.ones(2, 2),
+             'stages.0.blocks.0.norm1.weight': torch.ones(2),
+             'head.weight': torch.zeros(1)}
+    safe_path = tmp_path / 'weights.safetensors'
+    st.save_file(state, str(safe_path))
+    expected = {'patch_embed.proj.weight',
+                'stages_0.blocks.0.norm1.weight',
+                'head.weight'}
+    loaded = load_encoder_state(safe_path)
+    assert set(loaded) == expected
+    torch_path = tmp_path / 'weights.pth'
+    torch.save({'state_dict': state}, torch_path)
+    loaded = load_encoder_state(torch_path)
+    assert set(loaded) == expected
+    prefixed_path = tmp_path / 'prefixed.pth'
+    torch.save({f'module.{key}': value for key, value in state.items()},
+               prefixed_path)
+    loaded = load_encoder_state(prefixed_path)
+    assert set(loaded) == expected
+
+
+def test_missing_encoder_weights_fails_before_network(tmp_path):
+    adapter = MedCAGDAdapter()
+    missing = tmp_path / 'missing.safetensors'
+    args = SimpleNamespace(
+        stage='train', input_size=256, medcagd_pretrained=1,
+        medcagd_encoder_weights=missing,
+        medcagd_input_policy='patches', medcagd_full_size=224,
+        medcagd_eval_stride=128, medcagd_eval_batch=8,
+        medcagd_threshold=0.5, medcagd_edge_weight=1.0,
+        medcagd_encoder='pvt_v2_b2', medcagd_use_stage0=0,
+    )
+    try:
+        adapter.build_model(args)
+    except SystemExit as error:
+        message = str(error)
+        assert 'missing MedCAGD encoder weights' in message
+        assert 'huggingface.co/timm/pvt_v2_b2.in1k' in message
+        assert 'No network access' in message
+    else:
+        raise AssertionError('expected SystemExit for missing weights')
+
+
 def test_config_roundtrip():
     adapter = MedCAGDAdapter()
     args = SimpleNamespace(
@@ -87,6 +133,7 @@ def test_config_roundtrip():
         medcagd_full_size=224,
         medcagd_input_policy='patches',
         medcagd_encoder='pvt_v2_b2',
+        medcagd_encoder_weights='checkpoints/pvt_v2_b2.in1k.safetensors',
         medcagd_eval_stride=128,
         medcagd_eval_batch=8,
         medcagd_threshold=0.5,
@@ -103,6 +150,8 @@ def test_config_roundtrip():
     assert target.medcagd_full_size == 224
     assert target.medcagd_input_policy == 'patches'
     assert target.medcagd_encoder == 'pvt_v2_b2'
+    assert str(target.medcagd_encoder_weights) == (
+        'checkpoints/pvt_v2_b2.in1k.safetensors')
     assert target.medcagd_eval_stride == 128
     assert target.medcagd_threshold == 0.5
     assert target.medcagd_use_stage0 == 0
@@ -156,6 +205,25 @@ def test_predict_full_image_and_patch_branch(tmp_path):
             assert pred.shape == (32, 40)  # original mask size
             assert pred.dtype == bool
             assert pred.all()
+
+
+@pytest.mark.slow
+def test_local_imagenet_encoder_load(tmp_path):
+    pytest.importorskip('timm')
+    import safetensors.torch as st
+    from timm import create_model
+
+    from baseline_zoo.models.medcagd import build_medcagd
+
+    # Hugging Face publishes the classification state dict (stages.0.*
+    # plus head.*), not the features-only wrapper state dict.
+    source = create_model('pvt_v2_b2', pretrained=False)
+    path = tmp_path / 'pvt_v2_b2.in1k.safetensors'
+    st.save_file(source.state_dict(), str(path))
+    model = build_medcagd(
+        input_size=64, num_classes=1, pretrained=True,
+        pretrained_weights=path)
+    assert model.encoder is not None
 
 
 @pytest.mark.slow

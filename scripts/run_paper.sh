@@ -18,6 +18,11 @@
 set -euo pipefail
 cd "$(dirname "$0")/.." || exit 1
 
+# The paper server is offline.  Fail fast instead of waiting on HuggingFace
+# timeouts; all pretrained assets must be present under checkpoints/.
+export HF_HUB_OFFLINE="${HF_HUB_OFFLINE:-1}"
+export TRANSFORMERS_OFFLINE="${TRANSFORMERS_OFFLINE:-1}"
+
 TABLES_ONLY=0
 KILL_GPU=1
 ARGS=()

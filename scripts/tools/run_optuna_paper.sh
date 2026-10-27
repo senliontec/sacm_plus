@@ -19,6 +19,10 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
+# Offline server: fail fast rather than waiting on HuggingFace timeouts.
+export HF_HUB_OFFLINE="${HF_HUB_OFFLINE:-1}"
+export TRANSFORMERS_OFFLINE="${TRANSFORMERS_OFFLINE:-1}"
+
 MODELS="${MODELS:-all}"
 GPUS="${GPUS:-0,1,2,3,4,5,6}"
 TRIALS="${TRIALS:-8}"

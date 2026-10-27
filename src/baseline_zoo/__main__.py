@@ -339,7 +339,17 @@ def cmd_doctor(args: argparse.Namespace) -> int:
             state = 'OK' if split.test_manifest.is_file() else 'MISSING'
             print(f'  seed {seed}: {state} {split.test_manifest}')
 
+    pvt_candidates = [
+        REPO_ROOT / 'checkpoints' / 'pvt_v2_b2.in1k.safetensors',
+        REPO_ROOT / 'checkpoints' / 'pvt_v2_b2.in1k.pth',
+        REPO_ROOT / 'checkpoints' / 'pvt_v2_b2.in1k.bin',
+    ]
+    pvt_weights = next(
+        (path for path in pvt_candidates if path.is_file()),
+        pvt_candidates[0])
+
     checks = [
+        ('PVTv2-B2 ImageNet', pvt_weights, True),
         ('SAM ViT-L', REPO_ROOT / 'checkpoints' / 'sam_vit_l_0b3195.pth',
          True),
         ('SAM ViT-B', REPO_ROOT / 'checkpoints' / 'sam_vit_b_01ec64.pth',
@@ -367,6 +377,9 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     print('DINOv2 ViT-L/14 download: '
           'https://dl.fbaipublicfiles.com/dinov2/dinov2_vitl14/'
           'dinov2_vitl14_pretrain.pth')
+    print('MedCAGD PVTv2-B2 download: '
+          'https://huggingface.co/timm/pvt_v2_b2.in1k/resolve/main/'
+          'model.safetensors')
     for label, module in (
             ('SAM2 deps', 'hydra'),
             ('SAM2 deps', 'omegaconf'),

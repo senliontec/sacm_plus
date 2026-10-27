@@ -17,6 +17,7 @@ model's ``UPSTREAM.md``.
 from __future__ import annotations
 
 import random
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -27,7 +28,7 @@ from torch import nn
 from baseline_zoo.data import load_mask, load_rgb
 from baseline_zoo.models.medcagd import build_medcagd
 from baseline_zoo.models.medcagd.losses import MedCAGDLoss
-from baseline_zoo.runtime import BaselineAdapter
+from baseline_zoo.runtime import REPO_ROOT, BaselineAdapter
 
 
 class MedCAGDAdapter(BaselineAdapter):
@@ -68,9 +69,10 @@ class MedCAGDAdapter(BaselineAdapter):
         'to avoid a new dependency and to keep augmentation identical across '
         'the 3-shot protocol.',
         'The official BCEWithLogits + normalized deep supervision + edge BCE '
-        'objective is preserved; the encoder is timm PVTv2-B2 with ImageNet '
-        'pretraining during training and random initialization followed by '
-        'checkpoint loading during prediction.',
+        'objective is preserved; the encoder is timm PVTv2-B2 with local '
+        'pvt_v2_b2.in1k ImageNet weights during training '
+        '(--medcagd-encoder-weights; no runtime download) and random '
+        'initialization followed by checkpoint loading during prediction.',
         'The upstream loader feeds OpenCV BGR images scaled to [0,1] without '
         'ImageNet mean/std normalization. This port uses RGB PIL images with '
         'the same [0,1] scaling; RGB matches the ImageNet-pretrained '
@@ -111,7 +113,14 @@ class MedCAGDAdapter(BaselineAdapter):
             help='timm encoder name used by the official MedCAGD config')
         parser.add_argument(
             '--medcagd-pretrained', type=int, choices=[0, 1], default=1,
-            help='load timm ImageNet encoder weights during training')
+            help='load ImageNet encoder weights from the local file below')
+        parser.add_argument(
+            '--medcagd-encoder-weights', type=Path,
+            default=REPO_ROOT / 'checkpoints' /
+            'pvt_v2_b2.in1k.safetensors',
+            help='local timm pvt_v2_b2.in1k weights (.safetensors/.pth); '
+                 'required when --medcagd-pretrained 1; never downloaded '
+                 'at runtime')
         parser.add_argument(
             '--medcagd-eval-stride', type=int, default=128,
             help='stride of overlapping 256 patches at inference')
@@ -140,12 +149,28 @@ class MedCAGDAdapter(BaselineAdapter):
         self._criterion = MedCAGDLoss(
             edge_weight=float(getattr(args, 'medcagd_edge_weight', 1.0)))
         training = getattr(args, 'stage', 'train') in ('train', 'all')
+        load_pretrained = (
+            bool(int(getattr(args, 'medcagd_pretrained', 1))) and training)
+        weights = Path(getattr(
+            args, 'medcagd_encoder_weights',
+            REPO_ROOT / 'checkpoints' / 'pvt_v2_b2.in1k.safetensors'))
+        if load_pretrained and not weights.is_file():
+            raise SystemExit(
+                f'missing MedCAGD encoder weights: {weights}\n'
+                'Download once on a networked machine:\n'
+                '  https://huggingface.co/timm/pvt_v2_b2.in1k/resolve/'
+                'main/model.safetensors\n'
+                f'  -> {weights}\n'
+                'or pass --medcagd-encoder-weights /path/to/model'
+                '.safetensors\n'
+                '(.pth/.bin state dicts are also accepted). '
+                'No network access is attempted at runtime.')
         return build_medcagd(
             encoder_name=str(getattr(args, 'medcagd_encoder', 'pvt_v2_b2')),
             input_size=self.input_size,
             num_classes=1,
-            pretrained=bool(int(getattr(args, 'medcagd_pretrained', 1)))
-            and training,
+            pretrained=load_pretrained,
+            pretrained_weights=str(weights) if load_pretrained else None,
             use_stage0=bool(
                 int(getattr(args, 'medcagd_use_stage0', 0))),
         )
@@ -343,6 +368,8 @@ class MedCAGDAdapter(BaselineAdapter):
             'input_policy': str(
                 getattr(args, 'medcagd_input_policy', 'patches')),
             'encoder': str(getattr(args, 'medcagd_encoder', 'pvt_v2_b2')),
+            'encoder_weights': str(getattr(
+                args, 'medcagd_encoder_weights', '')),
             'num_classes': 1,
             'eval_stride': int(getattr(args, 'medcagd_eval_stride', 128)),
             'eval_batch': int(getattr(args, 'medcagd_eval_batch', 8)),
@@ -368,6 +395,9 @@ class MedCAGDAdapter(BaselineAdapter):
             args.medcagd_input_policy = 'paper'
         if 'encoder' in config:
             args.medcagd_encoder = str(config['encoder'])
+        if 'encoder_weights' in config:
+            args.medcagd_encoder_weights = Path(
+                config['encoder_weights'])
         if 'eval_stride' in config:
             args.medcagd_eval_stride = int(config['eval_stride'])
         if 'eval_batch' in config:

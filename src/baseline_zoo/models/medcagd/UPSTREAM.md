@@ -52,8 +52,16 @@
    [0,1] scaling; the encoder is ImageNet-pretrained on RGB.
 7. The upstream xrun scheduler/resume orchestration is replaced by the
    shared runtime and a cosine warm-restart scheduler.
-8. No official trained checkpoint is present. Training uses ImageNet
-   initialization through timm; prediction builds the same architecture and
-   loads the zoo checkpoint.
+8. No official trained checkpoint is present. Training loads the timm
+   ImageNet-1k encoder weights from a local file
+   (`checkpoints/pvt_v2_b2.in1k.safetensors` by default, or
+   `--medcagd-encoder-weights`). The upstream `pretrained=True` path can
+   contact Hugging Face; this port builds with `pretrained=False` and never
+   accesses the network. Download `model.safetensors` (101 MB) from
+   `https://huggingface.co/timm/pvt_v2_b2.in1k` on a networked machine and
+   place it at that path. The loader converts timm's classification keys
+   (`stages.0.*`, `head.*`) to the features-only wrapper keys
+   (`stages_0.*`). Prediction builds the same architecture and loads the
+   zoo checkpoint.
 
 The code under `3rd/MedCAGD` is not imported or modified at runtime.

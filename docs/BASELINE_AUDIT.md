@@ -281,7 +281,10 @@ model excludes the released code's raw-image Stage 0 path, so
 code variant).  Documented deviations: batch 8 instead of paper 16,
 Albumentations/CutMix replaced by seeded crops/flips/rot90, shared
 800-epoch budget with validation-Dice selection, no CuPy evaluator, and
-no official trained weights.  See
+no official trained weights.  The encoder is initialized from a local
+`pvt_v2_b2.in1k` file (`checkpoints/pvt_v2_b2.in1k.safetensors`); the port
+never calls timm's downloading `pretrained=True` path, so an offline server
+fails fast with the exact download URL if the file is missing.  See
 `src/baseline_zoo/models/medcagd/UPSTREAM.md`.
 
 ## BLO-SAM addendum (2026-10-27)

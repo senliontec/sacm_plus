@@ -7,10 +7,54 @@ global config module.
 """
 
 import math
+import re
+from pathlib import Path
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+
+def load_encoder_state(path: str | Path) -> dict:
+    """Load a local timm encoder state dict without any network access.
+
+    Accepts Hugging Face/timm ``.safetensors`` files as well as PyTorch
+    ``.pth``/``.pt``/``.bin`` checkpoints.  Wrapped ``state_dict``/``model``
+    payloads and common ``module.``/``model.`` prefixes are handled.
+    """
+    path = Path(path)
+    if not path.is_file():
+        raise FileNotFoundError(path)
+    if path.suffix.lower() == '.safetensors':
+        try:
+            from safetensors.torch import load_file
+        except ImportError as exc:
+            raise ImportError(
+                'reading MedCAGD .safetensors weights requires safetensors; '
+                'install with `pip install safetensors`') from exc
+        state = load_file(str(path))
+    else:
+        state = torch.load(str(path), map_location='cpu', weights_only=True)
+        if isinstance(state, dict):
+            for key in ('state_dict', 'model', 'model_state_dict'):
+                if isinstance(state.get(key), dict):
+                    state = state[key]
+                    break
+    if not isinstance(state, dict):
+        raise TypeError(
+            f'{path}: expected a state dict, got {type(state).__name__}')
+    for prefix in ('module.', 'model.', 'encoder.'):
+        if state and all(key.startswith(prefix) for key in state):
+            state = {key[len(prefix):]: value
+                     for key, value in state.items()}
+    # timm's classification checkpoint names stages ``stages.0.*`` while
+    # the features-only wrapper used here names them ``stages_0.*``.
+    if any(key.startswith('stages.') for key in state):
+        state = {
+            re.sub(r'^stages\.(\d+)', r'stages_\1', key): value
+            for key, value in state.items()
+        }
+    return state
 
 
 def get_num_groups(num_channels):
@@ -539,6 +583,7 @@ class MedCAGD(nn.Module):
         input_size: int = 256,
         num_classes: int = 1,
         pretrained: bool = True,
+        pretrained_weights: str | Path | None = None,
         use_stage0: bool = False,
     ):
         super().__init__()
@@ -550,12 +595,35 @@ class MedCAGD(nn.Module):
                 '`pip install -e ".[medcagd]"` or `pip install timm`'
             ) from exc
 
+        # Never let timm download weights: build with pretrained=False and
+        # load an explicit local state dict when requested.
         self.encoder = create_model(
             encoder_name,
-            pretrained=pretrained,
+            pretrained=False,
             features_only=True,
             out_indices=(0, 1, 2, 3)
         )
+        if pretrained:
+            if pretrained_weights is None:
+                raise ValueError(
+                    'pretrained=True requires pretrained_weights (a local '
+                    'pvt_v2_b2.in1k safetensors/pth file)')
+            weights_path = Path(pretrained_weights)
+            if not weights_path.is_file():
+                raise FileNotFoundError(weights_path)
+            state = load_encoder_state(weights_path)
+            missing, unexpected = self.encoder.load_state_dict(
+                state, strict=False)
+            missing = [key for key in missing if not key.startswith('head.')]
+            if missing:
+                raise RuntimeError(
+                    f'{weights_path} did not provide {len(missing)} encoder '
+                    f'tensors (first: {missing[0]}); expected timm '
+                    f'{encoder_name}.in1k weights')
+            print(
+                f'MedCAGD: loaded encoder weights from {weights_path} '
+                f'({len(state)} tensors, '
+                f'{len(unexpected)} unused head/extra keys)')
 
 
         with torch.no_grad():
@@ -684,19 +752,21 @@ def build_medcagd(
     input_size: int = 256,
     num_classes: int = 1,
     pretrained: bool = True,
+    pretrained_weights: str | Path | None = None,
     use_stage0: bool = False,
 ) -> MedCAGD:
     """Build the binary MedCAGD segmenter.
 
-    The encoder uses timm's ImageNet weights when ``pretrained=True``.
-    Prediction builds with ``pretrained=False`` and loads the zoo
-    checkpoint, avoiding an unnecessary download.
+    ``pretrained=True`` loads ImageNet encoder weights from the local
+    ``pretrained_weights`` file; timm never downloads anything.  Prediction
+    builds with ``pretrained=False`` and loads the zoo checkpoint.
     """
     return MedCAGD(
         encoder_name=encoder_name,
         input_size=input_size,
         num_classes=num_classes,
         pretrained=pretrained,
+        pretrained_weights=pretrained_weights,
         use_stage0=use_stage0,
     )
 
