@@ -343,6 +343,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         REPO_ROOT / 'checkpoints' / 'pvt_v2_b2.in1k.safetensors',
         REPO_ROOT / 'checkpoints' / 'pvt_v2_b2.in1k.pth',
         REPO_ROOT / 'checkpoints' / 'pvt_v2_b2.in1k.bin',
+        REPO_ROOT / 'checkpoints' / 'pvt_v2_b2.in1k.pt',
     ]
     pvt_weights = next(
         (path for path in pvt_candidates if path.is_file()),

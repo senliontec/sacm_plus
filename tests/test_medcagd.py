@@ -3,14 +3,12 @@
 import random
 from types import SimpleNamespace
 
+import numpy as np
 import pytest
 import torch
 from PIL import Image
 
-from baseline_zoo.adapters.medcagd import (
-    MedCAGDAdapter,
-    resolve_medcagd_encoder_weights,
-)
+from baseline_zoo.adapters.medcagd import MedCAGDAdapter
 from baseline_zoo.adapters.registry import available_adapters, load_adapter
 from baseline_zoo.data import Sample
 from baseline_zoo.models.medcagd.losses import (
@@ -70,6 +68,27 @@ def test_edge_targets_and_loss():
     loss.backward()
 
 
+def test_foreground_crop_uses_one_foreground_pixel():
+    adapter = MedCAGDAdapter()
+    mask = np.zeros((100, 100), dtype=np.uint8)
+    mask[10, 90] = 1
+    mask[30, 10] = 1
+
+    class _LastForeground:
+        @staticmethod
+        def random():
+            return 0.0
+
+        @staticmethod
+        def randrange(n):
+            return n - 1
+
+    top, left = adapter._crop_origin(mask, 10, _LastForeground())
+    # The second foreground pixel is (30, 10); centring a 10x10 crop there
+    # gives (25, 5).  Independent y/x sampling would give top=25, left=90.
+    assert (top, left) == (25, 5)
+
+
 def test_train_batch_and_tiling(tmp_path):
     adapter = MedCAGDAdapter()
     adapter.input_size = 16
@@ -117,9 +136,7 @@ def test_local_encoder_state_formats(tmp_path):
     assert set(loaded) == expected
 
 
-def test_missing_encoder_weights_fails_before_network(tmp_path, monkeypatch):
-    import baseline_zoo.adapters.medcagd as medcagd_module
-    monkeypatch.setattr(medcagd_module, 'REPO_ROOT', tmp_path)
+def test_missing_encoder_weights_fails_before_network(tmp_path):
     adapter = MedCAGDAdapter()
     missing = tmp_path / 'missing.safetensors'
     args = SimpleNamespace(
@@ -141,15 +158,29 @@ def test_missing_encoder_weights_fails_before_network(tmp_path, monkeypatch):
         raise AssertionError('expected SystemExit for missing weights')
 
 
-def test_encoder_weight_named_fallback(tmp_path, monkeypatch):
+def test_prediction_skips_encoder_weight_loading(tmp_path, monkeypatch):
     import baseline_zoo.adapters.medcagd as medcagd_module
-    checkpoint_dir = tmp_path / 'checkpoints'
-    checkpoint_dir.mkdir()
-    fallback = checkpoint_dir / 'pvt_v2_b2.in1k.pth'
-    fallback.write_bytes(b'placeholder')
-    monkeypatch.setattr(medcagd_module, 'REPO_ROOT', tmp_path)
-    requested = tmp_path / 'missing.safetensors'
-    assert resolve_medcagd_encoder_weights(requested) == fallback
+    captured = {}
+
+    def fake_build(**kwargs):
+        captured.update(kwargs)
+        return torch.nn.Identity()
+
+    monkeypatch.setattr(medcagd_module, 'build_medcagd', fake_build)
+    adapter = MedCAGDAdapter()
+    adapter.prediction_mode = True
+    args = SimpleNamespace(
+        stage='all', input_size=256, medcagd_pretrained=1,
+        medcagd_encoder_weights=tmp_path / 'missing.safetensors',
+        medcagd_input_policy='patches', medcagd_full_size=224,
+        medcagd_eval_stride=128, medcagd_eval_batch=8,
+        medcagd_threshold=0.5, medcagd_edge_weight=1.0,
+        medcagd_dice_weight=1.0,
+        medcagd_encoder='pvt_v2_b2', medcagd_use_stage0=0,
+    )
+    adapter.build_model(args)
+    assert captured['pretrained'] is False
+    assert captured['pretrained_weights'] is None
 
 
 def test_config_roundtrip():

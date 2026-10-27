@@ -31,26 +31,6 @@ from baseline_zoo.models.medcagd.losses import MedCAGDLoss
 from baseline_zoo.runtime import REPO_ROOT, BaselineAdapter
 
 
-def resolve_medcagd_encoder_weights(requested: str | Path) -> Path:
-    """Resolve an explicit path or a descriptively named local file.
-
-    The canonical name is ``checkpoints/pvt_v2_b2.in1k.safetensors``.
-    ``.pth``/``.bin``/``.pt`` variants with the same stem are accepted.
-    A generic ``model.safetensors`` is deliberately not accepted, so the
-    checkpoint cannot be confused with another backbone.
-    """
-    requested = Path(requested)
-    if requested.is_file():
-        return requested
-    checkpoint_dir = REPO_ROOT / 'checkpoints'
-    for name in ('pvt_v2_b2.in1k.safetensors', 'pvt_v2_b2.in1k.pth',
-                 'pvt_v2_b2.in1k.bin', 'pvt_v2_b2.in1k.pt'):
-        candidate = checkpoint_dir / name
-        if candidate.is_file():
-            return candidate
-    return requested
-
-
 class MedCAGDAdapter(BaselineAdapter):
     # The paper uses 224x224 full images for its large-object benchmarks and
     # 256/128 overlapping patches for DRIVE and FIVES.  Every dataset in this
@@ -181,30 +161,29 @@ class MedCAGDAdapter(BaselineAdapter):
         self._criterion = MedCAGDLoss(
             edge_weight=float(getattr(args, 'medcagd_edge_weight', 1.0)),
             dice_weight=float(getattr(args, 'medcagd_dice_weight', 1.0)))
-        training = getattr(args, 'stage', 'train') in ('train', 'all')
+        predicting = bool(
+            getattr(self, 'prediction_mode', False)
+            or getattr(args, 'stage', None) == 'predict'
+            or getattr(args, 'checkpoint', None) is not None)
         load_pretrained = (
-            bool(int(getattr(args, 'medcagd_pretrained', 1))) and training)
-        requested_weights = Path(getattr(
+            bool(int(getattr(args, 'medcagd_pretrained', 1)))
+            and not predicting)
+        weights = Path(getattr(
             args, 'medcagd_encoder_weights',
             REPO_ROOT / 'checkpoints' / 'pvt_v2_b2.in1k.safetensors'))
-        weights = (resolve_medcagd_encoder_weights(requested_weights)
-                   if load_pretrained else requested_weights)
         self._encoder_weights = weights
-        if load_pretrained and weights != requested_weights:
-            print(f'MedCAGD: resolved encoder weights to {weights}')
         if load_pretrained and not weights.is_file():
             raise SystemExit(
                 f'missing MedCAGD encoder weights: {weights}\n'
                 'Download once on a networked machine:\n'
                 '  https://huggingface.co/timm/pvt_v2_b2.in1k/resolve/'
                 'main/model.safetensors\n'
-                'and rename it to:\n'
-                f'  {weights}\n'
-                'Accepted names: checkpoints/pvt_v2_b2.in1k.safetensors, '
-                'pvt_v2_b2.in1k.pth, pvt_v2_b2.in1k.bin or '
-                'pvt_v2_b2.in1k.pt; or pass '
-                '--medcagd-encoder-weights /path/to/file.\n'
-                'No network access is attempted at runtime.')
+                'and place/rename it at:\n'
+                '  checkpoints/pvt_v2_b2.in1k.safetensors\n'
+                'or pass --medcagd-encoder-weights /path/to/'
+                'model.safetensors.\n'
+                'A .pth/.bin/.pt path must contain a real PyTorch state '
+                'dict.\nNo network access is attempted at runtime.')
         return build_medcagd(
             encoder_name=str(getattr(args, 'medcagd_encoder', 'pvt_v2_b2')),
             input_size=self.input_size,
@@ -246,8 +225,11 @@ class MedCAGDAdapter(BaselineAdapter):
         if rng.random() < 0.5:
             ys, xs = np.nonzero(mask)
             if len(ys):
-                cy = int(ys[rng.randrange(len(ys))])
-                cx = int(xs[rng.randrange(len(xs))])
+                # Pick one foreground pixel; choosing y and x independently
+                # can land on a background coordinate between two structures.
+                index = rng.randrange(len(ys))
+                cy = int(ys[index])
+                cx = int(xs[index])
                 top = min(max(0, cy - patch // 2), max(0, height - patch))
                 left = min(max(0, cx - patch // 2), max(0, width - patch))
                 return top, left
