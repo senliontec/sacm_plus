@@ -24,7 +24,6 @@ collector and report pipeline.
 | CWSAM (`cwsam`) | OK | bilinear image resize matches `transforms.Resize`; UPSTREAM checkpointing claims corrected |
 | KnowSAM (`knowsam`) | OK | fixed protocol/validation leak in unlabeled pool; CORN source root; protocol seeding; CPU-safe import/training path; equal labeled/unlabeled streams; stale staging cleared; `--epochs` wired to iteration budget; docs updated |
 | SegDINO (`segdino`) | OK with local-weight requirement | auto-detects a size-matched checkpoint under `checkpoints/` (no env setup); prediction reconstructs the saved backbone size without a gated download; DPT uses the selected backbone’s layer indices; strict checkpoint coverage check; `drop_last=True`; config stored in checkpoint |
-| FoB-SAM (`fob_sam`) | OK; code-faithful, not paper-formula exact | scheduler now steps once per 3000-iteration epoch; support-split fallback warns; 2D augmentation/normalization documented; paper-vs-code differences recorded |
 | SACM official (`sacm_official`) | OK | gradient clipping 1.0 is now effective (`--clip-grad-norm` → `grad_clip`); bilinear resize; sigmoid-threshold correction documented; UPSTREAM claims corrected |
 | SAM ViT-L + U-Net (`sam_vit_l_unet`) | OK | augmentation moved back after the frozen encoder (matching the previous adapter); decoder-only checkpoint format restored; 1024 input guard restored |
 
@@ -104,10 +103,6 @@ Not unified, by design or documented exception:
   (oracle). The port uses vanilla SAM ViT-L by design for the shared-backbone
   comparison, not `sam-med2d_b.pth`.
 - **SAM-OCTA**: evaluation uses GT-derived point prompts (oracle).
-- **FoB-SAM**: the released code differs from the CVPR paper in the RAC
-  loss, support ring, foreground threshold, training budget and several
-  normalization details; the port stays code-faithful. See
-  `models/fob_sam/UPSTREAM.md`.
 - **nnWNet**: nnU-Net planning sees the six validation cases; documented
   soft protocol deviation.
 - **KnowSAM**: semi-supervised unlabeled pool from source domains; not a
@@ -128,7 +123,7 @@ Not unified, by design or documented exception:
 - `python -m baseline_zoo doctor`: 0 missing assets/dependencies.
 - One-epoch/short smoke training + prediction for U-Net, CS2Net, BCUNet,
   MaskVSC, nnWNet, KnowSAM, SAM-OCTA, CWSAM, SACM official, SAM ViT-L +
-  U-Net, SegDINO, FoB-SAM; SAM-Med2D build/forward/prediction and decoder
+  U-Net, SegDINO; SAM-Med2D build/forward/prediction and decoder
   initialization check (full training blocked by GPU memory).
 - Non-square SAM-OCTA prediction verified on a 600×800 CrackTree200 image.
 - KnowSAM staging verified on all six source domains, including CORN, with

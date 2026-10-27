@@ -9,7 +9,6 @@ _ADAPTERS = {
     'cs2net': ('baseline_zoo.adapters.cs2net', 'CS2NetAdapter'),
     'cwsam': ('baseline_zoo.adapters.cwsam', 'CWSAMAdapter'),
     'dscnet': ('baseline_zoo.adapters.dscnet', 'DSCNetAdapter'),
-    'fob_sam': ('baseline_zoo.adapters.fob_sam', 'FoBSAMAdapter'),
     'jtfn': ('baseline_zoo.adapters.jtfn', 'JTFNAdapter'),
     'knowsam': ('baseline_zoo.adapters.knowsam', 'KnowSAMAdapter'),
     'maskvsc': ('baseline_zoo.adapters.maskvsc', 'MaskVSCAdapter'),

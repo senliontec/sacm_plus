@@ -63,7 +63,7 @@ target-semantic prompting.  The official PerSAM driver is
   With `--support-shots 1` the result is the official one-shot prediction.
 - Seen datasets use their three training shots as supports; unseen/novel
   datasets use a structurally matched donor domain from the training split
-  (same donor map as FoB-SAM).
+  (the shared structural donor map).
 - The official driver assumes fixed `00.jpg`/`00.png` filenames and a data
   directory per object; the port consumes the shared `Sample` records.
 - Empty first-pass masks skip the refinement stages and contribute an empty

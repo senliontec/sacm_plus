@@ -60,7 +60,6 @@ METHOD_META = {
     'cwsam': ('CWSAM', '✓'),
     'knowsam': ('KnowSAM', '✓'),
     'segdino': ('SegDINO', '✓'),
-    'fob_sam': ('FoB-SAM', '✓'),
     'sacm_official': ('SACM (official)', '✗'),
     'sam_vit_l_unet': ('SAM ViT-L + U-Net', '✗'),
     'sam2_unet': ('SAM2-UNet', '✗'),

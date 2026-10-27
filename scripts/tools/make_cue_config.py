@@ -24,14 +24,13 @@ from baseline_zoo.registry import load_models  # noqa: E402
 MODELS = (
     'unet', 'cs2net', 'bcunet', 'maskvsc', 'nnwnet', 'jtfn', 'dscnet',
     'segdino', 'samed', 'topolora', 'sam_adapter', 'sam_octa', 'cwsam',
-    'sacm_official', 'fob_sam', 'persam', 'knowsam', 'sam2_unet',
+    'sacm_official', 'persam', 'knowsam', 'sam2_unet',
     'sam_med2d', 'ucs', 'matcher', 'sam_vit_l_unet',
 )
 
 # Iteration-based models cannot be ordered by their YAML epoch field.
 COST_OVERRIDES = {
     'knowsam': 50_000,
-    'fob_sam': 39_000,
     'nnwnet': 2_000,
 }
 

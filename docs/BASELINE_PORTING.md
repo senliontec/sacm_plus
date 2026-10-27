@@ -46,16 +46,15 @@ prints them at the start of training and stores them in every checkpoint.
 | Matcher | training-free DINOv2 ViT-L/14 + SAM ViT-H patch matching; support-based, native n-shot; 518 square inputs, modified SAM mask generator, official filters | 518 output upsampled to GT; shared 3-shot supports / donor domains; support-feature cache; DINOv2 weights required; training-free metadata checkpoint |
 | KnowSAM | official semi-supervised Trainer/weak-strong transforms/two-stream sampler/SGDL validation | 3+3 batch; source-domain unlabeled pool; ViT-B as upstream; GT-size export |
 | SegDINO | official DPT decoder, 256/ImageNet, BCEWithLogits, AdamW 1e-4/1e-4, 50 epochs, batch 4, no augmentation | timm DINOv3 instead of local hub repo; val Dice; GT-size export |
-| FoB-SAM | official ResNet-101 background-prompt localizer, contour/Gaussian keypoint prompts, SPR refinement, frozen SAM point-prompt inference, 39001 iterations (13×3000), Adam 1e-4, MultiStepLR 0.98 | 2D GT support episodes instead of 3D/supervoxels; same-domain support for seen, donor support for unseen; ViT-H required; val Dice; GT-size export |
 | SACM (official) | zero-prompt ViT-L + adapters, AdamW 3e-4/0.01, cosine 1e-6, BCE 0.7+Dice 0.3, 60 epochs, grad clip 1.0 | val Dice; GT-size export; activation checkpointing |
 
 The shared 3-shot project budget in `configs/models/` is now **800 epochs**
 for every baseline whose previous budget was 200 or 400, including DSCNet's
 official 400-epoch recipe. The epoch numbers in the table above remain the
 upstream recipe values where they describe official logic. Exceptions to
-the 800-epoch project budget are CS2Net/JTFN (1000), FoB-SAM (13×3000
-iterations), KnowSAM (50,000 iterations), and training-free Matcher/PerSAM
-(0). SACM-X is the proposed method, not a baseline, and is unchanged.
+the 800-epoch project budget are CS2Net/JTFN (1000), KnowSAM (50,000
+iterations), and training-free Matcher/PerSAM (0). SACM-X is the proposed
+method, not a baseline, and is unchanged.
 
 `sam_adapter` is a prompt-free main-table baseline: the official FFT
 high-pass prompt generator is injected into every ViT block, and the mask
@@ -117,8 +116,7 @@ Dice; it is not part of the prompt-free main table.
 | SAM ViT-L | `checkpoints/sam_vit_l_0b3195.pth` (present) |
 | SAM ViT-B | `checkpoints/sam_vit_b_01ec64.pth` (present; KnowSAM, TopoLoRA-SAM) |
 | DINOv2 ViT-L/14 | missing; required for `matcher`; `https://dl.fbaipublicfiles.com/dinov2/dinov2_vitl14/dinov2_vitl14_pretrain.pth` |
-| SAM ViT-H | `checkpoints/sam_vit_h_4b8939.pth` (FoB-SAM; 2.4 GiB) |
-| ResNet-101 COCO | `checkpoints/deeplabv3_resnet101_coco-586e9e4e.pth` (FoB-SAM) |
+| SAM ViT-H | `checkpoints/sam_vit_h_4b8939.pth` (PerSAM/Matcher; 2.4 GiB) |
 | SAM2 Hiera-L | missing; required for real `sam2_unet` training (`--random-init` is smoke-only); `https://dl.fbaipublicfiles.com/segment_anything_2/072824/sam2_hiera_large.pt` |
 | DINOv3 | auto-detected under `checkpoints/`; otherwise set `DINO_CKPT` / `--dino-ckpt` or `HF_TOKEN` |
 | nnU-Net | `nnunetv2==2.8.1` (installed via pip) |
@@ -151,25 +149,6 @@ python -m baseline_zoo.run_one --model unet --stage train \
 `--limit-train/--limit-val` are debug-only and must not be used for reported
 results.  SAM-Med2D official training needs a ≥24 GiB GPU due to its ~646M
 trainable Adapter parameters; prediction fits in 11 GiB.
-
-FoB-SAM additionally needs the official SAM ViT-H and DeepLabV3 COCO
-ResNet-101 checkpoints:
-
-```bash
-curl -L -o checkpoints/sam_vit_h_4b8939.pth \
-  https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth
-curl -L -o checkpoints/deeplabv3_resnet101_coco-586e9e4e.pth \
-  https://download.pytorch.org/models/deeplabv3_resnet101_coco-586e9e4e.pth
-python -m baseline_zoo.run_one --model fob_sam --stage train \
-  --data-root data/sacm_3shot_seed0 --workdir results/paper/fob_sam/seed_0 \
-  --epochs 13 --seed 0 --device cuda:0 --use_wandb
-```
-
-FoB's official 39001 iterations are represented as 13 epochs × 3000
-episodes; `--fob-shots 1` is the official episode size (set `3` for a
-3-shot support variant).  Unseen datasets use a structurally matched donor
-support set; override with `--fob-support-dataset DRIVE` (or
-`CrackTree200`).
 
 SAM2-UNet code-only smoke (no SAM2 weights; slow but runs on CPU):
 

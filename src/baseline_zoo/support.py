@@ -3,8 +3,7 @@
 The project trains on 18 images (3 per seen domain) and evaluates on the
 20-dataset protocol.  A support-based method needs labeled support images for
 each test dataset.  Seen datasets use their own three training shots; unseen
-and novel datasets use a structurally matched donor domain, mirroring the
-FoB-SAM episode protocol.
+and novel datasets use a structurally matched donor domain.
 """
 
 from __future__ import annotations

@@ -346,8 +346,6 @@ def cmd_doctor(args: argparse.Namespace) -> int:
          True),
         ('SAM ViT-H', REPO_ROOT / 'checkpoints' / 'sam_vit_h_4b8939.pth',
          True),
-        ('ResNet101 COCO', REPO_ROOT / 'checkpoints' /
-         'deeplabv3_resnet101_coco-586e9e4e.pth', True),
         # SAM2-UNet is reference_only, so its missing Hiera checkpoint is
         # informational rather than a blocker for the paper zoo.
         ('SAM2 Hiera-L', REPO_ROOT / 'checkpoints' / 'sam2_hiera_large.pt',

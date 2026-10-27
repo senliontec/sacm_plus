@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Fast environment smoke test for all 22 baselines.
+# Fast environment smoke test for all 21 baselines.
 #
 # Each model is forced to one epoch/iteration and evaluated on one DRIVE
 # image only.  This does not modify configs/models/*.yaml and does not run
@@ -7,8 +7,8 @@
 # checkpoint save, model load, and prediction all work.
 #
 # Usage:
-#   bash scripts/tools/smoke_22_fast.sh
-#   GPU=7 bash scripts/tools/smoke_22_fast.sh
+#   bash scripts/tools/smoke_21_fast.sh
+#   GPU=7 bash scripts/tools/smoke_21_fast.sh
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -61,12 +61,12 @@ fi
 
 MODELS=(
   unet cs2net bcunet maskvsc nnwnet jtfn dscnet segdino samed topolora
-  sam_adapter sam_octa cwsam sacm_official fob_sam persam knowsam
+  sam_adapter sam_octa cwsam sacm_official persam knowsam
   sam2_unet sam_med2d ucs matcher sam_vit_l_unet
 )
 
 echo "============================================================"
-echo "FAST SMOKE: 22 models, 1 epoch/iteration, 1 test image"
+echo "FAST SMOKE: 21 models, 1 epoch/iteration, 1 test image"
 echo "python: $PY"
 echo "gpu: $GPU (clear=$CLEAR_GPU)"
 echo "smoke root: $SMOKE_ROOT"
@@ -92,15 +92,12 @@ for m in "${MODELS[@]}"; do
   echo "SMOKE: $m"
   echo "------------------------------------------------------------"
 
-  # One epoch by default.  KnowSAM uses an iteration budget; FoB-SAM
-  # otherwise runs 3000 iterations per "epoch"; training-free models use 0.
+  # One epoch by default.  KnowSAM uses an iteration budget;
+  # training-free models use 0.
   extra=(--epochs 1)
   case "$m" in
     knowsam)
       extra=(--epochs 1 --max-iterations 1 --unlabeled-limit 8)
-      ;;
-    fob_sam)
-      extra=(--epochs 1 --fob-iters-per-epoch 1)
       ;;
     sam_adapter)
       extra=(--epochs 1 --batch-size 1 --accum-steps 2 --grad-checkpointing)
@@ -137,7 +134,7 @@ echo "============================================================"
 echo "FAST SMOKE RESULT"
 echo "smoke root: $SMOKE_ROOT"
 if [ "${#failed[@]}" -eq 0 ]; then
-  echo "ALL 22 PASSED"
+  echo "ALL 21 PASSED"
 else
   printf 'FAILED: %s\n' "${failed[*]}"
   exit 1

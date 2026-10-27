@@ -19,7 +19,7 @@ from baseline_zoo.registry import load_models, resolve_models  # noqa: E402
 def test_registry_contains_all_self_contained_models():
     models = load_models()
     expected = {
-        'bcunet', 'cs2net', 'cwsam', 'dscnet', 'fob_sam', 'jtfn',
+        'bcunet', 'cs2net', 'cwsam', 'dscnet', 'jtfn',
         'knowsam', 'maskvsc', 'matcher', 'nnwnet', 'persam',
         'sacm_official', 'sacm_x', 'sam2_unet', 'sam_adapter',
         'sam_med2d', 'sam_octa', 'sam_vit_l_unet', 'samed', 'segdino',
@@ -157,7 +157,7 @@ def test_train_dry_run_does_not_create_marker(capsys):
 def test_doctor_reports_self_contained_models(capsys):
     main(['doctor'])
     output = capsys.readouterr().out
-    assert 'models: 23  available: 23' in output
+    assert 'models: 22  available: 22' in output
     assert 'sam2_hiera_large.pt' in output
     assert 'SAM2 Hiera-L download' in output
     assert 'DINOv3' in output or 'segdino' in output

@@ -144,7 +144,7 @@ def test_scheduler_parser_defaults_preserve_official():
 
 def test_parser_epochs_default_from_model_config():
     models = load_models()
-    for model_id in ('unet', 'dscnet', 'samed', 'fob_sam', 'cs2net'):
+    for model_id in ('unet', 'dscnet', 'samed', 'cs2net'):
         parser = build_parser(load_adapter(model_id))
         assert parser.parse_args([]).epochs == models[model_id].defaults['epochs']
 

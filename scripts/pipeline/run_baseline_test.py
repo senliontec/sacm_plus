@@ -208,14 +208,10 @@ def main():
                         'sam_vit_l_0b3195.pth',
                         help='frozen SAM ViT-L checkpoint for '
                              'sam_vit_l_unet')
-    parser.add_argument('--fob-sam-checkpoint', type=Path,
-                        default=REPO_ROOT / 'checkpoints' /
-                        'sam_vit_h_4b8939.pth',
-                        help='frozen SAM ViT-H checkpoint for fob_sam')
     default_data_root = REPO_ROOT / 'data' / 'sacm_3shot'
     parser.add_argument('--data-root', type=Path,
                         default=default_data_root,
-                        help='training split used for FoB support images')
+                        help='training split used for support images')
     parser.add_argument('--sam2-checkpoint', type=Path,
                         default=REPO_ROOT / 'checkpoints' /
                         'sam2_hiera_large.pt',
@@ -275,14 +271,6 @@ def main():
         }.get(args.method, 'best_model.pth')
         args.checkpoint = (REPO_ROOT / 'results' / 'workdirs' /
                            'baselines' / args.method / custom)
-    # FoB needs labeled support images at test time.  If the caller did
-    # not override --data-root, follow the protocol's own split root so a
-    # seed-specific run never uses the frozen seed-42 support set.
-    if (args.method == 'fob_sam'
-            and args.data_root == default_data_root
-            and args.protocol.parent != default_data_root):
-        args.data_root = args.protocol.parent
-
     dataset_filter = set(args.datasets) if args.datasets else None
     specs = read_specs(args.protocol, dataset_filter)
     counts = read_test_counts(args.protocol, dataset_filter)
@@ -399,9 +387,7 @@ def main():
                        '--pred-root', method_pred_root,
                        '--data-root', args.data_root,
                        '--seed', str(args.seed)]
-                if args.method == 'fob_sam':
-                    cmd += ['--sam-checkpoint', args.fob_sam_checkpoint]
-                elif args.method == 'sam2_unet':
+                if args.method == 'sam2_unet':
                     cmd += ['--sam2-checkpoint', args.sam2_checkpoint]
                 elif args.method in SAM_CHECKPOINT_METHODS:
                     cmd += ['--sam-checkpoint', args.sam_checkpoint]

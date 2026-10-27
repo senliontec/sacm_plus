@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# One-click: run all 22 paper baselines for seed 0 on GPU 0, sequentially.
+# One-click: run all 21 paper baselines for seed 0 on GPU 0, sequentially.
 #
 # Usage:
-#   bash scripts/tools/run_22_baselines_seed0_gpu0.sh
+#   bash scripts/tools/run_21_baselines_seed0_gpu0.sh
 #
 # The list is explicit so --model all (which also includes sacm_x) is not
 # used.  run_paper.sh performs train, eval, report, and figures in order.
@@ -31,7 +31,7 @@ fi
 export PYTHON
 export PYTHONPATH="$REPO_ROOT/src${PYTHONPATH:+:$PYTHONPATH}"
 
-# 22 baselines, in execution order.  sacm_x is deliberately excluded.
+# 21 baselines, in execution order.  sacm_x is deliberately excluded.
 MODELS=(
   unet
   cs2net
@@ -47,7 +47,6 @@ MODELS=(
   sam_octa
   cwsam
   sacm_official
-  fob_sam
   persam
   knowsam
   sam2_unet
@@ -69,7 +68,7 @@ echo "============================================================"
 # Run doctor as a stream, not in command substitution: a failing doctor under
 # `set -e` would otherwise exit silently and hide its diagnostics.
 mkdir -p results
-doctor_log="$REPO_ROOT/results/run_22_seed0_gpu0.doctor.log"
+doctor_log="$REPO_ROOT/results/run_21_seed0_gpu0.doctor.log"
 set +e
 "$PYTHON" -u -m baseline_zoo doctor 2>&1 | tee "$doctor_log"
 doctor_status=${PIPESTATUS[0]}

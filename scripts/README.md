@@ -10,7 +10,7 @@ bash scripts/run_paper.sh --model all --seeds all --gpus 0,1,2,3 --resume
 ```
 
 `--model all` resolves every `status: available` model in
-`configs/models/` (SACM-X plus the 22 runnable baselines, including the
+`configs/models/` (SACM-X plus the 21 runnable baselines, including the
 appendix `sam2_unet`, the prompt-free `sam_adapter`/`samed`/`topolora`, the
 non-SAM `jtfn`/`dscnet`, the support-based `persam`/`matcher`, and the
 oracle-prompted `ucs`).  For each (model, seed)
@@ -122,7 +122,7 @@ bash scripts/tools/run_optuna_paper.sh --keep-trial-checkpoints \
 The runner dynamically assigns each trial to the next free GPU in the
 selected pool.  `nnWNet` and `KnowSAM` are skipped because their custom
 official pipelines do not yet expose the shared scheduler/LR interface;
-`Matcher` and `PerSAM` are training-free.  Thus 18 of the 22 baselines are
+`Matcher` and `PerSAM` are training-free.  Thus 17 of the 21 baselines are
 tuned.  Trial `best_model*.pth` files are deleted after scoring unless
 `--keep-trial-checkpoints` is passed; the metrics history and trainer log
 are kept.  The selected configuration must be applied to a fresh

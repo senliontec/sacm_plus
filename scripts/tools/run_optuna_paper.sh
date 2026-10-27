@@ -10,7 +10,7 @@
 #   bash scripts/tools/run_optuna_paper.sh --trials 8 --detach
 #   bash scripts/tools/run_optuna_paper.sh --dry-run
 #
-# Defaults: all 22 paper baselines, seed 0, trials=8 per (model, seed),
+# Defaults: all 21 paper baselines, seed 0, trials=8 per (model, seed),
 # storage=results/tuning/optuna.db.  Four models are not tunable and are
 # reported as skipped by the Python runner: nnwnet/knowsam (custom pipelines)
 # and matcher/persam (training-free).
