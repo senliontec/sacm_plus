@@ -8,7 +8,8 @@ train_entrypoint: >-
   --data-root {split_root} --workdir {output_root}
   --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
   --grad-clip 1.0 --samed-bg-weight 0.1 --samed-fg-weight 1.0
-  --samed-aux-weight 0.5
+  --samed-aux-weight 0.5 --samed-cldice-weight 0.1 --samed-oversample 1
+  --samed-high-res-head 1
 eval_entrypoint: >-
   python scripts/pipeline/run_baseline_test.py --method samed
   --protocol {test_manifest}
@@ -25,9 +26,14 @@ note: >-
   q/v LoRA, trainable prompt encoder and mask decoder; 512 input. The
   binary objective is adapted to the curvilinear foreground: class-weighted
   CE (background 0.1/foreground 1.0) + foreground-only Dice on 128x128
-  logits, plus a 512 full-resolution auxiliary CE+Dice term (weight 0.5).
-  AdamW 1e-3/0.1 (paper 5e-3 was for batch 24), gradient clipping 1.0,
-  poly decay, batch 4, full 800-epoch project budget. Official Synapse
-  recipe adapted to the shared 18-image 3-shot split; released 8-class
-  SAMed LoRA weights are not used. Requires
-  checkpoints/sam_vit_b_01ec64.pth.
+  logits, soft-clDice (0.1), plus a full-resolution auxiliary CE+Dice term
+  (weight 0.5). A zero-initialized full-resolution residual refinement head
+  reads the input image and corrects the bilinearly upsampled SAMed logits
+  (disable with --samed-high-res-head 0). Low-foreground images are
+  oversampled by inverse sqrt foreground ratio. AdamW 1e-3/0.1 (paper 5e-3
+  was for batch 24), gradient clipping 1.0, poly decay, batch 4, full
+  800-epoch project budget. Official
+  Synapse recipe adapted to the shared 18-image 3-shot split; released
+  8-class SAMed LoRA weights are not used. Requires
+  checkpoints/sam_vit_b_01ec64.pth. For a true higher-resolution run, pass
+  --input-size 1024 (low-res 256); default 512 keeps the shared budget.

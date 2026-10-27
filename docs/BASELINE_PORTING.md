@@ -39,7 +39,7 @@ prints them at the start of training and stores them in every checkpoint.
 | CWSAM | frequency prompt generator + per-block adapters + mask decoder, ImageNet normalization, no augmentation, AdamW 2e-4/cosine 1e-7, 200 epochs | binary 2-class port; ViT-L (paper backbone); val Dice; activation checkpointing |
 | SAM-Adapter | FFT high-pass prompt generator injected into every ViT block, empty sparse + `no_mask_embed` prompt-free decoder, ImageNet normalization, horizontal flip p=0.5, BCE+IoU, AdamW 2e-4/cosine 1e-7, 20 epochs, frozen encoder except prompt generator | retrained from SAM ViT-L (authors' Google-Drive weights unused); val Dice instead of COD metrics; GT-size export; batch 2 official, use `--batch-size 1 --accum-steps 2 --grad-checkpointing` on ≤11 GiB |
 | TopoLoRA-SAM | official ViT-B, LoRA r=8 on ViT MLP layers, depthwise-separable conv adapter, frozen SAM + trainable mask decoder, empty-prompt decode, 384 input, BCE+Dice+0.5 clDice, AdamW 1e-4/1e-4/cosine, 50 epochs, batch 1×4, grad clip 1.0 | no mixed precision; shared 18/6 split instead of Seglab's HF split; val Dice; GT-size export; no official trained weights (starts from SAM ViT-B) |
-| SAMed | official ViT-B, rank-4 q/v LoRA, trainable prompt encoder + mask decoder, empty-prompt decode, 512 input, binary 2-class head; class-weighted CE (bg 0.1/fg 1.0) + foreground Dice on 128×128, plus 512 aux CE+Dice (0.5); AdamW 1e-3/0.1/poly (paper 5e-3 was batch 24), grad clip 1.0, 800 epochs, batch 4 | task adaptation for 0.17%-8% curvilinear foreground; official batch 24/epoch-159 selection adapted to the 18-image split; val Dice; argmax+nearest GT export; released 8-class LoRA weights unused |
+| SAMed | official ViT-B, rank-4 q/v LoRA, trainable prompt encoder + mask decoder, empty-prompt decode, 512 input, binary 2-class head; class-weighted CE (bg 0.1/fg 1.0) + foreground Dice + soft-clDice (0.1) on 128×128, plus a full-resolution aux CE+Dice (0.5) and zero-init residual refinement head; inverse-sqrt foreground oversampling; AdamW 1e-3/0.1/poly (paper 5e-3 was batch 24), grad clip 1.0, 800 epochs, batch 4 | task adaptation for 0.17%-8% curvilinear foreground; official batch 24/epoch-159 selection adapted to the 18-image split; val Dice; argmax+nearest GT export; optional `--input-size 1024` high-res; released 8-class LoRA weights unused |
 | JTFN | official DRIVE config: base64 5-stage backbone, three mask/boundary refinements, 256 crop, batch 2, Adam 1e-3/5e-4, mask BCE + boundary BCE over four scales, StepLR 500/0.9, 1000 epochs | one shared model instead of per-dataset DRIVE/roads/Crack500 configs; val Dice instead of test-split F1; per-epoch StepLR approximation; simplified augmentation; GT-size export; no official weights |
 | DSCNet | official 2D DSCNet: dynamic-snake U-Net, 16 basic channels, kernel 9, grayscale 224 crop, batch 1, soft BCE, AdamW 1e-4 betas (0.9,0.95), 400 epochs, constant LR, 224/112 patch inference | NIfTI/MONAI/SimpleITK pipeline replaced by PIL + simple augmentation; train-split mean/std; val Dice; finite quartic blending kernel; GT-size export; no official weights |
 | PerSAM | training-free PerSAM (Personalize-SAM) with SAM ViT-H: support mask → object embedding, target-guided points, two point/mask/box refinement stages; no target GT or prompts | official method is one-shot; 3-shot support is majority-voted; support donor for unseen/novel domains; training-free metadata checkpoint; original-resolution output |
@@ -73,10 +73,16 @@ ViT-B with rank-4 q/v LoRA, a trainable prompt encoder and mask decoder.
 It is a fully supervised per-dataset segmenter (not a few-shot matcher), so
 the shared 18-image train split is used for a binary fine-tune.  The binary
 objective is adapted to the curvilinear foreground: class-weighted CE
-(background 0.1/foreground 1.0), foreground-only Dice on the 128×128
-logits, and a 512-resolution auxiliary CE+Dice term (weight 0.5).  The
-batch-4 default LR is 1e-3 (paper 5e-3 was for batch 24), with gradient
-clipping 1.0; evaluation uses argmax at 512 + nearest resize.
+(background 0.1/foreground 1.0), foreground-only Dice + soft-clDice
+(weight 0.1) on the 128×128 logits, and a full-resolution auxiliary CE+Dice
+term (weight 0.5).  A zero-initialized residual refinement head uses the
+input image to correct the bilinearly upsampled logits; it is a task
+adaptation for thin structures and can be disabled with
+`--samed-high-res-head 0`.  Low-foreground images are oversampled by
+inverse sqrt foreground ratio.  The batch-4 default LR is 1e-3 (paper 5e-3
+was for batch 24), with gradient clipping 1.0; evaluation uses argmax at the
+input resolution + nearest resize.  `--input-size 1024` is available for a
+further high-resolution run, but the default 512 keeps the shared budget.
 
 `jtfn` is a non-SAM, from-scratch curvilinear baseline: the official DRIVE
 base64 configuration with mask/boundary multi-task refinement and boundary

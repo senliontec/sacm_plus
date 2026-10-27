@@ -71,6 +71,7 @@ class BaselineAdapter(ABC):
     official_weight_decay: float = 0.0
     train_batch_size: int = 1
     accumulation_steps: int = 1
+    default_grad_clip: float = 0.0
     selection: str = 'dice'
     deviations: tuple[str, ...] = ()
     custom_pipeline: bool = False
@@ -107,6 +108,11 @@ class BaselineAdapter(ABC):
 
     def make_scheduler(self, optimizer: torch.optim.Optimizer,
                        args: argparse.Namespace):
+        return None
+
+    def make_train_sampler(self, samples: Sequence[Sample],
+                           args: argparse.Namespace):
+        """Optional adapter-specific sampler; None keeps shuffled sampling."""
         return None
 
     # ---- official data/loss logic ------------------------------------
@@ -572,9 +578,11 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
     if args.limit_val:
         val_samples = val_samples[:args.limit_val]
 
+    sampler = adapter.make_train_sampler(train_samples, args)
     loader = DataLoader(
         SampleListDataset(train_samples), batch_size=args.batch_size,
-        shuffle=True, num_workers=args.num_workers,
+        shuffle=sampler is None, sampler=sampler,
+        num_workers=args.num_workers,
         drop_last=getattr(adapter, 'drop_last', False),
         collate_fn=lambda batch: batch)
 
@@ -966,7 +974,9 @@ def build_parser(adapter: BaselineAdapter) -> argparse.ArgumentParser:
     parser.add_argument('--lr', type=float, default=adapter.official_lr)
     parser.add_argument('--weight-decay', type=float,
                         default=adapter.official_weight_decay)
-    parser.add_argument('--grad-clip', type=float, default=0.0)
+    parser.add_argument(
+        '--grad-clip', type=float,
+        default=getattr(adapter, 'default_grad_clip', 0.0))
     parser.add_argument(
         '--scheduler', default='official',
         choices=['official', 'constant', 'cosine', 'poly', 'onecycle'],

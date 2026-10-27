@@ -18,9 +18,14 @@ import torch.nn.functional as F
 from PIL import Image
 from scipy.ndimage import rotate as nd_rotate
 from torch import nn
+from torch.utils.data import WeightedRandomSampler
 
 from baseline_zoo.data import load_mask, load_rgb, load_split_samples
-from baseline_zoo.models.samed import ForegroundDiceLoss, build_samed
+from baseline_zoo.models.samed import (
+    ForegroundDiceLoss,
+    SoftClDiceLoss,
+    build_samed,
+)
 from baseline_zoo.runtime import REPO_ROOT, BaselineAdapter, file_sha256
 
 
@@ -37,6 +42,7 @@ class SAMedAdapter(BaselineAdapter):
     official_lr = 1e-3
     official_weight_decay = 0.1
     train_batch_size = 4
+    default_grad_clip = 1.0
     selection = 'dice'
     deviations = (
         'SAMed is a fully supervised per-dataset segmenter, not a few-shot '
@@ -52,14 +58,23 @@ class SAMedAdapter(BaselineAdapter):
         'checkpoints are absent and not shape-compatible.',
         'The binary objective is adapted to the tiny curvilinear foreground: '
         'class-weighted CE (background 0.1, foreground 1.0) plus '
-        'foreground-only Dice on the 128x128 low-res logits, and an auxiliary '
-        'full-resolution CE+Dice term (weight 0.5). The official equal-weight '
-        'class-wise CE/Dice is kept only as the SAMed reference recipe.',
+        'foreground-only Dice on the 128x128 low-res logits, a soft-clDice '
+        'topology term (weight 0.1), and an auxiliary full-resolution CE+Dice '
+        'term (weight 0.5). The official equal-weight class-wise CE/Dice is '
+        'kept only as the SAMed reference recipe.',
+        'A zero-initialized full-resolution residual refinement head reads '
+        'the input image and corrects the bilinearly upsampled 128x128 SAMed '
+        'logits; it is a task adaptation for thin structures, not part of '
+        'the released SAMed architecture. It is supervised by the auxiliary '
+        'term and can be disabled with --samed-high-res-head 0.',
+        'Training oversamples images by inverse sqrt foreground ratio '
+        '(WeightedRandomSampler) so the 0.17%-8% foreground images get more '
+        'updates; validation remains the untouched 6-image split.',
         'Official training uses 224x224 training data upsampled to 512; '
         'this port resizes native 2D images directly to 512. The official '
         '2D test branch is also direct 512; the 224->512 resampling belongs '
-        'to the 3D volume path. Gradient clipping 1.0 is added for stability '
-        'at batch 4.',
+        'to the 3D volume path. Gradient clipping 1.0 is the adapter default '
+        'for stability at batch 4.',
         'The official CT intensity window is not applicable to the natural '
         'and medical RGB/grayscale protocol images; grayscale is replicated '
         'to RGB and pixels are scaled to [0,1] with SAM pixel_mean=0 / '
@@ -76,7 +91,8 @@ class SAMedAdapter(BaselineAdapter):
         '(250 / ceil(18 / 4)). The polynomial decay is stepped per epoch; '
         'the poly horizon follows the configured epochs (800 for the shared '
         'project budget), so the final epoch is not assigned lr=0.',
-        'Predictions use argmax of the two-class logits at 512 followed by '
+        'Predictions use argmax of the two-class full-resolution logits at '
+        'the configured input size (512 by default) followed by '
         'nearest-neighbour resize to the original GT resolution, matching '
         'the official 2D evaluator. The official 3D volume path resamples '
         '224->512; that path is not used by this 2D protocol.',
@@ -87,6 +103,7 @@ class SAMedAdapter(BaselineAdapter):
         super().__init__()
         self._sam_sha: str | None = None
         self._fg_dice = ForegroundDiceLoss()
+        self._cldice = SoftClDiceLoss()
 
     def add_args(self, parser):
         parser.add_argument(
@@ -105,6 +122,16 @@ class SAMedAdapter(BaselineAdapter):
             '--samed-aux-weight', type=float, default=0.5,
             help='weight of the full-resolution auxiliary CE+Dice term; '
                  '0 disables it')
+        parser.add_argument(
+            '--samed-cldice-weight', type=float, default=0.1,
+            help='soft-clDice topology loss weight on low-res logits; '
+                 '0 disables it')
+        parser.add_argument(
+            '--samed-oversample', type=int, choices=[0, 1], default=1,
+            help='oversample low-foreground training images')
+        parser.add_argument(
+            '--samed-high-res-head', type=int, choices=[0, 1], default=1,
+            help='add the full-resolution residual refinement head')
 
     def build_model(self, args) -> nn.Module:
         self.input_size = int(args.input_size)
@@ -122,6 +149,8 @@ class SAMedAdapter(BaselineAdapter):
             sam_checkpoint=source,
             rank=int(args.lora_rank),
             sam_type=args.sam_type,
+            use_high_res_head=bool(
+                int(getattr(args, 'samed_high_res_head', 1))),
         )
 
     def load_pretrained(self, model, args) -> None:
@@ -227,6 +256,21 @@ class SAMedAdapter(BaselineAdapter):
         return torch.tensor([bg, fg], dtype=logits.dtype,
                             device=logits.device)
 
+    def make_train_sampler(self, samples, args):
+        if not int(getattr(args, 'samed_oversample', 1)):
+            return None
+        if not samples:
+            return None
+        weights = []
+        for sample in samples:
+            foreground = float(load_mask(sample.mask_path).mean())
+            weights.append(1.0 / math.sqrt(max(foreground, 1e-4)))
+        generator = torch.Generator()
+        generator.manual_seed(int(getattr(args, 'seed', 0)))
+        return WeightedRandomSampler(
+            weights, num_samples=len(weights), replacement=True,
+            generator=generator)
+
     def train_step(self, model, batch):
         images, targets, low_res = batch
         low_logits, full_logits = model(images)
@@ -235,6 +279,10 @@ class SAMedAdapter(BaselineAdapter):
         dice = self._fg_dice(low_logits, low_res, softmax=True)
         loss = 0.2 * ce + 0.8 * dice
         args = getattr(self, 'args', None)
+        cldice_weight = float(getattr(args, 'samed_cldice_weight', 0.1))
+        if cldice_weight > 0:
+            loss = loss + cldice_weight * self._cldice(
+                low_logits, low_res, softmax=True)
         aux_weight = float(getattr(args, 'samed_aux_weight', 0.5))
         if aux_weight > 0:
             aux_ce = F.cross_entropy(
@@ -273,6 +321,12 @@ class SAMedAdapter(BaselineAdapter):
                 getattr(args, 'samed_fg_weight', 1.0)),
             'samed_aux_weight': float(
                 getattr(args, 'samed_aux_weight', 0.5)),
+            'samed_cldice_weight': float(
+                getattr(args, 'samed_cldice_weight', 0.1)),
+            'samed_oversample': int(
+                getattr(args, 'samed_oversample', 1)),
+            'samed_high_res_head': int(
+                getattr(args, 'samed_high_res_head', 1)),
         }
 
     def restore_config(self, args, config):
@@ -280,9 +334,18 @@ class SAMedAdapter(BaselineAdapter):
             if key in config:
                 setattr(args, key, config[key])
         for key in ('samed_bg_weight', 'samed_fg_weight',
-                    'samed_aux_weight'):
+                    'samed_aux_weight', 'samed_cldice_weight'):
             if key in config:
                 setattr(args, key, float(config[key]))
+        if 'samed_oversample' in config:
+            setattr(args, 'samed_oversample', int(config['samed_oversample']))
+        if 'samed_high_res_head' in config:
+            setattr(args, 'samed_high_res_head',
+                    int(config['samed_high_res_head']))
+        else:
+            # Checkpoints written before the refinement head existed must
+            # not be loaded into a model that has extra state_dict keys.
+            setattr(args, 'samed_high_res_head', 0)
         if 'sam_type' in config:
             args.sam_type = config['sam_type']
         self.input_size = int(getattr(args, 'input_size', 512))

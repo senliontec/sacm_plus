@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import torch
+import torch.nn.functional as F
 from torch import nn
 
 
@@ -33,6 +34,69 @@ class ForegroundDiceLoss(nn.Module):
         dice = ((2 * intersection + self.smooth)
                 / (denominator + self.smooth))
         return (1 - dice).mean()
+
+
+class SoftClDiceLoss(nn.Module):
+    """Differentiable centreline Dice loss for thin curvilinear structures.
+
+    SAMed's original objective is region Dice/CE, which is dominated by the
+    background on 0.17%-8% foreground.  Soft-clDice adds a topology term
+    computed from iterative soft skeletons, a task adaptation for vessels,
+    cracks and membranes.  The skeletonization follows the official clDice
+    implementation (Shit et al., CVPR 2021): residual accumulation from
+    ``relu(img - soft_open(img))`` over iterative erosions.
+    """
+
+    def __init__(self, iters: int = 10, smooth: float = 1e-6):
+        super().__init__()
+        self.iters = max(int(iters), 1)
+        self.smooth = float(smooth)
+
+    @staticmethod
+    def _soft_erode(img):
+        p1 = -F.max_pool2d(-img, (3, 1), (1, 1), (1, 0))
+        p2 = -F.max_pool2d(-img, (1, 3), (1, 1), (0, 1))
+        return torch.min(p1, p2)
+
+    @staticmethod
+    def _soft_dilate(img):
+        return F.max_pool2d(img, (3, 3), (1, 1), (1, 1))
+
+    def _soft_open(self, img):
+        return self._soft_dilate(self._soft_erode(img))
+
+    def _soft_skel(self, img):
+        img1 = self._soft_open(img)
+        skel = F.relu(img - img1)
+        for _ in range(self.iters):
+            img = self._soft_erode(img)
+            img1 = self._soft_open(img)
+            delta = F.relu(img - img1)
+            skel = skel + F.relu(delta - skel * delta)
+        return skel
+
+    def forward(self, logits, target, softmax=True):
+        if softmax:
+            pred = torch.softmax(logits, dim=1)[:, 1]
+        else:
+            pred = logits[:, 1]
+        target = target.float()
+        if pred.ndim == 3:
+            pred = pred.unsqueeze(1)
+        if target.ndim == 3:
+            target = target.unsqueeze(1)
+        skel_pred = self._soft_skel(pred)
+        skel_true = self._soft_skel(target)
+        dims = (1, 2, 3)
+        tprec = (((skel_pred * target).sum(dims) + self.smooth)
+                 / (skel_pred.sum(dims) + self.smooth))
+        tsens = (((skel_true * pred).sum(dims) + self.smooth)
+                 / (skel_true.sum(dims) + self.smooth))
+        cl = ((2 * tprec * tsens + self.smooth)
+              / (tprec + tsens + self.smooth))
+        loss = 1 - cl
+        empty = target.sum(dims) <= 0
+        return torch.where(empty, torch.zeros_like(loss), loss).mean()
 
 
 class DiceLoss(nn.Module):

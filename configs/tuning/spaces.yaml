@@ -40,6 +40,17 @@ models:
       type: loguniform
       low: 0.0001
       high: 0.005
+    extra:
+      samed_bg_weight:
+        choices: [0.05, 0.1, 0.2]
+      samed_aux_weight:
+        choices: [0.0, 0.5]
+      samed_cldice_weight:
+        choices: [0.0, 0.1, 0.2]
+      samed_oversample:
+        choices: [0, 1]
+      samed_high_res_head:
+        choices: [0, 1]
 
   # DSCNet's empty-prediction failure is sensitive to the added Dice term.
   dscnet:

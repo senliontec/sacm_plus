@@ -41,6 +41,12 @@ the builders and `Sam` export.
   adapter/runtime.  The model graph, binary class-token decoder, LoRA
   placement and prompt-free decoder are preserved; the loss is adapted for
   the tiny curvilinear foreground (see below).
+- A small zero-initialized full-resolution residual refinement head
+  (`HighResRefinementHead`) reads the input image and corrects the
+  bilinearly upsampled low-resolution logits.  It starts as an exact no-op
+  and is supervised by the auxiliary full-resolution term.  This is a
+  task-specific adaptation for thin structures, not part of the released
+  SAMed architecture; set `--samed-high-res-head 0` to disable it.
 
 ## Official recipe elements preserved by the adapter
 
@@ -57,10 +63,10 @@ the builders and `Sam` export.
   path.
 - Loss: SAMed's class-wise CE+Dice idea is retained, but adapted to the
   binary curvilinear task: class-weighted CE (background 0.1, foreground
-  1.0) plus foreground-only Dice on the 128×128 low-resolution logits, and
-  an auxiliary full-resolution (512) CE+Dice term with weight 0.5.  The
-  official equal-weight 2-class CE+Dice is not used for the adapted
-  baseline.
+  1.0) plus foreground-only Dice on the 128×128 low-resolution logits,
+  a soft-clDice topology term (weight 0.1), and an auxiliary
+  full-resolution (512) CE+Dice term with weight 0.5.  The official
+  equal-weight 2-class CE+Dice is not used for the adapted baseline.
 - Optimizer: AdamW, weight decay 0.1; paper lr 5e-3 was tuned for batch 24,
   so the batch-4 default is 1e-3.  The official polynomial decay
   `(1 - epoch/total)^0.9` is applied per epoch with the 250-iteration
@@ -68,9 +74,10 @@ the builders and `Sam` export.
   for stability.
 - Augmentation: official random 90° rotations + axis flips, and ±20°
   in-plane rotation; grayscale is replicated to three channels.
-- Inference: argmax over the two decoder logits at 512, followed by
-  nearest-neighbour resize to the original GT resolution (official 2D
-  evaluator semantics).
+- Inference: argmax over the two full-resolution refined logits at 512,
+  followed by nearest-neighbour resize to the original GT resolution
+  (official 2D evaluator semantics).  With the refinement head disabled,
+  this is the official bilinear-upsampled low-resolution output.
 
 ## Deviations in this port
 
@@ -85,9 +92,15 @@ the builders and `Sam` export.
 - The binary objective is adapted to the curvilinear foreground because the
   official equal-weight background/foreground CE+Dice collapses to an
   all-background solution at 0.17%-8% foreground.  Foreground-only Dice,
-  class-weighted CE and 512-resolution auxiliary supervision are the
-  task-specific adaptations; they are not claimed as SAMed's Synapse
-  recipe.
+  class-weighted CE, soft-clDice, 512-resolution auxiliary supervision and
+  the full-resolution residual refinement head are the task-specific
+  adaptations; they are not claimed as SAMed's Synapse recipe.
+- Training uses a WeightedRandomSampler with inverse-sqrt foreground
+  weights, so low-foreground images receive more updates.  Validation is
+  unchanged.  Set ``--samed-oversample 0`` to disable it.
+- ``--input-size 1024`` (low-res 256) is supported as a true higher-
+  resolution option for thin structures; the default remains 512 to keep
+  the shared project budget and memory.
 - The official root SAMed has no mixed precision; this port is also fp32.
 - The released SAMed/SAMed_s/SAMed_h LoRA checkpoints are 8-class and are
   not present in the repository; they are not shape-compatible with the

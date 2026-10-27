@@ -181,14 +181,25 @@ SAMed modified SAM + rank-4 q/v LoRA; `tests/test_samed.py`).  It preserves
 the class-token mask decoder, q/v LoRA placement, frozen image encoder and
 trainable prompt/mask decoder.  The binary objective is adapted for the
 0.17%-8% curvilinear foreground: class-weighted CE (background 0.1,
-foreground 1.0) + foreground-only Dice on 128×128 logits, plus a 512
-full-resolution auxiliary CE+Dice term (0.5).  AdamW uses the batch-4
-default 1e-3 (paper 5e-3 was for batch 24), weight decay 0.1, gradient
-clipping 1.0, 50-epoch warmup and per-epoch poly decay, batch 4/800 epochs
-on the 18-image split, and shared validation-Dice selection.  The released
+foreground 1.0) + foreground-only Dice + soft-clDice (0.1) on 128×128
+logits, plus a full-resolution auxiliary CE+Dice term (0.5).  A
+zero-initialized full-resolution residual refinement head, supervised by
+that auxiliary term, corrects the bilinearly upsampled logits for thin
+structures; it is a task adaptation and can be disabled with
+`--samed-high-res-head 0`.  Low-foreground images are oversampled by
+inverse sqrt foreground ratio.  AdamW uses the batch-4 default 1e-3 (paper
+5e-3 was for batch 24), weight decay 0.1, gradient clipping 1.0, 50-epoch
+warmup and per-epoch poly decay, batch 4/800 epochs on the 18-image split,
+and shared validation-Dice selection.  The released
 8-class SAMed/SAMed_s/SAMed_h LoRA weights are absent and not
 shape-compatible; training starts from SAM ViT-B.  Evaluation uses argmax
-at 512 followed by nearest resize to the original GT resolution.
+at the input resolution (with the refinement head) followed by nearest
+resize to the original GT resolution.
+
+Implementation smoke (seed 0, 60 epochs at 512): the refinement head reaches
+0.4345 validation Dice versus 0.4219 with the head disabled; 1024-input
+batch-1 training and prediction from a legacy headless checkpoint also run.
+These are smoke checks, not final 800-epoch/HPO results.
 
 ## JTFN addendum (2026-10-25)
 

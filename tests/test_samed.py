@@ -15,6 +15,7 @@ from baseline_zoo.models.samed import (
     DiceLoss,
     ForegroundDiceLoss,
     SAMedNet,
+    SoftClDiceLoss,
 )
 from baseline_zoo.models.samed.segment_anything.modeling import (
     ImageEncoderViT,
@@ -23,6 +24,7 @@ from baseline_zoo.models.samed.segment_anything.modeling import (
     Sam,
     TwoWayTransformer,
 )
+from baseline_zoo.runtime import build_parser
 
 
 def _sample(tmp_path):
@@ -38,7 +40,7 @@ def _sample(tmp_path):
                   dataset='TEST', stem='TEST_0')
 
 
-def _tiny_model():
+def _tiny_model(use_high_res_head: bool = True):
     encoder = ImageEncoderViT(
         depth=2, embed_dim=64, img_size=64, mlp_ratio=4,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), num_heads=2,
@@ -54,7 +56,7 @@ def _tiny_model():
         transformer_dim=32, iou_head_depth=2, iou_head_hidden_dim=32)
     sam = Sam(encoder, prompt_encoder, mask_decoder,
               pixel_mean=[0, 0, 0], pixel_std=[1, 1, 1])
-    return SAMedNet(sam, rank=4)
+    return SAMedNet(sam, rank=4, use_high_res_head=use_high_res_head)
 
 
 def test_registry_and_metadata():
@@ -66,6 +68,9 @@ def test_registry_and_metadata():
     assert adapter.train_batch_size == 4
     assert adapter.paper_lr == 5e-3
     assert adapter.official_lr == 1e-3
+    parsed = build_parser(adapter).parse_args([])
+    assert parsed.grad_clip == 1.0
+    assert parsed.samed_high_res_head == 1
     assert 'fully supervised' in adapter.deviations[0]
 
 
@@ -80,9 +85,15 @@ def test_tiny_forward_loss_and_policy():
     assert model.lora_sam.sam.prompt_encoder.no_mask_embed.weight.requires_grad
     assert model.lora_sam.sam.mask_decoder.iou_token.weight.requires_grad
 
-    low, masks = model(torch.randn(1, 3, 64, 64))
+    x = torch.randn(1, 3, 64, 64)
+    low, masks = model(x)
     assert low.shape == (1, 2, 16, 16)
     assert masks.shape == (1, 2, 64, 64)
+    with torch.no_grad():
+        base = model.lora_sam(x, False, 64)['masks']
+    assert torch.allclose(masks, base)
+    assert model.high_res_head is not None
+    assert model.high_res_head.body[-1].weight.requires_grad
 
     target = torch.zeros(1, 16, 16, dtype=torch.long)
     target[:, :8] = 1
@@ -91,6 +102,17 @@ def test_tiny_forward_loss_and_policy():
     assert torch.isfinite(loss)
     loss.backward()
     assert model.lora_sam.sam.image_encoder.blocks[0].attn.qkv.linear_a_q.weight.grad is not None
+
+
+def test_high_res_head_can_be_disabled():
+    model = _tiny_model(use_high_res_head=False)
+    x = torch.randn(1, 3, 64, 64)
+    low, full = model(x)
+    assert model.high_res_head is None
+    with torch.no_grad():
+        base = model.lora_sam(x, False, 64)['masks']
+    assert torch.equal(full, base)
+    assert low.shape == (1, 2, 16, 16)
 
 
 def test_foreground_dice_penalizes_all_background():
@@ -107,6 +129,44 @@ def test_foreground_dice_penalizes_all_background():
     ], dim=1).float()
     assert loss_fn(background_logits, target) > 0.9
     assert loss_fn(perfect_logits, target) < 0.01
+
+
+def test_soft_cldice_penalizes_missing_structure():
+    loss_fn = SoftClDiceLoss(iters=4)
+    target = torch.zeros(1, 16, 16, dtype=torch.long)
+    target[:, 7:9, :] = 1
+    background_logits = torch.stack([
+        torch.full_like(target, 10.0),
+        torch.full_like(target, -10.0),
+    ], dim=1).float()
+    perfect_logits = torch.stack([
+        torch.where(target == 1, -10.0, 10.0),
+        torch.where(target == 1, 10.0, -10.0),
+    ], dim=1).float()
+    empty_target = torch.zeros_like(target)
+    assert loss_fn(background_logits, target) > 0.9
+    assert loss_fn(perfect_logits, target) < 0.05
+    assert loss_fn(background_logits, empty_target) == 0
+
+
+def test_oversampling_prefers_low_foreground_images(tmp_path):
+    adapter = SAMedAdapter()
+    high = _sample(tmp_path)
+    high_mask = Image.new('L', (32, 24), 255)
+    high_mask.save(high.mask_path)
+    low_image = tmp_path / 'TEST_1_image.png'
+    low_mask = tmp_path / 'TEST_1_mask.png'
+    Image.open(high.image_path).save(low_image)
+    tiny_mask = Image.new('L', (32, 24), 0)
+    tiny_mask.putpixel((0, 0), 255)
+    tiny_mask.save(low_mask)
+    low = Sample(low_image, low_mask, 'TEST', 'TEST_1')
+    args = SimpleNamespace(samed_oversample=1, seed=0)
+    sampler = adapter.make_train_sampler([high, low], args)
+    assert sampler is not None
+    assert float(sampler.weights[1]) > float(sampler.weights[0])
+    assert adapter.make_train_sampler(
+        [high, low], SimpleNamespace(samed_oversample=0, seed=0)) is None
 
 
 def test_train_step_weighted_aux_loss_and_backward():
@@ -130,6 +190,8 @@ def test_train_step_weighted_aux_loss_and_backward():
             .linear_a_q.weight.grad is not None)
     assert (model.lora_sam.sam.mask_decoder.mask_tokens.weight.grad
             is not None)
+    assert model.high_res_head.body[-1].weight.grad is not None
+    assert torch.isfinite(model.high_res_head.body[-1].weight.grad).all()
 
 
 def test_predict_sample_uses_argmax_and_nearest(tmp_path):
@@ -168,13 +230,17 @@ def test_config_roundtrip(tmp_path):
     args = SimpleNamespace(
         sam_checkpoint=tmp_path / 'missing.pth', sam_type='vit_b',
         lora_rank=4, samed_bg_weight=0.1, samed_fg_weight=1.0,
-        samed_aux_weight=0.5)
+        samed_aux_weight=0.5, samed_cldice_weight=0.1,
+        samed_oversample=1, samed_high_res_head=1)
     config = adapter.save_config(args)
     assert config['input_size'] == 512
     assert config['sam_checkpoint_sha256'] == 'abc'
     assert config['num_classes'] == 1
     assert config['samed_bg_weight'] == 0.1
     assert config['samed_aux_weight'] == 0.5
+    assert config['samed_cldice_weight'] == 0.1
+    assert config['samed_oversample'] == 1
+    assert config['samed_high_res_head'] == 1
 
     restore = SimpleNamespace(sam_checkpoint=None, input_size=0,
                               lora_rank=0)
@@ -184,6 +250,17 @@ def test_config_roundtrip(tmp_path):
     assert restore.sam_type == 'vit_b'
     assert restore.samed_bg_weight == 0.1
     assert restore.samed_aux_weight == 0.5
+    assert restore.samed_cldice_weight == 0.1
+    assert restore.samed_oversample == 1
+    assert restore.samed_high_res_head == 1
+
+
+def test_legacy_checkpoint_disables_missing_head():
+    adapter = SAMedAdapter()
+    args = SimpleNamespace(sam_checkpoint=None, input_size=0, lora_rank=0)
+    adapter.restore_config(
+        args, {'input_size': 512, 'lora_rank': 4, 'sam_type': 'vit_b'})
+    assert args.samed_high_res_head == 0
 
 
 def test_low_res_tracks_input_size(tmp_path):
