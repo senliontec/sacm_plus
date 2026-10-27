@@ -269,7 +269,15 @@ No target GT or target prompts are used.
 
 `medcagd` is a non-SAM binary medical baseline (ECCV 2026, MIT; vendored
 context-aware gated decoder, PVTv2-B2 timm encoder, deep supervision and
-edge BCE).  The upstream `cfgs`-driven constructor is parameterized.  The
+edge BCE).  The upstream `cfgs`-driven constructor is parameterized.  A
+seed-0 reproduction exposed a BCE-only failure on this protocol: training
+loss decreased while validation (and training-image) predictions became
+all background from epoch 18, giving Dice 0 on every validation image.  The
+loss therefore adds a soft Dice term on the main output (weight 1.0,
+`--medcagd-dice-weight 0` for the paper's BCE-only objective); with it,
+validation Dice reached ~0.50 by epoch 200.  The repeated LR waves are the
+upstream `CosineAnnealingWarmRestarts(T_0=5, T_mult=1)` schedule and are
+not the cause (constant LR shows the same BCE-only collapse).  The
 paper uses 256/128 patches for DRIVE/FIVES and 224 full images for its
 large-object benchmarks.  All 20 protocol datasets are thin curvilinear
 structures, so the default task adaptation uses the patch recipe for every

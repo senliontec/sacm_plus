@@ -36,13 +36,32 @@ def generate_edge_targets(masks: torch.Tensor, radius: int = 3) -> torch.Tensor:
     return (dilated & ~eroded).float()
 
 
-class MedCAGDLoss(nn.Module):
-    """BCE deep supervision + edge BCE, with the upstream normalized weights."""
+def soft_dice_loss(logits: torch.Tensor, target: torch.Tensor,
+                   smooth: float = 1.0) -> torch.Tensor:
+    """Per-image soft Dice loss on sigmoid probabilities."""
+    probs = torch.sigmoid(logits).flatten(1)
+    target = target.float().flatten(1)
+    intersection = (probs * target).sum(dim=1)
+    denominator = probs.sum(dim=1) + target.sum(dim=1)
+    return (1.0 - (2.0 * intersection + smooth)
+            / (denominator + smooth)).mean()
 
-    def __init__(self, edge_weight: float = 1.0, edge_radius: int = 3):
+
+class MedCAGDLoss(nn.Module):
+    """BCE deep supervision + edge BCE + a foreground Dice term.
+
+    The paper uses BCE only.  On the 3-shot protocol several domains have
+    0.25-3% foreground, where BCE-only training collapses to an all-background
+    solution; the soft Dice term on the main output is a task adaptation that
+    prevents this.  Set ``dice_weight=0`` for the paper's BCE-only objective.
+    """
+
+    def __init__(self, edge_weight: float = 1.0, edge_radius: int = 3,
+                 dice_weight: float = 1.0):
         super().__init__()
         self.edge_weight = float(edge_weight)
         self.edge_radius = int(edge_radius)
+        self.dice_weight = float(dice_weight)
         self.bce = nn.BCEWithLogitsLoss()
 
     def forward(
@@ -63,4 +82,6 @@ class MedCAGDLoss(nn.Module):
         edge_loss = sum(
             self.bce(edge, edge_target) for edge in edges
         ) / max(len(edges), 1)
-        return seg_loss + self.edge_weight * edge_loss
+        dice_loss = soft_dice_loss(main, target)
+        return (seg_loss + self.edge_weight * edge_loss
+                + self.dice_weight * dice_loss)

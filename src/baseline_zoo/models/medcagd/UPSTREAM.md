@@ -44,15 +44,25 @@
    path, although the released code builds it. The port defaults to
    `use_stage0=False`; `--medcagd-use-stage0 1` reproduces the released code
    variant.
-5. Albumentations/CutMix augmentation is replaced by seeded random crops,
+5. The paper uses BCE only. Several protocol domains contain only 0.25-3%
+   foreground; a seed-0 reproduction shows BCE-only training collapsing to
+   all background (validation Dice 0, empty predictions on every val image
+   from epoch 18). The port adds a soft Dice term on the main output
+   (`--medcagd-dice-weight`, default 1.0) while keeping the official deep
+   and edge supervision. This is a task adaptation; set the weight to 0 for
+   the paper's BCE-only objective. With the Dice term, validation Dice rises
+   to ~0.50 by epoch 200 in the local reproduction instead of collapsing.
+6. Albumentations/CutMix augmentation is replaced by seeded random crops,
    foreground-biased crops, flips, 90-degree rotations and mild photometric
    jitter. This keeps the baseline dependency-free and reproducible.
-6. Upstream reads images with OpenCV (BGR) and scales to [0,1] without
+7. Upstream reads images with OpenCV (BGR) and scales to [0,1] without
    ImageNet mean/std normalization. This port uses PIL RGB with the same
    [0,1] scaling; the encoder is ImageNet-pretrained on RGB.
-7. The upstream xrun scheduler/resume orchestration is replaced by the
-   shared runtime and a cosine warm-restart scheduler.
-8. No official trained checkpoint is present. Training loads the timm
+8. The upstream xrun scheduler/resume orchestration is replaced by the
+   shared runtime and the upstream `CosineAnnealingWarmRestarts(T_0=5,
+   T_mult=1, eta_min=1e-6)`. The repeated waves are the upstream schedule,
+   not a bug; training remains stable once the Dice term is present.
+9. No official trained checkpoint is present. Training loads the timm
    ImageNet-1k encoder weights from a local file
    (`checkpoints/pvt_v2_b2.in1k.safetensors` by default, or
    `--medcagd-encoder-weights`). The upstream `pretrained=True` path can

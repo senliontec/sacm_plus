@@ -7,6 +7,7 @@ train_entrypoint: >-
   python -m baseline_zoo.run_one --model medcagd --stage train
   --data-root {split_root} --workdir {output_root}
   --medcagd-input-policy patches --medcagd-use-stage0 0
+  --medcagd-dice-weight 1.0
   --medcagd-encoder-weights checkpoints/pvt_v2_b2.in1k.safetensors
   --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
 eval_entrypoint: >-
@@ -32,8 +33,11 @@ note: >-
   18-image 3-shot split replaces the upstream patch directories. The
   raw-image Stage 0 path is disabled by default because the paper's final
   model excludes it (--medcagd-use-stage0 1 reproduces the code variant).
-  The upstream
-  Albumentations/CutMix recipe and CuPy evaluator are not used. No official
+  The paper uses BCE only; this port adds a soft Dice term on the main
+  output (weight 1.0) because BCE-only training collapses to all background
+  on the 0.25-3% foreground domains. Set --medcagd-dice-weight 0 for
+  BCE-only. The upstream Albumentations/CutMix recipe and CuPy evaluator
+  are not used. No official
   trained checkpoint is present; training initializes the encoder from the
   local timm `pvt_v2_b2.in1k` weights at
   checkpoints/pvt_v2_b2.in1k.safetensors (download the 101 MB

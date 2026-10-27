@@ -16,6 +16,7 @@ from baseline_zoo.data import Sample
 from baseline_zoo.models.medcagd.losses import (
     MedCAGDLoss,
     generate_edge_targets,
+    soft_dice_loss,
 )
 from baseline_zoo.models.medcagd.model import load_encoder_state
 
@@ -41,6 +42,15 @@ def test_registry_and_metadata():
     assert adapter.train_batch_size == 8
     assert 'MedCAGD' in adapter.official_source
     assert any('256' in item for item in adapter.deviations)
+
+
+def test_soft_dice_penalizes_all_background():
+    target = torch.zeros(1, 1, 16, 16)
+    target[:, :, 4:8, 4:8] = 1
+    good = torch.where(target > 0, 10.0, -10.0)
+    empty = torch.full_like(target, -10.0)
+    assert soft_dice_loss(good, target) < soft_dice_loss(empty, target)
+    assert soft_dice_loss(empty, target) > 0.9
 
 
 def test_edge_targets_and_loss():
@@ -154,6 +164,7 @@ def test_config_roundtrip():
         medcagd_eval_batch=8,
         medcagd_threshold=0.5,
         medcagd_edge_weight=1.0,
+        medcagd_dice_weight=1.0,
         medcagd_use_stage0=0,
     )
     config = adapter.save_config(args)
@@ -170,6 +181,7 @@ def test_config_roundtrip():
         'checkpoints/pvt_v2_b2.in1k.safetensors')
     assert target.medcagd_eval_stride == 128
     assert target.medcagd_threshold == 0.5
+    assert target.medcagd_dice_weight == 1.0
     assert target.medcagd_use_stage0 == 0
 
 

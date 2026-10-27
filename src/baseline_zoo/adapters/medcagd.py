@@ -89,10 +89,16 @@ class MedCAGDAdapter(BaselineAdapter):
         'to avoid a new dependency and to keep augmentation identical across '
         'the 3-shot protocol.',
         'The official BCEWithLogits + normalized deep supervision + edge BCE '
-        'objective is preserved; the encoder is timm PVTv2-B2 with local '
-        'pvt_v2_b2.in1k ImageNet weights during training '
-        '(--medcagd-encoder-weights; no runtime download) and random '
-        'initialization followed by checkpoint loading during prediction.',
+        'objective is preserved, with one task adaptation: a soft Dice term '
+        'on the main output (default weight 1.0). BCE-only training collapses '
+        'to all background on the 0.25-3% foreground domains in this '
+        'protocol (observed at epoch 16 in a seed-0 reproduction); the Dice '
+        'term prevents that. Set --medcagd-dice-weight 0 for the paper '
+        'BCE-only objective.',
+        'The encoder is timm PVTv2-B2 with local pvt_v2_b2.in1k ImageNet '
+        'weights during training (--medcagd-encoder-weights; no runtime '
+        'download) and random initialization followed by checkpoint loading '
+        'during prediction.',
         'The upstream loader feeds OpenCV BGR images scaled to [0,1] without '
         'ImageNet mean/std normalization. This port uses RGB PIL images with '
         'the same [0,1] scaling; RGB matches the ImageNet-pretrained '
@@ -152,6 +158,11 @@ class MedCAGDAdapter(BaselineAdapter):
             '--medcagd-edge-weight', type=float, default=1.0,
             help='weight of the edge BCE term added to the mask objective')
         parser.add_argument(
+            '--medcagd-dice-weight', type=float, default=1.0,
+            help='soft Dice weight on the main output; prevents the BCE-only '
+                 'all-background collapse on <3% foreground domains. '
+                 '0 reproduces the paper BCE-only objective')
+        parser.add_argument(
             '--medcagd-threshold', type=float, default=0.5,
             help='probability threshold applied to the stitched prediction')
         parser.add_argument(
@@ -168,7 +179,8 @@ class MedCAGDAdapter(BaselineAdapter):
         self._eval_batch = max(1, int(getattr(args, 'medcagd_eval_batch', 8)))
         self._threshold = float(getattr(args, 'medcagd_threshold', 0.5))
         self._criterion = MedCAGDLoss(
-            edge_weight=float(getattr(args, 'medcagd_edge_weight', 1.0)))
+            edge_weight=float(getattr(args, 'medcagd_edge_weight', 1.0)),
+            dice_weight=float(getattr(args, 'medcagd_dice_weight', 1.0)))
         training = getattr(args, 'stage', 'train') in ('train', 'all')
         load_pretrained = (
             bool(int(getattr(args, 'medcagd_pretrained', 1))) and training)
@@ -404,6 +416,7 @@ class MedCAGDAdapter(BaselineAdapter):
             'eval_batch': int(getattr(args, 'medcagd_eval_batch', 8)),
             'threshold': float(getattr(args, 'medcagd_threshold', 0.5)),
             'edge_weight': float(getattr(args, 'medcagd_edge_weight', 1.0)),
+            'dice_weight': float(getattr(args, 'medcagd_dice_weight', 1.0)),
             'use_stage0': int(getattr(args, 'medcagd_use_stage0', 0)),
         }
 
@@ -435,6 +448,12 @@ class MedCAGDAdapter(BaselineAdapter):
             args.medcagd_threshold = float(config['threshold'])
         if 'edge_weight' in config:
             args.medcagd_edge_weight = float(config['edge_weight'])
+        if 'dice_weight' in config:
+            args.medcagd_dice_weight = float(config['dice_weight'])
+        else:
+            # Checkpoints from the BCE-only port predate this task
+            # adaptation; resume with the anti-collapse Dice term.
+            args.medcagd_dice_weight = 1.0
         if 'use_stage0' in config:
             args.medcagd_use_stage0 = int(config['use_stage0'])
         else:
