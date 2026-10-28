@@ -1,0 +1,29 @@
+id: liot
+display_name: LIOT-IterNet
+family: cnn
+status: available
+checkpoint: "{output_root}/best_model.pth"
+train_entrypoint: >-
+  python -m baseline_zoo.run_one --model liot --stage train
+  --data-root {split_root} --workdir {output_root}
+  --batch-size 8 --accum-steps 4 --lr 0.001
+  --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
+eval_entrypoint: >-
+  python scripts/pipeline/run_baseline_test.py --method liot
+  --protocol {test_manifest}
+  --seed {seed}
+  --checkpoint {output_root}/best_model.pth
+  --pred-root {output_root}/predictions
+  --paper-root {output_root}
+  --device cuda:{gpu} --use_wandb true --skip-visualize
+protocols: [seeded5, fixed]
+defaults:
+  epochs: 800
+note: >-
+  LIOT + IterNet (IEEE TIP 2022). 4-channel local intensity order transform
+  plus the official 32-channel IterNet (13.6M); 128x128 patches, CE,
+  Adam 1e-3, batch 8 x 4 accumulation (official effective 32), shared
+  800-epoch budget and validation-Dice selection. Bright-foreground protocol
+  datasets are inverted before LIOT using a documented training/support-mask
+  polarity table; whole-image inference at 0.5 and exact GT-size export.
+  No official weights; from-scratch training.

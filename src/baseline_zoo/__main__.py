@@ -371,6 +371,8 @@ def cmd_doctor(args: argparse.Namespace) -> int:
          False),
         ('Segmenter-B ViT-B/16', REPO_ROOT / 'checkpoints' /
          'segmenter_vit_b16_384.pth', False),
+        ('DconnNet ResNet-34', REPO_ROOT / 'checkpoints' /
+         'resnet34-333f7ec4.pth', False),
         # Matcher needs the public DINOv2 ViT-L/14 checkpoint; report it as
         # an informational asset like the SAM2 appendix weight.
         ('DINOv2 ViT-L/14', REPO_ROOT / 'checkpoints' /
@@ -394,6 +396,8 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     print('Segmenter-B ViT-B/16 download: '
           'https://download.openmmlab.com/mmsegmentation/v0.5/pretrain/'
           'segmenter/vit_base_p16_384_20220308-96dfe169.pth')
+    print('DconnNet ResNet-34 download: '
+          'https://download.pytorch.org/models/resnet34-333f7ec4.pth')
     for label, module in (
             ('SAM2 deps', 'hydra'),
             ('SAM2 deps', 'omegaconf'),
@@ -406,7 +410,8 @@ def cmd_doctor(args: argparse.Namespace) -> int:
             ('KnowSAM dep', 'hausdorff'),
             ('SegDINO dep', 'timm'),
             ('FlowSDF dep', 'scipy'),
-            ('A2SAM dep', 'skimage')):
+            ('A2SAM dep', 'skimage'),
+            ('DconnNet dep', 'cv2')):
         state = 'OK' if importlib.util.find_spec(module) else 'MISSING'
         if not importlib.util.find_spec(module):
             failures += 1

@@ -768,3 +768,55 @@ parameters.  GPU smoke: 4 train / 1 val at 512, one epoch in 1 s, val Dice
 0.187, checkpoint saved; prediction exported 16 DRIVE masks in 1 s at
 565×584 with non-empty 0/255 values.  See
 `src/baseline_zoo/models/csunet/UPSTREAM.md`.
+
+## LIOT-IterNet addendum (2026-10-28)
+
+`liot` is the IEEE TIP 2022 local-intensity-order representation plus the
+release's IterNet (32 base channels, one U-Net and three mini U-Nets,
+13,604,360 parameters).  The 4-channel LIOT transform is a vectorised NumPy
+translation of `distance_weight_binary_pattern_faster`; it was checked
+bit-for-bit against the release's numba loop on random uint8 images and a
+DRIVE image (max absolute difference 0).  The adapter trains 128×128 random
+crops with CE and Adam 1e-3, batch 8 × 4 accumulation (official effective
+batch 32), the release repeat=30 replacement sampler (540 crops/epoch), and
+the shared 800-epoch/validation-Dice budget; the optional
+post-150-epoch topological loss is omitted because it imports a hard-coded
+`/home/sty/...` PersistencePython module and is not part of the LIOT
+contribution.  LIOT assumes dark curvilinear structures; the protocol's
+polarity was measured from training/support masks and bright-foreground
+datasets (CHASEDB1, CORN, DRIVE, FIVES, HRF, LES-AV, OCTA-500, STARE,
+DeepGlobe, ROAD, TopoMortar, WIRE) are inverted before LIOT at training and
+inference.  Inference is a whole-image forward pass at threshold 0.5 with
+exact GT-size export, instead of the release's 128/8 overlap and F1-threshold
+sweep.  No official weights are used.  CPU tests cover transform parity,
+polarity, model forward/backward, batch preparation, scheduler and
+prediction shape.  GPU smoke: 2 train / 1 val images, one epoch in 1 s,
+train loss 0.9640, val Dice 0.1596, checkpoint saved; prediction exported
+20 DRIVE masks in 2 s at 565×584 with 0/255 values.  See
+`src/baseline_zoo/models/liot/UPSTREAM.md`.
+
+## DconnNet addendum (2026-10-28)
+
+`dconnnet` is the CVPR 2023 directional-connectivity segmenter (28,382,912
+parameters at `num_class=1`).  The port keeps the official CHASE recipe:
+ResNet-34 backbone, 960×960 BGR inputs, `[0,1]*3.2-1.6` normalization,
+8-direction connectivity head, `BCE + connectivity BCE + edge + Dice`
+(auxiliary map weighted 0.3 during training), Adam 3.8e-3, polynomial LR
+0.9 and batch 4.  It uses the shared 800-epoch/validation-Dice budget and
+fp32 instead of apex.  Two release defects are fixed: `connectivity_matrix`
+no longer squeezes away the batch dimension at batch size 1, and the
+edge-loss denominator is clamped.  The loss/voting helpers are device-aware;
+`ResNet.forward`'s unused `conv1_1` typo is fixed and all network-download
+paths are removed.  The optional ResNet-34 ImageNet state dict is loaded
+strictly from `checkpoints/resnet34-333f7ec4.pth`; when absent, training is
+from random initialization and marked as a deviation.  Inference follows
+sigmoid → 0.5 → reshape → `Bilateral_voting` → max, then nearest export at
+the exact GT size.  The upstream repository has no LICENSE file.  CPU tests
+cover connectivity targets/voting, batch-1 loss, model forward/backward,
+adapter batch/prediction and polynomial LR.  GPU smoke: 2 train / 1 val
+images, one epoch at 320 in 1 s, train loss 4.0134, val Dice 0.1036,
+checkpoint saved; a 960 batch-4 forward/backward peaks at 6.72 GiB, so the
+official batch fits the 24 GiB target GPUs.  Prediction exported 20 DRIVE
+masks in 1 s at 565×584 with 0/255 values.  The local ResNet-34 loader was
+also checked with a synthetic 218-key state dict.  See
+`src/baseline_zoo/models/dconnnet/UPSTREAM.md`.

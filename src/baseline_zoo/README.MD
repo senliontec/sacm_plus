@@ -11,7 +11,7 @@
   `layout.json`、`content_list*.json` 和 `images/` 是版面/图片解析结果。
 - **未收录** 表示 `parsing/` 中没有对应论文目录；不是链接失效。
 - 同一篇论文在 `parsing/` 中可能存在大小写不同的重复目录，表中列主目录，并在备注中标出重复项。
-- 当前覆盖：38 个 adapter 中，16 个在 `parsing/` 有论文目录，其余标记为“未收录”。
+- 当前覆盖：40 个 adapter 中，18 个在 `parsing/` 有论文目录，其余标记为“未收录”。
 
 ## Baseline ↔ 3rd 代码 ↔ parsing 论文
 
@@ -30,6 +30,8 @@
 | `s2mnet` | S2M-Net | `3rd/S2M-Net-Spectral-Spatial-Mixing-for-Medical-Segmentation` | `parsing/[2026 icml] S2M-Net: Spectral-Spatial Mixing with Morphology-Aware Adaptive Loss for Medical Image Segmentation` | TF/Keras 重写为 PyTorch；MRF-SE + SSTM + BFP + MAL；上游无 LICENSE |
 | `csunet` | CS-UNet | `3rd/CSUNet` | `parsing/[2026 icassp] Curvilinear Spectral U-Net: A Framework for Structure-Aware Road Extraction from Very High Resolution Imagery` | TF notebook 重写为 PyTorch；GFR/FSF + Snake；DynamicSnake 为占位实现；上游无 LICENSE |
 | `jtfn` | JTFN | `3rd/JTFN` | `parsing/[2021 iccv] Joint Topology-Preserving and Feature-Refinement Network for Curvilinear Structure Segmentation` | parsing 另有小写重复目录；上游无 LICENSE |
+| `liot` | LIOT-IterNet | `3rd/LIOT` | `parsing/[2022 tip] Local Intensity Order Transformation for Robust Curvilinear Object Segmentation` | 4 通道 LIOT + IterNet；128 crop、CE；亮/暗前景极性映射；MIT |
+| `dconnnet` | DconnNet | `3rd/DconnNet` | `parsing/[2023 cvpr] Directional connectivity-based segmentation of medical images` | 8 方向连通性；960 BGR；ResNet-34 权重需本地准备；上游无 LICENSE |
 | `dscnet` | DSCNet | `3rd/DSCNet` | `parsing/[2023 iccv] Dynamic Snake Convolution Based on Topological Geometric Constraints for Tubular Structure Segmentation` | parsing 另有 2 个大小写变体重复目录；blending kernel 已修复 |
 | `segdino` | SegDINO | `3rd/segdino` | 未收录 | DPT + DINOv3；权重需本地准备 |
 | `segdino_v2` | SegDINO v2 | `3rd/segdino_v2` | `parsing/` 未收录（arXiv 2606.17972） | TPA/SAD decoder；DINOv3-S 本地权重 |
@@ -64,10 +66,10 @@
 | `sam_vit_l_unet` | SAM ViT-L + U-Net | `3rd/segment-anything` | `parsing/[2023 iccv] Segment Anything` | 本项目扩展，不是论文 baseline；3rd 仅提供 SAM 基座，U-Net decoder 为自包含实现 |
 | `ucs` | UCS | `3rd/UCS` | `parsing/[2023 iccv] UCS: A Universal Model for Curvilinear Structure Segmentation` | oracle-prompted reference，不是 prompt-free |
 
-## 未集成 / 已排除（不属于 21 个 registry baseline）
+## 未集成 / 已排除（不属于 41 个 registry baseline）
 
 以下方法的 `3rd/` 代码和 `parsing/` 论文都在本地，但未进入 `baseline_zoo` 的 adapter 列表，
-不计入上表 21 个 baseline。
+不计入上表 41 个 baseline。
 
 | 方法 | 3rd 代码目录 | parsing 论文目录 | 状态 |
 |---|---|---|---|

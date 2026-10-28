@@ -24,8 +24,9 @@ def test_registry_contains_all_self_contained_models():
     expected = {
         'a2sam', 'aco_moe_lora', 'bcunet', 'blo_sam', 'c2p', 'convlora',
         'cs2net', 'csunet',
-        'cwsam', 'dscnet', 'dka', 'flowsdf', 'fssam', 'jtfn',
-        'knowsam', 'maskvsc', 'matcher', 'medcagd', 'nnunet2d', 'nnwnet',
+        'cwsam', 'dconnnet', 'dscnet', 'dka', 'flowsdf', 'fssam', 'jtfn',
+        'knowsam', 'liot', 'maskvsc', 'matcher', 'medcagd', 'nnunet2d',
+        'nnwnet',
         'persam',
         'rsrm', 's2mnet', 'sacm_official', 'sacm_x', 'sam2_unet',
         'sam_adapter',
@@ -166,7 +167,7 @@ def test_train_dry_run_does_not_create_marker(capsys):
 def test_doctor_reports_self_contained_models(capsys):
     main(['doctor'])
     output = capsys.readouterr().out
-    assert 'models: 39  available: 39' in output
+    assert 'models: 41  available: 41' in output
     assert 'sam2_hiera_large.pt' in output
     assert 'SAM2 Hiera-L download' in output
     assert 'DINOv3' in output or 'segdino' in output
