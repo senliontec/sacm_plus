@@ -1,5 +1,7 @@
 # Baseline model -> 3rd source directory
 
+# 可以参考 ICLR ICML NIPS ACL 等顶会中对 SAM 做高效微调的方法
+
 `3rd` root: `/home/dev/mywork/project/segment/3rd`
 
 From this file's directory: `../../../../3rd`
@@ -13,7 +15,7 @@ From this file's directory: `../../../../3rd`
 ├── bcunet                -> 3rd/BCU-Net
 ├── blo_sam               -> 3rd/BLO-SAM
 ├── c2p                   -> 3rd/Concept-to-Pixel
-├── convlora              -> 3rd/autogluon/examples/automm/Conv-LoRA
+├── convlora              -> 3rd/autogluon/examples/automm/Conv-LoRA [牛逼]
 ├── cs2net                -> 3rd/CS-Net
 ├── csunet                -> 3rd/CSUNet
 ├── cwsam                 -> 3rd/CWSAM
