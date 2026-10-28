@@ -39,9 +39,11 @@ loralib (MIT) via AutoGluon.
 
 - Conv-LoRA is applied to the **query, key and value** projection (the
   fused `qkv` linear) of every image-encoder self-attention block.
-- Rank `r=3` and `lora_alpha=8` (AutoGluon `optim.lora.alpha` default;
-  the released `run_semantic_segmentation.py` does not override it).
-  Scaling is `alpha/r`. The value is exposed via `--convlora-alpha`.
+- Rank `r=3` and `lora_alpha=32` (the value in AutoGluon's
+  `semantic_segmentation` preset used by the released
+  `run_semantic_segmentation.py`; the generic `optim.lora.alpha` default
+  of 8 is overridden by that preset).  Scaling is `alpha/r`. The value is
+  exposed via `--convlora-alpha`.
 - `topk=1` noisy MoE gate over 8 convolutional experts with upsampling
   ratios 1..8; each expert is `interpolate(bicubic) -> 3x3 Conv+GELU ->
   interpolate(bicubic)`; expert outputs are combined through
@@ -64,10 +66,14 @@ loralib (MIT) via AutoGluon.
   for masks, `ToTensor` (0-1) and **ImageNet** normalization
   (`configs/model/default.yaml: image_norm: imagenet`) before the SAM
   encoder. Meta SAM pixel mean/std are not applied.
-- Official optimizer/schedule in the released example: AutoGluon defaults
-  `adamw`, cosine decay, `warmup_steps=0.1` of the total steps, gradient
-  clipping 1.0, layerwise LR decay 0.9, top-3 greedy-soup checkpoint
-  averaging. The paper states Adam, lr 1e-4 and weight decay 1e-4.
+- Official optimizer/schedule in the released example: AutoGluon's
+  `semantic_segmentation` preset sets `polynomial_decay` (power 1,
+  `warmup_steps=0.0`, `end_lr=0`), gradient clipping 1.0, single-stage LR
+  (`lr_decay=0`), `lora_alpha=32`, weight decay 1e-4 and top-k best
+  checkpoint selection.  The generic AutoGluon defaults (cosine,
+  `warmup_steps=0.1`, layerwise decay 0.9) are overridden by this preset
+  and do not describe the released Conv-LoRA example.  The paper states
+  Adam, lr 1e-4 and weight decay 1e-4.
 
 ## Deviations / decisions
 
@@ -79,19 +85,25 @@ loralib (MIT) via AutoGluon.
    `frozen_layers`. This port follows the paper: the decoder is trainable
    except `iou_prediction_head`.
 2. **Optimizer.** Paper: Adam, lr 1e-4, weight decay 1e-4 (implemented).
-   The released AutoGluon defaults are AdamW with weight decay 1e-3.
-3. **Schedule.** AutoGluon cosine decay with 10% warmup and gradient
-   clipping 1.0 is implemented, but the shared runtime steps the scheduler
-   once per epoch instead of per iteration. Layerwise LR decay 0.9 and
-   top-k greedy soup are not reproduced; checkpoint selection is the
-   project's validation Dice.
+   The released semantic-segmentation preset uses AdamW with weight
+   decay 1e-4 (not the generic 1e-3).
+3. **Schedule.** The semantic-segmentation preset's polynomial decay
+   (power 1, no warmup, `end_lr=0`) and gradient clipping 1.0 are
+   implemented, but the shared runtime steps the scheduler once per epoch
+   instead of per iteration.  The preset uses a single-stage LR
+   (`lr_decay=0`); layerwise decay and greedy soup are not reproduced.
+   Checkpoint selection is the project's validation Dice.
 4. **Budget.** The official 30-epoch recipe is extended to the shared
    800-epoch 3-shot budget; the effective batch 4 is kept via batch 1 and
-   four accumulation steps.
+   four accumulation steps.  The released semantic-segmentation processor
+   calls `RandomHorizontalFlip(1.0)` (always flips); the port uses p=0.5,
+   matching the paper's "random horizontal flip", and treats the upstream
+   p=1.0 as an implementation quirk.
 5. **alpha.** The released example script sets `rank=3` and `expert_num=8`
-   but leaves AutoGluon's `lora_alpha` default at 8. The paper does not
-   state alpha. This port defaults to 8 and records the value in the
-   checkpoint config; `--convlora-alpha` is available for HPO.
+   and inherits `lora_alpha=32` from the semantic-segmentation preset;
+   the paper does not state alpha. This port defaults to 32 and records
+   the value in the checkpoint config; `--convlora-alpha` is available
+   for HPO.
 6. **SAM weights.** The official example loads `facebook/sam-vit-huge`
    through HuggingFace. This port loads the equivalent official Meta SAM
    ViT-H checkpoint locally (`checkpoints/sam_vit_h_4b8939.pth`), avoiding

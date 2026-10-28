@@ -11,8 +11,10 @@ training-free modules on a frozen DINOv3 ViT-B/16:
   and fused by a softmax confidence.
 
 The official code uses ``fast_pytorch_kmeans``; this port uses scikit-learn
-k-means++ on CPU for a dependency-free, deterministic equivalent (the only
-behavioral change).  The model has no trainable parameters.
+k-means++ on CPU for a dependency-free, deterministic equivalent.  The
+timm ViT-S compatibility wrapper reproduces Meta DINOv3's ``F_sum`` and
+``F_attn`` (``gamma_1 * attn(norm1(x))``) extraction.  The model has no
+trainable parameters.
 """
 
 from __future__ import annotations
@@ -32,10 +34,11 @@ from baseline_zoo.models.rsrm.dinov3.models.vision_transformer import (
 class _TimmDINOv3(torch.nn.Module):
     """timm DINOv3 wrapper exposing RSRM's intermediate-layer API.
 
-    timm's ViT returns block outputs but not the post-attention residual
-    (``F_attn`` in RSRM).  A pre-hook on every ``block.norm2`` captures that
-    tensor; both tensors are final-normed, prefix-stripped and reshaped to
-    match the official ``get_intermediate_layers(..., reshape=True)``.
+    timm's ViT returns block outputs but not the post-attention output
+    (``F_attn`` in RSRM, i.e. ``gamma_1 * attn(norm1(x))``).  A forward hook
+    on every ``block.attn`` captures that tensor; both tensors are
+    final-normed, prefix-stripped and reshaped to match the official
+    ``get_intermediate_layers(..., reshape=True)``.
     """
 
     def __init__(self, model, depth: int):
@@ -57,12 +60,12 @@ class _TimmDINOv3(torch.nn.Module):
         captured = {}
 
         def hook(index):
-            def _capture(module, inputs):
-                captured[index] = inputs[0]
+            def _capture(_module, _inputs, output):
+                captured[index] = output
             return _capture
 
         handles = [
-            self.model.blocks[i].norm2.register_forward_pre_hook(hook(i))
+            self.model.blocks[i].attn.register_forward_hook(hook(i))
             for i in indices
         ]
         try:
@@ -79,6 +82,13 @@ class _TimmDINOv3(torch.nn.Module):
         attn = []
         for index in indices:
             value = captured[index]
+            # timm's EvaBlock applies layer-scale outside the attention
+            # module: x = x + gamma_1 * attn(norm1(x)).  Meta DINOv3's
+            # F_attn (x_c) is exactly gamma_1 * attn(norm1(x)), so include
+            # the scale before the final norm.
+            gamma = getattr(self.model.blocks[index], 'gamma_1', None)
+            if gamma is not None:
+                value = value * gamma
             if norm:
                 value = self.model.norm(value)
             value = value[:, prefix:]

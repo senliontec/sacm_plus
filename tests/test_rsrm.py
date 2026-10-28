@@ -74,6 +74,48 @@ def test_region_similarity_uses_kmeans():
     assert torch.isfinite(out).all()
 
 
+def test_timm_f_attn_matches_meta_xc():
+    timm = pytest.importorskip('timm')
+    from baseline_zoo.models.rsrm.model import _TimmDINOv3
+
+    base = timm.create_model(
+        'vit_small_patch16_dinov3', pretrained=False, num_classes=0).eval()
+    wrapper = _TimmDINOv3(base, depth=len(base.blocks))
+    x = torch.randn(1, 3, 64, 64)
+    indices = list(range(len(base.blocks)))
+    captured = {}
+
+    with torch.no_grad():
+        sums, attns = wrapper.get_intermediate_layers(
+            x, n=indices, reshape=True)
+        handles = [
+            base.blocks[-1].attn.register_forward_hook(
+                lambda _m, _i, out: captured.__setitem__('attn', out)),
+            base.blocks[-1].register_forward_hook(
+                lambda _m, _i, out: captured.__setitem__('block', out)),
+        ]
+        try:
+            base(x)
+        finally:
+            for handle in handles:
+                handle.remove()
+
+        prefix = base.num_prefix_tokens
+        value = captured['attn']
+        gamma = getattr(base.blocks[-1], 'gamma_1', None)
+        if gamma is not None:
+            value = value * gamma
+        reference_attn = base.norm(value)[:, prefix:]
+        reference_attn = reference_attn.reshape(
+            1, 4, 4, -1).permute(0, 3, 1, 2).contiguous()
+        reference_sum = base.norm(captured['block'])[:, prefix:]
+        reference_sum = reference_sum.reshape(
+            1, 4, 4, -1).permute(0, 3, 1, 2).contiguous()
+
+    assert torch.allclose(attns[-1], reference_attn, atol=1e-6)
+    assert torch.allclose(sums[-1], reference_sum, atol=1e-6)
+
+
 def test_pair_is_imagenet_normalized(tmp_path):
     adapter = RSRMAdapter()
     adapter.input_size = 480

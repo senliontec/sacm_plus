@@ -3,6 +3,8 @@
 import sys
 from pathlib import Path
 
+import torch
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / 'src'))
 
@@ -14,6 +16,7 @@ from baseline_zoo.__main__ import (  # noqa: E402
 )
 from baseline_zoo.protocols import load_protocol  # noqa: E402
 from baseline_zoo.registry import load_models, resolve_models  # noqa: E402
+from baseline_zoo.runtime import _select_cuda_device  # noqa: E402
 
 
 def test_registry_contains_all_self_contained_models():
@@ -60,6 +63,7 @@ def test_report_dry_run_tolerates_missing_runs(tmp_path, capsys):
 
 def test_eval_resume_requires_eval_artifact(tmp_path, monkeypatch):
     from types import SimpleNamespace
+
     import baseline_zoo.__main__ as cli
 
     calls = []
@@ -162,6 +166,18 @@ def test_doctor_reports_self_contained_models(capsys):
     assert 'sam2_hiera_large.pt' in output
     assert 'SAM2 Hiera-L download' in output
     assert 'DINOv3' in output or 'segdino' in output
+
+
+def test_select_cuda_device_targets_job_gpu(monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        torch.cuda, 'set_device', lambda index: calls.append(index))
+
+    _select_cuda_device(torch.device('cuda:3'))
+    assert calls == [3]
+    _select_cuda_device(torch.device('cpu'))
+    _select_cuda_device(torch.device('cuda'))
+    assert calls == [3]
 
 
 def test_plan_rejects_unknown_seed(capsys):

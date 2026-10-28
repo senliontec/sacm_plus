@@ -54,6 +54,18 @@ from .data import RawPairDataset, Sample, SampleListDataset, load_mask, load_spl
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
+def _select_cuda_device(device: torch.device) -> None:
+    """Make index-less ``.cuda()`` calls target the job's GPU.
+
+    Several vendored official implementations (FSSAM's SAM 2 helpers and
+    SCRWKV's ``bi_wkv`` wrapper) call ``tensor.cuda()`` internally.  Without
+    an explicit current device that always means GPU 0, which breaks jobs
+    assigned to ``cuda:1``..``cuda:7`` by the static multi-GPU runner.
+    """
+    if device.type == 'cuda' and device.index is not None:
+        torch.cuda.set_device(device.index)
+
+
 class BaselineAdapter(ABC):
     """Official model logic behind a uniform protocol interface.
 
@@ -492,6 +504,7 @@ def run_training_free(adapter: BaselineAdapter,
     """
     seed_everything(args.seed)
     device = torch.device(args.device)
+    _select_cuda_device(device)
     adapter.args = args
     adapter.device = device
 
@@ -568,6 +581,7 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
         return run_training_free(adapter, args)
     seed_everything(args.seed)
     device = torch.device(args.device)
+    _select_cuda_device(device)
     adapter.args = args
     adapter.device = device
 
@@ -820,6 +834,7 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
 def run_prediction(adapter: BaselineAdapter, args: argparse.Namespace,
                    ckpt_path: Path) -> None:
     device = torch.device(args.device)
+    _select_cuda_device(device)
     adapter.args = args
     adapter.device = device
     # Distinguish final prediction from validation inside a training run.

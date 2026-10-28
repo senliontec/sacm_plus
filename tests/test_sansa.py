@@ -56,6 +56,25 @@ def test_pair_is_imagenet_normalized(tmp_path):
     assert set(mask.unique().tolist()) <= {0.0, 1.0}
 
 
+def test_predict_sample_returns_gt_resolution_bool_mask():
+    adapter = SANSAAdapter()
+    adapter.args = SimpleNamespace(sansa_shots=3)
+    adapter.device = torch.device('cpu')
+
+    class _Fake(torch.nn.Module):
+        def forward(self, samples, prompt):
+            return torch.zeros(samples.shape[1], 1, 8, 8)
+
+    prepared = {
+        'samples': torch.zeros(1, 4, 3, 8, 8),
+        'prompt': {'shots': 3, 'prompt_type': 'mask'},
+        'size': (16, 16),
+    }
+    pred = adapter.predict_sample(_Fake(), prepared, None)
+    assert pred.shape == (16, 16)
+    assert pred.dtype == bool
+
+
 def test_train_support_excludes_query(tmp_path):
     items = [_sample(tmp_path, f'TEST_{i}') for i in range(3)]
     adapter = SANSAAdapter()

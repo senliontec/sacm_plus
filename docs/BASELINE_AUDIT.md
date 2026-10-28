@@ -330,16 +330,19 @@ and its 4.02M trainable count equals the 3.51M decoder plus ~0.51M
 Conv-LoRA; the released AutoGluon PEFT optimizer filter (`.*lora_*`)
 would freeze the decoder, so the port trains it except the IoU head,
 which the official SAM config explicitly freezes; (2) the paper states
-Adam with lr/wd 1e-4, while AutoGluon defaults to AdamW/wd 1e-3, so the
-paper values are used.  The released AutoGluon data pipeline normalizes
-with ImageNet statistics (`image_norm: imagenet`), not SAM's pixel
-mean/std; the port follows that.  The released cosine schedule with 10%
-warmup and gradient clipping 1.0 is used, stepped per epoch rather than
-per iteration; layerwise LR decay 0.9, top-3 greedy-soup averaging and
-early stopping are not reproduced (shared validation-Dice selection).
-The official 30-epoch (100-epoch low-data) budget is extended to the
-shared 800 epochs.  `lora_alpha` defaults to 8 (AutoGluon's default; the
-paper does not state it) and is exposed via `--convlora-alpha`.  No
+Adam with lr/wd 1e-4, while the released semantic-segmentation preset
+uses AdamW/wd 1e-4, so the paper's optimizer/values are used.  The
+released AutoGluon data pipeline normalizes with ImageNet statistics
+(`image_norm: imagenet`), not SAM's pixel mean/std; the port follows that.
+The same semantic preset sets `polynomial_decay` (power 1, no warmup,
+`end_lr=0`), gradient clipping 1.0 and `lora_alpha=32`; those values are
+used, stepped per epoch rather than per iteration.  Layerwise LR decay,
+top-3 greedy-soup averaging and early stopping are not reproduced (shared
+validation-Dice selection).  The official 30-epoch (100-epoch low-data)
+budget is extended to the shared 800 epochs.  `lora_alpha` defaults to 32
+(the paper does not state it) and is exposed via `--convlora-alpha`.  The
+released processor's `RandomHorizontalFlip(1.0)` is treated as an
+upstream quirk; p=0.5 is used per the paper.  No
 official Conv-LoRA weights exist, so training starts from the local SAM
 ViT-H checkpoint.  See `src/baseline_zoo/models/convlora/UPSTREAM.md`.
 
@@ -413,8 +416,11 @@ by deterministic scikit-learn k-means++ on CPU; the region-similarity math
 is unchanged.  The paper uses Meta DINOv3 ViT-B/16.  The local
 `checkpoints/dinov3/pytorch_model.bin` is a timm ViT-S/16 export
 (`reg_token`/`gamma_1` keys) and is loaded through timm's own architecture
-rather than force-fitted onto the Meta module layout; official Meta ViT-B/16
-state dicts are accepted with the vendored architecture.  No RSRM-specific
+rather than force-fitted onto the Meta module layout; its `F_attn` is
+captured from a `block.attn` hook plus the block's `gamma_1` layer scale
+(the earlier `block.norm2` pre-hook wrongly included the residual).
+Official Meta ViT-B/16 state dicts are accepted with the vendored
+architecture.  No RSRM-specific
 weights exist; the training stage writes a metadata-only checkpoint.  No
 target GT or target prompts are used.  See
 `src/baseline_zoo/models/rsrm/UPSTREAM.md`.
@@ -505,3 +511,43 @@ exposed.  FastGeodis is optional, with a SciPy distance-transform fallback;
 the upstream 2-D mask slicing bug is fixed in the vendored copy and also
 worked around in the wrapper.  See
 `src/core/postprocess/sam_refiner/UPSTREAM.md`.
+
+## Post-audit fixes (2026-10-28, second pass)
+
+A second pass against the papers and upstream code found four issues that
+the first regression suite did not cover:
+
+1. **FSSAM / SCRWKV multi-GPU.**  FSSAM's vendored SAM 2 helpers call
+   `tensor.cuda()` (`sam2_video_predictor.py:1581`, `:1397`, `:1400`), and
+   SCRWKV's `RUN_CUDA` calls `w.cuda()` etc. (`SCIU.py:201`).  Index-less
+   `.cuda()` always targets the current CUDA device, which defaults to GPU
+   0; jobs assigned to `cuda:1`..`cuda:7` failed with a device mismatch.
+   `runtime._select_cuda_device()` now calls `torch.cuda.set_device()` in
+   `run_training_free`, `run_training` and `run_prediction`, so the
+   vendored helpers use the job's GPU.  The behavior is covered by
+   `tests/test_baseline_zoo.py::test_select_cuda_device_targets_job_gpu`.
+2. **SANSA evaluation.**  `SANSAAdapter.predict_sample` built a 5-D tensor
+   (`logits[-1][None, None]`) and passed it to 2-D `F.interpolate`, which
+   always raised.  It now keeps the query frame as 4-D (`logits[-1:]`);
+   `tests/test_sansa.py` covers the GT-resolution bool-mask contract.
+3. **RSRM timm DINOv3 features.**  The timm wrapper captured the input to
+   `block.norm2`, i.e. `x + gamma_1*attn(norm1(x))`, while Meta DINOv3's
+   `F_attn` is `gamma_1*attn(norm1(x))`.  The wrapper now hooks
+   `block.attn`, applies `gamma_1`, then the final norm.  This matters for
+   the local timm ViT-S path; the official Meta ViT-B/16 path was already
+   correct.  `tests/test_rsrm.py` checks both `F_attn` and `F_sum` against
+   a reference.
+4. **Conv-LoRA recipe.**  The released example inherits AutoGluon's
+   `semantic_segmentation` preset, which sets `lora_alpha=32`,
+   `polynomial_decay` (power 1), `warmup_steps=0.0`, `end_lr=0` and
+   `lr_decay=0`; the port had used the generic defaults (alpha 8,
+   cosine+10% warmup).  Defaults and docs now follow the preset.  Adam
+   (paper) is retained instead of the preset's AdamW, and the released
+   `RandomHorizontalFlip(1.0)` is treated as a quirk (p=0.5 per paper).
+
+Remaining known caveats are asset/host decisions rather than runtime bugs:
+FSSAM's default DINOv2-L is the paper ablation (main table needs DINOv2-B),
+RSRM's local timm ViT-S is not the paper's Meta ViT-B/16, the C2P official
+checkpoint is not present so strict loading is unverified, and DKA's
+Segmenter-B host is a reconstructed torchvision model rather than the exact
+MMSegmentation Segmenter-B recipe.

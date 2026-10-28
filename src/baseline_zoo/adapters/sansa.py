@@ -233,7 +233,8 @@ class SANSAAdapter(BaselineAdapter):
     @torch.no_grad()
     def predict_sample(self, model, prepared, sample):
         logits = model(prepared['samples'], prepared['prompt'])
-        query_logits = logits[-1][None, None]
+        # logits is (T, 1, H, W); keep the query frame as a 4D NCHW tensor.
+        query_logits = logits[-1:]
         width, height = prepared['size']
         query_logits = F.interpolate(
             query_logits, size=(height, width), mode='bilinear',

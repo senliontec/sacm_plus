@@ -30,7 +30,8 @@ the authors before releasing.
 
 - Frozen DINOv3 backbone; zero trainable parameters.
 - Multi-layer features via `get_intermediate_layers(..., n=range(12))`:
-  block outputs (`F_sum`) and post-attention residual tensors (`F_attn`).
+  block outputs (`F_sum`) and the pre-residual attention outputs
+  (`F_attn = gamma_1 * attn(norm1(x))`).
 - SAFR: top `round(C/200)` highest-variance channels of the final feature
   define the variance proportion `r`; layers above the mean `r` are
   position-aware; between adjacent position-aware layers the minimum-`r`
@@ -61,10 +62,13 @@ the authors before releasing.
 2. The paper uses DINOv3 ViT-B/16. The local
    `checkpoints/dinov3/pytorch_model.bin` is a timm ViT-S/16 export
    (`reg_token`, `gamma_1/2`, no qkv bias). It is loaded through timm's own
-   `vit_small_patch16_dinov3` architecture, and a wrapper captures the
-   post-attention residual (pre-hook on `block.norm2`) to reproduce
-   `F_attn`. Official Meta ViT-B/16 state dicts take the vendored
-   architecture path. The config records which file is used.
+   `vit_small_patch16_dinov3` architecture.  A forward hook on
+   `block.attn` captures the attention output and applies the block's
+   `gamma_1` layer scale, matching Meta DINOv3's `F_attn`
+   (`ls1(attn(norm1(x)))`); the block output from
+   `forward_intermediates` supplies `F_sum`.  Official Meta ViT-B/16 state
+   dicts take the vendored architecture path. The config records which file
+   is used.
 3. The official test loop resizes query masks to 480 and computes metrics
    there; this port argmaxes at 480 (unchanged) and nearest-resizes the
    binary mask to the original GT for the shared evaluation contract.

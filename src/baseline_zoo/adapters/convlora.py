@@ -9,7 +9,6 @@ Conv-LoRA is injected into the image-encoder qkv projections.
 
 from __future__ import annotations
 
-import math
 import random
 from pathlib import Path
 
@@ -52,20 +51,28 @@ class ConvLoRAAdapter(BaselineAdapter):
         'IoU head frozen as declared in the official SAM config.',
         'Images and GT masks are resized to 1024x1024 square with bicubic/'
         'nearest interpolation; the only training augmentation is random '
-        'horizontal flip. The official AutoGluon config normalizes with '
-        'ImageNet statistics (image_norm: imagenet), so Meta SAM pixel '
-        'mean/std are deliberately not used. Predictions are bilinearly '
-        'resized from 1024 to the original GT resolution.',
+        'horizontal flip (p=0.5, following the paper; the released '
+        'AutoGluon semantic processor uses RandomHorizontalFlip(1.0), '
+        'which appears to be an upstream implementation quirk). The '
+        'official AutoGluon config normalizes with ImageNet statistics '
+        '(image_norm: imagenet), so Meta SAM pixel mean/std are '
+        'deliberately not used. Predictions are bilinearly resized from '
+        '1024 to the original GT resolution.',
         'The MoE load-balancing loss (official loss coefficient 1e-2 per '
         'layer, summed with weight 1.0 for binary segmentation) is kept. '
         'Structure loss is the official weighted BCE + weighted IoU loss.',
         'The paper states Adam, lr 1e-4 and weight decay 1e-4; this port '
-        'uses those values (AutoGluon defaults are AdamW, wd 1e-3). The '
-        'official cosine schedule with 10% warmup and gradient clipping '
-        '1.0 is applied per epoch because the shared runtime steps the '
-        'scheduler once per epoch; AutoGluon steps it per iteration. '
-        'AutoGluon layerwise LR decay (0.9) and greedy-soup checkpoint '
-        'averaging are not used; checkpoint selection is validation Dice.',
+        'uses those values (the released AutoGluon preset uses AdamW, wd '
+        '1e-4). The semantic_segmentation preset used by the released '
+        'Conv-LoRA example sets polynomial decay (power 1, no warmup) and '
+        'gradient clipping 1.0; the port applies that per epoch because '
+        'the shared runtime steps once per epoch. The preset uses a '
+        'single-stage LR (lr_decay 0) and best-checkpoint selection; '
+        'layerwise decay and greedy soup are not used, and checkpoint '
+        'selection is validation Dice.',
+        'The released semantic-segmentation preset sets lora_alpha=32 '
+        '(the generic optim default is 8); the paper does not state '
+        'alpha. This port uses 32 and records it in the checkpoint config.',
         'No official Conv-LoRA weights are present. Training starts from '
         'the official SAM ViT-H checkpoint; the local file is required so '
         'the offline server never downloads weights.',
@@ -89,7 +96,7 @@ class ConvLoRAAdapter(BaselineAdapter):
             choices=['vit_h', 'vit_l', 'vit_b'],
             help='SAM backbone matching the checkpoint')
         parser.add_argument('--convlora-rank', type=int, default=3)
-        parser.add_argument('--convlora-alpha', type=int, default=8)
+        parser.add_argument('--convlora-alpha', type=int, default=32)
         parser.add_argument('--convlora-experts', type=int, default=8)
         parser.add_argument('--convlora-moe-weight', type=float, default=1.0)
 
@@ -111,7 +118,7 @@ class ConvLoRAAdapter(BaselineAdapter):
             model_type=str(getattr(args, 'convlora_model_type', 'vit_h')),
             image_size=self.input_size,
             rank=int(getattr(args, 'convlora_rank', 3)),
-            alpha=int(getattr(args, 'convlora_alpha', 8)),
+            alpha=int(getattr(args, 'convlora_alpha', 32)),
             experts=int(getattr(args, 'convlora_experts', 8)),
             moe_weight=float(getattr(args, 'convlora_moe_weight', 1.0)),
         )
@@ -136,19 +143,14 @@ class ConvLoRAAdapter(BaselineAdapter):
         )
 
     def make_scheduler(self, optimizer, args):
-        # AutoGluon's defaults (used by the released Conv-LoRA example) are
-        # cosine decay with ``warmup_steps=0.1`` (a fraction of all steps).
-        # The shared runtime steps once per epoch, so the fraction is
-        # applied to epochs; this is a coarse version of the official
-        # per-iteration Lightning schedule.
+        # The released Conv-LoRA example inherits AutoGluon's
+        # semantic_segmentation preset: polynomial decay with power 1,
+        # ``warmup_steps=0.0`` and ``end_lr=0``.  The shared runtime steps
+        # once per epoch, so apply the same linear decay per epoch.
         epochs = max(1, int(args.epochs))
-        warmup = int(0.1 * epochs)
 
         def factor(epoch: int) -> float:
-            if warmup > 0 and epoch < warmup:
-                return (epoch + 1) / warmup
-            progress = (epoch - warmup) / max(1, epochs - warmup)
-            return 0.5 * (1.0 + math.cos(math.pi * progress))
+            return max(0.0, 1.0 - epoch / epochs)
 
         return torch.optim.lr_scheduler.LambdaLR(optimizer, factor)
 
@@ -208,7 +210,7 @@ class ConvLoRAAdapter(BaselineAdapter):
             'input_size': int(self.input_size),
             'model_type': str(getattr(args, 'convlora_model_type', 'vit_h')),
             'rank': int(getattr(args, 'convlora_rank', 3)),
-            'alpha': int(getattr(args, 'convlora_alpha', 8)),
+            'alpha': int(getattr(args, 'convlora_alpha', 32)),
             'experts': int(getattr(args, 'convlora_experts', 8)),
             'moe_weight': float(
                 getattr(args, 'convlora_moe_weight', 1.0)),

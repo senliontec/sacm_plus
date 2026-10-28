@@ -1,5 +1,6 @@
 """Fast Conv-LoRA adapter tests (no full SAM run by default)."""
 
+import argparse
 import random
 from types import SimpleNamespace
 
@@ -34,6 +35,28 @@ def test_registry_and_metadata():
     assert adapter.input_size == 1024
     assert adapter.accumulation_steps == 4
     assert any('MoE' in item for item in adapter.deviations)
+
+
+def test_official_alpha_and_polynomial_scheduler():
+    adapter = ConvLoRAAdapter()
+    parser = argparse.ArgumentParser()
+    adapter.add_args(parser)
+    args = parser.parse_args([])
+    assert args.convlora_alpha == 32
+
+    parameter = torch.nn.Parameter(torch.zeros(1))
+    optimizer = torch.optim.Adam([parameter], lr=1e-4)
+    scheduler = adapter.make_scheduler(
+        optimizer, SimpleNamespace(epochs=10))
+    assert optimizer.param_groups[0]['lr'] == pytest.approx(1e-4)
+    scheduler.step()
+    assert optimizer.param_groups[0]['lr'] == pytest.approx(9e-5)
+    for _ in range(4):
+        scheduler.step()
+    assert optimizer.param_groups[0]['lr'] == pytest.approx(5e-5)
+    for _ in range(5):
+        scheduler.step()
+    assert optimizer.param_groups[0]['lr'] == pytest.approx(0.0, abs=1e-12)
 
 
 def test_conv_lora_layer_shapes_and_moe():
@@ -135,7 +158,7 @@ def test_config_roundtrip():
         input_size=1024,
         convlora_model_type='vit_h',
         convlora_rank=3,
-        convlora_alpha=8,
+        convlora_alpha=32,
         convlora_experts=8,
         convlora_moe_weight=1.0,
         convlora_checkpoint='checkpoints/sam_vit_h_4b8939.pth',
@@ -147,7 +170,7 @@ def test_config_roundtrip():
     assert restored.input_size == 1024
     assert target.convlora_model_type == 'vit_h'
     assert target.convlora_rank == 3
-    assert target.convlora_alpha == 8
+    assert target.convlora_alpha == 32
     assert target.convlora_experts == 8
     assert target.convlora_moe_weight == 1.0
 

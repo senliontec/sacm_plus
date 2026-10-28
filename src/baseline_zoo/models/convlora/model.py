@@ -123,7 +123,7 @@ def build_convlora(
     model_type: str = 'vit_h',
     image_size: int = 1024,
     rank: int = 3,
-    alpha: int = 8,
+    alpha: int = 32,
     experts: int = 8,
     moe_weight: float = 1.0,
 ) -> ConvLoRASAM:
