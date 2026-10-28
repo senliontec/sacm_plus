@@ -1,4 +1,3 @@
-.
 ├── a2sam
 ├── aco_moe_lora
 ├── bcunet
@@ -13,7 +12,6 @@
 ├── dscnet
 ├── flowsdf
 ├── fssam
-├── __init__.py
 ├── jtfn
 ├── knowsam
 ├── liot
@@ -36,7 +34,6 @@
 ├── scrwkv
 ├── segdino
 ├── segdino_v2
-├── test.MD
 ├── topolora
 ├── tpsegformer
 ├── ucs
