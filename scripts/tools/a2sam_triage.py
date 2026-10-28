@@ -46,18 +46,31 @@ def _dice(pred: np.ndarray, target: np.ndarray) -> float:
 
 def _load_checkpoint(path: Path, device: torch.device):
     payload = torch.load(str(path), map_location='cpu', weights_only=False)
-    if not isinstance(payload, dict) or 'model_state_dict' not in payload:
-        raise SystemExit(f'{path}: missing model_state_dict')
-    config = payload.get('config', {})
-    adapter_config = config.get('adapter_config', {})
+    if not isinstance(payload, dict):
+        raise SystemExit(f'{path}: unsupported checkpoint')
+    stage_snapshot = (
+        'unet_state_dict' in payload and 'prior_state_dict' in payload)
+    if stage_snapshot:
+        adapter_config = payload.get('config', {})
+        config = {'adapter_config': adapter_config,
+                  'seed': adapter_config.get('seed', 0)}
+    else:
+        if 'model_state_dict' not in payload:
+            raise SystemExit(f'{path}: missing model_state_dict')
+        config = payload.get('config', {})
+        adapter_config = config.get('adapter_config', {})
     model = build_a2sam(
         image_size=1024,
         prompt_size=256,
         prior_min_sigma=float(adapter_config.get('prior_min_sigma', 0.05)),
     )
-    model.load_state_dict(payload['model_state_dict'], strict=True)
+    if stage_snapshot:
+        model.unet.load_state_dict(payload['unet_state_dict'], strict=True)
+        model.prior.load_state_dict(payload['prior_state_dict'], strict=True)
+    else:
+        model.load_state_dict(payload['model_state_dict'], strict=True)
     model.to(device).eval()
-    return payload, config, adapter_config, model
+    return payload, config, adapter_config, model, stage_snapshot
 
 
 def _args(adapter_config: dict, seed: int, workdir: str) -> Namespace:
@@ -147,6 +160,8 @@ def main(argv: list[str] | None = None) -> int:
         '--a2sam-datasets', default='DCA1',
         help='datasets for full A2SAM prediction; empty = skip')
     parser.add_argument('--max-images', type=int, default=0)
+    parser.add_argument('--seed', type=int, default=None,
+                        help='sampling seed; default from checkpoint or 0')
     parser.add_argument('--sweep', action='store_true',
                         help='also evaluate persistence/cap combinations')
     parser.add_argument('--sweep-min-persistence', default='0.001,0.01,0.05,0.1')
@@ -159,9 +174,13 @@ def main(argv: list[str] | None = None) -> int:
         raise SystemExit(f'missing data root: {args.data_root}')
 
     device = torch.device(args.device)
-    payload, config, adapter_config, model = _load_checkpoint(
-        args.checkpoint, device)
-    seed = int(config.get('seed', adapter_config.get('seed', 0)))
+    payload, config, adapter_config, model, stage_snapshot = (
+        _load_checkpoint(args.checkpoint, device))
+    seed = int(args.seed if args.seed is not None else
+               config.get('seed', adapter_config.get('seed', 0)))
+    if stage_snapshot:
+        print('[triage] stage snapshot: A2SAM prediction disabled',
+              flush=True)
     adapter = A2SAMAdapter()
     adapter.args = _args(adapter_config, seed, str(args.output))
     adapter.device = device
@@ -173,6 +192,8 @@ def main(argv: list[str] | None = None) -> int:
 
     datasets = set(_parse_list(args.datasets))
     a2sam_datasets = set(_parse_list(args.a2sam_datasets))
+    if stage_snapshot:
+        a2sam_datasets = set()
     backend = str(adapter.args.a2sam_topology_backend)
     threshold = float(adapter.args.a2sam_coarse_threshold)
     min_persistence = float(adapter.args.a2sam_min_persistence)
@@ -207,7 +228,7 @@ def main(argv: list[str] | None = None) -> int:
         summary = {'checkpoint': str(args.checkpoint),
                    'data_root': str(args.data_root),
                    'seed': seed, 'rows': 0, 'cap_hit_images': 0,
-                   'dca1': {}}
+                   'stage_snapshot': bool(stage_snapshot), 'dca1': {}}
         for split in args.splits:
             samples = _samples(args.data_root, split, datasets,
                                args.max_images)
