@@ -36,6 +36,21 @@ bash scripts/run_paper.sh --model unet,sacm_x --seeds 0 1 --gpus 2,3
 bash scripts/run_paper.sh --model all --seeds all --dry-run
 ```
 
+### A2SAM read-only triage
+
+After an A2SAM run, diagnose branch-cap saturation and DCA1 empty predictions
+without retraining:
+
+```bash
+GPU=0 bash scripts/tools/run_a2sam_triage.sh
+# optional: --a2sam-datasets all --splits val
+```
+
+It reads `train`/`val` only and writes `branch_stats.csv`,
+`branch_sweep.csv`, and `summary.json` under
+`results/diagnostics/a2sam_seed_0/`. The checkpoint/data/output paths can be
+overridden with `CHECKPOINT`, `DATA_ROOT`, and `OUTPUT`.
+
 ## W&B
 
 Baseline training and evaluation default to W&B. `run_train.sh` and

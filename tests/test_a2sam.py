@@ -366,6 +366,23 @@ def test_seed_is_order_independent():
         42, 'DRIVE_2', 'predict')
 
 
+def test_adapter_stage_snapshot(tmp_path):
+    adapter = A2SAMAdapter()
+    adapter.args = _args(workdir=str(tmp_path))
+    adapter.device = torch.device('cpu')
+    adapter._epoch = 100
+    adapter._save_stage_snapshot(
+        build_a2sam(image_size=256, prompt_size=64), 'stage0_unet')
+    path = tmp_path / 'stage0_unet.pt'
+    assert path.is_file()
+    payload = torch.load(path, map_location='cpu', weights_only=False)
+    assert payload['stage'] == 'stage0_unet'
+    assert payload['epoch'] == 100
+    assert payload['unet_state_dict']
+    assert payload['prior_state_dict']
+    assert payload['config']['unet_epochs'] == 100
+
+
 @pytest.mark.slow
 def test_real_sam_checkpoint_allowlist():
     path = REPO_ROOT / 'checkpoints/sam_vit_b_01ec64.pth'

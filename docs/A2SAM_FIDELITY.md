@@ -85,7 +85,9 @@ Release defects we intentionally do not reproduce:
 | Thickness loss | paper Eq. 24-30 (log W, foreground denominator) | optional official reciprocal/all-pixel mode | paper default |
 | Optimizer | AdamW 2e-4, wd 0.01, cosine to 1e-7 | optional official CLI Adam | paper/config default |
 | Epochs | 800 shared (100 U-Net + 100 prior + 600 A2SAM) | n/a | project protocol |
-| Selection | validation Dice on 6-image val split | n/a | project protocol |
+| Selection | validation Dice on 6-image val split; stage-3 checkpoints start at E202 | n/a | project protocol |
+| Stage snapshots | `stage0_unet.pt`, `stage1_prior.pt` at stage boundaries | n/a | diagnostics/recovery |
+| Diagnostics | `scripts/tools/a2sam_triage.py` (train/val only, no training) | n/a | triage tool |
 
 ## 4. Verification snapshot (2026-10-28)
 
@@ -109,6 +111,16 @@ Release defects we intentionally do not reproduce:
   data/prior/SPG path, not the SAM training quality.
 - Prediction smoke: 16 DRIVE masks at 565x584, 0/255 values; two independent
   runs produced identical SHA-256 sets.
+- Stage/checkpoint safeguards: stage-1/2 write lightweight `stage0_unet.pt`
+  and `stage1_prior.pt`; stage-3 validation cannot become the best checkpoint
+  before E202; the terminal LR now reports the active U-Net/prior optimizer LR
+  rather than the idle main optimizer LR; `--a2sam-coarse-threshold` is used
+  consistently by U-Net masks, F_MS and the prior cache.
+- Read-only triage: `scripts/tools/a2sam_triage.py` / one-click wrapper
+  `scripts/tools/run_a2sam_triage.sh` load a checkpoint and report p.max,
+  foreground counts, persistence bars, branch-cap hits, xi/u and optional
+  A2SAM predictions on train/val only. Outputs are `branch_stats.csv`,
+  `branch_sweep.csv` and `summary.json`.
 - These are smoke/integration checks, not a quality or paper-parity claim.
 
 ## 5. Fidelity boundaries

@@ -109,5 +109,9 @@ release TA, official CPS and Adam for parity/ablation tests.
   pipeline, and a real SAM checkpoint slow test.
 - `tests/test_baseline_zoo.py`, `tests/test_self_contained.py`,
   `tests/test_configs.py`, `tests/test_runtime_fixes.py`.
+- Stage snapshots (`stage0_unet.pt`, `stage1_prior.pt`), E202+ checkpoint
+  eligibility, stage-specific LR logging, consistent coarse-threshold wiring,
+  and the read-only `scripts/tools/a2sam_triage.py` diagnostic are covered by
+  the adapter tests and the local one-image wrapper smoke.
 - GPU smoke and prior-Dice/uncertainty triage are required before a 5-seed
   campaign.
