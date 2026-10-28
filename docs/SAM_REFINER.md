@@ -32,7 +32,8 @@ The released code defaults to `--iterations 5 --margin 0.0 --strength 30`;
 pass those explicitly to reproduce the code-default variant.
 
 For a single mask, pass `--image path/to/source.png` and point
-`--input`/`--output` at files.
+`--input`/`--output` at files.  The CLI accepts both 0/255 and 0/1 input
+masks (`--threshold` is applied in the corresponding value range).
 
 ## Evaluation protocol
 
@@ -51,5 +52,6 @@ For a single mask, pass `--image path/to/source.png` and point
   not exposed.  They are separate components in the paper/upstream tree.
 - One refinement pass is the paper default; cascaded refinement is an
   appendix experiment and may or may not help this task.
-- `FastGeodis` is optional; the SciPy fallback is slower/approximate.
+- `FastGeodis` is optional; the SciPy fallback uses the Euclidean distance
+  transform, which matches the official `lamb=0.0` prompt-distance setting.
 - No SAM weights are bundled.

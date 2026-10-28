@@ -308,7 +308,9 @@ selection, and the effective per-step polynomial LR (the upstream
 released loop rereads only the first D2 batch every step; the port cycles
 through all D2 batches.  Other documented deviations: shared 18-image
 split, flips/rot90, official 100-epoch budget, and no official BLO-SAM
-weights.  The upstream README claims MIT but the checkout has no LICENSE
+weights.  The paper reports Dice from 64×64 logits; this protocol exports
+a GT-resolution mask by bilinearly upsampling the foreground logit before
+thresholding (not argmax at 256 then nearest resize).  The upstream README claims MIT but the checkout has no LICENSE
 file; verify before redistribution.  See
 `src/baseline_zoo/models/blo_sam/UPSTREAM.md`.
 

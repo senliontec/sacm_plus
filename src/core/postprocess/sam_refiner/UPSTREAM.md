@@ -22,9 +22,10 @@
 ## Deviations
 
 1. `FastGeodis` is optional. If it is absent, `utils._generalised_geodesic2d`
-   uses SciPy's Euclidean distance transform. This is not the exact geodesic
-   distance, but it preserves the interior-point selection used by the
-   prompt generator; install `FastGeodis` for the official behavior.
+   uses SciPy's Euclidean distance transform. The official
+   `extract_points` calls FastGeodis with `lamb=0.0` (Euclidean distance), so
+   the fallback matches the metric actually used by SAMRefiner; install
+   `FastGeodis` only to reproduce its exact update scheme / other lambdas.
 2. The wrapper exposes one binary mask per call; multi-object `split-then-
    merge` (STM), HQ-SAM and the SAMRefiner++ IoU-adapter are not exposed by
    the CLI.  These are separate paper components, not needed for universal

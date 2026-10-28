@@ -311,8 +311,11 @@ class BLOSAMAdapter(BaselineAdapter):
         for step in range(steps):
             d1 = self.prepare_train_batch(
                 d1_batches[step % len(d1_batches)], rng)
+            # D2 is the official meta-validation half: keep it resize-only,
+            # like the released validloader.  D1 alone gets the task
+            # adaptation flips/rotations.
             d2 = self.prepare_train_batch(
-                d2_batches[step % len(d2_batches)], rng)
+                d2_batches[step % len(d2_batches)], rng, augment=False)
             optimizer.zero_grad(set_to_none=True)
             loss = self.train_step(model, d1)
             loss.backward()
@@ -360,10 +363,14 @@ class BLOSAMAdapter(BaselineAdapter):
         outputs = model(
             image, multimask_output=self._multimask_output,
             image_size=self.input_size)
-        pred = outputs['masks'].argmax(dim=1)[0].float()
-        pred = F.interpolate(
-            pred[None, None], size=(height, width), mode='nearest')[0, 0]
-        return pred.cpu().numpy() > 0.5
+        # outputs['masks'] are logits at the 256 input resolution.  Upsample
+        # the foreground logit before thresholding so thin structures are not
+        # block-quantized by a nearest resize from 256 to the GT resolution.
+        foreground = outputs['masks'][0, 1][None, None]
+        prob = torch.sigmoid(F.interpolate(
+            foreground, size=(height, width), mode='bilinear',
+            align_corners=False))[0, 0]
+        return prob.cpu().numpy() > 0.5
 
     def save_config(self, args):
         return {

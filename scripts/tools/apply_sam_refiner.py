@@ -50,7 +50,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--device', default=None,
                         help='cuda/cpu; default = cuda when available')
     parser.add_argument('--threshold', type=float, default=0.5,
-                        help='Threshold on input mask values (default 0.5)')
+                        help='Threshold on input mask values; supports 0/255 '
+                             'and 0/1 masks (default 0.5)')
     parser.add_argument('--iterations', type=int, default=1,
                         help='refinement passes (paper default: 1; the '
                              'released code default is 5)')
@@ -82,6 +83,15 @@ def output_path_for(path: Path, source: Path, destination: Path) -> Path:
     if source.is_file():
         return destination
     return destination / path.relative_to(source)
+
+
+def load_binary_mask(path: Path, threshold: float) -> np.ndarray:
+    """Read a 0/255 or 0/1 mask and threshold it consistently."""
+    with Image.open(path) as mask_image:
+        raw = np.asarray(mask_image.convert('L'))
+    if raw.size and raw.max() <= 1:
+        return raw > threshold
+    return raw > threshold * 255.0
 
 
 def load_manifest(path: Path | None) -> dict[tuple[str, str], Path]:
@@ -155,9 +165,7 @@ def main() -> int:
             skipped += 1
             continue
         image_path = resolve_image(path, source, manifest, args.image)
-        with Image.open(path) as mask_image:
-            mask = np.asarray(mask_image.convert('L')) > int(
-                args.threshold * 255)
+        mask = load_binary_mask(path, args.threshold)
         refined = refiner.refine(image_path, mask)
         target.parent.mkdir(parents=True, exist_ok=True)
         Image.fromarray(refined.astype(np.uint8) * 255, mode='L').save(target)

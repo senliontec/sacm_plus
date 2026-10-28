@@ -29,7 +29,11 @@
   `lr_0 (1 - i / Iter_max)^0.9`, with 100 epochs.
 - Checkpoint selection on the D2 foreground Dice computed from the
   low-resolution logits and low-resolution target, as in the official
-  `validate`.
+  `validate`.  This D2 rule is used when `--selection dice` (the default);
+  an explicit non-Dice selection falls back to the shared six-image
+  validation metrics, because the official D2 score is Dice-only.  The
+  per-epoch table still prints the shared six-image validation metrics;
+  the `Best` marker and `best_score` are driven by the D2 score.
 
 ## Deviations
 
@@ -40,9 +44,10 @@
    appears in both levels.
 2. The released loop calls `next(iter(validloader))` every step, so it
    always uses only the first D2 batch; this port cycles through all D2
-   batches.  The reported D2 selection Dice uses the full D2 half, as the
-   official per-epoch `validate` does, with deterministic resize-only
-   preprocessing (no random flips/rotations).
+   batches.  D2 prompt-update batches and the reported D2 selection Dice
+   use deterministic resize-only preprocessing (no random
+   flips/rotations), matching the released validloader; only D1 receives
+   the task-adaptation flips/rot90.
 3. The official `num_classes=5` multi-class head becomes a binary
    background+foreground head.
 4. Flips and 90-degree rotations are added for the tiny split; the official
@@ -53,7 +58,21 @@
    also uses the shared 100-epoch config (the official `max_epochs=100`).
 6. The upstream `utils.py` evaluation helpers (SimpleITK/medpy/imageio) are
    not vendored; only the Dice loss used by the prompt optimizer is copied.
-7. No official BLO-SAM weights are present.  Training starts from
+7. The paper reports test Dice from the 64x64 low-resolution logits.  This
+   protocol needs a mask at the original GT resolution: the port upsamples
+   the foreground logit bilinearly to the GT size and thresholds at 0.5
+   (rather than argmax at 256 then nearest-neighbour resize).
+8. No official BLO-SAM weights are present.  Training starts from
    `sam_vit_b_01ec64.pth`.
+9. The official trainer saves only the LoRA, no-mask embedding and
+   mask-decoder tensors (`save_lora_parameters`).  The shared zoo runtime
+   saves the complete model state dict for one uniform prediction path;
+   checkpoints are therefore larger but reconstruct exactly the same
+   weights.  The base SAM checkpoint is still needed to build the
+   architecture and load the state dict.
+10. The released trainer has no resume path.  The zoo `--resume` restores
+    model/network-optimizer weights (when saved), but the separate prompt
+    optimizer and the per-step polynomial LR counter restart at zero.  Use
+    `--resume` only as a weights warm start, not as an exact continuation.
 
 The code under `3rd/BLO-SAM` is not imported or modified at runtime.

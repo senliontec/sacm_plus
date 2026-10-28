@@ -77,6 +77,27 @@ def test_bilevel_split_is_fixed_disjoint_and_stratified(tmp_path):
     assert [s.stem for s in d2b] == [s.stem for s in d2]
 
 
+def test_predict_upsamples_foreground_logits(tmp_path):
+    adapter = BLOSAMAdapter()
+    adapter.input_size = 64
+    adapter._multimask_output = False
+
+    class _FakeSAM(torch.nn.Module):
+        def forward(self, image, multimask_output, image_size):
+            batch, _, height, width = image.shape
+            logits = torch.full((batch, 2, height, width), -10.0)
+            logits[:, 1, height // 2:height // 2 + 2, :] = 10.0
+            return {'masks': logits, 'low_res_logits': logits}
+
+    image = torch.zeros(1, 3, 64, 64)
+    sample = _sample(tmp_path)
+    pred = adapter.predict_sample(
+        _FakeSAM(), (image, (32, 48)), sample)
+    assert pred.shape == (48, 32)  # (H, W) from prepared size
+    assert pred.dtype == bool
+    assert pred.any()
+
+
 def test_config_roundtrip():
     adapter = BLOSAMAdapter()
     args = SimpleNamespace(

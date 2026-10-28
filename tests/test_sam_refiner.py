@@ -42,6 +42,22 @@ def _load_cli():
     return module
 
 
+def test_cli_mask_threshold_accepts_01_and_0255(tmp_path):
+    import numpy as np
+    from PIL import Image
+    cli = _load_cli()
+    mask = np.zeros((4, 4), dtype=np.uint8)
+    mask[1:3, 1:3] = 1
+    path_01 = tmp_path / 'mask_01.png'
+    Image.fromarray(mask, mode='L').save(path_01)
+    path_255 = tmp_path / 'mask_255.png'
+    Image.fromarray(mask * 255, mode='L').save(path_255)
+    for path in (path_01, path_255):
+        binary = cli.load_binary_mask(path, threshold=0.5)
+        assert binary.dtype == bool
+        assert binary.sum() == 4
+
+
 def test_cli_resolves_image_from_manifest(tmp_path):
     cli = _load_cli()
     image = tmp_path / 'images' / 'DRIVE_1.png'

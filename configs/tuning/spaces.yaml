@@ -32,6 +32,16 @@ models:
   persam:
     tunable: false
 
+  # BLO-SAM's custom train_epoch owns a per-step polynomial LR for the
+  # network and prompt optimizers.  The shared per-epoch scheduler/warmup
+  # overrides are not wired into that loop, so keep them at the official
+  # setting instead of reporting mislabelled trials.
+  blo_sam:
+    scheduler:
+      choices: [official]
+    warmup_epochs:
+      choices: [0]
+
   # SAMed's paper LR 5e-3 is for batch 24; the adapted batch-4 default is
   # 1e-3.  Search below the paper value as well: collapse at the warmup peak
   # was observed at the unscaled 5e-3.
