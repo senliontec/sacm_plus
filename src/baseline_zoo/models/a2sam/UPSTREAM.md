@@ -47,10 +47,11 @@ This port reconstructs:
   image and coarse probability; ~2.75M parameters. Training target is the
   Dice-optimal persistence threshold from training GT (no val/test labels).
 - `topology/persistence.py`: exact 2D superlevel-set H0 persistence via
-  `cripser`; `topology/morse.py` reconstructs branch basins with a
-  deterministic watershed; `topology/fms.py` implements `F_MS` and
-  `u=Var(y_z)`. Persistence values are exact; the DMT gradient field and
-  stable manifolds are not bit-exact.
+  `cripser` (default `auto` prefers cripser and falls back to MIT `gudhi`);
+  `topology/morse.py` reconstructs branch basins with a deterministic
+  watershed; `topology/fms.py` implements `F_MS` and `u=Var(y_z)`.
+  Persistence values are exact; the DMT gradient field and stable manifolds
+  are not bit-exact.
 - `model.py`: U-Net → prior → `F_MS`/uncertainty → official prompt fusion →
   SAM decoder.
 

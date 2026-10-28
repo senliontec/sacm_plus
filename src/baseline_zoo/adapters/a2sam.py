@@ -144,7 +144,8 @@ class A2SAMAdapter(BaselineAdapter):
                             choices=('release', 'paper'), default='release')
         parser.add_argument('--a2sam-prompt-detach', action='store_true')
         parser.add_argument('--a2sam-topology-backend',
-                            choices=('cripser', 'gudhi'), default='cripser')
+                            choices=('auto', 'cripser', 'gudhi'),
+                            default='auto')
         parser.add_argument('--a2sam-coarse-threshold', type=float,
                             default=0.5)
         parser.add_argument('--a2sam-min-persistence', type=float,

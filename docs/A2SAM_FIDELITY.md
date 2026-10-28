@@ -80,7 +80,7 @@ Release defects we intentionally do not reproduce:
 | CPS mask scope | official: exclude IoU head; freeze image-encoder norm/pos/1-D neck; zero grads, no `requires_grad=False` | same | official |
 | U-Net | lightweight BCE-only, 4.24M | n/a | paper reconstruction |
 | Prior network | global scalar `xi ~ N(mu, sigma^2)`, 2.75M | n/a | paper reconstruction |
-| DMT/Morse | cripser exact H0 persistence + join-tree verification/watershed reconstruction | n/a | persistence exact; DMT field reconstructed |
+| DMT/Morse | exact H0 persistence (cripser auto-preferring; gudhi fallback) + join-tree verification/watershed reconstruction | n/a | persistence exact; DMT field reconstructed |
 | Persistence sampling | `Z=5`, `u = Var(y_z)` | n/a | paper reconstruction |
 | Thickness loss | paper Eq. 24-30 (log W, foreground denominator) | optional official reciprocal/all-pixel mode | paper default |
 | Optimizer | AdamW 2e-4, wd 0.01, cosine to 1e-7 | optional official CLI Adam | paper/config default |

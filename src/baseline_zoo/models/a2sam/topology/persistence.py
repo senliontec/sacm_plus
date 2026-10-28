@@ -12,6 +12,7 @@ cripser is used as an installed dependency (LGPL-3.0), not vendored.  The
 
 from __future__ import annotations
 
+import importlib.util
 from dataclasses import dataclass
 
 import numpy as np
@@ -60,6 +61,19 @@ def _validate_probability(prob: np.ndarray) -> np.ndarray:
     return array
 
 
+def resolve_backend(backend: str) -> str:
+    """Resolve ``auto`` to an installed exact persistence backend."""
+    if backend != 'auto':
+        return backend
+    if importlib.util.find_spec('cripser'):
+        return 'cripser'
+    if importlib.util.find_spec('gudhi'):
+        return 'gudhi'
+    raise RuntimeError(
+        'A2SAM topology requires cripser or gudhi; install an offline '
+        'wheel or select a different backend')
+
+
 def compute_persistence(
     prob: np.ndarray,
     *,
@@ -68,6 +82,7 @@ def compute_persistence(
 ) -> PersistenceBars:
     """Return exact H0 superlevel-set bars for a 2D likelihood map."""
     array = _validate_probability(prob)
+    backend = resolve_backend(backend)
     if backend == 'cripser':
         bars = _compute_cripser(array)
     elif backend == 'gudhi':

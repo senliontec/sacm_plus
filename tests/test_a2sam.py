@@ -244,8 +244,11 @@ def test_persistence_and_fms_synthetic():
     assert len(bars) >= 2
     assert bars.essential.sum() == 1
     join_bars = compute_persistence(prob, backend='join_tree')
+    auto_bars = compute_persistence(prob, backend='auto')
     np.testing.assert_allclose(
         np.sort(bars.persistence), np.sort(join_bars.persistence), atol=1e-6)
+    np.testing.assert_allclose(
+        np.sort(bars.persistence), np.sort(auto_bars.persistence), atol=1e-6)
     complex_ = build_morse_complex(prob, min_persistence=1e-4)
     assert complex_.n_branches >= 2
     low = f_ms(complex_, 0.0)

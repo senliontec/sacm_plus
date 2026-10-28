@@ -12,7 +12,7 @@ train_entrypoint: >-
   --a2sam-prior-samples 5 --a2sam-keep-ratio 0.035
   --a2sam-cps-alpha 0.4 --a2sam-cps-mode official
   --a2sam-ta-mode paper --a2sam-fusion-inputs release
-  --a2sam-topology-backend cripser
+  --a2sam-topology-backend auto
   --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
 eval_entrypoint: >-
   python scripts/pipeline/run_baseline_test.py --method a2sam
