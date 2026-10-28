@@ -318,7 +318,8 @@ def test_adapter_stage_config_and_data_pipeline(tmp_path):
     adapter._stage = 'unet'
     assert not adapter.checkpoint_eligible(1)
     adapter._stage = 'a2sam'
-    assert adapter.checkpoint_eligible(201)
+    assert not adapter.checkpoint_eligible(201)
+    assert adapter.checkpoint_eligible(202)
     adapter.args = _args(
         a2sam_fusion_inputs='paper', a2sam_ta_mode='release',
         a2sam_release_parity=True)

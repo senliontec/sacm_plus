@@ -149,10 +149,10 @@ class A2SAMModel(nn.Module):
     # ------------------------------------------------------------------
     # Coarse U-Net / prior
     # ------------------------------------------------------------------
-    def coarse(self, image: torch.Tensor):
+    def coarse(self, image: torch.Tensor, threshold: float = 0.5):
         logits = self.unet(image)
         probability = torch.sigmoid(logits)
-        return logits, probability, probability > 0.5
+        return logits, probability, probability > float(threshold)
 
     def prior_stats(self, image: torch.Tensor,
                     probability: torch.Tensor):

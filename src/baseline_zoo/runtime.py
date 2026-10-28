@@ -162,6 +162,10 @@ class BaselineAdapter(ABC):
         del epoch
         return True
 
+    def display_lr(self, optimizer: torch.optim.Optimizer) -> float:
+        """LR to show in the epoch table for the active training stage."""
+        return float(optimizer.param_groups[0]['lr'])
+
     def train_epoch(self, model: nn.Module, loader: DataLoader,
                     optimizer: torch.optim.Optimizer, scheduler,
                     args: argparse.Namespace) -> float:
@@ -739,7 +743,7 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
         val_metrics, val_per_dataset = evaluate(
             adapter, model, val_samples, device)
         elapsed = time.time() - epoch_t0
-        lr = optimizer.param_groups[0]['lr']
+        lr = adapter.display_lr(optimizer)
         score = adapter.selection_score(val_metrics, val_per_dataset)
         selection_metric = val_metrics.get(args.selection, float('nan'))
         wb = {'epoch': epoch, 'train/loss': train_loss, 'lr': lr,

@@ -14,6 +14,7 @@ reconstructions because the release does not contain them.  See
 
 from __future__ import annotations
 
+import os
 import random
 import zlib
 from pathlib import Path
@@ -122,6 +123,7 @@ class A2SAMAdapter(BaselineAdapter):
         self._cps_stats: dict[str, float] = {}
         self._sam_ckpt: str | None = None
         self._sam_sha: str | None = None
+        self._coarse_threshold = 0.5
         self._bce = nn.BCEWithLogitsLoss()
         self._iou = IOU()
         self._ta = ThicknessAwareLoss(mode='paper')
@@ -213,6 +215,7 @@ class A2SAMAdapter(BaselineAdapter):
         self._prior_optimizer = None
         self._cps_masks = {}
         self._cps_stats = {}
+        self._coarse_threshold = 0.5
 
     def build_model(self, args):
         self.input_size = int(getattr(args, 'input_size', 1024))
@@ -220,6 +223,8 @@ class A2SAMAdapter(BaselineAdapter):
             raise SystemExit('A2SAM uses the official 1024x1024 input')
         self._reset_run_state()
         self._ta = ThicknessAwareLoss(mode=self._ta_mode())
+        self._coarse_threshold = float(getattr(
+            args, 'a2sam_coarse_threshold', 0.5))
         self._unet_pos_weight = float(getattr(
             args, 'a2sam_unet_pos_weight', 10.0))
         if self._unet_pos_weight < 1.0:
@@ -276,6 +281,14 @@ class A2SAMAdapter(BaselineAdapter):
         return torch.optim.lr_scheduler.CosineAnnealingLR(
             optimizer, T_max=max(1, stage_epochs),
             eta_min=float(getattr(args, 'a2sam_lr_min', 1e-7)))
+
+    def display_lr(self, optimizer) -> float:
+        """Report the optimizer actually driving the current stage."""
+        if self._stage == 'unet' and self._unet_optimizer is not None:
+            return float(self._unet_optimizer.param_groups[0]['lr'])
+        if self._stage == 'prior' and self._prior_optimizer is not None:
+            return float(self._prior_optimizer.param_groups[0]['lr'])
+        return float(optimizer.param_groups[0]['lr'])
 
     # ------------------------------------------------------------------
     # Image/mask helpers
@@ -378,10 +391,11 @@ class A2SAMAdapter(BaselineAdapter):
             image = self._load_image(sample, 1024).unsqueeze(0).to(self.device)
             target = self._load_mask(sample, 1024).unsqueeze(0).to(self.device)
             with torch.no_grad():
-                logits, probability, coarse = model.coarse(image)
+                logits, probability, coarse = model.coarse(
+                    image, threshold=coarse_threshold)
             prob_np = probability[0, 0].detach().cpu().numpy()
             gt_np = target[0, 0].detach().cpu().numpy() > 0.5
-            pred = coarse[0, 0].detach().cpu().numpy() > 0.5
+            pred = coarse[0, 0].detach().cpu().numpy().astype(bool)
             inter = np.logical_and(pred, gt_np).sum()
             denom = pred.sum() + gt_np.sum()
             dice_values.append(
@@ -500,6 +514,8 @@ class A2SAMAdapter(BaselineAdapter):
         for parameter in model.prior.parameters():
             parameter.requires_grad_(False)
         self._prior_frozen = True
+        coarse_threshold = float(getattr(
+            self.args, 'a2sam_coarse_threshold', 0.5))
         uncertainty_means = []
         uncertainty_max = []
         branch_values = []
@@ -510,7 +526,8 @@ class A2SAMAdapter(BaselineAdapter):
                     f'A2SAM stage-3 cache missing for {sample.stem}')
             image = self._load_image(sample, 1024).unsqueeze(0).to(self.device)
             with torch.no_grad():
-                logits, probability, y_c = model.coarse(image)
+                logits, probability, y_c = model.coarse(
+                    image, threshold=coarse_threshold)
                 uncertainty, _, _ = self._sample_uncertainty(
                     model, image, probability,
                     _sample_seed(self.args.seed, sample.stem, 'cache'),
@@ -679,14 +696,45 @@ class A2SAMAdapter(BaselineAdapter):
             return self._prior_loss(model, batch)
         return self._sam_loss(model, batch)
 
+    def _save_stage_snapshot(self, model, name: str) -> None:
+        """Save the lightweight U-Net/prior state at a stage boundary."""
+        workdir = getattr(self.args, 'workdir', None)
+        if not workdir:
+            return
+        path = Path(workdir) / f'{name}.pt'
+        path.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            'format_version': 1,
+            'stage': name,
+            'epoch': int(getattr(self, '_epoch', 0)),
+            'unet_state_dict': {
+                key: value.detach().cpu()
+                for key, value in model.unet.state_dict().items()},
+            'prior_state_dict': {
+                key: value.detach().cpu()
+                for key, value in model.prior.state_dict().items()},
+            'config': self.save_config(self.args),
+        }
+        tmp_path = path.with_name(path.name + '.tmp')
+        torch.save(payload, tmp_path)
+        os.replace(tmp_path, path)
+        print(f'A2SAM stage snapshot -> {path}')
+
     def train_epoch(self, model, loader, optimizer, scheduler, args) -> float:
         epoch = int(getattr(self, '_epoch', 1))
         stage = self._stage_for_epoch(epoch)
         self._stage = stage
         if stage == 'unet':
-            return self._train_unet_epoch(model, loader, args)
+            loss = self._train_unet_epoch(model, loader, args)
+            if epoch == self._stage_epochs()[0]:
+                self._save_stage_snapshot(model, 'stage0_unet')
+            return loss
         if stage == 'prior':
-            return self._train_prior_epoch(model, loader, args)
+            loss = self._train_prior_epoch(model, loader, args)
+            unet_epochs, prior_epochs = self._stage_epochs()
+            if epoch == unet_epochs + prior_epochs:
+                self._save_stage_snapshot(model, 'stage1_prior')
+            return loss
         samples = list(loader.dataset.samples)
         if not self._unet_frozen:
             for parameter in model.unet.parameters():
@@ -702,8 +750,12 @@ class A2SAMAdapter(BaselineAdapter):
             model, loader, optimizer, scheduler, args)
 
     def checkpoint_eligible(self, epoch: int) -> bool:
-        del epoch
-        return self._stage == 'a2sam'
+        # The first stage-3 validation can be exactly zero (random prompt
+        # fusion / unadapted decoder).  Do not let that transient epoch become
+        # best_model.pth; E202 onward is eligible.
+        unet_epochs, prior_epochs = self._stage_epochs()
+        return (self._stage == 'a2sam'
+                and int(epoch) > unet_epochs + prior_epochs + 1)
 
     # ------------------------------------------------------------------
     # Evaluation / prediction
@@ -725,11 +777,12 @@ class A2SAMAdapter(BaselineAdapter):
 
     def _predict_coarse(self, model, prepared):
         with torch.no_grad():
-            _, probability, _ = model.coarse(prepared['image'])
+            _, probability, _ = model.coarse(
+                prepared['image'], threshold=self._coarse_threshold)
         probability = F.interpolate(
             probability, size=prepared['size'], mode='bilinear',
             align_corners=False)
-        return (probability[0, 0] > 0.5).cpu().numpy()
+        return (probability[0, 0] > self._coarse_threshold).cpu().numpy()
 
     def _predict_a2sam(self, model, prepared, sample):
         cached = None if self.prediction_mode else self._eval_cache.get(
@@ -737,7 +790,8 @@ class A2SAMAdapter(BaselineAdapter):
         if cached is None:
             image = prepared['image']
             with torch.no_grad():
-                logits, probability, y_c = model.coarse(image)
+                logits, probability, y_c = model.coarse(
+                    image, threshold=self._coarse_threshold)
                 uncertainty, _, _ = self._sample_uncertainty(
                     model, image, probability, prepared['seed'])
             cached = {
