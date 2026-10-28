@@ -83,4 +83,5 @@ exec bash scripts/run_paper.sh \
   --model "$MODELS_CSV" \
   --seeds 0 \
   --gpus "$GPUS" \
+  --kill-gpu \
   --resume

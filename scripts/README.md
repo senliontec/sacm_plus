@@ -21,10 +21,12 @@ job it runs the config's
 `train_entrypoint`, then `eval_entrypoint`, and finally writes the
 cross-model tables and figures.
 
-Before training, `run_paper.sh` clears compute processes on the GPUs
-selected by `--gpus` via `tools/clear_gpus.sh`; other GPUs are not touched.
-Pass `--no-kill` to skip cleanup; `--dry-run` and `--tables-only` never
-kill anything.
+Before training, `run_paper.sh` can clear compute processes on the GPUs
+selected by `--gpus` via `tools/clear_gpus.sh`. This is destructive and is
+opt-in: pass `--kill-gpu`. `--no-kill` is retained for backward
+compatibility; `--dry-run` and `--tables-only` never kill anything.
+`GPU=<indices>` is accepted when `--gpus` is omitted; setting both to
+different values fails before any cleanup.
 
 Subsets and short runs:
 
@@ -228,8 +230,8 @@ matrix and uses the same engine.
   `checkpoints/` (e.g. `checkpoints/dinov3/pytorch_model.bin`), so no
   environment variable is required.
 - `clear_gpus.sh` stops compute processes on the selected GPU(s);
-  `run_paper.sh` passes `--gpus` to it before training and accepts
-  `--no-kill` to opt out.
+  `run_paper.sh` only invokes it with explicit `--kill-gpu`; `--no-kill`
+  is accepted for backward compatibility.
 - `setup_baselines.sh` installs every baseline extra;
   `verify_against_official.py` is the `make verify` cross-check;
   `clean_pycache.sh` is `make clean`.

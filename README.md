@@ -240,8 +240,9 @@ Example for the U-Net adapter:
 
 ```bash
 # One-click every available model/seed: train -> eval -> tables -> figures
-# Compute processes on the --gpus GPUs are cleared before training;
-# --no-kill opts out.
+# GPU cleanup is opt-in with --kill-gpu; --no-kill is accepted for backward
+# compatibility.  GPU=... is supported when --gpus is omitted; conflicting
+# GPU=.../--gpus values fail before cleanup.
 # --model all includes the appendix sam2_unet, which needs
 # checkpoints/sam2_hiera_large.pt.
 bash scripts/run_paper.sh --model all --seeds all --gpus 0,1,2,3 --resume
