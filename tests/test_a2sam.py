@@ -57,8 +57,10 @@ def _args(**overrides):
         a2sam_unet_epochs=100,
         a2sam_prior_epochs=100,
         a2sam_unet_lr=1e-3,
+        a2sam_unet_pos_weight=10.0,
         a2sam_prior_lr=1e-3,
         a2sam_prior_samples=5,
+        a2sam_prior_min_sigma=0.05,
         a2sam_keep_ratio=0.035,
         a2sam_cps_alpha=0.4,
         a2sam_cps_mode='official',
@@ -249,6 +251,14 @@ def test_persistence_and_fms_synthetic():
         np.sort(bars.persistence), np.sort(join_bars.persistence), atol=1e-6)
     np.testing.assert_allclose(
         np.sort(bars.persistence), np.sort(auto_bars.persistence), atol=1e-6)
+    if importlib.util.find_spec('gudhi') is not None:
+        # Gudhi builds a cubical complex, so diagonal cofaces are connected
+        # through shared vertices; cripser/join-tree use 4-connected pixels.
+        # The bar multiset can therefore differ on this asymmetric map.
+        gudhi_bars = compute_persistence(prob, backend='gudhi')
+        assert len(gudhi_bars) >= 2
+        assert gudhi_bars.essential.sum() == 1
+        assert np.isfinite(gudhi_bars.persistence).all()
     complex_ = build_morse_complex(prob, min_persistence=1e-4)
     assert complex_.n_branches >= 2
     low = f_ms(complex_, 0.0)
@@ -286,6 +296,8 @@ def test_unet_prior_model_parameter_budgets_and_forward():
         masks, low_res, iou = model(image, prompt, (200, 180))
     assert logits.shape == probability.shape == coarse.shape
     assert mu.shape == log_var.shape == (1,)
+    assert torch.all(mu >= 0.0) and torch.all(mu <= 1.0)
+    assert torch.all(log_var >= model.prior.log_var_min - 1e-6)
     assert xi_a.shape == (5, 1)
     assert torch.equal(xi_a, xi_b)
     assert prompt.shape == (1, 1, 64, 64)

@@ -78,9 +78,9 @@ Release defects we intentionally do not reproduce:
 | CPS formula | official normalized influence/magnitude, alpha 0.4, freeze 96.5% | same | official |
 | CPS statistics | 18 training images only | release val-loader behavior not reproduced (label leakage) | protocol repair |
 | CPS mask scope | official: exclude IoU head; freeze image-encoder norm/pos/1-D neck; zero grads, no `requires_grad=False` | same | official |
-| U-Net | lightweight BCE-only, 4.24M | n/a | paper reconstruction |
-| Prior network | global scalar `xi ~ N(mu, sigma^2)`, 2.75M | n/a | paper reconstruction |
-| DMT/Morse | exact H0 persistence (cripser auto-preferring; gudhi fallback) + join-tree verification/watershed reconstruction | n/a | persistence exact; DMT field reconstructed |
+| U-Net | lightweight BCE, foreground pos_weight=10 (3-shot imbalance adaptation), 4.24M | plain BCE via `--a2sam-unet-pos-weight 1` | paper reconstruction |
+| Prior network | global scalar `xi ~ N(mu, sigma^2)`, `mu` constrained to `[0,1]`, `sigma >= 0.05`, 2.75M | n/a | paper reconstruction |
+| DMT/Morse | exact H0 persistence (cripser default; explicit gudhi/join_tree alternatives) + join-tree verification/watershed reconstruction | n/a | persistence exact under backend connectivity; DMT field reconstructed |
 | Persistence sampling | `Z=5`, `u = Var(y_z)` | n/a | paper reconstruction |
 | Thickness loss | paper Eq. 24-30 (log W, foreground denominator) | optional official reciprocal/all-pixel mode | paper default |
 | Optimizer | AdamW 2e-4, wd 0.01, cosine to 1e-7 | optional official CLI Adam | paper/config default |
@@ -93,20 +93,36 @@ Release defects we intentionally do not reproduce:
   0.022M = 100.749M (paper 100.79M).
 - Official SAM allowlist: 177 image / 17 prompt / 89 mask-decoder tensors
   loaded; 31 tensors / 692,868 parameters random.
-- Three-stage GPU smoke (1 U-Net + 1 prior + 1 A2SAM epoch, 1 train/1 val):
-  completed; CPS kept 3.48% of 93.6M SAM elements; stage-3 checkpoint saved.
-  That one-epoch U-Net produced no foreground branch (U-Net Dice 0, branches
-  0, u 0), so the smoke proves wiring only, not prior/SPG quality.
+- Plain-BCE 100-epoch diagnostic on the 18-image split collapsed to
+  all-background (train/val Dice 0). Foreground-weighted BCE
+  (`pos_weight=10`) produced nonzero validation Dice (E10 ~0.178, E20
+  ~0.255), so it is the default.
+- One-image three-stage weighted-BCE smoke (10 U-Net + 20 prior + 1 A2SAM):
+  U-Net Dice ~0.247; that one-image coarse map was degenerate and u stayed
+  0. This is why the one-image smoke is wiring-only.
+- Full 18-train/6-val weighted-BCE smoke (100 U-Net + 1 prior, then stage-3
+  cache): U-Net validation Dice reached 0.4107 at E100; prior cache branch
+  count hit the 256 cap on every image; Dice-optimal xi = 0.2868 +/- 0.3343.
+  The stage-3 uncertainty map was non-degenerate: u mean 0.0069, max 0.2400.
+  The local 11 GiB 2080 Ti ran out of memory during the first CPS backward
+  (the 24 GiB 3090 target is expected to fit), so this smoke validates the
+  data/prior/SPG path, not the SAM training quality.
 - Prediction smoke: 16 DRIVE masks at 565x584, 0/255 values; two independent
   runs produced identical SHA-256 sets.
 - These are smoke/integration checks, not a quality or paper-parity claim.
 
 ## 5. Fidelity boundaries
 
-- `cripser` computes exact 0D superlevel-set persistence. The discrete Morse
-  gradient field and stable manifolds are not available in the local release;
-  we reconstruct branch regions with a deterministic join tree + watershed.
-  Therefore the SPG is **paper-level reconstruction**, not an exact DMT port.
+- `cripser` computes exact 0D superlevel-set persistence on the 4-connected
+  pixel grid. The discrete Morse gradient field and stable manifolds are not
+  available in the local release; we reconstruct branch regions with a
+  deterministic join tree + watershed. Therefore the SPG is **paper-level
+  reconstruction**, not an exact DMT port. `gudhi` is explicit-only: its
+  cubical complex has diagonal coface connectivity, so its H0 bars can differ
+  from cripser/join-tree; `auto` never switches to it silently.
+- Plain BCE on the shared 3-shot split collapsed to all-background for 100
+  epochs; foreground-weighted BCE (`pos_weight=10`) is therefore the default
+  and is a documented protocol adaptation.
 - The paper does not specify the U-Net/prior architectures, the prior training
   target, or the exact `F_MS` reconstruction. Our choices must be documented
   with each run and validated with U-Net Dice / uncertainty diagnostics.

@@ -42,16 +42,25 @@ precomputed `uncertainty/*.npy` and `logit/*.npy` and detaches its fusion.
 
 This port reconstructs:
 
-- `unet.py`: BCE-only coarse U-Net, ~4.24M parameters, GroupNorm for batch 1.
+- `unet.py`: coarse U-Net, ~4.24M parameters, GroupNorm for batch 1.  It
+  uses BCE with foreground `pos_weight=10` by default because the shared
+  3-shot split is strongly imbalanced; set `--a2sam-unet-pos-weight 1` for
+  the paper plain-BCE variant.
 - `prior.py`: global scalar `xi ~ N(mu, sigma^2)` prior conditioned on the
-  image and coarse probability; ~2.75M parameters. Training target is the
-  Dice-optimal persistence threshold from training GT (no val/test labels).
+  image and coarse probability; ~2.75M parameters. The predicted mean is
+  constrained to `[0,1]`, its variance has a `min_sigma=0.05` floor, and the
+  training target is the Dice-optimal persistence threshold from training GT
+  (no val/test labels).
 - `topology/persistence.py`: exact 2D superlevel-set H0 persistence via
-  `cripser` (default `auto` prefers cripser and falls back to MIT `gudhi`);
+  `cripser` (default `auto`; if cripser is absent, `auto` refuses rather
+  than silently changing connectivity). `gudhi` is an explicit MIT cubical
+  backend (diagonal coface connectivity, so its H0 bars can differ from the
+  4-connected cripser/join-tree convention); `join_tree` is an explicit
+  pure-Python 4-connected backend for verification/small inputs.
   `topology/morse.py` reconstructs branch basins with a deterministic
   watershed; `topology/fms.py` implements `F_MS` and `u=Var(y_z)`.
-  Persistence values are exact; the DMT gradient field and stable manifolds
-  are not bit-exact.
+  Persistence values are exact under the selected connectivity; the DMT
+  gradient field and stable manifolds are not bit-exact.
 - `model.py`: U-Net → prior → `F_MS`/uncertainty → official prompt fusion →
   SAM decoder.
 
@@ -76,7 +85,9 @@ release TA, official CPS and Adam for parity/ablation tests.
 
 ## Protocol adaptations
 
-- 18 train / 6 validation images. The three stages share the 800-epoch
+- 18 train / 6 validation images. The U-Net uses foreground-weighted BCE
+  (pos_weight 10); plain BCE collapsed to all-background in the local
+  100-epoch diagnostic. The three stages share the 800-epoch
   project budget; the paper's A2SAM fine-tuning is 50/100 epochs.
 - Validation-Dice checkpoint selection; only stage-3 epochs are eligible, so
   a random-SAM/prior-only checkpoint cannot become `best_model.pth`.

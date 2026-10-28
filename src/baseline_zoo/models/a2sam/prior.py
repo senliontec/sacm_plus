@@ -14,6 +14,8 @@ computed from training data only.  Sampling accepts an explicit
 
 from __future__ import annotations
 
+import math
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -31,11 +33,16 @@ class PersistencePrior(nn.Module):
         hidden: int = 256,
         xi_min: float = 0.0,
         xi_max: float = 1.0,
+        min_sigma: float = 0.05,
     ):
         super().__init__()
         c1, c2, c3, c4, c5 = widths
+        if min_sigma <= 0:
+            raise ValueError('min_sigma must be positive')
         self.xi_min = float(xi_min)
         self.xi_max = float(xi_max)
+        self.min_sigma = float(min_sigma)
+        self.log_var_min = 2.0 * math.log(self.min_sigma)
         self.enc1 = ConvBlock(in_channels, c1)
         self.enc2 = ConvBlock(c1, c2)
         self.enc3 = ConvBlock(c2, c3)
@@ -67,13 +74,17 @@ class PersistencePrior(nn.Module):
         x = self.enc5(self.pool(x))
         x = x.mean(dim=(2, 3))
         stats = self.head(x)
-        mu, log_var = stats[:, 0], stats[:, 1]
-        return mu, log_var.clamp(min=-10.0, max=10.0)
+        raw_mu, log_var = stats[:, 0], stats[:, 1]
+        # The persistence threshold is defined on probability units.  Keep
+        # the predicted mean inside [xi_min, xi_max] instead of letting an
+        # untrained head emit mu > 1, which would clamp every sample to the
+        # upper bound and make the structural uncertainty identically zero.
+        mu = self.xi_min + (self.xi_max - self.xi_min) * torch.sigmoid(raw_mu)
+        return mu, log_var.clamp(min=self.log_var_min, max=10.0)
 
-    @staticmethod
-    def nll_loss(mu: torch.Tensor, log_var: torch.Tensor,
+    def nll_loss(self, mu: torch.Tensor, log_var: torch.Tensor,
                  target: torch.Tensor) -> torch.Tensor:
-        log_var = log_var.clamp(min=-10.0, max=10.0)
+        log_var = log_var.clamp(min=self.log_var_min, max=10.0)
         return (0.5 * (log_var + (target - mu).pow(2)
                        / log_var.exp())).mean()
 
@@ -87,7 +98,8 @@ class PersistencePrior(nn.Module):
         """Return ``[k, B]`` thresholds sampled from ``N(mu, sigma^2)``."""
         if k < 1:
             raise ValueError('k must be >= 1')
-        std = torch.exp(0.5 * log_var.clamp(min=-10.0, max=10.0))
+        std = torch.exp(0.5 * log_var.clamp(
+            min=self.log_var_min, max=10.0))
         shape = (k,) + tuple(mu.shape)
         if generator is None:
             noise = torch.randn(shape, device=mu.device, dtype=mu.dtype)

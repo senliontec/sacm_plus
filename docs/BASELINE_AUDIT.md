@@ -674,7 +674,7 @@ The repaired port now separates provenance explicitly:
   tensors / 692,868 parameters random); two-branch PromptGenerator; CPS
   freeze semantics (IoU head excluded, image-encoder norm/pos/1-D neck
   frozen, zero gradients without `requires_grad=False`); IOU.
-- **Paper reconstruction:** BCE-only U-Net (4.24M), global scalar
+- **Paper reconstruction:** foreground-weighted BCE U-Net (pos_weight=10, 4.24M), global scalar
   `ξ~N(μ,σ²)` prior (2.75M), exact cripser H0 superlevel persistence,
   join-tree/watershed branch reconstruction, `u=Var(y_z)`, and the paper
   TA loss. Persistence is exact; the DMT gradient field/stable manifolds are

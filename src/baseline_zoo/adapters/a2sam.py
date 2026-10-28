@@ -79,6 +79,10 @@ class A2SAMAdapter(BaselineAdapter):
         'Shared 800-epoch budget: 100 U-Net + 100 prior + 600 A2SAM, batch 1, '
         'instead of the release 50/100 A2SAM epochs. Validation-Dice '
         'selection instead of the release validation S-measure.',
+        'The U-Net uses BCE with foreground pos_weight=10 because the shared '
+        '3-shot split is strongly foreground-imbalanced; plain BCE collapsed '
+        'to all-background in the local 100-epoch diagnostic. Set '
+        '--a2sam-unet-pos-weight 1 for the paper plain-BCE variant.',
         'CPS statistics use the 18 training images (paper Algorithm 1) '
         'rather than the release validation loader, avoiding label leakage. '
         'The official freeze-mask semantics (IoU head excluded, image-encoder '
@@ -132,8 +136,11 @@ class A2SAMAdapter(BaselineAdapter):
         parser.add_argument('--a2sam-unet-epochs', type=int, default=100)
         parser.add_argument('--a2sam-prior-epochs', type=int, default=100)
         parser.add_argument('--a2sam-unet-lr', type=float, default=1e-3)
+        parser.add_argument('--a2sam-unet-pos-weight', type=float, default=10.0,
+                            help='foreground weight for the U-Net BCE; 1 = plain BCE')
         parser.add_argument('--a2sam-prior-lr', type=float, default=1e-3)
         parser.add_argument('--a2sam-prior-samples', type=int, default=5)
+        parser.add_argument('--a2sam-prior-min-sigma', type=float, default=0.05)
         parser.add_argument('--a2sam-keep-ratio', type=float, default=0.035)
         parser.add_argument('--a2sam-cps-alpha', type=float, default=0.4)
         parser.add_argument('--a2sam-cps-mode', choices=('official', 'paper'),
@@ -144,7 +151,7 @@ class A2SAMAdapter(BaselineAdapter):
                             choices=('release', 'paper'), default='release')
         parser.add_argument('--a2sam-prompt-detach', action='store_true')
         parser.add_argument('--a2sam-topology-backend',
-                            choices=('auto', 'cripser', 'gudhi'),
+                            choices=('auto', 'cripser', 'gudhi', 'join_tree'),
                             default='auto')
         parser.add_argument('--a2sam-coarse-threshold', type=float,
                             default=0.5)
@@ -213,10 +220,17 @@ class A2SAMAdapter(BaselineAdapter):
             raise SystemExit('A2SAM uses the official 1024x1024 input')
         self._reset_run_state()
         self._ta = ThicknessAwareLoss(mode=self._ta_mode())
+        self._unet_pos_weight = float(getattr(
+            args, 'a2sam_unet_pos_weight', 10.0))
+        if self._unet_pos_weight < 1.0:
+            raise SystemExit('--a2sam-unet-pos-weight must be >= 1.0')
         if self.prediction_mode:
             # Only the eligible stage-3 checkpoint is saved as best_model.
             self._stage = 'a2sam'
-        return build_a2sam(image_size=1024, prompt_size=256)
+        return build_a2sam(
+            image_size=1024, prompt_size=256,
+            prior_min_sigma=float(getattr(
+                args, 'a2sam_prior_min_sigma', 0.05)))
 
     def load_pretrained(self, model, args) -> None:
         if self.prediction_mode:
@@ -309,7 +323,14 @@ class A2SAMAdapter(BaselineAdapter):
 
     def _unet_loss(self, model, batch):
         logits = model.unet(batch['image'])
-        return self._bce(logits, batch['target'])
+        target = batch['target']
+        if self._unet_pos_weight == 1.0:
+            return self._bce(logits, target)
+        pos_weight = torch.tensor(
+            [self._unet_pos_weight], device=target.device,
+            dtype=target.dtype)
+        return F.binary_cross_entropy_with_logits(
+            logits, target, pos_weight=pos_weight)
 
     def _train_unet_epoch(self, model, loader, args) -> float:
         model.train()
@@ -752,8 +773,12 @@ class A2SAMAdapter(BaselineAdapter):
             'unet_epochs': int(getattr(args, 'a2sam_unet_epochs', 100)),
             'prior_epochs': int(getattr(args, 'a2sam_prior_epochs', 100)),
             'unet_lr': float(getattr(args, 'a2sam_unet_lr', 1e-3)),
+            'unet_pos_weight': float(getattr(
+                args, 'a2sam_unet_pos_weight', 10.0)),
             'prior_lr': float(getattr(args, 'a2sam_prior_lr', 1e-3)),
             'prior_samples': int(getattr(args, 'a2sam_prior_samples', 5)),
+            'prior_min_sigma': float(getattr(
+                args, 'a2sam_prior_min_sigma', 0.05)),
             'keep_ratio': float(getattr(args, 'a2sam_keep_ratio', 0.035)),
             'cps_alpha': float(getattr(args, 'a2sam_cps_alpha', 0.4)),
             'cps_mode': str(getattr(args, 'a2sam_cps_mode', 'official')),
@@ -790,8 +815,10 @@ class A2SAMAdapter(BaselineAdapter):
             'unet_epochs': 'a2sam_unet_epochs',
             'prior_epochs': 'a2sam_prior_epochs',
             'unet_lr': 'a2sam_unet_lr',
+            'unet_pos_weight': 'a2sam_unet_pos_weight',
             'prior_lr': 'a2sam_prior_lr',
             'prior_samples': 'a2sam_prior_samples',
+            'prior_min_sigma': 'a2sam_prior_min_sigma',
             'keep_ratio': 'a2sam_keep_ratio',
             'cps_alpha': 'a2sam_cps_alpha',
             'cps_mode': 'a2sam_cps_mode',

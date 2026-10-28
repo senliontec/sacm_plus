@@ -41,6 +41,7 @@ class A2SAMModel(nn.Module):
         unet_widths: tuple[int, int, int, int, int] = (36, 72, 144, 288, 288),
         prior_widths: tuple[int, int, int, int, int] = (24, 48, 96, 192, 384),
         prior_hidden: int = 256,
+        prior_min_sigma: float = 0.05,
     ):
         super().__init__()
         if image_size % 16 != 0:
@@ -48,7 +49,9 @@ class A2SAMModel(nn.Module):
         self.image_size = int(image_size)
         self.prompt_size = int(prompt_size)
         self.unet = CoarseUNet(widths=unet_widths)
-        self.prior = PersistencePrior(widths=prior_widths, hidden=prior_hidden)
+        self.prior = PersistencePrior(
+            widths=prior_widths, hidden=prior_hidden,
+            min_sigma=prior_min_sigma)
         self.prompt_fusion = PromptFusion()
         self.image_encoder = ImageEncoderViT(
             img_size=image_size,
@@ -211,6 +214,7 @@ def build_a2sam(
     unet_widths: tuple[int, int, int, int, int] = (36, 72, 144, 288, 288),
     prior_widths: tuple[int, int, int, int, int] = (24, 48, 96, 192, 384),
     prior_hidden: int = 256,
+    prior_min_sigma: float = 0.05,
 ) -> A2SAMModel:
     return A2SAMModel(
         image_size=image_size,
@@ -218,4 +222,5 @@ def build_a2sam(
         unet_widths=unet_widths,
         prior_widths=prior_widths,
         prior_hidden=prior_hidden,
+        prior_min_sigma=prior_min_sigma,
     )

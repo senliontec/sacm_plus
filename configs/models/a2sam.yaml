@@ -9,7 +9,9 @@ train_entrypoint: >-
   --batch-size 1 --lr 2e-4 --weight-decay 0.01
   --a2sam-sam-checkpoint checkpoints/sam_vit_b_01ec64.pth
   --a2sam-unet-epochs 100 --a2sam-prior-epochs 100
-  --a2sam-prior-samples 5 --a2sam-keep-ratio 0.035
+  --a2sam-unet-pos-weight 10
+  --a2sam-prior-samples 5 --a2sam-prior-min-sigma 0.05
+  --a2sam-keep-ratio 0.035
   --a2sam-cps-alpha 0.4 --a2sam-cps-mode official
   --a2sam-ta-mode paper --a2sam-fusion-inputs release
   --a2sam-topology-backend auto
@@ -31,7 +33,8 @@ note: >-
   Official SAM modules, two-branch prompt fusion, CPS and TA semantics are
   used where the release implements them. The release has no U-Net, prior,
   DMT/persistence or full SPG: those are paper-level reconstructions using a
-  BCE U-Net, a global xi~N(mu,sigma^2) prior, exact cripser H0 persistence
+  BCE U-Net (foreground pos_weight=10 for the 3-shot imbalance), a global
+  xi~N(mu,sigma^2) prior, exact cripser H0 persistence
   and a join-tree/watershed F_MS. Shared 800-epoch protocol: 100 U-Net +
   100 prior + 600 A2SAM, batch 1. 1024-square ImageNet-normalized input,
   horizontal flip, AdamW 2e-4/0.01/cosine to 1e-7, BCE + IoU + paper

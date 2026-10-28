@@ -67,11 +67,14 @@ def resolve_backend(backend: str) -> str:
         return backend
     if importlib.util.find_spec('cripser'):
         return 'cripser'
-    if importlib.util.find_spec('gudhi'):
-        return 'gudhi'
+    # Do not silently switch conventions: Gudhi's cubical complex uses
+    # diagonal coface connectivity, while cripser/join-tree use 4-connected
+    # pixels.  The user must opt into that backend explicitly.
     raise RuntimeError(
-        'A2SAM topology requires cripser or gudhi; install an offline '
-        'wheel or select a different backend')
+        'A2SAM auto topology requires cripser.  Install an offline cripser '
+        'wheel, or explicitly select --a2sam-topology-backend gudhi '
+        '(MIT cubical, diagonal connectivity) or join_tree (4-connected, '
+        'slow pure Python).')
 
 
 def compute_persistence(
@@ -244,9 +247,13 @@ def _compute_gudhi(prob: np.ndarray) -> PersistenceBars:
         dimensions=list(prob.shape),
         top_dimensional_cells=(-prob).ravel(),
     )
+    # Gudhi requires persistence() before the cell-pair query; otherwise
+    # cofaces_of_persistence_pairs() raises an assertion.  The returned lists
+    # are grouped by homological dimension, so index 0 is H0.
+    complex_.persistence()
     pairs = complex_.cofaces_of_persistence_pairs()
-    finite_pairs = pairs[0][0] if pairs and pairs[0] else []
-    essential_cells = pairs[1][0] if len(pairs) > 1 and pairs[1] else []
+    finite_pairs = pairs[0][0] if len(pairs[0]) > 0 else []
+    essential_cells = pairs[1][0] if len(pairs[1]) > 0 else []
     width = prob.shape[1]
     births, deaths, persistence, birth_rc, death_rc, essential = (
         [], [], [], [], [], [])
