@@ -314,6 +314,184 @@ thresholding (not argmax at 256 then nearest resize).  The upstream README claim
 file; verify before redistribution.  See
 `src/baseline_zoo/models/blo_sam/UPSTREAM.md`.
 
+## Conv-LoRA addendum (2026-10-28)
+
+`convlora` is a prompt-free SAM ViT-H baseline (ICLR 2024).  The official
+implementation ships inside AutoGluon (`examples/automm/Conv-LoRA` plus
+the multimodal SAM model), licensed Apache-2.0.  The port keeps the
+official layer math: rank-3 LoRA on the fused qkv linear, top-1 noisy
+MoE over eight 3x3 conv experts with bicubic up/down scaling 1..8, the
+`1e-2` per-layer load-balancing loss summed and added with weight 1.0,
+structure loss, one binary mask token, frozen prompt encoder and constant
+no-mask prompt, and the official 1024-square bicubic/nearest transforms
+with random horizontal flip.  Two paper/code discrepancies are resolved
+in favour of the paper: (1) the paper fully fine-tunes the mask decoder
+and its 4.02M trainable count equals the 3.51M decoder plus ~0.51M
+Conv-LoRA; the released AutoGluon PEFT optimizer filter (`.*lora_*`)
+would freeze the decoder, so the port trains it except the IoU head,
+which the official SAM config explicitly freezes; (2) the paper states
+Adam with lr/wd 1e-4, while AutoGluon defaults to AdamW/wd 1e-3, so the
+paper values are used.  The released AutoGluon data pipeline normalizes
+with ImageNet statistics (`image_norm: imagenet`), not SAM's pixel
+mean/std; the port follows that.  The released cosine schedule with 10%
+warmup and gradient clipping 1.0 is used, stepped per epoch rather than
+per iteration; layerwise LR decay 0.9, top-3 greedy-soup averaging and
+early stopping are not reproduced (shared validation-Dice selection).
+The official 30-epoch (100-epoch low-data) budget is extended to the
+shared 800 epochs.  `lora_alpha` defaults to 8 (AutoGluon's default; the
+paper does not state it) and is exposed via `--convlora-alpha`.  No
+official Conv-LoRA weights exist, so training starts from the local SAM
+ViT-H checkpoint.  See `src/baseline_zoo/models/convlora/UPSTREAM.md`.
+
+## FSSAM addendum (2026-10-28)
+
+`fssam` is the ICML 2025 SAM 2 few-shot segmenter, a support-based
+baseline (not prompt-free).  The port vendors FSSAM's modified SAM 2
+(Hiera-S/B+/L configs), reuses the self-contained DINOv2 implementation,
+and keeps the paper's three modules: DINOv2 pseudo FG/Disc priors,
+iterative memory refinement, and support-calibrated memory attention.
+Official training freezes the SAM 2 image/prompt encoders, `obj_ptr_proj`,
+`mask_downsample` and DINOv2, and optimizes only the memory encoder,
+memory attention and mask decoder (AdamW 1e-3, wd 0, poly power 0.9, Dice
+loss, 512 square, effective batch 8).  The port extends the official
+300/75 epochs to the shared 800-epoch budget and uses validation Dice
+instead of the official per/half-epoch mIoU with patience-100 early
+stopping.  Because each seen training domain has only three images,
+training episodes use at most two non-query supports; evaluation uses the
+protocol's support set (own shots for seen domains, donor for
+unseen/novel).  The DINOv2 prior uses the final block only (the upstream
+requests all intermediate blocks but consumes only the last, so the feature
+is identical).  The released code cannot run its SCMA calibration as
+published: `self.Weighted_GAP` is never defined and the support-mask tensor
+is overwritten inside the shot loop.  The vendored copy supplies the
+missing weighted-GAP helper and averages the per-shot support similarities
+as described in the paper.  The official main configuration is SAM 2-S +
+DINOv2-B; the port defaults to SAM 2-S + locally available DINOv2-L (the
+paper's Table 7 variant) and exposes `--fssam-dino-size vitb`.  The port
+runs in fp32 (the official trainer uses bf16 autocast) and casts the
+memory features that the upstream helper hard-codes to bf16 back to the
+model dtype.  No FSSAM-trained weights exist in the released tree;
+training starts from the official SAM 2 and DINOv2 checkpoints.  See
+`src/baseline_zoo/models/fssam/UPSTREAM.md`.
+
+## SANSA addendum (2026-10-28)
+
+`sansa` is the NeurIPS 2025 semantically aligned SAM 2 few-shot segmenter
+(support-based, not prompt-free).  The port vendors SANSA's modified SAM 2
+(Hiera-T/B+/L configs) and its AdaptFormer adapter, keeps SAM 2 frozen and
+trains only the adapters (≈9.9M) in the last two hierarchical stages with a
+0.3× bottleneck, exactly as the official builder.  Reference masks plus the
+target are processed as a pseudo-video through the unmodified memory
+attention path.  The released training code (`engine.py`) trains one
+reference + one target with mask prompts and focal+Dice, although the paper
+describes BCE+Dice and a J=3 multi-target objective; the port follows the
+release.  The official 5-epoch, effective-batch-32 recipe is extended to the
+shared 800-epoch budget with batch 2 on 24 GiB GPUs and validation-Dice
+selection.  The released datasets ImageNet-normalize and resize to 1024
+before SAM 2 (the `preprocess` helper only resizes); the port matches that.
+Evaluation uses the model's native k-shot path with the protocol's three
+references (own shots for seen sets, donor for unseen/novel), mask prompts
+only.  Documented deviations: released gradient-clip CLI default 0.1 vs the
+paper's 1.0 (port uses 1.0); per-epoch instead of per-iteration cosine;
+no official adapter weights (training starts from SAM 2 Hiera-Large); no
+support prompts other than masks.  See
+`src/baseline_zoo/models/sansa/UPSTREAM.md`.
+
+## RSRM addendum (2026-10-28)
+
+`rsrm` is the ECCV 2026 training-free cross-domain FSS baseline
+(support-based, DINOv3-only, no SAM).  The port vendors the Meta DINOv3
+implementation used by the official repo and keeps SAFR (variance-proportion
+layer selection + Fisher-ratio weighting over raw attention features), ASE
+(robust support-derived FG/BG thresholds + masked query-to-support
+cross-attention) and HPM (global, k-means regional and pixel-level prototype
+matching fused by confidence).  Official preprocessing is 480-square resize
+with ImageNet normalization; the official test loop argmaxes the two-channel
+output at 480, and this port exports that mask nearest-resized to the GT
+resolution.  The official `fast_pytorch_kmeans` GPU dependency is replaced
+by deterministic scikit-learn k-means++ on CPU; the region-similarity math
+is unchanged.  The paper uses Meta DINOv3 ViT-B/16.  The local
+`checkpoints/dinov3/pytorch_model.bin` is a timm ViT-S/16 export
+(`reg_token`/`gamma_1` keys) and is loaded through timm's own architecture
+rather than force-fitted onto the Meta module layout; official Meta ViT-B/16
+state dicts are accepted with the vendored architecture.  No RSRM-specific
+weights exist; the training stage writes a metadata-only checkpoint.  No
+target GT or target prompts are used.  See
+`src/baseline_zoo/models/rsrm/UPSTREAM.md`.
+
+## C2P addendum (2026-10-28)
+
+`c2p` is the ECCV 2026 prompt-free universal segmentation model
+(ConvNeXtV2-B, 9 geometric tokens supervised on physical attributes, 9
+MLLM-distilled semantic tokens, bidirectional token-image cross-attention,
+token-guided dynamic head, geometry-aware inference consensus).  The
+released repository is not runnable end-to-end: `train.py` imports a
+non-existent `SRICL` class, `evaluate_sem.py`/`train_sem.py` referenced by
+the README are absent, and no property-cache or MLLM-embedding generator is
+provided.  The full `C2P` network is present, and the official HuggingFace
+checkpoint (`yunyundi/c2p`) supplies the trained backbone, both token sets,
+and the dynamic head.  This port therefore evaluates the official
+checkpoint **zero-shot** as the zoo's prompt-free universal foundation
+baseline; it does not consume the shared 18-image split, support images or
+target labels.  The official geometry-aware 3-view consensus is
+reimplemented from `predict_with_token_tta_fast` (area/centroid consistency
+weighting; empty-prediction suppression).  Inputs are 384 square with
+ImageNet normalization; the sigmoid output is exported at GT resolution.
+The checkpoint contains the ConvNeXtV2-B backbone, so timm is built with
+`pretrained=False` and never downloads weights; `--c2p-random-init` is
+smoke-only.  Documented limitation: the model was trained on eight medical
+datasets and is applied zero-shot to the protocol's mixed medical and
+non-medical curvilinear domains, analogous to the paper's unseen-modality
+test.  No official weights are bundled.  See
+`src/baseline_zoo/models/c2p/UPSTREAM.md`.
+
+## DKA addendum (2026-10-28)
+
+`dka` is the ICLR 2026 Dual-Kernel Adapter segmentation baseline.  The
+released repository includes the DKA module (linear down-projection to a
+bottleneck, parallel depthwise 51×51 and 5×5 branches, GELU, linear
+up-projection, residual) and classification training; its segmentation
+experiments use Segmenter-B in MMSegmentation, which is not part of the
+release.  The port therefore reconstructs Segmenter-B from a frozen
+torchvision ViT-B/16 (ImageNet-1k) with DKA after all 12 blocks (middle
+dimension 192) and Segmenter's linear decoder.  The paper's segmentation
+recipe supplies head lr 1e-4, DKA lr 1e-3, batch 1 and 300 epochs; the port
+uses the shared 800-epoch budget and validation-Dice selection.  No
+segmentation loss, input size or augmentation is stated in the paper or
+release, so the port uses 512-square ImageNet-normalized inputs, horizontal
+flip only, and cross-entropy + foreground Dice (Dice added to avoid the
+all-background degeneracy observed on sparse curvilinear domains).  The
+released classification code uses a 1e-5 adapter LR and StepLR and leaves
+the paper's zero down/up initialization commented out; the paper's
+segmentation values (1e-3 adapter LR) and stated zero initialization are
+used.  No official DKA weights exist; training starts from the local
+torchvision ViT-B/16 checkpoint, and `--dka-random-init` is smoke-only.  See
+`src/baseline_zoo/models/dka/UPSTREAM.md`.
+
+## SCRWKV addendum (2026-10-28)
+
+`scrwkv` is the ICML 2026 ultra-compact Structure-Calibrated Vision-RWKV
+crack segmenter, a non-SAM from-scratch baseline.  The port vendors the
+released SFE (AMCM + GBST/DSCD SCIU blocks), CSHF decoder with DySample
+upsamplers and the custom CUDA `bi_wkv` kernel.  The released SFE imports
+mmcv/mmcls (`build_norm_layer`, `ModuleList`, `AdaptivePadding`,
+`resize_pos_embed`, `BaseBackbone`); those are generic helpers, and the port
+replaces them with local torch equivalents without changing the architecture
+or forward path for the fixed 512 input (corner padding is zero).  The CUDA
+kernel is official and required; the release hardcodes sm_86, while the port
+selects the current GPU capability or `SCRWKV_CUDA_ARCH`.  The official
+recipe is kept: 512-square cubic resize for images and masks, mask threshold
+127, `(x/255-0.5)/0.5`, no augmentation, 0.25 BCE + 0.75 Dice, AdamW
+5e-4/0.01, PolyLR to 1e-6, batch 1.  The official 50 epochs are extended to
+the shared 800-epoch budget with validation-Dice selection.  Inference
+follows the released `test.py` (max-normalize logits, threshold 0.2) and
+then nearest-resizes to GT, whereas the release evaluates at 512.  The port
+has ~2.04M parameters versus the paper's 1.22M; the released Crack config
+and CSHF/DySample modules are preserved, so the difference is in the paper's
+reported count/config.  No official weights are required; training starts
+from random initialization.  See
+`src/baseline_zoo/models/scrwkv/UPSTREAM.md`.
+
 ## SAMRefiner addendum (2026-10-27)
 
 `sam_refiner` is a model-agnostic binary-mask post-processor (ICLR 2025,

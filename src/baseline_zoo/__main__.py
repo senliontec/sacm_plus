@@ -361,6 +361,16 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         # informational rather than a blocker for the paper zoo.
         ('SAM2 Hiera-L', REPO_ROOT / 'checkpoints' / 'sam2_hiera_large.pt',
          False),
+        # FSSAM's official default is SAM 2-S (46M); Hiera-L is the local
+        # smoke/ablation alternative.
+        ('SAM2 Hiera-S', REPO_ROOT / 'checkpoints' / 'sam2_hiera_small.pt',
+         False),
+        # C2P is a zero-shot foundation baseline; its official checkpoint is
+        # required to evaluate it but not to run the rest of the zoo.
+        ('C2P checkpoint', REPO_ROOT / 'checkpoints' / 'c2p' / '1.pth',
+         False),
+        ('ViT-B/16 ImageNet', REPO_ROOT / 'checkpoints' /
+         'vit_b_16_imagenet1k_v1.pth', False),
         # Matcher needs the public DINOv2 ViT-L/14 checkpoint; report it as
         # an informational asset like the SAM2 appendix weight.
         ('DINOv2 ViT-L/14', REPO_ROOT / 'checkpoints' /

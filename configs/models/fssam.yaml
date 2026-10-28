@@ -1,0 +1,38 @@
+id: fssam
+display_name: FSSAM
+family: sam
+status: available
+checkpoint: "{output_root}/best_model.pth"
+train_entrypoint: >-
+  python -m baseline_zoo.run_one --model fssam --stage train
+  --data-root {split_root} --workdir {output_root}
+  --fssam-sam2-checkpoint checkpoints/sam2_hiera_small.pt
+  --fssam-sam2-config sam2_hiera_s.yaml
+  --fssam-dino-weights checkpoints/dinov2_vitl14_pretrain.pth
+  --fssam-dino-size vitl --fssam-shots 3 --fssam-num-refine 3
+  --fssam-ver-refine v1
+  --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
+eval_entrypoint: >-
+  python scripts/pipeline/run_baseline_test.py --method fssam
+  --protocol {test_manifest}
+  --seed {seed}
+  --checkpoint {output_root}/best_model.pth
+  --pred-root {output_root}/predictions
+  --paper-root {output_root}
+  --device cuda:{gpu} --use_wandb true --skip-visualize
+protocols: [seeded5, fixed]
+defaults:
+  epochs: 800
+note: >-
+  Self-contained FSSAM port (ICML 2025). Support-based few-shot SAM 2 with
+  DINOv2 pseudo prompts, iterative memory refinement and support-calibrated
+  memory attention. Seen test domains use their own three training shots;
+  unseen/novel domains use the protocol donor support set. The official
+  recipe optimizes only SAM 2's memory encoder, memory attention and mask
+  decoder (AdamW 1e-3, wd 0, poly power 0.9, Dice loss, 512 square,
+  effective batch 8) and extends 300/75 epochs to the shared 800-epoch
+  budget. The released code's missing Weighted_GAP and k-shot SCMA loop are
+  repaired. Requires local SAM 2 and DINOv2 checkpoints; no network access.
+  The official main model is SAM 2-S + DINOv2-B; this port defaults to
+  SAM 2-S + locally available DINOv2-L (paper ablation) and supports
+  --fssam-dino-size vitb.

@@ -1,0 +1,35 @@
+id: convlora
+display_name: Conv-LoRA
+family: sam
+status: available
+checkpoint: "{output_root}/best_model.pth"
+train_entrypoint: >-
+  python -m baseline_zoo.run_one --model convlora --stage train
+  --data-root {split_root} --workdir {output_root}
+  --convlora-checkpoint checkpoints/sam_vit_h_4b8939.pth
+  --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
+eval_entrypoint: >-
+  python scripts/pipeline/run_baseline_test.py --method convlora
+  --protocol {test_manifest}
+  --seed {seed}
+  --checkpoint {output_root}/best_model.pth
+  --pred-root {output_root}/predictions
+  --paper-root {output_root}
+  --device cuda:{gpu} --use_wandb true --skip-visualize
+protocols: [seeded5, fixed]
+defaults:
+  epochs: 800
+note: >-
+  Self-contained Conv-LoRA port (ICLR 2024; the official code lives in the
+  AutoGluon semantic-segmentation example). SAM ViT-H is frozen except
+  Conv-LoRA qkv layers; the prompt encoder is frozen (constant no-mask
+  prompt), the mask decoder is fine-tuned (IoU head frozen per the
+  official SAM config), and the official one-token binary head, structure
+  loss (weighted BCE + weighted IoU) and MoE load-balancing loss are kept.
+  Images/masks are resized to 1024 square with random horizontal flip and
+  ImageNet normalization as in the AutoGluon config. Adam 1e-4/1e-4,
+  cosine schedule with 10% warmup, gradient clipping 1.0. The official
+  30-epoch recipe is extended to the shared 800-epoch 3-shot budget.
+  Requires the local SAM ViT-H checkpoint; no Conv-LoRA weights or
+  network access. ViT-H training OOMs on 11 GiB cards; use the 24 GiB
+  target GPUs (ViT-B is smoke-only).

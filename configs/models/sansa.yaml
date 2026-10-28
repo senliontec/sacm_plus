@@ -1,0 +1,36 @@
+id: sansa
+display_name: SANSA
+family: sam
+status: available
+checkpoint: "{output_root}/best_model.pth"
+train_entrypoint: >-
+  python -m baseline_zoo.run_one --model sansa --stage train
+  --data-root {split_root} --workdir {output_root}
+  --sansa-sam2-checkpoint checkpoints/sam2_hiera_large.pt
+  --sansa-sam2-config sam2_hiera_l.yaml
+  --sansa-adaptformer-stages 2 3 --sansa-channel-factor 0.3
+  --sansa-shots 3
+  --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
+eval_entrypoint: >-
+  python scripts/pipeline/run_baseline_test.py --method sansa
+  --protocol {test_manifest}
+  --seed {seed}
+  --checkpoint {output_root}/best_model.pth
+  --pred-root {output_root}/predictions
+  --paper-root {output_root}
+  --device cuda:{gpu} --use_wandb true --skip-visualize
+protocols: [seeded5, fixed]
+defaults:
+  epochs: 800
+note: >-
+  Self-contained SANSA port (NeurIPS 2025). Support-based few-shot SAM 2:
+  frozen Hiera-Large, AdaptFormer adapters (~9.9M) in the last two
+  hierarchical stages, reference masks plus target processed as a
+  pseudo-video through SAM 2 memory attention. Seen test domains use their
+  own three training shots; unseen/novel domains use the donor set. The
+  released engine trains one reference + one target with focal+Dice
+  (AdamW 1e-4, wd 0, cosine, grad clip 1.0, 5 epochs); this port extends to
+  the shared 800-epoch budget, batch 2 on 24 GiB GPUs, and validation-Dice
+  selection. Evaluation uses the model's native k-shot path with 3
+  references. ImageNet normalization and 1024-square resize. Requires the
+  local SAM 2 Hiera-Large checkpoint; no network access.

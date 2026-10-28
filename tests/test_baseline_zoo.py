@@ -19,11 +19,12 @@ from baseline_zoo.registry import load_models, resolve_models  # noqa: E402
 def test_registry_contains_all_self_contained_models():
     models = load_models()
     expected = {
-        'bcunet', 'blo_sam', 'cs2net', 'cwsam', 'dscnet', 'jtfn',
+        'bcunet', 'blo_sam', 'c2p', 'convlora', 'cs2net', 'cwsam', 'dscnet',
+        'dka', 'fssam', 'jtfn',
         'knowsam', 'maskvsc', 'matcher', 'medcagd', 'nnwnet', 'persam',
-        'sacm_official', 'sacm_x', 'sam2_unet', 'sam_adapter',
-        'sam_med2d', 'sam_octa', 'sam_vit_l_unet', 'samed', 'segdino',
-        'topolora', 'ucs', 'unet'}
+        'rsrm', 'sacm_official', 'sacm_x', 'sam2_unet', 'sam_adapter',
+        'sam_med2d', 'sam_octa', 'sam_vit_l_unet', 'samed', 'sansa',
+        'scrwkv', 'segdino', 'topolora', 'ucs', 'unet'}
     assert set(models) == expected
     available = {model.id for model in models.values() if model.available}
     assert available == expected
@@ -157,7 +158,7 @@ def test_train_dry_run_does_not_create_marker(capsys):
 def test_doctor_reports_self_contained_models(capsys):
     main(['doctor'])
     output = capsys.readouterr().out
-    assert 'models: 24  available: 24' in output
+    assert 'models: 31  available: 31' in output
     assert 'sam2_hiera_large.pt' in output
     assert 'SAM2 Hiera-L download' in output
     assert 'DINOv3' in output or 'segdino' in output

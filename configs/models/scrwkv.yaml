@@ -1,0 +1,30 @@
+id: scrwkv
+display_name: SCRWKV
+family: non-sam
+status: available
+checkpoint: "{output_root}/best_model.pth"
+train_entrypoint: >-
+  python -m baseline_zoo.run_one --model scrwkv --stage train
+  --data-root {split_root} --workdir {output_root}
+  --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
+eval_entrypoint: >-
+  python scripts/pipeline/run_baseline_test.py --method scrwkv
+  --protocol {test_manifest}
+  --seed {seed}
+  --checkpoint {output_root}/best_model.pth
+  --pred-root {output_root}/predictions
+  --paper-root {output_root}
+  --device cuda:{gpu} --use_wandb true --skip-visualize
+protocols: [seeded5, fixed]
+defaults:
+  epochs: 800
+note: >-
+  Ultra-compact SCRWKV (ICML 2026) crack segmenter, trained from scratch on
+  the shared 18-image split. Official recipe: 512-square cubic resize,
+  (0.5,0.5,0.5) normalization, no augmentation, 0.25 BCE + 0.75 Dice,
+  AdamW 5e-4/0.01, PolyLR to 1e-6, batch 1, 50 epochs -> shared 800 with
+  val-Dice selection. The official custom CUDA bi_wkv kernel is vendored
+  and compiled at import (official sm_86 / RTX 3090; override with
+  SCRWKV_CUDA_ARCH). Inference follows the official test: max-normalize
+  logits and threshold at 0.2, then nearest export to GT. No pretrained
+  weights; no network access.

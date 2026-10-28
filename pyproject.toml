@@ -60,6 +60,10 @@ sam_octa = ["albumentations==1.3.1", "safetensors"]
 knowsam = ["medpy==0.4.0", "hausdorff", "albumentations==1.3.1"]
 nnwnet = ["nnunetv2==2.8.1"]
 segdino = ["timm>=1.0"]
+fssam = ["hydra-core", "omegaconf", "imageio", "timm"]
+sansa = ["hydra-core", "omegaconf", "einops", "timm"]
+rsrm = ["timm"]
+c2p = ["timm", "einops"]
 matcher = ["POT"]
 tuning = ["optuna"]
 queue = ["cue-ml"]
@@ -111,6 +115,9 @@ extend-exclude = [
     "src/baseline_zoo/models/blo_sam/segment_anything",
     "src/baseline_zoo/models/blo_sam/lora.py",
     "src/baseline_zoo/models/blo_sam/prompt.py",
+    "src/baseline_zoo/models/convlora/segment_anything",
+    "src/baseline_zoo/models/convlora/layers.py",
+    "src/baseline_zoo/models/scrwkv",
     "src/core/postprocess/sam_refiner/sam_refiner.py",
     "src/core/postprocess/sam_refiner/utils.py",
     "src/core/postprocess/sam_refiner/segment_anything",

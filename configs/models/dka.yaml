@@ -1,0 +1,32 @@
+id: dka
+display_name: DKA
+family: non-sam
+status: available
+checkpoint: "{output_root}/best_model.pth"
+train_entrypoint: >-
+  python -m baseline_zoo.run_one --model dka --stage train
+  --data-root {split_root} --workdir {output_root}
+  --dka-vit-weights checkpoints/vit_b_16_imagenet1k_v1.pth
+  --dka-middle-dim 192 --dka-adapter-lr 1e-3
+  --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
+eval_entrypoint: >-
+  python scripts/pipeline/run_baseline_test.py --method dka
+  --protocol {test_manifest}
+  --seed {seed}
+  --checkpoint {output_root}/best_model.pth
+  --pred-root {output_root}/predictions
+  --paper-root {output_root}
+  --device cuda:{gpu} --use_wandb true --skip-visualize
+protocols: [seeded5, fixed]
+defaults:
+  epochs: 800
+note: >-
+  Dual-Kernel Adapter (ICLR 2026) segmentation port. The released repo has
+  the DKA module and classification training only; the paper's Segmenter-B
+  (MMSegmentation) segmentation code is not released. This port keeps DKA
+  in all 12 torchvision ViT-B/16 blocks (51x51 + 5x5 depthwise branches,
+  middle dim 192, zero-init down/up) with Segmenter's linear decoder,
+  512-square ImageNet-normalized inputs, head lr 1e-4 / DKA lr 1e-3,
+  batch 1, CE + foreground Dice, 800 shared epochs. The ViT backbone is
+  frozen. Requires checkpoints/vit_b_16_imagenet1k_v1.pth; no network
+  access. --dka-random-init is smoke-only.

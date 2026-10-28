@@ -1,0 +1,31 @@
+id: c2p
+display_name: C2P
+family: non-sam
+status: available
+checkpoint: "{output_root}/best_model.pth"
+train_entrypoint: >-
+  python -m baseline_zoo.run_one --model c2p --stage train
+  --data-root {split_root} --workdir {output_root}
+  --c2p-checkpoint checkpoints/c2p/1.pth --c2p-tta 1
+  --seed {seed} --device cuda:{gpu} --use_wandb
+eval_entrypoint: >-
+  python scripts/pipeline/run_baseline_test.py --method c2p
+  --protocol {test_manifest}
+  --seed {seed}
+  --checkpoint {output_root}/best_model.pth
+  --pred-root {output_root}/predictions
+  --paper-root {output_root}
+  --device cuda:{gpu} --use_wandb true --skip-visualize
+protocols: [seeded5, fixed]
+defaults:
+  epochs: 0
+note: >-
+  Prompt-free universal C2P baseline (ECCV 2026), evaluated zero-shot with
+  the official HuggingFace checkpoint trained on eight medical datasets.
+  It does not use the shared 18-image training split; the training stage
+  writes a metadata-only checkpoint. The released repo has no runnable
+  trainer/evaluator; this port vendors the C2P network and reimplements the
+  official geometry-aware 3-view inference consensus. 384-square
+  ImageNet-normalized inputs; sigmoid > 0.5 exported at GT resolution.
+  Requires the official checkpoint at checkpoints/c2p/1.pth; no network
+  access. --c2p-random-init is smoke-only.
