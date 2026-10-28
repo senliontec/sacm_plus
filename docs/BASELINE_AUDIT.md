@@ -448,8 +448,12 @@ The checkpoint contains the ConvNeXtV2-B backbone, so timm is built with
 smoke-only.  Documented limitation: the model was trained on eight medical
 datasets and is applied zero-shot to the protocol's mixed medical and
 non-medical curvilinear domains, analogous to the paper's unseen-modality
-test.  No official weights are bundled.  See
-`src/baseline_zoo/models/c2p/UPSTREAM.md`.
+test.  The official 1.69 GB checkpoint (`c2p.pt`, sha256
+`5f4a22aa892ea1069568fd846a1b726a01fd2b8f45020a0d54a63f32c62093a0`) is
+placed at `checkpoints/c2p/1.pth`; its `model_state_dict` wrapper is
+unwrapped and the training-only `ds_head4/5` and `d2_proj_inv` keys are
+ignored.  A real-checkpoint forward and a 20-image DRIVE prediction smoke
+passed.  See `src/baseline_zoo/models/c2p/UPSTREAM.md`.
 
 ## DKA addendum (2026-10-28)
 

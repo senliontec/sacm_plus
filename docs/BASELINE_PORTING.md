@@ -324,11 +324,11 @@ Dice; it is not part of the prompt-free main table.
 | DINOv2 ViT-L/14 | `checkpoints/dinov2_vitl14_pretrain.pth` (present; `matcher`, `fssam`); ViT-B optional for FSSAM's official main config: `https://dl.fbaipublicfiles.com/dinov2/dinov2_vitb14/dinov2_vitb14_pretrain.pth` |
 | SAM ViT-H | `checkpoints/sam_vit_h_4b8939.pth` (PerSAM/Matcher/Conv-LoRA; 2.4 GiB) |
 | SAM2 Hiera-L | `checkpoints/sam2_hiera_large.pt` (present; SAM2-UNet and the FSSAM local smoke/ablation config) |
-| SAM2 Hiera-S | missing; FSSAM's official default (46M); `https://dl.fbaipublicfiles.com/segment_anything_2/072824/sam2_hiera_small.pt` |
+| SAM2 Hiera-S | `checkpoints/sam2_hiera_small.pt` (present; FSSAM official default, 46M); `https://dl.fbaipublicfiles.com/segment_anything_2/072824/sam2_hiera_small.pt` |
 | DINOv3 | auto-detected under `checkpoints/`; SegDINO uses DINOv3 through timm; RSRM reads `checkpoints/dinov3/pytorch_model.bin` (present; timm ViT-S/16) or a Meta ViT-B/16 state dict (`https://dl.fbaipublicfiles.com/dinov3/dinov3_vitb16/dinov3_vitb16_pretrain_lvd1689m-73cec8be.pth`) via `--rsrm-dinov3-weights` |
-| C2P checkpoint | missing; required for zero-shot `c2p`; HuggingFace `yunyundi/c2p`, file `sem-OL-3dice-v2-mutil-deep_only-norfb-DS-onlyD5-weightdecay-0.3-0.05/1.pth`, place at `checkpoints/c2p/1.pth` |
+| C2P checkpoint | `checkpoints/c2p/1.pth` (present; HuggingFace `yunyundi/c2p`, file `c2p.pt`; sha256 `5f4a22aa892ea1069568fd846a1b726a01fd2b8f45020a0d54a63f32c62093a0`); unwraps `model_state_dict` and ignores training-only `ds_head*`/`d2_proj_inv*` keys |
 | Segmenter-B ViT-B/16 | `checkpoints/segmenter_vit_b16_384.pth` (present locally; required for `dka`); `https://download.openmmlab.com/mmsegmentation/v0.5/pretrain/segmenter/vit_base_p16_384_20220308-96dfe169.pth` |
-| DconnNet ResNet-34 | `checkpoints/resnet34-333f7ec4.pth` (optional ImageNet initialization for `dconnnet`; `https://download.pytorch.org/models/resnet34-333f7ec4.pth`); absent → random initialization is recorded as a deviation |
+| DconnNet ResNet-34 | `checkpoints/resnet34-333f7ec4.pth` (present; ImageNet initialization for `dconnnet`; `https://download.pytorch.org/models/resnet34-333f7ec4.pth`); absent → random initialization is recorded as a deviation |
 | nnU-Net | `nnunetv2==2.8.1` (installed via pip) |
 | KnowSAM metrics | `medpy==0.4.0`, `hausdorff` |
 | Matcher EMD | `POT` (`pip install POT`; already in the `topology` extra) |
