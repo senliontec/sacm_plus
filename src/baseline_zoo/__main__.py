@@ -369,8 +369,8 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         # required to evaluate it but not to run the rest of the zoo.
         ('C2P checkpoint', REPO_ROOT / 'checkpoints' / 'c2p' / '1.pth',
          False),
-        ('ViT-B/16 ImageNet', REPO_ROOT / 'checkpoints' /
-         'vit_b_16_imagenet1k_v1.pth', False),
+        ('Segmenter-B ViT-B/16', REPO_ROOT / 'checkpoints' /
+         'segmenter_vit_b16_384.pth', False),
         # Matcher needs the public DINOv2 ViT-L/14 checkpoint; report it as
         # an informational asset like the SAM2 appendix weight.
         ('DINOv2 ViT-L/14', REPO_ROOT / 'checkpoints' /
@@ -391,6 +391,9 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     print('MedCAGD PVTv2-B2 download: '
           'https://huggingface.co/timm/pvt_v2_b2.in1k/resolve/main/'
           'model.safetensors')
+    print('Segmenter-B ViT-B/16 download: '
+          'https://download.openmmlab.com/mmsegmentation/v0.5/pretrain/'
+          'segmenter/vit_base_p16_384_20220308-96dfe169.pth')
     for label, module in (
             ('SAM2 deps', 'hydra'),
             ('SAM2 deps', 'omegaconf'),

@@ -458,21 +458,25 @@ released repository includes the DKA module (linear down-projection to a
 bottleneck, parallel depthwise 51×51 and 5×5 branches, GELU, linear
 up-projection, residual) and classification training; its segmentation
 experiments use Segmenter-B in MMSegmentation, which is not part of the
-release.  The port therefore reconstructs Segmenter-B from a frozen
-torchvision ViT-B/16 (ImageNet-1k) with DKA after all 12 blocks (middle
-dimension 192) and Segmenter's linear decoder.  The paper's segmentation
-recipe supplies head lr 1e-4, DKA lr 1e-3, batch 1 and 300 epochs; the port
-uses the shared 800-epoch budget and validation-Dice selection.  No
-segmentation loss, input size or augmentation is stated in the paper or
-release, so the port uses 512-square ImageNet-normalized inputs, horizontal
-flip only, and cross-entropy + foreground Dice (Dice added to avoid the
-all-background degeneracy observed on sparse curvilinear domains).  The
-released classification code uses a 1e-5 adapter LR and StepLR and leaves
-the paper's zero down/up initialization commented out; the paper's
-segmentation values (1e-3 adapter LR) and stated zero initialization are
-used.  No official DKA weights exist; training starts from the local
-torchvision ViT-B/16 checkpoint, and `--dka-random-init` is smoke-only.  See
-`src/baseline_zoo/models/dka/UPSTREAM.md`.
+release.  The port reconstructs MMSegmentation's Segmenter-B ViT-B/16 host
+at the exact module/key level (learned absolute position embedding resized
+24×24→32×32, `layers.*.attn.attn.*`, `layers.*.ffn.layers.*`,
+`drop_path_rate=0.1` on the FFN branch only, final LayerNorm and a linear
+1×1 FCN head), loads the official ImageNet-21k
+`vit_base_p16_384_20220308-96dfe169.pth` checkpoint strictly, and uses
+MMSeg's `(x-127.5)/127.5` normalization.  DKA is inserted after all 12
+blocks (middle dimension 192).  The paper's segmentation recipe supplies
+head lr 1e-4, DKA lr 1e-3, batch 1 and 300 epochs; the port uses the shared
+800-epoch budget and validation-Dice selection.  No segmentation loss or
+augmentation is stated in the paper or release, so the port uses
+512-square inputs, horizontal flip only, and cross-entropy + foreground
+Dice (Dice added to avoid the all-background degeneracy observed on sparse
+curvilinear domains).  The released classification code uses a 1e-5
+adapter LR and StepLR and leaves the paper's zero down/up initialization
+commented out; the paper's segmentation values (1e-3 adapter LR) and stated
+zero initialization are used.  No DKA-trained weights exist; training starts
+from the official Segmenter-B checkpoint, and `--dka-random-init` is
+smoke-only.  See `src/baseline_zoo/models/dka/UPSTREAM.md`.
 
 ## SCRWKV addendum (2026-10-28)
 
@@ -544,10 +548,21 @@ the first regression suite did not cover:
    cosine+10% warmup).  Defaults and docs now follow the preset.  Adam
    (paper) is retained instead of the preset's AdamW, and the released
    `RandomHorizontalFlip(1.0)` is treated as a quirk (p=0.5 per paper).
+5. **DKA Segmenter-B host.**  The first DKA port used a torchvision
+   ViT-B/16-ImageNet-1k host.  It now reconstructs MMSegmentation's
+   Segmenter-B ViT-B/16 at the module/key level (`patch_embed.projection`,
+   `ln1`, `layers.*.attn.attn.*`, `layers.*.ffn.layers.*`), resizes the
+   official checkpoint's 24×24 position embedding to 32×32, applies the
+   0.1 FFN-only stochastic depth and final LayerNorm, uses the official
+   ImageNet-21k checkpoint and `(x-127.5)/127.5` normalization, and keeps
+   a linear 1×1 FCN head.  `load_state_dict(strict=True)` passes with the
+   official `segmenter_vit_b16_384.pth`.  Earlier torchvision-host DKA
+   checkpoints are incompatible and must be retrained.
 
 Remaining known caveats are asset/host decisions rather than runtime bugs:
 FSSAM's default DINOv2-L is the paper ablation (main table needs DINOv2-B),
-RSRM's local timm ViT-S is not the paper's Meta ViT-B/16, the C2P official
-checkpoint is not present so strict loading is unverified, and DKA's
-Segmenter-B host is a reconstructed torchvision model rather than the exact
-MMSegmentation Segmenter-B recipe.
+RSRM's local timm ViT-S is not the paper's Meta ViT-B/16, and the C2P
+official checkpoint is not present so strict loading is unverified.  DKA
+now uses the exact MMSeg Segmenter-B host layout and official checkpoint;
+only its unstated segmentation loss, augmentation, head choice and
+single-scale test pipeline remain documented assumptions.

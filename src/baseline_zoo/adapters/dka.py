@@ -2,10 +2,12 @@
 
 The released DKA code provides the dual-kernel adapter and classification
 training.  Its segmentation experiments use Segmenter-B in MMSegmentation,
-which is not part of the release.  This port applies DKA to a frozen
-torchvision ViT-B/16 backbone with Segmenter's linear decoder, following
-the paper's segmentation recipe: DKA in all transformer blocks, middle
-dimension 192, head lr 1e-4, DKA lr 1e-3, batch 1.
+which is not part of the release.  This port applies DKA to a self-contained
+MMSegmentation Segmenter-B ViT-B/16 host (exact key layout, official
+ImageNet-21k checkpoint, learned pos embed, 0.1 FFN stochastic depth, final
+LayerNorm and a linear 1x1 head), following the paper's segmentation
+recipe: DKA in all transformer blocks, middle dimension 192, head lr 1e-4,
+DKA lr 1e-3, batch 1.
 """
 
 from __future__ import annotations
@@ -21,9 +23,6 @@ import torch.nn.functional as F
 from baseline_zoo.data import load_mask, load_rgb
 from baseline_zoo.models.dka import build_dka
 from baseline_zoo.runtime import REPO_ROOT, BaselineAdapter, file_sha256
-
-_IMAGENET_MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
-_IMAGENET_STD = np.array([0.229, 0.224, 0.225], dtype=np.float32)
 
 
 class DKAAdapter(BaselineAdapter):
@@ -43,13 +42,17 @@ class DKAAdapter(BaselineAdapter):
         'use Segmenter-B in MMSegmentation, which is not released. This port '
         'keeps the official DKA module (51x51 + 5x5 depthwise branches, '
         'middle dimension 192, zero-initialized down/up projections) in all '
-        '12 ViT-B/16 blocks and uses Segmenter\'s linear decoder.',
-        'The backbone is torchvision ViT-B/16 pretrained on ImageNet-1k. '
-        'The MMSegmentation Segmenter-B checkpoint/pretraining recipe and '
-        'the exact segmentation input pipeline are not specified in the '
-        'release; the port uses the standard 512-square input, ImageNet '
-        'normalization, horizontal-flip augmentation only, and bilinear '
-        'upsampling of the linear decoder.',
+        '12 ViT-B/16 blocks and reconstructs MMSegmentation\'s Segmenter-B '
+        'host with its exact key layout: learned absolute position '
+        'embedding resized 384->512, 0.1 stochastic depth (FFN only, as in '
+        'MMSeg), final LayerNorm and a linear 1x1 FCN head.',
+        'The host loads the official Segmenter-B checkpoint '
+        '(`vit_base_p16_384_20220308-96dfe169.pth`, ImageNet-21k) and uses '
+        'MMSeg\'s data normalization: BGR->RGB (our loader already returns '
+        'RGB) and `(x-127.5)/127.5`, 512-square input. Segmentation input '
+        'augmentation and loss are not specified in the paper; this port '
+        'keeps horizontal-flip augmentation and CE + foreground Dice (Dice '
+        'is a task adaptation for the 0.25-3% foreground domains).',
         'The paper uses head lr 1e-4 and DKA lr 1e-3; both are kept. The '
         'released classification code instead uses a 1e-5 adapter lr and a '
         'StepLR; the paper\'s segmentation values are used here. No '
@@ -60,8 +63,8 @@ class DKAAdapter(BaselineAdapter):
         'shared 800-epoch budget with validation-Dice selection; the '
         'official batch size 1 is kept. DKA and the decoder are trainable; '
         'the ViT backbone is frozen.',
-        'No official DKA weights exist; training starts from the local '
-        'torchvision ViT-B/16 ImageNet checkpoint. --dka-random-init is a '
+        'No official DKA-trained weights exist; training starts from the '
+        'official Segmenter-B ViT-B/16 checkpoint. --dka-random-init is a '
         'code-smoke option only.',
     )
 
@@ -74,7 +77,7 @@ class DKAAdapter(BaselineAdapter):
         parser.add_argument(
             '--dka-vit-weights', type=Path,
             default=REPO_ROOT / 'checkpoints' /
-            'vit_b_16_imagenet1k_v1.pth')
+            'segmenter_vit_b16_384.pth')
         parser.add_argument('--dka-middle-dim', type=int, default=192)
         parser.add_argument('--dka-adapter-lr', type=float, default=1e-3)
         parser.add_argument('--dka-random-init', action='store_true',
@@ -87,14 +90,16 @@ class DKAAdapter(BaselineAdapter):
         random_init = bool(getattr(args, 'dka_random_init', False))
         weights = Path(getattr(
             args, 'dka_vit_weights',
-            REPO_ROOT / 'checkpoints' / 'vit_b_16_imagenet1k_v1.pth'))
+            REPO_ROOT / 'checkpoints' / 'segmenter_vit_b16_384.pth'))
         if not random_init:
             if not weights.is_file():
                 raise SystemExit(
-                    f'missing ViT-B/16 checkpoint: {weights}\n'
-                    'download: https://download.pytorch.org/models/'
-                    'vit_b_16-c867db91.pth\n'
-                    'and place it at checkpoints/vit_b_16_imagenet1k_v1.pth')
+                    f'missing Segmenter-B checkpoint: {weights}\n'
+                    'download: https://download.openmmlab.com/mmsegmentation/'
+                    'v0.5/pretrain/segmenter/'
+                    'vit_base_p16_384_20220308-96dfe169.pth\n'
+                    'and place it at '
+                    'checkpoints/segmenter_vit_b16_384.pth')
             self._vit_sha = file_sha256(weights)
         return build_dka(
             None if random_init else weights,
@@ -103,16 +108,18 @@ class DKAAdapter(BaselineAdapter):
         )
 
     def load_pretrained(self, model, args) -> None:
-        print('loaded frozen ViT-B/16 and inserted DKA adapters')
+        print('loaded frozen MMSeg Segmenter-B and inserted DKA adapters')
 
     def configure_trainable(self, model) -> None:
         adapters = [
-            p for module in model.vit.encoder.layers
+            p for module in model.vit.layers
             for p in module.adapter.parameters() if p.requires_grad]
         if not adapters:
             raise RuntimeError('DKA adapters are not trainable')
-        if any(p.requires_grad for p in model.vit.conv_proj.parameters()):
-            raise RuntimeError('DKA ViT backbone must stay frozen')
+        if any(parameter.requires_grad
+               for name, parameter in model.vit.named_parameters()
+               if '.adapter.' not in name):
+            raise RuntimeError('DKA Segmenter backbone must stay frozen')
 
     def make_optimizer(self, model, args):
         adapter_params, head_params = [], []
@@ -149,7 +156,8 @@ class DKAAdapter(BaselineAdapter):
         if rng is not None and rng.random() < 0.5:
             image = np.flip(image, axis=1).copy()
             mask = np.flip(mask, axis=1).copy()
-        image = (image / 255.0 - _IMAGENET_MEAN) / _IMAGENET_STD
+        # MMSeg Segmenter-B data preprocessor: (x - 127.5) / 127.5.
+        image = image / 127.5 - 1.0
         image_t = torch.from_numpy(
             image.transpose(2, 0, 1).copy()).float()
         return image_t, torch.from_numpy(mask.copy()).long()

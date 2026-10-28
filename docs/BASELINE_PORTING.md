@@ -49,7 +49,7 @@ prints them at the start of training and stores them in every checkpoint.
 | SANSA | official SANSA: frozen SAM 2 Hiera-Large, AdaptFormer adapters (~9.9M) in the last two hierarchical stages (0.3× bottleneck), reference masks + target as a pseudo-video through memory attention, mask prompts, ImageNet-normalized 1024 inputs, AdamW 1e-4/0, cosine, grad clip 1.0, focal+Dice, 5 epochs, batch 32 | support-based 3-shot protocol (seen = own shots, unseen/novel = donor); released engine trains one reference + one target (paper's J=3 multi-target objective is not implemented in the release); 800-epoch shared budget, batch 2 on 24 GiB GPUs, val-Dice selection; focal+Dice per release (paper says BCE+Dice); per-epoch cosine; no official adapters; SAM 2 Hiera-L required |
 | RSRM | official training-free RSRM: frozen DINOv3, SAFR layer variance/Fisher re-fusion, ASE robust-threshold support enhancement, HPM global/regional/pixel prototype matching, 480 square ImageNet-normalized, 3-shot supports | support-based protocol (own shots/donor); no training or RSRM weights; official ViT-B/16, local timm ViT-S/16 auto-detected (Meta B state dicts accepted; timm wrapper matches Meta `F_attn`/`F_sum`); fast_pytorch_kmeans replaced by deterministic sklearn k-means++; argmax at 480 exported at GT resolution |
 | C2P | official prompt-free universal C2P: ConvNeXtV2-B, 9 geometric + 9 MLLM-distilled semantic tokens, token-image transformer, token-guided dynamic head, geometry-aware 3-view inference consensus, 384 square ImageNet-normalized | zero-shot evaluation of the official 8-medical-dataset checkpoint; does **not** use the shared 18-image split; released repo has no runnable trainer/evaluator, so the network + official TTA are ported; requires `checkpoints/c2p/1.pth`; random-init is smoke-only; no fine-tuning or target labels |
-| DKA | official DKA module (down-project, 51×51 + 5×5 depthwise branches, GELU, up-project, residual; zero-init down/up) in all 12 ViT-B/16 blocks; Segmenter linear decoder; 512 ImageNet inputs; head 1e-4 / DKA 1e-3; batch 1; 300 epochs | released repo has DKA + classification only; segmentation uses MMSegmentation Segmenter-B, not released, so the port reconstructs Segmenter-B with torchvision ViT-B/16-ImageNet-1k + linear decoder; no segmentation loss/augmentation/input size stated → CE+foreground Dice, hflip, 512 square; 800 shared epochs, val-Dice selection; no official DKA weights |
+| DKA | official DKA module (down-project, 51×51 + 5×5 depthwise branches, GELU, up-project, residual; zero-init down/up) in all 12 blocks; MMSegmentation Segmenter-B ViT-B/16 host with official ImageNet-21k checkpoint, learned pos embed 384→512, 0.1 stochastic depth (FFN), final LN, `(x-127.5)/127.5` inputs, linear 1×1 FCN head; head 1e-4 / DKA 1e-3; batch 1; 300 epochs | released repo has DKA + classification only; the port reconstructs the MMSeg Segmenter-B host with its exact key layout and loads the official checkpoint strictly; no segmentation loss/augmentation stated → CE+foreground Dice, hflip, 512 square; 800 shared epochs, val-Dice selection; no official DKA weights |
 | SCRWKV | official SCRWKV Crack model: SFE (AMCM + GBST/DSCD SCIU blocks), CSHF decoder with DySample, 512 cubic resize, 0.5 normalization, no augmentation, 0.25 BCE + 0.75 Dice, AdamW 5e-4/0.01, PolyLR 1e-6, batch 1, 50 epochs | from-scratch training on the shared split; 800-epoch budget and val-Dice selection; mmcv/mmcls build-time deps replaced by local torch equivalents (same architecture); official CUDA bi_wkv kernel vendored, arch configurable (official sm_86); inference uses the official max-normalized 0.2 threshold; no official weights; actual port size ~2.04M vs paper's 1.22M |
 | PerSAM | training-free PerSAM (Personalize-SAM) with SAM ViT-H: support mask → object embedding, target-guided points, two point/mask/box refinement stages; no target GT or prompts | official method is one-shot; 3-shot support is majority-voted; support donor for unseen/novel domains; training-free metadata checkpoint; original-resolution output |
 | Matcher | training-free DINOv2 ViT-L/14 + SAM ViT-H patch matching; support-based, native n-shot; 518 square inputs, modified SAM mask generator, official filters | 518 output upsampled to GT; shared 3-shot supports / donor domains; support-feature cache; DINOv2 weights required; training-free metadata checkpoint |
@@ -214,16 +214,22 @@ repository provides the DKA module and classification training, but its
 segmentation experiments use Segmenter-B in MMSegmentation, which is not
 released.  The port keeps the official DKA module — down-projection to
 middle dimension 192, parallel depthwise 51×51 and 5×5 convolutions, GELU,
-up-projection, residual, zero-initialized down/up — after all 12 blocks of a
-frozen torchvision ViT-B/16, with Segmenter's linear decoder.  The paper's
-segmentation recipe provides head lr 1e-4, DKA lr 1e-3, batch 1 and 300
-epochs; the port uses the shared 800-epoch budget and validation-Dice
-selection.  No segmentation loss, input size, or augmentation is stated, so
-the port uses 512-square ImageNet-normalized inputs, horizontal flip only,
-and cross-entropy + foreground Dice (the Dice term avoids the all-background
+up-projection, residual, zero-initialized down/up — after all 12 blocks.
+The host reconstructs MMSegmentation's Segmenter-B ViT-B/16 exactly at the
+module/key level: `patch_embed.projection`, `ln1`, learned absolute
+`pos_embed` resized from 24×24 (384 checkpoint) to 32×32 (512 input),
+`layers.*.attn.attn.*`, `layers.*.ffn.layers.*`, `drop_path_rate=0.1` on
+the FFN branch only, final LayerNorm and a linear 1×1 FCN head.  The
+official `vit_base_p16_384_20220308-96dfe169.pth` ImageNet-21k checkpoint
+is loaded strictly after the position-embedding resize; inputs use MMSeg's
+`(x-127.5)/127.5` normalization.  The paper's segmentation recipe provides
+head lr 1e-4, DKA lr 1e-3, batch 1 and 300 epochs; the port uses the shared
+800-epoch budget and validation-Dice selection.  No segmentation loss or
+augmentation is stated, so the port uses horizontal flip only and
+cross-entropy + foreground Dice (the Dice term avoids the all-background
 degeneracy on the 0.25-3% foreground protocol domains).  The backbone is
-loaded from `checkpoints/vit_b_16_imagenet1k_v1.pth`; no DKA weights exist,
-and `--dka-random-init` is smoke-only.
+loaded from `checkpoints/segmenter_vit_b16_384.pth`; no DKA-trained weights
+exist, and `--dka-random-init` is smoke-only.
 
 `scrwkv` is the ICML 2026 ultra-compact crack segmenter, a non-SAM
 from-scratch baseline and a direct structural competitor for curvilinear
@@ -271,7 +277,7 @@ Dice; it is not part of the prompt-free main table.
 | SAM2 Hiera-S | missing; FSSAM's official default (46M); `https://dl.fbaipublicfiles.com/segment_anything_2/072824/sam2_hiera_small.pt` |
 | DINOv3 | auto-detected under `checkpoints/`; SegDINO uses DINOv3 through timm; RSRM reads `checkpoints/dinov3/pytorch_model.bin` (present; timm ViT-S/16) or a Meta ViT-B/16 state dict (`https://dl.fbaipublicfiles.com/dinov3/dinov3_vitb16/dinov3_vitb16_pretrain_lvd1689m-73cec8be.pth`) via `--rsrm-dinov3-weights` |
 | C2P checkpoint | missing; required for zero-shot `c2p`; HuggingFace `yunyundi/c2p`, file `sem-OL-3dice-v2-mutil-deep_only-norfb-DS-onlyD5-weightdecay-0.3-0.05/1.pth`, place at `checkpoints/c2p/1.pth` |
-| ViT-B/16 ImageNet-1k | missing; required for `dka`; `https://download.pytorch.org/models/vit_b_16-c867db91.pth` → `checkpoints/vit_b_16_imagenet1k_v1.pth` |
+| Segmenter-B ViT-B/16 | `checkpoints/segmenter_vit_b16_384.pth` (present locally; required for `dka`); `https://download.openmmlab.com/mmsegmentation/v0.5/pretrain/segmenter/vit_base_p16_384_20220308-96dfe169.pth` |
 | nnU-Net | `nnunetv2==2.8.1` (installed via pip) |
 | KnowSAM metrics | `medpy==0.4.0`, `hausdorff` |
 | Matcher EMD | `POT` (`pip install POT`; already in the `topology` extra) |
