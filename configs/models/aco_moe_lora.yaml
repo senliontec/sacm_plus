@@ -1,0 +1,31 @@
+id: aco_moe_lora
+display_name: ACO-MoE-LoRA
+family: sam
+status: available
+checkpoint: "{output_root}/best_model.pth"
+train_entrypoint: >-
+  python -m baseline_zoo.run_one --model aco_moe_lora --stage train
+  --data-root {split_root} --workdir {output_root}
+  --aco-sam2-checkpoint checkpoints/sam2_hiera_large.pt
+  --aco-num-experts 8 --aco-num-ants 20 --aco-diversification-interval 50
+  --batch-size 4 --accum-steps 3 --weight-decay 1e-4 --grad-clip 1.0
+  --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
+eval_entrypoint: >-
+  python scripts/pipeline/run_baseline_test.py --method aco_moe_lora
+  --protocol {test_manifest}
+  --seed {seed}
+  --checkpoint {output_root}/best_model.pth
+  --pred-root {output_root}/predictions
+  --paper-root {output_root}
+  --device cuda:{gpu} --use_wandb true --skip-visualize
+protocols: [seeded5, fixed]
+defaults:
+  epochs: 800
+note: >-
+  ACO-MoE-LoRA (ICML 2026). Frozen SAM2 Hiera-L trunk with dynamic LoRA
+  qkv/proj, four-level ACO-ConvLoRA decoder, 8 experts and an ant-colony
+  search over rank/alpha/top-k. Official 352-square ImageNet inputs,
+  weighted BCE + weighted IoU + gate loss, AdamW 1e-3/wd 1e-4, cosine,
+  batch 12; this port uses batch 4 x 3 accumulation, val-Dice selection and
+  the shared 800-epoch budget. Requires the local
+  checkpoints/sam2_hiera_large.pt; the official repo has no LICENSE.

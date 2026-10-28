@@ -11,7 +11,7 @@
   `layout.json`、`content_list*.json` 和 `images/` 是版面/图片解析结果。
 - **未收录** 表示 `parsing/` 中没有对应论文目录；不是链接失效。
 - 同一篇论文在 `parsing/` 中可能存在大小写不同的重复目录，表中列主目录，并在备注中标出重复项。
-- 当前覆盖：21 个 adapter 中，11 个在 `parsing/` 有论文目录，10 个标记为“未收录”。
+- 当前覆盖：38 个 adapter 中，16 个在 `parsing/` 有论文目录，其余标记为“未收录”。
 
 ## Baseline ↔ 3rd 代码 ↔ parsing 论文
 
@@ -24,14 +24,22 @@
 | `bcunet` | BCUNet | `3rd/BCU-Net` | 未收录 | 无 LICENSE；`OutConv` 已修复 |
 | `maskvsc` | MaskVSC | `3rd/MaskVSC` | 未收录 | 视网膜血管分割 |
 | `nnwnet` | nnWNet | `3rd/nnWNet` | 未收录 | 官方 nnU-Net trainer/plugin |
+| `nnunet2d` | nnU-Net 2D | `3rd/nnUNet` | 未收录 | 原生 nnunetv2 2D planner/trainer/predictor |
+| `flowsdf` | FlowSDF | `3rd/FlowSDF` | `parsing/[2025 ijcv] FlowSDF: Flow Matching for Medical Image Segmentation Using Distance Transforms` | 条件流匹配 + SDF；128 crop，Euler ODE；MIT |
+| `tpsegformer` | TPSegformer | `3rd/TPSegformer` | `parsing/[2026 cvpr] Hilbert Curve-Based Attention Enabling Topology-Preserving Image Tensor Representation for Semantic Segmentation Network` | Swin-T + SEM/HLFF/LCCM；MMSeg overlay 已改为纯 PyTorch；上游无 LICENSE |
+| `s2mnet` | S2M-Net | `3rd/S2M-Net-Spectral-Spatial-Mixing-for-Medical-Segmentation` | `parsing/[2026 icml] S2M-Net: Spectral-Spatial Mixing with Morphology-Aware Adaptive Loss for Medical Image Segmentation` | TF/Keras 重写为 PyTorch；MRF-SE + SSTM + BFP + MAL；上游无 LICENSE |
+| `csunet` | CS-UNet | `3rd/CSUNet` | `parsing/[2026 icassp] Curvilinear Spectral U-Net: A Framework for Structure-Aware Road Extraction from Very High Resolution Imagery` | TF notebook 重写为 PyTorch；GFR/FSF + Snake；DynamicSnake 为占位实现；上游无 LICENSE |
 | `jtfn` | JTFN | `3rd/JTFN` | `parsing/[2021 iccv] Joint Topology-Preserving and Feature-Refinement Network for Curvilinear Structure Segmentation` | parsing 另有小写重复目录；上游无 LICENSE |
 | `dscnet` | DSCNet | `3rd/DSCNet` | `parsing/[2023 iccv] Dynamic Snake Convolution Based on Topological Geometric Constraints for Tubular Structure Segmentation` | parsing 另有 2 个大小写变体重复目录；blending kernel 已修复 |
 | `segdino` | SegDINO | `3rd/segdino` | 未收录 | DPT + DINOv3；权重需本地准备 |
+| `segdino_v2` | SegDINO v2 | `3rd/segdino_v2` | `parsing/` 未收录（arXiv 2606.17972） | TPA/SAD decoder；DINOv3-S 本地权重 |
 
 ### SAM 监督方法
 
 | Adapter id | 模型 | 3rd 代码目录 | parsing 论文目录 | 备注 |
 |---|---|---|---|---|
+| `aco_moe_lora` | ACO-MoE-LoRA | `3rd/ACO-MoE-LoRA` | `parsing/[2026 icml] ACO-MoE-LoRA: Evolving-while-Training for Adapting Segment Anything Model 2 to Specialized Domains` | SAM2 Hiera-L + dynamic LoRA + ACO/MoE decoder；上游无 LICENSE |
+| `a2sam` | A2SAM | `3rd/A2SAM` | 未收录（MIA 2026，本地无全文） | SAM ViT-B + SPG + CPS；论文级 prior/SPG 重实现 |
 | `sam_med2d` | SAM-Med2D | `3rd/SAM-Med2D` | 未收录 | 官方 SAM-Med2D checkpoint 缺失；当前为 ViT-L 二值适配 |
 | `sam_octa` | SAM-OCTA | `3rd/SAM-OCTA` | 未收录 | 上游 URL 未记录；另有 `3rd/sam-octa2` 参考 |
 | `cwsam` | CWSAM | `3rd/CWSAM` | 未收录 | ClassWise-SAM-Adapter；ViT-L、二值 2-class 适配 |
@@ -66,7 +74,6 @@
 | CoroSAM | `3rd/CoroSAM` | `parsing/[2026] CoroSAM: adaptation of the Segment Anything Model for interactive segmentation in Coronary angiograms` | 已排除：代码不完整，不作为定量 baseline |
 | MedSAM | `3rd/MedSAM` | `parsing/[2024 nature communication] Segment anything in medical images` | 未集成 |
 | MSA-SAM | `3rd/Mult-scale-SAM` | `parsing/[2025 JSTARS] Multiscale Adapter Based on SAM for Remote Sensing Semantic Segmentation` | 未集成 |
-| FlowSDF | `3rd/FlowSDF` | `parsing/[2025 ijcv] FlowSDF: Flow Matching for Medical Image Segmentation Using Distance Transforms` | 未集成 |
 | SAMIX | `3rd/SAMIX` | `parsing/[2026 cvpr] SAMIX: Reinforcing SAM2 with Semantic Adapter and Reference Selecting Policy for Mix-Supervised Segmentation` | 未集成 |
 
 ## 快速核对

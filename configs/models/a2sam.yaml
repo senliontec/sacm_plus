@@ -1,0 +1,35 @@
+id: a2sam
+display_name: A2SAM
+family: sam
+status: available
+checkpoint: "{output_root}/best_model.pth"
+train_entrypoint: >-
+  python -m baseline_zoo.run_one --model a2sam --stage train
+  --data-root {split_root} --workdir {output_root}
+  --batch-size 1 --lr 2e-4 --weight-decay 0.01
+  --a2sam-sam-checkpoint checkpoints/sam_vit_b_01ec64.pth
+  --a2sam-prior-epochs 100 --a2sam-prior-samples 5
+  --a2sam-keep-ratio 0.035 --a2sam-cps-alpha 0.4
+  --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
+eval_entrypoint: >-
+  python scripts/pipeline/run_baseline_test.py --method a2sam
+  --protocol {test_manifest}
+  --seed {seed}
+  --checkpoint {output_root}/best_model.pth
+  --pred-root {output_root}/predictions
+  --paper-root {output_root}
+  --device cuda:{gpu} --use_wandb true --skip-visualize
+protocols: [seeded5, fixed]
+defaults:
+  epochs: 800
+note: >-
+  A2SAM (Medical Image Analysis 2026): SAM ViT-B with a structural prompt
+  generator and contrastive parameter selection for tubular segmentation.
+  The paper prior and topological SPG are reimplemented because the release
+  only reads precomputed uncertainty/logit maps and detaches its prompt
+  fusion. Two-stage shared-budget training: 100 epochs probabilistic U-Net
+  prior (K=5 coarse likelihood + variance uncertainty), then A2SAM/SPG with
+  CPS top 3.5% (alpha 0.4) for 700 epochs. 1024-square ImageNet-normalized
+  inputs, horizontal flip only, AdamW 2e-4/0.01/cosine to 1e-7, batch 1,
+  BCE + IoU + 0.7 thickness-aware loss, validation-Dice selection.
+  Requires local checkpoints/sam_vit_b_01ec64.pth; no runtime downloads.

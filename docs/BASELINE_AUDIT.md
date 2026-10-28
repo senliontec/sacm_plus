@@ -566,3 +566,205 @@ official checkpoint is not present so strict loading is unverified.  DKA
 now uses the exact MMSeg Segmenter-B host layout and official checkpoint;
 only its unstated segmentation loss, augmentation, head choice and
 single-scale test pipeline remain documented assumptions.
+
+## ACO-MoE-LoRA addendum (2026-10-28)
+
+The released ACO repository (`lky0234/ACO-MoE-LoRA`, commit `996270d`)
+provides the ACO/MoE model and its training/test scripts, but no LICENSE and
+no trained weights.  The official constructor builds full SAM2 with
+`build_sam2("sam2_hiera_l.yaml")`, deletes the prompt/mask decoder, memory
+modules and FPN neck, and keeps `image_encoder.trunk`.  The port builds that
+Hiera-L trunk directly with the same config and loads only
+`image_encoder.trunk.*` from the local checkpoint strictly; this is
+equivalent to the used path and avoids vendoring the unused SAM2 runtime.
+
+The port keeps the official frozen Hiera encoder, dynamic LoRA on every
+attention `qkv`/`proj` Linear (max rank 32, `alpha/rank`), four ACO-ConvLoRA
+decoder blocks with eight gated experts, the ACO rank/alpha/top-k search,
+weighted BCE + weighted IoU + gate loss, AdamW 1e-3/1e-4 and cosine decay.
+Documented deviations: validation-Dice selection instead of the official
+minimum-training-loss rule; batch 4 x 3 accumulation instead of batch 12;
+the shared 800-epoch budget instead of 50; the checkpoint stores the
+hyperparameters active at the validation-best epoch, not necessarily the
+global ACO training-best solution.  The ACO training IoU remains the
+pheromone feedback signal, and internal search prints are suppressed so the
+shared one-row-per-epoch table stays clean.  Assets: local
+`checkpoints/sam2_hiera_large.pt`; `--aco-random-init` is smoke-only.
+
+## SegDINO v2 addendum (2026-10-28)
+
+`segdino_v2` vendors the MICCAI 2026 SegDINO v2 decoder (TPA/SAD: four token
+projections, 8/4/2/1 bilinear branches, residual depthwise refinement per
+branch and top-down fusion) over a DINOv3-S/16 timm backbone.  The paper is
+absent from `parsing/`, so the port was checked against arXiv 2606.17972 and
+`3rd/segdino_v2`.  The paper states a frozen encoder, cross-entropy and no
+augmentation; the released trainer trains the backbone, uses BCEWithLogits
+and applies flips/rotation/ColorJitter.  Defaults follow the paper's frozen
+encoder with the released decoder, BCE and augmentation; flags expose
+`--segdino-v2-train-backbone` and `--segdino-v2-no-augment`.  Weight decay is
+1e-4 per the paper (the released AdamW leaves 0.01).  Input is the official
+256 square with ImageNet normalization; logits are bilinearly upsampled to
+the exact GT resolution.  The 50-epoch official budget is extended to 800
+with validation-Dice selection (the released code already selects validation
+Dice).  DINOv3-S weights come from the local `checkpoints/dinov3` file; no
+hub/download path is used.  See `src/baseline_zoo/models/segdino_v2/UPSTREAM.md`.
+
+## nnU-Net 2D addendum (2026-10-28)
+
+`nnunet2d` uses the installed stock `nnunetv2` 2D planner, `DefaultPreprocessor`,
+`nnUNetTrainer` and `nnUNetPredictor`; no network code is vendored.  The
+official recipe is preserved: CE+Dice with deep supervision, SGD Nesterov
+1e-2, weight decay 3e-5, PolyLR 0.9, AMP, gradient clip 12, 0.5-overlap
+Gaussian sliding-window prediction with mirroring TTA, and EMA pseudo-Dice
+checkpoint selection.  `Dataset502_Curvilinear3Shot` stages the shared 24
+cases with a fixed 18/6 fold; plans, normalization statistics and
+`splits_final.json` are fitted on the 18 train cases only (`--no_pp`), and
+the 6 validation cases are preprocessed after planning.  The official
+1000-epoch default is replaced by the shared 800-epoch budget; the trainer
+still reports its patch-based pseudo-Dice for checkpoint selection and the
+shared evaluator computes Dice/IoU/clDice/HD95 on 0/1 masks exported at the
+exact GT resolution.  Planner-controlled `--resume`, batch/accumulation,
+gradient clip, selection and worker overrides are rejected.  No pretrained
+network is used.  See `src/baseline_zoo/models/nnunet2d/UPSTREAM.md`.
+
+## FlowSDF addendum (2026-10-28)
+
+`flowsdf` is the IJCV 2025 image-guided conditional flow-matching segmenter
+(`3rd/FlowSDF`, MIT).  The vendored `unet.py`/`rrdb.py`/`nn.py` reproduce the
+official velocity UNet exactly: 160,607,745 parameters, 980/980 state-dict
+keys and bit-identical outputs after loading the same weights (verified
+against `3rd/FlowSDF/models/unet_segdiff.py` on a fixed 64x64 input).  The
+official velocity target, Adam lr 1e-4, inf-norm clipping 1.0, EMA update
+and `sdf <= 3e-2` rule are preserved.  The released repository depends on an
+empty `SimulationHelper` submodule, TensorBoard and `torchdiffeq`; the port
+removes all three (the shared runtime owns checkpoints/logging and a local
+Euler loop replaces `odeint`).  SDFs are computed on the fly from the GT masks
+with SciPy's exact EDT, clipped at delta=15 and divided by delta; the
+companion `precompute_sdf.ipynb` is not vendored.  The official loader applies
+Vahadane colour normalization and a 500x500 resize outside the released
+code; this port uses the raw protocol images.  Final prediction uses
+overlapping 128x128 tiles (stride 64) averaged in SDF space, following the
+MoNuSeg patch-averaging ablation; per-epoch validation resizes the whole
+image to 128 (the official GlaS path) with K=1 so the shared every-epoch
+validation is affordable, while the one-time test prediction averages K=4
+samples (MMSE).  Checkpoints are `{'model', 'ema'}` so EMA weights are used
+for validation/prediction and raw weights resume training.  EMA decay is
+0.999 (released config; the paper says 0.9999); batch 4 follows the released
+config (the paper states 16); the official 30k-40k epochs are replaced by
+the shared 800-epoch budget with validation-Dice selection (official selects
+training loss).  No pretrained weights are required.  See
+`src/baseline_zoo/models/flowsdf/UPSTREAM.md`.
+
+## A2SAM addendum (2026-10-28)
+
+`a2sam` is the Medical Image Analysis 2026 informativeness-driven SAM
+adaptation (MIT for A2SAM; the vendored SAM ViT-B modules are Apache-2.0).
+The released repository supplies SAM ViT-B, a small detached
+uncertainty/logit fusion network and the CPS selection code, but **not** the
+paper's probabilistic U-Net prior or the topological structural prompt
+generator, and it expects precomputed `uncertainty`/`logit` `.npy` files.
+This port therefore reimplements those missing pieces: a conditional
+probabilistic U-Net trained for 100 epochs on the 18 images (Adam 1e-3,
+BCE+Dice+1e-5 KL, GroupNorm for batch 1; K=5 prior samples → mean likelihood
+and 4×variance uncertainty), skeleton-graph
+critical cells with geodesic persistence pruning, a learnable branch gate
+with Gaussian rasterization, and a Conv-BN-LeakyReLU fusion of the
+structural/likelihood/uncertainty maps.  The prompt is not detached.  The
+SAM ViT-B weights load strictly from the local
+`checkpoints/sam_vit_b_01ec64.pth` (177 image-encoder, 17 prompt-encoder and
+120 mask-decoder tensors).  CPS follows the release: accumulated squared
+gradient influence normalized with parameter magnitude, alpha 0.4, top 3.5%
+elements trained, norms/position embeddings/IoU head frozen; statistics use
+the 18 training images rather than the released validation loader to avoid
+validation-label leakage.  The smoke run kept 3.48% of 93.6M SAM elements.
+The official 1024-square ImageNet-normalized input, horizontal flip only,
+AdamW 2e-4/0.01/cosine to 1e-7, batch 1 and BCE+IoU+0.7 thickness-aware
+loss are preserved.  Documented deviations: 100 prior + 700 A2SAM epochs
+instead of the official 50; validation-Dice selection; prior maps at 512;
+the graph-based DMT/persistence approximation (the paper's exact cell
+decomposition is not in the release and the full text is not local); the
+thickness term divides by the foreground pixel count rather than all pixels;
+and no official A2SAM weights.  The GPU smoke trained both stages, saved the
+whole prior+SAM+SPG checkpoint, and exported 16 DRIVE masks at 565×584 with
+0/255 values.  See `src/baseline_zoo/models/a2sam/UPSTREAM.md`.
+
+## TPSegformer addendum (2026-10-28)
+
+`tpsegformer` is the CVPR 2026 Hilbert-curve topology-preserving Swin-T
+segmenter (the upstream repository has no LICENSE file).  The release is an
+MMSegmentation overlay and is not runnable as published: `TPHead.forward`
+calls the non-existent `self.cls_seg` (BaseDecodeHead defines `conv_seg`),
+the auxiliary FCN head outputs 19 classes while the main head has five, and
+`lccm.py` imports the external `hilbertcurve` package plus the absolute
+module `hbtrans`.  This port vendors SEM/HLFF/LCCM into pure PyTorch, defines
+an explicit 5→1 `conv_seg`, fixes the auxiliary head to one binary channel,
+and implements the Hilbert traversal locally; the LCCM math (channel max,
+1×1 QKV, curve flattening, Q^T K softmax over queries, V weighting, inverse
+curve, `x * sigmoid(attention)`) is unchanged.  Hilbert and row-first
+traversals produce identical outputs with shared weights (≤1e-6), as
+expected from the attention's permutation equivariance.  The model uses
+timm Swin-T (depths 2/2/6/2, heads 3/6/12/24, window 7, drop path 0.3) and
+the release's 512 input statistics.  The main CE becomes binary BCE; the
+auxiliary Dice 0.5 + Sobel edge-aware 1.0, five-conv FCN head, head lr ×10
+and zero weight decay for norm/position parameters are preserved.  No local
+Swin-T ImageNet checkpoint is bundled, so training is from scratch unless
+`--tpsegformer-backbone-ckpt` is supplied.  Documented deviations: 512-square
+resize + light photometric jitter instead of random resize/crop/pad;
+per-epoch 5-warmup+poly instead of the per-iteration 1500/160k schedule;
+shared 800 epochs and validation-Dice selection; no TTA or Dacl10k sliding
+window.  GPU smoke: 4 train / 1 val images, one epoch in 2 s, 34.6M params,
+checkpoint saved; prediction exported 16 DRIVE masks in 2 s at 565×584 with
+0/255 values.  See `src/baseline_zoo/models/tpsegformer/UPSTREAM.md`.
+
+## S2M-Net addendum (2026-10-28)
+
+`s2mnet` is the ICML 2026 Spectral-Spatial Mixing network.  The official
+implementation is TensorFlow/Keras (no LICENSE file); this port translates
+the architecture and Morphology-Aware Adaptive Loss into PyTorch without
+TensorFlow.  The translated model keeps the 16-channel stem, five strided
+stages (24/32/64/80/128), MRF-SE (1×1 expansion ×6, parallel depthwise
+3/5/7, concat/fuse, SE-16, projection, residual), SSTM (per-channel FFT with
+a learnable KxK filter initialized around 0.25 normalized frequency, K =
+min(32, H) per stage, spectral-only stages 1–2, gated dense projection on
+stages 3–5, concat/1×1/LayerNorm fusion, residual), the BFP decoder
+(boundary map, boundary-attended refinement and soft region/boundary
+routing) and the 2× nearest head.  The PyTorch model has 4,768,925
+parameters, matching the paper's ~4.7M.  Keras defaults that affect
+behavior are matched (Conv2D biases, ELU alpha 1, BatchNorm eps 1e-3 /
+momentum 0.01, elementwise dropout, channel-axis LayerNorm and sigmoid
+probabilities).  MAL reproduces the five components, morphology modulation
+and learnable weights initialized at (1,1,1,.5,.5); the adapter clamps them
+to [0.1,10] after every optimizer step.  The official retinal
+CLAHE/green/FOV/256-patch pipeline is not applied to the mixed protocol;
+training uses RGB [0,1] 352 crops with flips/rot90/light colour jitter and
+inference uses 352/176 overlapping tiles with probability averaging.  The
+official effective batch 32 and 150 epochs become batch 8 and the shared
+800 epochs with validation-Dice selection; the per-iteration cosine +
+10-warmup schedule is stepped per epoch.  No official weights are provided.
+GPU smoke: 4 train / 1 val at 352, one epoch in 1 s, checkpoint saved;
+prediction exported 16 DRIVE masks in 2 s at 565×584 with 0/255 values.  See
+`src/baseline_zoo/models/s2mnet/UPSTREAM.md`.
+
+## CS-UNet addendum (2026-10-28)
+
+`csunet` is the ICASSP 2026 Curvilinear Spectral U-Net.  The official code is
+a TensorFlow/Keras notebook (no LICENSE file); this port is a PyTorch
+rewrite with the notebook's 32-filter U-Net (32/64/128/256, 512×2
+bottleneck), its `DynamicSnakeConv2D`, and its `fsf_block` GFR module.  Two
+release caveats are explicit: the notebook's “dynamic snake” is a
+placeholder (a plain 3×3 conv with GroupNorm(16)+ReLU+Snake, no deformable
+offsets), and the paper describes a PACB with batch normalization while the
+code uses GroupNorm+ReLU; the port follows the code and documents both.  GFR
+is reproduced exactly: concat [decoder, skip], global-max channel squeeze,
+reduction 8, degree-5 Gegenbauer activations with learnable softplus α and
+sigmoid-bounded inputs, 1×1 compression to half channels, global-max sigmoid
+gate on the skip and `skip*gate + decoder`.  Dice loss, SGD 0.01/momentum
+0.9, no clipping, RGB /255, 512-square inputs and no augmentation are kept.
+The official batch 32 gives `steps_per_epoch=0` on the 18-image split, so the
+port uses batch 4; the 100-epoch/val-loss-early-stopping recipe becomes the
+shared 800 epochs with validation-Dice selection, and the constant
+LR−1e−6 per epoch is stepped per epoch.  The PyTorch model has 7,240,385
+parameters.  GPU smoke: 4 train / 1 val at 512, one epoch in 1 s, val Dice
+0.187, checkpoint saved; prediction exported 16 DRIVE masks in 1 s at
+565×584 with non-empty 0/255 values.  See
+`src/baseline_zoo/models/csunet/UPSTREAM.md`.

@@ -43,7 +43,7 @@ from core.wandb_utils import (  # noqa: E402
 PORTED = set(available_adapters())
 # nnWNet stores a model folder / KnowSAM a plain SGDL state dict; neither
 # carries the unified split-hash field.
-CUSTOM_CHECKPOINTS = {'nnwnet', 'knowsam'}
+CUSTOM_CHECKPOINTS = {'nnunet2d', 'nnwnet', 'knowsam'}
 SAM_CHECKPOINT_METHODS = {
     'cwsam', 'sacm_official', 'sam_adapter', 'sam_med2d',
     'sam_octa', 'sam_vit_l_unet', 'ucs'}

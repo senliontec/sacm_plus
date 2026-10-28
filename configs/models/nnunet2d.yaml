@@ -1,0 +1,28 @@
+id: nnunet2d
+display_name: nnU-Net 2D
+family: cnn
+status: available
+checkpoint: "{output_root}/nnunet_model_dir.txt"
+train_entrypoint: >-
+  python -m baseline_zoo.run_one --model nnunet2d --stage train
+  --data-root {split_root} --workdir {output_root}
+  --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
+eval_entrypoint: >-
+  python scripts/pipeline/run_baseline_test.py --method nnunet2d
+  --protocol {test_manifest}
+  --seed {seed}
+  --data-root {split_root}
+  --checkpoint {output_root}/nnunet_model_dir.txt
+  --pred-root {output_root}/predictions
+  --paper-root {output_root}
+  --device cuda:{gpu} --use_wandb true --skip-visualize
+protocols: [seeded5, fixed]
+defaults:
+  epochs: 800
+note: >-
+  Stock nnU-Net 2D (Nature Methods 2021) run through the installed
+  nnunetv2 package: official planner/preprocessor/trainer/predictor,
+  SGD 1e-2, AMP, deep supervision, EMA pseudo-Dice, 0.5-overlap sliding
+  window + mirroring. Fixed 18/6 one-fold split; plan/normalize on the 18
+  train cases only, stage the 6 val cases after planning; shared 800-epoch
+  budget; predictions exported 0/255 at GT resolution. No pretrained asset.

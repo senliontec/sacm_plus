@@ -1,0 +1,30 @@
+id: flowsdf
+display_name: FlowSDF
+family: flow_matching
+status: available
+checkpoint: "{output_root}/best_model.pth"
+train_entrypoint: >-
+  python -m baseline_zoo.run_one --model flowsdf --stage train
+  --data-root {split_root} --workdir {output_root}
+  --batch-size 4 --lr 1e-4 --grad-clip 1.0
+  --flowsdf-ode-steps 4 --flowsdf-k-samples 4 --flowsdf-val-k-samples 1
+  --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
+eval_entrypoint: >-
+  python scripts/pipeline/run_baseline_test.py --method flowsdf
+  --protocol {test_manifest}
+  --seed {seed}
+  --checkpoint {output_root}/best_model.pth
+  --pred-root {output_root}/predictions
+  --paper-root {output_root}
+  --device cuda:{gpu} --use_wandb true --skip-visualize
+protocols: [seeded5, fixed]
+defaults:
+  epochs: 800
+note: >-
+  FlowSDF (IJCV 2025): image-guided conditional flow matching on truncated
+  signed distance maps. Official UNet (128 base channels, 1-1-2-2-4-4,
+  3 ResBlocks/level, attention at strides 8/16) with a 12-block RRDB image
+  encoder; random 128 crops; L2 velocity loss; Adam 1e-4; EMA 0.999; Euler
+  ODE with 4 NFE; K=4 MMSE samples at prediction; threshold sdf <= 0.03.
+  SDF targets are computed on the fly from the 18 GT masks (delta=15).
+  Shared 800-epoch budget and val-Dice selection.

@@ -404,7 +404,9 @@ def cmd_doctor(args: argparse.Namespace) -> int:
             ('nnWNet dep', 'nnunetv2'),
             ('KnowSAM dep', 'medpy'),
             ('KnowSAM dep', 'hausdorff'),
-            ('SegDINO dep', 'timm')):
+            ('SegDINO dep', 'timm'),
+            ('FlowSDF dep', 'scipy'),
+            ('A2SAM dep', 'skimage')):
         state = 'OK' if importlib.util.find_spec(module) else 'MISSING'
         if not importlib.util.find_spec(module):
             failures += 1

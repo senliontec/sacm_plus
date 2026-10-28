@@ -1,0 +1,33 @@
+id: s2mnet
+display_name: S2M-Net
+family: cnn
+status: available
+checkpoint: "{output_root}/best_model.pth"
+train_entrypoint: >-
+  python -m baseline_zoo.run_one --model s2mnet --stage train
+  --data-root {split_root} --workdir {output_root}
+  --batch-size 8 --lr 1e-4 --weight-decay 1e-4 --grad-clip 1.0
+  --s2mnet-warmup-epochs 10 --s2mnet-tile-stride 176
+  --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
+eval_entrypoint: >-
+  python scripts/pipeline/run_baseline_test.py --method s2mnet
+  --protocol {test_manifest}
+  --seed {seed}
+  --checkpoint {output_root}/best_model.pth
+  --pred-root {output_root}/predictions
+  --paper-root {output_root}
+  --device cuda:{gpu} --use_wandb true --skip-visualize
+protocols: [seeded5, fixed]
+defaults:
+  epochs: 800
+note: >-
+  S2M-Net (ICML 2026): PyTorch rewrite of the TensorFlow/Keras release.
+  16-channel stem; five strided stages 24/32/64/80/128 with MRF-SE (1x1 x6,
+  depthwise 3/5/7, SE-16) and SSTM (per-stage FFT truncation K, spectral
+  stages 1-2, gated dense projection stages 3-5); BFP decoder with boundary
+  map and soft region/boundary routing; 2x nearest head with sigmoid.
+  352-square RGB [0,1] crops, flips/rot90/colour jitter, Adam 1e-4 with
+  L2 1e-4, clip 1.0, 10 warmup + cosine, batch 8. Five-component MAL
+  (core Dice+IoU+boundary BCE, boundary gradients, compactness,
+  scale-aware focal, Laplacian) with learnable weights clipped [0.1,10].
+  352/176 tiled probability inference. No official weights; random init.

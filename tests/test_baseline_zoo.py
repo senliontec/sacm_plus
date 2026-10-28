@@ -22,12 +22,16 @@ from baseline_zoo.runtime import _select_cuda_device  # noqa: E402
 def test_registry_contains_all_self_contained_models():
     models = load_models()
     expected = {
-        'bcunet', 'blo_sam', 'c2p', 'convlora', 'cs2net', 'cwsam', 'dscnet',
-        'dka', 'fssam', 'jtfn',
-        'knowsam', 'maskvsc', 'matcher', 'medcagd', 'nnwnet', 'persam',
-        'rsrm', 'sacm_official', 'sacm_x', 'sam2_unet', 'sam_adapter',
+        'a2sam', 'aco_moe_lora', 'bcunet', 'blo_sam', 'c2p', 'convlora',
+        'cs2net', 'csunet',
+        'cwsam', 'dscnet', 'dka', 'flowsdf', 'fssam', 'jtfn',
+        'knowsam', 'maskvsc', 'matcher', 'medcagd', 'nnunet2d', 'nnwnet',
+        'persam',
+        'rsrm', 's2mnet', 'sacm_official', 'sacm_x', 'sam2_unet',
+        'sam_adapter',
         'sam_med2d', 'sam_octa', 'sam_vit_l_unet', 'samed', 'sansa',
-        'scrwkv', 'segdino', 'topolora', 'ucs', 'unet'}
+        'scrwkv', 'segdino', 'segdino_v2', 'topolora', 'tpsegformer',
+        'ucs', 'unet'}
     assert set(models) == expected
     available = {model.id for model in models.values() if model.available}
     assert available == expected
@@ -162,7 +166,7 @@ def test_train_dry_run_does_not_create_marker(capsys):
 def test_doctor_reports_self_contained_models(capsys):
     main(['doctor'])
     output = capsys.readouterr().out
-    assert 'models: 31  available: 31' in output
+    assert 'models: 39  available: 39' in output
     assert 'sam2_hiera_large.pt' in output
     assert 'SAM2 Hiera-L download' in output
     assert 'DINOv3' in output or 'segdino' in output

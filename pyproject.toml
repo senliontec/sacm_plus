@@ -91,6 +91,9 @@ line-length = 120
 target-version = "py310"
 # Vendored upstream code is kept verbatim; the adapter/tests stay lint-clean.
 extend-exclude = [
+    "src/baseline_zoo/models/aco_moe_lora/model.py",
+    "src/baseline_zoo/models/aco_moe_lora/backbone",
+    "src/baseline_zoo/models/a2sam/sam",
     "src/baseline_zoo/models/sam2_unet/model.py",
     "src/baseline_zoo/models/sam2_unet/sam2",
     "src/baseline_zoo/models/sam_adapter/common.py",

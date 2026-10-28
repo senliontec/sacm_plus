@@ -1,0 +1,30 @@
+id: segdino_v2
+display_name: SegDINO v2
+family: dino
+status: available
+checkpoint: "{output_root}/best_model.pth"
+train_entrypoint: >-
+  python -m baseline_zoo.run_one --model segdino_v2 --stage train
+  --data-root {split_root} --workdir {output_root}
+  --segdino-v2-dino-size small --segdino-v2-decoder-dim 256
+  --batch-size 4 --weight-decay 1e-4
+  --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
+eval_entrypoint: >-
+  python scripts/pipeline/run_baseline_test.py --method segdino_v2
+  --protocol {test_manifest}
+  --seed {seed}
+  --checkpoint {output_root}/best_model.pth
+  --pred-root {output_root}/predictions
+  --paper-root {output_root}
+  --device cuda:{gpu} --use_wandb true --skip-visualize
+protocols: [seeded5, fixed]
+defaults:
+  epochs: 800
+note: >-
+  SegDINO v2 (MICCAI 2026): frozen DINOv3-S/16 backbone + official TPA/SAD
+  decoder (four token projections, 8/4/2/1 bilinear branches, residual
+  depthwise refinement, top-down fusion). Official 256-square ImageNet
+  inputs, BCEWithLogits, AdamW 1e-4/1e-4, batch 4; shared 800-epoch budget
+  and val-Dice selection. Defaults to the paper frozen encoder and the
+  released augmentation/loss; flags expose train-backbone and no-augment.
+  Uses the local checkpoints/dinov3 weights; no hub/network access.

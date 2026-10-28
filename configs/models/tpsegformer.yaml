@@ -1,0 +1,35 @@
+id: tpsegformer
+display_name: TPSegformer
+family: transformer
+status: available
+checkpoint: "{output_root}/best_model.pth"
+train_entrypoint: >-
+  python -m baseline_zoo.run_one --model tpsegformer --stage train
+  --data-root {split_root} --workdir {output_root}
+  --batch-size 4 --lr 6e-5 --weight-decay 0.01
+  --tpsegformer-lccm-mode hilbert --tpsegformer-warmup-epochs 5
+  --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
+eval_entrypoint: >-
+  python scripts/pipeline/run_baseline_test.py --method tpsegformer
+  --protocol {test_manifest}
+  --seed {seed}
+  --checkpoint {output_root}/best_model.pth
+  --pred-root {output_root}/predictions
+  --paper-root {output_root}
+  --device cuda:{gpu} --use_wandb true --skip-visualize
+protocols: [seeded5, fixed]
+defaults:
+  epochs: 800
+note: >-
+  TPSegformer (CVPR 2026): Swin-T backbone + Topology-Preserving Decoder
+  (SEM ECA/spatial enhancement, HLFF 1152->384 depthwise-separable fusion,
+  LCCM 5 class-specific layers with Hilbert-flattened Q^T K attention and
+  sigmoid gate), five-conv FCN auxiliary head with Dice 0.5 + Sobel
+  edge-aware 1.0. 512-square inputs with the official mean/std, hflip and
+  light photometric jitter, AdamW 6e-5/0.01, head lr x10, batch 4.
+  The release is an MMSeg overlay with a broken cls_seg call, aux 19-class
+  head and missing hilbertcurve package; this port is pure PyTorch + timm
+  Swin-T, with a fixed 5->1 classifier and a local Hilbert traversal. No
+  local Swin-T ImageNet weights, so training is from scratch unless
+  --tpsegformer-backbone-ckpt is supplied. Shared 800-epoch budget and
+  validation-Dice selection.

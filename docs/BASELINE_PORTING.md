@@ -34,6 +34,7 @@ prints them at the start of training and stores them in every checkpoint.
 | BCUNet | BGR [0,255]/INTER_AREA, 3-way CE, Adam 1.5e-4, 50 epochs, no augmentation | batch 1×2 accumulation on 11 GiB; val Dice instead of test IOU; repaired `OutConv` |
 | MaskVSC | Fundus UNet, masked-vessel corruption schedule, BCE+Connect_Loss, Adam 2e-4, 200 epochs | val Dice instead of test Dice; GT-size export |
 | nnWNet | official W-Net 2D nnU-Net trainer, planner, SGD/AMP/deep supervision, sliding-window+TTA | pooled 18/6 one-fold split; planning sees the 6 val cases; val EMA pseudo-Dice |
+| nnU-Net 2D | stock `nnunetv2` 2D planner/preprocessor/`nnUNetTrainer`/predictor: SGD 1e-2, wd 3e-5, PolyLR .9, AMP, deep supervision, EMA pseudo-Dice, sliding-window+TTA | fixed 18/6 one-fold split; plan/normalize on the 18 train cases only, stage the 6 val cases after planning; 800 shared epochs; 0/255 GT-resolution export |
 | SAM-Med2D | 256 BGR/SAM-stat preprocessing, per-block Adapter, GT box/point + 8 refinement passes, 20*Focal+Dice+IoU, Adam 1e-4, 15 epochs, multimask max-IoU/0.5 | vanilla SAM ViT-L because the official SAM-Med2D checkpoint is absent; val Dice; ≥24 GiB for official batch |
 | SAM-OCTA | LoRA rank 4, 1024 longest-side+pad, SAM normalization, p=0.3 augmentations, GT per-component point prompts, 0.8*Dice+0.2*clDice, warmup/0.98 decay, 0.8 threshold | ViT-L base; RGB/grayscale-replicated input; non-square pad; val Dice |
 | CWSAM | frequency prompt generator + per-block adapters + mask decoder, ImageNet normalization, no augmentation, AdamW 2e-4/cosine 1e-7, 200 epochs | binary 2-class port; ViT-L (paper backbone); val Dice; activation checkpointing |
@@ -50,11 +51,18 @@ prints them at the start of training and stores them in every checkpoint.
 | RSRM | official training-free RSRM: frozen DINOv3, SAFR layer variance/Fisher re-fusion, ASE robust-threshold support enhancement, HPM global/regional/pixel prototype matching, 480 square ImageNet-normalized, 3-shot supports | support-based protocol (own shots/donor); no training or RSRM weights; official ViT-B/16, local timm ViT-S/16 auto-detected (Meta B state dicts accepted; timm wrapper matches Meta `F_attn`/`F_sum`); fast_pytorch_kmeans replaced by deterministic sklearn k-means++; argmax at 480 exported at GT resolution |
 | C2P | official prompt-free universal C2P: ConvNeXtV2-B, 9 geometric + 9 MLLM-distilled semantic tokens, token-image transformer, token-guided dynamic head, geometry-aware 3-view inference consensus, 384 square ImageNet-normalized | zero-shot evaluation of the official 8-medical-dataset checkpoint; does **not** use the shared 18-image split; released repo has no runnable trainer/evaluator, so the network + official TTA are ported; requires `checkpoints/c2p/1.pth`; random-init is smoke-only; no fine-tuning or target labels |
 | DKA | official DKA module (down-project, 51×51 + 5×5 depthwise branches, GELU, up-project, residual; zero-init down/up) in all 12 blocks; MMSegmentation Segmenter-B ViT-B/16 host with official ImageNet-21k checkpoint, learned pos embed 384→512, 0.1 stochastic depth (FFN), final LN, `(x-127.5)/127.5` inputs, linear 1×1 FCN head; head 1e-4 / DKA 1e-3; batch 1; 300 epochs | released repo has DKA + classification only; the port reconstructs the MMSeg Segmenter-B host with its exact key layout and loads the official checkpoint strictly; no segmentation loss/augmentation stated → CE+foreground Dice, hflip, 512 square; 800 shared epochs, val-Dice selection; no official DKA weights |
+| ACO-MoE-LoRA | official SAM2 Hiera-L frozen + dynamic LoRA on qkv/proj, four-level ACO-ConvLoRA decoder, 8 experts, ACO rank/alpha/top-k search, 352 square ImageNet inputs, weighted BCE+IoU+gate loss, AdamW 1e-3/1e-4, cosine, batch 12, 50 epochs | val-Dice selection instead of the official training-loss rule; batch 4×3 accumulation; 800 shared epochs; direct Hiera-L trunk build (official code builds/deletes the unused SAM2 parts); full-state checkpoint; no official ACO weights; local SAM2 Hiera-L required; upstream repo has no LICENSE |
+| FlowSDF | official conditional flow matching: 128-channel RRDB-conditioned UNet, 1-1-2-2-4-4 levels, attention at strides 8/16, 12 RRDB blocks; truncated signed SDF targets (±15/15), L2 velocity loss, Adam 1e-4, inf-norm clip 1.0, EMA 0.999, 4-step Euler ODE, `sdf <= 0.03` | SDF computed on the fly with exact SciPy EDT instead of the companion notebook's `.npy` files; final test prediction uses overlapping 128 tiles (stride 64, SDF-space averaging) while per-epoch validation uses the official GlaS whole-image-128 path for speed; K=4 MMSE samples at test, K=1 at validation; 800 shared epochs and val-Dice selection (official selects training loss); EMA 0.999 (paper 0.9999); local Euler loop instead of `torchdiffeq`; no TensorBoard/`SimulationHelper` |
+| A2SAM | official SAM ViT-B, 1024-square ImageNet-normalized input, horizontal flip only, dense automatic prompt (no points/boxes), BCE + IoU + 0.7 thickness-aware loss, AdamW 2e-4/0.01/cosine to 1e-7, batch 1; released CPS top 3.5% (alpha 0.4) with norms/pos/IoU head frozen | paper prior and topological SPG reimplemented (release only fuses precomputed uncertainty/logit maps and detaches the prompt): probabilistic U-Net (K=5 prior samples, variance uncertainty), persistence-pruned skeleton/Morse branches, learnable branch gate and Conv-BN-LeakyReLU fusion; 100 prior + 700 A2SAM shared epochs; CPS statistics from the 18 train images; thickness divisor foreground count; validation-Dice selection; no official A2SAM weights |
+| TPSegformer | official TPDecoder: Swin-T, SEM (ECA channel attention + 3×3 BN/ReLU/dropout spatial branch) on X3/X4, HLFF (upsample X4, concat 1152, depthwise-separable → 384), LCCM (3×3 384→5, 1×1 QKV, Hilbert flatten, Q^T K softmax, V weighting, inverse Hilbert, sigmoid gate), 5-conv FCN auxiliary head, 512 input with mean [0.511,0.539,0.556]/std [0.084,0.082,0.083], hflip + PhotoMetricDistortion, main CE + aux Dice 0.5 + EdgeAware 1.0, AdamW 6e-5/0.01, head lr ×10, batch 4 | release is an MMSeg overlay: replaced by timm Swin-T + pure-PyTorch decoder (no mmcv/mmseg); fixed undefined `cls_seg` with explicit 5→1 `conv_seg` and aux 19→1 classes; local Hilbert traversal replaces the missing `hilbertcurve`/`hbtrans` imports; no local Swin-T ImageNet weights → from-scratch unless `--tpsegformer-backbone-ckpt`; 512-square resize + light photometric jitter instead of random resize/crop/pad; per-epoch 5-warmup+poly instead of 1500-iteration warmup + 160k poly; binary BCE main loss; 800 shared epochs and val Dice; no TTA/slide |
+| S2M-Net | official Keras architecture: 16-channel stem, five strided stages 24/32/64/80/128, MRF-SE (1×1 ×6, depthwise 3/5/7, SE-16, residual), SSTM (per-stage FFT filter K=min(32,H), gated dense projection on stages 3–5, fusion residual), BFP decoder (boundary map + soft region/boundary routing), 2× nearest head, sigmoid; five MAL components with learnable weights clipped [0.1,10]; Adam 1e-4, L2 1e-4, clip 1.0, 10 warmup + cosine, batch 8 | TensorFlow/Keras → PyTorch rewrite (no TF); architecture block math preserved and Keras defaults matched (bias, ELU, BN eps/momentum, channel LayerNorm, elementwise dropout); retinal CLAHE/green/FOV/256-patch pipeline replaced by RGB [0,1] 352 crops/flips/rot90/colour jitter and 352/176 tiled probability inference; official effective batch 32/150 epochs → batch 8/800 shared epochs with val Dice; per-epoch warmup+cosine; MAL weights clamped after each step; no official weights |
+| CS-UNet | official Keras notebook: 32-filter U-Net (32/64/128/256, 512×2 bottleneck), Conv-GroupNorm(16)-ReLU-Snake blocks, GFR/FSF skip fusion (global-max SE, reduction 8, degree-5 Gegenbauer with learnable softplus α and sigmoid inputs, 1×1 half compression, max gate, skip×gate+decoder), Dice loss, SGD 0.01/momentum 0.9, no augmentation, 512 RGB /255 | TensorFlow notebook → PyTorch rewrite; the notebook's “DynamicSnakeConv2D” is a placeholder plain conv (no deformable offsets) and uses GroupNorm+ReLU while the paper says BN, both documented; batch 32 (steps_per_epoch=0 on 18 images) → batch 4; 100 epochs/val-loss early stopping → 800 shared epochs/val Dice; LR−1e−6 per epoch; predictions resized to GT; no official weights |
 | SCRWKV | official SCRWKV Crack model: SFE (AMCM + GBST/DSCD SCIU blocks), CSHF decoder with DySample, 512 cubic resize, 0.5 normalization, no augmentation, 0.25 BCE + 0.75 Dice, AdamW 5e-4/0.01, PolyLR 1e-6, batch 1, 50 epochs | from-scratch training on the shared split; 800-epoch budget and val-Dice selection; mmcv/mmcls build-time deps replaced by local torch equivalents (same architecture); official CUDA bi_wkv kernel vendored, arch configurable (official sm_86); inference uses the official max-normalized 0.2 threshold; no official weights; actual port size ~2.04M vs paper's 1.22M |
 | PerSAM | training-free PerSAM (Personalize-SAM) with SAM ViT-H: support mask → object embedding, target-guided points, two point/mask/box refinement stages; no target GT or prompts | official method is one-shot; 3-shot support is majority-voted; support donor for unseen/novel domains; training-free metadata checkpoint; original-resolution output |
 | Matcher | training-free DINOv2 ViT-L/14 + SAM ViT-H patch matching; support-based, native n-shot; 518 square inputs, modified SAM mask generator, official filters | 518 output upsampled to GT; shared 3-shot supports / donor domains; support-feature cache; DINOv2 weights required; training-free metadata checkpoint |
 | KnowSAM | official semi-supervised Trainer/weak-strong transforms/two-stream sampler/SGDL validation | 3+3 batch; source-domain unlabeled pool; ViT-B as upstream; GT-size export |
 | SegDINO | official DPT decoder, 256/ImageNet, BCEWithLogits, AdamW 1e-4/1e-4, 50 epochs, batch 4, no augmentation | timm DINOv3 instead of local hub repo; val Dice; GT-size export |
+| SegDINO v2 | official TPA/SAD decoder: four token projections, 8/4/2/1 bilinear branches, residual depthwise refinement, top-down fusion; 256/ImageNet, BCEWithLogits, AdamW 1e-4/1e-4, batch 4, 50 epochs | paper frozen DINOv3 encoder by default (released code trains all; `--segdino-v2-train-backbone`); released augmentation/loss (paper says no aug/CE); timm DINOv3-S loaded from local weights; 800 shared epochs and val-Dice selection; GT-size export |
 | SACM (official) | zero-prompt ViT-L + adapters, AdamW 3e-4/0.01, cosine 1e-6, BCE 0.7+Dice 0.3, 60 epochs, grad clip 1.0 | val Dice; GT-size export; activation checkpointing |
 
 The shared 3-shot project budget in `configs/models/` is now **800 epochs**
@@ -230,6 +238,46 @@ cross-entropy + foreground Dice (the Dice term avoids the all-background
 degeneracy on the 0.25-3% foreground protocol domains).  The backbone is
 loaded from `checkpoints/segmenter_vit_b16_384.pth`; no DKA-trained weights
 exist, and `--dka-random-init` is smoke-only.
+
+`aco_moe_lora` is a prompt-free SAM2 PEFT baseline (ICML 2026). The released
+model keeps a frozen SAM2 Hiera-L trunk, wraps every attention `qkv`/`proj`
+`Linear` with dynamic LoRA, replaces the decoder with four ACO-ConvLoRA
+blocks (frozen base conv + LoRA + eight gated experts) and runs an ant-colony
+search over encoder rank/alpha and decoder rank/alpha/top-k. The official
+script uses 352-square ImageNet-normalized inputs, weighted BCE + weighted
+IoU plus the gate/MoE loss, AdamW 1e-3/1e-4, cosine, batch 12 and 50 epochs.
+This port keeps the architecture, search candidates, loss and freeze policy,
+uses batch 4 × 3 accumulation, the shared 800-epoch budget and validation-Dice
+selection. The official constructor builds full SAM2 and deletes the unused
+prompt/mask decoder, memory modules and FPN neck; the port builds the same
+Hiera-L trunk directly and loads the official `image_encoder.trunk.*` weights
+strictly. The SAM2 checkpoint is required for training only; prediction uses
+the full model state in the project checkpoint. The upstream ACO repository
+has no LICENSE; the vendored SAM2 files are Apache-2.0.
+
+`nnunet2d` is the stock nnU-Net 2D baseline (Nature Methods 2021), not the
+nnWNet plugin. The adapter stages `Dataset502_Curvilinear3Shot` (18 train + 6
+val RGB PNG cases), fits the planner and ZScore normalization on the 18 train
+cases only (`--no_pp`), stages the 6 val cases after planning, writes a fixed
+one-fold `splits_final.json`, and then uses the installed `nnunetv2`'s stock
+`nnUNetTrainer` and `nnUNetPredictor`. The official 2D recipe (SGD 1e-2,
+wd 3e-5, PolyLR .9, AMP, deep supervision, EMA pseudo-Dice, 0.5-overlap
+sliding window + mirroring) is kept; the official 1000-epoch budget is
+replaced by the shared 800 epochs. Predictions are exported 0/255 at the exact
+GT resolution. No pretrained asset is needed.
+
+`segdino_v2` is the MICCAI 2026 successor of SegDINO. It keeps the DINOv3-S/16
+backbone and replaces the v1 DPT neck with the official TPA/SAD decoder:
+four token projections, four bilinear resampling branches (8/4/2/1), residual
+depthwise refinement per branch and top-down fusion. Inputs are 256-square
+ImageNet-normalized; the loss is BCEWithLogits; the official recipe is AdamW
+1e-4, batch 4, 50 epochs. The paper states a frozen encoder, CE and no
+augmentation, while the released code trains the backbone, uses BCE and applies
+flips/rotation/ColorJitter. This port defaults to the paper frozen encoder and
+the released decoder/loss/augmentation; `--segdino-v2-train-backbone` and
+`--segdino-v2-no-augment` expose the other choices. It uses the local timm
+DINOv3-S/16 backbone and local weights, the shared 800-epoch budget and
+validation-Dice selection, and exports logits at the exact GT resolution.
 
 `scrwkv` is the ICML 2026 ultra-compact crack segmenter, a non-SAM
 from-scratch baseline and a direct structural competitor for curvilinear

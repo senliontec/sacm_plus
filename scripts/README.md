@@ -10,11 +10,12 @@ bash scripts/run_paper.sh --model all --seeds all --gpus 0,1,2,3 --resume
 ```
 
 `--model all` resolves every `status: available` model in
-`configs/models/` (SACM-X plus the 30 runnable baselines, including the
+`configs/models/` (SACM-X plus the 38 runnable baselines, including the
 appendix `sam2_unet`, the prompt-free `sam_adapter`/`samed`/`topolora`/
-`convlora`/`c2p`, the non-SAM `jtfn`/`dscnet`/`rsrm`/`dka`/`scrwkv`, the
-support-based `persam`/`matcher`/`fssam`/`sansa`, and the oracle-prompted
-`ucs`).  For each (model, seed)
+`convlora`/`c2p`/`a2sam`, the non-SAM `jtfn`/`dscnet`/`rsrm`/`dka`/
+`scrwkv`/`flowsdf`/`tpsegformer`/`s2mnet`/`csunet`, the support-based
+`persam`/`matcher`/`fssam`/`sansa`, and the oracle-prompted `ucs`).  For
+each (model, seed)
 job it runs the config's
 `train_entrypoint`, then `eval_entrypoint`, and finally writes the
 cross-model tables and figures.
@@ -124,7 +125,10 @@ The runner dynamically assigns each trial to the next free GPU in the
 selected pool.  `nnWNet` and `KnowSAM` are skipped because their custom
 official pipelines do not yet expose the shared scheduler/LR interface;
 `Matcher`, `PerSAM`, `RSRM` and `C2P` are training-free or zero-shot.
-Thus 24 of the 30 baselines are tuned.  Trial `best_model*.pth` files are deleted after scoring unless
+Thus 24 of the 38 baselines are in the tuning harness.  Newly added ports
+must be added to its explicit `BASELINE_MODELS` list and
+`configs/tuning/spaces.yaml` before `--models all` can tune them.  Trial
+`best_model*.pth` files are deleted after scoring unless
 `--keep-trial-checkpoints` is passed; the metrics history and trainer log
 are kept.  The selected configuration must be applied to a fresh
 full-budget run before reporting.  Test data is never used by the tuning
