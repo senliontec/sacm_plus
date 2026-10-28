@@ -1,11 +1,9 @@
-"""A2SAM model: SAM ViT-B + structural prompt generator + probabilistic prior.
+"""A2SAM model: reconstructed SPG + vendored SAM ViT-B.
 
-The released A2SAM repository provides the SAM ViT-B modules and a minimal
-prompt-fusion network; the paper's structural prompt generator and the
-probabilistic U-Net prior are not part of the release.  This module assembles
-the paper-level model: the prior produces a coarse likelihood and structural
-uncertainty, the SPG turns them into a dense prompt, and SAM ViT-B decodes
-the prompt.  The SAM modules are vendored verbatim from the release.
+The official release only contains SAM, the two-branch prompt fusion, CPS and
+the thickness loss.  This module assembles those official pieces with the
+paper-level U-Net/prior reconstruction and the exact-persistence topology
+backend.  It never imports from ``3rd/``.
 """
 
 from __future__ import annotations
@@ -17,14 +15,21 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .prior import ProbabilisticUNet
+from .prior import PersistencePrior
+from .prompt import PromptFusion
 from .sam import (
     ImageEncoderViT,
     MaskDecoder,
     PromptEncoder,
     TwoWayTransformer,
 )
-from .spg import StructuralPromptGenerator
+from .unet import CoarseUNet
+
+SAM_CHECKPOINT_EXCLUDED = (
+    'mask_tokens',
+    'output_hypernetworks_mlps',
+    'iou_prediction_head',
+)
 
 
 class A2SAMModel(nn.Module):
@@ -33,20 +38,18 @@ class A2SAMModel(nn.Module):
         *,
         image_size: int = 1024,
         prompt_size: int = 256,
-        prior_base: int = 32,
-        latent_dim: int = 16,
-        spg_hidden: int = 32,
-        spg_points: int = 512,
-        spg_stride: int = 3,
-        persistence: float = 5.0,
-        relative_persistence: float = 0.1,
+        unet_widths: tuple[int, int, int, int, int] = (36, 72, 144, 288, 288),
+        prior_widths: tuple[int, int, int, int, int] = (24, 48, 96, 192, 384),
+        prior_hidden: int = 256,
     ):
         super().__init__()
         if image_size % 16 != 0:
             raise ValueError('image_size must be divisible by 16')
         self.image_size = int(image_size)
-        self.prior = ProbabilisticUNet(
-            in_ch=3, base=prior_base, latent_dim=latent_dim)
+        self.prompt_size = int(prompt_size)
+        self.unet = CoarseUNet(widths=unet_widths)
+        self.prior = PersistencePrior(widths=prior_widths, hidden=prior_hidden)
+        self.prompt_fusion = PromptFusion()
         self.image_encoder = ImageEncoderViT(
             img_size=image_size,
             patch_size=16,
@@ -84,24 +87,16 @@ class A2SAMModel(nn.Module):
             iou_head_depth=3,
             iou_head_hidden_dim=256,
         )
-        self.spg = StructuralPromptGenerator(
-            prompt_size=prompt_size,
-            hidden=spg_hidden,
-            max_points=spg_points,
-            stride=spg_stride,
-            persistence=persistence,
-            relative_persistence=relative_persistence,
-        )
 
     # ------------------------------------------------------------------
-    # SAM checkpoint
+    # Official SAM checkpoint loading
     # ------------------------------------------------------------------
-    def load_sam_checkpoint(self, path: str | Path) -> dict[str, int]:
-        """Load official SAM ViT-B weights strictly.
+    def load_sam_checkpoint(self, path: str | Path) -> dict:
+        """Load SAM components using the release's key allowlist.
 
-        The prior and SPG stay randomly initialized; only
-        ``image_encoder``, ``prompt_encoder`` and ``mask_decoder`` come from
-        the SAM checkpoint.
+        The release leaves ``mask_tokens``, ``output_hypernetworks_mlps`` and
+        ``iou_prediction_head`` at their random initialization.  We report the
+        exact loaded/random counts instead of silently using ``strict=False``.
         """
         path = Path(path)
         if not path.is_file():
@@ -113,23 +108,70 @@ class A2SAMModel(nn.Module):
         if not isinstance(state, dict):
             raise RuntimeError(f'{path}: unsupported SAM checkpoint format')
         counts = {}
+        random_init = {}
+        module_state = self.state_dict()
         for prefix in ('image_encoder.', 'prompt_encoder.', 'mask_decoder.'):
             module = getattr(self, prefix[:-1])
             subset = {
                 key[len(prefix):]: value
                 for key, value in state.items()
                 if key.startswith(prefix)
+                and not any(excluded in key
+                            for excluded in SAM_CHECKPOINT_EXCLUDED)
             }
             if not subset:
+                raise RuntimeError(f'{path}: no {prefix}* tensors for A2SAM')
+            missing, unexpected = module.load_state_dict(
+                subset, strict=False)
+            allowed_missing = [
+                key for key in missing
+                if any(excluded in key for excluded in SAM_CHECKPOINT_EXCLUDED)
+            ]
+            other_missing = [key for key in missing
+                             if key not in allowed_missing]
+            if other_missing or unexpected:
                 raise RuntimeError(
-                    f'{path}: no {prefix}* tensors for A2SAM')
-            module.load_state_dict(subset, strict=True)
+                    f'{path}: {prefix} load mismatch; missing='
+                    f'{other_missing[:5]}, unexpected={unexpected[:5]}')
             counts[prefix[:-1]] = len(subset)
-        return counts
+            random_init[prefix[:-1]] = {
+                'keys': allowed_missing,
+                'parameters': sum(
+                    module_state[prefix + key].numel()
+                    for key in allowed_missing
+                    if prefix + key in module_state),
+            }
+        return {'loaded': counts, 'random_init': random_init}
 
     # ------------------------------------------------------------------
-    # Forward
+    # Coarse U-Net / prior
     # ------------------------------------------------------------------
+    def coarse(self, image: torch.Tensor):
+        logits = self.unet(image)
+        probability = torch.sigmoid(logits)
+        return logits, probability, probability > 0.5
+
+    def prior_stats(self, image: torch.Tensor,
+                    probability: torch.Tensor):
+        return self.prior(image, probability)
+
+    # ------------------------------------------------------------------
+    # Prompt / SAM
+    # ------------------------------------------------------------------
+    def make_prompt(
+        self,
+        uncertainty: torch.Tensor,
+        coarse: torch.Tensor,
+        *,
+        mode: str = 'release',
+        detach: bool = False,
+    ) -> torch.Tensor:
+        fused = self.prompt_fusion(
+            uncertainty, coarse, mode=mode, detach=detach)
+        return F.interpolate(
+            fused, size=(self.prompt_size, self.prompt_size),
+            mode='bilinear', align_corners=False)
+
     def decode(self, image: torch.Tensor, prompt: torch.Tensor,
                original_size: tuple[int, int]):
         features = self.image_encoder(image)
@@ -153,29 +195,12 @@ class A2SAMModel(nn.Module):
             align_corners=False)
         return masks, low_res, iou
 
-    def structural_prompt(
-        self,
-        prob: torch.Tensor,
-        uncertainty: torch.Tensor,
-        structural=None,
-    ) -> torch.Tensor:
-        if structural is None:
-            return self.spg(prob, uncertainty)
-        return self.spg.render(structural, prob, uncertainty)
-
     def forward(
         self,
         image: torch.Tensor,
-        prob: torch.Tensor,
-        uncertainty: torch.Tensor,
+        prompt: torch.Tensor,
         original_size: tuple[int, int],
-        *,
-        structural=None,
-        prompt: torch.Tensor | None = None,
     ):
-        if prompt is None:
-            prompt = self.structural_prompt(
-                prob, uncertainty, structural=structural)
         return self.decode(image, prompt, original_size)
 
 
@@ -183,22 +208,14 @@ def build_a2sam(
     *,
     image_size: int = 1024,
     prompt_size: int = 256,
-    prior_base: int = 32,
-    latent_dim: int = 16,
-    spg_hidden: int = 32,
-    spg_points: int = 512,
-    spg_stride: int = 3,
-    persistence: float = 5.0,
-    relative_persistence: float = 0.1,
+    unet_widths: tuple[int, int, int, int, int] = (36, 72, 144, 288, 288),
+    prior_widths: tuple[int, int, int, int, int] = (24, 48, 96, 192, 384),
+    prior_hidden: int = 256,
 ) -> A2SAMModel:
     return A2SAMModel(
         image_size=image_size,
         prompt_size=prompt_size,
-        prior_base=prior_base,
-        latent_dim=latent_dim,
-        spg_hidden=spg_hidden,
-        spg_points=spg_points,
-        spg_stride=spg_stride,
-        persistence=persistence,
-        relative_persistence=relative_persistence,
+        unet_widths=unet_widths,
+        prior_widths=prior_widths,
+        prior_hidden=prior_hidden,
     )

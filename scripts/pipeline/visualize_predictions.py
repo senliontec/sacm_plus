@@ -33,7 +33,7 @@ from metrics import compute_selected  # noqa: E402
 from core.run_status import RunStatus  # noqa: E402
 
 METHOD_META = {
-    'a2sam': ('A2SAM', '✓'),
+    'a2sam': ('A2SAM (MIA 2026)', '✓'),
     'aco_moe_lora': ('ACO-MoE-LoRA', '✓'),
     'unet': ('U-Net', '✗'),
     'cs2net': ('CS²Net', '✗'),

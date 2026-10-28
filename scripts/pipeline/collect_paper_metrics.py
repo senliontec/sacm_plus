@@ -46,7 +46,7 @@ MAIN_METRICS = ['dice', 'iou', 'cldice', 'hd95']
 CACHE_VERSION = 2
 DEFAULT_WORKERS = min(8, os.cpu_count() or 1)
 METHOD_META = {
-    'a2sam': ('A2SAM', '✓'),
+    'a2sam': ('A2SAM (MIA 2026)', '✓'),
     'aco_moe_lora': ('ACO-MoE-LoRA', '✓'),
     'unet': ('U-Net', '✗'),
     'cs2net': ('CS²Net', '✗'),

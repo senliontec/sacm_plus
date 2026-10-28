@@ -411,11 +411,19 @@ def cmd_doctor(args: argparse.Namespace) -> int:
             ('SegDINO dep', 'timm'),
             ('FlowSDF dep', 'scipy'),
             ('A2SAM dep', 'skimage'),
+            ('A2SAM dep', 'scipy'),
             ('DconnNet dep', 'cv2')):
         state = 'OK' if importlib.util.find_spec(module) else 'MISSING'
         if not importlib.util.find_spec(module):
             failures += 1
         print(f'dep   {label:18s} {state:7s} {module}')
+    topology_ok = bool(
+        importlib.util.find_spec('cripser')
+        or importlib.util.find_spec('gudhi'))
+    state = 'OK' if topology_ok else 'MISSING'
+    if not topology_ok:
+        failures += 1
+    print(f'dep   {"A2SAM topology":18s} {state:7s} cripser|gudhi')
     try:
         import timm
         dino = bool(timm.list_models('*dinov3*'))

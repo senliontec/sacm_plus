@@ -1,42 +1,51 @@
 """Self-contained A2SAM port (Medical Image Analysis 2026).
 
-A2SAM adapts SAM ViT-B to medical tubular segmentation with three pieces
-from the paper:
-
-* a trained probabilistic U-Net that supplies a coarse likelihood map and
-  structural uncertainty (K=5 prior samples);
-* a structural prompt generator that turns the likelihood map into a pruned
-  skeleton/Morse complex, learns branch gates and fuses the structural map
-  with likelihood/uncertainty into a dense SAM prompt;
-* contrastive parameter selection (CPS) that trains the top 3.5% of SAM
-  elements by a squared-gradient influence / magnitude-preservation score,
-  plus the released thickness-aware loss.
-
-The released repository contains SAM ViT-B and a detach-only prompt fusion
-network but not the prior or the paper's SPG; those are reimplemented here
-and documented in ``UPSTREAM.md``.
-
-Source: https://github.com/YongChen-Exact/A2SAM
+Official components: vendored SAM ViT-B, the two-branch prompt fusion, CPS
+and the thickness-aware loss.  Paper-level reconstruction: coarse U-Net,
+persistence-threshold prior, exact H0 persistence / Morse-watershed branches
+and F_MS sampling.  See ``UPSTREAM.md`` and ``docs/A2SAM_FIDELITY.md``.
 """
 
 from .cps import (
-    apply_cps_masks,
     contrastive_scores,
-    select_contrastive_masks,
+    sam_cps_candidates,
+    select_freeze_masks,
+    zero_cps_gradients,
 )
-from .model import A2SAMModel, build_a2sam
-from .prior import ProbabilisticUNet
-from .spg import StructuralPromptGenerator
-from .topology import StructuralPoints, extract_structural_points
+from .loss import IOU, ThicknessAwareLoss
+from .model import SAM_CHECKPOINT_EXCLUDED, A2SAMModel, build_a2sam
+from .prior import PersistencePrior
+from .prompt import PromptFusion, PromptGenerator
+from .topology import (
+    MorseComplex,
+    PersistenceBars,
+    build_morse_complex,
+    compute_persistence,
+    dice_optimal_xi,
+    f_ms,
+    uncertainty_from_samples,
+)
+from .unet import CoarseUNet
 
 __all__ = [
     'A2SAMModel',
-    'ProbabilisticUNet',
-    'StructuralPoints',
-    'StructuralPromptGenerator',
-    'apply_cps_masks',
+    'CoarseUNet',
+    'IOU',
+    'MorseComplex',
+    'PersistenceBars',
+    'PersistencePrior',
+    'PromptFusion',
+    'PromptGenerator',
+    'SAM_CHECKPOINT_EXCLUDED',
+    'ThicknessAwareLoss',
     'build_a2sam',
+    'build_morse_complex',
+    'compute_persistence',
     'contrastive_scores',
-    'extract_structural_points',
-    'select_contrastive_masks',
+    'dice_optimal_xi',
+    'f_ms',
+    'sam_cps_candidates',
+    'select_freeze_masks',
+    'uncertainty_from_samples',
+    'zero_cps_gradients',
 ]

@@ -659,38 +659,38 @@ the shared 800-epoch budget with validation-Dice selection (official selects
 training loss).  No pretrained weights are required.  See
 `src/baseline_zoo/models/flowsdf/UPSTREAM.md`.
 
-## A2SAM addendum (2026-10-28)
+## A2SAM addendum (2026-10-28, repaired)
 
 `a2sam` is the Medical Image Analysis 2026 informativeness-driven SAM
 adaptation (MIT for A2SAM; the vendored SAM ViT-B modules are Apache-2.0).
-The released repository supplies SAM ViT-B, a small detached
-uncertainty/logit fusion network and the CPS selection code, but **not** the
-paper's probabilistic U-Net prior or the topological structural prompt
-generator, and it expects precomputed `uncertainty`/`logit` `.npy` files.
-This port therefore reimplements those missing pieces: a conditional
-probabilistic U-Net trained for 100 epochs on the 18 images (Adam 1e-3,
-BCE+Dice+1e-5 KL, GroupNorm for batch 1; K=5 prior samples → mean likelihood
-and 4×variance uncertainty), skeleton-graph
-critical cells with geodesic persistence pruning, a learnable branch gate
-with Gaussian rasterization, and a Conv-BN-LeakyReLU fusion of the
-structural/likelihood/uncertainty maps.  The prompt is not detached.  The
-SAM ViT-B weights load strictly from the local
-`checkpoints/sam_vit_b_01ec64.pth` (177 image-encoder, 17 prompt-encoder and
-120 mask-decoder tensors).  CPS follows the release: accumulated squared
-gradient influence normalized with parameter magnitude, alpha 0.4, top 3.5%
-elements trained, norms/position embeddings/IoU head frozen; statistics use
-the 18 training images rather than the released validation loader to avoid
-validation-label leakage.  The smoke run kept 3.48% of 93.6M SAM elements.
-The official 1024-square ImageNet-normalized input, horizontal flip only,
-AdamW 2e-4/0.01/cosine to 1e-7, batch 1 and BCE+IoU+0.7 thickness-aware
-loss are preserved.  Documented deviations: 100 prior + 700 A2SAM epochs
-instead of the official 50; validation-Dice selection; prior maps at 512;
-the graph-based DMT/persistence approximation (the paper's exact cell
-decomposition is not in the release and the full text is not local); the
-thickness term divides by the foreground pixel count rather than all pixels;
-and no official A2SAM weights.  The GPU smoke trained both stages, saved the
-whole prior+SAM+SPG checkpoint, and exported 16 DRIVE masks at 565×584 with
-0/255 values.  See `src/baseline_zoo/models/a2sam/UPSTREAM.md`.
+The release supplies SAM ViT-B, a two-branch uncertainty/logit fusion
+network, CPS and TA, but **not** the U-Net, prior, DMT/persistence sampling,
+uncertainty generator or full SPG; it expects precomputed `.npy` maps and
+detaches the prompt.
+
+The repaired port now separates provenance explicitly:
+
+- **Official:** SAM modules; checkpoint allowlist (177/17/89 loaded; 31
+  tensors / 692,868 parameters random); two-branch PromptGenerator; CPS
+  freeze semantics (IoU head excluded, image-encoder norm/pos/1-D neck
+  frozen, zero gradients without `requires_grad=False`); IOU.
+- **Paper reconstruction:** BCE-only U-Net (4.24M), global scalar
+  `ξ~N(μ,σ²)` prior (2.75M), exact cripser H0 superlevel persistence,
+  join-tree/watershed branch reconstruction, `u=Var(y_z)`, and the paper
+  TA loss. Persistence is exact; the DMT gradient field/stable manifolds are
+  a reconstruction, not a bit-exact dipha port.
+- **Protocol:** shared 800 epochs = 100 U-Net + 100 prior + 600 A2SAM,
+  batch 1, validation-Dice selection, train-only CPS statistics,
+  deterministic per-sample xi sampling.
+
+The default prompt inputs are release-style `(1-u, coarse_logit)`; paper
+`(u, y_c)`, CPS-paper scoring, release TA, prompt detach and Adam are
+available as switches. Parameter budget is 100.749M versus the paper's
+100.79M. The smoke run completed all three stages, kept 3.48% of 93.6M SAM
+elements, saved a stage-3 checkpoint, exported 16 DRIVE 565×584 0/255 masks,
+and two independent prediction runs produced identical hashes. There are no
+official A2SAM weights and no claim of official end-to-end parity. See
+`docs/A2SAM_FIDELITY.md` and `src/baseline_zoo/models/a2sam/UPSTREAM.md`.
 
 ## TPSegformer addendum (2026-10-28)
 

@@ -78,3 +78,4 @@ There are two different upstream projects whose names differ only by case:
 | `3rd/a2sam` | NeurIPS 2024, "Flaws can be Applause: Unleashing Potential of Segmenting Ambiguous Objects in SAM" | Ambiguous-object segmentation (LIDC / Sim10k) | No |
 
 `models/a2sam` maps to **uppercase** `3rd/A2SAM`, not lowercase `3rd/a2sam`.
+The repaired provenance/source-of-truth record is `docs/A2SAM_FIDELITY.md`.

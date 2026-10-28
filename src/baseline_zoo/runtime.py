@@ -153,6 +153,15 @@ class BaselineAdapter(ABC):
         value = metrics[key]
         return -value if key == 'hd95' else value
 
+    def checkpoint_eligible(self, epoch: int) -> bool:
+        """Whether this epoch may update the selected best checkpoint.
+
+        Stage-based adapters can return False for prior/warm-up epochs so a
+        randomly initialized task model never becomes ``best_model.pth``.
+        """
+        del epoch
+        return True
+
     def train_epoch(self, model: nn.Module, loader: DataLoader,
                     optimizer: torch.optim.Optimizer, scheduler,
                     args: argparse.Namespace) -> float:
@@ -742,7 +751,8 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
                        for metric in METRIC_NAMES})
         log_scalars(run, wb)
 
-        improved = score > best_score
+        improved = (adapter.checkpoint_eligible(epoch)
+                    and score > best_score)
         print_epoch_row(epoch, train_loss, val_metrics, lr, elapsed, improved)
         if improved:
             best_score = score

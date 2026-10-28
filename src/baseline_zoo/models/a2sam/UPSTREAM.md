@@ -5,92 +5,97 @@
 | Component | Upstream | Version |
 |---|---|---|
 | Paper | "Informativeness-driven active adaptation of SAM: Structural prompts and contrastive parameter selection for medical tubular segmentation", Medical Image Analysis 2026, DOI 10.1016/j.media.2026.104285 | 2026 |
-| Code | `YongChen-Exact/A2SAM` (`3rd/A2SAM`) | default branch |
-| SAM ViT-B | Meta `segment-anything` modules vendored inside A2SAM | ViT-B |
+| Official code | `YongChen-Exact/A2SAM` | `/home/dev/mywork/project/segment/3rd/A2SAM`, commit `2d0574a` |
+| SAM ViT-B | Meta `segment-anything` modules vendored inside A2SAM | ViT-B, local checkpoint |
+| Unrelated same-name repo | NeurIPS 2024 "Flaws can be Applause" | `/home/dev/mywork/project/segment/3rd/a2sam`, not used |
 
-Licenses: A2SAM is MIT (`LICENSE`).  The SAM modules are Meta's
-Apache-2.0 implementation (`LICENSE_SAM`).  The SAM ViT-B checkpoint is
-loaded from the local `checkpoints/sam_vit_b_01ec64.pth`; the server is
-offline.
+Licenses: A2SAM is MIT; the SAM modules are Meta's Apache-2.0
+implementation. The SAM ViT-B checkpoint is local and offline. `cripser`
+(LGPL-3.0) or `gudhi` (MIT) is used as an installed optional topology
+dependency; neither is vendored. Do not import from `3rd/` at runtime.
 
-## What is vendored
+The full source-of-truth ledger is `docs/A2SAM_FIDELITY.md`.
+
+## Official components (reproduced)
 
 - `sam/{common,image_encoder,prompt_encoder,mask_decoder,transformer}.py`:
-  the A2SAM repository's SAM ViT-B modules, copied verbatim with relative
-  imports.  Only `tuning_mode='cps'` is used, which is the official A2SAM
-  mode and does not construct the unused FFT/Adapter branches.
+  copied verbatim from the A2SAM release (`tuning_mode='cps'`).
+- `model.load_sam_checkpoint`: official allowlist. It loads all
+  image/prompt/mask-decoder keys except `mask_tokens`,
+  `output_hypernetworks_mlps` and `iou_prediction_head`. Expected counts are
+  177 / 17 / 89 loaded and 31 tensors / 692,868 parameters left random.
+- `prompt.py`: exact two-branch `PromptGenerator` layout
+  (1→16→16 and 1→16→32, concat 48→48→1, BN+LReLU(0.2)).
+- `cps.py`: official freeze semantics — grad² and |w| globally min-max
+  normalized, alpha 0.4, freeze the lowest 96.5%, exclude the IoU head from
+  scoring/masking, force image-encoder norm/pos and 1-D neck, zero gradients
+  without `requires_grad=False`.
+- `loss.py`: IOU (with a zero-union safety guard). Paper thickness loss is
+  the default; `mode='release'` reproduces the release reciprocal-weight /
+  adjacent-product / all-pixel denominator behavior.
 
-## Paper-level reimplementation (not in the release)
+## Paper-level reconstruction (not in the release)
 
-The released repository does **not** contain the paper's probabilistic U-Net
-prior or the topological structural prompt generator.  It reads precomputed
-`uncertainty`/`logit` `.npy` files, fuses them with a small Conv-BN-LeakyReLU
-network, and detaches the fusion output from the loss.
+The release has no U-Net, prior, DMT/Morse complex, persistence sampling,
+uncertainty generator, or full structural prompt generator. It consumes
+precomputed `uncertainty/*.npy` and `logit/*.npy` and detaches its fusion.
 
-This port implements the missing pieces:
+This port reconstructs:
 
-- `prior.py`: a conditional probabilistic U-Net (Kohl et al., 2018 style)
-  with a shared encoder, prior/posterior Gaussian heads, FiLM decoding and a
-  KL term.  The prior is trained for 100 epochs on the 18 training images
-  (Adam lr 1e-3, BCE + Dice + 1e-5 KL) and then frozen.  K=5 prior samples
-  give the coarse likelihood (mean probability) and structural uncertainty
-  (4 x variance, clipped to [0,1]).  GroupNorm is used instead of BatchNorm
-  because the shared protocol trains with batch 1.
-- `topology.py`: the likelihood map is skeletonized; 8-connected skeleton
-  pixels are vertices, junction/endpoint pixels are critical cells, and
-  degree-2 chains are branches.  A geodesic filtration from the most
-  confident pixel supplies branch persistence; branches below an absolute
-  (5 px) or relative (10%) threshold are pruned.  Disconnected components
-  are processed independently.
-- `spg.py`: retained branches are sampled every 3 pixels; a learnable
-  branch gate scores each sample from `[x, y, probability, uncertainty,
-  persistence, distance, length]`; samples are rasterized as Gaussian splats
-  (sigma 2 px) at 256x256 and fused with the likelihood/uncertainty by the
-  released Conv-BN-LeakyReLU pattern.  The prompt is **not** detached.
-- `cps.py`: accumulated squared-gradient influence and magnitude
-  preservation, global min-max normalization, score
-  `alpha * influence/(magnitude+1) + (1-alpha) * influence`, top 3.5%
-  elements kept, norms/position embeddings/IoU head frozen.  Statistics use
-  the 18 training images rather than the released validation loader to avoid
-  validation-label leakage.
-- `loss.py`: weighted IoU and the released thickness-aware plus-kernel
-  opening/EDT/skeleton term.  The divisor is the foreground pixel count
-  (the release divides by all non-zero pixels after the sigmoid).
+- `unet.py`: BCE-only coarse U-Net, ~4.24M parameters, GroupNorm for batch 1.
+- `prior.py`: global scalar `xi ~ N(mu, sigma^2)` prior conditioned on the
+  image and coarse probability; ~2.75M parameters. Training target is the
+  Dice-optimal persistence threshold from training GT (no val/test labels).
+- `topology/persistence.py`: exact 2D superlevel-set H0 persistence via
+  `cripser`; `topology/morse.py` reconstructs branch basins with a
+  deterministic watershed; `topology/fms.py` implements `F_MS` and
+  `u=Var(y_z)`. Persistence values are exact; the DMT gradient field and
+  stable manifolds are not bit-exact.
+- `model.py`: U-Net → prior → `F_MS`/uncertainty → official prompt fusion →
+  SAM decoder.
 
-## Official recipe kept
+Parameter budgets: SAM 93.735M, U-Net 4.239M, prior 2.752M, fusion 0.022M;
+total 100.749M versus the paper's 100.79M.
 
-- SAM ViT-B, 1024x1024 input, ImageNet normalization, horizontal flip only.
-- AdamW lr 2e-4, weight decay 0.01, cosine to 1e-7 over the A2SAM stage,
-  batch 1.
-- BCE + IoU + 0.7 x thickness-aware loss.
-- Dense automatic prompt (no manual points/boxes); SAM mask decoder with a
-  256x256 soft mask prompt.
-- CPS top 3.5% (alpha 0.4) applied once after the prior stage.
-- Predictions are exported as 0/255 masks at the exact GT resolution.
+## Default modes
 
-## Protocol adaptations / assumptions
+| Component | Default | Release/ablation mode |
+|---|---|---|
+| SAM init | official allowlist | same |
+| Prompt inputs | release style `(1-u, coarse_logit)` | paper `(u, y_c)` via `--a2sam-fusion-inputs paper` |
+| Prompt gradient | trainable | `--a2sam-prompt-detach` |
+| CPS | official freeze/score | paper score via `--a2sam-cps-mode paper` |
+| CPS statistics | 18 training images | release val-loader behavior is not reproduced (label leakage) |
+| TA loss | paper Eq. 24–30 | `--a2sam-ta-mode release` |
+| Optimizer | AdamW 2e-4 / 0.01 | release Adam via `--a2sam-optimizer adam` or `--a2sam-release-parity` |
+| Budget | 800 shared epochs: 100 U-Net + 100 prior + 600 A2SAM, batch 1 | n/a |
 
-- 18 train / 6 validation images; 100 shared-budget epochs for the prior and
-  700 for A2SAM (official 50 A2SAM epochs).
-- Validation-Dice checkpoint selection (official selects the metrics of its
-  test split).
-- Prior input resolution 512 (the paper/release do not state it; the release
-  precomputes maps at the network input size).
-- The SPG's discrete-Morse construction is a graph-based approximation
-  because the paper's exact DMC/DMT cell decomposition is not in the release
-  and the paper full text is not available locally.
-- Resume recomputes the CPS masks and prior/topology caches from the restored
-  prior and SPG weights; the checkpoint stores the whole model (prior + SAM +
-  SPG).
-- There are no official A2SAM weights; the SAM ViT-B weights are the only
-  pretrained asset.
+The `--a2sam-release-parity` aggregate switch sets release inputs, detach,
+release TA, official CPS and Adam for parity/ablation tests.
+
+## Protocol adaptations
+
+- 18 train / 6 validation images. The three stages share the 800-epoch
+  project budget; the paper's A2SAM fine-tuning is 50/100 epochs.
+- Validation-Dice checkpoint selection; only stage-3 epochs are eligible, so
+  a random-SAM/prior-only checkpoint cannot become `best_model.pth`.
+- CPS statistics use training images only (paper Algorithm 1), not the
+  release validation loader.
+- U-Net/prior resolution is 1024 because the release resizes its precomputed
+  maps to 1024; there is no separate 512 path in this port.
+- Deterministic per-sample generators seed prior/xi sampling for validation
+  and prediction. Training caches are rebuilt deterministically.
+- There are no official A2SAM weights; only the SAM ViT-B checkpoint is
+  pretrained. No official end-to-end parity is claimed.
 
 ## Verification
 
-- CPU tests: prior shapes/KL/K-sampling, topology pruning, SPG prompt and
-  gradients, CPS top-fraction/gradient masks, prior/IoU/thickness losses,
-  256-input model forward, adapter batch/config round-trip.
-- GPU smoke (1 prior + 1 A2SAM epoch, 2 train/1 val): SAM weights strict
-  load (177/17/120 tensors), CPS kept 3.48% of 93.6M SAM elements, stage-2
-  training and checkpointing completed, and prediction exported 16 DRIVE
-  masks at 565x584 with 0/255 values.
+- `tests/test_a2sam.py`: SAM allowlist counts/random keys, PromptGenerator
+  parity against the release reference (when available), CPS freeze
+  semantics, paper/release loss modes, synthetic persistence/Morse/F_MS,
+  parameter budgets, deterministic xi sampling, adapter stage/config/data
+  pipeline, and a real SAM checkpoint slow test.
+- `tests/test_baseline_zoo.py`, `tests/test_self_contained.py`,
+  `tests/test_configs.py`, `tests/test_runtime_fixes.py`.
+- GPU smoke and prior-Dice/uncertainty triage are required before a 5-seed
+  campaign.

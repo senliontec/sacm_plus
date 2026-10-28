@@ -1,44 +1,62 @@
 """A2SAM adapter (Medical Image Analysis 2026).
 
-A2SAM adapts SAM ViT-B with a structural prompt generator and contrastive
-parameter selection.  The released repository only supplies SAM ViT-B, a
-detached uncertainty/logit fusion network and the CPS selection code; the
-probabilistic U-Net prior and the paper's topological SPG are reimplemented
-in ``baseline_zoo.models.a2sam``.  Training has two stages on the shared
-18-image split: a probabilistic prior for 100 epochs, then A2SAM + SPG with
-CPS on the top 3.5% of SAM elements for the remaining shared budget.
+Three-stage shared-budget training:
+
+* epochs 1..U: BCE-only coarse U-Net;
+* epochs U+1..U+P: global persistence-threshold prior;
+* remaining epochs: frozen U-Net/prior + SAM + official prompt fusion + CPS.
+
+Official SAM/prompt/CPS/TA semantics are used where the release implements
+them.  The U-Net, prior, persistence/F_MS and uncertainty map are paper-level
+reconstructions because the release does not contain them.  See
+``docs/A2SAM_FIDELITY.md``.
 """
 
 from __future__ import annotations
 
 import random
+import zlib
 from pathlib import Path
 from typing import Sequence
 
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from PIL import Image
 from torchvision.transforms import functional as TF
 
 from baseline_zoo.data import Sample, load_mask, load_rgb
 from baseline_zoo.models.a2sam import (
-    apply_cps_masks,
+    IOU,
+    ThicknessAwareLoss,
     build_a2sam,
+    build_morse_complex,
     contrastive_scores,
-    select_contrastive_masks,
+    dice_optimal_xi,
+    f_ms,
+    sam_cps_candidates,
+    select_freeze_masks,
+    uncertainty_from_samples,
+    zero_cps_gradients,
 )
-from baseline_zoo.models.a2sam.loss import IOU, ThicknessAwareLoss
-from baseline_zoo.runtime import BaselineAdapter, file_sha256
+from baseline_zoo.runtime import REPO_ROOT, BaselineAdapter, file_sha256
 
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
-SAM_PREFIXES = ('image_encoder.', 'prompt_encoder.', 'mask_decoder.')
+DEFAULT_SAM = REPO_ROOT / 'checkpoints/sam_vit_b_01ec64.pth'
+TA_WEIGHT = 0.7
+
+
+def _sample_seed(seed: int, stem: str, purpose: str = 'eval') -> int:
+    payload = f'{purpose}:{stem}'.encode('utf-8')
+    return (int(seed) * 1_000_003
+            + (zlib.crc32(payload) & 0xFFFFFFFF)) & 0xFFFFFFFF
 
 
 class A2SAMAdapter(BaselineAdapter):
     id = 'a2sam'
-    display_name = 'A2SAM'
+    display_name = 'A2SAM (MIA 2026)'
     family = 'sam'
     official_source = 'A2SAM (Medical Image Analysis 2026)'
     official_entrypoint = 'https://github.com/YongChen-Exact/A2SAM'
@@ -50,126 +68,154 @@ class A2SAMAdapter(BaselineAdapter):
     default_grad_clip = 0.0
     selection = 'dice'
     deviations = (
-        'The released A2SAM repository does not contain the paper prior or '
-        'the topological SPG: it reads precomputed uncertainty/coarse-logit '
-        '.npy files and its PromptGenerator only fuses them, with the '
-        'fusion output detached from the loss. This port trains a '
-        'probabilistic U-Net prior, extracts persistence-pruned skeleton '
-        'branches, learns branch gates and fuses the structural map, '
-        'likelihood and uncertainty without detaching the prompt.',
-        'The SPG topology is a graph-based discrete-Morse/persistence '
-        'approximation on the likelihood skeleton (junction/endpoint '
-        'critical cells, geodesic filtration, persistence pruning); the '
-        'paper exact cell decomposition is not available in the release.',
-        'The prior is trained inside the run for 100 epochs on the shared '
-        '18-image split; the release expects precomputed maps produced by a '
-        'separate U-Net.',
-        'The prior is sampled K=5 times at 512 resolution; the release '
-        'uncertainty/logit maps are precomputed at the network input size.',
-        'CPS influence statistics use the 18 training images (the released '
-        'code uses its validation loader); this avoids validation-label '
-        'leakage in checkpoint selection. CPS keeps the top 3.5% elements '
-        'with alpha 0.4 and freezes norms/position embeddings/IoU head as in '
-        'the release.',
-        'The official AdamW lr 2e-4, cosine to 1e-7, batch 1, 1024-square '
-        'ImageNet-normalized input and horizontal-flip-only augmentation '
-        'are preserved; the official 50 epochs become the shared 800-epoch '
-        'budget (100 prior + 700 A2SAM) with validation-Dice selection.',
-        'The thickness-aware term uses the same plus-kernel opening and '
-        'EDT/skeleton weights as the release, but divides by the foreground '
-        'pixel count (the release divides by all non-zero pixels after the '
-        'sigmoid) and implements the opening locally instead of using '
-        'Kornia.',
-        'The released prompt network receives a coarse logit; this port '
-        'uses the prior mean probability and its variance-based uncertainty, '
-        'and the SPG output is a soft dense prompt rather than a detached '
-        'mask.',
-        'SAM ViT-B weights come from the local '
-        'checkpoints/sam_vit_b_01ec64.pth file; there are no official '
-        'A2SAM weights. Prediction exports a 0/255 mask at exact GT '
-        'resolution.',
-        'The official model is built at a fixed 1024x1024 input and its '
-        'postprocess uses a fixed original size per dataset; this port '
-        'resizes the GT to the actual protocol image size and exports at '
-        'that resolution.',
+        'The official release has no U-Net, prior network, DMT/persistence '
+        'sampling, uncertainty-map generator or full SPG. It reads '
+        'precomputed uncertainty/logit .npy maps and only supplies the SAM '
+        'modules, two-branch prompt fusion, CPS and TA loss.',
+        'The coarse U-Net and global persistence-threshold prior are '
+        'paper-level reconstructions. Persistence is exact cripser H0; the '
+        'DMT gradient field and stable manifolds are reconstructed by a '
+        'join-tree/watershed backend, not a bit-exact dipha DMT port.',
+        'Shared 800-epoch budget: 100 U-Net + 100 prior + 600 A2SAM, batch 1, '
+        'instead of the release 50/100 A2SAM epochs. Validation-Dice '
+        'selection instead of the release validation S-measure.',
+        'CPS statistics use the 18 training images (paper Algorithm 1) '
+        'rather than the release validation loader, avoiding label leakage. '
+        'The official freeze-mask semantics (IoU head excluded, image-encoder '
+        'norm/pos/neck frozen, zero gradients, no requires_grad=False) are '
+        'used by default; a paper-scoring mode is available.',
+        'The official SAM checkpoint allowlist excludes mask_tokens, '
+        'output_hypernetworks_mlps and iou_prediction_head (31 tensors / '
+        '692,868 parameters remain random), matching train.py load_from.',
+        'Prompt fusion uses the official two-branch architecture. The '
+        'release detaches its output; this port trains it by default '
+        '(paper semantics) and exposes a detach parity switch. The default '
+        'input mode is release-style (1-uncertainty, coarse logit); '
+        'paper-style (u, y_c) is available as an ablation.',
+        'The thickness loss defaults to paper Eq. 24-30 (log W, foreground '
+        'denominator); a release mode reproduces the reciprocal/all-pixel '
+        'behavior. AdamW is the default (paper/config); a release Adam mode '
+        'is available.',
+        'The prior is frozen for A2SAM training and sampled with per-sample '
+        'deterministic generators. Prediction is reproducible from the '
+        'checkpoint and --seed.',
+        'There are no official A2SAM weights; only local SAM ViT-B weights '
+        'are used. Predictions are 0/255 masks at exact GT resolution.',
     )
 
     def __init__(self):
         super().__init__()
-        self._stage = 'sam'
-        self._stage2_ready = False
-        self._prior_cache: dict[str, tuple[torch.Tensor, torch.Tensor]] = {}
-        self._structural_cache: dict[str, tuple] = {}
+        self._stage = 'unet'
+        self._unet_frozen = False
+        self._prior_frozen = False
+        self._stage3_ready = False
+        self._unet_cache: dict[str, dict] = {}
+        self._stage3_cache: dict[str, dict] = {}
+        self._eval_cache: dict[str, dict] = {}
+        self._unet_optimizer = None
         self._prior_optimizer = None
+        self._cps_masks: dict[str, torch.Tensor] = {}
+        self._cps_stats: dict[str, float] = {}
         self._sam_ckpt: str | None = None
         self._sam_sha: str | None = None
-        self._cps_stats: dict[str, float] = {}
         self._bce = nn.BCEWithLogitsLoss()
         self._iou = IOU()
-        self._ta = ThicknessAwareLoss()
+        self._ta = ThicknessAwareLoss(mode='paper')
 
     # ------------------------------------------------------------------
-    # Construction
+    # CLI / construction
     # ------------------------------------------------------------------
     def add_args(self, parser):
         parser.add_argument('--input-size', type=int, default=1024)
-        parser.add_argument(
-            '--a2sam-sam-checkpoint', type=Path,
-            default=Path('checkpoints/sam_vit_b_01ec64.pth'))
+        parser.add_argument('--a2sam-sam-checkpoint', type=Path,
+                            default=DEFAULT_SAM)
+        parser.add_argument('--a2sam-unet-epochs', type=int, default=100)
         parser.add_argument('--a2sam-prior-epochs', type=int, default=100)
+        parser.add_argument('--a2sam-unet-lr', type=float, default=1e-3)
         parser.add_argument('--a2sam-prior-lr', type=float, default=1e-3)
-        parser.add_argument('--a2sam-prior-beta', type=float, default=1e-5)
-        parser.add_argument('--a2sam-prior-base', type=int, default=32)
-        parser.add_argument('--a2sam-latent-dim', type=int, default=16)
         parser.add_argument('--a2sam-prior-samples', type=int, default=5)
         parser.add_argument('--a2sam-keep-ratio', type=float, default=0.035)
         parser.add_argument('--a2sam-cps-alpha', type=float, default=0.4)
-        parser.add_argument(
-            '--a2sam-cps-batches', type=int, default=0,
-            help='training images used for CPS statistics (0 = all 18)')
-        parser.add_argument(
-            '--a2sam-thickness-weight', type=float, default=0.7)
-        parser.add_argument('--a2sam-spg-points', type=int, default=512)
-        parser.add_argument('--a2sam-spg-stride', type=int, default=3)
-        parser.add_argument('--a2sam-spg-hidden', type=int, default=32)
-        parser.add_argument('--a2sam-persistence', type=float, default=5.0)
-        parser.add_argument(
-            '--a2sam-relative-persistence', type=float, default=0.1)
+        parser.add_argument('--a2sam-cps-mode', choices=('official', 'paper'),
+                            default='official')
+        parser.add_argument('--a2sam-ta-mode', choices=('paper', 'release'),
+                            default='paper')
+        parser.add_argument('--a2sam-fusion-inputs',
+                            choices=('release', 'paper'), default='release')
+        parser.add_argument('--a2sam-prompt-detach', action='store_true')
+        parser.add_argument('--a2sam-topology-backend',
+                            choices=('cripser', 'gudhi'), default='cripser')
+        parser.add_argument('--a2sam-coarse-threshold', type=float,
+                            default=0.5)
+        parser.add_argument('--a2sam-min-persistence', type=float,
+                            default=1e-3)
+        parser.add_argument('--a2sam-max-branches', type=int, default=256)
+        parser.add_argument('--a2sam-prior-grid-size', type=int, default=32)
+        parser.add_argument('--a2sam-optimizer', choices=('adamw', 'adam'),
+                            default='adamw')
         parser.add_argument('--a2sam-lr-min', type=float, default=1e-7)
-        parser.add_argument('--a2sam-random-init', action='store_true',
-                            help='smoke only: skip the SAM ViT-B checkpoint')
+        parser.add_argument('--a2sam-release-parity', action='store_true',
+                            help='set release detach/TA/inputs/Adam modes')
+        parser.add_argument('--a2sam-random-init', action='store_true')
         parser.add_argument('--a2sam-no-augment', action='store_true')
 
-    def _reset_run_state(self) -> None:
-        self._stage = 'sam'
-        self._stage2_ready = False
-        self._prior_cache = {}
-        self._structural_cache = {}
+    def _stage_epochs(self) -> tuple[int, int]:
+        args = self.args
+        unet = max(1, int(getattr(args, 'a2sam_unet_epochs', 100)))
+        prior = max(1, int(getattr(args, 'a2sam_prior_epochs', 100)))
+        total = int(getattr(args, 'epochs', 800))
+        if unet + prior >= total:
+            raise SystemExit(
+                'A2SAM needs epochs > unet_epochs + prior_epochs')
+        return unet, prior
+
+    def _fusion_mode(self) -> str:
+        if bool(getattr(self.args, 'a2sam_release_parity', False)):
+            return 'release'
+        return str(getattr(self.args, 'a2sam_fusion_inputs', 'release'))
+
+    def _ta_mode(self) -> str:
+        if bool(getattr(self.args, 'a2sam_release_parity', False)):
+            return 'release'
+        return str(getattr(self.args, 'a2sam_ta_mode', 'paper'))
+
+    def _cps_mode(self) -> str:
+        if bool(getattr(self.args, 'a2sam_release_parity', False)):
+            return 'official'
+        return str(getattr(self.args, 'a2sam_cps_mode', 'official'))
+
+    def _prompt_detach(self) -> bool:
+        return bool(getattr(self.args, 'a2sam_release_parity', False)
+                    or getattr(self.args, 'a2sam_prompt_detach', False))
+
+    def _optimizer_name(self) -> str:
+        if bool(getattr(self.args, 'a2sam_release_parity', False)):
+            return 'adam'
+        return str(getattr(self.args, 'a2sam_optimizer', 'adamw'))
+
+    def _reset_run_state(self):
+        self._stage = 'unet'
+        self._unet_frozen = False
+        self._prior_frozen = False
+        self._stage3_ready = False
+        self._unet_cache = {}
+        self._stage3_cache = {}
+        self._eval_cache = {}
+        self._unet_optimizer = None
         self._prior_optimizer = None
+        self._cps_masks = {}
         self._cps_stats = {}
 
     def build_model(self, args):
         self.input_size = int(getattr(args, 'input_size', 1024))
         if self.input_size != 1024:
             raise SystemExit('A2SAM uses the official 1024x1024 input')
-        prior_epochs = int(getattr(args, 'a2sam_prior_epochs', 100))
-        epochs = int(getattr(args, 'epochs', 800))
-        if not self.prediction_mode and prior_epochs >= epochs:
-            raise SystemExit(
-                '--a2sam-prior-epochs must be smaller than --epochs')
         self._reset_run_state()
-        return build_a2sam(
-            image_size=1024,
-            prompt_size=256,
-            prior_base=int(getattr(args, 'a2sam_prior_base', 32)),
-            latent_dim=int(getattr(args, 'a2sam_latent_dim', 16)),
-            spg_hidden=int(getattr(args, 'a2sam_spg_hidden', 32)),
-            spg_points=int(getattr(args, 'a2sam_spg_points', 512)),
-            spg_stride=int(getattr(args, 'a2sam_spg_stride', 3)),
-            persistence=float(getattr(args, 'a2sam_persistence', 5.0)),
-            relative_persistence=float(getattr(
-                args, 'a2sam_relative_persistence', 0.1)),
-        )
+        self._ta = ThicknessAwareLoss(mode=self._ta_mode())
+        if self.prediction_mode:
+            # Only the eligible stage-3 checkpoint is saved as best_model.
+            self._stage = 'a2sam'
+        return build_a2sam(image_size=1024, prompt_size=256)
 
     def load_pretrained(self, model, args) -> None:
         if self.prediction_mode:
@@ -177,45 +223,49 @@ class A2SAMAdapter(BaselineAdapter):
         if bool(getattr(args, 'a2sam_random_init', False)):
             print('A2SAM smoke: random SAM ViT-B initialization')
             return
-        checkpoint = Path(getattr(
-            args, 'a2sam_sam_checkpoint',
-            'checkpoints/sam_vit_b_01ec64.pth'))
-        counts = model.load_sam_checkpoint(checkpoint)
+        checkpoint = Path(getattr(args, 'a2sam_sam_checkpoint', DEFAULT_SAM))
+        info = model.load_sam_checkpoint(checkpoint)
         self._sam_ckpt = str(checkpoint)
         self._sam_sha = file_sha256(checkpoint)
-        print(f'loaded SAM ViT-B weights: {counts}')
+        random_params = sum(
+            int(item['parameters']) for item in info['random_init'].values())
+        random_keys = sum(
+            len(item['keys']) for item in info['random_init'].values())
+        print(
+            'loaded SAM ViT-B weights: '
+            f'{info["loaded"]}; random-init {random_keys} tensors / '
+            f'{random_params:,} params')
 
     def configure_trainable(self, model) -> None:
         for parameter in model.parameters():
             parameter.requires_grad_(True)
-        groups = {
-            'prior': 0, 'image_encoder': 0, 'prompt_encoder': 0,
-            'mask_decoder': 0, 'spg': 0,
-        }
+        groups = {}
         for name, parameter in model.named_parameters():
-            for prefix in groups:
-                if name.startswith(prefix + '.'):
-                    groups[prefix] += parameter.numel()
-                    break
+            prefix = name.split('.', 1)[0]
+            groups[prefix] = groups.get(prefix, 0) + parameter.numel()
         print('A2SAM parameters: ' + ', '.join(
-            f'{key}={value / 1e6:.1f}M' for key, value in groups.items()))
+            f'{key}={value / 1e6:.1f}M'
+            for key, value in sorted(groups.items())))
 
     def make_optimizer(self, model, args):
+        parameters = [p for p in model.parameters() if p.requires_grad]
+        if self._optimizer_name() == 'adam':
+            return torch.optim.Adam(parameters, lr=float(args.lr))
         return torch.optim.AdamW(
-            [p for p in model.parameters() if p.requires_grad],
-            lr=float(args.lr), weight_decay=float(args.weight_decay))
+            parameters, lr=float(args.lr),
+            weight_decay=float(args.weight_decay))
 
     def make_scheduler(self, optimizer, args):
-        stage_epochs = max(
-            1, int(args.epochs) - int(args.a2sam_prior_epochs))
+        unet_epochs, prior_epochs = self._stage_epochs()
+        stage_epochs = int(args.epochs) - unet_epochs - prior_epochs
         return torch.optim.lr_scheduler.CosineAnnealingLR(
-            optimizer, T_max=stage_epochs,
+            optimizer, T_max=max(1, stage_epochs),
             eta_min=float(getattr(args, 'a2sam_lr_min', 1e-7)))
 
     # ------------------------------------------------------------------
-    # Data
+    # Image/mask helpers
     # ------------------------------------------------------------------
-    def _load_image(self, sample: Sample, size: int) -> torch.Tensor:
+    def _load_image(self, sample: Sample, size: int = 1024) -> torch.Tensor:
         image = load_rgb(sample.image_path)
         image = TF.resize(
             image, [size, size],
@@ -233,190 +283,157 @@ class A2SAMAdapter(BaselineAdapter):
             mask = np.asarray(image) > 127
         return torch.from_numpy(mask.astype(np.float32)).unsqueeze(0)
 
-    def _prepare_batch(self, samples: Sequence[Sample],
-                       rng: random.Random, stage: str,
-                       augment: bool = True):
-        images, prior_images, gts, prior_gts, probs, uncs = (
-            [], [], [], [], [], [])
-        structural_batch = []
-        no_augment = bool(getattr(self.args, 'a2sam_no_augment', False))
-        flip = bool(
-            augment and not no_augment and len(samples) and rng.random() < 0.5)
+    def _flip_allowed(self) -> bool:
+        return not bool(getattr(self.args, 'a2sam_no_augment', False))
+
+    # ------------------------------------------------------------------
+    # Stage 1: U-Net batches
+    # ------------------------------------------------------------------
+    def _prepare_unet_batch(self, samples: Sequence[Sample],
+                            rng: random.Random):
+        images, targets = [], []
+        flip = self._flip_allowed() and rng.random() < 0.5
         for sample in samples:
             image = self._load_image(sample, 1024)
-            prior_image = self._load_image(sample, 512)
-            gt = self._load_mask(sample)
-            gt_prior = self._load_mask(sample, 512)
+            target = self._load_mask(sample, 1024)
             if flip:
                 image = torch.flip(image, dims=[-1]).contiguous()
-                prior_image = torch.flip(
-                    prior_image, dims=[-1]).contiguous()
-                gt = torch.flip(gt, dims=[-1]).contiguous()
-                gt_prior = torch.flip(gt_prior, dims=[-1]).contiguous()
+                target = torch.flip(target, dims=[-1]).contiguous()
             images.append(image)
-            prior_images.append(prior_image)
-            gts.append(gt)
-            prior_gts.append(gt_prior)
-            if stage == 'sam':
-                cached = self._prior_cache.get(sample.stem)
-                if cached is None:
-                    raise RuntimeError(
-                        f'A2SAM stage 2 has no prior cache for '
-                        f'{sample.stem}; call _prepare_stage2 first')
-                probability, uncertainty = cached
-                if flip:
-                    probability = torch.flip(
-                        probability, dims=[-1]).contiguous()
-                    uncertainty = torch.flip(
-                        uncertainty, dims=[-1]).contiguous()
-                probs.append(probability)
-                uncs.append(uncertainty)
-                cached_structural = self._structural_cache.get(sample.stem)
-                if cached_structural is not None:
-                    structural_batch.append(
-                        cached_structural[1 if flip else 0])
-        batch = {
+            targets.append(target)
+        return {
             'image': torch.stack(images).to(self.device),
-            'prior_image': torch.stack(prior_images).to(self.device),
-            'gt': torch.stack(gts).to(self.device),
-            'gt_prior': torch.stack(prior_gts).to(self.device),
+            'target': torch.stack(targets).to(self.device),
         }
-        if stage == 'sam':
-            batch['prob'] = torch.stack(probs).to(self.device)
-            batch['uncertainty'] = torch.stack(uncs).to(self.device)
-            if len(structural_batch) == len(samples):
-                batch['structural'] = structural_batch
-        return batch
 
-    def prepare_train_batch(self, samples: Sequence[Sample],
-                            rng: random.Random):
-        return self._prepare_batch(samples, rng, self._stage)
+    def _unet_loss(self, model, batch):
+        logits = model.unet(batch['image'])
+        return self._bce(logits, batch['target'])
+
+    def _train_unet_epoch(self, model, loader, args) -> float:
+        model.train()
+        model.unet.train()
+        if self._unet_optimizer is None:
+            self._unet_optimizer = torch.optim.Adam(
+                [p for p in model.unet.parameters() if p.requires_grad],
+                lr=float(getattr(args, 'a2sam_unet_lr', 1e-3)))
+        rng = random.Random(int(args.seed) + int(getattr(self, '_epoch', 0)))
+        running = 0.0
+        seen = 0
+        for samples in loader:
+            batch = self._prepare_unet_batch(samples, rng)
+            loss = self._unet_loss(model, batch)
+            self._unet_optimizer.zero_grad(set_to_none=True)
+            loss.backward()
+            self._unet_optimizer.step()
+            running += float(loss.detach()) * len(samples)
+            seen += len(samples)
+        return running / max(seen, 1)
 
     # ------------------------------------------------------------------
-    # Losses
+    # Stage 2: prior batches/cache
     # ------------------------------------------------------------------
-    @staticmethod
-    def _dice_loss(logits: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-        probability = logits.sigmoid()
-        intersection = (probability * target).sum()
-        return 1 - (2 * intersection + 1.0) / (
-            probability.sum() + target.sum() + 1.0)
+    def _ensure_unet_cache(self, model, samples: Sequence[Sample]):
+        if self._unet_cache:
+            return
+        was_training = model.training
+        model.eval()
+        model.unet.eval()
+        backend = str(getattr(
+            self.args, 'a2sam_topology_backend', 'cripser'))
+        min_persistence = float(getattr(
+            self.args, 'a2sam_min_persistence', 1e-3))
+        max_branches = int(getattr(
+            self.args, 'a2sam_max_branches', 256))
+        coarse_threshold = float(getattr(
+            self.args, 'a2sam_coarse_threshold', 0.5))
+        grid_size = int(getattr(
+            self.args, 'a2sam_prior_grid_size', 32))
+        dice_values = []
+        branch_values = []
+        xi_values = []
+        for sample in samples:
+            image = self._load_image(sample, 1024).unsqueeze(0).to(self.device)
+            target = self._load_mask(sample, 1024).unsqueeze(0).to(self.device)
+            with torch.no_grad():
+                logits, probability, coarse = model.coarse(image)
+            prob_np = probability[0, 0].detach().cpu().numpy()
+            gt_np = target[0, 0].detach().cpu().numpy() > 0.5
+            pred = coarse[0, 0].detach().cpu().numpy() > 0.5
+            inter = np.logical_and(pred, gt_np).sum()
+            denom = pred.sum() + gt_np.sum()
+            dice_values.append(
+                1.0 if denom == 0 else 2.0 * inter / denom)
+            morse = build_morse_complex(
+                prob_np, backend=backend,
+                coarse_threshold=coarse_threshold,
+                min_persistence=min_persistence,
+                max_branches=max_branches)
+            xi_star = dice_optimal_xi(morse, gt_np, grid_size=grid_size)
+            branch_values.append(morse.n_branches)
+            xi_values.append(float(xi_star))
+            self._unet_cache[sample.stem] = {
+                'logits': logits[0].detach().cpu(),
+                'probability': probability[0].detach().cpu(),
+                'morse': morse,
+                'xi_star': float(xi_star),
+            }
+        if dice_values:
+            print(
+                'A2SAM prior cache: U-Net Dice='
+                f'{float(np.mean(dice_values)):.4f}, branches='
+                f'{float(np.mean(branch_values)):.1f}, xi='
+                f'{float(np.mean(xi_values)):.4f}+/-'
+                f'{float(np.std(xi_values)):.4f}')
+        if was_training:
+            model.train()
+
+    def _prepare_prior_batch(self, samples: Sequence[Sample],
+                             rng: random.Random):
+        images, probs, targets = [], [], []
+        flip = self._flip_allowed() and rng.random() < 0.5
+        for sample in samples:
+            cached = self._unet_cache.get(sample.stem)
+            if cached is None:
+                raise RuntimeError(
+                    f'A2SAM prior cache missing for {sample.stem}')
+            image = self._load_image(sample, 1024)
+            probability = cached['probability']
+            if flip:
+                image = torch.flip(image, dims=[-1]).contiguous()
+                probability = torch.flip(probability, dims=[-1]).contiguous()
+            images.append(image)
+            probs.append(probability)
+            targets.append(float(cached['xi_star']))
+        return {
+            'image': torch.stack(images).to(self.device),
+            'probability': torch.stack(probs).to(self.device),
+            'target': torch.tensor(targets, device=self.device),
+        }
 
     def _prior_loss(self, model, batch):
-        logits, mu, logvar = model.prior(
-            batch['prior_image'], batch['gt_prior'])
-        beta = float(getattr(self.args, 'a2sam_prior_beta', 1e-5))
-        return (self._bce(logits, batch['gt_prior'])
-                + self._dice_loss(logits, batch['gt_prior'])
-                + beta * model.prior.kl_divergence(mu, logvar))
-
-    def _sam_loss(self, model, batch):
-        original_size = (batch['gt'].shape[-2], batch['gt'].shape[-1])
-        structural = batch.get('structural')
-        if structural is None:
-            structural = model.spg.prepare(
-                batch['prob'], batch['uncertainty'])
-        masks, _, _ = model(
-            batch['image'], batch['prob'], batch['uncertainty'],
-            original_size, structural=structural)
-        weight = float(getattr(self.args, 'a2sam_thickness_weight', 0.7))
-        return (self._bce(masks, batch['gt'])
-                + self._iou(masks, batch['gt'])
-                + weight * self._ta(masks, batch['gt']))
-
-    def train_step(self, model, batch):
-        if self._stage == 'prior':
-            return self._prior_loss(model, batch)
-        return self._sam_loss(model, batch)
-
-    # ------------------------------------------------------------------
-    # Two-stage training
-    # ------------------------------------------------------------------
-    @torch.no_grad()
-    def _prior_outputs(self, prior, image, cpu: bool = False):
-        k = int(getattr(self.args, 'a2sam_prior_samples', 5))
-        samples = prior.sample_prior(image, k=k)
-        probabilities = torch.sigmoid(samples)
-        mean = probabilities.mean(dim=0)
-        uncertainty = (
-            probabilities.var(dim=0, unbiased=False) * 4.0).clamp(0.0, 1.0)
-        if cpu:
-            return mean.cpu(), uncertainty.cpu()
-        return mean, uncertainty
-
-    def _prepare_stage2(self, model, loader, args) -> None:
-        model.eval()
-        model.prior.eval()
-        for parameter in model.prior.parameters():
-            parameter.requires_grad_(False)
-        samples = list(loader.dataset.samples)
-        self._prior_cache = {}
-        self._structural_cache = {}
-        for sample in samples:
-            prior_image = self._load_image(
-                sample, 512).unsqueeze(0).to(self.device)
-            probability, uncertainty = self._prior_outputs(
-                model.prior, prior_image, cpu=True)
-            # Cache per-sample [1, H, W]; batch preparation stacks the
-            # sample dimension back to [B, 1, H, W].
-            self._prior_cache[sample.stem] = (
-                probability[0].contiguous(), uncertainty[0].contiguous())
-            flipped_probability = torch.flip(
-                probability, dims=[-1]).contiguous()
-            flipped_uncertainty = torch.flip(
-                uncertainty, dims=[-1]).contiguous()
-            self._structural_cache[sample.stem] = (
-                model.spg.prepare(probability, uncertainty)[0],
-                model.spg.prepare(
-                    flipped_probability, flipped_uncertainty)[0],
-            )
-
-        # CPS statistics: accumulate gradients over the training split.
-        model.train()
-        model.spg.eval()
-        limit = int(getattr(args, 'a2sam_cps_batches', 0)) or len(samples)
-        for sample in samples[:limit]:
-            batch = self._prepare_batch(
-                [sample], random.Random(0), 'sam', augment=False)
-            self._sam_loss(model, batch).backward()
-        sam_parameters = {
-            name: parameter
-            for name, parameter in model.named_parameters()
-            if name.startswith(SAM_PREFIXES)
-        }
-        sam_grads = {
-            name: parameter.grad.detach()
-            for name, parameter in sam_parameters.items()
-            if parameter.grad is not None
-        }
-        scores = contrastive_scores(
-            sam_grads, sam_parameters,
-            alpha=float(getattr(args, 'a2sam_cps_alpha', 0.4)))
-        masks = select_contrastive_masks(
-            scores, sam_parameters,
-            keep_ratio=float(getattr(args, 'a2sam_keep_ratio', 0.035)))
-        self._cps_stats = apply_cps_masks(model, masks)
-        model.zero_grad(set_to_none=True)
-        print(
-            'A2SAM CPS: kept '
-            f'{self._cps_stats["kept_elements"]:,}/'
-            f'{self._cps_stats["total_elements"]:,} SAM elements '
-            f'({self._cps_stats["kept_fraction"] * 100:.2f}%)')
-        self._stage2_ready = True
-        model.train()
+        mu, log_var = model.prior_stats(
+            batch['image'], batch['probability'])
+        return model.prior.nll_loss(mu, log_var, batch['target'])
 
     def _train_prior_epoch(self, model, loader, args) -> float:
         model.train()
+        model.unet.eval()
         model.prior.train()
+        if not self._unet_frozen:
+            for parameter in model.unet.parameters():
+                parameter.requires_grad_(False)
+            self._unet_frozen = True
+            self._ensure_unet_cache(model, list(loader.dataset.samples))
         if self._prior_optimizer is None:
             self._prior_optimizer = torch.optim.Adam(
                 [p for p in model.prior.parameters() if p.requires_grad],
                 lr=float(getattr(args, 'a2sam_prior_lr', 1e-3)))
-        rng = random.Random(args.seed + getattr(self, '_epoch', 0))
+        rng = random.Random(int(args.seed) + int(getattr(self, '_epoch', 0)))
         running = 0.0
         seen = 0
         for samples in loader:
-            batch = self._prepare_batch(samples, rng, 'prior')
+            batch = self._prepare_prior_batch(samples, rng)
             loss = self._prior_loss(model, batch)
             self._prior_optimizer.zero_grad(set_to_none=True)
             loss.backward()
@@ -425,20 +442,169 @@ class A2SAMAdapter(BaselineAdapter):
             seen += len(samples)
         return running / max(seen, 1)
 
-    def _train_sam_epoch(self, model, loader, optimizer, scheduler,
-                         args) -> float:
-        model.train()
+    # ------------------------------------------------------------------
+    # Stage 3: prompt cache / CPS / SAM training
+    # ------------------------------------------------------------------
+    def _sample_uncertainty(self, model, image, probability,
+                            seed: int, morse=None):
+        if morse is None:
+            prob_np = probability[0, 0].detach().cpu().numpy()
+            morse = build_morse_complex(
+                prob_np,
+                backend=str(getattr(
+                    self.args, 'a2sam_topology_backend', 'cripser')),
+                coarse_threshold=float(getattr(
+                    self.args, 'a2sam_coarse_threshold', 0.5)),
+                min_persistence=float(getattr(
+                    self.args, 'a2sam_min_persistence', 1e-3)),
+                max_branches=int(getattr(
+                    self.args, 'a2sam_max_branches', 256)))
+        mu, log_var = model.prior_stats(image, probability)
+        generator = torch.Generator(device='cpu').manual_seed(int(seed))
+        z = int(getattr(self.args, 'a2sam_prior_samples', 5))
+        xi = model.prior.sample_xi(mu, log_var, k=z, generator=generator)
+        candidates = np.stack([
+            f_ms(morse, float(value)) for value in xi[:, 0].detach().cpu()
+        ])
+        uncertainty = uncertainty_from_samples(candidates)
+        return torch.from_numpy(uncertainty).unsqueeze(0), morse, xi
+
+    def _ensure_stage3_cache(self, model, samples: Sequence[Sample]):
+        if self._stage3_cache:
+            return
+        model.eval()
+        model.unet.eval()
         model.prior.eval()
-        rng = random.Random(args.seed + getattr(self, '_epoch', 0))
+        for parameter in model.prior.parameters():
+            parameter.requires_grad_(False)
+        self._prior_frozen = True
+        uncertainty_means = []
+        uncertainty_max = []
+        branch_values = []
+        for sample in samples:
+            cached_unet = self._unet_cache.get(sample.stem)
+            if cached_unet is None:
+                raise RuntimeError(
+                    f'A2SAM stage-3 cache missing for {sample.stem}')
+            image = self._load_image(sample, 1024).unsqueeze(0).to(self.device)
+            with torch.no_grad():
+                logits, probability, y_c = model.coarse(image)
+                uncertainty, _, _ = self._sample_uncertainty(
+                    model, image, probability,
+                    _sample_seed(self.args.seed, sample.stem, 'cache'),
+                    morse=cached_unet['morse'])
+            uncertainty_means.append(float(uncertainty.mean()))
+            uncertainty_max.append(float(uncertainty.max()))
+            branch_values.append(cached_unet['morse'].n_branches)
+            self._stage3_cache[sample.stem] = {
+                'logits': logits[0].detach().cpu(),
+                'y_c': y_c[0].float().detach().cpu(),
+                'uncertainty': uncertainty[0].detach().cpu(),
+                'gt': self._load_mask(sample, None),
+            }
+        if uncertainty_means:
+            print(
+                'A2SAM stage-3 cache: u mean/max='
+                f'{float(np.mean(uncertainty_means)):.4f}/'
+                f'{float(np.max(uncertainty_max)):.4f}, branches='
+                f'{float(np.mean(branch_values)):.1f}')
+        model.train()
+
+    def _prepare_a2sam_batch(self, samples: Sequence[Sample],
+                             rng: random.Random, augment: bool = True):
+        images, uncertainties, coarse_maps, gts = [], [], [], []
+        flip = augment and self._flip_allowed() and rng.random() < 0.5
+        mode = self._fusion_mode()
+        for sample in samples:
+            cached = self._stage3_cache.get(sample.stem)
+            if cached is None:
+                raise RuntimeError(
+                    f'A2SAM stage-3 cache missing for {sample.stem}')
+            image = self._load_image(sample, 1024)
+            uncertainty = cached['uncertainty']
+            coarse = cached['logits'] if mode == 'release' else cached['y_c']
+            gt = cached['gt']
+            if flip:
+                image = torch.flip(image, dims=[-1]).contiguous()
+                uncertainty = torch.flip(
+                    uncertainty, dims=[-1]).contiguous()
+                coarse = torch.flip(coarse, dims=[-1]).contiguous()
+                gt = torch.flip(gt, dims=[-1]).contiguous()
+            images.append(image)
+            uncertainties.append(uncertainty)
+            coarse_maps.append(coarse)
+            gts.append(gt)
+        return {
+            'image': torch.stack(images).to(self.device),
+            'uncertainty': torch.stack(uncertainties).to(self.device),
+            'coarse': torch.stack(coarse_maps).to(self.device),
+            'gt': torch.stack(gts).to(self.device),
+        }
+
+    def _prompt_from_batch(self, model, batch):
+        return model.make_prompt(
+            batch['uncertainty'], batch['coarse'],
+            mode=self._fusion_mode(), detach=self._prompt_detach())
+
+    def _sam_loss(self, model, batch):
+        prompt = self._prompt_from_batch(model, batch)
+        original_size = (batch['gt'].shape[-2], batch['gt'].shape[-1])
+        masks, _, _ = model(batch['image'], prompt, original_size)
+        return (self._bce(masks, batch['gt'])
+                + self._iou(masks, batch['gt'])
+                + TA_WEIGHT * self._ta(masks, batch['gt']))
+
+    def _apply_cps(self, model, samples: Sequence[Sample]):
+        model.eval()
+        model.zero_grad(set_to_none=True)
+        for sample in samples:
+            batch = self._prepare_a2sam_batch(
+                [sample], random.Random(0), augment=False)
+            self._sam_loss(model, batch).backward()
+        candidates = sam_cps_candidates(model)
+        grads = {
+            name: parameter.grad.detach()
+            for name, parameter in candidates.items()
+            if parameter.grad is not None
+        }
+        scores = contrastive_scores(
+            grads, candidates,
+            alpha=float(getattr(self.args, 'a2sam_cps_alpha', 0.4)),
+            mode=self._cps_mode())
+        masks = select_freeze_masks(
+            scores, candidates,
+            keep_ratio=float(getattr(self.args, 'a2sam_keep_ratio', 0.035)),
+            mode=self._cps_mode(),
+            force_image_encoder=self._cps_mode() == 'official')
+        self._cps_stats = zero_cps_gradients(model, masks)
+        self._cps_masks = {
+            name: mask.detach().bool().to(self.device)
+            for name, mask in masks.items()
+        }
+        model.zero_grad(set_to_none=True)
+        model.train()
+        print(
+            'A2SAM CPS: trainable '
+            f'{self._cps_stats["trainable_elements"]:,}/'
+            f'{self._cps_stats["total_elements"]:,} SAM elements '
+            f'({self._cps_stats["trainable_fraction"] * 100:.2f}%)')
+
+    def _train_a2sam_epoch(self, model, loader, optimizer, scheduler,
+                           args) -> float:
+        model.train()
+        model.unet.eval()
+        model.prior.eval()
+        rng = random.Random(int(args.seed) + int(getattr(self, '_epoch', 0)))
         accum = max(int(args.accum_steps), 1)
         pending = 0
         running = 0.0
         seen = 0
         optimizer.zero_grad(set_to_none=True)
         for samples in loader:
-            batch = self._prepare_batch(samples, rng, 'sam')
+            batch = self._prepare_a2sam_batch(samples, rng)
             loss = self._sam_loss(model, batch)
             (loss / accum).backward()
+            zero_cps_gradients(model, self._cps_masks)
             pending += 1
             if pending == accum:
                 if args.grad_clip > 0:
@@ -466,71 +632,149 @@ class A2SAMAdapter(BaselineAdapter):
             scheduler.step()
         return running / max(seen, 1)
 
-    def train_epoch(self, model, loader, optimizer, scheduler, args) -> float:
-        prior_epochs = int(getattr(args, 'a2sam_prior_epochs', 100))
-        epoch = int(getattr(self, '_epoch', 1))
-        if epoch <= prior_epochs:
-            self._stage = 'prior'
-            return self._train_prior_epoch(model, loader, args)
-        self._stage = 'sam'
-        if not self._stage2_ready:
-            self._prepare_stage2(model, loader, args)
-        return self._train_sam_epoch(model, loader, optimizer, scheduler, args)
+    # ------------------------------------------------------------------
+    # Stage dispatch
+    # ------------------------------------------------------------------
+    def _stage_for_epoch(self, epoch: int) -> str:
+        unet_epochs, prior_epochs = self._stage_epochs()
+        if epoch <= unet_epochs:
+            return 'unet'
+        if epoch <= unet_epochs + prior_epochs:
+            return 'prior'
+        return 'a2sam'
 
-    def selection_score(self, metrics, per_dataset):
+    def prepare_train_batch(self, samples, rng):
+        if self._stage == 'unet':
+            return self._prepare_unet_batch(samples, rng)
         if self._stage == 'prior':
-            # Avoid selecting a random-SAM stage-1 checkpoint, but keep the
-            # value finite so the history JSON remains strict.
-            return -1e6
-        return super().selection_score(metrics, per_dataset)
+            return self._prepare_prior_batch(samples, rng)
+        return self._prepare_a2sam_batch(samples, rng)
+
+    def train_step(self, model, batch):
+        if self._stage == 'unet':
+            return self._unet_loss(model, batch)
+        if self._stage == 'prior':
+            return self._prior_loss(model, batch)
+        return self._sam_loss(model, batch)
+
+    def train_epoch(self, model, loader, optimizer, scheduler, args) -> float:
+        epoch = int(getattr(self, '_epoch', 1))
+        stage = self._stage_for_epoch(epoch)
+        self._stage = stage
+        if stage == 'unet':
+            return self._train_unet_epoch(model, loader, args)
+        if stage == 'prior':
+            return self._train_prior_epoch(model, loader, args)
+        samples = list(loader.dataset.samples)
+        if not self._unet_frozen:
+            for parameter in model.unet.parameters():
+                parameter.requires_grad_(False)
+            self._unet_frozen = True
+        if not self._unet_cache:
+            self._ensure_unet_cache(model, samples)
+        if not self._stage3_ready:
+            self._ensure_stage3_cache(model, samples)
+            self._apply_cps(model, samples)
+            self._stage3_ready = True
+        return self._train_a2sam_epoch(
+            model, loader, optimizer, scheduler, args)
+
+    def checkpoint_eligible(self, epoch: int) -> bool:
+        del epoch
+        return self._stage == 'a2sam'
 
     # ------------------------------------------------------------------
     # Evaluation / prediction
     # ------------------------------------------------------------------
+    def begin_prediction(self):
+        super().begin_prediction()
+        self._eval_cache = {}
+
     def prepare_eval_sample(self, sample: Sample, device):
         image = self._load_image(sample, 1024).unsqueeze(0).to(device)
-        prior_image = self._load_image(sample, 512).unsqueeze(0).to(device)
         with Image.open(sample.mask_path) as mask:
             width, height = mask.size
         return {
             'image': image,
-            'prior_image': prior_image,
             'size': (int(height), int(width)),
+            'seed': _sample_seed(
+                getattr(self.args, 'seed', 42), sample.stem, 'predict'),
         }
 
-    @torch.no_grad()
+    def _predict_coarse(self, model, prepared):
+        with torch.no_grad():
+            _, probability, _ = model.coarse(prepared['image'])
+        probability = F.interpolate(
+            probability, size=prepared['size'], mode='bilinear',
+            align_corners=False)
+        return (probability[0, 0] > 0.5).cpu().numpy()
+
+    def _predict_a2sam(self, model, prepared, sample):
+        cached = None if self.prediction_mode else self._eval_cache.get(
+            sample.stem)
+        if cached is None:
+            image = prepared['image']
+            with torch.no_grad():
+                logits, probability, y_c = model.coarse(image)
+                uncertainty, _, _ = self._sample_uncertainty(
+                    model, image, probability, prepared['seed'])
+            cached = {
+                'logits': logits[0].detach().cpu(),
+                'y_c': y_c[0].float().detach().cpu(),
+                'uncertainty': uncertainty[0].detach().cpu(),
+            }
+            if not self.prediction_mode:
+                self._eval_cache[sample.stem] = cached
+        mode = self._fusion_mode()
+        coarse = cached['logits'] if mode == 'release' else cached['y_c']
+        with torch.no_grad():
+            prompt = model.make_prompt(
+                cached['uncertainty'].unsqueeze(0).to(self.device),
+                coarse.unsqueeze(0).to(self.device),
+                mode=mode, detach=False)
+            masks, _, _ = model(
+                prepared['image'], prompt, prepared['size'])
+        return (masks.sigmoid()[0, 0] > 0.5).cpu().numpy()
+
     def predict_sample(self, model, prepared, sample):
         model.eval()
-        model.prior.eval()
-        probability, uncertainty = self._prior_outputs(
-            model.prior, prepared['prior_image'])
-        masks, _, _ = model(
-            prepared['image'], probability, uncertainty, prepared['size'])
-        return (masks.sigmoid()[0, 0].cpu().numpy() > 0.5)
+        if self._stage != 'a2sam':
+            return self._predict_coarse(model, prepared)
+        return self._predict_a2sam(model, prepared, sample)
 
     # ------------------------------------------------------------------
-    # Checkpoint / config
+    # Config
     # ------------------------------------------------------------------
     def save_config(self, args):
         return {
             'input_size': int(self.input_size),
+            'unet_epochs': int(getattr(args, 'a2sam_unet_epochs', 100)),
             'prior_epochs': int(getattr(args, 'a2sam_prior_epochs', 100)),
+            'unet_lr': float(getattr(args, 'a2sam_unet_lr', 1e-3)),
             'prior_lr': float(getattr(args, 'a2sam_prior_lr', 1e-3)),
-            'prior_beta': float(getattr(args, 'a2sam_prior_beta', 1e-5)),
-            'prior_base': int(getattr(args, 'a2sam_prior_base', 32)),
-            'latent_dim': int(getattr(args, 'a2sam_latent_dim', 16)),
             'prior_samples': int(getattr(args, 'a2sam_prior_samples', 5)),
             'keep_ratio': float(getattr(args, 'a2sam_keep_ratio', 0.035)),
             'cps_alpha': float(getattr(args, 'a2sam_cps_alpha', 0.4)),
-            'cps_batches': int(getattr(args, 'a2sam_cps_batches', 0)),
-            'thickness_weight': float(getattr(
-                args, 'a2sam_thickness_weight', 0.7)),
-            'spg_points': int(getattr(args, 'a2sam_spg_points', 512)),
-            'spg_stride': int(getattr(args, 'a2sam_spg_stride', 3)),
-            'spg_hidden': int(getattr(args, 'a2sam_spg_hidden', 32)),
-            'persistence': float(getattr(args, 'a2sam_persistence', 5.0)),
-            'relative_persistence': float(getattr(
-                args, 'a2sam_relative_persistence', 0.1)),
+            'cps_mode': str(getattr(args, 'a2sam_cps_mode', 'official')),
+            'ta_mode': str(getattr(args, 'a2sam_ta_mode', 'paper')),
+            'fusion_inputs': str(getattr(
+                args, 'a2sam_fusion_inputs', 'release')),
+            'prompt_detach': bool(getattr(
+                args, 'a2sam_prompt_detach', False)),
+            'topology_backend': str(getattr(
+                args, 'a2sam_topology_backend', 'cripser')),
+            'coarse_threshold': float(getattr(
+                args, 'a2sam_coarse_threshold', 0.5)),
+            'min_persistence': float(getattr(
+                args, 'a2sam_min_persistence', 1e-3)),
+            'max_branches': int(getattr(
+                args, 'a2sam_max_branches', 256)),
+            'prior_grid_size': int(getattr(
+                args, 'a2sam_prior_grid_size', 32)),
+            'optimizer_mode': str(getattr(
+                args, 'a2sam_optimizer', 'adamw')),
+            'release_parity': bool(getattr(
+                args, 'a2sam_release_parity', False)),
             'sam_checkpoint': self._sam_ckpt,
             'sam_sha256': self._sam_sha,
             'augment': not bool(getattr(
@@ -542,25 +786,30 @@ class A2SAMAdapter(BaselineAdapter):
     def restore_config(self, args, config):
         mappings = {
             'input_size': 'input_size',
+            'unet_epochs': 'a2sam_unet_epochs',
             'prior_epochs': 'a2sam_prior_epochs',
+            'unet_lr': 'a2sam_unet_lr',
             'prior_lr': 'a2sam_prior_lr',
-            'prior_beta': 'a2sam_prior_beta',
-            'prior_base': 'a2sam_prior_base',
-            'latent_dim': 'a2sam_latent_dim',
             'prior_samples': 'a2sam_prior_samples',
             'keep_ratio': 'a2sam_keep_ratio',
             'cps_alpha': 'a2sam_cps_alpha',
-            'cps_batches': 'a2sam_cps_batches',
-            'thickness_weight': 'a2sam_thickness_weight',
-            'spg_points': 'a2sam_spg_points',
-            'spg_stride': 'a2sam_spg_stride',
-            'spg_hidden': 'a2sam_spg_hidden',
-            'persistence': 'a2sam_persistence',
-            'relative_persistence': 'a2sam_relative_persistence',
+            'cps_mode': 'a2sam_cps_mode',
+            'ta_mode': 'a2sam_ta_mode',
+            'fusion_inputs': 'a2sam_fusion_inputs',
+            'topology_backend': 'a2sam_topology_backend',
+            'coarse_threshold': 'a2sam_coarse_threshold',
+            'min_persistence': 'a2sam_min_persistence',
+            'max_branches': 'a2sam_max_branches',
+            'prior_grid_size': 'a2sam_prior_grid_size',
+            'optimizer_mode': 'a2sam_optimizer',
         }
         for key, attribute in mappings.items():
             if key in config:
                 setattr(args, attribute, config[key])
+        if 'prompt_detach' in config:
+            args.a2sam_prompt_detach = bool(config['prompt_detach'])
+        if 'release_parity' in config:
+            args.a2sam_release_parity = bool(config['release_parity'])
         if 'input_size' in config:
             self.input_size = int(config['input_size'])
         if config.get('sam_checkpoint'):

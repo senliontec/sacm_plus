@@ -41,7 +41,7 @@
 | Adapter id | 模型 | 3rd 代码目录 | parsing 论文目录 | 备注 |
 |---|---|---|---|---|
 | `aco_moe_lora` | ACO-MoE-LoRA | `3rd/ACO-MoE-LoRA` | `parsing/[2026 icml] ACO-MoE-LoRA: Evolving-while-Training for Adapting Segment Anything Model 2 to Specialized Domains` | SAM2 Hiera-L + dynamic LoRA + ACO/MoE decoder；上游无 LICENSE |
-| `a2sam` | A2SAM | `3rd/A2SAM` | 未收录（MIA 2026，本地无全文） | SAM ViT-B + SPG + CPS；论文级 prior/SPG 重实现 |
+| `a2sam` | A2SAM (MIA 2026) | `3rd/A2SAM` | `parsing/[2026 MIA] Informativeness-driven active adaptation of SAM: Structural prompts and contrastive parameter selection for medical tubular segmentation` | 官方 SAM/prompt fusion/CPS/TA + 论文级 U-Net/prior + cripser persistence/Morse 重建；见 `docs/A2SAM_FIDELITY.md`；勿与 `3rd/a2sam` (NeurIPS 2024) 混淆 |
 | `sam_med2d` | SAM-Med2D | `3rd/SAM-Med2D` | 未收录 | 官方 SAM-Med2D checkpoint 缺失；当前为 ViT-L 二值适配 |
 | `sam_octa` | SAM-OCTA | `3rd/SAM-OCTA` | 未收录 | 上游 URL 未记录；另有 `3rd/sam-octa2` 参考 |
 | `cwsam` | CWSAM | `3rd/CWSAM` | 未收录 | ClassWise-SAM-Adapter；ViT-L、二值 2-class 适配 |
