@@ -255,6 +255,28 @@ def test_nnwnet_channel_policy_default_and_cli():
     assert parser.parse_args([]).nnwnet_channels == 'rgb'
     assert parser.parse_args(
         ['--nnwnet-channels', 'grayscale']).nnwnet_channels == 'grayscale'
+    assert parser.parse_args([]).nnwnet_val_interval == 1
+
+
+def test_nnwnet_aggregates_shared_metrics():
+    from baseline_zoo.adapters.nnwnet import NNWNetAdapter
+
+    rows = [
+        ('A', {'dice': 0.5, 'iou': 0.3, 'cldice': float('nan'),
+               'hd95': 10.0, 'empty': False}),
+        ('A', {'dice': 0.7, 'iou': 0.5, 'cldice': 0.4,
+               'hd95': 8.0, 'empty': True}),
+        ('B', {'dice': 0.2, 'iou': 0.1, 'cldice': 0.2,
+               'hd95': 20.0, 'empty': False}),
+    ]
+    metrics, per_dataset = NNWNetAdapter._aggregate_shared_metrics(rows)
+    assert metrics['dice'] == pytest.approx((0.5 + 0.7 + 0.2) / 3)
+    assert metrics['iou'] == pytest.approx((0.3 + 0.5 + 0.1) / 3)
+    assert metrics['cldice'] == pytest.approx((0.4 + 0.2) / 2)
+    assert metrics['hd95'] == pytest.approx((10 + 8 + 20) / 3)
+    assert metrics['empty_prediction_rate'] == pytest.approx(1 / 3)
+    assert per_dataset['A']['dice'] == pytest.approx(0.6)
+    assert per_dataset['B']['hd95'] == pytest.approx(20.0)
 
 
 def test_nnwnet_grayscale_staging(tmp_path):
@@ -369,6 +391,9 @@ def test_nnwnet_discovers_checkpoint_extension(tmp_path):
     fold.mkdir()
     (fold / 'checkpoint_best.pth').write_bytes(b'pth')
     assert adapter._find_checkpoint(tmp_path, 'best').name == 'checkpoint_best.pth'
+    (fold / 'checkpoint_benchmark_best.pth').write_bytes(b'bench')
+    assert adapter._find_checkpoint(
+        tmp_path, 'benchmark_best').name == 'checkpoint_benchmark_best.pth'
     (fold / 'checkpoint_best.pth').unlink()
     (fold / 'checkpoint_best.safetensors').write_bytes(b'safe')
     assert adapter._find_checkpoint(tmp_path, 'best').name == \

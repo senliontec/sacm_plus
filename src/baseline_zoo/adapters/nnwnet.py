@@ -22,7 +22,7 @@ import torch
 from PIL import Image
 
 from baseline_zoo.data import RawPairDataset, load_mask, load_rgb, load_split_samples
-from baseline_zoo.runtime import BaselineAdapter, file_sha256
+from baseline_zoo.runtime import BaselineAdapter, binary_metrics, file_sha256
 from core.wandb_utils import (
     finish_run,
     log_artifact,
@@ -80,8 +80,15 @@ class NNWNetAdapter(BaselineAdapter):
         'choices or normalization statistics.',
         'The official 2D trainer recipe (SGD 1e-2, AMP, deep supervision, '
         'sliding-window/TTA inference) is kept; the official 200-epoch '
-        'default is replaced by the shared 800-epoch budget. Checkpoint '
-        'selection is nnU-Net EMA pseudo-Dice on the val split.',
+        'default is replaced by the shared 800-epoch budget. Every '
+        '--nnwnet-val-interval epochs the adapter runs full-image nnU-Net '
+        'validation and shared Dice/IoU/clDice/HD95; checkpoint selection '
+        'uses the shared validation Dice. nnU-Net patch-based EMA pseudo '
+        'Dice is logged only under nnunet/*.',
+        'The training W&B run uses the shared run_config fields and the '
+        'standard val/* scalar/per-dataset schema at full-validation '
+        'epochs. Off-interval epochs log train/loss, lr and nnunet/* only; '
+        'the final epoch is always fully validated.',
         'The adapter seeds Python/NumPy/Torch before training, but nnU-Net '
         'may use additional internal RNGs; --seed is not a bitwise guarantee.',
         '--resume is rejected because nnU-Net continue-training is not wired '
@@ -119,6 +126,12 @@ class NNWNetAdapter(BaselineAdapter):
                  'converts every case to one channel for all-grayscale '
                  'protocols. A single nnU-Net dataset cannot mix 1/3 '
                  'channels.')
+        parser.add_argument(
+            '--nnwnet-val-interval', type=int, default=1,
+            help='run full-image shared validation and val-Dice checkpoint '
+                 'selection every N epochs (default 1 for fully unified '
+                 'curves; increase to reduce validation cost); the final '
+                 'epoch is always validated')
 
     # ---- staging ------------------------------------------------------
     @staticmethod
@@ -268,6 +281,73 @@ class NNWNetAdapter(BaselineAdapter):
             else:
                 shutil.rmtree(path, ignore_errors=True)
 
+    @staticmethod
+    def _mean(values):
+        finite = [float(value) for value in values
+                  if value is not None and np.isfinite(value)]
+        return float(np.mean(finite)) if finite else float('nan')
+
+    @classmethod
+    def _aggregate_shared_metrics(cls, rows):
+        """Aggregate per-case shared-evaluator metrics.
+
+        ``rows`` is a sequence of ``(dataset, binary_metrics_dict)``.
+        """
+        metric_names = ('dice', 'iou', 'cldice', 'hd95')
+        overall = {name: [] for name in metric_names}
+        per_dataset = {}
+        empty = []
+        for dataset, values in rows:
+            bucket = per_dataset.setdefault(
+                dataset, {name: [] for name in metric_names})
+            for name in metric_names:
+                value = values.get(name)
+                if value is not None and np.isfinite(value):
+                    overall[name].append(float(value))
+                    bucket[name].append(float(value))
+            empty.append(bool(values.get('empty', False)))
+        metrics = {
+            name: cls._mean(overall[name]) for name in metric_names}
+        metrics['empty_prediction_rate'] = (
+            float(np.mean(empty)) if empty else float('nan'))
+        datasets = {}
+        for dataset, values in per_dataset.items():
+            datasets[dataset] = {
+                name: cls._mean(values[name]) for name in metric_names}
+        return metrics, datasets
+
+    def _shared_full_validation(self, trainer, val_case_samples):
+        """Run nnU-Net full-image validation and the shared evaluator."""
+        validation_dir = Path(trainer.output_folder) / 'validation'
+        shutil.rmtree(validation_dir, ignore_errors=True)
+        trainer.perform_actual_validation(save_probabilities=False)
+        trainer.network.train()
+        file_ending = str(
+            trainer.dataset_json.get('file_ending', '.png'))
+        _, val_keys = trainer.do_split()
+        rows = []
+        for case in val_keys:
+            sample = val_case_samples.get(case)
+            if sample is None:
+                raise SystemExit(
+                    f'nnWNet validation case {case!r} has no source sample')
+            prediction_path = validation_dir / f'{case}{file_ending}'
+            if not prediction_path.is_file():
+                raise SystemExit(
+                    f'nnWNet full validation did not write '
+                    f'{prediction_path}')
+            prediction = np.asarray(
+                Image.open(prediction_path).convert('L')) > 0
+            ground_truth = load_mask(sample.mask_path)
+            if prediction.shape != ground_truth.shape:
+                prediction = np.asarray(Image.fromarray(
+                    prediction.astype(np.uint8) * 255).resize(
+                        (ground_truth.shape[1], ground_truth.shape[0]),
+                        Image.NEAREST)) > 127
+            rows.append((sample.dataset,
+                         binary_metrics(prediction, ground_truth)))
+        return self._aggregate_shared_metrics(rows)
+
     def run_training(self, args):
         if args.resume:
             raise SystemExit(
@@ -296,6 +376,10 @@ class NNWNetAdapter(BaselineAdapter):
         if channels not in ('rgb', 'grayscale'):
             raise SystemExit(
                 f'unsupported --nnwnet-channels: {channels!r}')
+        val_interval = int(getattr(args, 'nnwnet_val_interval', 1))
+        if val_interval < 1:
+            raise SystemExit(
+                '--nnwnet-val-interval must be >= 1')
         (workdir / 'nnunet_channels.txt').write_text(channels + '\n')
         nn_root, env = self._init_env(workdir)
         # A reused workdir must not mix old results/checkpoints, raw PNGs or
@@ -329,6 +413,8 @@ class NNWNetAdapter(BaselineAdapter):
         train_cases, val_cases = self._stage_raw(
             nn_root / 'raw', Path(args.data_root), include_val=True,
             channels=channels)
+        val_samples = load_split_samples(Path(args.data_root), 'val')
+        val_case_samples = dict(zip(val_cases, val_samples))
         # DefaultPreprocessor reads preprocessed/dataset.json, not the raw
         # copy.  The planning pass wrote the 18-case file; refresh it to the
         # 24-case raw metadata before the second preprocessing pass.
@@ -360,27 +446,6 @@ class NNWNetAdapter(BaselineAdapter):
             str(nn_root / 'raw' / DATASET_NAME / 'dataset.json'))
         plan_config = plans.get('configurations', {}).get('2d', {})
         actual_batch = int(plan_config.get('batch_size', args.batch_size))
-        run_config = {
-            'method': self.id,
-            'official_source': self.official_source,
-            'deviations': list(self.deviations),
-            'data_root': str(args.data_root),
-            'dataset': DATASET_NAME,
-            'train_cases': len(train_cases),
-            'val_cases': len(val_cases),
-            'epochs': args.epochs,
-            'batch_size': actual_batch,
-            'patch_size': list(plan_config.get('patch_size', [])),
-            'effective_batch_size': actual_batch,
-            'channel_mode': channels,
-            'seed': args.seed,
-            'selection': 'nnU-Net EMA pseudo-Dice (official)',
-            'val_dice_source': 'nnU-Net mean_fg_dice (patch-based pseudo Dice); '
-                               'IoU/clDice/HD95 are computed by the final '
-                               'evaluator',
-        }
-        run = setup_wandb(args, name=f'nnwnet-seed{args.seed}',
-                          config=run_config)
 
         # nnU-Net's own CLI injects these before constructing the trainer.
         plans.setdefault('plans_name', 'nnUNetPlans')
@@ -413,19 +478,69 @@ class NNWNetAdapter(BaselineAdapter):
         num_params = sum(p.numel() for p in trainer.network.parameters())
         trainable = sum(p.numel() for p in trainer.network.parameters()
                         if p.requires_grad)
+        split_manifest = Path(args.data_root) / 'split_manifest.csv'
+        split_sha256 = (file_sha256(split_manifest)
+                        if split_manifest.is_file() else None)
+        run_config = {
+            'method': self.id,
+            'display_name': self.display_name,
+            'official_source': self.official_source,
+            'official_entrypoint': self.official_entrypoint,
+            'deviations': list(self.deviations),
+            'data_root': str(args.data_root),
+            'train_images': len(train_cases),
+            'val_images': len(val_cases),
+            'epochs': args.epochs,
+            'batch_size': actual_batch,
+            'accum_steps': 1,
+            'effective_batch_size': actual_batch,
+            'lr': float(args.lr),
+            'weight_decay': float(args.weight_decay),
+            'input_size': list(plan_config.get('patch_size', [])),
+            'adapter_config': {
+                'channels': channels,
+                'val_interval': val_interval,
+            },
+            'selection': args.selection,
+            'selection_source': 'shared validation Dice (full image)',
+            'seed': args.seed,
+            'optimizer': type(trainer.optimizer).__name__,
+            'scheduler': (type(trainer.lr_scheduler).__name__
+                          if trainer.lr_scheduler is not None else None),
+            'scheduler_override': 'official',
+            'warmup_epochs': None,
+            'split_manifest_sha256': split_sha256,
+            'num_params': num_params,
+            'trainable_params': trainable,
+            'dataset': DATASET_NAME,
+            'train_cases': len(train_cases),
+            'val_cases': len(val_cases),
+            'patch_size': list(plan_config.get('patch_size', [])),
+            'channel_mode': channels,
+            'val_interval': val_interval,
+            'val_dice_source': (
+                'shared evaluator: full-image nnU-Net validation every '
+                f'{val_interval} epochs'),
+        }
+        run = setup_wandb(args, name=f'nnwnet-seed{args.seed}',
+                          config=run_config)
         from core.console import console
 
         for deviation in self.deviations:
             console.print(f' [yellow]deviation:[/] {deviation}')
         print_epoch_header(self, args.epochs, args.seed, device,
                            num_params, trainable)
-        print('note: Dice is nnU-Net pseudo Dice (patch-based); '
-              'IoU/clDice/HD95 are computed by the final evaluator.',
-              flush=True)
+        print(f'note: full-image shared validation every {val_interval} '
+              'epochs; off-interval rows show only train/loss. nnU-Net '
+              'patch pseudo Dice is logged under nnunet/*.', flush=True)
+        benchmark_ckpt = (
+            Path(trainer.output_folder) / 'checkpoint_benchmark_best.pth')
 
         from types import MethodType
 
         original_on_epoch_end = trainer.on_epoch_end
+        best_shared = -float('inf')
+        best_shared_epoch = 0
 
         def _last_scalar(key):
             try:
@@ -439,24 +554,63 @@ class NNWNetAdapter(BaselineAdapter):
                 return None
             return float(array.reshape(-1)[-1])
 
-        def _on_epoch_end(self):
-            epoch = int(self.current_epoch) + 1
+        def _shared_scalars(shared_metrics, shared_per_dataset):
+            scalars = {
+                'val/selection': shared_metrics['dice'],
+                'val/dice': shared_metrics['dice'],
+                'val/iou': shared_metrics['iou'],
+                'val/cldice': shared_metrics['cldice'],
+                'val/hd95': shared_metrics['hd95'],
+                'val/empty_prediction_rate': shared_metrics[
+                    'empty_prediction_rate'],
+            }
+            for dataset, values in shared_per_dataset.items():
+                for metric in ('dice', 'iou', 'cldice', 'hd95'):
+                    scalars[f'val/{dataset}/{metric}'] = values[metric]
+            return scalars
+
+        def _run_shared_validation(epoch):
+            nonlocal best_shared, best_shared_epoch
+            shared_metrics, shared_per_dataset = (
+                self._shared_full_validation(trainer, val_case_samples))
+            dice = shared_metrics['dice']
+            if np.isfinite(dice) and dice > best_shared:
+                best_shared = dice
+                best_shared_epoch = epoch
+                trainer.save_checkpoint(str(benchmark_ckpt))
+                print(f'  shared-val best: epoch {epoch} dice={dice:.4f} '
+                      f'-> {benchmark_ckpt.name}', flush=True)
+            return shared_metrics, shared_per_dataset
+
+        def _on_epoch_end(trainer_self):
+            epoch = int(trainer_self.current_epoch) + 1
             train_loss = _last_scalar('train_losses')
-            val_loss = _last_scalar('val_losses')
-            dice = _last_scalar('mean_fg_dice')
-            ema = _last_scalar('ema_fg_dice')
-            lr = float(self.optimizer.param_groups[0]['lr'])
+            pseudo_loss = _last_scalar('val_losses')
+            pseudo_dice = _last_scalar('mean_fg_dice')
+            ema_dice = _last_scalar('ema_fg_dice')
+            lr = float(trainer_self.optimizer.param_groups[0]['lr'])
             start = _last_scalar('epoch_start_timestamps')
             elapsed = (time.time() - start) if start is not None else 0.0
-            previous_best = getattr(self, '_best_ema', None)
-            improved = (ema is not None
-                        and (previous_best is None or ema > previous_best))
-            table_metrics = {
-                'dice': float('nan') if dice is None else dice,
-                'iou': float('nan'),
-                'cldice': float('nan'),
-                'hd95': float('nan'),
-            }
+
+            do_full_val = (epoch % val_interval == 0
+                           or epoch == int(args.epochs))
+            shared_metrics = None
+            shared_per_dataset = None
+            if do_full_val:
+                shared_metrics, shared_per_dataset = (
+                    _run_shared_validation(epoch))
+                table_metrics = shared_metrics
+                improved = (np.isfinite(shared_metrics['dice'])
+                            and shared_metrics['dice'] == best_shared)
+            else:
+                table_metrics = {
+                    'dice': float('nan'),
+                    'iou': float('nan'),
+                    'cldice': float('nan'),
+                    'hd95': float('nan'),
+                }
+                improved = False
+
             print_epoch_row(
                 epoch,
                 float('nan') if train_loss is None else train_loss,
@@ -466,20 +620,21 @@ class NNWNetAdapter(BaselineAdapter):
                 'epoch': epoch,
                 'train/loss': train_loss,
                 'lr': lr,
-                'val/selection': ema if ema is not None else dice,
-                'val/dice': dice,
-                'val/loss': val_loss,
-                'val/pseudo_dice': dice,
-                'val/ema_pseudo_dice': ema,
+                'nnunet/patch_pseudo_dice': pseudo_dice,
+                'nnunet/ema_patch_pseudo_dice': ema_dice,
+                'nnunet/val_pseudo_loss': pseudo_loss,
             }
             scalars = {key: value for key, value in scalars.items()
                        if value is not None}
+            if shared_metrics is not None:
+                scalars.update(_shared_scalars(
+                    shared_metrics, shared_per_dataset))
             for key in ('train_losses', 'val_losses', 'ema_fg_dice'):
                 value = _last_scalar(key)
                 if value is not None:
                     scalars[f'nnunet/{key}'] = value
             try:
-                dice_values = self.logger.get_value(
+                dice_values = trainer_self.logger.get_value(
                     'dice_per_class_or_region', step=-1)
                 if dice_values is not None:
                     values = np.asarray(dice_values).reshape(-1)
@@ -494,9 +649,14 @@ class NNWNetAdapter(BaselineAdapter):
 
         trainer.on_epoch_end = MethodType(_on_epoch_end, trainer)
 
-        trainer.run_training()
+        try:
+            trainer.run_training()
+        except BaseException:
+            finish_run(run)
+            raise
         print_epoch_footer()
 
+        model_dir = Path(trainer.output_folder_base)
         logs = getattr(trainer.logger, 'my_fantastic_logging', {})
         if run is not None:
             scalars = {}
@@ -504,17 +664,25 @@ class NNWNetAdapter(BaselineAdapter):
                 values = logs.get(key)
                 if values:
                     scalars[f'nnunet/{key}'] = float(values[-1])
+            if best_shared_epoch:
+                scalars['val/final_best_epoch'] = best_shared_epoch
+                scalars['val/final_best_dice'] = best_shared
             log_scalars(run, scalars)
-            best = self._find_checkpoint(
-                Path(trainer.output_folder_base), 'best')
-            if best is not None:
-                log_artifact(run, best, name=f'nnwnet-seed{args.seed}',
-                             artifact_type='model')
+            if getattr(args, 'wandb_log_artifact', False):
+                best = self._find_checkpoint(
+                    model_dir, 'benchmark_best')
+                if best is None:
+                    best = self._find_checkpoint(model_dir, 'best')
+                if best is not None:
+                    log_artifact(
+                        run, best, name=f'nnwnet-seed{args.seed}',
+                        artifact_type='model')
         finish_run(run)
 
-        model_dir = Path(trainer.output_folder_base)
         (workdir / 'nnunet_model_dir.txt').write_text(str(model_dir) + '\n')
         (model_dir / 'benchmark_channels.txt').write_text(channels + '\n')
+        (model_dir / 'benchmark_run_config.json').write_text(
+            json.dumps(run_config, indent=2) + '\n')
         return model_dir
 
     # ---- official inference ------------------------------------------
@@ -555,7 +723,9 @@ class NNWNetAdapter(BaselineAdapter):
             perform_everything_on_device=False,
             device=device, verbose=False,
             allow_tqdm=True)
-        resolved = self._find_checkpoint(model_dir, 'best')
+        resolved = self._find_checkpoint(model_dir, 'benchmark_best')
+        if resolved is None:
+            resolved = self._find_checkpoint(model_dir, 'best')
         if resolved is None:
             resolved = self._find_checkpoint(model_dir, 'final')
         if resolved is None:

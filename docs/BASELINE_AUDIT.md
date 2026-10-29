@@ -22,7 +22,7 @@ collector and report pipeline.
 | CS2Net-2D (`cs2net`) | OK, identity clarified | official 2D branch `model/csnet.py` + `train.py`; `model/csnet_3d.py` is the separate 3D CS2Net extension and is not applicable to 2D protocol images; LambdaLR one-epoch offset matches upstream |
 | BCUNet (`bcunet`) | OK, paper profile | MRL/RecallCE on ConvNeXt/U-Net/fused, 0.5/0.5 fusion, bilinear U-Net (broken release branch repaired), 18× offline augmentation reconstruction, 100 epochs/batch 2; CE/0.4-0.6/no-aug ablations; OutConv 1×1 logits |
 | MaskVSC (`maskvsc`) | OK, full two-stage release main | stage-1 UNet + stage-2 ViG completion (`ViG(Seg(image))`); official patch16 token-fold decode, soft GCN labels, ViG 23.84M/full 31.61M; main baseline release L_C/flip-only/dot-product KNN; paper L_C/rotation/Euclidean are ablations because paper L_C overweights sparse domains (10-100× BCE) and collapsed CORN/CrackTree/DCA1 (100-epoch seed-0 A/B: release 0.4612/0.4726 vs paper 0.1133/0.1636); patch32 `coherent` ablation; pooled 512 / 600+200 |
-| nnWNet (`nnwnet`) | OK with documented protocol deviation | WNet 7.04M matches CVPR 2025 paper; nnU-Net 2.8.1 (paper 2.3.1) retained for nnunet2d compatibility; project 800/18-6/shared metrics; paper 200/5-fold/ASD documented; train-only planning; stale results/checkpoints/prediction dirs cleared; resume rejected |
+| nnWNet (`nnwnet`) | OK with documented protocol deviation | WNet 7.04M matches CVPR 2025 paper; nnU-Net 2.8.1 (paper 2.3.1) retained for nnunet2d compatibility; project 800/18-6/shared metrics; full-image shared validation + val-Dice selection every epoch (interval default 1); W&B config/scalars unified with shared schema; patch pseudo-Dice only under `nnunet/*`; train-only planning; stale results/prediction dirs cleared; resume rejected |
 | SAM-Med2D (`sam_med2d`) | OK with official ViT-B checkpoint | default loads `sam-med2d_b.pth` at 256 with Adapter; full decoder inheritance and regression tests; ViT-L only an explicit comparison |
 | SAM-OCTA (`sam_octa`) | OK | removed pre-model padding; SAM now records the pre-pad size and crops postprocess correctly for non-square images |
 | CWSAM (`cwsam`) | OK | bilinear image resize matches `transforms.Resize`; UPSTREAM checkpointing claims corrected |
@@ -90,8 +90,10 @@ Not unified, by design or documented exception:
 
 - Model-internal input size, normalization, channel order, augmentation and
   prompt type differ because each model follows its official recipe.
-- `nnWNet` uses an nnU-Net model-folder checkpoint and EMA pseudo-Dice
-  selection; `KnowSAM` uses an SGDL-only checkpoint and its official
+- `nnWNet` uses an nnU-Net model folder with a
+  `checkpoint_benchmark_best.pth` selected by full-image shared validation
+  Dice every 10 epochs; patch-based EMA pseudo-Dice is logged only under
+  `nnunet/*`. `KnowSAM` uses an SGDL-only checkpoint and its official
   validation; `SAM ViT-L + U-Net` stores a decoder-only state dict. The
   runner handles all three explicitly.
 - SAM-Med2D/SAM-OCTA evaluation uses GT box/point prompts (oracle), so they

@@ -31,6 +31,29 @@ signature. The paper's 5-fold/ASD protocol is not implemented because the
 benchmark has one fixed 18/6 split and a shared metric set. These are
 documented deviations, not claims of paper-table reproduction.
 
+## Monitoring and checkpoint selection
+
+The training W&B run now uses the shared run_config fields and the same
+`val/*` schema as other baselines at full-validation epochs:
+
+- every `--nnwnet-val-interval` epochs (default **1**, fully per-epoch
+  curves), the adapter runs nnU-Net full-image validation (sliding window +
+  TTA) on the 6 val cases;
+- predictions are evaluated with the shared `binary_metrics`
+  (Dice/IoU/clDice/HD95 and per-dataset keys);
+- checkpoint selection uses the shared full-image validation Dice and writes
+  `checkpoint_benchmark_best.pth`; prediction prefers that checkpoint, then
+  falls back to nnU-Net `checkpoint_best`/`checkpoint_final`;
+- nnU-Net's patch-based EMA pseudo-Dice remains logged only under
+  `nnunet/*`; it is not used for selection;
+- off-interval epochs log `train/loss`, `lr` and `nnunet/*`; the final epoch
+  is always fully validated.
+
+Full validation adds nnU-Net inference time every N epochs. The default
+`--nnwnet-val-interval 1` matches the per-epoch schema of other baselines;
+set a larger value to reduce cost (off-interval rows then show train/loss
+only). The final epoch is always validated.
+
 - Files copied:
   - `nnUNetTrainer_WNet2D.py` -> `trainer.py` (constructor adjusted to the
     nnU-Net 2.8.1 base signature; training logic/losses unchanged)

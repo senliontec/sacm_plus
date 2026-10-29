@@ -103,7 +103,10 @@ From this file's directory: `../../../../3rd`
   Benchmark`. WNet matches the paper (7.04M parameters); the project uses
   nnU-Net 2.8.1, 800 epochs, 18/6 one-fold and shared metrics, while the
   paper uses 2.3.1, 200 epochs, 5-fold and Jaccard/Dice/95HD/ASD. These are
-  documented deviations; see `models/nnwnet/UPSTREAM.md`.
+  documented deviations; every epoch (default interval 1) it runs full-image shared
+  validation (Dice/IoU/clDice/HD95 + per-dataset) and selects by val Dice,
+  while patch pseudo-Dice is logged only under `nnunet/*`. See
+  `models/nnwnet/UPSTREAM.md`.
 - `kprism`: upstream is the whole `3rd/K-Prism` tree (commit `78c3b1b`,
   MIT). The port copies `kprism/modeling/{backbone,pixel_fuser,meta_arch,
   point_encoder,transformer_decoder,loss.py}`; the in-context
