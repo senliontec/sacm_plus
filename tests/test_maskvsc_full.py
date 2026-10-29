@@ -319,12 +319,32 @@ def test_paper_mode_config_roundtrip():
     args.maskvsc_vig_graph = 'paper'
     adapter._apply_arch(args)
     config = adapter.save_config(args)
+    target_adapter = MaskVSCAdapter()
     target = _training_args(None, None)
-    adapter.restore_config(target, config)
+    target_adapter.restore_config(target, config)
     assert target.maskvsc_connect_loss == 'paper'
     assert target.maskvsc_connect_cap == 1.0
     assert target.maskvsc_rotation_degrees == 30.0
     assert target.maskvsc_vig_graph == 'paper'
+    assert target_adapter._use_vig is True
+
+    adapter._use_vig = False
+    config = adapter.save_config(args)
+    assert config['use_vig'] is False
+    target_adapter = MaskVSCAdapter()
+    target_adapter.restore_config(_training_args(None, None), config)
+    assert target_adapter._use_vig is False
+
+
+def test_use_vig_flag_controls_prediction_model():
+    adapter = MaskVSCAdapter()
+    args = _training_args(None, None)
+    args.stage = 'predict'
+    adapter._apply_arch(args)
+    adapter._use_vig = False
+    assert adapter.build_model(args).stage == 'stage1'
+    adapter._use_vig = True
+    assert adapter.build_model(args).stage == 'stage2'
 
 
 def test_two_stage_training_and_prediction(split_root, tmp_path):
@@ -356,9 +376,20 @@ def test_two_stage_training_and_prediction(split_root, tmp_path):
     assert payload['config']['adapter_config']['connect_loss'] == 'release'
     assert payload['config']['adapter_config']['connect_cap'] == 0.0
     assert payload['config']['adapter_config']['rotation_degrees'] == 0.0
+    selected_stage = payload['config']['selected_stage']
+    assert selected_stage in (1, 2)
+    assert payload['config']['adapter_config']['use_vig'] == (
+        selected_stage == 2)
+    assert payload['epoch'] == payload['config']['selected_epoch']
+    assert payload['best_score'] == pytest.approx(
+        payload['config']['selected_score'], abs=1e-6)
     assert payload['split_manifest_sha256']
     assert (workdir / 'metrics_history.json').is_file()
     assert (workdir / 'val_metrics_by_dataset.csv').is_file()
+    stage1_payload = torch.load(
+        workdir / 'stage1_best.pth', map_location='cpu', weights_only=False)
+    assert stage1_payload['config']['selected_stage'] == 1
+    assert stage1_payload['config']['adapter_config']['use_vig'] is False
 
     adapter.prediction_mode = True
     pred_args = _training_args(split_root, workdir)
@@ -389,6 +420,75 @@ def test_two_stage_training_and_prediction(split_root, tmp_path):
         })())
     assert prediction.shape == (64, 64)
     assert prediction.dtype == np.bool_
+
+    # Custom training must still dispatch prediction through the shared
+    # runtime; otherwise --stage predict raises NotImplementedError.
+    dispatch_adapter = MaskVSCAdapter()
+    dispatch_args = _training_args(split_root, workdir)
+    dispatch_args.stage = 'predict'
+    dispatch_args.pred_root = tmp_path / 'pred_dispatch'
+    dispatch_args.test_datasets = [f'toy:{split_root / "val"}']
+    dispatch_args.checkpoint = checkpoint
+    dispatch_adapter.run_prediction(dispatch_args, checkpoint)
+    assert (tmp_path / 'pred_dispatch' / 'toy' / 'toy_val.png').is_file()
+    assert (tmp_path / 'pred_dispatch' / '.prediction_meta.json').is_file()
+
+
+def _fake_evaluate(stage1_dice, stage2_dice):
+    def fake_evaluate(adapter, model, samples, device):
+        dice = stage1_dice if model.stage == 'stage1' else stage2_dice
+        metrics = {
+            'dice': dice, 'iou': dice, 'cldice': dice, 'hd95': 1.0,
+            'empty_prediction_rate': 0.0,
+        }
+        per_dataset = {
+            'toy': {'dice': dice, 'iou': dice, 'cldice': dice,
+                    'hd95': 1.0},
+        }
+        return metrics, per_dataset
+    return fake_evaluate
+
+
+def test_cross_stage_selection_prefers_stage1(
+        monkeypatch, split_root, tmp_path):
+    from baseline_zoo.adapters import maskvsc as maskvsc_mod
+    from baseline_zoo.runtime import seed_everything
+
+    monkeypatch.setattr(
+        maskvsc_mod, 'evaluate', _fake_evaluate(0.9, 0.1))
+    adapter = MaskVSCAdapter()
+    seed_everything(0)
+    checkpoint = adapter.run_training(
+        _training_args(split_root, tmp_path / 'run'))
+    payload = torch.load(checkpoint, map_location='cpu', weights_only=False)
+    assert payload['config']['selected_stage'] == 1
+    assert payload['config']['selected_epoch'] == 1
+    assert payload['config']['adapter_config']['use_vig'] is False
+    assert payload['epoch'] == 1
+    assert payload['best_score'] == pytest.approx(0.9)
+    stage1_payload = torch.load(
+        tmp_path / 'run' / 'stage1_best.pth', map_location='cpu',
+        weights_only=False)
+    assert stage1_payload['config']['adapter_config']['use_vig'] is False
+
+
+def test_cross_stage_selection_prefers_stage2(
+        monkeypatch, split_root, tmp_path):
+    from baseline_zoo.adapters import maskvsc as maskvsc_mod
+    from baseline_zoo.runtime import seed_everything
+
+    monkeypatch.setattr(
+        maskvsc_mod, 'evaluate', _fake_evaluate(0.1, 0.9))
+    adapter = MaskVSCAdapter()
+    seed_everything(0)
+    checkpoint = adapter.run_training(
+        _training_args(split_root, tmp_path / 'run'))
+    payload = torch.load(checkpoint, map_location='cpu', weights_only=False)
+    assert payload['config']['selected_stage'] == 2
+    assert payload['config']['selected_epoch'] == 2
+    assert payload['config']['adapter_config']['use_vig'] is True
+    assert payload['epoch'] == 2
+    assert payload['best_score'] == pytest.approx(0.9)
 
 
 def test_stage2_optimizer_is_not_empty():

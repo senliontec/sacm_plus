@@ -42,6 +42,9 @@ from baseline_zoo.runtime import (
     seed_everything,
     write_history,
 )
+from baseline_zoo.runtime import (
+    run_prediction as run_shared_prediction,
+)
 from core.console import console
 from core.wandb_utils import finish_run, log_scalars, setup_wandb
 
@@ -130,9 +133,11 @@ class MaskVSCAdapter(BaselineAdapter):
         'freezes step 1; this port forces eval() and requires_grad=False. '
         'The release does not call eval() and would update its BatchNorm '
         'statistics and accumulate unused gradients.',
-        'Stage-2 checkpoint selection uses the 6-image validation split by '
-        'Dice. Upstream evaluates the test split every epoch and selects the '
-        'best ViG by test Dice, which violates the protocol.',
+        'Checkpoint selection uses the 6-image validation split by Dice and '
+        'compares the stage-1 and stage-2 best scores. Upstream evaluates the '
+        'test split every epoch and selects the best ViG by test Dice, which '
+        'violates the protocol. If stage 2 does not beat stage 1, the final '
+        'checkpoint records use_vig=false and inference uses the UNet alone.',
         'The shared 800-epoch budget is split 600 stage-1 + 200 stage-2 by '
         'default; the masked-vessel corruption ramp spans those 600 stage-1 '
         'epochs. Upstream uses 200 + 200; use --maskvsc-stage1-epochs 800 '
@@ -186,6 +191,7 @@ class MaskVSCAdapter(BaselineAdapter):
         self._stage2_epochs = 200
         self._stage1_epochs_used = 0
         self._stage2_epochs_used = 0
+        self._use_vig = True
 
     def add_args(self, parser):
         parser.add_argument(
@@ -310,7 +316,8 @@ class MaskVSCAdapter(BaselineAdapter):
         predicting = bool(
             getattr(self, 'prediction_mode', False)
             or getattr(args, 'stage', None) == 'predict')
-        model.set_stage('stage2' if predicting else 'stage1')
+        use_vig = bool(getattr(self, '_use_vig', True))
+        model.set_stage('stage2' if predicting and use_vig else 'stage1')
         return model
 
     def make_optimizer(self, model, args):
@@ -391,6 +398,10 @@ class MaskVSCAdapter(BaselineAdapter):
             np.asarray(image, dtype=np.float32).copy()
         ).permute(2, 0, 1) / 255.0
         return tensor.unsqueeze(0).to(device)
+
+    def run_prediction(self, args, checkpoint):
+        """Use the shared prediction path after the custom two-stage train."""
+        run_shared_prediction(self, args, Path(checkpoint))
 
     def predict_sample(self, model, prepared, sample):
         with torch.no_grad():
@@ -497,6 +508,10 @@ class MaskVSCAdapter(BaselineAdapter):
 
     def _save_checkpoint(self, path, model, args, run_config, split_sha,
                          epoch, score, metrics, per_dataset):
+        # ``use_vig`` is chosen across stages, so refresh the nested adapter
+        # config at every save instead of trusting the initial run config.
+        config = dict(run_config)
+        config['adapter_config'] = self.save_config(args)
         payload = {
             'adapter': self.id,
             'official_source': self.official_source,
@@ -512,7 +527,7 @@ class MaskVSCAdapter(BaselineAdapter):
             'val_per_dataset': per_dataset,
             'input_size': self.input_size,
             'split_manifest_sha256': split_sha,
-            'config': run_config,
+            'config': config,
         }
         tmp = path.with_name(path.name + '.tmp')
         torch.save(payload, tmp)
@@ -559,6 +574,7 @@ class MaskVSCAdapter(BaselineAdapter):
         workdir = Path(args.workdir)
         workdir.mkdir(parents=True, exist_ok=True)
         ckpt_path = workdir / 'best_model.pth'
+        stage1_ckpt_path = workdir / 'stage1_best.pth'
         if ckpt_path.is_file():
             backup = ckpt_path.with_name(
                 f'best_model.before_{time.strftime("%Y%m%d_%H%M%S")}.pth')
@@ -645,6 +661,8 @@ class MaskVSCAdapter(BaselineAdapter):
         best1 = -float('inf')
         best1_state = None
         best1_epoch = 0
+        best1_metrics = None
+        best1_per_dataset = None
         stage1_optimizer = torch.optim.Adam(
             [p for p in model.seg.parameters() if p.requires_grad],
             lr=args.lr, betas=(0.5, 0.999),
@@ -666,6 +684,8 @@ class MaskVSCAdapter(BaselineAdapter):
                 if improved:
                     best1 = score
                     best1_epoch = epoch
+                    best1_metrics = metrics
+                    best1_per_dataset = per_dataset
                     best1_state = {
                         key: value.detach().cpu().clone()
                         for key, value in model.seg.state_dict().items()}
@@ -693,9 +713,24 @@ class MaskVSCAdapter(BaselineAdapter):
                     for key, value in model.seg.state_dict().items()}
                 best1_epoch = self._stage1_epochs_used
                 best1 = 0.0
+            if best1_metrics is None:
+                best1_metrics = metrics
+                best1_per_dataset = per_dataset
             model.seg.load_state_dict(best1_state)
             run_config['stage1_best_epoch'] = best1_epoch
             run_config['stage1_best_score'] = self._json_value(best1)
+            # Keep a usable stage-1 checkpoint even if stage 2 is worse or
+            # the process dies before stage 2 finishes.
+            self._use_vig = False
+            run_config['selected_stage'] = 1
+            run_config['selected_epoch'] = best1_epoch
+            run_config['selected_score'] = self._json_value(best1)
+            self._save_checkpoint(
+                ckpt_path, model, args, run_config, split_sha,
+                best1_epoch, best1, best1_metrics, best1_per_dataset)
+            # Preserve the stage-1 result even when stage 2 later wins, so
+            # the two stages can be compared after the run.
+            shutil.copy2(ckpt_path, stage1_ckpt_path)
             console.print(
                 f'[cyan]MaskVSC stage 1 best[/] epoch {best1_epoch} '
                 f'-> load frozen stage-1 weights; starting ViG')
@@ -712,6 +747,8 @@ class MaskVSCAdapter(BaselineAdapter):
                     'MaskVSC stage 2 has no trainable ViG parameters')
             best2 = -float('inf')
             best2_epoch = 0
+            best2_metrics = None
+            best2_per_dataset = None
             for offset in range(1, self._stage2_epochs_used + 1):
                 epoch = self._stage1_epochs_used + offset
                 started = time.time()
@@ -726,11 +763,22 @@ class MaskVSCAdapter(BaselineAdapter):
                 if improved:
                     best2 = score
                     best2_epoch = epoch
+                    best2_metrics = metrics
+                    best2_per_dataset = per_dataset
                     run_config['stage2_best_epoch'] = best2_epoch
                     run_config['stage2_best_score'] = self._json_value(best2)
-                    self._save_checkpoint(
-                        ckpt_path, model, args, run_config, split_sha,
-                        epoch, best2, metrics, per_dataset)
+                    # Stage-2 "improvement" is only stage-local.  Do not
+                    # overwrite the stage-1 checkpoint unless the ViG also
+                    # beats the stage-1 best on the shared validation split.
+                    if score > best1:
+                        self._use_vig = True
+                        run_config['selected_stage'] = 2
+                        run_config['selected_epoch'] = epoch
+                        run_config['selected_score'] = self._json_value(
+                            score)
+                        self._save_checkpoint(
+                            ckpt_path, model, args, run_config, split_sha,
+                            epoch, best2, metrics, per_dataset)
                 elapsed = time.time() - started
                 print_epoch_row(
                     epoch, train_loss, metrics, vig_lr, elapsed, improved)
@@ -749,26 +797,51 @@ class MaskVSCAdapter(BaselineAdapter):
                         scalars, metrics, per_dataset)
                     log_scalars(run, scalars)
 
-            if best2_epoch == 0:
-                best2 = 0.0
-                self._save_checkpoint(
-                    ckpt_path, model, args, run_config, split_sha,
-                    self._stage1_epochs_used + self._stage2_epochs_used,
-                    best2, metrics, per_dataset)
+            selected_stage = (
+                2 if best2_epoch and best2 > best1 else 1)
+            self._use_vig = selected_stage == 2
+            if selected_stage == 2:
+                # The on-disk checkpoint is the best ViG epoch; reload it so
+                # the final save also carries the final run config.
+                payload = torch.load(
+                    ckpt_path, map_location='cpu', weights_only=False)
+                model.load_state_dict(payload['model_state_dict'])
+                model.set_stage('stage2')
+                selected_epoch = best2_epoch
+                selected_score = best2
+                selected_metrics = best2_metrics
+                selected_per_dataset = best2_per_dataset
+            else:
+                model.seg.load_state_dict(best1_state)
+                model.set_stage('stage1')
+                selected_epoch = best1_epoch
+                selected_score = best1
+                selected_metrics = best1_metrics
+                selected_per_dataset = best1_per_dataset
+            run_config['selected_stage'] = selected_stage
+            run_config['selected_epoch'] = selected_epoch
+            run_config['selected_score'] = self._json_value(selected_score)
+            run_config['use_vig'] = self._use_vig
+            run_config['adapter_config'] = self.save_config(args)
+            self._save_checkpoint(
+                ckpt_path, model, args, run_config, split_sha,
+                selected_epoch, selected_score, selected_metrics,
+                selected_per_dataset)
             print_epoch_footer()
-            best_for_history = best2_epoch or (
-                self._stage1_epochs_used + self._stage2_epochs_used)
             write_history(
                 workdir / 'metrics_history.json', run_config, history,
-                best_for_history, best2)
+                selected_epoch, selected_score)
             self._write_dataset_csv(
                 workdir / 'val_metrics_by_dataset.csv', history)
             if run is not None:
                 log_scalars(run, {
                     'final/stage1_best_score': best1 if best1 != -float('inf')
                     else None,
-                    'final/stage2_best_score': best2,
+                    'final/stage2_best_score': best2 if best2_epoch else None,
                     'final/stage2_best_epoch': best2_epoch,
+                    'final/selected_stage': selected_stage,
+                    'final/selected_epoch': selected_epoch,
+                    'final/selected_score': selected_score,
                 })
             finish_run(run)
             return ckpt_path
@@ -779,7 +852,7 @@ class MaskVSCAdapter(BaselineAdapter):
     def save_config(self, args):
         return {
             'input_size': int(self.input_size),
-            'use_vig': True,
+            'use_vig': bool(self._use_vig),
             'stage1_epochs': int(self._stage1_epochs_used or 0),
             'stage2_epochs': int(self._stage2_epochs_used or 0),
             'vig_blocks': int(self._vig_blocks),
@@ -796,6 +869,8 @@ class MaskVSCAdapter(BaselineAdapter):
         }
 
     def restore_config(self, args, config):
+        # Older checkpoints always used the ViG completion head.
+        self._use_vig = bool(config.get('use_vig', True))
         if 'input_size' in config:
             self.input_size = int(config['input_size'])
         if 'vig_decode' in config:

@@ -128,8 +128,16 @@ it is not exercised by the adapter. Fundus is the only stage-2 variant used.
   PIL-resized masks (no binarization). Stage-1 labels keep the official
   `ImageDataset_Fundus` thresholding.
 - Inference: `ViG(Seg(image))`, then threshold and resize to GT resolution.
-- Stage-2 selection uses the 6-image validation Dice split. Upstream evaluates
-  the test split every epoch and selects by test Dice; that is not used.
+- Selection uses the 6-image validation Dice split. Upstream evaluates the
+  test split every epoch and selects by test Dice; that is not used. The
+  stage-1 best is checkpointed at the end of stage 1 (also preserved as
+  `stage1_best.pth`), and the final model is the better of the stage-1 and
+  stage-2 best validation scores. If stage 1 wins, the checkpoint records
+  `use_vig: false` and inference uses the UNet alone. This avoids a stage-2
+  regression replacing a better stage-1 model.
+- The custom training loop has no prediction implementation of its own;
+  `--stage predict` dispatches to the shared prediction/evaluation path after
+  restoring the checkpoint's `use_vig`, ViG, loss, and augmentation config.
 - A single pooled 512 ViG is used across domains. Upstream trains separate
   Fundus/OCTA/2PFM completion models per dataset; unseen/novel protocol
   domains have no per-domain training data, so a pooled model is the only

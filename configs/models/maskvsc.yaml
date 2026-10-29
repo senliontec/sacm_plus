@@ -30,7 +30,10 @@ note: >-
   augmentation) and the released dot-product ViG graph. Stage 2 uses the
   released patch16 ViG decode (official token-fold view, N=1024 predictor
   channels; ViG 23.84M, full 31.61M), soft GCN labels, frozen/eval stage 1,
-  no augmentation, and val-Dice selection. The 800-epoch budget is split
+  no augmentation, and val-Dice selection across both stages. The stage-1
+  best is saved first; if stage 2 does not beat it, the final checkpoint
+  records use_vig=false and inference uses the UNet alone. The 800-epoch
+  budget is split
   600 stage-1 + 200 stage-2; the paper uses 200+200 and per-dataset
   sizes/modality noise (documented in models/maskvsc/UPSTREAM.md), while
   this pooled 20-domain benchmark uses 512/SD20/7x7 for comparability.
