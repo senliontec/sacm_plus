@@ -26,18 +26,24 @@ class Connect_Loss(nn.Module):
     component-count approximation by the number of foreground pixels; the
     printed equations omit the compensating ``N`` factor and become
     numerically inert.  Paper mode restores that factor:
-    ``|S(Y) - S(Y_G)| * N / #foreground``.  The official release instead
-    divides by ``count_nonzero`` after sigmoid sharpening, which counts every
-    pixel, making L_C ~1e-8 and effectively absent.  ``mode='release'``
-    reproduces that released arithmetic for parity/ablation.
+    ``|S(Y) - S(Y_G)| * N / #foreground``.  It deliberately skips the
+    released 3x3 morphological opening: that opening erases thin vessels,
+    making an empty prediction have exactly zero L_C on CrackTree/CREMI/CORN.
+    ``cap > 0`` bounds the paper-mode term; without a cap, sparse domains
+    receive 10-100x the BCE weight and destabilize pooled training.
+    ``mode='release'`` reproduces the official opening + ``count_nonzero``
+    arithmetic for parity/ablation.
     """
 
-    def __init__(self, mode: str = 'paper'):
+    def __init__(self, mode: str = 'release', cap: float = 0.0):
         super().__init__()
         if mode not in ('paper', 'release'):
             raise ValueError(
                 f'unknown Connect_Loss mode {mode!r}; use paper or release')
+        if cap < 0:
+            raise ValueError(f'Connect_Loss cap must be >= 0, got {cap}')
         self.mode = mode
+        self.cap = float(cap)
 
     def smoothness_penalty(self, tensor):
         # Compute gradient differences for smooth connectivity
@@ -53,8 +59,10 @@ class Connect_Loss(nn.Module):
         # loss also runs on CPU during smoke tests.
         kernel = torch.tensor([[0, 1, 0], [1, 1, 1], [0, 1, 0]],
                               dtype=img.dtype, device=img.device)
-        img = K.morphology.opening(img,kernel)
-        lab = K.morphology.opening(lab,kernel)
+        if self.mode == 'release':
+            # Official arithmetic, including the 3x3 opening.
+            img = K.morphology.opening(img, kernel)
+            lab = K.morphology.opening(lab, kernel)
 
         # Apply a sigmoid to approximate binarization in a differentiable way
         img = torch.sigmoid(10 * (img - 0.5))  # Sharpens values close to 0 or 1
@@ -68,4 +76,7 @@ class Connect_Loss(nn.Module):
             return difference / torch.count_nonzero(lab)
         if foreground.item() == 0:
             return difference * 0.0
-        return difference * img.numel() / foreground
+        value = difference * img.numel() / foreground
+        if self.cap > 0:
+            value = value.clamp(max=self.cap)
+        return value

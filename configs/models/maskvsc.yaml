@@ -8,8 +8,8 @@ train_entrypoint: >-
   --data-root {split_root} --workdir {output_root}
   --maskvsc-stage2-epochs 200
   --maskvsc-vig-patch-size 16 --maskvsc-vig-decode release
-  --maskvsc-vig-graph paper --maskvsc-connect-loss paper
-  --maskvsc-rotation-degrees 30
+  --maskvsc-vig-graph release --maskvsc-connect-loss release
+  --maskvsc-rotation-degrees 0
   --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
 eval_entrypoint: >-
   python scripts/pipeline/run_baseline_test.py --method maskvsc
@@ -25,22 +25,25 @@ defaults:
 note: >-
   Full two-stage MaskVSC (TMI 2025): stage-1 Fundus UNet with masked-vessel
   corruption + Connect_Loss, then the ViG completion head on frozen stage-1
-  probability maps; final inference is ViG(Seg(image)). Stage 2 uses the
-  released ViG decode at patch_size 16: the official token-fold view and
-  N=(512/16)^2=1024 predictor channels. The official Fundus ViG is 23.84M
-  parameters; the full model is 31.61M. Paper-first conflict resolution:
-  L_C uses the paper-intended |S(Y)-S(Y_G)|*N/#foreground scale (the printed
-  Eq.1/2 and release count_nonzero version are numerically inert); stage 1
-  uses paper random rotation ±30° plus horizontal flip; ViG KNN uses the
-  paper Euclidean distance. Release behaviors remain as explicit ablations:
-  --maskvsc-connect-loss release, --maskvsc-rotation-degrees 0,
-  --maskvsc-vig-graph release. Stage 2 has no augmentation (release GCN
-  loader; the paper does not specify step-2 augmentation), is frozen/eval,
-  uses official soft labels, and selects by val Dice. The 800-epoch budget
-  is split 600 stage-1 + 200 stage-2; the paper uses 200+200 and per-dataset
+  probability maps; final inference is ViG(Seg(image)). Main baseline uses
+  the official release stage-1 behavior (count_nonzero L_C, flip-only
+  augmentation) and the released dot-product ViG graph. Stage 2 uses the
+  released patch16 ViG decode (official token-fold view, N=1024 predictor
+  channels; ViG 23.84M, full 31.61M), soft GCN labels, frozen/eval stage 1,
+  no augmentation, and val-Dice selection. The 800-epoch budget is split
+  600 stage-1 + 200 stage-2; the paper uses 200+200 and per-dataset
   sizes/modality noise (documented in models/maskvsc/UPSTREAM.md), while
   this pooled 20-domain benchmark uses 512/SD20/7x7 for comparability.
-  --maskvsc-vig-decode coherent is the earlier non-official patch-32
-  token-grid reconstruction (371.6M ViG), ablation only. No official ViG
-  weights. The MaskVSC paper is in parsing/ as of 2025 TMI; see UPSTREAM.md
-  for the full paper-code conflict ledger.
+  Paper-mode ablations: --maskvsc-connect-loss paper, ±30° rotation via
+  --maskvsc-rotation-degrees 30, and --maskvsc-vig-graph paper. The paper
+  L_C scale |S-Sg|*N/#foreground is not the default because sparse masks
+  receive 10-100x the BCE weight in the pooled 3-shot protocol and caused
+  domain collapse; paper mode also skips the released 3x3 opening, which
+  erased thin vessels. Use --maskvsc-connect-cap for recalibration. A
+  100-epoch seed-0 stage-1 A/B gave best val Dice: release/rot0 0.4612,
+  release/rot30 0.4726, paper/rot0 0.1133, paper/rot30 0.1636; rotation is
+  tied under release L_C, so the main baseline keeps the release flip-only
+  path. --maskvsc-vig-decode coherent is the earlier non-official patch-32
+  token-grid reconstruction
+  (371.6M ViG), ablation only. No official ViG weights. The MaskVSC paper is
+  in parsing/; see UPSTREAM.md for the full paper-code conflict ledger.

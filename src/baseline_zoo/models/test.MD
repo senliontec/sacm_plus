@@ -86,10 +86,16 @@ From this file's directory: `../../../../3rd`
   `parsing/[2025 tmi] Masked Vascular Structure Segmentation and Completion
   in Retinal Images`. The default stage-2 uses the released patch16
   token-fold decode and soft GCN labels (ViG 23.84M, full model 31.61M).
-  Paper-code conflicts are resolved paper-first: L_C gets the missing
-  N/foreground scale, stage 1 adds ±30° rotation, and ViG uses Euclidean
-  KNN; release L_C/graph/flip-only modes remain as ablations. The earlier
-  patch32 token-grid reconstruction is only `coherent`. See
+  The main baseline uses release L_C, flip-only augmentation and the
+  dot-product ViG graph. Paper L_C (N/foreground scale, no 3x3 opening),
+  ±30° rotation and Euclidean KNN are explicit ablations; paper L_C gives
+  sparse masks 10-100x BCE weight and collapsed CORN/CrackTree/DCA1 in the
+  pooled 3-shot run, so it needs recalibration via
+  `--maskvsc-connect-cap` before use. A 100-epoch seed-0 stage-1 A/B gives
+  best val Dice 0.4612 (release L_C, no rotation) and 0.4726
+  (release L_C, rotation 30) versus 0.1133/0.1636 for paper L_C. The main
+  baseline therefore keeps release L_C and flip-only augmentation. The
+  earlier patch32 token-grid reconstruction is only `coherent`. See
   `models/maskvsc/UPSTREAM.md`.
 - `nnwnet`: upstream is `3rd/nnWNet`; the paper is
   `parsing/[2025 cvpr] nnWNet: Rethinking the Use of Transformers in

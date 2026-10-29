@@ -104,15 +104,31 @@ def test_paper_connect_loss_is_scale_comparable():
     pred = (0.5 * mask + 0.5 * torch.rand_like(mask)).clamp(0, 1)
     paper = Connect_Loss(mode='paper')(pred, mask)
     release = Connect_Loss(mode='release')(pred, mask)
+    capped = Connect_Loss(mode='paper', cap=0.5)(pred, mask)
     bce = torch.nn.BCELoss()(pred, mask)
     assert paper.item() > 0.01
     assert paper.item() > release.item() * 1e4
-    assert paper.item() < bce.item() * 20
+    assert paper.item() < bce.item() * 50
+    assert capped.item() <= 0.5
     with pytest.raises(ValueError, match='unknown Connect_Loss mode'):
         Connect_Loss(mode='cosine')
+    with pytest.raises(ValueError, match='cap must be >= 0'):
+        Connect_Loss(mode='paper', cap=-1)
     empty = torch.zeros(1, 1, 32, 32)
     assert Connect_Loss(mode='paper')(
         torch.rand_like(empty), empty).item() == 0.0
+
+
+def test_paper_connect_loss_penalizes_empty_thin_structure():
+    # The released 3x3 opening erases a one-pixel vessel, making an empty
+    # prediction have zero L_C. Paper mode must skip the opening.
+    mask = torch.zeros(1, 1, 64, 64)
+    mask[:, :, 32, 8:56] = 1
+    empty = torch.zeros_like(mask)
+    paper = Connect_Loss(mode='paper')(empty, mask)
+    release = Connect_Loss(mode='release')(empty, mask)
+    assert paper.item() > 0.01
+    assert release.item() < 1e-5
 
 
 class _FixedRng:
@@ -218,9 +234,10 @@ def _training_args(root, workdir):
         maskvsc_vig_heads=1,
         maskvsc_vig_patch_size=16,
         maskvsc_vig_decode='release',
-        maskvsc_vig_graph='paper',
-        maskvsc_connect_loss='paper',
-        maskvsc_rotation_degrees=30.0,
+        maskvsc_vig_graph='release',
+        maskvsc_connect_loss='release',
+        maskvsc_connect_cap=0.0,
+        maskvsc_rotation_degrees=0.0,
         maskvsc_vig_batch_size=1,
         maskvsc_vig_lr=None,
         batch_size=1,
@@ -239,6 +256,35 @@ def _training_args(root, workdir):
         use_wandb=False,
         wandb_mode='disabled',
     )
+
+
+def test_maskvsc_main_defaults_are_release():
+    parser = argparse.ArgumentParser()
+    MaskVSCAdapter().add_args(parser)
+    args = parser.parse_args([])
+    assert args.maskvsc_connect_loss == 'release'
+    assert args.maskvsc_connect_cap == 0.0
+    assert args.maskvsc_rotation_degrees == 0.0
+    assert args.maskvsc_vig_graph == 'release'
+    assert args.maskvsc_vig_patch_size == 16
+    assert args.maskvsc_vig_decode == 'release'
+
+
+def test_paper_mode_config_roundtrip():
+    adapter = MaskVSCAdapter()
+    args = _training_args(None, None)
+    args.maskvsc_connect_loss = 'paper'
+    args.maskvsc_connect_cap = 1.0
+    args.maskvsc_rotation_degrees = 30.0
+    args.maskvsc_vig_graph = 'paper'
+    adapter._apply_arch(args)
+    config = adapter.save_config(args)
+    target = _training_args(None, None)
+    adapter.restore_config(target, config)
+    assert target.maskvsc_connect_loss == 'paper'
+    assert target.maskvsc_connect_cap == 1.0
+    assert target.maskvsc_rotation_degrees == 30.0
+    assert target.maskvsc_vig_graph == 'paper'
 
 
 def test_two_stage_training_and_prediction(split_root, tmp_path):
@@ -264,11 +310,12 @@ def test_two_stage_training_and_prediction(split_root, tmp_path):
     assert payload['config']['stage2_epochs'] == 1
     assert payload['config']['vig_arch']['blocks'] == 1
     assert payload['config']['vig_arch']['decode'] == 'release'
-    assert payload['config']['vig_arch']['graph_metric'] == 'paper'
+    assert payload['config']['vig_arch']['graph_metric'] == 'release'
     assert payload['config']['adapter_config']['vig_decode'] == 'release'
-    assert payload['config']['adapter_config']['vig_graph'] == 'paper'
-    assert payload['config']['adapter_config']['connect_loss'] == 'paper'
-    assert payload['config']['adapter_config']['rotation_degrees'] == 30.0
+    assert payload['config']['adapter_config']['vig_graph'] == 'release'
+    assert payload['config']['adapter_config']['connect_loss'] == 'release'
+    assert payload['config']['adapter_config']['connect_cap'] == 0.0
+    assert payload['config']['adapter_config']['rotation_degrees'] == 0.0
     assert payload['split_manifest_sha256']
     assert (workdir / 'metrics_history.json').is_file()
     assert (workdir / 'val_metrics_by_dataset.csv').is_file()
@@ -278,15 +325,17 @@ def test_two_stage_training_and_prediction(split_root, tmp_path):
     # Simulate a fresh process: restore the architecture from the checkpoint.
     pred_args.maskvsc_vig_patch_size = 32
     pred_args.maskvsc_vig_decode = 'coherent'
-    pred_args.maskvsc_vig_graph = 'release'
-    pred_args.maskvsc_connect_loss = 'release'
-    pred_args.maskvsc_rotation_degrees = 0.0
+    pred_args.maskvsc_vig_graph = 'paper'
+    pred_args.maskvsc_connect_loss = 'paper'
+    pred_args.maskvsc_connect_cap = 1.0
+    pred_args.maskvsc_rotation_degrees = 30.0
     adapter.restore_config(pred_args, payload['config']['adapter_config'])
     assert pred_args.maskvsc_vig_patch_size == 16
     assert pred_args.maskvsc_vig_decode == 'release'
-    assert pred_args.maskvsc_vig_graph == 'paper'
-    assert pred_args.maskvsc_connect_loss == 'paper'
-    assert pred_args.maskvsc_rotation_degrees == 30.0
+    assert pred_args.maskvsc_vig_graph == 'release'
+    assert pred_args.maskvsc_connect_loss == 'release'
+    assert pred_args.maskvsc_connect_cap == 0.0
+    assert pred_args.maskvsc_rotation_degrees == 0.0
     model = adapter.build_model(pred_args)
     adapter.load_state_dict(model, state)
     sample = adapter.prepare_eval_sample(
@@ -346,6 +395,7 @@ def test_legacy_patch32_checkpoint_infers_coherent_decode():
     assert adapter._rotation_degrees == 0.0
     assert args.maskvsc_vig_graph == 'release'
     assert args.maskvsc_connect_loss == 'release'
+    assert args.maskvsc_connect_cap == 0.0
     assert args.maskvsc_rotation_degrees == 0.0
     config = adapter.save_config(args)
     assert config['vig_decode'] == 'coherent'

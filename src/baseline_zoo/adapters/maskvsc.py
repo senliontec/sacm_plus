@@ -107,15 +107,19 @@ class MaskVSCAdapter(BaselineAdapter):
         '31.61M. --maskvsc-vig-decode coherent keeps the earlier '
         'transpose-token-grid/patch-32 reconstruction (371.6M ViG) as an '
         'explicit ablation only; it is not the released architecture.',
-        'Paper-first conflict handling: L_C uses the paper-intended scale '
-        '|S(Y)-S(Y_G)|*N/#foreground because Eq.1/2 as printed are '
-        'numerically inert; --maskvsc-connect-loss release keeps the official '
-        'count_nonzero implementation. Stage 1 uses the paper random '
-        'rotation ±30° plus horizontal flip; --maskvsc-rotation-degrees 0 is '
-        'the release flip-only path. ViG KNN uses the paper Euclidean '
-        'distance; --maskvsc-vig-graph release keeps the released dot-product '
-        'top-k. Stage 2 has no augmentation, matching the released GCN '
-        'loader; the paper does not specify augmentation for step 2.',
+        'Main baseline uses the official release stage-1 behavior '
+        '(count_nonzero L_C, flip-only augmentation) and the released '
+        'dot-product ViG graph. Paper-mode L_C, ±30° rotation and Euclidean '
+        'KNN remain explicit ablations via --maskvsc-connect-loss paper, '
+        '--maskvsc-rotation-degrees 30 and --maskvsc-vig-graph paper. The '
+        'paper-mode L_C scale |S(Y)-S(Y_G)|*N/#foreground is not the default '
+        'because sparse masks receive 10-100x the BCE weight in the pooled '
+        '3-shot protocol; it also skips the released 3x3 opening, which erased '
+        'thin vessels and made empty predictions free on CrackTree/CREMI/CORN. '
+        'Use --maskvsc-connect-cap to bound paper-mode L_C during '
+        'recalibration. Stage 2 has '
+        'no augmentation, matching the released GCN loader; the paper does '
+        'not specify augmentation for step 2.',
         'Stage 2 is a single pooled ViG across all protocol domains. Upstream '
         'trains separate Fundus/OCTA/2PFM completion models per dataset; '
         'unseen/novel domains have no per-domain training data, so a pooled '
@@ -159,8 +163,9 @@ class MaskVSCAdapter(BaselineAdapter):
         'earlier port remain loadable: a missing vig_decode is inferred as '
         'coherent, and missing vig_graph/connect_loss/rotation_degrees are '
         'inferred as the release graph, release L_C and flip-only '
-        'augmentation. New runs default to the paper graph/L_C/rotation with '
-        'the official release ViG decode.',
+        'augmentation. New runs default to the release graph/L_C/flip-only '
+        'with the official release ViG decode; paper graph/L_C/rotation are '
+        'explicit ablations.',
     )
 
     def __init__(self):
@@ -170,9 +175,10 @@ class MaskVSCAdapter(BaselineAdapter):
         self._vig_heads = 1
         self._vig_patch_size = 16
         self._vig_decode = 'release'
-        self._vig_graph = 'paper'
-        self._connect_loss_mode = 'paper'
-        self._rotation_degrees = 30.0
+        self._vig_graph = 'release'
+        self._connect_loss_mode = 'release'
+        self._connect_cap = 0.0
+        self._rotation_degrees = 0.0
         self._vig_batch_size = None
         self._vig_lr = None
         self._stage1_epochs = None
@@ -206,18 +212,22 @@ class MaskVSCAdapter(BaselineAdapter):
                  'non-official patch-32 token-grid ablation')
         parser.add_argument(
             '--maskvsc-vig-graph', choices=['paper', 'release'],
-            default='paper',
-            help='paper: Euclidean KNN (MaskVSC paper); release: dot-product '
-                 'top-k from the released gcn.py')
+            default='release',
+            help='release: dot-product top-k from the released gcn.py '
+                 '(main baseline); paper: Euclidean KNN ablation')
         parser.add_argument(
             '--maskvsc-connect-loss', choices=['paper', 'release'],
-            default='paper',
-            help='paper: foreground/N-normalized L_C; release: official '
-                 'count_nonzero implementation')
+            default='release',
+            help='release: official count_nonzero implementation (main '
+                 'baseline); paper: foreground/N-normalized L_C ablation')
         parser.add_argument(
-            '--maskvsc-rotation-degrees', type=float, default=30.0,
-            help='stage-1 random rotation range (paper 30); 0 is the release '
-                 'flip-only path')
+            '--maskvsc-connect-cap', type=float, default=0.0,
+            help='paper-mode L_C cap; 0 disables. Use a bounded value for '
+                 'the sparse-domain recalibration A/B')
+        parser.add_argument(
+            '--maskvsc-rotation-degrees', type=float, default=0.0,
+            help='stage-1 random rotation range; 0 is the release flip-only '
+                 'path (main baseline), 30 is the paper augmentation ablation')
         parser.add_argument(
             '--maskvsc-vig-batch-size', type=int, default=None,
             help='stage-2 batch size; default = --batch-size')
@@ -252,17 +262,22 @@ class MaskVSCAdapter(BaselineAdapter):
             raise SystemExit(
                 '--maskvsc-vig-decode must be release or coherent')
         self._vig_graph = str(
-            getattr(args, 'maskvsc_vig_graph', 'paper'))
+            getattr(args, 'maskvsc_vig_graph', 'release'))
         if self._vig_graph not in ('paper', 'release'):
             raise SystemExit(
                 '--maskvsc-vig-graph must be paper or release')
         self._connect_loss_mode = str(
-            getattr(args, 'maskvsc_connect_loss', 'paper'))
+            getattr(args, 'maskvsc_connect_loss', 'release'))
         if self._connect_loss_mode not in ('paper', 'release'):
             raise SystemExit(
                 '--maskvsc-connect-loss must be paper or release')
+        self._connect_cap = float(
+            getattr(args, 'maskvsc_connect_cap', 0.0))
+        if self._connect_cap < 0:
+            raise SystemExit(
+                '--maskvsc-connect-cap must be >= 0')
         self._rotation_degrees = float(
-            getattr(args, 'maskvsc_rotation_degrees', 30.0))
+            getattr(args, 'maskvsc_rotation_degrees', 0.0))
         if not 0 <= self._rotation_degrees <= 180:
             raise SystemExit(
                 '--maskvsc-rotation-degrees must be between 0 and 180')
@@ -364,7 +379,8 @@ class MaskVSCAdapter(BaselineAdapter):
         pred = model(images)
         loss = nn.BCELoss()(pred, labels)
         if getattr(model, 'stage', 'stage1') == 'stage1':
-            loss = loss + Connect_Loss(mode=self._connect_loss_mode)(pred, labels)
+            loss = loss + Connect_Loss(mode=self._connect_loss_mode,
+                                    cap=self._connect_cap)(pred, labels)
         return loss
 
     def prepare_eval_sample(self, sample, device):
@@ -398,7 +414,8 @@ class MaskVSCAdapter(BaselineAdapter):
             images, labels = self.prepare_train_batch(samples, rng)
             pred = model(images)
             loss = (nn.BCELoss()(pred, labels)
-                    + Connect_Loss(mode=self._connect_loss_mode)(pred, labels))
+                    + Connect_Loss(mode=self._connect_loss_mode,
+                                    cap=self._connect_cap)(pred, labels))
             optimizer.zero_grad(set_to_none=True)
             loss.backward()
             optimizer.step()
@@ -566,6 +583,7 @@ class MaskVSCAdapter(BaselineAdapter):
             'weight_decay': float(args.weight_decay),
             'input_size': self.input_size,
             'connect_loss': self._connect_loss_mode,
+            'connect_cap': self._connect_cap,
             'rotation_degrees': self._rotation_degrees,
             'stage2_augmentation': False,
             'vig_graph': self._vig_graph,
@@ -762,6 +780,7 @@ class MaskVSCAdapter(BaselineAdapter):
             'vig_decode': str(self._vig_decode),
             'vig_graph': str(self._vig_graph),
             'connect_loss': str(self._connect_loss_mode),
+            'connect_cap': float(self._connect_cap),
             'rotation_degrees': float(self._rotation_degrees),
             'vig_batch_size': self._vig_batch_size,
             'vig_lr': self._vig_lr,
@@ -792,12 +811,17 @@ class MaskVSCAdapter(BaselineAdapter):
             self._connect_loss_mode = str(config['connect_loss'])
         else:
             self._connect_loss_mode = 'release'
+        if 'connect_cap' in config:
+            self._connect_cap = float(config['connect_cap'])
+        else:
+            self._connect_cap = 0.0
         if 'rotation_degrees' in config:
             self._rotation_degrees = float(config['rotation_degrees'])
         else:
             self._rotation_degrees = 0.0
         setattr(args, 'maskvsc_vig_graph', self._vig_graph)
         setattr(args, 'maskvsc_connect_loss', self._connect_loss_mode)
+        setattr(args, 'maskvsc_connect_cap', self._connect_cap)
         setattr(args, 'maskvsc_rotation_degrees', self._rotation_degrees)
         for key, attribute in (
                 ('vig_blocks', '_vig_blocks'),

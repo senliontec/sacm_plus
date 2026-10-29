@@ -22,7 +22,7 @@
 | `unet` | U-Net | `3rd/Pytorch-UNet` | 未收录 | milesial PyTorch-UNet；U-Net 原论文目录未收录 |
 | `cs2net` | CS2Net-2D（历史 id） | `3rd/CS-Net` | 未收录 | 官方 2D 分支 `model/csnet.py` + `train.py`；`model/csnet_3d.py` 是独立 3D 扩展，不用于 2D 数据 |
 | `bcunet` | BCUNet | `3rd/BCU-Net` | `parsing/[2023 cbm] BCU-Net: Bridging ConvNeXt and U-Net for medical image segmentation` | 无 LICENSE；按论文实现 MRL + 0.5/0.5 融合 + bilinear + 18× 离线增强 + 100 epochs；release CE/0.4-0.6/无增强作为消融；OutConv 1×1 logits 重建 |
-| `maskvsc` | MaskVSC | `3rd/MaskVSC` | `parsing/[2025 tmi] Masked Vascular Structure Segmentation and Completion in Retinal Images` | 视网膜血管；完整两阶段（UNet masked-vessel + ViG completion）；官方 patch16 token-fold 解码（ViG 23.84M，总 31.61M）；paper-first：L_C 补尺度、stage1 ±30°旋转、ViG 欧氏 KNN；`release` 模式可回退；patch32 仅 `coherent` 消融 |
+| `maskvsc` | MaskVSC | `3rd/MaskVSC` | `parsing/[2025 tmi] Masked Vascular Structure Segmentation and Completion in Retinal Images` | 视网膜血管；完整两阶段（UNet masked-vessel + ViG completion）；官方 patch16 token-fold 解码（ViG 23.84M，总 31.61M）；主表用 release L_C/flip-only/点积 KNN；paper L_C/±30°旋转/欧氏 KNN 为显式消融（paper L_C 在稀疏域过强且跳过 3×3 opening，需用 `--maskvsc-connect-cap` 重标定）；patch32 仅 `coherent` 消融 |
 | `nnwnet` | nnWNet | `3rd/nnWNet` | `parsing/[2025 cvpr] nnWNet: Rethinking the Use of Transformers in Biomedical Image Segmentation and Calling for a Unified Evaluation Benchmark` | 官方 nnU-Net trainer/plugin；WNet 7.04M；项目协议 800 epochs / 18-6 split / 共享指标；论文 2.3.1/200/5-fold/ASD 为文档化偏差 |
 | `nnunet2d` | nnU-Net 2D | `3rd/nnUNet` | 未收录 | 原生 nnunetv2 2D planner/trainer/predictor |
 | `flowsdf` | FlowSDF | `3rd/FlowSDF` | `parsing/[2025 ijcv] FlowSDF: Flow Matching for Medical Image Segmentation Using Distance Transforms` | 条件流匹配 + SDF；128 crop，Euler ODE；MIT |
