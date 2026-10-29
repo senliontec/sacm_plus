@@ -243,6 +243,31 @@ class NNWNetAdapter(BaselineAdapter):
                 return candidate
         return None
 
+    @staticmethod
+    def _clear_stale_results(nn_root: Path) -> None:
+        """Remove this dataset's previous nnU-Net results before retraining.
+
+        nnU-Net writes ``checkpoint_best`` only when validation improves.
+        Reusing a workdir without clearing results can therefore leave an old
+        best checkpoint that prediction would silently pick if the new run
+        fails before writing its own checkpoint.  Other dataset IDs in the
+        same nnU-Net root are untouched.
+        """
+        shutil.rmtree(nn_root / 'results' / DATASET_NAME,
+                      ignore_errors=True)
+
+    @staticmethod
+    def _clear_prediction_dirs(workdir: Path, pred_root: Path,
+                               name: str) -> None:
+        """Remove stale staging/output files for one prediction dataset."""
+        for path in (workdir / 'predict_input' / name,
+                     workdir / 'predict_output' / name,
+                     pred_root / name):
+            if path.is_symlink() or path.is_file():
+                path.unlink(missing_ok=True)
+            else:
+                shutil.rmtree(path, ignore_errors=True)
+
     def run_training(self, args):
         if args.resume:
             raise SystemExit(
@@ -273,8 +298,12 @@ class NNWNetAdapter(BaselineAdapter):
                 f'unsupported --nnwnet-channels: {channels!r}')
         (workdir / 'nnunet_channels.txt').write_text(channels + '\n')
         nn_root, env = self._init_env(workdir)
-        # A reused workdir must not mix raw PNGs/preprocessed arrays from a
-        # different protocol; re-stage and re-plan deterministically.
+        # A reused workdir must not mix old results/checkpoints, raw PNGs or
+        # preprocessed arrays from a different protocol.
+        self._clear_stale_results(nn_root)
+        stale_pointer = workdir / 'nnunet_model_dir.txt'
+        if stale_pointer.exists():
+            stale_pointer.unlink()
         shutil.rmtree(nn_root / 'raw' / DATASET_NAME, ignore_errors=True)
         shutil.rmtree(nn_root / 'preprocessed' / DATASET_NAME,
                       ignore_errors=True)
@@ -553,6 +582,7 @@ class NNWNetAdapter(BaselineAdapter):
             if not sep:
                 raise SystemExit(f'bad test spec: {spec!r}')
             samples = RawPairDataset(Path(root)).samples
+            self._clear_prediction_dirs(workdir, pred_root, name)
             input_dir = workdir / 'predict_input' / name
             output_dir = workdir / 'predict_output' / name
             input_dir.mkdir(parents=True, exist_ok=True)

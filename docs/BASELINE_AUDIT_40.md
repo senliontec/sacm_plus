@@ -34,7 +34,7 @@ deviations may remain. `WARN` means a real but non-blocking issue.
 | `maskvsc` | MaskVSC TMI 2025; paper in `parsing/` | PASS | P3 | license contradictory (Apache vs all-rights-reserved) | **paper-first conflicts resolved**: official patch16 ViG decode/soft labels; L_C paper scale; stage-1 ±30° rotation; Euclidean KNN; release modes as ablations; pooled 512 & 600+200 documented; resolve license |
 | `medcagd` | MedCAGD ECCV 2026 | PASS | P2 | soft Dice added; 256/128 patches for all domains; batch adaptation | documented |
 | `nnunet2d` | nnU-Net Nature Methods 2021; paper absent; runtime uses installed nnunetv2 | PASS | P3 | runtime paths statically checked only; train-only planning | install/smoke on server |
-| `nnwnet` | nnWNet; paper absent | WARN | P2 | docs claimed planning sees val cases, but code plans train-only; no paper/license | **doc fixed**: train-only planning/val staging; add paper/license |
+| `nnwnet` | nnWNet CVPR 2025; paper in `parsing/` | WARN | P2 | paper nnU-Net 2.3.1/200/5-fold/ASD vs project 2.8.1/800/18-6/shared metrics; no license | **protocol documented**: WNet 7.04M matches paper; train-only planning; stale results/checkpoints/prediction dirs cleared; add license |
 | `s2mnet` | S2M-Net ICML 2026 | PASS | P2 | cosine had no 1e-6 floor; stage text says spectral-only 1–2 (code: spectral 1–5, gated 3–5) | **fixed** LR floor; stage description verified accurate |
 | `scrwkv` | SCRWKV ICML 2026 | FAIL→PASS | P0 | bool 0/1 mask cubic-resized then thresholded at 127 → all-empty targets | **fixed**: 0/255 before resize; added foreground assertion; old results invalid |
 | `tpsegformer` | TPSegformer CVPR 2026 | PASS | P1 | no Swin-T ImageNet checkpoint, defaults random init; Hilbert path is a no-op upstream | **fixed/verified**: official OpenMMLab Swin-T loads with MMSeg→timm key mapping (missing=0); warmup starts at 1e-6 |
@@ -172,14 +172,14 @@ These need a method/paper decision rather than a mechanical patch:
   KnowSAM=50000 iterations; c2p/matcher/persam/rsrm=0 (training-free);
   others mostly 800. The one-click 40-baseline run uses each config default,
   not a global 800.
-- **7 models still have no dedicated test file**: bcunet, cs2net,
-  knowsam, maskvsc, nnwnet, sacm_official, sam_med2d (only an init test).
+- **5 models still have no dedicated end-to-end test file**: cs2net,
+  knowsam, nnwnet (only incidental runtime tests), sacm_official,
+  sam_med2d (only an init test).
 - **Mixed protocol categories** must be separated in paper tables:
   prompt-free, support-based, oracle-prompted, semi-supervised,
   training-free.
-- **Missing local papers**: U-Net, CS2-Net, DconnNet, MaskVSC,
-  nnU-Net, nnWNet, KnowSAM, SegDINO, SegDINO v2, SAM-Med2D, SAM-OCTA,
-  CWSAM.
+- **Missing local papers**: U-Net, CS2-Net, DconnNet, nnU-Net, KnowSAM,
+  SegDINO, SegDINO v2, SAM-Med2D, SAM-OCTA, CWSAM.
 - **Missing/partial official implementations or weights**: A2SAM (partial),
   BCU-Net (broken), DKA (no segmentation); SAM-Med2D now uses the official
   ViT-B checkpoint but remains oracle-prompted. Missing licenses: ACO,

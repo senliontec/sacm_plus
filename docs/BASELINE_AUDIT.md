@@ -22,7 +22,7 @@ collector and report pipeline.
 | CS2Net-2D (`cs2net`) | OK, identity clarified | official 2D branch `model/csnet.py` + `train.py`; `model/csnet_3d.py` is the separate 3D CS2Net extension and is not applicable to 2D protocol images; LambdaLR one-epoch offset matches upstream |
 | BCUNet (`bcunet`) | OK, paper profile | MRL/RecallCE on ConvNeXt/U-Net/fused, 0.5/0.5 fusion, bilinear U-Net (broken release branch repaired), 18× offline augmentation reconstruction, 100 epochs/batch 2; CE/0.4-0.6/no-aug ablations; OutConv 1×1 logits |
 | MaskVSC (`maskvsc`) | OK, full two-stage paper-first | stage-1 UNet + stage-2 ViG completion (`ViG(Seg(image))`); official patch16 token-fold decode, soft GCN labels, ViG 23.84M/full 31.61M; paper-first L_C scale, stage-1 ±30° rotation, Euclidean KNN; release L_C/graph/flip-only modes as ablations; patch32 `coherent` ablation; pooled 512 / 600+200 protocol |
-| nnWNet (`nnwnet`) | OK with documented protocol deviation | checkpoint discovery by `.pth`/`.safetensors`; seeded runs; staging/preprocessing regenerated on reuse; resume rejected with a clear error; docs corrected |
+| nnWNet (`nnwnet`) | OK with documented protocol deviation | WNet 7.04M matches CVPR 2025 paper; nnU-Net 2.8.1 (paper 2.3.1) retained for nnunet2d compatibility; project 800/18-6/shared metrics; paper 200/5-fold/ASD documented; train-only planning; stale results/checkpoints/prediction dirs cleared; resume rejected |
 | SAM-Med2D (`sam_med2d`) | OK with official ViT-B checkpoint | default loads `sam-med2d_b.pth` at 256 with Adapter; full decoder inheritance and regression tests; ViT-L only an explicit comparison |
 | SAM-OCTA (`sam_octa`) | OK | removed pre-model padding; SAM now records the pre-pad size and crops postprocess correctly for non-square images |
 | CWSAM (`cwsam`) | OK | bilinear image resize matches `transforms.Resize`; UPSTREAM checkpointing claims corrected |
@@ -107,8 +107,10 @@ Not unified, by design or documented exception:
   (oracle). The default now loads the official ViT-B `sam-med2d_b.pth`;
   vanilla ViT-L is an explicit comparison only.
 - **SAM-OCTA**: evaluation uses GT-derived point prompts (oracle).
-- **nnWNet**: nnU-Net planning sees the six validation cases; documented
-  soft protocol deviation.
+- **nnWNet**: planning fits on the 18 train cases only; the 6 val cases are
+  staged after planning. The project uses nnU-Net 2.8.1, 800 epochs,
+  18/6 one-fold and shared metrics; the paper's 2.3.1/200/5-fold/ASD setup
+  is a documented deviation.
 - **KnowSAM**: semi-supervised unlabeled pool from source domains; not a
   purely supervised baseline.
 - **SegDINO**: real training needs DINOv3 weights. A size-matched file under

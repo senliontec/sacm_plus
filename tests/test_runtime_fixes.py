@@ -375,6 +375,48 @@ def test_nnwnet_discovers_checkpoint_extension(tmp_path):
         'checkpoint_best.safetensors'
 
 
+def test_nnwnet_clears_stale_results_only_for_its_dataset(tmp_path):
+    from baseline_zoo.adapters.nnwnet import DATASET_NAME
+
+    adapter = load_adapter('nnwnet')
+    nn_root = tmp_path / 'nnunet'
+    stale = nn_root / 'results' / DATASET_NAME / 'fold_0'
+    stale.mkdir(parents=True)
+    (stale / 'checkpoint_best.pth').write_bytes(b'old')
+    other = nn_root / 'results' / 'Dataset999_Other' / 'fold_0'
+    other.mkdir(parents=True)
+    (other / 'checkpoint_best.pth').write_bytes(b'keep')
+
+    adapter._clear_stale_results(nn_root)
+    assert not (nn_root / 'results' / DATASET_NAME).exists()
+    assert (other / 'checkpoint_best.pth').is_file()
+
+
+def test_nnwnet_clears_stale_prediction_dirs_for_one_dataset(tmp_path):
+    adapter = load_adapter('nnwnet')
+    workdir = tmp_path / 'work'
+    pred_root = tmp_path / 'pred'
+    targets = [
+        workdir / 'predict_input' / 'A',
+        workdir / 'predict_output' / 'A',
+        pred_root / 'A',
+    ]
+    keep = [
+        workdir / 'predict_input' / 'B',
+        workdir / 'predict_output' / 'B',
+        pred_root / 'B',
+    ]
+    for path in targets + keep:
+        path.mkdir(parents=True)
+        (path / 'stale.png').write_bytes(b'x')
+
+    adapter._clear_prediction_dirs(workdir, pred_root, 'A')
+    for path in targets:
+        assert not path.exists()
+    for path in keep:
+        assert (path / 'stale.png').is_file()
+
+
 def test_nnwnet_uses_requested_cuda_device(monkeypatch):
     from baseline_zoo.adapters import nnwnet
 
