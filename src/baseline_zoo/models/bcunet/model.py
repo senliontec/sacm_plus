@@ -8,12 +8,15 @@ from .unet_parts import *
 
 class BCUNet(nn.Module):
     def __init__(self, n_channels, n_classes, bilinear=False,
-                 pretrained=True, in_22k=True):
+                 pretrained=True, in_22k=True,
+                 fusion_unet=0.5, fusion_convnext=0.5):
         super().__init__()
         self.n_channels = n_channels
         self.n_classes = n_classes
         self.backbone = convnext_base(pretrained=pretrained, in_22k=in_22k)
         self.bilinear = bilinear
+        self.fusion_unet = float(fusion_unet)
+        self.fusion_convnext = float(fusion_convnext)
         self.pool = nn.MaxPool2d((2, 2))
         self.conv = DoubleConv(n_channels, 32)
         self.down1_1 = Down(32, 64)
@@ -95,5 +98,5 @@ class BCUNet(nn.Module):
         out1 = self.out(x1_9)
 
 
-        out = out1*0.4+out2*0.6
-        return out1,out2,out
+        out = self.fusion_unet * out1 + self.fusion_convnext * out2
+        return out1, out2, out

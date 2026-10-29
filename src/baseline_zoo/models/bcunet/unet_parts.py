@@ -63,7 +63,15 @@ class Down(nn.Module):
         return self.relu(x)
 
 class Up(nn.Module):
-    """Upscaling then double conv"""
+    """Upscaling then double conv.
+
+    The released bilinear branch was broken: ``Upsample`` keeps all
+    ``in_channels`` while the skip ``x2`` has ``in_channels // 2``, so the
+    concatenated width is ``1.5 * in_channels`` but ``DoubleConv`` was
+    constructed with ``in_channels``.  The paper specifies bilinear
+    upsampling, so the conv input is corrected to the actual concatenated
+    width.  The ConvTranspose (release) branch is unchanged.
+    """
 
     def __init__(self, in_channels, out_channels, bilinear=True):
         super().__init__()
@@ -71,10 +79,12 @@ class Up(nn.Module):
         # if bilinear, use the normal convolutions to reduce the number of channels
         if bilinear:
             self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+            conv_in = in_channels + in_channels // 2
         else:
             self.up = nn.ConvTranspose2d(in_channels , in_channels // 2, kernel_size=2, stride=2)
+            conv_in = in_channels
 
-        self.conv = DoubleConv(in_channels, out_channels)
+        self.conv = DoubleConv(conv_in, out_channels)
         # self.contra=nn.Conv2d(in_channels,out_channels,kernel_size=3, padding=1)
     def forward(self, x1, x2):
         x1 = self.up(x1)
@@ -95,10 +105,10 @@ def conv1x1(in_channels, out_channels, groups=1):
 class OutConv(nn.Module):
     """Project the full-resolution U-Net branch to class logits.
 
-    Upstream called an undefined ``upconv2x2`` here.  The U-Net branch is
-    already back at the input resolution when it reaches this module, so the
-    only operation needed is the 1x1 projection (logits, no sigmoid: the
-    training script applies softmax/NLL to all three outputs).
+    Upstream called an undefined ``upconv2x2`` and then applied Sigmoid.
+    The paper's MRL uses softmax/RecallCE on both branch outputs, so this
+    port keeps raw logits (no Sigmoid); the 1x1 projection is the minimal
+    reconstruction of the broken upstream head.
     """
 
     def __init__(self, in_channels, out_channels):
@@ -110,41 +120,46 @@ class OutConv(nn.Module):
 
 
 class RecallCrossEntropy(nn.Module):
+    """Multilabel recall loss (MRL), paper Eq. 1.
+
+    ``weight_c = FN_c / (TP_c + FN_c) = 1 - R_c`` is computed from the
+    current batch and applied to the per-pixel cross-entropy of class ``c``.
+    The upstream implementation hardcodes ``.cuda()`` and has fragile
+    ignore-index indexing; this version is device-safe and filters ignored
+    pixels explicitly. It must receive raw logits (not log-softmax).
+    """
+
     def __init__(self, n_classes=2, ignore_index=255):
         super(RecallCrossEntropy, self).__init__()
         self.n_classes = n_classes
         self.ignore_index = ignore_index
 
     def forward(self, input, target):
-        # input (batch,n_classes,H,W)
-        # target (batch,H,W)
-        pred = input.argmax(1)
+        if input.ndim != 4 or input.shape[1] != self.n_classes:
+            raise ValueError(
+                f'recall CE expects [B,{self.n_classes},H,W] logits, got '
+                f'{tuple(input.shape)}')
+        target = target.long()
+        valid = target != self.ignore_index
+        safe_target = target.clone()
+        safe_target[~valid] = 0
 
-        idex = (pred != target).view(-1)
+        pred = input.argmax(dim=1)
+        gt_count = torch.bincount(
+            safe_target[valid], minlength=self.n_classes).to(input.dtype)
+        false_negative = valid & (pred != safe_target)
+        fn_count = torch.bincount(
+            safe_target[false_negative],
+            minlength=self.n_classes).to(input.dtype)
+        # 1 - recall; absent classes have no target pixels and therefore no
+        # effect on the masked mean below.
+        weight = fn_count / gt_count.clamp(min=1)
 
-        # calculate ground truth counts
-        gt_counter = torch.ones((self.n_classes,)).cuda()
-        gt_idx, gt_count = torch.unique(target, return_counts=True)
-
-        # map ignored label to an exisiting one
-        gt_count[gt_idx == self.ignore_index] = gt_count[1].clone()
-        gt_idx[gt_idx == self.ignore_index] = 1
-        gt_counter[gt_idx] = gt_count.float()
-
-        # calculate false negative counts
-        fn_counter = torch.ones((self.n_classes)).cuda()
-        fn = target.view(-1)[idex]
-        fn_idx, fn_count = torch.unique(fn, return_counts=True)
-
-        # map ignored label to an exisiting one
-        fn_count[fn_idx == self.ignore_index] = fn_count[0].clone()
-
-        fn_idx[fn_idx == self.ignore_index] = 1
-        fn_counter[fn_idx] = fn_count.float()
-
-        weight = fn_counter / gt_counter
-
-        CE = F.cross_entropy(input, target, reduction='none', ignore_index=self.ignore_index)
-        loss = weight[target] * CE
+        per_pixel = F.cross_entropy(
+            input, target, reduction='none', ignore_index=self.ignore_index)
+        loss = weight[safe_target] * per_pixel
+        loss = loss[valid]
+        if loss.numel() == 0:
+            return input.sum() * 0.0
         return loss.mean()
 

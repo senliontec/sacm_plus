@@ -18,7 +18,7 @@ deviations may remain. `WARN` means a real but non-blocking issue.
 | model | paper / official code | verdict | severity | main issue | status |
 |---|---|---|---|---|---|
 | `unet` | U-Net 2015; local paper absent; `3rd/Pytorch-UNet` is third-party milesial | WARN | P2 | architecture/BCE+Dice faithful, but optimizer/input/class/augmentation recipe is non-official | documented; label as 3-shot U-Net |
-| `bcunet` | BCU-Net CBM 2023; `3rd/BCU-Net` unrunnable (NameError, missing warmlearnrate) | WARN | P2 | official trained weights are not released and not needed for from-scratch training; `OutConv` is a CE-compatible reconstruction | **clarified**: paper's four normal upsample blocks + MRL fusion support the 1x1 logits repair; convnext ImageNet backbone is the only pretrained part |
+| `bcunet` | BCU-Net CBM 2023; paper now local; `3rd/BCU-Net` unrunnable (NameError, missing warmlearnrate) | WARN | P1/P2 | paper main method is MRL, average fusion 0.5/0.5, bilinear U-Net, 18× augmentation, 100 epochs; release main.py uses CE, 0.4/0.6, ConvTranspose, no augmentation | **paper profile implemented**: RecallCE on ConvNeXt/U-Net/fused, 0.5/0.5 fusion, bilinear Up repaired, 18-variant offline augmentation (amplitudes reconstructed), 100 epochs/batch 2; CE/0.4-0.6/no-aug remain ablations; OutConv 1×1 logits reconstruction |
 | `cs2net` | **CS2Net-2D**; official `3rd/CS-Net/model/csnet.py` + `train.py` (iMED-Lab) | PASS | P1 | 2D vs 3D identity confusion; `model/csnet_3d.py` is a separate Conv3d extension | **clarified**: 2D branch is correct for DRIVE/CHASE/DCA1/CORN; 3D extension cannot consume 2D protocol images without a private depth-1 adaptation; Otsu verified |
 | `csunet` | CS-UNet ICASSP 2026; `3rd/CSUNet/CSUNet.ipynb` only | WARN | P2 | notebook DynamicSnake is a placeholder; paper PACB BN/Snake differs; no weights/license | label released-code variant; document |
 | `dconnnet` | DconnNet CVPR 2023; paper absent | PASS | P2 | faithful; HSV hue wrap and no LICENSE; ResNet-34 present | document |
@@ -177,7 +177,7 @@ These need a method/paper decision rather than a mechanical patch:
 - **Mixed protocol categories** must be separated in paper tables:
   prompt-free, support-based, oracle-prompted, semi-supervised,
   training-free.
-- **Missing local papers**: U-Net, BCU-Net, CS2-Net, DconnNet, MaskVSC,
+- **Missing local papers**: U-Net, CS2-Net, DconnNet, MaskVSC,
   nnU-Net, nnWNet, KnowSAM, SegDINO, SegDINO v2, SAM-Med2D, SAM-OCTA,
   CWSAM.
 - **Missing/partial official implementations or weights**: A2SAM (partial),

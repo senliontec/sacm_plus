@@ -6,6 +6,8 @@ checkpoint: "{output_root}/best_model.pth"
 train_entrypoint: >-
   python -m baseline_zoo.run_one --model bcunet --stage train
   --data-root {split_root} --workdir {output_root}
+  --batch-size 2 --accum-steps 1
+  --bcunet-loss mrl --bcunet-augment-variants 18
   --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
 eval_entrypoint: >-
   python scripts/pipeline/run_baseline_test.py --method bcunet
@@ -17,13 +19,16 @@ eval_entrypoint: >-
   --device cuda:{gpu} --use_wandb true --skip-visualize
 protocols: [seeded5, fixed]
 defaults:
-  epochs: 800
+  epochs: 100
 note: >-
-  The paper's U-Net branch uses four normal upsampling blocks and sends its
-  final feature map to MRL fusion; no extra upconv2x2/BN/sigmoid is
-  specified. The release's undefined upconv2x2 and missing
-  warmlearnrate.py are replaced by a CE-compatible 1x1 logits projection
-  and the unified training loop. No official BCU-Net weights are released
-  or needed: this row trains from scratch on the shared split, with only
-  the ConvNeXt ImageNet backbone pretrained. Label the OutConv as a
-  reconstructed component, not as official code.
+  Paper-faithful BCU-Net (CBM 2023): ConvNeXt + U-Net, MRL loss
+  (L1 ConvNeXt + L2 average-fused + L3 U-Net, all RecallCE), fused output
+  0.5*U-Net + 0.5*ConvNeXt, bilinear U-Net upsampling, raw logits, Adam
+  1.5e-4, batch 2, 100 epochs, and 18x offline augmentation. The paper does
+  not give augmentation amplitudes; the 18-variant recipe is documented as
+  a reconstruction. The release main.py instead uses CE, 0.4/0.6 fusion and
+  no augmentation: use --bcunet-loss ce, --bcunet-fusion-unet 0.4,
+  --bcunet-fusion-convnext 0.6 and --bcunet-augment-variants 1 to reproduce
+  that ablation, together with --bcunet-convtranspose. OutConv is a 1x1
+  logits reconstruction because the released upconv2x2/warmlearnrate are
+  missing; the official Sigmoid head remains unavailable.

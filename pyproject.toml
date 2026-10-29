@@ -139,6 +139,8 @@ extend-exclude = [
     "src/baseline_zoo/models/kprism/compat.py",
     "src/baseline_zoo/models/maskvsc/unet.py",
     "src/baseline_zoo/models/maskvsc/gcn.py",
+    "src/baseline_zoo/models/bcunet/model.py",
+    "src/baseline_zoo/models/bcunet/unet_parts.py",
 ]
 
 [tool.ruff.lint]

@@ -127,6 +127,17 @@ class BaselineAdapter(ABC):
         """Optional adapter-specific sampler; None keeps shuffled sampling."""
         return None
 
+    def make_train_dataset(self, samples: Sequence[Sample],
+                           args: argparse.Namespace):
+        """Optional adapter-specific training Dataset.
+
+        Returning None keeps the shared ``SampleListDataset``.  An adapter
+        can return a deterministic expanded dataset (for example, offline
+        augmentation) while validation still uses the original samples.
+        """
+        del samples, args
+        return None
+
     # ---- official data/loss logic ------------------------------------
     @abstractmethod
     def prepare_train_batch(self, samples: Sequence[Sample],
@@ -606,8 +617,11 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
         val_samples = val_samples[:args.limit_val]
 
     sampler = adapter.make_train_sampler(train_samples, args)
+    train_dataset = adapter.make_train_dataset(train_samples, args)
+    if train_dataset is None:
+        train_dataset = SampleListDataset(train_samples)
     loader = DataLoader(
-        SampleListDataset(train_samples), batch_size=args.batch_size,
+        train_dataset, batch_size=args.batch_size,
         shuffle=sampler is None, sampler=sampler,
         num_workers=args.num_workers,
         drop_last=getattr(adapter, 'drop_last', False),

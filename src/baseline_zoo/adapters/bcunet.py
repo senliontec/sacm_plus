@@ -1,9 +1,10 @@
-"""BCUNet baseline with the official ConvNeXt+U-Net training logic.
+"""BCU-Net paper-faithful port: ConvNeXt + U-Net with MRL.
 
-Official reference: vendored ``baselines/bcunet`` (upstream URL is not
-recorded there).  The model is copied into ``baseline_zoo.models.bcunet``
-and the undefined ``OutConv.upconv2x2`` is repaired as a 1x1 logits
-projection; everything else follows the official training script.
+Official reference: https://github.com/ZX-ECJTU/BCU-Net (and the local
+``3rd/BCU-Net`` snapshot).  The paper's main method uses the multilabel
+recall loss (MRL) and average fusion of the two branches.  The released
+``main.py`` instead uses CE and a 0.4/0.6 fusion; those remain available as
+explicit ablations via ``--bcunet-loss ce`` and fusion-weight flags.
 """
 
 from __future__ import annotations
@@ -18,42 +19,64 @@ import torch.nn.functional as F
 from PIL import Image
 from torch import nn
 
-from baseline_zoo.models.bcunet import BCUNet
-from baseline_zoo.runtime import REPO_ROOT, BaselineAdapter
+from baseline_zoo.models.bcunet import (
+    BCUNet,
+    BCUNetTrainDataset,
+    RecallCrossEntropy,
+)
+from baseline_zoo.runtime import BaselineAdapter
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 class BCUNetAdapter(BaselineAdapter):
     id = 'bcunet'
     display_name = 'BCUNet'
-    official_source = 'BCU-Net (self-contained copy)'
-    official_entrypoint = 'upstream code/main.py (vendored snapshot)'
+    official_source = 'ZX-ECJTU/BCU-Net (self-contained copy)'
+    official_entrypoint = 'https://github.com/ZX-ECJTU/BCU-Net'
     input_size = 512
     official_lr = 1.5e-4
     official_weight_decay = 0.0
-    train_batch_size = 1
-    accumulation_steps = 2
+    train_batch_size = 2
+    accumulation_steps = 1
     selection = 'dice'
     deviations = (
-        'Upstream batch size 2 does not fit an 11 GiB card at 512x512; the '
-        'adapter uses batch 1 with 2-step gradient accumulation. This '
-        'preserves gradient sums but not batch-2 BatchNorm statistics. '
-        'On >=24 GiB pass --batch-size 2 --accum-steps 1.',
-        'Checkpoint selection uses the 6-image validation split by Dice. '
-        'Upstream has no checkpoint selection (it saves every 10 epochs); '
-        'the port adds val-Dice selection for a common protocol.',
-        'Upstream preprocessing is BGR [0,255] with no normalization '
-        '(cv2.imread + INTER_AREA); preserved exactly.',
-        'The paper describes the U-Net branch as four normal upsampling '
-        'blocks whose final feature map goes to the MRL fusion module; it '
-        'does not specify an extra upconv2x2/BN/sigmoid. The release calls '
-        'an undefined upconv2x2 and imports a missing warmlearnrate.py, so '
-        'this port uses a 1x1 logits projection (CE-compatible) at full '
-        'resolution. No official BCU-Net training weights exist, and none '
-        'are required for the from-scratch shared protocol; only the '
-        'ConvNeXt ImageNet backbone is pretrained.',
-        'The official Adam 1.5e-4, no scheduler and no augmentation are '
-        'preserved. The official 50-epoch budget is replaced by 800 epochs '
-        'for the 18-image 3-shot protocol.',
+        'Paper profile: multilabel recall loss (MRL). L1 supervises the '
+        'ConvNeXt output, L3 the U-Net output, and L2 the average-fused '
+        'output; total loss is L1+L2+L3. Eq.2 and Fig.2 of the paper are '
+        'not fully consistent; this port follows Fig.2/Fig.8: '
+        'fused = 0.5*U-Net + 0.5*ConvNeXt and L2 = RecallCE(fused).',
+        'The paper reports BCU-Net (CE) and BCU-Net (RE/MRL); the release '
+        'README points to main.py, which uses CE and comments out the '
+        'RecallCrossEntropy. This port uses the paper MRL by default; '
+        '--bcunet-loss ce reproduces the paper/ release CE ablation.',
+        'Paper augmentation is reconstructed: each training image is '
+        'expanded into 18 deterministic offline variants including the '
+        'identity (rotation, flips, brightness, Gaussian noise, Gaussian '
+        'blur, and combinations). The paper does not state whether the '
+        'original counts inside the 18; this port uses 18 total. The '
+        'paper does not state amplitudes or probabilities; the exact recipe '
+        'is documented in models/bcunet/augmentation.py and is a '
+        'reconstruction, not an official parameter set.',
+        'U-Net upsampling is bilinear as described in the paper; the release '
+        'main.py uses ConvTranspose2d (bilinear=False). Pass '
+        '--bcunet-convtranspose for the release variant.',
+        'Both branch outputs are raw 2-class logits; the release U-Net '
+        'OutConv applied Sigmoid but is unrunnable (undefined upconv2x2 and '
+        'missing warmlearnrate.py). The paper MRL uses softmax/RecallCE, so '
+        'this port keeps logits and a 1x1 projection reconstruction.',
+        'The paper uses 100 epochs, batch 2 and Adam lr 1.5e-4. The shared '
+        '3-shot protocol still replaces the paper data split with 18 train / '
+        '6 val images and selects the checkpoint by validation Dice; the '
+        'paper reports five-fold cross-validation and test metrics.',
+        'No official BCU-Net trained weights are released or required; only '
+        'the ConvNeXt ImageNet-22k backbone is initialized locally. '
+        'Preprocessing remains the official BGR [0,255] read + INTER_AREA '
+        'resize with no normalization and no extra test-time preprocessing.',
+        'Official main.py uses nn.DataParallel on four GPUs, workers=8 and an '
+        'unseeded global RNG; this port uses one GPU per job, workers=0 and '
+        'the shared protocol seed, so floating-point accumulation and data '
+        'order are not bitwise identical.',
     )
 
     def add_args(self, parser):
@@ -64,21 +87,44 @@ class BCUNetAdapter(BaselineAdapter):
             '--convnext-checkpoint', type=Path,
             default=REPO_ROOT / 'checkpoints' / 'convnext_base_22k_224.pth',
             help='local ImageNet-22k ConvNeXt initialization')
+        parser.add_argument(
+            '--bcunet-loss', choices=['mrl', 'ce'], default='mrl',
+            help='paper MRL (default) or the release/CE ablation')
+        parser.add_argument(
+            '--bcunet-augment-variants', type=int, default=18,
+            help='offline variants per training image (paper 18; 1 disables)')
+        parser.add_argument(
+            '--bcunet-fusion-unet', type=float, default=0.5,
+            help='fused-output weight for the U-Net branch (paper 0.5)')
+        parser.add_argument(
+            '--bcunet-fusion-convnext', type=float, default=0.5,
+            help='fused-output weight for the ConvNeXt branch (paper 0.5)')
+        parser.add_argument(
+            '--bcunet-convtranspose', action='store_true',
+            help='use the release ConvTranspose2d U-Net upsampling')
+
+    def _fusion_weights(self, args):
+        unet = float(getattr(args, 'bcunet_fusion_unet', 0.5))
+        convnext = float(getattr(args, 'bcunet_fusion_convnext', 0.5))
+        if unet < 0 or convnext < 0 or unet + convnext <= 0:
+            raise SystemExit(
+                'BCU-Net fusion weights must be non-negative and non-zero')
+        return unet, convnext
 
     def build_model(self, args) -> nn.Module:
-        # Prediction loads a complete self-contained checkpoint next; do
-        # not load ImageNet-22k backbone weights only to overwrite them.
         predicting = bool(
             getattr(self, 'prediction_mode', False)
             or getattr(args, 'stage', None) == 'predict'
             or getattr(args, 'checkpoint', None) is not None)
         load_pretrained = (
             getattr(args, 'pretrained', True) and not predicting)
-        # Build without torch.hub: the official ConvNeXt URL/cache is not
-        # used.  Training loads the local checkpoint below; prediction uses
-        # the full baseline checkpoint and must not touch the backbone cache.
-        model = BCUNet(n_channels=3, n_classes=2, bilinear=False,
-                       pretrained=False, in_22k=True)
+        unet_weight, convnext_weight = self._fusion_weights(args)
+        model = BCUNet(
+            n_channels=3, n_classes=2,
+            bilinear=not bool(getattr(args, 'bcunet_convtranspose', False)),
+            pretrained=False, in_22k=True,
+            fusion_unet=unet_weight, fusion_convnext=convnext_weight,
+        )
         if load_pretrained:
             self._load_local_convnext(model, args)
         return model
@@ -121,6 +167,14 @@ class BCUNetAdapter(BaselineAdapter):
             [p for p in model.parameters() if p.requires_grad],
             lr=args.lr, weight_decay=args.weight_decay)
 
+    def make_train_dataset(self, samples, args):
+        variants = int(getattr(args, 'bcunet_augment_variants', 18))
+        if variants <= 1:
+            return None
+        return BCUNetTrainDataset(
+            samples, input_size=self.input_size, variants=variants,
+            seed=int(getattr(args, 'seed', 0)))
+
     def _load_image(self, sample):
         image = cv2.imread(str(sample.image_path))
         if image is None:
@@ -140,6 +194,11 @@ class BCUNetAdapter(BaselineAdapter):
         return mask.astype(np.int64)
 
     def prepare_train_batch(self, samples, rng: random.Random):
+        del rng
+        if samples and isinstance(samples[0], tuple):
+            images = torch.stack([item[0] for item in samples])
+            masks = torch.stack([item[1] for item in samples])
+            return images.to(self.device), masks.to(self.device)
         images = []
         masks = []
         for sample in samples:
@@ -153,9 +212,14 @@ class BCUNetAdapter(BaselineAdapter):
     def train_step(self, model, batch):
         images, masks = batch
         out1, out2, fused = model(images)
+        if getattr(self.args, 'bcunet_loss', 'mrl') == 'mrl':
+            criterion = RecallCrossEntropy(n_classes=2).to(images.device)
+            # Paper: L1 ConvNeXt, L3 U-Net, L2 average-fused.
+            return (criterion(out2, masks) + criterion(fused, masks)
+                    + criterion(out1, masks))
         criterion = nn.CrossEntropyLoss()
-        return (criterion(fused, masks) + criterion(out1, masks) +
-                criterion(out2, masks))
+        return (criterion(out1, masks) + criterion(out2, masks)
+                + criterion(fused, masks))
 
     def prepare_eval_sample(self, sample, device):
         image = self._load_image(sample)
@@ -164,12 +228,37 @@ class BCUNetAdapter(BaselineAdapter):
         return tensor.unsqueeze(0).to(device)
 
     def predict_sample(self, model, prepared, sample):
-        _, _, fused = model(prepared)
+        with torch.no_grad():
+            _, _, fused = model(prepared)
+        # Upstream upsamples soft logits to original size and takes argmax
+        # there; nearest-resizing a 512 hard mask changes boundary pixels.
         with Image.open(sample.mask_path) as mask:
             width, height = mask.size
-        # Upstream upsamples the soft logits to original size and takes
-        # argmax there; nearest-resizing a 512 hard mask changes boundary
-        # pixels.
         fused = F.interpolate(fused, size=(height, width),
                               mode='bilinear', align_corners=False)
         return fused.argmax(dim=1)[0].cpu().numpy().astype(bool)
+
+    def save_config(self, args):
+        unet_weight, convnext_weight = self._fusion_weights(args)
+        return {
+            'input_size': int(self.input_size),
+            'loss': str(getattr(args, 'bcunet_loss', 'mrl')),
+            'augment_variants': int(
+                getattr(args, 'bcunet_augment_variants', 18)),
+            'fusion_unet': unet_weight,
+            'fusion_convnext': convnext_weight,
+            'convtranspose': bool(
+                getattr(args, 'bcunet_convtranspose', False)),
+        }
+
+    def restore_config(self, args, config):
+        if 'input_size' in config:
+            self.input_size = int(config['input_size'])
+        for key, attribute in (
+                ('loss', 'bcunet_loss'),
+                ('augment_variants', 'bcunet_augment_variants'),
+                ('fusion_unet', 'bcunet_fusion_unet'),
+                ('fusion_convnext', 'bcunet_fusion_convnext'),
+                ('convtranspose', 'bcunet_convtranspose')):
+            if key in config:
+                setattr(args, attribute, config[key])

@@ -72,6 +72,12 @@ From this file's directory: `../../../../3rd`
   `3rd/segment-anything`.
 - `sam_vit_l_unet`: no `3rd` source. This is a project extension using
   `src/models/sam_network` and the local SAM ViT-L checkpoint.
+- `bcunet`: paper is
+  `parsing/[2023 cbm] BCU-Net: Bridging ConvNeXt and U-Net for medical image
+  segmentation`; official code is `3rd/BCU-Net`. The paper profile uses MRL,
+  average 0.5/0.5 fusion, bilinear U-Net and 18x augmentation; the release
+  main.py CE/0.4-0.6/no-aug profile is kept as an ablation. See
+  `models/bcunet/UPSTREAM.md` for the paper-code conflicts.
 - `maskvsc`: upstream is two-stage. Stage 1 is
   `3rd/MaskVSC/train.py` + `test.py` (UNet, masked-vessel corruption,
   Connect_Loss); stage 2 is `3rd/MaskVSC/train_ViG.py` + `test_ViG.py` +
