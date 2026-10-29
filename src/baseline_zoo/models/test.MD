@@ -82,8 +82,15 @@ From this file's directory: `../../../../3rd`
   `3rd/MaskVSC/train.py` + `test.py` (UNet, masked-vessel corruption,
   Connect_Loss); stage 2 is `3rd/MaskVSC/train_ViG.py` + `test_ViG.py` +
   `model/gcn.py` (ViG completion on the frozen stage-1 prediction). The
-  forward inference path is `ViG(Seg(image))`; source repairs are recorded
-  in `models/maskvsc/UPSTREAM.md`.
+  forward inference path is `ViG(Seg(image))`. The paper is
+  `parsing/[2025 tmi] Masked Vascular Structure Segmentation and Completion
+  in Retinal Images`. The default stage-2 uses the released patch16
+  token-fold decode and soft GCN labels (ViG 23.84M, full model 31.61M).
+  Paper-code conflicts are resolved paper-first: L_C gets the missing
+  N/foreground scale, stage 1 adds ±30° rotation, and ViG uses Euclidean
+  KNN; release L_C/graph/flip-only modes remain as ablations. The earlier
+  patch32 token-grid reconstruction is only `coherent`. See
+  `models/maskvsc/UPSTREAM.md`.
 - `kprism`: upstream is the whole `3rd/K-Prism` tree (commit `78c3b1b`,
   MIT). The port copies `kprism/modeling/{backbone,pixel_fuser,meta_arch,
   point_encoder,transformer_decoder,loss.py}`; the in-context

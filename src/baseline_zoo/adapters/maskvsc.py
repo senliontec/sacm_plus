@@ -63,6 +63,28 @@ def _load_pair(sample):
     return image, label
 
 
+def _augment_pair(image: Image.Image, label: Image.Image,
+                  rng: random.Random, rotation_degrees: float):
+    """Paper training augmentation: random rotation + horizontal flip.
+
+    The paper gives ±30° but not probabilities or interpolation.  Rotation is
+    applied to every sample with a uniform angle; images use bilinear
+    interpolation and masks use nearest so binary labels stay binary.
+    ``rotation_degrees=0`` reproduces the release (flip only) path.
+    """
+    if rotation_degrees > 0:
+        angle = rng.uniform(-rotation_degrees, rotation_degrees)
+        image = image.rotate(
+            angle, resample=Image.BILINEAR, expand=False,
+            fillcolor=(0, 0, 0))
+        label = label.rotate(
+            angle, resample=Image.NEAREST, expand=False, fillcolor=0)
+    if rng.random() < 0.5:
+        image = image.transpose(Image.FLIP_LEFT_RIGHT)
+        label = label.transpose(Image.FLIP_LEFT_RIGHT)
+    return image, label
+
+
 class MaskVSCAdapter(BaselineAdapter):
     id = 'maskvsc'
     display_name = 'MaskVSC'
@@ -78,20 +100,31 @@ class MaskVSCAdapter(BaselineAdapter):
         'Connect_Loss) followed by the official ViG completion head '
         '(ViG(Seg(image))), matching the upstream train_ViG.py/test_ViG.py '
         'inference path. The previous stage-1-only port is superseded.',
-        'The released ViG code cannot run as shipped: it reshapes the token '
-        'vector instead of the (img/patch)^2 token grid, and its Fundus call '
-        'passes patch_size=16 while the hardcoded predictor expects 1024 '
-        '(32^2) channels. The port repairs the token-grid reshape and uses '
-        'patch_size=32 for the 512 input, preserving the predictor width.',
+        'Stage 2 uses the released ViG decode exactly: patch_size=16 for the '
+        '512 input, N=(512/16)^2=1024 token maps as predictor channels, and '
+        'the official features.unsqueeze(2).view(B,N,patch,patch) fold. The '
+        'official Fundus ViG has 23.84M parameters; the full model is '
+        '31.61M. --maskvsc-vig-decode coherent keeps the earlier '
+        'transpose-token-grid/patch-32 reconstruction (371.6M ViG) as an '
+        'explicit ablation only; it is not the released architecture.',
+        'Paper-first conflict handling: L_C uses the paper-intended scale '
+        '|S(Y)-S(Y_G)|*N/#foreground because Eq.1/2 as printed are '
+        'numerically inert; --maskvsc-connect-loss release keeps the official '
+        'count_nonzero implementation. Stage 1 uses the paper random '
+        'rotation ±30° plus horizontal flip; --maskvsc-rotation-degrees 0 is '
+        'the release flip-only path. ViG KNN uses the paper Euclidean '
+        'distance; --maskvsc-vig-graph release keeps the released dot-product '
+        'top-k. Stage 2 has no augmentation, matching the released GCN '
+        'loader; the paper does not specify augmentation for step 2.',
         'Stage 2 is a single pooled ViG across all protocol domains. Upstream '
         'trains separate Fundus/OCTA/2PFM completion models per dataset; '
         'unseen/novel domains have no per-domain training data, so a pooled '
         'model is the only protocol-consistent choice.',
         'Stage 2 trains on clean images and the frozen stage-1 probability '
-        'maps from the 18 train images, with BCE only. Stage 1 is forced to '
-        'eval() and requires_grad=False; the release does not call eval() '
-        'and would update its BatchNorm statistics and accumulate unused '
-        'gradients.',
+        'maps from the 18 train images, with BCE only. The paper explicitly '
+        'freezes step 1; this port forces eval() and requires_grad=False. '
+        'The release does not call eval() and would update its BatchNorm '
+        'statistics and accumulate unused gradients.',
         'Stage-2 checkpoint selection uses the 6-image validation split by '
         'Dice. Upstream evaluates the test split every epoch and selects the '
         'best ViG by test Dice, which violates the protocol.',
@@ -101,19 +134,33 @@ class MaskVSCAdapter(BaselineAdapter):
         'for the ViG-isolation A/B (1000 total).',
         'Data protocol: the 18/6-shot split replaces the original Train/Test '
         'folders; grayscale domains are converted to RGB because the official '
-        'Fundus UNet expects three channels. Masks are binarized after resize '
-        'for both stages; the released GCN dataset passes soft PIL-resized '
-        'labels to BCE.',
+        'Fundus UNet expects three channels. Stage-1 masks are thresholded '
+        'after resize as in ImageDataset_Fundus; stage 2 uses the official '
+        'soft PIL-resized labels from ImageDataset_GCN_Fundus for BCE.',
+        'Benchmark-size protocol: the paper uses per-dataset input sizes '
+        '(512 DRIVE/RITE, 576 STARE, 1024 LES-AV/2PFM, 384/304 OCTA-500, 304 '
+        'ROSE) and per-modality corruption (Fundus SD20/7x7, OCTA SD100/3x3, '
+        '2PFM SD20/11x11). The pooled 20-domain port uses 512, SD20 and 7x7 '
+        'for every domain so all baselines share one input size.',
         'Official test.py writes 512x512 masks; predictions are restored to '
         'the original GT resolution so every baseline shares one evaluator.',
         'The protocol seeds 0-4 replace upstream seed 1234 and deterministic '
-        'cuDNN. The official corruption sampler consumes RNG when ratio=0; '
-        'this port early-returns before that draw and uses workers=0.',
+        'cuDNN. Rotation/flip draw from random.Random(seed+epoch); the '
+        'corruption sampler keeps the upstream global random/numpy draws, '
+        'while the release also draws the flip from numpy. Exact per-step '
+        'RNG sequences therefore differ. The official corruption sampler '
+        'consumes RNG when ratio=0; this port early-returns before that draw '
+        'and uses workers=0.',
         'The custom two-stage pipeline does not support --resume, --accum-steps '
         'or gradient clipping; a rerun retrains from scratch. Upstream stage-1 '
         'evaluates the test split every epoch; this port uses validation Dice.',
-        'Checkpoints from the previous stage-1-only MaskVSC port contain no '
-        'ViG weights and must be retrained for the full two-stage baseline.',
+        'Stage-1-only checkpoints from the first MaskVSC port contain no ViG '
+        'weights and must be retrained. Full two-stage checkpoints from the '
+        'earlier port remain loadable: a missing vig_decode is inferred as '
+        'coherent, and missing vig_graph/connect_loss/rotation_degrees are '
+        'inferred as the release graph, release L_C and flip-only '
+        'augmentation. New runs default to the paper graph/L_C/rotation with '
+        'the official release ViG decode.',
     )
 
     def __init__(self):
@@ -121,7 +168,11 @@ class MaskVSCAdapter(BaselineAdapter):
         self._vig_blocks = 16
         self._vig_edges = 9
         self._vig_heads = 1
-        self._vig_patch_size = 32
+        self._vig_patch_size = 16
+        self._vig_decode = 'release'
+        self._vig_graph = 'paper'
+        self._connect_loss_mode = 'paper'
+        self._rotation_degrees = 30.0
         self._vig_batch_size = None
         self._vig_lr = None
         self._stage1_epochs = None
@@ -146,8 +197,27 @@ class MaskVSCAdapter(BaselineAdapter):
             '--maskvsc-vig-heads', type=int, default=1,
             help='ViG multi-head width (official 1)')
         parser.add_argument(
-            '--maskvsc-vig-patch-size', type=int, default=32,
-            help='ViG patch size; 32 matches the released Fundus predictor')
+            '--maskvsc-vig-patch-size', type=int, default=16,
+            help='ViG patch size (official 16 for the 512 Fundus input)')
+        parser.add_argument(
+            '--maskvsc-vig-decode', choices=['release', 'coherent'],
+            default='release',
+            help='release: official token-fold/predictor=N decode; coherent: '
+                 'non-official patch-32 token-grid ablation')
+        parser.add_argument(
+            '--maskvsc-vig-graph', choices=['paper', 'release'],
+            default='paper',
+            help='paper: Euclidean KNN (MaskVSC paper); release: dot-product '
+                 'top-k from the released gcn.py')
+        parser.add_argument(
+            '--maskvsc-connect-loss', choices=['paper', 'release'],
+            default='paper',
+            help='paper: foreground/N-normalized L_C; release: official '
+                 'count_nonzero implementation')
+        parser.add_argument(
+            '--maskvsc-rotation-degrees', type=float, default=30.0,
+            help='stage-1 random rotation range (paper 30); 0 is the release '
+                 'flip-only path')
         parser.add_argument(
             '--maskvsc-vig-batch-size', type=int, default=None,
             help='stage-2 batch size; default = --batch-size')
@@ -175,7 +245,27 @@ class MaskVSCAdapter(BaselineAdapter):
         self._vig_edges = int(getattr(args, 'maskvsc_vig_edges', 9))
         self._vig_heads = int(getattr(args, 'maskvsc_vig_heads', 1))
         self._vig_patch_size = int(
-            getattr(args, 'maskvsc_vig_patch_size', 32))
+            getattr(args, 'maskvsc_vig_patch_size', 16))
+        self._vig_decode = str(
+            getattr(args, 'maskvsc_vig_decode', 'release'))
+        if self._vig_decode not in ('release', 'coherent'):
+            raise SystemExit(
+                '--maskvsc-vig-decode must be release or coherent')
+        self._vig_graph = str(
+            getattr(args, 'maskvsc_vig_graph', 'paper'))
+        if self._vig_graph not in ('paper', 'release'):
+            raise SystemExit(
+                '--maskvsc-vig-graph must be paper or release')
+        self._connect_loss_mode = str(
+            getattr(args, 'maskvsc_connect_loss', 'paper'))
+        if self._connect_loss_mode not in ('paper', 'release'):
+            raise SystemExit(
+                '--maskvsc-connect-loss must be paper or release')
+        self._rotation_degrees = float(
+            getattr(args, 'maskvsc_rotation_degrees', 30.0))
+        if not 0 <= self._rotation_degrees <= 180:
+            raise SystemExit(
+                '--maskvsc-rotation-degrees must be between 0 and 180')
         self._vig_batch_size = getattr(args, 'maskvsc_vig_batch_size', None)
         self._vig_lr = getattr(args, 'maskvsc_vig_lr', None)
         if self.input_size % self._vig_patch_size:
@@ -196,6 +286,8 @@ class MaskVSCAdapter(BaselineAdapter):
             num_ViGBlocks=self._vig_blocks,
             num_edges=self._vig_edges,
             head_num=self._vig_heads,
+            decode=self._vig_decode,
+            graph_metric=self._vig_graph,
         )
         initialize_weights(vig)
         model = MaskVSCFull(seg, vig)
@@ -222,9 +314,8 @@ class MaskVSCAdapter(BaselineAdapter):
         images, labels = [], []
         for sample in samples:
             image, label = _load_pair(sample)
-            if rng.random() < 0.5:
-                image = image.transpose(Image.FLIP_LEFT_RIGHT)
-                label = label.transpose(Image.FLIP_LEFT_RIGHT)
+            image, label = _augment_pair(
+                image, label, rng, self._rotation_degrees)
             image_np = np.array(image.resize([self.input_size,
                                               self.input_size]))
             label_np = np.array(label.resize([self.input_size,
@@ -254,15 +345,15 @@ class MaskVSCAdapter(BaselineAdapter):
             image, label = _load_pair(sample)
             image_np = np.array(image.resize([self.input_size,
                                               self.input_size]))
-            label_np = np.array(label.resize([self.input_size,
-                                              self.input_size]))
-            label_np = (label_np >= 0.5).astype(np.float32) \
-                if label_np.max() <= 1 else \
-                (label_np >= 128).astype(np.float32)
+            # Official ImageDataset_GCN_Fundus keeps the soft, PIL-resized
+            # grayscale label and ToTensor simply divides by 255.
+            label_np = np.asarray(
+                label.resize([self.input_size, self.input_size]),
+                dtype=np.float32) / 255.0
             image_t = torch.from_numpy(
                 image_np.astype(np.float32).copy()
             ).permute(2, 0, 1) / 255.0
-            label_t = torch.from_numpy(label_np).unsqueeze(0)
+            label_t = torch.from_numpy(label_np.copy()).unsqueeze(0)
             images.append(image_t)
             labels.append(label_t)
         return (torch.stack(images).to(device),
@@ -273,7 +364,7 @@ class MaskVSCAdapter(BaselineAdapter):
         pred = model(images)
         loss = nn.BCELoss()(pred, labels)
         if getattr(model, 'stage', 'stage1') == 'stage1':
-            loss = loss + Connect_Loss()(pred, labels)
+            loss = loss + Connect_Loss(mode=self._connect_loss_mode)(pred, labels)
         return loss
 
     def prepare_eval_sample(self, sample, device):
@@ -307,7 +398,7 @@ class MaskVSCAdapter(BaselineAdapter):
             images, labels = self.prepare_train_batch(samples, rng)
             pred = model(images)
             loss = (nn.BCELoss()(pred, labels)
-                    + Connect_Loss()(pred, labels))
+                    + Connect_Loss(mode=self._connect_loss_mode)(pred, labels))
             optimizer.zero_grad(set_to_none=True)
             loss.backward()
             optimizer.step()
@@ -474,6 +565,10 @@ class MaskVSCAdapter(BaselineAdapter):
             'vig_lr': vig_lr,
             'weight_decay': float(args.weight_decay),
             'input_size': self.input_size,
+            'connect_loss': self._connect_loss_mode,
+            'rotation_degrees': self._rotation_degrees,
+            'stage2_augmentation': False,
+            'vig_graph': self._vig_graph,
             'adapter_config': self.save_config(args),
             'selection': args.selection,
             'seed': int(args.seed),
@@ -485,6 +580,8 @@ class MaskVSCAdapter(BaselineAdapter):
                 'edges': self._vig_edges,
                 'heads': self._vig_heads,
                 'patch_size': self._vig_patch_size,
+                'decode': self._vig_decode,
+                'graph_metric': self._vig_graph,
             },
             'split_manifest_sha256': split_sha,
             'num_params': num_params,
@@ -498,7 +595,10 @@ class MaskVSCAdapter(BaselineAdapter):
         console.print(
             f'[cyan]MaskVSC stage 1[/] {self._stage1_epochs_used} epochs '
             f'(UNet); [cyan]stage 2[/] {self._stage2_epochs_used} epochs '
-            f'(ViG, batch {vig_batch})')
+            f'(ViG, batch {vig_batch}, patch {self._vig_patch_size}, '
+            f'{self._vig_decode} decode, {self._vig_graph} graph); '
+            f'L_C={self._connect_loss_mode}, rotation='
+            f'±{self._rotation_degrees:g}°')
         print_epoch_header(
             self, self._stage1_epochs_used + self._stage2_epochs_used,
             args.seed, device, num_params, trainable_stage1)
@@ -659,6 +759,10 @@ class MaskVSCAdapter(BaselineAdapter):
             'vig_edges': int(self._vig_edges),
             'vig_heads': int(self._vig_heads),
             'vig_patch_size': int(self._vig_patch_size),
+            'vig_decode': str(self._vig_decode),
+            'vig_graph': str(self._vig_graph),
+            'connect_loss': str(self._connect_loss_mode),
+            'rotation_degrees': float(self._rotation_degrees),
             'vig_batch_size': self._vig_batch_size,
             'vig_lr': self._vig_lr,
         }
@@ -666,6 +770,35 @@ class MaskVSCAdapter(BaselineAdapter):
     def restore_config(self, args, config):
         if 'input_size' in config:
             self.input_size = int(config['input_size'])
+        if 'vig_decode' in config:
+            self._vig_decode = str(config['vig_decode'])
+        elif 'vig_patch_size' in config:
+            # Checkpoints from the first full two-stage port used the
+            # non-official transpose/patch-32 decode and carried no
+            # vig_decode key. Rebuild that architecture so they still load.
+            self._vig_decode = 'coherent'
+            print('[maskvsc] checkpoint has no vig_decode; using coherent '
+                  'decode for backward compatibility', flush=True)
+        else:
+            self._vig_decode = 'release'
+        setattr(args, 'maskvsc_vig_decode', self._vig_decode)
+        if 'vig_graph' in config:
+            self._vig_graph = str(config['vig_graph'])
+        else:
+            # Old checkpoints were trained/evaluated with the released
+            # dot-product graph.
+            self._vig_graph = 'release'
+        if 'connect_loss' in config:
+            self._connect_loss_mode = str(config['connect_loss'])
+        else:
+            self._connect_loss_mode = 'release'
+        if 'rotation_degrees' in config:
+            self._rotation_degrees = float(config['rotation_degrees'])
+        else:
+            self._rotation_degrees = 0.0
+        setattr(args, 'maskvsc_vig_graph', self._vig_graph)
+        setattr(args, 'maskvsc_connect_loss', self._connect_loss_mode)
+        setattr(args, 'maskvsc_rotation_degrees', self._rotation_degrees)
         for key, attribute in (
                 ('vig_blocks', '_vig_blocks'),
                 ('vig_edges', '_vig_edges'),

@@ -31,7 +31,7 @@ deviations may remain. `WARN` means a real but non-blocking issue.
 | model | paper / official code | verdict | severity | main issue | status |
 |---|---|---|---|---|---|
 | `flowsdf` | FlowSDF IJCV 2025 | PASS | P2 | K=4 test averaging is released config, not paper K=25; SDF notebook not vendored | **doc fixed**: both deviation entries now state released K=4 vs paper K=25 |
-| `maskvsc` | MaskVSC TMI 2025; paper absent | PASS | P3 | license contradictory (Apache vs all-rights-reserved); no paper | **stage-2 ViG now ported** (pooled 512, release token-grid/patch repairs documented); resolve license, add paper |
+| `maskvsc` | MaskVSC TMI 2025; paper in `parsing/` | PASS | P3 | license contradictory (Apache vs all-rights-reserved) | **paper-first conflicts resolved**: official patch16 ViG decode/soft labels; L_C paper scale; stage-1 ±30° rotation; Euclidean KNN; release modes as ablations; pooled 512 & 600+200 documented; resolve license |
 | `medcagd` | MedCAGD ECCV 2026 | PASS | P2 | soft Dice added; 256/128 patches for all domains; batch adaptation | documented |
 | `nnunet2d` | nnU-Net Nature Methods 2021; paper absent; runtime uses installed nnunetv2 | PASS | P3 | runtime paths statically checked only; train-only planning | install/smoke on server |
 | `nnwnet` | nnWNet; paper absent | WARN | P2 | docs claimed planning sees val cases, but code plans train-only; no paper/license | **doc fixed**: train-only planning/val staging; add paper/license |

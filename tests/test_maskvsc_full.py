@@ -12,9 +12,19 @@ import torch
 from PIL import Image
 from torch import nn
 
-from baseline_zoo.adapters.maskvsc import MaskVSCAdapter
-from baseline_zoo.models.maskvsc import MaskVSCFull, UNet, ViGSeg_Fundus
-from baseline_zoo.models.maskvsc.gcn import _tokens_to_feature_map
+from baseline_zoo.adapters.maskvsc import MaskVSCAdapter, _augment_pair
+from baseline_zoo.data import Sample
+from baseline_zoo.models.maskvsc import (
+    Connect_Loss,
+    MaskVSCFull,
+    UNet,
+    ViGSeg_Fundus,
+)
+from baseline_zoo.models.maskvsc.gcn import (
+    _knn_graph,
+    _release_tokens_to_feature_map,
+    _tokens_to_feature_map,
+)
 
 
 def _write_pair(root, split, stem):
@@ -50,11 +60,16 @@ def split_root(tmp_path):
     return root
 
 
-def test_vig_token_grid_and_forward_backward():
-    with pytest.raises(ValueError, match='not a square'):
-        _tokens_to_feature_map(torch.zeros(1, 5, 8))
+def test_official_release_decode_forward_backward():
+    features = torch.zeros(2, 64, 256)
+    folded = _release_tokens_to_feature_map(features, 16)
+    assert folded.shape == (2, 64, 16, 16)
+    with pytest.raises(ValueError, match='release decode needs'):
+        _release_tokens_to_feature_map(torch.zeros(1, 64, 8), 16)
+
     model = ViGSeg_Fundus(
-        num_channels=1, img_size=128, patch_size=32, num_ViGBlocks=1)
+        num_channels=1, img_size=128, patch_size=16, num_ViGBlocks=1,
+        decode='release')
     images = torch.rand(1, 1, 128, 128)
     output = model(images)
     assert output.shape == (1, 1, 128, 128)
@@ -63,10 +78,107 @@ def test_vig_token_grid_and_forward_backward():
     assert model.backbone.blocks[0].in_layer1.layer[0].weight.grad is not None
 
 
+def test_official_fundus_vig_parameter_count():
+    model = ViGSeg_Fundus(
+        num_channels=1, img_size=512, patch_size=16, num_ViGBlocks=16,
+        decode='release')
+    assert model.predictor[0].in_channels == 1024
+    assert model.backbone.blocks[0].graph_metric == 'paper'
+    assert sum(p.numel() for p in model.parameters()) == 23_841_764
+
+
+def test_paper_and_release_knn_graphs_differ():
+    features = torch.tensor([[[1.0, 0.0], [1.0, 0.1], [2.0, 0.0]]])
+    paper = _knn_graph(features, 2, 'paper')
+    release = _knn_graph(features, 2, 'release')
+    assert set(paper[0, 0].tolist()) == {0, 1}
+    assert set(release[0, 0].tolist()) == {0, 2}
+    with pytest.raises(ValueError, match='unknown ViG graph metric'):
+        _knn_graph(features, 2, 'cosine')
+
+
+def test_paper_connect_loss_is_scale_comparable():
+    torch.manual_seed(0)
+    mask = torch.zeros(1, 1, 64, 64)
+    mask[..., 20:44, 24:40] = 1
+    pred = (0.5 * mask + 0.5 * torch.rand_like(mask)).clamp(0, 1)
+    paper = Connect_Loss(mode='paper')(pred, mask)
+    release = Connect_Loss(mode='release')(pred, mask)
+    bce = torch.nn.BCELoss()(pred, mask)
+    assert paper.item() > 0.01
+    assert paper.item() > release.item() * 1e4
+    assert paper.item() < bce.item() * 20
+    with pytest.raises(ValueError, match='unknown Connect_Loss mode'):
+        Connect_Loss(mode='cosine')
+    empty = torch.zeros(1, 1, 32, 32)
+    assert Connect_Loss(mode='paper')(
+        torch.rand_like(empty), empty).item() == 0.0
+
+
+class _FixedRng:
+    def __init__(self, angle, flip):
+        self.angle = angle
+        self.flip = flip
+
+    def uniform(self, low, high):
+        assert low == -high
+        return self.angle
+
+    def random(self):
+        return 0.0 if self.flip else 1.0
+
+
+def test_paper_rotation_and_flip_augmentation_are_exact():
+    rng = np.random.default_rng(3)
+    image = Image.fromarray(
+        rng.integers(0, 255, (32, 40, 3), dtype=np.uint8))
+    mask = np.zeros((32, 40), np.uint8)
+    mask[8:24, 12:28] = 255
+    label = Image.fromarray(mask)
+
+    rotated_image, rotated_label = _augment_pair(
+        image, label, _FixedRng(30.0, False), 30.0)
+    expected_image = image.rotate(
+        30.0, resample=Image.BILINEAR, expand=False,
+        fillcolor=(0, 0, 0))
+    expected_label = label.rotate(
+        30.0, resample=Image.NEAREST, expand=False, fillcolor=0)
+    assert np.array_equal(np.asarray(rotated_image),
+                          np.asarray(expected_image))
+    assert np.array_equal(np.asarray(rotated_label),
+                          np.asarray(expected_label))
+    assert set(np.unique(np.asarray(rotated_label))).issubset({0, 255})
+
+    flipped_image, flipped_label = _augment_pair(
+        image, label, _FixedRng(0.0, True), 0.0)
+    assert np.array_equal(
+        np.asarray(flipped_image),
+        np.asarray(image.transpose(Image.FLIP_LEFT_RIGHT)))
+    assert np.array_equal(
+        np.asarray(flipped_label),
+        np.asarray(label.transpose(Image.FLIP_LEFT_RIGHT)))
+
+    same_image, same_label = _augment_pair(
+        image, label, _FixedRng(0.0, False), 0.0)
+    assert np.array_equal(np.asarray(same_image), np.asarray(image))
+    assert np.array_equal(np.asarray(same_label), np.asarray(label))
+
+
+def test_coherent_decode_remains_an_explicit_ablation():
+    with pytest.raises(ValueError, match='not a square'):
+        _tokens_to_feature_map(torch.zeros(1, 5, 8))
+    model = ViGSeg_Fundus(
+        num_channels=1, img_size=128, patch_size=32, num_ViGBlocks=1,
+        decode='coherent')
+    output = model(torch.rand(1, 1, 128, 128))
+    assert output.shape == (1, 1, 128, 128)
+
+
 def test_full_wrapper_stage_transitions():
     seg = UNet(n_channels=3, n_classes=1)
     vig = ViGSeg_Fundus(
-        num_channels=1, img_size=128, patch_size=32, num_ViGBlocks=1)
+        num_channels=1, img_size=128, patch_size=16, num_ViGBlocks=1,
+        decode='release')
     model = MaskVSCFull(seg, vig)
     assert seg.training and not vig.training
     assert any(p.requires_grad for p in seg.parameters())
@@ -104,7 +216,11 @@ def _training_args(root, workdir):
         maskvsc_vig_blocks=1,
         maskvsc_vig_edges=9,
         maskvsc_vig_heads=1,
-        maskvsc_vig_patch_size=32,
+        maskvsc_vig_patch_size=16,
+        maskvsc_vig_decode='release',
+        maskvsc_vig_graph='paper',
+        maskvsc_connect_loss='paper',
+        maskvsc_rotation_degrees=30.0,
         maskvsc_vig_batch_size=1,
         maskvsc_vig_lr=None,
         batch_size=1,
@@ -147,12 +263,31 @@ def test_two_stage_training_and_prediction(split_root, tmp_path):
     assert payload['config']['stage1_epochs'] == 1
     assert payload['config']['stage2_epochs'] == 1
     assert payload['config']['vig_arch']['blocks'] == 1
+    assert payload['config']['vig_arch']['decode'] == 'release'
+    assert payload['config']['vig_arch']['graph_metric'] == 'paper'
+    assert payload['config']['adapter_config']['vig_decode'] == 'release'
+    assert payload['config']['adapter_config']['vig_graph'] == 'paper'
+    assert payload['config']['adapter_config']['connect_loss'] == 'paper'
+    assert payload['config']['adapter_config']['rotation_degrees'] == 30.0
     assert payload['split_manifest_sha256']
     assert (workdir / 'metrics_history.json').is_file()
     assert (workdir / 'val_metrics_by_dataset.csv').is_file()
 
     adapter.prediction_mode = True
-    model = adapter.build_model(_training_args(split_root, workdir))
+    pred_args = _training_args(split_root, workdir)
+    # Simulate a fresh process: restore the architecture from the checkpoint.
+    pred_args.maskvsc_vig_patch_size = 32
+    pred_args.maskvsc_vig_decode = 'coherent'
+    pred_args.maskvsc_vig_graph = 'release'
+    pred_args.maskvsc_connect_loss = 'release'
+    pred_args.maskvsc_rotation_degrees = 0.0
+    adapter.restore_config(pred_args, payload['config']['adapter_config'])
+    assert pred_args.maskvsc_vig_patch_size == 16
+    assert pred_args.maskvsc_vig_decode == 'release'
+    assert pred_args.maskvsc_vig_graph == 'paper'
+    assert pred_args.maskvsc_connect_loss == 'paper'
+    assert pred_args.maskvsc_rotation_degrees == 30.0
+    model = adapter.build_model(pred_args)
     adapter.load_state_dict(model, state)
     sample = adapter.prepare_eval_sample(
         type('S', (), {
@@ -178,3 +313,40 @@ def test_stage2_optimizer_is_not_empty():
         [p for p in model.vig.parameters() if p.requires_grad], lr=2e-4)
     assert optimizer.param_groups[0]['params']
     assert math.isclose(optimizer.param_groups[0]['lr'], 2e-4)
+
+
+def test_stage2_uses_official_soft_labels(tmp_path):
+    image = np.full((41, 53, 3), 128, np.uint8)
+    mask = np.zeros((41, 53), np.uint8)
+    mask[10:30, 15:40] = 255
+    image_path = tmp_path / 'case.png'
+    mask_path = tmp_path / 'case_mask.png'
+    Image.fromarray(image).save(image_path)
+    Image.fromarray(mask).save(mask_path)
+    adapter = MaskVSCAdapter()
+    adapter.input_size = 64
+    sample = Sample(image_path, mask_path, 'toy', 'case')
+    _, labels = adapter._prepare_clean_batch(
+        [sample], torch.device('cpu'))
+    assert labels.shape == (1, 1, 64, 64)
+    assert labels.max().item() == 1.0
+    assert labels.min().item() == 0.0
+    # Official GCN labels are PIL-resized soft masks, not thresholded.
+    assert torch.any((labels > 0) & (labels < 1))
+
+
+def test_legacy_patch32_checkpoint_infers_coherent_decode():
+    adapter = MaskVSCAdapter()
+    args = _training_args(None, None)
+    adapter.restore_config(args, {'vig_patch_size': 32})
+    assert adapter._vig_decode == 'coherent'
+    assert args.maskvsc_vig_decode == 'coherent'
+    assert adapter._vig_graph == 'release'
+    assert adapter._connect_loss_mode == 'release'
+    assert adapter._rotation_degrees == 0.0
+    assert args.maskvsc_vig_graph == 'release'
+    assert args.maskvsc_connect_loss == 'release'
+    assert args.maskvsc_rotation_degrees == 0.0
+    config = adapter.save_config(args)
+    assert config['vig_decode'] == 'coherent'
+    assert config['vig_graph'] == 'release'

@@ -1,20 +1,23 @@
 """ViG completion head, vendored from ``3rd/MaskVSC/model/gcn.py``.
 
-Two upstream defects block stage-2:
+The released decoder is self-consistent and runs as shipped with the
+official ``patch_size=16``:
 
-1. ``features.unsqueeze(2).view(B, N, patch, patch)`` reshapes the token
-   vector instead of the token grid.  It is replaced by
-   ``transpose(1,2).reshape(B, C, side, side)`` with
-   ``side = sqrt(N) = img_size / patch_size``.
-2. The released Fundus call passes ``patch_size=16``, but the hardcoded
-   predictors expect 1024 channels (=32^2); OCTA expects 576 (=24^2) and
-   2PFM 1024.  The port uses the predictor-implied patch size (32 for the
-   512 Fundus variant) so the intended architecture is preserved.  The
-   predictor input is set to ``patch_size^2``, which equals the upstream
-   hardcoded widths at those intended sizes.
+    x = features.unsqueeze(2).view(B, N, patch, patch)
 
-No layer definitions or other math are changed.  Without these repairs the
-released stage-2 raises a channel-size error and cannot train.
+With ``num_channels=1`` every token has exactly ``patch*patch`` features,
+so this folds each token vector into a ``patch x patch`` map and treats the
+N token maps as channels.  The predictor width therefore equals the token
+count ``N = (img_size / patch_size) ** 2``: 1024 for 512/16 Fundus, 576 for
+384/16 OCTA and 4096 for 1024/16 2PFM.  ``decode='release'`` reproduces
+this exactly.
+
+``decode='coherent'`` is a non-official ablation retained from an earlier
+port: it transposes ``[B, N, C]`` into a ``[B, C, side, side]`` token grid
+and uses ``patch*patch`` predictor channels.  It is not the released model
+(fundus patch 32: 371.6M ViG parameters vs the official 23.8M).
+
+All layer definitions and the released arithmetic are otherwise unchanged.
 """
 
 import math
@@ -23,15 +26,65 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+DECODES = ('release', 'coherent')
+GRAPH_METRICS = ('paper', 'release')
+
+
+def _knn_graph(features, k, graph_metric):
+    """Directed KNN graph indices.
+
+    ``paper`` uses the Euclidean distance described in the MaskVSC paper;
+    ``release`` keeps the released dot-product top-k.  The two differ unless
+    every node has the same feature norm.
+    """
+    if graph_metric == 'paper':
+        distance = torch.cdist(features, features, p=2)
+        return distance.topk(k, dim=-1, largest=False).indices
+    if graph_metric == 'release':
+        similarity = features @ features.transpose(-1, -2)
+        return similarity.topk(k, dim=-1).indices
+    raise ValueError(
+        f'unknown ViG graph metric {graph_metric!r}; use {GRAPH_METRICS}')
+
 
 def _tokens_to_feature_map(features):
-    """[B, N, C] token sequence -> [B, C, side, side] feature map."""
+    """Coherent ablation: [B, N, C] tokens -> [B, C, side, side] map."""
     batch, tokens, channels = features.shape
     side = math.isqrt(tokens)
     if side * side != tokens:
         raise ValueError(
             f'token count {tokens} is not a square (img/patch mismatch)')
     return features.transpose(1, 2).reshape(batch, channels, side, side)
+
+
+def _release_tokens_to_feature_map(features, patch_size):
+    """Official Fold: [B, N, C] tokens -> [B, N, patch, patch].
+
+    The view is exactly the upstream ``features.unsqueeze(2).view(
+    B, N, patch, patch)``.  Each token's ``patch*patch`` feature vector
+    becomes one spatial map; the token index is the channel index.
+    """
+    batch, tokens, channels = features.shape
+    if channels != patch_size * patch_size:
+        raise ValueError(
+            f'release decode needs {patch_size * patch_size} features per '
+            f'token, got {channels}; use decode="coherent" for a token grid')
+    return features.unsqueeze(2).view(batch, tokens, patch_size, patch_size)
+
+
+def _predictor_in_channels(img_size, patch_size, decode):
+    if decode == 'release':
+        return (img_size // patch_size) ** 2
+    return patch_size * patch_size
+
+
+def _validate_decode(img_size, patch_size, decode):
+    if decode not in DECODES:
+        raise ValueError(f'unknown ViG decode {decode!r}; use {DECODES}')
+    if img_size % patch_size:
+        raise ValueError(
+            f'img_size {img_size} must be divisible by patch_size '
+            f'{patch_size}')
 
 
 class TwoLayerNN(nn.Module):
@@ -63,10 +116,16 @@ class SimplePatchifier(nn.Module):
         return x
 
 class ViGBlock(nn.Module):
-    def __init__(self, in_features, num_edges=9, head_num=1):
+    def __init__(self, in_features, num_edges=9, head_num=1,
+                 graph_metric='paper'):
         super().__init__()
+        if graph_metric not in GRAPH_METRICS:
+            raise ValueError(
+                f'unknown ViG graph metric {graph_metric!r}; '
+                f'use {GRAPH_METRICS}')
         self.k = num_edges
         self.num_edges = num_edges
+        self.graph_metric = graph_metric
         self.in_layer1 = TwoLayerNN(in_features)
         self.out_layer1 = TwoLayerNN(in_features)
         self.droppath1 = nn.Identity()  # DropPath(0)
@@ -79,8 +138,7 @@ class ViGBlock(nn.Module):
     def forward(self, x):
         B, N, C = x.shape
 
-        sim = x @ x.transpose(-1, -2)
-        graph = sim.topk(self.k, dim=-1).indices
+        graph = _knn_graph(x, self.k, self.graph_metric)
 
         shortcut = x
         x = self.in_layer1(x.view(B * N, -1)).view(B, N, -1)
@@ -106,8 +164,13 @@ class ViGBlock(nn.Module):
 
 class VGNN(nn.Module):
     def __init__(self, num_channels=1, img_size=512, patch_size=16,
-                 num_ViGBlocks=16, num_edges=9, head_num=1):
+                 num_ViGBlocks=16, num_edges=9, head_num=1,
+                 graph_metric='paper'):
         super().__init__()
+        if graph_metric not in GRAPH_METRICS:
+            raise ValueError(
+                f'unknown ViG graph metric {graph_metric!r}; '
+                f'use {GRAPH_METRICS}')
 
         in_features = num_channels*patch_size*patch_size
         out_feature = patch_size*patch_size
@@ -138,7 +201,7 @@ class VGNN(nn.Module):
             torch.rand(int(num_patches), int(out_feature)))
 
         self.blocks = nn.Sequential(
-            *[ViGBlock(out_feature, num_edges, head_num)
+            *[ViGBlock(out_feature, num_edges, head_num, graph_metric)
               for _ in range(num_ViGBlocks)])
 
     def forward(self, x):
@@ -154,17 +217,23 @@ class VGNN(nn.Module):
 
 class ViGSeg_Fundus(nn.Module):
     def __init__(self, num_channels=1, img_size=512, patch_size=16,
-                 num_ViGBlocks=16, num_edges=9, head_num=1, n_classes=1):
+                 num_ViGBlocks=16, num_edges=9, head_num=1, n_classes=1,
+                 decode='release', graph_metric='paper'):
         super().__init__()
 
         self.img_size = img_size
         self.patch_size = patch_size
+        _validate_decode(img_size, patch_size, decode)
+        self.decode = decode
 
         self.backbone = VGNN(num_channels=num_channels, img_size=img_size, patch_size=patch_size,
-                             num_ViGBlocks=num_ViGBlocks, num_edges=num_edges, head_num=head_num)
+                             num_ViGBlocks=num_ViGBlocks, num_edges=num_edges, head_num=head_num,
+                             graph_metric=graph_metric)
 
         self.predictor = nn.Sequential(
-            nn.Conv2d(self.patch_size * self.patch_size, 256, kernel_size=1),
+            nn.Conv2d(
+                _predictor_in_channels(img_size, patch_size, decode),
+                256, kernel_size=1),
             nn.BatchNorm2d(256),
             nn.ReLU(inplace=True),
             nn.Conv2d(256, 64, kernel_size=1),
@@ -178,7 +247,10 @@ class ViGSeg_Fundus(nn.Module):
     def forward(self, x):
         input = x
         features = self.backbone(x)
-        x = _tokens_to_feature_map(features)
+        if self.decode == 'release':
+            x = _release_tokens_to_feature_map(features, self.patch_size)
+        else:
+            x = _tokens_to_feature_map(features)
 
         x = self.predictor(x)
 
@@ -196,18 +268,24 @@ class ViGSeg_Fundus(nn.Module):
 
 class ViGSeg_OCTA(nn.Module):
     def __init__(self, num_channels=1, img_size=304, patch_size=16,
-                 num_ViGBlocks=16, num_edges=9, head_num=1, n_classes=1):
+                 num_ViGBlocks=16, num_edges=9, head_num=1, n_classes=1,
+                 decode='release', graph_metric='paper'):
         super().__init__()
 
         self.img_size = img_size
         self.patch_size = patch_size
+        _validate_decode(img_size, patch_size, decode)
+        self.decode = decode
 
         self.backbone = VGNN(num_channels=num_channels, img_size=img_size, patch_size=patch_size,
-                             num_ViGBlocks=num_ViGBlocks, num_edges=num_edges, head_num=head_num)
+                             num_ViGBlocks=num_ViGBlocks, num_edges=num_edges, head_num=head_num,
+                             graph_metric=graph_metric)
 
         self.predictor = nn.Sequential(
             # nn.Conv2d(361, 256, kernel_size=1), # ROSE1
-            nn.Conv2d(self.patch_size * self.patch_size, 256, kernel_size=1), # OCTA500
+            nn.Conv2d(
+                _predictor_in_channels(img_size, patch_size, decode),
+                256, kernel_size=1), # OCTA500
             nn.BatchNorm2d(256),
             nn.ReLU(inplace=True),
 
@@ -245,7 +323,10 @@ class ViGSeg_OCTA(nn.Module):
     def forward(self, x):
         input = x
         features = self.backbone(x)
-        x = _tokens_to_feature_map(features)
+        if self.decode == 'release':
+            x = _release_tokens_to_feature_map(features, self.patch_size)
+        else:
+            x = _tokens_to_feature_map(features)
 
         x = self.predictor(x)
 
@@ -265,20 +346,28 @@ class ViGSeg_OCTA(nn.Module):
 
 class ViGSeg_2PFM(nn.Module):
     def __init__(self, num_channels=1, img_size=1024, patch_size=16,
-                 num_ViGBlocks=16, num_edges=9, head_num=1, n_classes=1):
+                 num_ViGBlocks=16, num_edges=9, head_num=1, n_classes=1,
+                 decode='release', graph_metric='paper'):
         super().__init__()
 
         self.img_size = img_size
         self.patch_size = patch_size
+        _validate_decode(img_size, patch_size, decode)
+        self.decode = decode
 
         self.backbone = VGNN(num_channels=num_channels, img_size=img_size, patch_size=patch_size,
-                             num_ViGBlocks=num_ViGBlocks, num_edges=num_edges, head_num=head_num)
+                             num_ViGBlocks=num_ViGBlocks, num_edges=num_edges, head_num=head_num,
+                             graph_metric=graph_metric)
 
         self.predictor = nn.Sequential(
-            nn.Conv2d(4096, 1024, kernel_size=1),
+            nn.Conv2d(
+                _predictor_in_channels(img_size, patch_size, decode),
+                1024, kernel_size=1),
             nn.BatchNorm2d(1024),
             nn.ReLU(inplace=True),
 
+            # Released 2PFM width; this unused head is not exercised by the
+            # adapter and its release layer chain is internally inconsistent.
             nn.Conv2d(self.patch_size * self.patch_size, 256, kernel_size=1),
             nn.BatchNorm2d(256),
             nn.ReLU(inplace=True),
@@ -294,7 +383,10 @@ class ViGSeg_2PFM(nn.Module):
     def forward(self, x):
         input = x
         features = self.backbone(x)
-        x = _tokens_to_feature_map(features)
+        if self.decode == 'release':
+            x = _release_tokens_to_feature_map(features, self.patch_size)
+        else:
+            x = _tokens_to_feature_map(features)
 
         x = self.predictor(x)
 

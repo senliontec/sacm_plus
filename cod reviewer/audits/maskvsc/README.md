@@ -2,6 +2,13 @@
 
 > **修复后（2026-10-26）：** 本报告表格是修复前审计证据；当前代码状态和回归证据见
 > [`../POST_FIX.md`](../POST_FIX.md)。A0/G6c 仍未完成，gate 结论不变。
+>
+> **论文优先更新（2026-10-29）：** 当前 runtime 默认按论文处理 L_C 尺度、
+> stage-1 ±30° 旋转和 ViG 欧氏 KNN；官方 release 行为保留为
+> `--maskvsc-connect-loss release`、`--maskvsc-rotation-degrees 0`、
+> `--maskvsc-vig-graph release`。`_shared/03_same_state_probes.py` 的
+> loss parity 探针显式使用 `Connect_Loss(mode='release')`。详见
+> `src/baseline_zoo/models/maskvsc/UPSTREAM.md`。
 
 - 官方仓库：`3rd/MaskVSC`
 - 官方 commit：`5e60565b5ec63cb91295e06b9b502d6350e89d76`

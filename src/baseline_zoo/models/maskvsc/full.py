@@ -17,8 +17,9 @@ class MaskVSCFull(nn.Module):
     """Stage-1 UNet plus stage-2 ViG completion head.
 
     Stage 1 is trainable only in ``stage1``.  In ``stage2`` it is frozen and
-    forced to eval mode (BatchNorm running statistics), matching the official
-    two-script workflow while avoiding the upstream missing ``eval()`` call.
+    forced to eval mode (BatchNorm running statistics), following the
+    frozen-segmenter two-stage design.  The release omits ``eval()`` and
+    would keep updating stage-1 BatchNorm statistics during stage 2.
     """
 
     def __init__(self, seg: nn.Module, vig: nn.Module):
