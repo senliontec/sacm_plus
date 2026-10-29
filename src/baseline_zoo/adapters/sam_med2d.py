@@ -44,9 +44,11 @@ class SamMed2DAdapter(BaselineAdapter):
     deviations = (
         'Default initialization is the official SAM-Med2D ViT-B checkpoint '
         '(sam-med2d_b.pth, 256 input, encoder_adapter=True), matching the '
-        'released test.py. A vanilla SAM ViT-L initialization remains '
-        'available only as an explicit comparison via '
-        '--sam-med2d-model-type vit_l.',
+        'released test.py. ViT-L/H comparisons use their matching vanilla '
+        'SAM base checkpoints (sam_vit_l_0b3195.pth / '
+        'sam_vit_h_4b8939.pth); a checkpoint that does not cover the '
+        'selected architecture is rejected instead of silently '
+        'random-initializing most of the encoder.',
         'For official SAM-Med2D weights the full checkpoint is loaded; the '
         'official load_from() only excludes mask_tokens, '
         'output_hypernetworks_mlps and iou_prediction_head when it must '
@@ -82,26 +84,46 @@ class SamMed2DAdapter(BaselineAdapter):
         parser.add_argument(
             '--sam-med2d-model-type', default='vit_b',
             choices=['vit_b', 'vit_l', 'vit_h'],
-            help='official SAM-Med2D weights are ViT-B; other types are '
-                 'explicit vanilla-SAM comparisons')
+            help='official SAM-Med2D weights are ViT-B; ViT-L/H use their '
+                 'matching vanilla SAM base checkpoints as explicit '
+                 'comparisons')
         parser.add_argument(
-            '--sam-checkpoint', type=Path,
-            default=REPO_ROOT / 'checkpoints' / 'sam-med2d_b.pth')
+            '--sam-checkpoint', type=Path, default=None,
+            help='checkpoint matching --sam-med2d-model-type; defaults to '
+                 'the official SAM-Med2D ViT-B file for vit_b and the '
+                 'matching vanilla SAM file for vit_l/vit_h')
         parser.add_argument('--mask-num', type=int, default=5)
         parser.add_argument('--iter-point', type=int, default=8)
         parser.add_argument('--point-list', default='1,3,5,9')
+
+    @staticmethod
+    def _default_checkpoint(model_type: str) -> Path:
+        names = {
+            'vit_b': 'sam-med2d_b.pth',
+            'vit_l': 'sam_vit_l_0b3195.pth',
+            'vit_h': 'sam_vit_h_4b8939.pth',
+        }
+        if model_type not in names:
+            raise SystemExit(
+                f'unknown SAM-Med2D model type: {model_type!r}')
+        return REPO_ROOT / 'checkpoints' / names[model_type]
 
     def build_model(self, args):
         self.input_size = int(getattr(args, 'input_size', self.input_size))
         self.model_type = str(getattr(
             args, 'sam_med2d_model_type', 'vit_b'))
-        checkpoint = Path(args.sam_checkpoint)
+        checkpoint = getattr(args, 'sam_checkpoint', None)
+        if checkpoint is None:
+            checkpoint = self._default_checkpoint(self.model_type)
+            args.sam_checkpoint = checkpoint
+        checkpoint = Path(checkpoint)
         if not checkpoint.is_file():
             raise SystemExit(
                 f'missing SAM-Med2D {self.model_type} checkpoint: '
                 f'{checkpoint}\n'
-                'official weights: download sam-med2d_b.pth and put it at '
-                'checkpoints/sam-med2d_b.pth, or pass --sam-checkpoint')
+                'official SAM-Med2D ViT-B: checkpoints/sam-med2d_b.pth; '
+                'vanilla SAM ViT-L/H: checkpoints/sam_vit_l_0b3195.pth or '
+                'sam_vit_h_4b8939.pth. Pass --sam-checkpoint to override.')
         return build_sam_med2d(checkpoint, model_type=self.model_type,
                                image_size=self.input_size,
                                encoder_adapter=True)

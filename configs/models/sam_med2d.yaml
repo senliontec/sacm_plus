@@ -25,6 +25,8 @@ note: >-
   GT box/point prompts plus 8 error-feedback decoder passes, focal+dice+IoU.
   Default is the official SAM-Med2D ViT-B checkpoint `sam-med2d_b.pth`
   (Google Drive file id 1ARiB5RkSsWmAB_8mqWnwDF8ZKTtFwsjl); place it at
-  `checkpoints/sam-med2d_b.pth`. `--sam-med2d-model-type vit_l` with a local
-  vanilla SAM ViT-L checkpoint is an explicit comparison only.
-  Oracle-prompted, not prompt-free.
+  `checkpoints/sam-med2d_b.pth`. `--sam-med2d-model-type vit_l`/`vit_h`
+  defaults to the matching vanilla SAM checkpoint
+  (`sam_vit_l_0b3195.pth`/`sam_vit_h_4b8939.pth`) and is an explicit
+  comparison only; a checkpoint that does not cover that architecture is
+  rejected. Oracle-prompted, not prompt-free.

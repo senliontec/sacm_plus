@@ -49,6 +49,19 @@ def _largest_cc(mask: np.ndarray) -> np.ndarray:
     return labels == largest
 
 
+def _postprocess_prediction(pred: np.ndarray, largest_cc: bool) -> np.ndarray:
+    """Apply the optional ACDC largest-component rule.
+
+    The generic official prediction path leaves ``Largest = False``; only
+    the ACDC-specific script keeps the largest component.  Curvilinear GT
+    masks are often multi-component, so making this rule unconditional caps
+    their Dice score.
+    """
+    if largest_cc:
+        return _largest_cc(pred)
+    return pred
+
+
 class KnowSAMAdapter(BaselineAdapter):
     id = 'knowsam'
     display_name = 'KnowSAM'
@@ -86,13 +99,17 @@ class KnowSAMAdapter(BaselineAdapter):
         'the seed is the protocol seed.',
         'ViT-B is used as in the official KnowSAM code; the paper states the '
         'shared ViT-L backbone, but KnowSAM ships a ViT-B SAM adapter.',
-        'Upstream postprocessing takes argmax over the 256x256 logits, zooms '
-        'with order=0 and keeps the largest connected component per class. '
-        'This port matches the trainer architecture (the shipped prediction.py '
-        'bilinear=True is incompatible with its own checkpoint), zooms the '
-        'argmax mask to GT size with scipy order=0 exactly as prediction_ACDC.py, '
-        'and keeps the largest connected component. Upstream reports metrics '
-        'at 256x256; the shared evaluator uses GT resolution.',
+        'Upstream postprocessing takes argmax over the 256x256 logits and '
+        'zooms with order=0. The generic official prediction.py leaves '
+        'Largest=False; only the ACDC-specific prediction_ACDC.py keeps the '
+        'largest connected component. This port matches the trainer '
+        'architecture (the shipped prediction.py bilinear=True is '
+        'incompatible with its own checkpoint), zooms the argmax mask to GT '
+        'size with scipy order=0 as prediction_ACDC.py does, and keeps the '
+        'largest component only when --knowsam-largest-cc is passed. '
+        'Unconditional largest-component filtering is invalid for '
+        'multi-component curvilinear targets. Upstream reports metrics at '
+        '256x256; the shared evaluator uses GT resolution.',
     )
 
     def build_model(self, args):
@@ -126,6 +143,11 @@ class KnowSAMAdapter(BaselineAdapter):
         parser.add_argument(
             '--input-size', type=int, default=256,
             help='KnowSAM network/transform resolution (official: 256)')
+        parser.add_argument(
+            '--knowsam-largest-cc', action='store_true',
+            help='keep only the largest connected component at prediction '
+                 '(ACDC-specific official behaviour; off by default because '
+                 'curvilinear targets are often multi-component)')
         parser.add_argument(
             '--unet-lr', type=float, default=0.01,
             help='SGD LR for the SGDL/UNet-VNet branch (official: 0.01)')
@@ -424,9 +446,7 @@ class KnowSAMAdapter(BaselineAdapter):
                 with torch.no_grad():
                     outputs = model(tensor)
                     fusion = outputs[-1]
-                    # Official ACDC prediction: argmax at the network
-                    # resolution, nearest zoom to the original size, then
-                    # keep the largest connected component.
+                    # Argmax at the 256x256 network resolution.
                     pred_low = torch.argmax(
                         torch.softmax(fusion, dim=1), dim=1)[0]
                 gt = load_mask(sample.mask_path)
@@ -439,7 +459,8 @@ class KnowSAMAdapter(BaselineAdapter):
                     (gt.shape[0] / pred_low.shape[0],
                      gt.shape[1] / pred_low.shape[1]),
                     order=0) > 0
-                pred = _largest_cc(pred)
+                pred = _postprocess_prediction(
+                    pred, bool(getattr(args, 'knowsam_largest_cc', False)))
                 Image.fromarray((pred.astype(np.uint8) * 255)).save(
                     out_dir / f'{sample.stem}.png')
 
@@ -455,6 +476,8 @@ class KnowSAMAdapter(BaselineAdapter):
                                       if split_manifest.is_file() else None),
             'datasets': [spec.split(':', 1)[0]
                          for spec in args.test_datasets],
+            'largest_cc': bool(getattr(
+                args, 'knowsam_largest_cc', False)),
         }
         (pred_root / '.prediction_meta.json').write_text(
             json.dumps(meta, indent=2) + '\n')

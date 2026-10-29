@@ -2,7 +2,8 @@
 
 import torch
 
-from baseline_zoo.adapters.unet import dice_loss
+from baseline_zoo.adapters.unet import UNetAdapter, dice_loss
+from baseline_zoo.runtime import build_parser
 
 
 def test_dice_loss_is_global_over_batch():
@@ -26,3 +27,8 @@ def test_dice_loss_is_global_over_batch():
     loss.backward()
     assert logits.grad is not None
     assert torch.isfinite(logits.grad).all()
+
+
+def test_default_grad_clip_matches_official():
+    args = build_parser(UNetAdapter()).parse_args(['--stage', 'train'])
+    assert args.grad_clip == 1.0

@@ -77,6 +77,7 @@ METHOD_META = {
     'scrwkv': ('SCRWKV', '✗'),
     'cwsam': ('CWSAM', '✓'),
     'knowsam': ('KnowSAM', '✓'),
+    'kprism': ('K-Prism (ICLR 2026)', '✗'),
     'segdino': ('SegDINO', '✓'),
     'segdino_v2': ('SegDINO v2', '✓'),
     'sacm_official': ('SACM (official)', '✗'),

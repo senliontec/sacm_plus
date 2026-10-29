@@ -88,9 +88,11 @@ class NNWNetAdapter(BaselineAdapter):
         'into this custom pipeline; reruns re-stage and re-plan from scratch.',
         'Official predictions are 0/1 label maps; this adapter writes 0/255 '
         'PNGs at the original GT resolution for the shared evaluator.',
-        'All 24 cases are converted to RGB PNG for a single nnU-Net file '
-        'ending; the official natural-image reader supplies 0-255 RGB and '
-        'nnU-Net applies its own preprocessing/normalization.',
+        'A single nnU-Net dataset needs one channel count. The default rgb '
+        'policy harmonizes grayscale cases to three channels; '
+        '--nnwnet-channels grayscale converts every case to one channel for '
+        'all-grayscale protocols. The policy is recorded and reused at '
+        'prediction; mixed 1/3-channel datasets are not supported.',
     )
 
     def build_model(self, args):
@@ -108,7 +110,25 @@ class NNWNetAdapter(BaselineAdapter):
     def predict_sample(self, model, prepared, sample):
         raise RuntimeError('nnWNet uses the nnU-Net custom pipeline')
 
+    def add_args(self, parser):
+        parser.add_argument(
+            '--nnwnet-channels', choices=['rgb', 'grayscale'],
+            default='rgb',
+            help='channel policy for staged nnU-Net images: rgb keeps color '
+                 'and replicates grayscale sources to 3 channels; grayscale '
+                 'converts every case to one channel for all-grayscale '
+                 'protocols. A single nnU-Net dataset cannot mix 1/3 '
+                 'channels.')
+
     # ---- staging ------------------------------------------------------
+    @staticmethod
+    def _stage_image(path: Path, destination: Path, channels: str) -> None:
+        if channels == 'grayscale':
+            with Image.open(path) as image:
+                image.convert('L').save(destination)
+        else:
+            load_rgb(path).save(destination)
+
     @staticmethod
     def _case_id(stem: str, used: set[str]) -> str:
         base = re.sub(r'[^A-Za-z0-9_]', '_', stem)
@@ -120,7 +140,9 @@ class NNWNetAdapter(BaselineAdapter):
         return case
 
     def _stage_raw(self, raw: Path, data_root: Path,
-                   include_val: bool = True):
+                   include_val: bool = True, channels: str = 'rgb'):
+        if channels not in ('rgb', 'grayscale'):
+            raise ValueError(f'unsupported channel policy: {channels!r}')
         dataset_dir = raw / DATASET_NAME
         images_tr = dataset_dir / 'imagesTr'
         labels_tr = dataset_dir / 'labelsTr'
@@ -136,13 +158,17 @@ class NNWNetAdapter(BaselineAdapter):
                 case = self._case_id(sample.stem, used)
                 used.add(case)
                 cases.append(case)
-                load_rgb(sample.image_path).save(
-                    images_tr / f'{case}_0000.png')
+                self._stage_image(
+                    sample.image_path, images_tr / f'{case}_0000.png',
+                    channels)
                 mask = load_mask(sample.mask_path).astype(np.uint8)
                 Image.fromarray(mask).save(labels_tr / f'{case}.png')
 
+        channel_names = (
+            {'0': 'grayscale'} if channels == 'grayscale'
+            else {'0': 'R', '1': 'G', '2': 'B'})
         dataset_json = {
-            'channel_names': {'0': 'R', '1': 'G', '2': 'B'},
+            'channel_names': channel_names,
             'labels': {'background': 0, 'foreground': 1},
             'numTraining': len(used),
             'file_ending': '.png',
@@ -241,6 +267,11 @@ class NNWNetAdapter(BaselineAdapter):
         seed_everything(args.seed)
         workdir = Path(args.workdir)
         workdir.mkdir(parents=True, exist_ok=True)
+        channels = str(getattr(args, 'nnwnet_channels', 'rgb'))
+        if channels not in ('rgb', 'grayscale'):
+            raise SystemExit(
+                f'unsupported --nnwnet-channels: {channels!r}')
+        (workdir / 'nnunet_channels.txt').write_text(channels + '\n')
         nn_root, env = self._init_env(workdir)
         # A reused workdir must not mix raw PNGs/preprocessed arrays from a
         # different protocol; re-stage and re-plan deterministically.
@@ -251,7 +282,8 @@ class NNWNetAdapter(BaselineAdapter):
         # planning leaked the 6 validation images into normalization and
         # planner choices.
         train_cases, _ = self._stage_raw(
-            nn_root / 'raw', Path(args.data_root), include_val=False)
+            nn_root / 'raw', Path(args.data_root), include_val=False,
+            channels=channels)
 
         preprocessed = nn_root / 'preprocessed' / DATASET_NAME
         plans_path = preprocessed / 'nnUNetPlans.json'
@@ -266,7 +298,8 @@ class NNWNetAdapter(BaselineAdapter):
         # Add val only after the plans are frozen, then preprocess it with
         # the existing plans.  nnUNetv2_preprocess does not re-plan.
         train_cases, val_cases = self._stage_raw(
-            nn_root / 'raw', Path(args.data_root), include_val=True)
+            nn_root / 'raw', Path(args.data_root), include_val=True,
+            channels=channels)
         # DefaultPreprocessor reads preprocessed/dataset.json, not the raw
         # copy.  The planning pass wrote the 18-case file; refresh it to the
         # 24-case raw metadata before the second preprocessing pass.
@@ -310,6 +343,7 @@ class NNWNetAdapter(BaselineAdapter):
             'batch_size': actual_batch,
             'patch_size': list(plan_config.get('patch_size', [])),
             'effective_batch_size': actual_batch,
+            'channel_mode': channels,
             'seed': args.seed,
             'selection': 'nnU-Net EMA pseudo-Dice (official)',
             'val_dice_source': 'nnU-Net mean_fg_dice (patch-based pseudo Dice); '
@@ -451,6 +485,7 @@ class NNWNetAdapter(BaselineAdapter):
 
         model_dir = Path(trainer.output_folder_base)
         (workdir / 'nnunet_model_dir.txt').write_text(str(model_dir) + '\n')
+        (model_dir / 'benchmark_channels.txt').write_text(channels + '\n')
         return model_dir
 
     # ---- official inference ------------------------------------------
@@ -472,6 +507,16 @@ class NNWNetAdapter(BaselineAdapter):
             model_dir = Path(checkpoint)
         if not model_dir.is_dir():
             raise SystemExit(f'missing nnU-Net model folder: {model_dir}')
+
+        channels = str(getattr(args, 'nnwnet_channels', 'rgb'))
+        for sidecar in (workdir / 'nnunet_channels.txt',
+                        model_dir / 'benchmark_channels.txt'):
+            if sidecar.is_file():
+                channels = sidecar.read_text().strip() or channels
+                break
+        if channels not in ('rgb', 'grayscale'):
+            raise SystemExit(
+                f'unsupported nnU-Net channel policy: {channels!r}')
 
         from nnunetv2.inference.predict_from_raw_data import nnUNetPredictor
 
@@ -515,7 +560,7 @@ class NNWNetAdapter(BaselineAdapter):
             inputs, outputs = [], []
             for sample in samples:
                 staged = input_dir / f'{sample.stem}_0000.png'
-                load_rgb(sample.image_path).save(staged)
+                self._stage_image(sample.image_path, staged, channels)
                 inputs.append([str(staged)])
                 # nnU-Net appends the dataset file ending to this prefix.
                 outputs.append(str(output_dir / sample.stem))
@@ -545,6 +590,7 @@ class NNWNetAdapter(BaselineAdapter):
             'deviations': list(self.deviations),
             'checkpoint': str(model_dir),
             'checkpoint_name': checkpoint_name,
+            'channel_mode': channels,
             'split_manifest_sha256': (file_sha256(split_manifest)
                                       if split_manifest.is_file() else None),
             'datasets': [spec.split(':', 1)[0]

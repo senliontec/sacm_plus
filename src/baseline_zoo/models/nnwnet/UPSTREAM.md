@@ -9,10 +9,16 @@
 - Files copied:
   - `nnUNetTrainer_WNet2D.py` -> `trainer.py` (constructor adjusted to the
     nnU-Net 2.8.1 base signature; training logic/losses unchanged)
-- External dependency: `nnunetv2==2.8.1`. The reference nnU-Net fork
-  fork writes `.safetensors`, while the declared pip runtime writes `.pth`;
-  the adapter discovers either extension and rejects safetensors at
-  inference with the installed predictor. Training is seeded, staging and
-  preprocessing are regenerated per workdir, and `--resume` is rejected
-  because nnU-Net continue-training is not wired in.
+- External dependencies: `nnunetv2==2.8.1` and `timm` (the WNet trainer
+  imports timm layers directly). The reference nnU-Net fork writes
+  `.safetensors`, while the declared pip runtime writes `.pth`; the adapter
+  discovers either extension and rejects safetensors at inference with the
+  installed predictor. Training is seeded, staging and preprocessing are
+  regenerated per workdir, and `--resume` is rejected because nnU-Net
+  continue-training is not wired in.
+- Channel policy: one nnU-Net dataset needs a uniform channel count. The
+  default `--nnwnet-channels rgb` converts every case to RGB (grayscale is
+  replicated); `grayscale` converts every case to one channel for
+  all-grayscale protocols. The selected policy is recorded in the workdir
+  and model folder and reused at prediction.
 - Runtime consumer: `baseline_zoo.adapters.nnwnet.NNWNetAdapter`

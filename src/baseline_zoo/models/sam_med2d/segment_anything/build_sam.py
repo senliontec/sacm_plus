@@ -118,22 +118,68 @@ def _build_sam(
             # it.  This is an explicitly trusted, official checkpoint.
             state_dict = torch.load(
                 f, map_location="cpu", weights_only=False)
-        try:
-            if 'model' in state_dict.keys():
-                print(encoder_adapter)
-                sam.load_state_dict(state_dict['model'], False)
-            else:
-                if image_size == 1024 and encoder_adapter:
-                    sam.load_state_dict(state_dict, False)
-                else:
-                    sam.load_state_dict(state_dict)
-        except Exception:
-            print('*******interpolate')
-            new_state_dict = load_from(sam, state_dict, image_size, vit_patch_size)
-            sam.load_state_dict(new_state_dict)
-        print(f"*******load {checkpoint}")
+        state = state_dict.get('model', state_dict)
+        _load_checkpoint(
+            sam, state, image_size, vit_patch_size, checkpoint)
 
     return sam
+
+
+def _checkpoint_coverage(target, state_dicts):
+    """Return coverage diagnostics for a checkpoint against a target state."""
+    covered = {}
+    for key, value in state_dicts.items():
+        if key not in target:
+            continue
+        if target[key].shape == value.shape:
+            covered[key] = value
+        elif key == 'image_encoder.pos_embed' or 'rel_pos' in key:
+            # ``load_from`` interpolates these size-dependent tensors.
+            covered[key] = value
+    missing = [key for key in target if key not in covered]
+    unexpected = [key for key in state_dicts if key not in target]
+    bad_missing = [key for key in missing if 'Adapter' not in key]
+    return missing, unexpected, bad_missing
+
+
+def _load_checkpoint(sam, state_dicts, image_size, vit_patch_size,
+                     checkpoint):
+    """Load and validate a SAM/SAM-Med2D checkpoint.
+
+    Vanilla SAM checkpoints do not contain the SAM-Med2D adapter tensors;
+    those are the only keys allowed to remain at their initialization.
+    Every other target tensor must be supplied by the checkpoint (directly
+    or through the positional/relative-position interpolation path).  This
+    prevents silently building a ViT-L/H model from a ViT-B checkpoint.
+    """
+    target = sam.state_dict()
+    missing, unexpected, bad_missing = _checkpoint_coverage(
+        target, state_dicts)
+    if bad_missing or unexpected:
+        detail = []
+        if bad_missing:
+            detail.append(
+                f'{len(bad_missing)} required tensors missing '
+                f'(first: {bad_missing[0]})')
+        if unexpected:
+            detail.append(
+                f'{len(unexpected)} unexpected tensors '
+                f'(first: {unexpected[0]})')
+        raise SystemExit(
+            f'incompatible SAM checkpoint {checkpoint}: '
+            + '; '.join(detail)
+            + '. Target encoder embed_dim='
+              f'{sam.image_encoder.patch_embed.proj.out_channels}, '
+              f'depth={len(sam.image_encoder.blocks)}. Use the checkpoint '
+              'matching --sam-med2d-model-type.')
+
+    new_state_dict = load_from(
+        sam, state_dicts, image_size, vit_patch_size)
+    sam.load_state_dict(new_state_dict)
+    print(
+        f'*******load {checkpoint} '
+        f'({len(target) - len(missing)} tensors matched, '
+        f'{len(missing)} adapter tensors initialized)')
 
 
 def load_from(sam, state_dicts, image_size, vit_patch_size):

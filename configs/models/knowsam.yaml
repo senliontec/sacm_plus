@@ -23,3 +23,6 @@ note: >-
   Self-contained official KnowSAM semi-supervised trainer (SAM ViT-B adapter
   + UNet/VNet fusion). Uses 18 labeled images from the protocol and a
   documented source-domain unlabeled pool; oracle-free but semi-supervised.
+  Prediction uses the generic official postprocessing (no largest-component
+  filtering); pass --knowsam-largest-cc only for ACDC-like single-component
+  targets.

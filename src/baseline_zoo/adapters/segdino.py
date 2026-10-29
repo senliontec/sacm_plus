@@ -46,8 +46,10 @@ class SegDINOAdapter(BaselineAdapter):
         'The official code loads a local DINOv3 repository and gated DINOv3 '
         'weights. This port auto-detects a size-matched local checkpoint '
         'under checkpoints/, accepts --dino-ckpt / DINO_CKPT, or falls back '
-        'to HF authentication; --random-init exists only for a code smoke '
-        'test.',
+        'to HF authentication; official hub-format keys are converted to '
+        'the timm names (storage_tokens->reg_token, ls1/ls2.gamma->'
+        'gamma_1/2) and the hub RoPE periods are restored. --random-init '
+        'exists only for a code smoke test.',
         'The official README trains/evaluates at 256 while test_segdino.py '
         'defaults to 1024; this port follows the README 256 setting.',
         'Predictions are restored to the original GT resolution for the '

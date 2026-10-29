@@ -46,10 +46,12 @@ class UNetAdapter(BaselineAdapter):
     official_lr = 1e-3
     official_weight_decay = 1e-4
     train_batch_size = 4
+    default_grad_clip = 1.0
     selection = 'dice'
     deviations = (
         'No canonical U-Net 3-shot trainer exists; the vendored milesial '
-        'architecture and BCE+Dice loss are used.',
+        'architecture, BCE+Dice loss and gradient clipping norm 1.0 are '
+        'used.',
         'Fixed 512x512 input instead of upstream img_scale=0.5 dynamic '
         'resize, so mixed-resolution domains can share batches.',
         'AdamW lr 1e-3/wd 1e-4/batch 4 + cosine over 800 epochs instead of '

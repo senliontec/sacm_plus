@@ -28,6 +28,7 @@ From this file's directory: `../../../../3rd`
 ├── fssam                 -> 3rd/FSSAM
 ├── jtfn                  -> 3rd/JTFN
 ├── knowsam               -> 3rd/KnowSAM
+├── kprism                -> 3rd/K-Prism
 ├── liot                  -> 3rd/LIOT
 ├── maskvsc               -> 3rd/MaskVSC
 ├── matcher               -> 3rd/Matcher
@@ -71,6 +72,14 @@ From this file's directory: `../../../../3rd`
   `3rd/segment-anything`.
 - `sam_vit_l_unet`: no `3rd` source. This is a project extension using
   `src/models/sam_network` and the local SAM ViT-L checkpoint.
+- `kprism`: upstream is the whole `3rd/K-Prism` tree (commit `78c3b1b`,
+  MIT). The port copies `kprism/modeling/{backbone,pixel_fuser,meta_arch,
+  point_encoder,transformer_decoder,loss.py}`; the in-context
+  `modeling/task_encoder` is not used because only the prompt-free semantic
+  branch (`click_mode='0'`, zero dense prompt) is ported. There is no
+  `parsing/` paper directory and no released K-Prism checkpoint; the README
+  plus released code are the reference. Runtime code is
+  `src/baseline_zoo/models/kprism`; provenance is in its `UPSTREAM.md`.
 
 ## A2SAM naming warning
 

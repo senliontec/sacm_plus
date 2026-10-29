@@ -438,6 +438,8 @@ def cmd_doctor(args: argparse.Namespace) -> int:
             ('nnWNet dep', 'nnunetv2'),
             ('KnowSAM dep', 'medpy'),
             ('KnowSAM dep', 'hausdorff'),
+            ('K-Prism dep', 'albumentations'),
+            ('K-Prism dep', 'einops'),
             ('SegDINO dep', 'timm'),
             ('FlowSDF dep', 'scipy'),
             ('A2SAM dep', 'skimage'),

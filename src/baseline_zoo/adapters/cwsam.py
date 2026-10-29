@@ -185,10 +185,11 @@ class CWSAMAdapter(BaselineAdapter):
         return self._preprocess(sample, device)
 
     def predict_sample(self, model, prepared, sample):
-        logits = model.infer(prepared)
-        prob = torch.softmax(logits, dim=1)[:, 1:2]
-        with Image.open(sample.mask_path) as mask:
-            width, height = mask.size
-        prob = F.interpolate(prob, size=(height, width),
-                             mode='bilinear', align_corners=False)
+        with torch.no_grad():
+            logits = model.infer(prepared)
+            prob = torch.softmax(logits, dim=1)[:, 1:2]
+            with Image.open(sample.mask_path) as mask:
+                width, height = mask.size
+            prob = F.interpolate(prob, size=(height, width),
+                                 mode='bilinear', align_corners=False)
         return (prob[0, 0].cpu().numpy() > 0.5)

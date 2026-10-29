@@ -13,6 +13,9 @@ import torch
 
 from baseline_zoo.adapters.sam_med2d import SamMed2DAdapter
 from baseline_zoo.models.sam_med2d import build_sam_med2d
+from baseline_zoo.models.sam_med2d.segment_anything.build_sam import (
+    _checkpoint_coverage,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 CHECKPOINT = REPO_ROOT / 'checkpoints' / 'sam_vit_b_01ec64.pth'
@@ -67,3 +70,39 @@ def test_sam_med2d_inherits_full_sam_decoder():
 
     # Adapters have no SAM checkpoint tensors; they remain trainable/random.
     assert any('Adapter' in key for key in target)
+
+
+def test_default_checkpoint_matches_model_type():
+    assert SamMed2DAdapter._default_checkpoint('vit_b').name == (
+        'sam-med2d_b.pth')
+    assert SamMed2DAdapter._default_checkpoint('vit_l').name == (
+        'sam_vit_l_0b3195.pth')
+    assert SamMed2DAdapter._default_checkpoint('vit_h').name == (
+        'sam_vit_h_4b8939.pth')
+
+
+def test_checkpoint_coverage_allows_adapters_and_interpolated_positions():
+    target = {
+        'image_encoder.pos_embed': torch.zeros(1, 16, 16, 4),
+        'image_encoder.blocks.0.Adapter.weight': torch.zeros(2),
+        'mask_decoder.weight': torch.zeros(2),
+    }
+    state = {
+        'image_encoder.pos_embed': torch.zeros(1, 64, 64, 4),
+        'mask_decoder.weight': torch.zeros(2),
+        'unexpected.weight': torch.zeros(2),
+    }
+    missing, unexpected, bad_missing = _checkpoint_coverage(target, state)
+    assert missing == ['image_encoder.blocks.0.Adapter.weight']
+    assert bad_missing == []
+    assert unexpected == ['unexpected.weight']
+
+
+def test_checkpoint_coverage_rejects_missing_encoder_tensor():
+    target = {
+        'image_encoder.blocks.0.Adapter.weight': torch.zeros(2),
+        'image_encoder.blocks.0.attn.qkv.weight': torch.zeros(2),
+    }
+    state = {'image_encoder.blocks.0.Adapter.weight': torch.zeros(2)}
+    _, _, bad_missing = _checkpoint_coverage(target, state)
+    assert bad_missing == ['image_encoder.blocks.0.attn.qkv.weight']

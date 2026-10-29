@@ -112,6 +112,40 @@ def _load_dino_state(path: str | Path) -> dict[str, torch.Tensor]:
     return payload
 
 
+def _convert_dino_state(state: dict[str, torch.Tensor],
+                        target_keys) -> tuple[dict[str, torch.Tensor],
+                                               torch.Tensor | None]:
+    """Convert official DINOv3 hub keys to timm names.
+
+    The Facebook DINOv3 checkpoints use ``storage_tokens`` and
+    ``blocks.N.ls1/ls2.gamma``; timm calls them ``reg_token`` and
+    ``gamma_1/gamma_2``.  The hub also stores a non-persistent
+    ``rope_embed.periods`` buffer and attention-only mask/bias tensors that
+    timm does not expose.  The periods must be copied separately or the
+    features drift slightly.
+    """
+    converted = {}
+    rope_periods = None
+    for key, value in state.items():
+        if key == 'rope_embed.periods':
+            rope_periods = value
+            continue
+        if key == 'storage_tokens':
+            key = 'reg_token'
+        elif key == 'mask_token':
+            continue
+        elif key.endswith('.ls1.gamma'):
+            key = key[:-len('.ls1.gamma')] + '.gamma_1'
+        elif key.endswith('.ls2.gamma'):
+            key = key[:-len('.ls2.gamma')] + '.gamma_2'
+        elif key.endswith('.attn.qkv.bias') or key.endswith(
+                '.attn.qkv.bias_mask'):
+            if key not in target_keys:
+                continue
+        converted[key] = value
+    return converted, rope_periods
+
+
 def build_segdino(dino_size: str = 'small', dino_ckpt: str | None = None,
                   random_init: bool = False):
     size = _SIZE.get(dino_size, dino_size)
@@ -121,14 +155,36 @@ def build_segdino(dino_size: str = 'small', dino_ckpt: str | None = None,
     elif dino_ckpt:
         backbone = timm.create_model(name, pretrained=False, num_classes=0)
         state = _load_dino_state(dino_ckpt)
+        if not isinstance(state, dict):
+            raise SystemExit(
+                f'--dino-ckpt {dino_ckpt} did not contain a state dict')
+        state, rope_periods = _convert_dino_state(
+            state, backbone.state_dict())
         missing, unexpected = backbone.load_state_dict(state, strict=False)
         print(f'loaded DINOv3 weights: {len(missing)} missing, '
               f'{len(unexpected)} unexpected')
-        if missing:
+        if missing or unexpected:
+            detail = []
+            if missing:
+                detail.append(f'{len(missing)} missing (first: {missing[0]})')
+            if unexpected:
+                detail.append(
+                    f'{len(unexpected)} unexpected (first: {unexpected[0]})')
             raise SystemExit(
-                f'--dino-ckpt {dino_ckpt} did not provide '
-                f'{len(missing)} backbone tensors (first: {missing[0]}); '
-                'check that the checkpoint matches the selected --dino-size')
+                f'--dino-ckpt {dino_ckpt} is incompatible with '
+                f'--dino-size {dino_size}: ' + '; '.join(detail))
+        if rope_periods is not None:
+            rope = getattr(backbone, 'rope', None)
+            buffer = getattr(rope, 'periods', None)
+            if buffer is None:
+                raise SystemExit(
+                    'this timm DINOv3 backbone has no RoPE periods buffer; '
+                    'the official hub checkpoint cannot be converted')
+            if tuple(buffer.shape) != tuple(rope_periods.shape):
+                raise SystemExit(
+                    f'RoPE periods shape {tuple(rope_periods.shape)} does '
+                    f'not match timm buffer {tuple(buffer.shape)}')
+            buffer.copy_(rope_periods.to(dtype=buffer.dtype))
     else:
         try:
             backbone = timm.create_model(name, pretrained=True,

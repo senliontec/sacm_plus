@@ -1,0 +1,31 @@
+id: kprism
+display_name: K-Prism
+family: cnn
+status: available
+checkpoint: "{output_root}/best_model.pth"
+train_entrypoint: >-
+  python -m baseline_zoo.run_one --model kprism --stage train
+  --data-root {split_root} --workdir {output_root}
+  --batch-size 2 --lr 1e-4 --weight-decay 0.0 --grad-clip 3.0
+  --kprism-warmup-epochs 10
+  --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
+eval_entrypoint: >-
+  python scripts/pipeline/run_baseline_test.py --method kprism
+  --protocol {test_manifest}
+  --seed {seed}
+  --checkpoint {output_root}/best_model.pth
+  --pred-root {output_root}/predictions
+  --paper-root {output_root}
+  --device cuda:{gpu} --use_wandb true --skip-visualize
+protocols: [seeded5, fixed]
+defaults:
+  epochs: 800
+note: >-
+  K-Prism (ICLR 2026, bangwayne/K-Prism): UTNet backbone, pixel fuser,
+  6-layer MoE transformer decoder and dual-prompt design. The benchmark is
+  prompt-free, so only the semantic query branch is trained/evaluated with a
+  zero dense prompt map; in-context and interactive modes are not used.
+  Binary head (2 query groups, foreground=1), 512-square RGB with official
+  albumentations 1.3.1 augmentation, mean 0.26/std 0.30, AdamW 1e-4/wd 0,
+  clip 3.0, 10-epoch warmup + cosine to 0.1*base. Loss is the official
+  deep-supervised 5*(Dice+sigmoid CE). No official weights; random init.

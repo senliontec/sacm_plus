@@ -1,7 +1,9 @@
 # Self-contained baseline zoo
 
 > The 40-model audit/fix ledger is
-> [`docs/BASELINE_AUDIT_40.md`](BASELINE_AUDIT_40.md).
+> [`docs/BASELINE_AUDIT_40.md`](BASELINE_AUDIT_40.md). K-Prism was ported
+> after that audit and is not yet part of its ledger; an independent
+> fidelity review is pending.
 
 The goal of this layout is to make `baselines/` disposable.  Every model
 that is part of the paper reproduction has its runtime code under
@@ -66,6 +68,7 @@ prints them at the start of training and stores them in every checkpoint.
 | PerSAM | training-free PerSAM (Personalize-SAM) with SAM ViT-H: support mask → object embedding, target-guided points, two point/mask/box refinement stages; no target GT or prompts | official method is one-shot; 3-shot support is majority-voted; support failures raise instead of contributing an empty vote; support donor for unseen/novel domains; training-free metadata checkpoint; original-resolution output |
 | Matcher | training-free DINOv2 ViT-L/14 + SAM ViT-H patch matching; support-based, native n-shot; 518 square inputs, modified SAM mask generator, official filters | 518 output upsampled to GT; shared 3-shot supports / donor domains; support-feature cache; DINOv2 weights required; training-free metadata checkpoint |
 | KnowSAM | official semi-supervised Trainer/weak-strong transforms/two-stream sampler/SGDL validation | 3+3 batch; source-domain unlabeled pool; ViT-B as upstream; GT-size export |
+| K-Prism | official UTNet (base 48, reduce 8, four trans blocks), PixelFuser, 6-layer MoE decoder (5 experts, 256 hidden), 512 longest-side + centre pad, mean 0.26/std 0.30, official albumentations 1.3.1 augmentation, AdamW 1e-4/0, clip 3.0, batch 2, 10-epoch warmup + cosine to 1e-5, deep-supervised 5*(Dice+sigmoid CE) | prompt-free semantic branch only (`click_mode='0'`) with a zero dense prompt map instead of upstream GT-derived points; no in-context/interactive/support data; binary 2-class query head (foreground label 1) vs 33 classes; single-GPU batch 2 vs upstream 4-GPU DDP effective 8; 800 shared epochs vs official 75; first LR 1e-5 instead of upstream's zero first epoch; cv2 decode vs torchvision; val-Dice selection; no official weights (from scratch); added after the 40-model audit, fidelity review pending |
 | SegDINO | official DPT decoder, 256/ImageNet, BCEWithLogits, AdamW 1e-4/1e-4, 50 epochs, batch 4, no augmentation | timm DINOv3 instead of local hub repo; README/paper frozen backbone by default (`--segdino-train-backbone` reproduces released full-finetune); val Dice; GT-size export |
 | SegDINO v2 | official TPA/SAD decoder: four token projections, 8/4/2/1 bilinear branches, residual depthwise refinement, top-down fusion; 256/ImageNet, BCEWithLogits, AdamW 1e-4/1e-4, batch 4, 50 epochs | paper frozen DINOv3 encoder by default (released code trains all; `--segdino-v2-train-backbone`); released augmentation/loss (paper says no aug/CE); timm DINOv3-S loaded from local weights; 800 shared epochs and val-Dice selection; GT-size export |
 | SACM (official) | zero-prompt ViT-L + adapters, AdamW 3e-4/0.01, cosine 1e-6, BCE 0.7+Dice 0.3, 60 epochs, grad clip 1.0 | val Dice; GT-size export; activation checkpointing |

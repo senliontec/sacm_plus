@@ -11,7 +11,7 @@
   `layout.json`、`content_list*.json` 和 `images/` 是版面/图片解析结果。
 - **未收录** 表示 `parsing/` 中没有对应论文目录；不是链接失效。
 - 同一篇论文在 `parsing/` 中可能存在大小写不同的重复目录，表中列主目录，并在备注中标出重复项。
-- 当前覆盖：40 个 adapter 中，18 个在 `parsing/` 有论文目录，其余标记为“未收录”。
+- 当前覆盖：41 个 adapter 中，18 个在 `parsing/` 有论文目录，其余标记为“未收录”。
 
 ## Baseline ↔ 3rd 代码 ↔ parsing 论文
 
@@ -57,6 +57,7 @@
 | `persam` | PerSAM | `3rd/Personalize-SAM` | `parsing/[2024 lclr] PERSONALIZE SEGMENT ANYTHING MODEL WITH ONE SHOT` | 官方 one-shot；项目 3-shot 采用多数投票；目录名 `lclr` 为原目录拼写 |
 | `matcher` | Matcher | `3rd/Matcher` | `parsing/[2024 iclr] Matcher: Segment Anything with One Shot Using All-Purpose Feature Matching` | DINOv2 ViT-L/14 权重缺失 |
 | `knowsam` | KnowSAM | `3rd/KnowSAM` | 未收录 | 半监督；unlabeled pool 已做泄漏审计 |
+| `kprism` | K-Prism | `3rd/K-Prism` | 未收录 | ICLR 2026；仅 prompt-free semantic 分支，zero dense prompt；无官方权重；512 输入；MIT |
 
 ### 参考 / 探针 / 扩展
 
@@ -66,10 +67,10 @@
 | `sam_vit_l_unet` | SAM ViT-L + U-Net | `3rd/segment-anything` | `parsing/[2023 iccv] Segment Anything` | 本项目扩展，不是论文 baseline；3rd 仅提供 SAM 基座，U-Net decoder 为自包含实现 |
 | `ucs` | UCS | `3rd/UCS` | `parsing/[2023 iccv] UCS: A Universal Model for Curvilinear Structure Segmentation` | oracle-prompted reference，不是 prompt-free |
 
-## 未集成 / 已排除（不属于 41 个 registry baseline）
+## 未集成 / 已排除（不属于 registry 的 41 个 adapter）
 
 以下方法的 `3rd/` 代码和 `parsing/` 论文都在本地，但未进入 `baseline_zoo` 的 adapter 列表，
-不计入上表 41 个 baseline。
+不计入上表 41 个 adapter。
 
 | 方法 | 3rd 代码目录 | parsing 论文目录 | 状态 |
 |---|---|---|---|

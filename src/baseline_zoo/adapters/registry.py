@@ -22,6 +22,7 @@ _ADAPTERS = {
     'fssam': ('baseline_zoo.adapters.fssam', 'FSSAMAdapter'),
     'jtfn': ('baseline_zoo.adapters.jtfn', 'JTFNAdapter'),
     'knowsam': ('baseline_zoo.adapters.knowsam', 'KnowSAMAdapter'),
+    'kprism': ('baseline_zoo.adapters.kprism', 'KPrismAdapter'),
     'liot': ('baseline_zoo.adapters.liot', 'LIOTAdapter'),
     'maskvsc': ('baseline_zoo.adapters.maskvsc', 'MaskVSCAdapter'),
     'matcher': ('baseline_zoo.adapters.matcher', 'MatcherAdapter'),

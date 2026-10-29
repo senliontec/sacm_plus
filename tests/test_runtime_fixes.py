@@ -225,11 +225,52 @@ def test_knowsam_largest_cc():
     assert np.array_equal(_largest_cc(empty), empty)
 
 
+def test_knowsam_largest_cc_is_opt_in():
+    parser = build_parser(load_adapter('knowsam'))
+    assert parser.parse_args([]).knowsam_largest_cc is False
+    assert parser.parse_args(['--knowsam-largest-cc']).knowsam_largest_cc
+
+
+def test_knowsam_postprocess_preserves_all_components_by_default():
+    from baseline_zoo.adapters.knowsam import _postprocess_prediction
+
+    mask = np.zeros((8, 8), dtype=bool)
+    mask[1:3, 1:3] = True
+    mask[5:8, 5:8] = True
+    assert np.array_equal(_postprocess_prediction(mask, False), mask)
+    filtered = _postprocess_prediction(mask, True)
+    assert int(filtered.sum()) == 9
+    assert not filtered[1:3, 1:3].any()
+
+
 def test_nnwnet_plan_command_skips_first_preprocess():
     adapter = load_adapter('nnwnet')
     command = adapter._plan_command()
     assert '--no_pp' in command
     assert 'plan_and_preprocess_entrypoints' in ' '.join(command)
+
+
+def test_nnwnet_channel_policy_default_and_cli():
+    parser = build_parser(load_adapter('nnwnet'))
+    assert parser.parse_args([]).nnwnet_channels == 'rgb'
+    assert parser.parse_args(
+        ['--nnwnet-channels', 'grayscale']).nnwnet_channels == 'grayscale'
+
+
+def test_nnwnet_grayscale_staging(tmp_path):
+    adapter = load_adapter('nnwnet')
+    raw = tmp_path / 'raw'
+    train, val = adapter._stage_raw(
+        raw, Path('data/sacm_3shot_seed0'), include_val=False,
+        channels='grayscale')
+    assert len(train) == 18
+    assert val == []
+    dataset_dir = raw / 'Dataset501_Curvilinear3Shot'
+    image = Image.open(next((dataset_dir / 'imagesTr').glob('*.png')))
+    assert image.mode == 'L'
+    dataset_json = json.loads(
+        (dataset_dir / 'dataset.json').read_text())
+    assert dataset_json['channel_names'] == {'0': 'grayscale'}
 
 
 def test_nnwnet_syncs_preprocessed_dataset_json(tmp_path):

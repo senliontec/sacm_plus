@@ -23,3 +23,6 @@ note: >-
   Self-contained port of the official nnWNet nnU-Net trainer plugin, run
   through nnunetv2==2.8.1. Uses a fixed 18/6 one-fold split and official
   planner/trainer/predictor; predictions exported at GT resolution.
+  `--nnwnet-channels rgb` (default) harmonizes grayscale cases to three
+  channels; use `grayscale` for an all-grayscale protocol. A single
+  nnU-Net dataset cannot mix 1/3-channel cases.
