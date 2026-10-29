@@ -38,7 +38,7 @@ METHOD_META = {
     'a2sam': ('A2SAM (MIA 2026)', '✓'),
     'aco_moe_lora': ('ACO-MoE-LoRA', '✓'),
     'unet': ('U-Net', '✗'),
-    'cs2net': ('CS-Net', '✗'),
+    'cs2net': ('CS2Net-2D', '✗'),
     'csunet': ('CS-UNet', '✗'),
     'bcunet': ('BCUNet', '✗'),
     'blo_sam': ('BLO-SAM', '✓'),

@@ -19,7 +19,7 @@ collector and report pipeline.
 | Model | Status after audit | Main fixes |
 |---|---|---|
 | U-Net (`unet`) | OK with documented 3-shot deviations | official batch Dice (eps 1e-6, empty-set branch); logit-space upsample; LR/WD/batch and 1-class/RGB deviations documented |
-| CS-Net (`cs2net`) | OK, identity corrected | code is CS-Net (MICCAI 2019, iMED-Lab), not CS2Net (MedIA 2020); display/provenance labels fixed; LambdaLR one-epoch offset matches upstream `adjust_lr(iter=epoch)` |
+| CS2Net-2D (`cs2net`) | OK, identity clarified | official 2D branch `model/csnet.py` + `train.py`; `model/csnet_3d.py` is the separate 3D CS2Net extension and is not applicable to 2D protocol images; LambdaLR one-epoch offset matches upstream |
 | BCUNet (`bcunet`) | OK | prediction no longer downloads ImageNet-22k; threshold-before-resize masks; bilinear-logit upsample + argmax; corrected selection/accumulation docs |
 | MaskVSC (`maskvsc`) | OK | no confirmed bug; deviations re-checked |
 | nnWNet (`nnwnet`) | OK with documented protocol deviation | checkpoint discovery by `.pth`/`.safetensors`; seeded runs; staging/preprocessing regenerated on reuse; resume rejected with a clear error; docs corrected |

@@ -20,7 +20,7 @@
 | Adapter id | 模型 | 3rd 代码目录 | parsing 论文目录 | 备注 |
 |---|---|---|---|---|
 | `unet` | U-Net | `3rd/Pytorch-UNet` | 未收录 | milesial PyTorch-UNet；U-Net 原论文目录未收录 |
-| `cs2net` | CS-Net（历史 id） | `3rd/CS-Net` | 未收录 | 官方 CS-Net (MICCAI 2019) 代码；不是 CS2Net (MedIA 2020) |
+| `cs2net` | CS2Net-2D（历史 id） | `3rd/CS-Net` | 未收录 | 官方 2D 分支 `model/csnet.py` + `train.py`；`model/csnet_3d.py` 是独立 3D 扩展，不用于 2D 数据 |
 | `bcunet` | BCUNet | `3rd/BCU-Net` | 未收录 | 无 LICENSE；`OutConv` 已修复 |
 | `maskvsc` | MaskVSC | `3rd/MaskVSC` | 未收录 | 视网膜血管分割 |
 | `nnwnet` | nnWNet | `3rd/nnWNet` | 未收录 | 官方 nnU-Net trainer/plugin |

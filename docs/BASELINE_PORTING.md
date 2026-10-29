@@ -33,7 +33,7 @@ prints them at the start of training and stores them in every checkpoint.
 | Model | Official logic preserved | Main documented deviations |
 |---|---|---|
 | U-Net | milesial architecture, BCE+Dice | fixed 512 input, 800-epoch shared few-shot budget, flips/rot90, val Dice |
-| CS-Net (id `cs2net`) | centre-square crop→512, ±40° rotation, ImageEnhance, MSE+Dice(1e-4), Adam 1e-4/5e-4, poly LR, 1000 epochs, Otsu | actual code is CS-Net (MICCAI 2019), not CS2Net (MedIA 2020); val Dice instead of the unreachable/test-leaking official rule; GT-size export |
+| CS2Net-2D (id `cs2net`) | centre-square crop→512, ±40° rotation, ImageEnhance, MSE+Dice(1e-4), Adam 1e-4/5e-4, poly LR, 1000 epochs, Otsu | official 2D branch `model/csnet.py` + `train.py`; `model/csnet_3d.py` is the separate 3D Conv3d extension, not applicable to the 2D protocol; val Dice instead of the unreachable/test-leaking official rule; GT-size export |
 | BCUNet | BGR [0,255]/INTER_AREA, 3-way CE, Adam 1.5e-4, 50 epochs, no augmentation | batch 1×2 accumulation on 11 GiB; val Dice instead of test IOU; paper-supported 1x1 logits `OutConv` (release broken); no official trained weights needed |
 | MaskVSC | Fundus UNet, masked-vessel corruption schedule, BCE+Connect_Loss, Adam 2e-4, 200 epochs | val Dice instead of test Dice; GT-size export |
 | nnWNet | official W-Net 2D nnU-Net trainer, planner, SGD/AMP/deep supervision, sliding-window+TTA | pooled 18/6 one-fold split; planning uses the 18 train cases only, then stages the 6 val cases; val EMA pseudo-Dice |

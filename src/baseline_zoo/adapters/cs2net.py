@@ -1,10 +1,10 @@
-"""CS-Net baseline with the official 2D CS-Net training/inference logic.
+"""CS2Net-2D baseline with the official 2D CS-Net/CS2-Net logic.
 
 Official reference: https://github.com/iMED-Lab/CS-Net, vendored from
-``3rd/CS-Net``.  The model is copied into
-``baseline_zoo.models.cs2net`` so the runtime survives deleting ``baselines``.
-The legacy model id ``cs2net`` is retained, but this is CS-Net (MICCAI
-2019), not the separate CS2Net (MedIA 2020).
+``3rd/CS-Net``.  The 2D network is ``model/csnet.py`` and the official 2D
+entrypoint is ``train.py``.  ``model/csnet_3d.py``/``train3d.py`` are the
+separate 3D CS2-Net extension and cannot consume 2D protocol images.
+The legacy model id ``cs2net`` is retained.
 
 Protocol-only deviations are listed in ``deviations``; every model-side
 detail (geometry, augmentation, loss, optimizer, LR schedule, Otsu output)
@@ -62,8 +62,8 @@ def _official_dice_loss(pred: torch.Tensor,
 
 class CS2NetAdapter(BaselineAdapter):
     id = 'cs2net'
-    display_name = 'CS-Net'
-    official_source = 'iMED-Lab/CS-Net (self-contained copy)'
+    display_name = 'CS2Net-2D'
+    official_source = 'iMED-Lab/CS-Net, model/csnet.py (2D)'
     official_entrypoint = 'https://github.com/iMED-Lab/CS-Net'
     input_size = 512
     official_lr = 1e-4
@@ -71,6 +71,11 @@ class CS2NetAdapter(BaselineAdapter):
     train_batch_size = 8
     selection = 'dice'
     deviations = (
+        'This is the 2D CS2Net/CS-Net implementation from the official '
+        'repository: model/csnet.py and train.py. The 3D extension '
+        'model/csnet_3d.py/train3d.py uses Conv3d and is not applicable to '
+        'the 2D protocol images; SACM\'s 2D datasets therefore require this '
+        '2D branch unless a private depth-1 adaptation is documented.',
         'Data protocol: the 18/6-shot split replaces the original DRIVE '
         'training/test folders; all 20 mixed-modality domains are converted '
         'to RGB because the official loader assumes 3-channel fundus images.',

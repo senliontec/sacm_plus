@@ -19,7 +19,7 @@ deviations may remain. `WARN` means a real but non-blocking issue.
 |---|---|---|---|---|---|
 | `unet` | U-Net 2015; local paper absent; `3rd/Pytorch-UNet` is third-party milesial | WARN | P2 | architecture/BCE+Dice faithful, but optimizer/input/class/augmentation recipe is non-official | documented; label as 3-shot U-Net |
 | `bcunet` | BCU-Net CBM 2023; `3rd/BCU-Net` unrunnable (NameError, missing warmlearnrate) | WARN | P2 | official trained weights are not released and not needed for from-scratch training; `OutConv` is a CE-compatible reconstruction | **clarified**: paper's four normal upsample blocks + MRL fusion support the 1x1 logits repair; convnext ImageNet backbone is the only pretrained part |
-| `cs2net` | **CS-Net MICCAI 2019**, not CS2Net MedIA 2020; `3rd/CS-Net` (iMED-Lab) | PASS | P1 | baseline identity/provenance mismatch; adapter cited a different repo | **identity fixed**: row/display/code now CS-Net; Otsu inference verified against official `predict.py`; legacy id retained |
+| `cs2net` | **CS2Net-2D**; official `3rd/CS-Net/model/csnet.py` + `train.py` (iMED-Lab) | PASS | P1 | 2D vs 3D identity confusion; `model/csnet_3d.py` is a separate Conv3d extension | **clarified**: 2D branch is correct for DRIVE/CHASE/DCA1/CORN; 3D extension cannot consume 2D protocol images without a private depth-1 adaptation; Otsu verified |
 | `csunet` | CS-UNet ICASSP 2026; `3rd/CSUNet/CSUNet.ipynb` only | WARN | P2 | notebook DynamicSnake is a placeholder; paper PACB BN/Snake differs; no weights/license | label released-code variant; document |
 | `dconnnet` | DconnNet CVPR 2023; paper absent | PASS | P2 | faithful; HSV hue wrap and no LICENSE; ResNet-34 present | document |
 | `dscnet` | DSCNet ICCV 2023; `3rd/DSCNet` MIT | WARN | P1 | paper TCLoss is absent from official code and port; port adds Dice; 800-epoch deviation now explicit | **doc fixed**: “no TCLoss” deviation added; implementing TCLoss would be a non-official extension |
@@ -156,8 +156,9 @@ These need a method/paper decision rather than a mechanical patch:
   init-mask range is fixed, labeling remains.
 - KnowSAM's effective batch (6 vs 24) and unlabeled pool differ materially.
 - A2SAM is a paper-level reconstruction, not an official end-to-end model.
-- CS-Net identity is fixed by labeling; porting the actual CS2Net MedIA 2020
-  would be a separate new baseline, not a repair of this row.
+- The row is the 2D CS2Net/CS-Net implementation; a true 3D CS2Net
+  (`csnet_3d.py`) would be a separate volume baseline, not a repair of this
+  2D row.
 
 ## 4. Cross-cutting findings
 

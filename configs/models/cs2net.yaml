@@ -1,5 +1,5 @@
 id: cs2net
-display_name: CS-Net
+display_name: CS2Net-2D
 family: cnn
 status: available
 checkpoint: "{output_root}/best_model.pth"
@@ -19,7 +19,9 @@ protocols: [seeded5, fixed]
 defaults:
   epochs: 1000
 note: >-
-  The legacy model id is `cs2net`, but the vendored code is CS-Net
-  (MICCAI 2019, iMED-Lab/CS-Net), not the separate CS2Net (MedIA 2020).
-  Report this row as CS-Net. The official 1000-epoch recipe is retained;
-  checkpoint selection uses the shared validation Dice.
+  Legacy model id `cs2net`; this row is the official 2D branch
+  (`model/csnet.py`, `train.py`) of iMED-Lab/CS-Net, shared by the CS-Net
+  MICCAI 2019 and CS2Net MedIA 2021 2D experiments. The 3D extension
+  (`model/csnet_3d.py`, `train3d.py`, Conv3d) is a separate network and is
+  not applicable to the 2D protocol images. The official 1000-epoch recipe
+  is retained; checkpoint selection uses the shared validation Dice.
