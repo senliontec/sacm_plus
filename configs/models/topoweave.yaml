@@ -1,0 +1,31 @@
+id: topoweave
+display_name: TopoWeave
+family: cnn
+status: available
+checkpoint: "{output_root}/best_model.pth"
+train_entrypoint: >-
+  python -m baseline_zoo.run_one --model topoweave --stage train
+  --data-root {split_root} --workdir {output_root}
+  --batch-size 4 --lr 2e-4 --weight-decay 0.01 --grad-clip 1.0
+  --scheduler cosine --warmup-epochs 40
+  --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
+eval_entrypoint: >-
+  python scripts/pipeline/run_baseline_test.py --method topoweave
+  --protocol {test_manifest} --data-root {split_root}
+  --seed {seed} --checkpoint {output_root}/best_model.pth
+  --pred-root {output_root}/predictions --paper-root {output_root}
+  --device cuda:{gpu} --use_wandb true --skip-visualize
+protocols: [seeded5, fixed]
+defaults:
+  epochs: 800
+note: >-
+  TopoWeave is a project extension derived from MaskVSC (TMI 2025), not an
+  official MaskVSC port and not an official baseline. Single-stage GroupNorm
+  residual U-Net with a gated graph refiner that sees image features and a
+  detached coarse probability map; width-aware skeleton TopoMask with a
+  biphasic ratio; BCE + Dice + bounded soft-clDice (no Connect_Loss, no
+  connected-component count); strong augmentation; AdamW + cosine warm-up;
+  512 RGB input and validation-Dice selection. The graph refiner can be
+  disabled (--topoweave-refiner none) or warmed up
+  (--topoweave-refiner-warmup N) as documented ablations. No official
+  weights exist and no parity with MaskVSC is claimed.

@@ -10,7 +10,8 @@ bash scripts/run_paper.sh --model all --seeds all --gpus 0,1,2,3 --resume
 ```
 
 `--model all` resolves every `status: available` model in
-`configs/models/` (SACM-X plus the 41 runnable baselines, including the
+`configs/models/` (SACM-X plus the 41 official/reference baselines and the
+TopoWeave project extension, including the
 appendix `sam2_unet`, the prompt-free `sam_adapter`/`samed`/`topolora`/
 `convlora`/`c2p`/`a2sam`/`kprism`, the non-SAM `jtfn`/`dscnet`/`rsrm`/`dka`/
 `scrwkv`/`flowsdf`/`tpsegformer`/`s2mnet`/`csunet`/`liot`/`dconnnet`,
@@ -143,8 +144,10 @@ The runner dynamically assigns each trial to the next free GPU in the
 selected pool.  `nnWNet` and `KnowSAM` are skipped because their custom
 official pipelines do not yet expose the shared scheduler/LR interface;
 `Matcher`, `PerSAM`, `RSRM` and `C2P` are training-free or zero-shot.
-Thus 24 of the 41 baselines are in the tuning harness.  Newly added ports
-must be added to its explicit `BASELINE_MODELS` list and
+Thus 24 of the 41 official/reference baselines are in the tuning harness.
+The TopoWeave project extension is intentionally not in the 41-baseline
+sweep or HPO lists; run it explicitly with `--model topoweave`.  Newly added
+ports must be added to the explicit `BASELINE_MODELS` list and
 `configs/tuning/spaces.yaml` before `--models all` can tune them.  Trial
 `best_model*.pth` files are deleted after scoring unless
 `--keep-trial-checkpoints` is passed; the metrics history and trainer log

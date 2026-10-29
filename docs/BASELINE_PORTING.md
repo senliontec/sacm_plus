@@ -398,6 +398,35 @@ python -m baseline_zoo.run_one --model topolora --stage train \
   --accum-steps 4 --grad-clip 1.0 --device cuda:0
 ```
 
+## TopoWeave (project extension, not a port)
+
+`topoweave` is a new single-stage method derived from the design lessons of
+MaskVSC (TMI 2025). It is deliberately not an official baseline: no MaskVSC
+source is copied, no official TopoWeave weights exist, and no parity with
+MaskVSC is claimed.
+
+The upgrade targets the audited MaskVSC weaknesses:
+
+- `Connect_Loss` is replaced by bounded BCE + Dice + soft-clDice. There is
+  no morphological opening, connected-component count, or per-foreground
+  scaling, so sparse domains cannot receive the paper-mode explosion.
+- TopoMask uses width-aware skeleton paths (distance-transform radius),
+  explicit `random.Random`, and a biphasic ratio curriculum instead of a
+  fixed 7x7 brush and global RNG.
+- The frozen two-stage UNet + 23.8M ViG is replaced by one GroupNorm ResUNet
+  with a jointly trained gated graph refiner. The refiner sees 1/16 image
+  features plus a detached coarse probability map; a small residual gate keeps
+  the initial output close to the coarse prediction.
+- AdamW + cosine warm-up, gradient clipping and strong geometry/intensity
+  augmentation replace fixed Adam lr and flip-only augmentation.
+
+The shared runtime performs training, validation, checkpoint selection,
+W&B and prediction. The default profile is selected by a 100-epoch screening
+of `refiner=none`, graph joint training, and graph warm-up; the graph refiner
+remains an explicit ablation if it does not improve validation Dice. Default
+parameters are 8.39M with the graph refiner and 7.85M without it. See
+`src/baseline_zoo/models/topoweave/UPSTREAM.md` for the full design ledger.
+
 ## Verification
 
 `tests/test_self_contained.py` fails if any file under `src/` imports

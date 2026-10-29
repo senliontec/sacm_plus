@@ -214,3 +214,13 @@ These need a method/paper decision rather than a mechanical patch:
 - Resolve missing licenses (ACO, KnowSAM, SACM, BCU-Net, CS-UNet,
   DconnNet, JTFN, MaskVSC conflict) before public release.
 - A2SAM branch-cap/DCA1 triage still needs the server 3090 stage-3 run.
+
+## 7. TopoWeave addendum
+
+`topoweave` was added after the 40-model audit as a **project extension**, not
+a port. It is derived from MaskVSC but is not an official MaskVSC
+implementation and has no official weights. Audit verdict: `PASS (N/A; not a
+port)`; it is excluded from any official-baseline or MaskVSC-parity claim.
+Its verification consists of `tests/test_topoweave.py`, the shared-runtime
+smoke, the recorded 100-epoch screening, and the full 800-epoch seed-0 run
+once available.

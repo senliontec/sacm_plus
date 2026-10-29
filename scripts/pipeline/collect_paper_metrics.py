@@ -86,6 +86,7 @@ METHOD_META = {
     'sam_adapter': ('SAM-Adapter', '✓'),
     'samed': ('SAMed', '✓'),
     'topolora': ('TopoLoRA-SAM', '✓'),
+    'topoweave': ('TopoWeave', '✗'),
     'tpsegformer': ('TPSegformer', '✗'),
     'ucs': ('UCS', '✓'),
     'sacm_x': ('SACM-X', '✗'),

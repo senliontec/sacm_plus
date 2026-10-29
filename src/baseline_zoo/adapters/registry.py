@@ -46,6 +46,7 @@ _ADAPTERS = {
     'segdino': ('baseline_zoo.adapters.segdino', 'SegDINOAdapter'),
     'segdino_v2': ('baseline_zoo.adapters.segdino_v2', 'SegDINOV2Adapter'),
     'topolora': ('baseline_zoo.adapters.topolora', 'TopoLoRAAdapter'),
+    'topoweave': ('baseline_zoo.adapters.topoweave', 'TopoWeaveAdapter'),
     'tpsegformer': ('baseline_zoo.adapters.tpsegformer',
                     'TPSegformerAdapter'),
     'ucs': ('baseline_zoo.adapters.ucs', 'UCSAdapter'),
