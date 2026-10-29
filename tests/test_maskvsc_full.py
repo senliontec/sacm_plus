@@ -258,6 +258,12 @@ def _training_args(root, workdir):
     )
 
 
+def test_maskvsc_uses_custom_two_stage_pipeline():
+    # The shared runtime trains one model and ignores stage2_epochs; without
+    # this flag MaskVSC never trains the ViG and prediction uses random ViG.
+    assert MaskVSCAdapter.custom_pipeline is True
+
+
 def test_maskvsc_main_defaults_are_release():
     parser = argparse.ArgumentParser()
     MaskVSCAdapter().add_args(parser)

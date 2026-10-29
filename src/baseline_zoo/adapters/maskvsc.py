@@ -95,6 +95,7 @@ class MaskVSCAdapter(BaselineAdapter):
     official_weight_decay = 0.0
     train_batch_size = 4
     selection = 'dice'
+    custom_pipeline = True
     deviations = (
         'Full two-stage MaskVSC: stage-1 UNet (masked-vessel corruption + '
         'Connect_Loss) followed by the official ViG completion head '
