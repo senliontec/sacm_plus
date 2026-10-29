@@ -22,7 +22,7 @@
 | `unet` | U-Net | `3rd/Pytorch-UNet` | 未收录 | milesial PyTorch-UNet；U-Net 原论文目录未收录 |
 | `cs2net` | CS2Net-2D（历史 id） | `3rd/CS-Net` | 未收录 | 官方 2D 分支 `model/csnet.py` + `train.py`；`model/csnet_3d.py` 是独立 3D 扩展，不用于 2D 数据 |
 | `bcunet` | BCUNet | `3rd/BCU-Net` | 未收录 | 无 LICENSE；`OutConv` 已修复 |
-| `maskvsc` | MaskVSC | `3rd/MaskVSC` | 未收录 | 视网膜血管分割 |
+| `maskvsc` | MaskVSC | `3rd/MaskVSC` | 未收录 | 视网膜血管；完整两阶段（UNet masked-vessel + ViG completion）；ViG 上游 reshape/patch 修复已记录 |
 | `nnwnet` | nnWNet | `3rd/nnWNet` | 未收录 | 官方 nnU-Net trainer/plugin |
 | `nnunet2d` | nnU-Net 2D | `3rd/nnUNet` | 未收录 | 原生 nnunetv2 2D planner/trainer/predictor |
 | `flowsdf` | FlowSDF | `3rd/FlowSDF` | `parsing/[2025 ijcv] FlowSDF: Flow Matching for Medical Image Segmentation Using Distance Transforms` | 条件流匹配 + SDF；128 crop，Euler ODE；MIT |

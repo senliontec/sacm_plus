@@ -6,6 +6,7 @@ checkpoint: "{output_root}/best_model.pth"
 train_entrypoint: >-
   python -m baseline_zoo.run_one --model maskvsc --stage train
   --data-root {split_root} --workdir {output_root}
+  --maskvsc-stage2-epochs 200
   --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
 eval_entrypoint: >-
   python scripts/pipeline/run_baseline_test.py --method maskvsc
@@ -18,3 +19,13 @@ eval_entrypoint: >-
 protocols: [seeded5, fixed]
 defaults:
   epochs: 800
+note: >-
+  Full two-stage MaskVSC (TMI 2025): stage-1 Fundus UNet with masked-vessel
+  corruption + Connect_Loss, then the ViG completion head on frozen stage-1
+  probability maps; final inference is ViG(Seg(image)). The 800-epoch budget
+  is split 600 stage-1 + 200 stage-2; pass --maskvsc-stage1-epochs 800 for
+  the ViG-isolation A/B. Stage 1 is frozen/eval in stage 2; a single pooled
+  512 ViG is used because unseen/novel domains have no per-domain training
+  data. Stage-2 selection uses val Dice, never test. The released ViG cannot
+  run as shipped; the token-grid reshape and patch-size/channel mismatch are
+  repaired (see models/maskvsc/UPSTREAM.md). No official ViG weights.

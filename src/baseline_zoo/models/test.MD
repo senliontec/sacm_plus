@@ -72,6 +72,12 @@ From this file's directory: `../../../../3rd`
   `3rd/segment-anything`.
 - `sam_vit_l_unet`: no `3rd` source. This is a project extension using
   `src/models/sam_network` and the local SAM ViT-L checkpoint.
+- `maskvsc`: upstream is two-stage. Stage 1 is
+  `3rd/MaskVSC/train.py` + `test.py` (UNet, masked-vessel corruption,
+  Connect_Loss); stage 2 is `3rd/MaskVSC/train_ViG.py` + `test_ViG.py` +
+  `model/gcn.py` (ViG completion on the frozen stage-1 prediction). The
+  forward inference path is `ViG(Seg(image))`; source repairs are recorded
+  in `models/maskvsc/UPSTREAM.md`.
 - `kprism`: upstream is the whole `3rd/K-Prism` tree (commit `78c3b1b`,
   MIT). The port copies `kprism/modeling/{backbone,pixel_fuser,meta_arch,
   point_encoder,transformer_decoder,loss.py}`; the in-context

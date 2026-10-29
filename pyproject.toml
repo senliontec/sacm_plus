@@ -137,6 +137,8 @@ extend-exclude = [
     "src/baseline_zoo/models/kprism/transformer_decoder",
     "src/baseline_zoo/models/kprism/loss.py",
     "src/baseline_zoo/models/kprism/compat.py",
+    "src/baseline_zoo/models/maskvsc/unet.py",
+    "src/baseline_zoo/models/maskvsc/gcn.py",
 ]
 
 [tool.ruff.lint]

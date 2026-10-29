@@ -21,7 +21,7 @@ collector and report pipeline.
 | U-Net (`unet`) | OK with documented 3-shot deviations | official batch Dice (eps 1e-6, empty-set branch); logit-space upsample; LR/WD/batch and 1-class/RGB deviations documented |
 | CS2Net-2D (`cs2net`) | OK, identity clarified | official 2D branch `model/csnet.py` + `train.py`; `model/csnet_3d.py` is the separate 3D CS2Net extension and is not applicable to 2D protocol images; LambdaLR one-epoch offset matches upstream |
 | BCUNet (`bcunet`) | OK | prediction no longer downloads ImageNet-22k; threshold-before-resize masks; bilinear-logit upsample + argmax; corrected selection/accumulation docs |
-| MaskVSC (`maskvsc`) | OK | no confirmed bug; deviations re-checked |
+| MaskVSC (`maskvsc`) | OK, full two-stage | stage-1 UNet + stage-2 ViG completion (`ViG(Seg(image))`); released ViG token-grid/patch repairs documented; stage-2 val-Dice selection and pooled 512 adaptation |
 | nnWNet (`nnwnet`) | OK with documented protocol deviation | checkpoint discovery by `.pth`/`.safetensors`; seeded runs; staging/preprocessing regenerated on reuse; resume rejected with a clear error; docs corrected |
 | SAM-Med2D (`sam_med2d`) | OK with official ViT-B checkpoint | default loads `sam-med2d_b.pth` at 256 with Adapter; full decoder inheritance and regression tests; ViT-L only an explicit comparison |
 | SAM-OCTA (`sam_octa`) | OK | removed pre-model padding; SAM now records the pre-pad size and crops postprocess correctly for non-square images |
