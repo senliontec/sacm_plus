@@ -38,6 +38,24 @@
 - Inputs: BGR [0,255], INTER_AREA resize, no normalization and no other
   preprocessing, matching the release data loader and paper §4.1.
 
+## Paper text vs release architecture
+
+- The paper text says the ConvNeXt branch has three continuous upsampling
+  blocks, while `models.py` has four (`up4`..`up1`); the fourth `up1` has no
+  skip and is required to recover 32x32 to 512x512. The port follows the
+  release.
+- The paper text says a U-Net block contains one BN/ReLU, while Fig. 2 and
+  the released `DoubleConv` contain two. The port follows Fig. 2/code.
+- Algorithm 1 lists training ConvNeXt (L1) and U-Net (L3) before bridging
+  (L2), then joint training. The release `main.py` jointly optimizes
+  L1/L2/L3 from the first batch and provides no stage epochs. The port
+  follows the joint code path.
+- The paper scopes the 18x augmentation to retinal vessel datasets. The
+  port's `retinal` scope applies the transforms only to
+  CHASEDB1/DRIVE/STARE/DRHAGIS/HRF/LES-AV and repeats other domains with
+  the identity variant to preserve the pooled 18/6 balance;
+  `--bcunet-augment-scope all` is a task adaptation.
+
 ## Necessary repairs and documented deviations
 
 1. `OutConv` calls an undefined `upconv2x2` and depends on missing

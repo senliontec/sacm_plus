@@ -41,6 +41,11 @@ _VARIANTS = (
 
 N_VARIANTS = len(_VARIANTS)
 
+# Paper Section 4.1 scopes the 18x augmentation to retinal vessel datasets.
+RETINAL_VESSEL_DATASETS = frozenset({
+    'CHASEDB1', 'DRIVE', 'STARE', 'DRHAGIS', 'HRF', 'LES-AV',
+})
+
 
 def _read_pair(sample):
     image = cv2.imread(str(sample.image_path), cv2.IMREAD_COLOR)
@@ -102,19 +107,28 @@ def _resize_pair(image, mask, size: int):
 
 
 class BCUNetTrainDataset(Dataset):
-    """Deterministic 18-variant expansion of the BCU-Net training split."""
+    """Deterministic 18-variant expansion of the BCU-Net training split.
+
+    ``augment_scope='retinal'`` applies the paper's transforms only to
+    retinal vessel datasets; other samples are repeated with the identity
+    variant so the pooled 18/6 domain balance is unchanged.
+    """
 
     def __init__(self, samples, input_size: int = 512, variants: int = 18,
-                 seed: int = 0):
+                 seed: int = 0, augment_scope: str = 'retinal'):
         if variants < 1:
             raise ValueError('variants must be at least 1')
         if variants > N_VARIANTS:
             raise ValueError(
                 f'variants={variants} exceeds the {N_VARIANTS} fixed recipes')
+        if augment_scope not in ('retinal', 'all'):
+            raise ValueError(
+                f'augment_scope must be retinal|all, got {augment_scope!r}')
         self.samples = list(samples)
         self.input_size = int(input_size)
         self.variants = int(variants)
         self.seed = int(seed)
+        self.augment_scope = augment_scope
 
     def __len__(self):
         return len(self.samples) * self.variants
@@ -122,6 +136,9 @@ class BCUNetTrainDataset(Dataset):
     def __getitem__(self, index):
         sample_index, variant = divmod(index, self.variants)
         sample = self.samples[sample_index]
+        if (self.augment_scope == 'retinal'
+                and sample.dataset not in RETINAL_VESSEL_DATASETS):
+            variant = 0
         image, mask = _read_pair(sample)
         image, mask = apply_variant(
             image, mask, variant, seed=self.seed, key=sample.stem)

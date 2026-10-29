@@ -74,7 +74,7 @@ def test_offline_18_variant_dataset_is_deterministic(tmp_path):
     mask_path = tmp_path / 'case_mask.png'
     Image.fromarray(image).save(image_path)
     Image.fromarray(mask).save(mask_path)
-    sample = Sample(image_path, mask_path, 'toy', 'case')
+    sample = Sample(image_path, mask_path, 'DRIVE', 'case')
     dataset = BCUNetTrainDataset(
         [sample], input_size=512, variants=18, seed=0)
     assert len(dataset) == 18
@@ -88,3 +88,27 @@ def test_offline_18_variant_dataset_is_deterministic(tmp_path):
     assert not torch.equal(first[0], second[0])
     # Variant 5 is the horizontal flip.
     assert torch.equal(dataset[5][1], torch.flip(first[1], dims=[-1]))
+
+
+def test_augmentation_scope_is_retinal_by_default(tmp_path):
+    image = np.random.default_rng(1).integers(
+        0, 255, (64, 80, 3), dtype=np.uint8)
+    mask = np.zeros((64, 80), np.uint8)
+    mask[20:50, 10:70] = 255
+    image_path = tmp_path / 'case.png'
+    mask_path = tmp_path / 'case_mask.png'
+    Image.fromarray(image).save(image_path)
+    Image.fromarray(mask).save(mask_path)
+    retinal = Sample(image_path, mask_path, 'DRIVE', 'case')
+    other = Sample(image_path, mask_path, 'CORN', 'case')
+    paper_scope = BCUNetTrainDataset(
+        [retinal, other], input_size=512, variants=18, seed=0,
+        augment_scope='retinal')
+    # Retinal samples use the full variants.
+    assert not torch.equal(paper_scope[0][0], paper_scope[1][0])
+    # Non-retinal samples repeat identity: items 18 and 19 are identical.
+    assert torch.equal(paper_scope[18][0], paper_scope[19][0])
+    all_scope = BCUNetTrainDataset(
+        [other], input_size=512, variants=18, seed=0,
+        augment_scope='all')
+    assert not torch.equal(all_scope[0][0], all_scope[1][0])

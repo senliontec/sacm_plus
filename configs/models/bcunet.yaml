@@ -8,6 +8,7 @@ train_entrypoint: >-
   --data-root {split_root} --workdir {output_root}
   --batch-size 2 --accum-steps 1
   --bcunet-loss mrl --bcunet-augment-variants 18
+  --bcunet-augment-scope retinal
   --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
 eval_entrypoint: >-
   python scripts/pipeline/run_baseline_test.py --method bcunet
@@ -26,8 +27,12 @@ note: >-
   0.5*U-Net + 0.5*ConvNeXt, bilinear U-Net upsampling, raw logits, Adam
   1.5e-4, batch 2, 100 epochs, and 18x offline augmentation. The paper does
   not give augmentation amplitudes; the 18-variant recipe is documented as
-  a reconstruction. The release main.py instead uses CE, 0.4/0.6 fusion and
-  no augmentation: use --bcunet-loss ce, --bcunet-fusion-unet 0.4,
+  a reconstruction. The paper scopes these transforms to retinal vessel
+  datasets; the default retinal scope applies them to CHASEDB1/DRIVE/STARE/
+  DRHAGIS/HRF/LES-AV and repeats other domains with identity to preserve the
+  pooled 18/6 balance. --bcunet-augment-scope all is a task adaptation.
+  The release main.py instead uses CE, 0.4/0.6 fusion and no augmentation:
+  use --bcunet-loss ce, --bcunet-fusion-unet 0.4,
   --bcunet-fusion-convnext 0.6 and --bcunet-augment-variants 1 to reproduce
   that ablation, together with --bcunet-convtranspose. OutConv is a 1x1
   logits reconstruction because the released upconv2x2/warmlearnrate are

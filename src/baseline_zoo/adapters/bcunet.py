@@ -55,9 +55,23 @@ class BCUNetAdapter(BaselineAdapter):
         'identity (rotation, flips, brightness, Gaussian noise, Gaussian '
         'blur, and combinations). The paper does not state whether the '
         'original counts inside the 18; this port uses 18 total. The '
-        'paper does not state amplitudes or probabilities; the exact recipe '
-        'is documented in models/bcunet/augmentation.py and is a '
+        'paper scopes the transforms to retinal vessel datasets; the '
+        'default --bcunet-augment-scope retinal applies them only to '
+        'CHASEDB1/DRIVE/STARE/DRHAGIS/HRF/LES-AV and repeats other domains '
+        'with identity to preserve the pooled 18/6 balance. '
+        '--bcunet-augment-scope all is a task adaptation. The paper does '
+        'not state amplitudes or probabilities; the exact recipe is '
+        'documented in models/bcunet/augmentation.py and is a '
         'reconstruction, not an official parameter set.',
+        'Paper-code architecture conflicts: the paper text says the '
+        'ConvNeXt branch has three upsampling blocks, but the release has '
+        'four (the final one has no skip); the port follows the release '
+        'so 32x32 recovers to 512x512. The paper text says one BN/ReLU in '
+        'a U-Net block, while Fig.2 and the code have two; the port '
+        'follows Fig.2/code. Algorithm 1 suggests training the branches '
+        'before bridging, but main.py jointly optimizes L1/L2/L3 from the '
+        'first batch and gives no stage schedule; the port follows the '
+        'joint code path.',
         'U-Net upsampling is bilinear as described in the paper; the release '
         'main.py uses ConvTranspose2d (bilinear=False). Pass '
         '--bcunet-convtranspose for the release variant.',
@@ -93,6 +107,11 @@ class BCUNetAdapter(BaselineAdapter):
         parser.add_argument(
             '--bcunet-augment-variants', type=int, default=18,
             help='offline variants per training image (paper 18; 1 disables)')
+        parser.add_argument(
+            '--bcunet-augment-scope', choices=['retinal', 'all'],
+            default='retinal',
+            help='paper scope is retinal vessel datasets; all is a task '
+                 'adaptation for the pooled 20-domain protocol')
         parser.add_argument(
             '--bcunet-fusion-unet', type=float, default=0.5,
             help='fused-output weight for the U-Net branch (paper 0.5)')
@@ -173,7 +192,9 @@ class BCUNetAdapter(BaselineAdapter):
             return None
         return BCUNetTrainDataset(
             samples, input_size=self.input_size, variants=variants,
-            seed=int(getattr(args, 'seed', 0)))
+            seed=int(getattr(args, 'seed', 0)),
+            augment_scope=str(getattr(
+                args, 'bcunet_augment_scope', 'retinal')))
 
     def _load_image(self, sample):
         image = cv2.imread(str(sample.image_path))
@@ -245,6 +266,8 @@ class BCUNetAdapter(BaselineAdapter):
             'loss': str(getattr(args, 'bcunet_loss', 'mrl')),
             'augment_variants': int(
                 getattr(args, 'bcunet_augment_variants', 18)),
+            'augment_scope': str(
+                getattr(args, 'bcunet_augment_scope', 'retinal')),
             'fusion_unet': unet_weight,
             'fusion_convnext': convnext_weight,
             'convtranspose': bool(
@@ -257,6 +280,7 @@ class BCUNetAdapter(BaselineAdapter):
         for key, attribute in (
                 ('loss', 'bcunet_loss'),
                 ('augment_variants', 'bcunet_augment_variants'),
+                ('augment_scope', 'bcunet_augment_scope'),
                 ('fusion_unet', 'bcunet_fusion_unet'),
                 ('fusion_convnext', 'bcunet_fusion_convnext'),
                 ('convtranspose', 'bcunet_convtranspose')):
