@@ -25,14 +25,12 @@ used as the network input.
 ## Protocol adaptations
 
 - **Polarity.**  LIOT assumes the curvilinear object is darker than the
-  background.  The protocol's datasets include both dark (CREMI,
-  CrackTree200, DCA1, CHCrack5k, DeepCrack, LEAF, TYRE, XCAD) and bright
-  (CHASEDB1, CORN, DRIVE, FIVES, HRF, LES-AV, OCTA-500, STARE, DeepGlobe,
-  ROAD, TopoMortar, WIRE) foregrounds.  Bright datasets are inverted before
+  background.  Retinal/ophthalmic datasets (DRIVE, CHASEDB1, FIVES, HRF,
+  LES-AV, OCTA-500, STARE) keep the official dark polarity.  Bright
+  structures (CORN, DeepGlobe, ROAD, TopoMortar, WIRE) are inverted before
   LIOT at both training and inference; `polarity_for_dataset` records the
-  table and supports `dark`/`bright` overrides.  The table was derived from
-  the training/support masks' mean intensity inside vs outside the mask, not
-  from test labels.
+  table and supports `dark`/`bright` overrides.  Unknown datasets default
+  to the paper polarity (dark).
 - **Budget.**  The release README describes 1000 epochs and the included
   `configuration.txt` uses 170; this port uses the shared 800-epoch project
   budget with validation-Dice selection.

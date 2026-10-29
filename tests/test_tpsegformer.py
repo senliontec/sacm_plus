@@ -180,6 +180,9 @@ def test_optimizer_and_scheduler_groups():
                for group in optimizer.param_groups)
     scheduler = adapter.make_scheduler(optimizer, adapter.args)
     assert scheduler is not None
+    # PolyLrUpdater starts the warmup at 1e-6 x base, not 20% of base.
+    assert min(scheduler.get_last_lr()) == pytest.approx(
+        6e-5 * 1e-6, rel=1e-5)
 
 
 @pytest.mark.slow

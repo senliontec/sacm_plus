@@ -54,6 +54,9 @@ class DSCNetAdapter(BaselineAdapter):
         'built-but-never-stepped ReduceLROnPlateau is omitted (constant LR). '
         'A soft Dice term is added to the official BCE for the 3-shot '
         'class-imbalance protocol; --dsc-dice-weight=0 restores BCE-only.',
+        'The paper describes a TCLoss, but neither the official 2D release '
+        'nor this port implements it. This row is therefore DSCNet with '
+        'soft BCE (+ optional Dice), not the paper TCLoss recipe.',
         'The official patch-blending kernel has a singular 1/0 center; the '
         'port uses a finite 1/(1+d^4) quartic window and explicit last-patch '
         'coverage. No official weights are present; training starts from '

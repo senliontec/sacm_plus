@@ -1,5 +1,7 @@
 # Baseline model -> 3rd source directory
 
+unet cs2net bcunet maskvsc nnwnet sam_med2d  sam_octa cwsam  knowsam  segdino sacm_official
+
 # 可以参考 ICLR ICML NIPS ACL 等顶会中对 SAM 做高效微调的方法
 
 `3rd` root: `/home/dev/mywork/project/segment/3rd`
@@ -10,7 +12,7 @@ From this file's directory: `../../../../3rd`
 
 ```text
 .
-├── a2sam                 -> 3rd/A2SAM
+├── a2sam                 -> 3rd/A2SAM 
 ├── aco_moe_lora          -> 3rd/ACO-MoE-LoRA
 ├── bcunet                -> 3rd/BCU-Net
 ├── blo_sam               -> 3rd/BLO-SAM

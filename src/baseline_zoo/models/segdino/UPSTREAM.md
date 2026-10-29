@@ -14,4 +14,8 @@
     auto-detects a size-matched local checkpoint under `checkpoints/`,
     accepts `--dino-ckpt` / `DINO_CKPT` / `.safetensors`, and falls back
     to HF authentication only when no local file exists.
+  - The README/paper specify a frozen DINOv3 backbone, while the released
+    trainer never calls `DPT.lock_backbone()`. The port freezes the
+    backbone by default; `--segdino-train-backbone` reproduces the
+    released full-finetune behavior.
 - Runtime consumer: `baseline_zoo.adapters.segdino.SegDINOAdapter`

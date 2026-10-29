@@ -61,6 +61,10 @@ class JTFNAdapter(BaselineAdapter):
         'exceeds --jtfn-eval-max-side (default 1024) are downscaled before '
         'the forward pass and the prediction is upsampled to GT resolution; '
         'this memory adaptation can change high-resolution metrics.',
+        'The official DRIVE evaluation excludes pixels outside the retinal '
+        'field of view with its ignore_mask. The shared protocol applies no '
+        'FOV mask, so all pixels contribute to validation/test metrics. '
+        'Predictions and exported masks are otherwise unchanged.',
         'No official JTFN checkpoints are present; training starts from '
         'scratch.',
         'No test-time augmentation.',

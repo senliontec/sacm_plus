@@ -1,4 +1,4 @@
-# CS2Net (CS-Net)
+# CS-Net (legacy model id `cs2net`)
 
 - Upstream: https://github.com/iMED-Lab/CS-Net
 - Vendored snapshot: `3rd/CS-Net`, HEAD

@@ -20,6 +20,7 @@
     local relative imports.
   - The adapter enables the reference's per-block activation-checkpointing
     switch at runtime for 11 GiB training; the copied source is unchanged.
-  - Instantiated at ViT-L scale per the paper's shared-backbone statement;
-    the upstream SAR config uses ViT-B.
+  - Default instantiation is ViT-B, matching the released config; the
+    paper's shared-ViT-L statement is unverified and is exposed as
+    `--cwsam-encoder vit_l`.
 - Runtime consumer: `baseline_zoo.adapters.cwsam.CWSAMAdapter`

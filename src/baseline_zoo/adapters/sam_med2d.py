@@ -169,8 +169,7 @@ class SamMed2DAdapter(BaselineAdapter):
         return {key: (value.to(device) if torch.is_tensor(value) else value)
                 for key, value in batch.items()}
 
-    @staticmethod
-    def _prompt_and_decoder(model, batch, image_embeddings,
+    def _prompt_and_decoder(self, model, batch, image_embeddings,
                             decoder_iter=False):
         points = None
         if batch.get('point_coords') is not None:
@@ -195,18 +194,21 @@ class SamMed2DAdapter(BaselineAdapter):
         selected = [low_res[i:i + 1, index]
                     for i, index in enumerate(max_indexes)]
         low_res = torch.stack(selected, dim=0)
-        masks = F.interpolate(low_res, (256, 256), mode='bilinear',
-                              align_corners=False)
+        # Official prompt_and_decoder() upsamples to args.image_size, not a
+        # hard-coded 256.
+        masks = F.interpolate(
+            low_res, (self.input_size, self.input_size), mode='bilinear',
+            align_corners=False)
         return masks, low_res, iou
 
-    @staticmethod
-    def _postprocess(low_res, original_size):
+    def _postprocess(self, low_res, original_size):
         height, width = original_size
-        masks = F.interpolate(low_res, (256, 256), mode='bilinear',
-                              align_corners=False)
-        if height < 256 and width < 256:
-            top = (256 - height) // 2
-            left = (256 - width) // 2
+        masks = F.interpolate(
+            low_res, (self.input_size, self.input_size), mode='bilinear',
+            align_corners=False)
+        if height < self.input_size and width < self.input_size:
+            top = (self.input_size - height) // 2
+            left = (self.input_size - width) // 2
             masks = masks[..., top:height + top, left:width + left]
         else:
             masks = F.interpolate(masks, original_size, mode='bilinear',

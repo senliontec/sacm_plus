@@ -111,6 +111,13 @@ def test_training_requires_checkpoint_unless_random_init(
     adapter.build_model(args)
     assert calls[-1] == (None, 'cpu')
 
+    # --random-init must also win when the configured checkpoint exists.
+    existing = tmp_path / 'existing.pt'
+    existing.write_bytes(b'not-a-real-checkpoint')
+    args.sam2_checkpoint = existing
+    adapter.build_model(args)
+    assert calls[-1] == (None, 'cpu')
+
 
 def test_save_and_restore_config(tmp_path):
     adapter = SAM2UNetAdapter()

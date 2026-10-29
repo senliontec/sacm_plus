@@ -59,11 +59,14 @@ class SANSAAdapter(BaselineAdapter):
         '(0.9, 0.999), gradient clipping 1.0 (paper value; the CLI default '
         'is 0.1). The official per-iteration cosine schedule is stepped '
         'once per epoch by the shared runtime.',
-        'The released datasets apply ImageNet normalization before feeding '
-        'SAM 2; its _preprocess only resizes to 1024 and does not '
-        'normalize. This port applies the same ImageNet normalization and '
-        '1024-square resize. There is no training augmentation beyond that '
-        'transform, matching the released dataset code.',
+        'The released datasets first resize to 518 square (ISIC, '
+        'PASCAL-part) or 640 square (LVIS), apply ImageNet normalization, '
+        'and then SANSA _preprocess bilinearly resizes to 1024 without '
+        'normalizing. This port skips that lossy intermediate and applies '
+        'one direct bilinear 1024-square resize followed by the same '
+        'ImageNet normalization. Final resolution and normalization match; '
+        'the two-step resampling is not reproduced. There is no training '
+        'augmentation beyond the resize/normalization.',
         'Support prompts are masks only; the paper also supports points, '
         'boxes and scribbles, but the shared protocol provides support '
         'masks. No official trained adapters are required; training starts '
@@ -233,8 +236,9 @@ class SANSAAdapter(BaselineAdapter):
     @torch.no_grad()
     def predict_sample(self, model, prepared, sample):
         logits = model(prepared['samples'], prepared['prompt'])
-        # logits is (T, 1, H, W); keep the query frame as a 4D NCHW tensor.
-        query_logits = logits[-1:]
+        # The real SANSA forward returns (B*T, H, W); select the query
+        # frame and restore the NCHW channel dimension before interpolating.
+        query_logits = logits[-1][None, None]
         width, height = prepared['size']
         query_logits = F.interpolate(
             query_logits, size=(height, width), mode='bilinear',

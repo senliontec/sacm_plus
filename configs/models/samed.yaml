@@ -22,7 +22,8 @@ protocols: [seeded5, fixed]
 defaults:
   epochs: 800
 note: >-
-  SAMed-inspired prompt-free baseline (MICCAI 2023). SAM ViT-B with rank-4
+  SAMed-inspired prompt-free baseline (arXiv 2023 technical report; often
+  cited as MICCAI 2023). SAM ViT-B with rank-4
   q/v LoRA, trainable prompt encoder and mask decoder; 512 input. The
   binary objective is adapted to the curvilinear foreground: class-weighted
   CE (background 0.1/foreground 1.0) + foreground-only Dice on 128x128

@@ -54,12 +54,13 @@ class LIOTAdapter(BaselineAdapter):
         'imports a hard-coded /home/sty/... PersistencePython module and is '
         'not part of the LIOT representation contribution.  The official '
         'cross-entropy objective is kept.',
-        'LIOT assumes a dark curvilinear structure.  Bright-foreground '
-        'protocol datasets are inverted before LIOT at both training and '
-        'inference (CHASEDB1, CORN, DRIVE, FIVES, HRF, LES-AV, OCTA-500, '
-        'STARE, DeepGlobe, ROAD, TopoMortar, WIRE); the table was derived '
-        'from training/support masks and can be overridden with '
-        '--liot-polarity.  Unknown datasets default to the paper polarity.',
+        'LIOT assumes a dark curvilinear structure.  The retinal datasets '
+        '(DRIVE, CHASEDB1, FIVES, HRF, LES-AV, OCTA-500, STARE) keep the '
+        'official dark polarity; bright-foreground protocol datasets (CORN, '
+        'DeepGlobe, ROAD, TopoMortar, WIRE) are inverted before LIOT at '
+        'both training and inference.  The bright set can be overridden '
+        'with --liot-polarity; unknown datasets default to the paper '
+        'polarity.',
         'The release predicts overlapping 128x128 patches with stride 8 and '
         'sweeps thresholds for F1; this port performs a whole-image forward '
         'pass, thresholds at 0.5 for the shared boolean protocol, and '

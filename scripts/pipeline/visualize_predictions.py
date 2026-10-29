@@ -20,6 +20,7 @@ import sys
 from pathlib import Path
 
 import matplotlib
+
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
@@ -30,13 +31,14 @@ sys.path.insert(0, str(REPO_ROOT / 'src'))
 sys.path.insert(0, str(REPO_ROOT / 'scripts' / 'pipeline'))
 
 from metrics import compute_selected  # noqa: E402
+
 from core.run_status import RunStatus  # noqa: E402
 
 METHOD_META = {
     'a2sam': ('A2SAM (MIA 2026)', '✓'),
     'aco_moe_lora': ('ACO-MoE-LoRA', '✓'),
     'unet': ('U-Net', '✗'),
-    'cs2net': ('CS²Net', '✗'),
+    'cs2net': ('CS-Net', '✗'),
     'csunet': ('CS-UNet', '✗'),
     'bcunet': ('BCUNet', '✗'),
     'blo_sam': ('BLO-SAM', '✓'),
@@ -57,15 +59,18 @@ METHOD_META = {
     'rsrm': ('RSRM', '✓'),
     's2mnet': ('S2M-Net', '✗'),
     'matcher': ('Matcher', '✓'),
-    'sam-med2d': ('SAM-Med2D', '✓'),
-    'sam-octa': ('SAM-OCTA', '✓'),
+    'sam_med2d': ('SAM-Med2D', '✓'),
+    'sam_octa': ('SAM-OCTA', '✓'),
     'sansa': ('SANSA', '✓'),
+    'sam2_unet': ('SAM2-UNet', '✗'),
+    'sam_vit_l_unet': ('SAM ViT-L + U-Net', '✗'),
     'scrwkv': ('SCRWKV', '✗'),
     'cwsam': ('CWSAM', '✓'),
     'knowsam': ('KnowSAM', '✓'),
     'segdino': ('SegDINO', '✓'),
     'segdino_v2': ('SegDINO v2', '✓'),
-    'sacm': ('SACM', '✗'),
+    'sacm_official': ('SACM (official)', '✗'),
+    'sacm_x': ('SACM-X', '✗'),
     'sam_adapter': ('SAM-Adapter', '✓'),
     'samed': ('SAMed', '✓'),
     'topolora': ('TopoLoRA-SAM', '✓'),

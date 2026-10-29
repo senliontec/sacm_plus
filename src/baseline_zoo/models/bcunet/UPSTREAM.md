@@ -12,6 +12,9 @@
 - Modifications:
   - `OutConv` called an undefined `upconv2x2`; repaired as a 1x1 logits
     projection at full resolution (the U-Net branch is already full size).
+    The release has no paper or weights to recover the intended final
+    block, so this component is a documented reconstruction and the row
+    must not be described as verified release parity.
   - `warmlearnrate.py` is missing upstream and only used by `main.py`, which
     is not part of this copy.
 - Runtime consumer: `baseline_zoo.adapters.bcunet.BCUNetAdapter`

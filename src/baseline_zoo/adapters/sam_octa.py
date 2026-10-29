@@ -25,7 +25,12 @@ from baseline_zoo.models.sam_octa import (
 from baseline_zoo.models.sam_octa.segment_anything.utils.transforms import (
     ResizeLongestSide,
 )
-from baseline_zoo.runtime import REPO_ROOT, BaselineAdapter, seed_everything
+from baseline_zoo.runtime import (
+    REPO_ROOT,
+    BaselineAdapter,
+    file_sha256,
+    seed_everything,
+)
 
 PROB = 0.3
 
@@ -72,14 +77,34 @@ class SAMOCTAAdapter(BaselineAdapter):
 
     def add_args(self, parser):
         parser.add_argument(
-            '--sam-checkpoint', type=Path,
-            default=REPO_ROOT / 'checkpoints' / 'sam_vit_l_0b3195.pth')
+            '--sam-octa-model-type', default='vit_l',
+            choices=['vit_b', 'vit_l', 'vit_h'],
+            help='official default is vit_h; vit_l is the 24 GiB default')
+        parser.add_argument(
+            '--sam-checkpoint', type=Path, default=None,
+            help='defaults to the local SAM checkpoint matching '
+                 '--sam-octa-model-type')
+
+    def _default_checkpoint(self, model_type: str) -> Path:
+        names = {
+            'vit_b': 'sam_vit_b_01ec64.pth',
+            'vit_l': 'sam_vit_l_0b3195.pth',
+            'vit_h': 'sam_vit_h_4b8939.pth',
+        }
+        return REPO_ROOT / 'checkpoints' / names[model_type]
 
     def build_model(self, args):
-        if not args.sam_checkpoint.is_file():
+        self.model_type = str(getattr(
+            args, 'sam_octa_model_type', 'vit_l'))
+        checkpoint = getattr(args, 'sam_checkpoint', None)
+        if checkpoint is None:
+            checkpoint = self._default_checkpoint(self.model_type)
+            args.sam_checkpoint = checkpoint
+        checkpoint = Path(checkpoint)
+        if not checkpoint.is_file():
             raise SystemExit(
-                f'missing SAM ViT-L checkpoint: {args.sam_checkpoint}')
-        return build_sam_octa(args.sam_checkpoint, model_type='vit_l',
+                f'missing SAM {self.model_type} checkpoint: {checkpoint}')
+        return build_sam_octa(checkpoint, model_type=self.model_type,
                               rank=4)
 
     def configure_trainable(self, model):
@@ -104,6 +129,30 @@ class SAMOCTAAdapter(BaselineAdapter):
             return max(1e-5, peak * 0.98 ** (epoch - warmup))
 
         return torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
+
+    def save_config(self, args):
+        checkpoint = getattr(args, 'sam_checkpoint', None)
+        sha = None
+        if checkpoint is not None and Path(checkpoint).is_file():
+            sha = file_sha256(Path(checkpoint))
+        return {
+            'input_size': int(self.input_size),
+            'model_type': str(getattr(
+                self, 'model_type',
+                getattr(args, 'sam_octa_model_type', 'vit_l'))),
+            'sam_checkpoint': str(checkpoint) if checkpoint else None,
+            'sam_checkpoint_sha256': sha,
+        }
+
+    def restore_config(self, args, config):
+        if 'input_size' in config:
+            args.input_size = int(config['input_size'])
+            self.input_size = args.input_size
+        if config.get('model_type'):
+            args.sam_octa_model_type = str(config['model_type'])
+            self.model_type = args.sam_octa_model_type
+        if config.get('sam_checkpoint'):
+            args.sam_checkpoint = Path(config['sam_checkpoint'])
 
     def _augment(self, image: np.ndarray, label: np.ndarray):
         transform = A.Compose([

@@ -110,7 +110,10 @@ class SCRWKVAdapter(BaselineAdapter):
     # ------------------------------------------------------------------
     def _pair(self, sample):
         image = np.asarray(load_rgb(sample.image_path))
-        mask = load_mask(sample.mask_path).astype(np.uint8)
+        # The shared loader returns boolean 0/1 masks.  Preserve the official
+        # raw 0/255 mask scale before the cubic resize; resizing 0/1 directly
+        # and thresholding at 127 would always produce an empty target.
+        mask = (load_mask(sample.mask_path).astype(np.uint8) * 255)
         image = cv2.resize(
             image, (self.input_size, self.input_size),
             interpolation=cv2.INTER_CUBIC)

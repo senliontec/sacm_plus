@@ -287,7 +287,6 @@ class NNUNet2DAdapter(BaselineAdapter):
         from batchgenerators.utilities.file_and_folder_operations import (
             load_json,
         )
-
         from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import (
             nnUNetTrainer,
         )

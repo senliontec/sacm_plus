@@ -138,12 +138,14 @@ class S2MNetAdapter(BaselineAdapter):
         warmup = max(0, min(
             int(getattr(args, 's2mnet_warmup_epochs', 10)), epochs - 1))
 
+        floor = 1e-6 / max(float(args.lr), 1e-12)
+
         def factor(epoch: int) -> float:
             if warmup > 0 and epoch < warmup:
-                return (epoch + 1) / warmup
+                return max(floor, (epoch + 1) / warmup)
             progress = (epoch - warmup) / max(1, epochs - warmup)
-            return 0.5 * (1.0 + np.cos(
-                np.pi * min(max(progress, 0.0), 1.0)))
+            return max(floor, 0.5 * (1.0 + np.cos(
+                np.pi * min(max(progress, 0.0), 1.0))))
 
         return torch.optim.lr_scheduler.LambdaLR(optimizer, factor)
 

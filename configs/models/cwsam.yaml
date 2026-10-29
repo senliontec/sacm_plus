@@ -7,6 +7,8 @@ train_entrypoint: >-
   python -m baseline_zoo.run_one --model cwsam --stage train
   --data-root {split_root} --workdir {output_root}
   --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
+  --cwsam-encoder vit_b
+  --sam-checkpoint checkpoints/sam_vit_b_01ec64.pth
 eval_entrypoint: >-
   python scripts/pipeline/run_baseline_test.py --method cwsam
   --protocol {test_manifest}
@@ -20,5 +22,7 @@ defaults:
   epochs: 800
 note: >-
   Self-contained port of the official CWSAM frequency-prompt/adapter SAM.
-  Trained at ViT-L scale (paper's shared backbone) as a binary segmenter;
-  official ImageNet preprocessing and freeze policy preserved.
+  Defaults to ViT-B with the official ViT-B base checkpoint, matching the
+  released configs; `--cwsam-encoder vit_l` exposes the paper's claimed
+  shared-ViT-L variant as an unverified ablation. Binary segmentation uses
+  neutral CE; official ImageNet preprocessing and freeze policy preserved.

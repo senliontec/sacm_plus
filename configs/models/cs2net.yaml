@@ -1,5 +1,5 @@
 id: cs2net
-display_name: CS2Net
+display_name: CS-Net
 family: cnn
 status: available
 checkpoint: "{output_root}/best_model.pth"
@@ -18,3 +18,8 @@ eval_entrypoint: >-
 protocols: [seeded5, fixed]
 defaults:
   epochs: 1000
+note: >-
+  The legacy model id is `cs2net`, but the vendored code is CS-Net
+  (MICCAI 2019, iMED-Lab/CS-Net), not the separate CS2Net (MedIA 2020).
+  Report this row as CS-Net. The official 1000-epoch recipe is retained;
+  checkpoint selection uses the shared validation Dice.

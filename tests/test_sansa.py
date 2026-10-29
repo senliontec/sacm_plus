@@ -63,7 +63,9 @@ def test_predict_sample_returns_gt_resolution_bool_mask():
 
     class _Fake(torch.nn.Module):
         def forward(self, samples, prompt):
-            return torch.zeros(samples.shape[1], 1, 8, 8)
+            # Real SANSA returns (B*T, H, W), not (T, 1, H, W).
+            return torch.zeros(
+                samples.shape[0] * samples.shape[1], 8, 8)
 
     prepared = {
         'samples': torch.zeros(1, 4, 3, 8, 8),

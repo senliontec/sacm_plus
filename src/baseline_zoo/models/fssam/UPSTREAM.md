@@ -39,7 +39,8 @@ Apache-2.0.
 
 ## Invariants kept from the paper / official code
 
-- DINOv2 input: 560 square, bicubic, `(x/255 - ImageNet mean)/ImageNet std`
+- DINOv2 input: 560 square, bilinear (`F.interpolate(..., mode='bilinear',
+  align_corners=True)`, matching the release), `(x/255 - ImageNet mean)/ImageNet std`
   (the code scales mean/std by 255 and operates on 0-255 tensors).
 - Pseudo Prompt Generator: support FG/BG prototypes by weighted GAP,
   max-over-channels cosine similarity, per-image min-max normalization,
@@ -91,7 +92,10 @@ Apache-2.0.
    (own domain for seen test sets, donor domain otherwise).
 2. Backbones: official main is SAM 2-S + DINOv2-B. Default here is SAM 2-S
    + local DINOv2-L (the paper's ablation variant); Hiera-B+/L and
-   DINOv2-B are selectable. The local checkpoint must match the config.
+   DINOv2-B are selectable. `--fssam-dino-size vitb` selects
+   `checkpoints/dinov2_vitb14_pretrain.pth` automatically unless
+   `--fssam-dino-weights` is supplied. The checkpoint must match the
+   selected size.
 3. fp32 instead of bf16 autocast (hardware-independent; the 3090 server
    could use bf16, but the shared runtime does not own an autocast loop).
 4. Per-epoch poly LR (the shared runtime steps once per epoch). The

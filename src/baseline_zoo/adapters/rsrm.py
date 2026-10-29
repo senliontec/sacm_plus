@@ -84,8 +84,10 @@ class RSRMAdapter(BaselineAdapter):
             REPO_ROOT / 'checkpoints' / 'dinov3' / 'pytorch_model.bin'))
         if not weights.is_file():
             raise SystemExit(
-                f'missing DINOv3 ViT-B/16 checkpoint: {weights}\n'
-                'Upload the official DINOv3 weights under checkpoints/.')
+                f'missing DINOv3 checkpoint: {weights}\n'
+                'The local file is auto-detected as ViT-S/16; the paper '
+                'uses ViT-B/16. Upload the matching DINOv3 weights under '
+                'checkpoints/ and pass --rsrm-dinov3-weights.')
         self._dinov3_sha = file_sha256(weights)
         if self._support_root is None:
             self._support_root = Path(getattr(args, 'data_root', ''))

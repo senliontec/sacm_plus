@@ -8,7 +8,6 @@ train_entrypoint: >-
   --data-root {split_root} --workdir {output_root}
   --fssam-sam2-checkpoint checkpoints/sam2_hiera_small.pt
   --fssam-sam2-config sam2_hiera_s.yaml
-  --fssam-dino-weights checkpoints/dinov2_vitl14_pretrain.pth
   --fssam-dino-size vitl --fssam-shots 3 --fssam-num-refine 3
   --fssam-ver-refine v1
   --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
@@ -35,4 +34,7 @@ note: >-
   repaired. Requires local SAM 2 and DINOv2 checkpoints; no network access.
   The official main model is SAM 2-S + DINOv2-B; this port defaults to
   SAM 2-S + locally available DINOv2-L (paper ablation) and supports
-  --fssam-dino-size vitb.
+  --fssam-dino-size vitb, which auto-selects
+  checkpoints/dinov2_vitb14_pretrain.pth when --fssam-dino-weights is
+  omitted. Put the corresponding checkpoint under checkpoints/ for
+  main-table parity.

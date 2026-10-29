@@ -52,6 +52,11 @@ class SegDINOAdapter(BaselineAdapter):
         'defaults to 1024; this port follows the README 256 setting.',
         'Predictions are restored to the original GT resolution for the '
         'shared evaluator.',
+        'The README/paper describe a frozen DINOv3 backbone, but the '
+        'released train_segdino.py never calls DPT.lock_backbone() and '
+        'therefore trains it. This port defaults to the documented frozen '
+        'backbone; pass --segdino-train-backbone to reproduce the released '
+        'full-finetune behavior.',
         'The official no-augmentation, BCEWithLogits, AdamW 1e-4/1e-4, '
         'batch-4 recipe is preserved; the official 50-epoch budget is '
         'replaced by 800 epochs for the 18-image 3-shot protocol.',
@@ -78,6 +83,10 @@ class SegDINOAdapter(BaselineAdapter):
         parser.add_argument(
             '--allow-random-init', action='store_true',
             help='allow evaluating a smoke-only random-init checkpoint')
+        parser.add_argument(
+            '--segdino-train-backbone', action='store_true',
+            help='released-code behavior: finetune the DINOv3 backbone; '
+                 'default is the README/paper frozen backbone')
 
     def build_model(self, args):
         checkpoint = args.dino_ckpt
@@ -101,12 +110,16 @@ class SegDINOAdapter(BaselineAdapter):
             'dino_size': args.dino_size,
             'dino_ckpt': str(args.dino_ckpt) if args.dino_ckpt else None,
             'random_init': bool(args.random_init),
+            'train_backbone': bool(getattr(
+                args, 'segdino_train_backbone', False)),
         }
 
     def restore_config(self, args, config):
         size = config.get('dino_size')
         if size:
             args.dino_size = size
+        args.segdino_train_backbone = bool(
+            config.get('train_backbone', False))
         if (config.get('random_init', False)
                 and not getattr(args, 'allow_random_init', False)):
             raise SystemExit(
@@ -117,6 +130,14 @@ class SegDINOAdapter(BaselineAdapter):
         # overwritten by load_state_dict.
         args.random_init = True
         args.dino_ckpt = None
+
+    def configure_trainable(self, model):
+        for parameter in model.parameters():
+            parameter.requires_grad_(True)
+        if not bool(getattr(
+                self.args, 'segdino_train_backbone', False)):
+            for parameter in model.backbone.parameters():
+                parameter.requires_grad_(False)
 
     def make_optimizer(self, model, args):
         return torch.optim.AdamW(

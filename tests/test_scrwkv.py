@@ -49,6 +49,7 @@ def test_adapter_pair_and_loss(tmp_path):
     assert image.shape == (3, 512, 512)
     assert mask.shape == (1, 512, 512)
     assert set(mask.unique().tolist()) <= {0.0, 1.0}
+    assert mask.sum() > 0
     assert image.min() >= -1.0 and image.max() <= 1.0
     logits = torch.zeros(1, 1, 64, 64, requires_grad=True)
     target = torch.zeros(1, 1, 64, 64)

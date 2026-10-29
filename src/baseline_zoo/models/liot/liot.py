@@ -16,13 +16,13 @@ from __future__ import annotations
 
 import numpy as np
 
-# Foreground brighter than background in the protocol's datasets.  The table
-# is derived from the training/support masks (mean intensity inside vs
-# outside the mask) and is part of the documented task adaptation; it is not
-# fitted to test labels.
+# Foreground brighter than local background in the protocol's datasets.  The
+# table is a manually curated task adaptation (retinal vessels dark; cracks/
+# roads/wires bright); global mask means are misleading on fundus images
+# because the dark outside-FOV border inflates the background.  It is not
+# fitted to test labels and can be overridden with --liot-polarity.
 BRIGHT_FOREGROUND_DATASETS = frozenset({
-    'CHASEDB1', 'CORN', 'DRIVE', 'FIVES', 'HRF', 'LES-AV', 'OCTA-500',
-    'STARE', 'DeepGlobe', 'ROAD', 'TopoMortar', 'WIRE',
+    'CORN', 'DeepGlobe', 'ROAD', 'TopoMortar', 'WIRE',
 })
 
 DARK_FOREGROUND_DATASETS = frozenset({

@@ -58,13 +58,15 @@ rights before publishing.
   approximated by a 512-square bilinear resize (nearest GT), hflip and a
   light brightness/contrast/saturation/hue jitter.
 - Official per-iteration LinearLR(1500) + PolyLR(160k) becomes a per-epoch
-  5-epoch warmup + linear poly decay over the shared 800-epoch budget
-  (the runtime steps the scheduler once per epoch).
+  5-epoch warmup starting at 1e-6 of the base LR, then linear poly decay
+  over the shared 800-epoch budget (the runtime steps the scheduler once
+  per epoch).
 - No TTA or Dacl10k 512/341 sliding-window test; predictions are bilinearly
   upsampled to the exact GT resolution and thresholded.
 - No local Swin-T ImageNet checkpoint is bundled, so the default is
-  from-scratch training; `--tpsegformer-backbone-ckpt` loads a local
-  timm/MMSeg-compatible Swin-T file if provided.
+  from-scratch training; a local `*swin*tiny*` file under `checkpoints/`
+  is auto-detected, and `--tpsegformer-backbone-ckpt` loads a specific
+  timm/MMSeg-compatible Swin-T file.
 - The paper targets UAV building defects; this is a task adaptation to
   curvilinear structures.
 

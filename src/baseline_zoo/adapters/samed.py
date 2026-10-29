@@ -1,6 +1,7 @@
 """SAMed baseline: prompt-free LoRA SAM for binary segmentation.
 
-Official reference: ``3rd/SAMed`` (MICCAI 2023, MIT).  SAMed uses SAM ViT-B
+Official reference: ``3rd/SAMed`` (arXiv 2023 technical report, often
+cited as MICCAI 2023; MIT).  SAMed uses SAM ViT-B
 with rank-4 LoRA in the image encoder, a trainable prompt encoder and the
 class-wise mask decoder.  No points, boxes or masks are passed to the prompt
 encoder, so inference is prompt-free and oracle-free.

@@ -13,8 +13,8 @@ from baseline_zoo.adapters.registry import available_adapters, load_adapter
 from baseline_zoo.models.persam import (
     majority_vote,
     point_selection,
-    prepare_reference_embedding,
     predict_with_embedding,
+    prepare_reference_embedding,
 )
 from baseline_zoo.runtime import run_training_free
 
@@ -38,6 +38,33 @@ def test_point_selection():
     assert top_labels.tolist() == [1]
     assert last_labels.tolist() == [0]
     assert top_xy[0].tolist() == [5, 3]
+
+
+def test_support_failure_is_not_silently_an_empty_vote(monkeypatch):
+    adapter = PerSAMAdapter()
+    adapter._support_embeddings = {
+        'DRIVE': [(torch.zeros(1, 1, 2), torch.zeros(1, 1, 2))]}
+
+    class FakePredictor:
+        features = torch.zeros(1, 4, 8, 8)
+        original_size = (8, 8)
+        input_size = 1024
+
+        def set_image(self, image):
+            return None
+
+    class FakeModel:
+        predictor = FakePredictor()
+
+    def fail(*args, **kwargs):
+        raise RuntimeError('boom')
+
+    monkeypatch.setattr(
+        'baseline_zoo.adapters.persam.predict_with_embedding', fail)
+    sample = SimpleNamespace(dataset='DRIVE', stem='case')
+    with pytest.raises(RuntimeError, match='support 0 failed'):
+        adapter.predict_sample(
+            FakeModel(), np.zeros((8, 8, 3), dtype=np.uint8), sample)
 
 
 def test_majority_vote():

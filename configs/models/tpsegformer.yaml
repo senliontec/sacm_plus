@@ -30,6 +30,7 @@ note: >-
   The release is an MMSeg overlay with a broken cls_seg call, aux 19-class
   head and missing hilbertcurve package; this port is pure PyTorch + timm
   Swin-T, with a fixed 5->1 classifier and a local Hilbert traversal. No
-  local Swin-T ImageNet weights, so training is from scratch unless
+  local Swin-T ImageNet weights, so training is from scratch unless a
+  `*swin*tiny*` checkpoint is placed under `checkpoints/` or
   --tpsegformer-backbone-ckpt is supplied. Shared 800-epoch budget and
   validation-Dice selection.

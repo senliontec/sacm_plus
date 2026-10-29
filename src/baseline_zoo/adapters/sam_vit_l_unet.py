@@ -20,7 +20,7 @@ def dice_loss(logits: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
     prob = torch.sigmoid(logits)
     inter = (prob * target).sum()
     denom = prob.sum() + target.sum()
-    return 1.0 - (2.0 * inter + 1.0) / (denom + 1.0)
+    return 1.0 - (2.0 * inter + 1e-6) / (denom + 1e-6)
 
 
 class SAMViTLUNetAdapter(BaselineAdapter):

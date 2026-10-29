@@ -42,7 +42,9 @@ Verify redistribution terms with the authors before releasing.
 - Official crack training: cv2 INTER_CUBIC resize of image and mask to
   512, mask threshold at 127, `(x/255 - 0.5)/0.5`, no augmentation,
   `0.25 * BCEWithLogits + 0.75 * Dice`, AdamW lr 5e-4, wd 0.01, PolyLR to
-  1e-6, batch 1, 50 epochs.
+  1e-6, batch 1, 50 epochs.  The shared loader returns boolean 0/1 masks;
+  the adapter multiplies by 255 before cubic resize so the threshold is
+  equivalent to the official raw-mask path.
 - Official inference (`test.py`): raw logits divided by the per-image
   maximum, threshold 0.2.
 - The custom bidirectional WKV CUDA extension, not a substitution.

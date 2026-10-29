@@ -133,7 +133,7 @@ class SAM2UNetAdapter(BaselineAdapter):
                   'report these weights', flush=True)
 
         source = None
-        if checkpoint is not None and checkpoint.is_file():
+        if not random_init and checkpoint is not None and checkpoint.is_file():
             source = str(checkpoint)
             self._sam2_sha = file_sha256(checkpoint)
         return SAM2UNet(source, device='cpu')

@@ -19,6 +19,8 @@ protocols: [seeded5, fixed]
 defaults:
   epochs: 800
 note: >-
-  Upstream OutConv referenced an undefined upconv2x2; repaired as a 1x1
-  logits projection. The adapter bypasses upstream main.py (which imports
-  the missing warmlearnrate.py) and supplies the unified training loop.
+  Upstream OutConv referenced an undefined upconv2x2 and main.py imports a
+  missing warmlearnrate.py; both are repaired as a 1x1 logits projection
+  and the unified training loop. The original final block cannot be
+  recovered from the release or a local paper, so this row is a
+  reconstructed BCU-Net variant, not verified end-to-end release parity.

@@ -287,7 +287,9 @@ class UCSAdapter(BaselineAdapter):
             if args.iter_point <= 2:
                 init_mask_num = 1
             else:
-                init_mask_num = rng.randint(1, args.iter_point - 1)
+                # Official np.random.randint(1, iter_point-1) is
+                # half-open; random.Random.randrange matches it.
+                init_mask_num = rng.randrange(1, args.iter_point - 1)
             for iteration in range(args.iter_point):
                 if (iteration == init_mask_num
                         or iteration == args.iter_point - 1):

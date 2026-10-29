@@ -1,6 +1,7 @@
 """Self-contained SAMed binary model.
 
-SAMed (MICCAI 2023) keeps SAM's image encoder, injects rank-4 LoRA into the
+SAMed (arXiv 2023; often cited as MICCAI 2023) keeps SAM's image encoder,
+injects rank-4 LoRA into the
 q/v projections, makes the prompt encoder and mask decoder trainable, and
 uses class-wise mask tokens for semantic segmentation.  The official forward
 uses no prompts (``points=None, boxes=None, masks=None``).  This port uses a

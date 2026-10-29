@@ -18,7 +18,7 @@ from torch import nn
 
 from baseline_zoo.data import load_rgb
 from baseline_zoo.models.cwsam import build_cwsam
-from baseline_zoo.runtime import REPO_ROOT, BaselineAdapter
+from baseline_zoo.runtime import REPO_ROOT, BaselineAdapter, file_sha256
 
 PIXEL_MEAN = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
 PIXEL_STD = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
@@ -39,8 +39,10 @@ class CWSAMAdapter(BaselineAdapter):
         '(background/foreground) port. The official per-class weights '
         '[1.5, 1, 0.5, 1.9, 0.1] have no binary mapping, so neutral CE is '
         'used.',
-        'Instantiated at ViT-L scale because the paper states all SAM-based '
-        'baselines share the ViT-L encoder; the upstream config uses ViT-B.',
+        'Default ViT-B matches the released ClassWise-SAM-Adapter configs '
+        'and checkpoint. The paper states that all SAM-based baselines share '
+        'a ViT-L encoder, but that claim could not be verified locally; '
+        '--cwsam-encoder vit_l exposes that variant as an ablation.',
         'Checkpoint selection uses the 6-image validation split by Dice. '
         'Upstream selects by S-measure on its own val loader.',
         'Per-block activation checkpointing is enabled to fit 1024x1024 '
@@ -57,18 +59,35 @@ class CWSAMAdapter(BaselineAdapter):
 
     def add_args(self, parser):
         parser.add_argument(
-            '--sam-checkpoint', type=Path,
-            default=REPO_ROOT / 'checkpoints' / 'sam_vit_l_0b3195.pth')
+            '--cwsam-encoder', default='vit_b',
+            choices=['vit_b', 'vit_l'],
+            help='official config is ViT-B; ViT-L is the paper-stated '
+                 'shared-backbone variant')
+        parser.add_argument(
+            '--sam-checkpoint', type=Path, default=None,
+            help='base SAM checkpoint; defaults to the local ViT-B/ViT-L '
+                 'checkpoint matching --cwsam-encoder')
+
+    def _default_checkpoint(self, encoder: str) -> Path:
+        name = ('sam_vit_b_01ec64.pth' if encoder == 'vit_b'
+                else 'sam_vit_l_0b3195.pth')
+        return REPO_ROOT / 'checkpoints' / name
 
     def build_model(self, args) -> nn.Module:
-        return build_cwsam(num_classes=2, inp_size=self.input_size)
+        self.encoder = str(getattr(args, 'cwsam_encoder', 'vit_b'))
+        return build_cwsam(
+            num_classes=2, inp_size=self.input_size, encoder=self.encoder)
 
     def load_pretrained(self, model, args):
         checkpoint = getattr(args, 'sam_checkpoint', None)
-        if checkpoint is None or not checkpoint.is_file():
+        if checkpoint is None:
+            checkpoint = self._default_checkpoint(self.encoder)
+            args.sam_checkpoint = checkpoint
+        checkpoint = Path(checkpoint)
+        if not checkpoint.is_file():
             raise SystemExit(
-                f'missing SAM ViT-L checkpoint: {checkpoint}; '
-                'download sam_vit_l_0b3195.pth first')
+                f'missing SAM {self.encoder} checkpoint: {checkpoint}; '
+                'download the matching SAM base checkpoint first')
         payload = torch.load(checkpoint, map_location='cpu',
                              weights_only=False)
         state = payload.get('model', payload)
@@ -113,6 +132,28 @@ class CWSAMAdapter(BaselineAdapter):
     def make_scheduler(self, optimizer, args):
         return torch.optim.lr_scheduler.CosineAnnealingLR(
             optimizer, T_max=max(args.epochs, 1), eta_min=1e-7)
+
+    def save_config(self, args):
+        checkpoint = getattr(args, 'sam_checkpoint', None)
+        sha = None
+        if checkpoint is not None and Path(checkpoint).is_file():
+            sha = file_sha256(Path(checkpoint))
+        return {
+            'input_size': int(self.input_size),
+            'encoder': str(getattr(self, 'encoder', 'vit_b')),
+            'sam_checkpoint': str(checkpoint) if checkpoint else None,
+            'sam_checkpoint_sha256': sha,
+        }
+
+    def restore_config(self, args, config):
+        if 'input_size' in config:
+            args.input_size = int(config['input_size'])
+            self.input_size = args.input_size
+        if config.get('encoder'):
+            args.cwsam_encoder = str(config['encoder'])
+            self.encoder = args.cwsam_encoder
+        if config.get('sam_checkpoint'):
+            args.sam_checkpoint = Path(config['sam_checkpoint'])
 
     def _preprocess(self, sample, device):
         image = load_rgb(sample.image_path).resize(

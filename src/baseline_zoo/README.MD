@@ -20,7 +20,7 @@
 | Adapter id | 模型 | 3rd 代码目录 | parsing 论文目录 | 备注 |
 |---|---|---|---|---|
 | `unet` | U-Net | `3rd/Pytorch-UNet` | 未收录 | milesial PyTorch-UNet；U-Net 原论文目录未收录 |
-| `cs2net` | CS2Net | `3rd/CS-Net` | 未收录 | 官方 CS-Net 代码 |
+| `cs2net` | CS-Net（历史 id） | `3rd/CS-Net` | 未收录 | 官方 CS-Net (MICCAI 2019) 代码；不是 CS2Net (MedIA 2020) |
 | `bcunet` | BCUNet | `3rd/BCU-Net` | 未收录 | 无 LICENSE；`OutConv` 已修复 |
 | `maskvsc` | MaskVSC | `3rd/MaskVSC` | 未收录 | 视网膜血管分割 |
 | `nnwnet` | nnWNet | `3rd/nnWNet` | 未收录 | 官方 nnU-Net trainer/plugin |
@@ -33,7 +33,7 @@
 | `liot` | LIOT-IterNet | `3rd/LIOT` | `parsing/[2022 tip] Local Intensity Order Transformation for Robust Curvilinear Object Segmentation` | 4 通道 LIOT + IterNet；128 crop、CE；亮/暗前景极性映射；MIT |
 | `dconnnet` | DconnNet | `3rd/DconnNet` | `parsing/[2023 cvpr] Directional connectivity-based segmentation of medical images` | 8 方向连通性；960 BGR；ResNet-34 权重需本地准备；上游无 LICENSE |
 | `dscnet` | DSCNet | `3rd/DSCNet` | `parsing/[2023 iccv] Dynamic Snake Convolution Based on Topological Geometric Constraints for Tubular Structure Segmentation` | parsing 另有 2 个大小写变体重复目录；blending kernel 已修复 |
-| `segdino` | SegDINO | `3rd/segdino` | 未收录 | DPT + DINOv3；权重需本地准备 |
+| `segdino` | SegDINO | `3rd/segdino` | 未收录 | DPT + DINOv3；权重需本地准备；默认冻结 backbone |
 | `segdino_v2` | SegDINO v2 | `3rd/segdino_v2` | `parsing/` 未收录（arXiv 2606.17972） | TPA/SAD decoder；DINOv3-S 本地权重 |
 
 ### SAM 监督方法
@@ -43,8 +43,8 @@
 | `aco_moe_lora` | ACO-MoE-LoRA | `3rd/ACO-MoE-LoRA` | `parsing/[2026 icml] ACO-MoE-LoRA: Evolving-while-Training for Adapting Segment Anything Model 2 to Specialized Domains` | SAM2 Hiera-L + dynamic LoRA + ACO/MoE decoder；上游无 LICENSE |
 | `a2sam` | A2SAM (MIA 2026) | `3rd/A2SAM` | `parsing/[2026 MIA] Informativeness-driven active adaptation of SAM: Structural prompts and contrastive parameter selection for medical tubular segmentation` | 官方 SAM/prompt fusion/CPS/TA + 论文级 U-Net/prior + cripser persistence/Morse 重建；见 `docs/A2SAM_FIDELITY.md`；勿与 `3rd/a2sam` (NeurIPS 2024) 混淆 |
 | `sam_med2d` | SAM-Med2D | `3rd/SAM-Med2D` | 未收录 | 官方 SAM-Med2D checkpoint 缺失；当前为 ViT-L 二值适配 |
-| `sam_octa` | SAM-OCTA | `3rd/SAM-OCTA` | 未收录 | 上游 URL 未记录；另有 `3rd/sam-octa2` 参考 |
-| `cwsam` | CWSAM | `3rd/CWSAM` | 未收录 | ClassWise-SAM-Adapter；ViT-L、二值 2-class 适配 |
+| `sam_octa` | SAM-OCTA | `3rd/SAM-OCTA` | 未收录 | 上游 URL 未记录；另有 `3rd/sam-octa2` 参考；默认 ViT-L，可选 H |
+| `cwsam` | CWSAM | `3rd/CWSAM` | 未收录 | ClassWise-SAM-Adapter；默认官方 ViT-B，ViT-L 可选、二值 2-class 适配 |
 | `sam_adapter` | SAM-Adapter | `3rd/SAM-Adapter-PyTorch` | `parsing/[2023 iccvw] SAM-Adapter: Adapting Segment Anything in Underperformed Scenes` | 无作者训练权重，从 SAM ViT-L 训练 |
 | `topolora` | TopoLoRA-SAM | `3rd/Seglab` | `parsing/[2026 icpr] TopoLoRA-SAM: Topology-Aware Parameter-Efficient Adaptation of Foundation Segmenters for Thin-Structure and Cross-Domain Binary Semantic Segmentation` | 官方仓库是 Seglab，不是独立 TopoLoRA 目录；实现位于 `seglab/models/sam_peft/`；parsing 另有 arxiv 重复目录 |
 | `samed` | SAMed | `3rd/SAMed` | `parsing/[2023 arxiv] Customized Segment Anything Model for Medical Image Segmentation` | 官方 8 类权重未用于二值头；从 SAM ViT-B 训练 |

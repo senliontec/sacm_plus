@@ -1,8 +1,10 @@
-"""CS2Net baseline with the official 2D CS-Net training/inference logic.
+"""CS-Net baseline with the official 2D CS-Net training/inference logic.
 
-Official reference: https://github.com/ineedzx/CSNet (vendored snapshot in
-``baselines/cs2net``).  The model is copied into
+Official reference: https://github.com/iMED-Lab/CS-Net, vendored from
+``3rd/CS-Net``.  The model is copied into
 ``baseline_zoo.models.cs2net`` so the runtime survives deleting ``baselines``.
+The legacy model id ``cs2net`` is retained, but this is CS-Net (MICCAI
+2019), not the separate CS2Net (MedIA 2020).
 
 Protocol-only deviations are listed in ``deviations``; every model-side
 detail (geometry, augmentation, loss, optimizer, LR schedule, Otsu output)
@@ -60,9 +62,9 @@ def _official_dice_loss(pred: torch.Tensor,
 
 class CS2NetAdapter(BaselineAdapter):
     id = 'cs2net'
-    display_name = 'CS2Net'
-    official_source = 'ineedzx/CSNet (self-contained copy)'
-    official_entrypoint = 'https://github.com/ineedzx/CSNet'
+    display_name = 'CS-Net'
+    official_source = 'iMED-Lab/CS-Net (self-contained copy)'
+    official_entrypoint = 'https://github.com/iMED-Lab/CS-Net'
     input_size = 512
     official_lr = 1e-4
     official_weight_decay = 5e-4

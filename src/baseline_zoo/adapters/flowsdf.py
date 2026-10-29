@@ -60,7 +60,8 @@ class FlowSDFAdapter(BaselineAdapter):
         'strategy; the released sampler only evaluates a single test batch. '
         'Validation resizes the whole image to 128 (the official GlaS path) '
         'with K=1 so the shared every-epoch validation is affordable; final '
-        'prediction uses K=4 (MMSE, as in the paper).',
+        'prediction uses K=4 from the released config.  The paper reports '
+        'MMSE with K=25; K=4 is a documented speed/quality choice.',
         'The official checkpoint is the lowest training loss. This port '
         'selects by validation Dice of the EMA weights (shared protocol).',
         'The released config uses batch 4 while the paper reports batch 16; '
@@ -77,8 +78,9 @@ class FlowSDFAdapter(BaselineAdapter):
         'torchdiffeq dependency are not used; checkpointing/logging live in '
         'the shared runtime and Euler integration is local.',
         'The official sampler evaluates a four-sample test batch as four '
-        'separate predictions; this port averages K samples per image '
-        '(MMSE) as described in the paper.',
+        'separate predictions; this port averages K=4 samples per image '
+        '(MMSE) following the released config. The paper reports K=25; K=4 '
+        'is a documented speed/quality choice, not paper-exact.',
     )
 
     def __init__(self):

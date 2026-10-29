@@ -25,7 +25,7 @@ from baseline_zoo.models.tpsegformer import (
     edge_aware_loss,
     soft_dice_loss,
 )
-from baseline_zoo.runtime import BaselineAdapter, file_sha256
+from baseline_zoo.runtime import REPO_ROOT, BaselineAdapter, file_sha256
 
 MEAN = (0.511, 0.539, 0.556)
 STD = (0.084, 0.082, 0.083)
@@ -68,8 +68,9 @@ class TPSegformerAdapter(BaselineAdapter):
         'AdamW lr 6e-5, wd 0.01, head lr x10 and zero weight decay for '
         'norm/position parameters are preserved. The official per-iteration '
         'LinearLR(1500) + PolyLR(160k) schedule is approximated per epoch '
-        '(5-epoch warmup then linear poly decay over the shared budget) '
-        'because the runtime steps the scheduler once per epoch.',
+        '(5-epoch warmup starting at 1e-6 of the base LR, then linear poly '
+        'decay over the shared budget) because the runtime steps the '
+        'scheduler once per epoch.',
         'The official 20k/100-epoch budget becomes the shared 800 epochs '
         'with validation-Dice selection; the Dacl10k sliding-window test '
         '(512/341) and TTA are not used, and predictions are exported at '
@@ -119,15 +120,39 @@ class TPSegformerAdapter(BaselineAdapter):
                 'swin_tiny_patch4_window7_224'),
         )
 
+    @staticmethod
+    def _find_local_backbone() -> Path | None:
+        root = REPO_ROOT / 'checkpoints'
+        if not root.is_dir():
+            return None
+        candidates = sorted(
+            path for path in root.rglob('*')
+            if path.is_file()
+            and path.suffix.lower() in {'.pth', '.pt', '.bin', '.safetensors'}
+            and 'swin' in path.name.lower() and 'tiny' in path.name.lower())
+        if len(candidates) > 1:
+            names = ', '.join(str(path) for path in candidates)
+            raise SystemExit(
+                f'multiple Swin-T checkpoints under {root}: {names}; '
+                'pass --tpsegformer-backbone-ckpt explicitly')
+        return candidates[0] if candidates else None
+
     def load_pretrained(self, model, args) -> None:
         if self.prediction_mode:
             return
         checkpoint = getattr(args, 'tpsegformer_backbone_ckpt', None)
         if checkpoint is None:
+            checkpoint = self._find_local_backbone()
+            if checkpoint is not None:
+                args.tpsegformer_backbone_ckpt = checkpoint
+        if checkpoint is None:
             print('TPSegformer: random Swin-T initialization '
                   '(no local ImageNet checkpoint)')
             return
         checkpoint = Path(checkpoint)
+        if not checkpoint.is_file():
+            raise SystemExit(
+                f'missing Swin-T backbone checkpoint: {checkpoint}')
         counts = model.load_backbone_checkpoint(checkpoint)
         self._backbone_ckpt = str(checkpoint)
         self._backbone_sha = file_sha256(checkpoint)
@@ -178,7 +203,8 @@ class TPSegformerAdapter(BaselineAdapter):
 
         def factor(epoch: int) -> float:
             if warmup > 0 and epoch < warmup:
-                return 1e-6 + (1.0 - 1e-6) * (epoch + 1) / warmup
+                # Official PolyLrUpdater starts at 1e-6 of the base LR.
+                return 1e-6 + (1.0 - 1e-6) * epoch / warmup
             progress = (epoch - warmup) / max(1, epochs - warmup)
             return max(0.0, 1.0 - progress)
 

@@ -94,9 +94,9 @@ class FSSAMAdapter(BaselineAdapter):
             choices=['sam2_hiera_s.yaml', 'sam2_hiera_b+.yaml',
                      'sam2_hiera_l.yaml'])
         parser.add_argument(
-            '--fssam-dino-weights', type=Path,
-            default=REPO_ROOT / 'checkpoints' /
-            'dinov2_vitl14_pretrain.pth')
+            '--fssam-dino-weights', type=Path, default=None,
+            help='defaults to checkpoints/dinov2_vitl14_pretrain.pth or '
+                 'dinov2_vitb14_pretrain.pth according to --fssam-dino-size')
         parser.add_argument('--fssam-dino-size', default='vitl',
                             choices=['vitl', 'vitb'])
         parser.add_argument('--fssam-num-refine', type=int, default=3)
@@ -112,9 +112,15 @@ class FSSAMAdapter(BaselineAdapter):
         sam2_path = Path(getattr(
             args, 'fssam_sam2_checkpoint',
             REPO_ROOT / 'checkpoints' / 'sam2_hiera_small.pt'))
-        dino_path = Path(getattr(
-            args, 'fssam_dino_weights',
-            REPO_ROOT / 'checkpoints' / 'dinov2_vitl14_pretrain.pth'))
+        dino_size = str(getattr(args, 'fssam_dino_size', 'vitl'))
+        dino_name = ('dinov2_vitb14_pretrain.pth'
+                     if dino_size == 'vitb'
+                     else 'dinov2_vitl14_pretrain.pth')
+        dino_path = getattr(args, 'fssam_dino_weights', None)
+        if dino_path is None:
+            dino_path = REPO_ROOT / 'checkpoints' / dino_name
+            args.fssam_dino_weights = dino_path
+        dino_path = Path(dino_path)
         for label, path in (('SAM 2', sam2_path), ('DINOv2', dino_path)):
             if not path.is_file():
                 raise SystemExit(

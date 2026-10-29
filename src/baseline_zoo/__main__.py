@@ -377,12 +377,27 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         # an informational asset like the SAM2 appendix weight.
         ('DINOv2 ViT-L/14', REPO_ROOT / 'checkpoints' /
          'dinov2_vitl14_pretrain.pth', False),
+        # Main-table parity assets.  These are optional for the screening
+        # run but their absence changes TPSegformer/FSSAM/RSRM to a
+        # random-init or reduced-backbone variant.
+        ('Swin-T ImageNet', next(iter(sorted(
+            (REPO_ROOT / 'checkpoints').glob('*swin*tiny*'))),
+            REPO_ROOT / 'checkpoints' /
+            'swin_tiny_patch4_window7_224.ms_in1k.safetensors'), False),
+        ('DINOv2 ViT-B/14', REPO_ROOT / 'checkpoints' /
+         'dinov2_vitb14_pretrain.pth', False),
+        ('DINOv3 ViT-B/16', REPO_ROOT / 'checkpoints' /
+         'dinov3_vitb16_pretrain.pth', False),
     ]
     failures = 0
+    optional_missing = 0
     for label, path, required in checks:
         state = 'OK' if path.is_file() else 'MISSING'
-        if not path.is_file() and required:
-            failures += 1
+        if not path.is_file():
+            if required:
+                failures += 1
+            else:
+                optional_missing += 1
         print(f'asset {label:18s} {state:7s} {path}')
     print('SAM2 Hiera-L download: '
           'https://dl.fbaipublicfiles.com/segment_anything_2/072824/'
@@ -398,6 +413,14 @@ def cmd_doctor(args: argparse.Namespace) -> int:
           'segmenter/vit_base_p16_384_20220308-96dfe169.pth')
     print('DconnNet ResNet-34 download: '
           'https://download.pytorch.org/models/resnet34-333f7ec4.pth')
+    print('TPSegformer Swin-T: put a timm/MMSeg Swin-T ImageNet checkpoint '
+          'named *swin*tiny* under checkpoints/')
+    print('FSSAM DINOv2 ViT-B/14: '
+          'https://dl.fbaipublicfiles.com/dinov2/dinov2_vitb14/'
+          'dinov2_vitb14_pretrain.pth')
+    print('RSRM DINOv3 ViT-B/16: '
+          'https://dl.fbaipublicfiles.com/dinov3/dinov3_vitb16/'
+          'dinov3_vitb16_pretrain_lvd1689m-73cec8be.pth')
     for label, module in (
             ('SAM2 deps', 'hydra'),
             ('SAM2 deps', 'omegaconf'),
@@ -431,7 +454,8 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         dino = False
     print(f'dep   {"SegDINO DINOv3":18s} '
           f'{"OK" if dino else "MISSING":7s} timm DINOv3 architectures')
-    print(f'doctor: {failures} missing asset/dependency(ies)')
+    print(f'doctor: {failures} missing required asset/dependency(ies); '
+          f'{optional_missing} optional main-table asset(s) unavailable')
     return 0 if failures == 0 else 1
 
 

@@ -29,5 +29,6 @@ note: >-
   ImageNet-normalized inputs; argmax at 480 then nearest export to GT.
   Regional k-means uses deterministic scikit-learn k-means++ instead of
   fast_pytorch_kmeans. The training stage writes a metadata-only checkpoint.
-  Requires checkpoints/dinov3/pytorch_model.bin (ViT-B/16); no network
-  access.
+  Uses checkpoints/dinov3/pytorch_model.bin (auto-detected ViT-S/16);
+  for paper parity replace it with a DINOv3 ViT-B/16 checkpoint and pass
+  --rsrm-dinov3-weights. No network access.

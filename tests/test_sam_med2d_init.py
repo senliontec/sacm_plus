@@ -11,10 +11,21 @@ from pathlib import Path
 import pytest
 import torch
 
+from baseline_zoo.adapters.sam_med2d import SamMed2DAdapter
 from baseline_zoo.models.sam_med2d import build_sam_med2d
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 CHECKPOINT = REPO_ROOT / 'checkpoints' / 'sam_vit_b_01ec64.pth'
+
+
+def test_postprocess_tracks_configured_input_size():
+    adapter = SamMed2DAdapter()
+    adapter.input_size = 512
+    low_res = torch.zeros(1, 1, 64, 64)
+    out = adapter._postprocess(low_res, (300, 400))
+    assert out.shape == (1, 1, 300, 400)
+    out = adapter._postprocess(low_res, (200, 300))
+    assert out.shape == (1, 1, 200, 300)
 
 
 @pytest.mark.skipif(not CHECKPOINT.is_file(),

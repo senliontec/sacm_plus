@@ -93,9 +93,10 @@ def test_liot_matches_release_loop_and_polarity():
     inverted = local_intensity_order(image, invert=True)
     inverted_image = 255 - image[:, :, 1][:, :, None].repeat(3, 2)
     assert np.array_equal(inverted, _reference_liot(inverted_image))
-    assert polarity_for_dataset('DRIVE') is True
+    assert polarity_for_dataset('DRIVE') is False
+    assert polarity_for_dataset('CHASEDB1') is False
     assert polarity_for_dataset('CREMI') is False
-    assert polarity_for_dataset('DRIVE', 'dark') is False
+    assert polarity_for_dataset('DRIVE', 'bright') is True
     assert polarity_for_dataset('CREMI', 'bright') is True
     assert 'CORN' in BRIGHT_FOREGROUND_DATASETS
     assert 'DeepCrack' in DARK_FOREGROUND_DATASETS

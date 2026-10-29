@@ -7,6 +7,8 @@ train_entrypoint: >-
   python -m baseline_zoo.run_one --model sam_octa --stage train
   --data-root {split_root} --workdir {output_root}
   --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
+  --sam-octa-model-type vit_l
+  --sam-checkpoint checkpoints/sam_vit_l_0b3195.pth
 eval_entrypoint: >-
   python scripts/pipeline/run_baseline_test.py --method sam_octa
   --protocol {test_manifest}
@@ -20,5 +22,8 @@ defaults:
   epochs: 800
 note: >-
   Self-contained port of the official LoRA SAM-OCTA. Uses GT-derived point
-  prompts (oracle-prompted), ViT-L base, official Dice/clDice vessel loss,
-  and the official 0.8 output threshold; not prompt-free.
+  prompts (oracle-prompted), ViT-L base for 24 GiB cards, official
+  Dice/clDice vessel loss, and the official 0.8 output threshold; not
+  prompt-free. The official default is ViT-H; set
+  `--sam-octa-model-type vit_h` with
+  `checkpoints/sam_vit_h_4b8939.pth` for the paper row (needs more memory).

@@ -24,4 +24,6 @@ note: >-
   224 crop, batch 1, soft BCE + soft Dice (--dsc-dice-weight), AdamW 1e-4
   betas (0.9,0.95), 800 epochs, constant LR, 224/112 patch inference. The
   official NIfTI/MONAI/SimpleITK pipeline is replaced by a dependency-free
-  PIL implementation; no official weights are present.
+  PIL implementation; no official weights are present. The paper's TCLoss
+  is not implemented in the official 2D release or this port, so this row
+  uses soft BCE + optional Dice and must not be labeled as full DSCNet.

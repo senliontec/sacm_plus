@@ -113,7 +113,9 @@ def predict_with_embedding(predictor, target_features: torch.Tensor,
         best_idx = int(np.argmax(scores))
         final = masks[best_idx].astype(bool)
         return final if final.any() else refined
-    except Exception:
+    except (RuntimeError, ValueError, IndexError):
+        # A failed box-refinement pass falls back to the refined point/mask
+        # result; upstream has no box stage at all.
         return refined
 
 

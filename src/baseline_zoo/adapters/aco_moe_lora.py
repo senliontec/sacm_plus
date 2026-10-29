@@ -77,7 +77,10 @@ class ACOMoeLoRAAdapter(BaselineAdapter):
         'Dice, as required by the shared protocol.',
         'Official batch size is 12; this port uses batch 4 with 3 gradient '
         'accumulation steps (effective batch 12) for 11 GiB local smoke and '
-        'the shared runner.',
+        'the shared runner. The released ACO weight scheduler is called '
+        'once per 12-image batch; this port calls it per 4-image '
+        'micro-batch, so its cooldown advances ~3x faster in image terms. '
+        'This is a documented accumulation artifact.',
         'Official masks are resized with BICUBIC and kept soft for the '
         'weighted BCE/IoU loss; this is retained.',
         'The official 50-epoch budget is extended to the shared 800-epoch '

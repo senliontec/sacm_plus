@@ -134,6 +134,9 @@ def test_optimizer_and_scheduler():
     assert optimizer.param_groups[0]['weight_decay'] == pytest.approx(1e-4)
     scheduler = adapter.make_scheduler(optimizer, adapter.args)
     assert scheduler is not None
+    for _ in range(1000):
+        scheduler.step()
+    assert min(scheduler.get_last_lr()) == pytest.approx(1e-6, rel=1e-3)
 
 
 def test_predict_sample_tiles_and_restores_shape():

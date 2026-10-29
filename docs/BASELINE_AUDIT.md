@@ -1,5 +1,9 @@
 # Baseline porting audit
 
+> The complete 40-baseline second-pass audit is
+> [`docs/BASELINE_AUDIT_40.md`](BASELINE_AUDIT_40.md).  This file records the
+> earlier paper-ten/runtime audit and remains the detailed per-model notes.
+
 Date: 2026-10-24
 
 Scope: all self-contained models in `src/baseline_zoo/adapters/`
@@ -15,7 +19,7 @@ collector and report pipeline.
 | Model | Status after audit | Main fixes |
 |---|---|---|
 | U-Net (`unet`) | OK with documented 3-shot deviations | official batch Dice (eps 1e-6, empty-set branch); logit-space upsample; LR/WD/batch and 1-class/RGB deviations documented |
-| CS2Net (`cs2net`) | OK | corrected LambdaLR one-epoch offset to match upstream `adjust_lr(iter=epoch)` |
+| CS-Net (`cs2net`) | OK, identity corrected | code is CS-Net (MICCAI 2019, iMED-Lab), not CS2Net (MedIA 2020); display/provenance labels fixed; LambdaLR one-epoch offset matches upstream `adjust_lr(iter=epoch)` |
 | BCUNet (`bcunet`) | OK | prediction no longer downloads ImageNet-22k; threshold-before-resize masks; bilinear-logit upsample + argmax; corrected selection/accumulation docs |
 | MaskVSC (`maskvsc`) | OK | no confirmed bug; deviations re-checked |
 | nnWNet (`nnwnet`) | OK with documented protocol deviation | checkpoint discovery by `.pth`/`.safetensors`; seeded runs; staging/preprocessing regenerated on reuse; resume rejected with a clear error; docs corrected |
@@ -390,8 +394,10 @@ reference + one target with mask prompts and focal+Dice, although the paper
 describes BCE+Dice and a J=3 multi-target objective; the port follows the
 release.  The official 5-epoch, effective-batch-32 recipe is extended to the
 shared 800-epoch budget with batch 2 on 24 GiB GPUs and validation-Dice
-selection.  The released datasets ImageNet-normalize and resize to 1024
-before SAM 2 (the `preprocess` helper only resizes); the port matches that.
+selection.  The released datasets resize to 518 square (ISIC/PASCAL-part)
+or 640 square (LVIS), ImageNet-normalize, then SANSA `_preprocess`
+bilinearly resizes to 1024.  This port skips the lossy intermediate and
+resizes directly to 1024 before the same ImageNet normalization.
 Evaluation uses the model's native k-shot path with the protocol's three
 references (own shots for seen sets, donor for unseen/novel), mask prompts
 only.  Documented deviations: released gradient-clip CLI default 0.1 vs the
@@ -534,10 +540,11 @@ the first regression suite did not cover:
    `run_training_free`, `run_training` and `run_prediction`, so the
    vendored helpers use the job's GPU.  The behavior is covered by
    `tests/test_baseline_zoo.py::test_select_cuda_device_targets_job_gpu`.
-2. **SANSA evaluation.**  `SANSAAdapter.predict_sample` built a 5-D tensor
-   (`logits[-1][None, None]`) and passed it to 2-D `F.interpolate`, which
-   always raised.  It now keeps the query frame as 4-D (`logits[-1:]`);
-   `tests/test_sansa.py` covers the GT-resolution bool-mask contract.
+2. **SANSA evaluation.**  The real SANSA forward returns a 3-D
+   `(B*T,H,W)` logit tensor.  The previous adapter slice `logits[-1:]`
+   remained 3-D and `F.interpolate` always raised.  It now selects the query
+   frame as `logits[-1][None, None]` (4-D NCHW); the fake test uses the real
+   3-D contract and covers the GT-resolution bool-mask output.
 3. **RSRM timm DINOv3 features.**  The timm wrapper captured the input to
    `block.norm2`, i.e. `x + gamma_1*attn(norm1(x))`, while Meta DINOv3's
    `F_attn` is `gamma_1*attn(norm1(x))`.  The wrapper now hooks
@@ -786,11 +793,12 @@ batch 32), the release repeat=30 replacement sampler (540 crops/epoch), and
 the shared 800-epoch/validation-Dice budget; the optional
 post-150-epoch topological loss is omitted because it imports a hard-coded
 `/home/sty/...` PersistencePython module and is not part of the LIOT
-contribution.  LIOT assumes dark curvilinear structures; the protocol's
-polarity was measured from training/support masks and bright-foreground
-datasets (CHASEDB1, CORN, DRIVE, FIVES, HRF, LES-AV, OCTA-500, STARE,
-DeepGlobe, ROAD, TopoMortar, WIRE) are inverted before LIOT at training and
-inference.  Inference is a whole-image forward pass at threshold 0.5 with
+contribution.  LIOT assumes dark curvilinear structures; retinal datasets (DRIVE,
+CHASEDB1, FIVES, HRF, LES-AV, OCTA-500, STARE) keep the official dark
+polarity, while bright-foreground datasets (CORN, DeepGlobe, ROAD,
+TopoMortar, WIRE) are inverted before LIOT at training and inference.  The
+bright set can be overridden with `--liot-polarity`.  Inference is a
+whole-image forward pass at threshold 0.5 with
 exact GT-size export, instead of the release's 128/8 overlap and F1-threshold
 sweep.  No official weights are used.  CPU tests cover transform parity,
 polarity, model forward/backward, batch preparation, scheduler and

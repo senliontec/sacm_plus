@@ -127,17 +127,19 @@ class PerSAMAdapter(BaselineAdapter):
         original_size = predictor.original_size
         input_size = predictor.input_size
         masks = []
-        for similarity, target_embedding in embeddings:
+        for shot, (similarity, target_embedding) in enumerate(embeddings):
             try:
                 masks.append(predict_with_embedding(
                     predictor, features, original_size, input_size,
                     similarity.to(features.device),
                     target_embedding.to(features.device)))
-            except Exception as exc:
-                print(f'WARNING: PerSAM support failed for '
-                      f'{sample.dataset}/{sample.stem}: {exc}')
-                masks.append(np.zeros(
-                    (original_size[0], original_size[1]), dtype=bool))
+            except (RuntimeError, ValueError, IndexError) as exc:
+                # Do not silently turn a failed support into an empty vote:
+                # that would hide a broken prompt/refinement path behind a
+                # plausible-looking prediction.
+                raise RuntimeError(
+                    f'PerSAM support {shot} failed for '
+                    f'{sample.dataset}/{sample.stem}: {exc}') from exc
         return majority_vote(masks)
 
     def save_config(self, args):

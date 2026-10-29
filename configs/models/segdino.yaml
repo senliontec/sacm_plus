@@ -22,5 +22,7 @@ note: >-
   Self-contained DINOv3+DPT port. Auto-detects a size-matched local checkpoint
   under checkpoints/ (e.g. checkpoints/dinov3/pytorch_model.bin); override
   with DINO_CKPT or --dino-ckpt. HF_TOKEN is only needed when no local
-  checkpoint exists. --random-init is code-smoke only and must not be used
-  for reported results.
+  checkpoint exists. The DINOv3 backbone is frozen by default per the
+  README/paper; pass --segdino-train-backbone for the released full-finetune
+  behavior. --random-init is code-smoke only and must not be used for
+  reported results.
