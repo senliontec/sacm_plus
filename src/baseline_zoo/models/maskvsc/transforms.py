@@ -1,8 +1,10 @@
 """MaskVSC masked-vessel corruption, extracted verbatim from upstream.
 
 Source: ``baselines/maskvsc/lib/datasets.py`` (``ImageDataset_Fundus``).
-The only addition is an early return when the skeleton has no pixels; the
-upstream code would raise inside ``skan`` for an empty mask.
+Additions: an early return when the skeleton has no pixels (the upstream
+code would raise inside ``skan`` for an empty mask), and an explicit
+``separator='-'`` in ``csr.summarize`` to silence skan's deprecation warning
+without changing behavior.
 """
 
 from __future__ import annotations
@@ -24,7 +26,10 @@ def mask_vessel_corrupt(image: np.ndarray, label: np.ndarray,
         return image
     skeleton_copy = skeleton.copy()
     graph = Skeleton(skeleton)
-    branch_data = csr.summarize(graph)
+    # '-' is skan's current default; passing it explicitly avoids one
+    # VisibleDeprecationWarning per augmented sample. Only the row count is
+    # used below, so column names are irrelevant.
+    branch_data = csr.summarize(graph, separator='-')
     length = branch_data.shape[0]
     count = int(ratio * length)
     if count:

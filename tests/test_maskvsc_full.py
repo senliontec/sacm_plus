@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import csv
 import math
+import warnings
 
 import numpy as np
 import pytest
@@ -19,6 +20,7 @@ from baseline_zoo.models.maskvsc import (
     MaskVSCFull,
     UNet,
     ViGSeg_Fundus,
+    mask_vessel_corrupt,
 )
 from baseline_zoo.models.maskvsc.gcn import (
     _knn_graph,
@@ -144,6 +146,20 @@ class _FixedRng:
         return 0.0 if self.flip else 1.0
 
 
+def test_mask_vessel_corrupt_silences_skan_separator_warning():
+    # skan warns once per augmented sample when separator is left implicit.
+    image = np.full((64, 64, 3), 128, np.uint8)
+    label = np.zeros((64, 64), np.uint8)
+    label[8:56, 32] = 255
+    label[32, 32:56] = 255
+    with warnings.catch_warnings():
+        warnings.simplefilter(
+            'error', np.exceptions.VisibleDeprecationWarning)
+        corrupted = mask_vessel_corrupt(image, label, 0.5)
+    assert corrupted.shape == image.shape
+    assert corrupted.dtype == np.uint8
+
+
 def test_paper_rotation_and_flip_augmentation_are_exact():
     rng = np.random.default_rng(3)
     image = Image.fromarray(
@@ -262,6 +278,24 @@ def test_maskvsc_uses_custom_two_stage_pipeline():
     # The shared runtime trains one model and ignores stage2_epochs; without
     # this flag MaskVSC never trains the ViG and prediction uses random ViG.
     assert MaskVSCAdapter.custom_pipeline is True
+
+
+def test_maskvsc_wandb_logs_per_dataset_scalars():
+    # The custom two-stage loop replaces the shared runtime, so it must
+    # reproduce its val/<dataset>/<metric> W&B schema itself.
+    scalars = MaskVSCAdapter._add_validation_scalars(
+        {'epoch': 3},
+        {'dice': 0.5, 'iou': 0.4, 'cldice': 0.3, 'hd95': 20.0},
+        {'DRIVE': {'dice': 0.6, 'iou': 0.5, 'cldice': 0.4, 'hd95': 10.0},
+         'CREMI': {'dice': 0.4, 'iou': 0.3, 'cldice': 0.2, 'hd95': 30.0}})
+    assert scalars['epoch'] == 3
+    assert scalars['val/dice'] == 0.5
+    assert scalars['val/DRIVE/dice'] == 0.6
+    assert scalars['val/DRIVE/iou'] == 0.5
+    assert scalars['val/DRIVE/cldice'] == 0.4
+    assert scalars['val/DRIVE/hd95'] == 10.0
+    assert scalars['val/CREMI/dice'] == 0.4
+    assert scalars['val/CREMI/hd95'] == 30.0
 
 
 def test_maskvsc_main_defaults_are_release():

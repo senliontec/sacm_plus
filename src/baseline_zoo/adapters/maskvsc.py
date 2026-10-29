@@ -447,6 +447,16 @@ class MaskVSCAdapter(BaselineAdapter):
         value = float(value)
         return None if math.isnan(value) else round(value, 6)
 
+    @staticmethod
+    def _add_validation_scalars(scalars, metrics, per_dataset):
+        """Match the shared runtime's overall and per-dataset W&B keys."""
+        scalars.update(
+            {f'val/{key}': value for key, value in metrics.items()})
+        for dataset, values in per_dataset.items():
+            for metric in ('dice', 'iou', 'cldice', 'hd95'):
+                scalars[f'val/{dataset}/{metric}'] = values[metric]
+        return scalars
+
     def _history_row(self, epoch, stage, train_loss, lr, improved,
                      metrics, per_dataset):
         return {
@@ -673,9 +683,8 @@ class MaskVSCAdapter(BaselineAdapter):
                         'lr': args.lr,
                         'val/selection': score,
                     }
-                    scalars.update(
-                        {f'val/{key}': value
-                         for key, value in metrics.items()})
+                    self._add_validation_scalars(
+                        scalars, metrics, per_dataset)
                     log_scalars(run, scalars)
 
             if best1_state is None:
@@ -736,9 +745,8 @@ class MaskVSCAdapter(BaselineAdapter):
                         'lr': vig_lr,
                         'val/selection': score,
                     }
-                    scalars.update(
-                        {f'val/{key}': value
-                         for key, value in metrics.items()})
+                    self._add_validation_scalars(
+                        scalars, metrics, per_dataset)
                     log_scalars(run, scalars)
 
             if best2_epoch == 0:
