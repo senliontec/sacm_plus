@@ -23,7 +23,7 @@ collector and report pipeline.
 | BCUNet (`bcunet`) | OK | prediction no longer downloads ImageNet-22k; threshold-before-resize masks; bilinear-logit upsample + argmax; corrected selection/accumulation docs |
 | MaskVSC (`maskvsc`) | OK | no confirmed bug; deviations re-checked |
 | nnWNet (`nnwnet`) | OK with documented protocol deviation | checkpoint discovery by `.pth`/`.safetensors`; seeded runs; staging/preprocessing regenerated on reuse; resume rejected with a clear error; docs corrected |
-| SAM-Med2D (`sam_med2d`) | OK for the controlled vanilla-SAM protocol | full SAM decoder inheritance (`mask_tokens`, hypernetworks, IoU head); decoder-head regression test; docs updated |
+| SAM-Med2D (`sam_med2d`) | OK with official ViT-B checkpoint | default loads `sam-med2d_b.pth` at 256 with Adapter; full decoder inheritance and regression tests; ViT-L only an explicit comparison |
 | SAM-OCTA (`sam_octa`) | OK | removed pre-model padding; SAM now records the pre-pad size and crops postprocess correctly for non-square images |
 | CWSAM (`cwsam`) | OK | bilinear image resize matches `transforms.Resize`; UPSTREAM checkpointing claims corrected |
 | KnowSAM (`knowsam`) | OK | fixed protocol/validation leak in unlabeled pool; CORN source root; protocol seeding; CPU-safe import/training path; equal labeled/unlabeled streams; stale staging cleared; `--epochs` wired to iteration budget; docs updated |
@@ -104,8 +104,8 @@ Not unified, by design or documented exception:
 - **SAM-Med2D**: official training recipe (`batch=2`, `mask_num=5`,
   `iter_point=8`, ~642M trainable Adapter) exceeds 11 GiB; use ≥24 GiB or a
   reduced, explicitly non-official recipe. Evaluation uses GT box prompts
-  (oracle). The port uses vanilla SAM ViT-L by design for the shared-backbone
-  comparison, not `sam-med2d_b.pth`.
+  (oracle). The default now loads the official ViT-B `sam-med2d_b.pth`;
+  vanilla ViT-L is an explicit comparison only.
 - **SAM-OCTA**: evaluation uses GT-derived point prompts (oracle).
 - **nnWNet**: nnU-Net planning sees the six validation cases; documented
   soft protocol deviation.
@@ -373,8 +373,8 @@ published: `self.Weighted_GAP` is never defined and the support-mask tensor
 is overwritten inside the shot loop.  The vendored copy supplies the
 missing weighted-GAP helper and averages the per-shot support similarities
 as described in the paper.  The official main configuration is SAM 2-S +
-DINOv2-B; the port defaults to SAM 2-S + locally available DINOv2-L (the
-paper's Table 7 variant) and exposes `--fssam-dino-size vitb`.  The port
+DINOv2-B; the port defaults to that official pair, with DINOv2-L exposed
+as the paper's Table 7 ablation (`--fssam-dino-size vitl`).  The port
 runs in fp32 (the official trainer uses bf16 autocast) and casts the
 memory features that the upstream helper hard-codes to bf16 back to the
 model dtype.  No FSSAM-trained weights exist in the released tree;
@@ -419,13 +419,14 @@ with ImageNet normalization; the official test loop argmaxes the two-channel
 output at 480, and this port exports that mask nearest-resized to the GT
 resolution.  The official `fast_pytorch_kmeans` GPU dependency is replaced
 by deterministic scikit-learn k-means++ on CPU; the region-similarity math
-is unchanged.  The paper uses Meta DINOv3 ViT-B/16.  The local
+is unchanged.  The default is now the official Meta DINOv3 ViT-B/16
+LVD1689M checkpoint, matching the paper.  The older local
 `checkpoints/dinov3/pytorch_model.bin` is a timm ViT-S/16 export
-(`reg_token`/`gamma_1` keys) and is loaded through timm's own architecture
-rather than force-fitted onto the Meta module layout; its `F_attn` is
-captured from a `block.attn` hook plus the block's `gamma_1` layer scale
-(the earlier `block.norm2` pre-hook wrongly included the residual).
-Official Meta ViT-B/16 state dicts are accepted with the vendored
+(`reg_token`/`gamma_1` keys) and remains selectable through timm's own
+architecture rather than force-fitted onto the Meta module layout; its
+`F_attn` is captured from a `block.attn` hook plus the block's `gamma_1`
+layer scale (the earlier `block.norm2` pre-hook wrongly included the
+residual).  Official Meta ViT-B/16 state dicts are accepted with the vendored
 architecture.  No RSRM-specific
 weights exist; the training stage writes a metadata-only checkpoint.  No
 target GT or target prompts are used.  See
@@ -570,10 +571,9 @@ the first regression suite did not cover:
    official `segmenter_vit_b16_384.pth`.  Earlier torchvision-host DKA
    checkpoints are incompatible and must be retrained.
 
-Remaining known caveats are asset/host decisions rather than runtime bugs:
-FSSAM's default DINOv2-L is the paper ablation (main table needs DINOv2-B),
-RSRM's local timm ViT-S is not the paper's Meta ViT-B/16, and the C2P
-official checkpoint is not present so strict loading is unverified.  DKA
+Remaining known caveats are method/protocol decisions rather than runtime
+bugs: SAM-Med2D/SAM-OCTA remain oracle-prompted, KnowSAM's batch/pool is
+reduced, and A2SAM's U-Net/prior/DMT/SPG are reconstructed.  DKA
 now uses the exact MMSeg Segmenter-B host layout and official checkpoint;
 only its unstated segmentation loss, augmentation, head choice and
 single-scale test pipeline remain documented assumptions.
@@ -717,9 +717,10 @@ expected from the attention's permutation equivariance.  The model uses
 timm Swin-T (depths 2/2/6/2, heads 3/6/12/24, window 7, drop path 0.3) and
 the release's 512 input statistics.  The main CE becomes binary BCE; the
 auxiliary Dice 0.5 + Sobel edge-aware 1.0, five-conv FCN head, head lr ×10
-and zero weight decay for norm/position parameters are preserved.  No local
-Swin-T ImageNet checkpoint is bundled, so training is from scratch unless
-`--tpsegformer-backbone-ckpt` is supplied.  Documented deviations: 512-square
+and zero weight decay for norm/position parameters are preserved.  The
+official OpenMMLab Swin-T checkpoint is auto-detected under
+`checkpoints/*swin*tiny*`, with MMSeg stage/FFN keys mapped to timm;
+otherwise training is from scratch.  Documented deviations: 512-square
 resize + light photometric jitter instead of random resize/crop/pad;
 per-epoch 5-warmup+poly instead of the per-iteration 1500/160k schedule;
 shared 800 epochs and validation-Dice selection; no TTA or Dacl10k sliding

@@ -6,7 +6,7 @@ checkpoint: "{output_root}/best_model.pth"
 train_entrypoint: >-
   python -m baseline_zoo.run_one --model rsrm --stage train
   --data-root {split_root} --workdir {output_root}
-  --rsrm-dinov3-weights checkpoints/dinov3/pytorch_model.bin
+  --rsrm-dinov3-weights checkpoints/dinov3_vitb16_pretrain_lvd1689m-73cec8be.pth
   --support-shots 3
   --seed {seed} --device cuda:{gpu} --use_wandb
 eval_entrypoint: >-
@@ -21,14 +21,15 @@ protocols: [seeded5, fixed]
 defaults:
   epochs: 0
 note: >-
-  Training-free RSRM (ECCV 2026): frozen DINOv3 (paper ViT-B/16; local
-  timm ViT-S/16 auto-detected) with SAFR semantic
+  Training-free RSRM (ECCV 2026): frozen DINOv3 ViT-B/16 (local timm
+  ViT-S/16 selectable ablation) with SAFR semantic
   feature re-fusion, ASE robust-threshold support enhancement and HPM
   global/regional/pixel prototype matching. Support-based 3-shot protocol
   (own shots for seen domains, donor for unseen/novel); 480-square
   ImageNet-normalized inputs; argmax at 480 then nearest export to GT.
   Regional k-means uses deterministic scikit-learn k-means++ instead of
   fast_pytorch_kmeans. The training stage writes a metadata-only checkpoint.
-  Uses checkpoints/dinov3/pytorch_model.bin (auto-detected ViT-S/16);
-  for paper parity replace it with a DINOv3 ViT-B/16 checkpoint and pass
-  --rsrm-dinov3-weights. No network access.
+  Uses the official DINOv3 ViT-B/16 LVD1689M checkpoint at
+  `checkpoints/dinov3_vitb16_pretrain_lvd1689m-73cec8be.pth`; the local
+  timm ViT-S/16 export remains available via `--rsrm-dinov3-weights` for
+  the paper ablation. No network access.

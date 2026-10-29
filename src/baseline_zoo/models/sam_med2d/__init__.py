@@ -8,7 +8,7 @@ def build_sam_med2d(checkpoint, model_type: str = 'vit_l',
                      encoder_adapter: bool = True):
     args = SimpleNamespace(
         image_size=image_size,
-        sam_checkpoint=str(checkpoint),
+        sam_checkpoint=(str(checkpoint) if checkpoint is not None else None),
         encoder_adapter=encoder_adapter,
     )
     return sam_model_registry[model_type](args)

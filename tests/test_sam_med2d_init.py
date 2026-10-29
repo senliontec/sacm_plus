@@ -28,6 +28,20 @@ def test_postprocess_tracks_configured_input_size():
     assert out.shape == (1, 1, 200, 300)
 
 
+def test_official_vit_b_checkpoint_roundtrip(tmp_path):
+    # Mirrors the official sam-med2d_b.pth layout: a 256-input ViT-B model
+    # saved under a top-level ``model`` key.
+    source = build_sam_med2d(
+        None, model_type='vit_b', image_size=256, encoder_adapter=True)
+    checkpoint = tmp_path / 'sam-med2d_b.pth'
+    torch.save({'model': source.state_dict()}, checkpoint)
+    restored = build_sam_med2d(
+        checkpoint, model_type='vit_b', image_size=256,
+        encoder_adapter=True)
+    for key, value in source.state_dict().items():
+        assert torch.equal(restored.state_dict()[key], value), key
+
+
 @pytest.mark.skipif(not CHECKPOINT.is_file(),
                     reason='SAM ViT-B checkpoint is not present')
 def test_sam_med2d_inherits_full_sam_decoder():

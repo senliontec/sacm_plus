@@ -18,7 +18,7 @@ deviations may remain. `WARN` means a real but non-blocking issue.
 | model | paper / official code | verdict | severity | main issue | status |
 |---|---|---|---|---|---|
 | `unet` | U-Net 2015; local paper absent; `3rd/Pytorch-UNet` is third-party milesial | WARN | P2 | architecture/BCE+Dice faithful, but optimizer/input/class/augmentation recipe is non-official | documented; label as 3-shot U-Net |
-| `bcunet` | BCU-Net; paper absent; `3rd/BCU-Net` unrunnable (NameError, missing warmlearnrate) | WARN | P1 | upstream `OutConv` repair removes BN+sigmoid beyond documented; paper/weights unavailable | **provenance fixed**: config/UPSTREAM label the final block as reconstructed; no full-parity claim |
+| `bcunet` | BCU-Net CBM 2023; `3rd/BCU-Net` unrunnable (NameError, missing warmlearnrate) | WARN | P2 | official trained weights are not released and not needed for from-scratch training; `OutConv` is a CE-compatible reconstruction | **clarified**: paper's four normal upsample blocks + MRL fusion support the 1x1 logits repair; convnext ImageNet backbone is the only pretrained part |
 | `cs2net` | **CS-Net MICCAI 2019**, not CS2Net MedIA 2020; `3rd/CS-Net` (iMED-Lab) | PASS | P1 | baseline identity/provenance mismatch; adapter cited a different repo | **identity fixed**: row/display/code now CS-Net; Otsu inference verified against official `predict.py`; legacy id retained |
 | `csunet` | CS-UNet ICASSP 2026; `3rd/CSUNet/CSUNet.ipynb` only | WARN | P2 | notebook DynamicSnake is a placeholder; paper PACB BN/Snake differs; no weights/license | label released-code variant; document |
 | `dconnnet` | DconnNet CVPR 2023; paper absent | PASS | P2 | faithful; HSV hue wrap and no LICENSE; ResNet-34 present | document |
@@ -37,7 +37,7 @@ deviations may remain. `WARN` means a real but non-blocking issue.
 | `nnwnet` | nnWNet; paper absent | WARN | P2 | docs claimed planning sees val cases, but code plans train-only; no paper/license | **doc fixed**: train-only planning/val staging; add paper/license |
 | `s2mnet` | S2M-Net ICML 2026 | PASS | P2 | cosine had no 1e-6 floor; stage text says spectral-only 1–2 (code: spectral 1–5, gated 3–5) | **fixed** LR floor; stage description verified accurate |
 | `scrwkv` | SCRWKV ICML 2026 | FAIL→PASS | P0 | bool 0/1 mask cubic-resized then thresholded at 127 → all-empty targets | **fixed**: 0/255 before resize; added foreground assertion; old results invalid |
-| `tpsegformer` | TPSegformer CVPR 2026 | WARN | P1 | no Swin-T ImageNet checkpoint, defaults random init; Hilbert path is a no-op upstream | **warmup fixed**, local `*swin*tiny*` auto-detect added; weights still needed or row is random-init |
+| `tpsegformer` | TPSegformer CVPR 2026 | PASS | P1 | no Swin-T ImageNet checkpoint, defaults random init; Hilbert path is a no-op upstream | **fixed/verified**: official OpenMMLab Swin-T loads with MMSeg→timm key mapping (missing=0); warmup starts at 1e-6 |
 
 ### 1.3 SAM PEFT group
 
@@ -56,11 +56,11 @@ deviations may remain. `WARN` means a real but non-blocking issue.
 
 | model | paper / official code | verdict | severity | main issue | status |
 |---|---|---|---|---|---|
-| `fssam` | FSSAM ICML 2025 | WARN | P1 | default DINOv2-L, paper main is DINOv2-B; doc said bicubic, official/code use bilinear | **fixed auto-select**: `vitb` selects `dinov2_vitb14_pretrain.pth`; B weights still needed for parity |
+| `fssam` | FSSAM ICML 2025 | PASS | P1 | default DINOv2-L, paper main is DINOv2-B; doc said bicubic, official/code use bilinear | **fixed**: default official SAM 2-S + DINOv2-B; DINOv2-L remains an ablation; bilinear doc corrected |
 | `matcher` | Matcher ICLR 2024 | PASS | P2 | training-free; only documented 518/GT export/support choices | none |
 | `persam` | PerSAM ICLR 2024 | PASS | P2 | one-shot official → 3-shot vote; support failures could be silently voted empty | **fixed**: failures now raise with support/dataset context; no empty-mask fallback |
-| `rsrm` | RSRM ECCV 2026 | WARN | P1 | local DINOv3 ViT-S vs paper ViT-B; sklearn vs fast k-means | supply ViT-B or label ablation |
-| `sam_med2d` | SAM-Med2D; paper absent | WARN | P1 | no official checkpoint; vanilla ViT-L; oracle GT boxes | **fixed** hard-coded 256 in decode/restore; oracle/ViT-L labeling remains |
+| `rsrm` | RSRM ECCV 2026 | PASS | P1 | local DINOv3 ViT-S vs paper ViT-B; sklearn vs fast k-means | **fixed**: default official DINOv3 ViT-B/16; ViT-S remains an explicit ablation |
+| `sam_med2d` | SAM-Med2D; paper absent | WARN | P1 | official checkpoint released as ViT-B (`sam-med2d_b.pth`); oracle GT boxes | **fixed and verified**: official ViT-B loaded (2.4 GB, PyTorch 2.6 `weights_only=False`), 256 forward/prediction smoke passed; oracle labeling remains |
 | `sam_octa` | SAM-OCTA; paper absent | WARN | P1 | ViT-L vs official ViT-H; RGB instead of three OCTA projections; oracle points | **configurable** ViT-B/L/H + matching checkpoint; L default for 24 GiB; oracle labeling remains |
 | `cwsam` | CWSAM; paper absent | PASS | P1 | released configs are ViT-B; paper's shared-ViT-L claim unverified | **fixed**: default is ViT-B + official B checkpoint; ViT-L exposed as `--cwsam-encoder vit_l`; binary CE documented |
 | `ucs` | UCS ICCV 2023 | WARN | P1 | oracle GT prompts while paper claims prompt-free; release HEAD differs; init_mask range was 1..7 vs official 1..6 | **range fixed** (`randrange` half-open); oracle labeling/paper modules remain a protocol decision |
@@ -127,33 +127,29 @@ deviations may remain. `WARN` means a real but non-blocking issue.
   batches is documented.
 - **CWSAM backbone**: default switched to the released ViT-B/checkpoint;
   ViT-L remains an explicit ablation.
-- **SAM-Med2D input size**: decoder upsampling/restoration now tracks
-  `--input-size` instead of hard-coded 256.
+- **SAM-Med2D**: default official ViT-B `sam-med2d_b.pth` loads with
+  PyTorch 2.6 (`weights_only=False`), 256-input prediction smoke passes;
+  decoder input size is configurable.
 - **SAM-OCTA backbone**: ViT-B/L/H and matching checkpoint selection are
   configurable; ViT-L remains the 24 GiB default.
 - **SegDINO freeze**: default now matches the README/paper frozen backbone;
   released full-finetune is an explicit flag.
 - **PerSAM failures**: support errors now fail fast instead of silently
   contributing an empty vote.
-- **FSSAM DINO selection**: ViT-B/L checkpoint auto-selection is wired.
-- **TPSegformer weights**: local Swin-T auto-detection and missing-file
-  errors added.
+- **FSSAM**: default official SAM 2-S + DINOv2-B, verified real forward;
+  DINOv2-L remains an ablation.
+- **RSRM**: default official DINOv3 ViT-B/16, verified real forward; ViT-S
+  remains an ablation.
+- **TPSegformer**: official OpenMMLab Swin-T loads with MMSeg→timm key
+  mapping (missing=0) and real forward passes.
 - **SAM ViT-L + U-Net**: Dice epsilon corrected to 1e-6.
 
 ## 3. P1 confirmed but not silently changed
 
 These need a method/paper decision rather than a mechanical patch:
 
-- BCU-Net has no local paper and its upstream trainer is unrunnable; the
-  OutConv repair is a documented reconstruction, not verified parity.
 - DSCNet lacks the paper's TCLoss in both official 2D code and the port;
   the port is now explicitly labeled “no TCLoss”.
-- TPSegformer still needs local Swin-T ImageNet weights; otherwise the row
-  is from-scratch/random-init. Auto-detection is in place.
-- FSSAM still needs DINOv2-B weights for paper parity; auto-selection is in
-  place.
-- RSRM still needs DINOv3 ViT-B weights for paper parity; local file is
-  ViT-S.
 - SAM-Med2D/SAM-OCTA remain oracle-prompted adaptations; their input-size
   and backbone options are fixed, but the protocol labels remain.
 - UCS is oracle-prompted despite the paper's prompt-free claim; the
@@ -184,19 +180,22 @@ These need a method/paper decision rather than a mechanical patch:
   nnU-Net, nnWNet, KnowSAM, SegDINO, SegDINO v2, SAM-Med2D, SAM-OCTA,
   CWSAM.
 - **Missing/partial official implementations or weights**: A2SAM (partial),
-  BCU-Net (broken), DKA (no segmentation), SAM-Med2D (no official
-  checkpoint), several no-weight ports. Missing licenses: ACO, KnowSAM,
-  SACM, BCU-Net, CS-UNet, DconnNet, JTFN, MaskVSC conflict.
-- Local `baseline_zoo doctor`: 0 required assets/dependencies missing;
-  3 optional main-table assets unavailable (Swin-T, DINOv2-B, DINOv3-B).
+  BCU-Net (broken), DKA (no segmentation); SAM-Med2D now uses the official
+  ViT-B checkpoint but remains oracle-prompted. Missing licenses: ACO,
+  KnowSAM, SACM, BCU-Net, CS-UNet, DconnNet, JTFN, MaskVSC conflict.
+- Local `baseline_zoo doctor`: 0 required assets/dependencies missing and
+  0 optional main-table assets unavailable (Swin-T, DINOv2-B, DINOv3-B,
+  `sam-med2d_b.pth` all present).
 
 ## 5. Verification after fixes
 
 - Targeted tests pass for SANSA, SCRWKV, LIOT, SAM2-UNet, S2MNet,
   TPSegformer, CWSAM, SegDINO, SAM-Med2D, SAM-OCTA, PerSAM and the SAM
-  ViT-L+U-Net extension. The full pytest suite passes (exit 0), ruff passes
-  on all changed Python files, and the 40-model launcher dry-run emits
-  exactly 40 commands with exit 0.
+  ViT-L+U-Net extension. Official Swin-T (Swin→timm key mapping), SAM 2-S +
+  DINOv2-B, DINOv3 ViT-B/16 and SAM-Med2D ViT-B all load and pass their
+  forward/prediction smokes. The full pytest suite passes (exit 0),
+  ruff passes on all changed Python files, and the 40-model launcher
+  dry-run emits exactly 40 commands with exit 0.
 - SCRWKV and LIOT checkpoints/results produced before this audit are
   invalid and must be retrained. Any UCS run from the old inclusive index
   range is also invalid. Models whose preprocessing/backbone labeling
@@ -206,10 +205,9 @@ These need a method/paper decision rather than a mechanical patch:
 
 ## 6. Remaining blockers before the 8×3090 seed-0 run
 
-- Put `swin_tiny_patch4_window7_224` ImageNet weights under `checkpoints/`
-  for TPSegformer; otherwise its row is random-init.
-- Put DINOv2-B (`dinov2_vitb14_pretrain.pth`) and DINOv3 ViT-B under
-  `checkpoints/` for FSSAM/RSRM if main-table parity is required.
+- All four main-table assets are present and verified: Swin-T,
+  DINOv2-B, DINOv3-B and `sam-med2d_b.pth`. No further weight download is
+  required for TPSegformer/FSSAM/RSRM/SAM-Med2D.
 - Decide whether to add a true CS2Net (MedIA 2020) baseline; the current
   `cs2net` row is CS-Net.
 - Resolve missing licenses (ACO, KnowSAM, SACM, BCU-Net, CS-UNet,

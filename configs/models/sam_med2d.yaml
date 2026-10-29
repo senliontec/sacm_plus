@@ -7,6 +7,8 @@ train_entrypoint: >-
   python -m baseline_zoo.run_one --model sam_med2d --stage train
   --data-root {split_root} --workdir {output_root}
   --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
+  --sam-med2d-model-type vit_b
+  --sam-checkpoint checkpoints/sam-med2d_b.pth
 eval_entrypoint: >-
   python scripts/pipeline/run_baseline_test.py --method sam_med2d
   --protocol {test_manifest}
@@ -21,5 +23,8 @@ defaults:
 note: >-
   Self-contained port of official SAM-Med2D: 256 input, per-block Adapter,
   GT box/point prompts plus 8 error-feedback decoder passes, focal+dice+IoU.
-  Uses vanilla SAM ViT-L because the official SAM-Med2D checkpoint is absent;
-  oracle-prompted, not prompt-free.
+  Default is the official SAM-Med2D ViT-B checkpoint `sam-med2d_b.pth`
+  (Google Drive file id 1ARiB5RkSsWmAB_8mqWnwDF8ZKTtFwsjl); place it at
+  `checkpoints/sam-med2d_b.pth`. `--sam-med2d-model-type vit_l` with a local
+  vanilla SAM ViT-L checkpoint is an explicit comparison only.
+  Oracle-prompted, not prompt-free.

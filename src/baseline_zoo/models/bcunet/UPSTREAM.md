@@ -10,11 +10,14 @@
   - `code/core/convnext.py` -> `convnext.py` (unchanged)
   - `code/core/unet_parts.py` -> `unet_parts.py`
 - Modifications:
-  - `OutConv` called an undefined `upconv2x2`; repaired as a 1x1 logits
-    projection at full resolution (the U-Net branch is already full size).
-    The release has no paper or weights to recover the intended final
-    block, so this component is a documented reconstruction and the row
-    must not be described as verified release parity.
+  - `OutConv` calls an undefined `upconv2x2`; repaired as a 1x1 logits
+    projection at full resolution. The paper describes four normal
+    upsampling blocks and sends the U-Net branch's final feature map to
+    MRL fusion; it does not specify an extra upconv2x2/BN/sigmoid. This is
+    a CE-compatible reconstruction, not official code.
+  - No official BCU-Net trained weights are released or required for the
+    from-scratch shared protocol; only the ConvNeXt ImageNet backbone is
+    pretrained.
   - `warmlearnrate.py` is missing upstream and only used by `main.py`, which
     is not part of this copy.
 - Runtime consumer: `baseline_zoo.adapters.bcunet.BCUNetAdapter`

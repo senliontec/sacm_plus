@@ -12,12 +12,17 @@
 - Modifications:
   - Package-relative imports only; no Apex import (the adapter never
     imports upstream `train.py`).
-  - Instantiated at ViT-L scale with vanilla SAM ViT-L weights (the official
-    SAM-Med2D checkpoint is not present; the paper states all SAM baselines
-    share the ViT-L encoder). The official `load_from` interpolation path is
-    used for `image_size=256`.
+  - Default initialization is the official SAM-Med2D ViT-B checkpoint
+    (`sam-med2d_b.pth`) at 256 input with `encoder_adapter=True`, matching
+    the released test.py. A vanilla SAM ViT-L initialization remains an
+    explicit `--sam-med2d-model-type vit_l` comparison only. The official
+    `load_from` interpolation path is used when dimensions differ.
   - Input stays at the official 256x256; the BGR + SAM-statistics
     preprocessing quirk is preserved.
+  - The official checkpoint contains both `model` and `optimizer`; loading
+    uses `weights_only=False` because PyTorch 2.6 otherwise rejects the
+    optimizer object. The checkpoint is an explicitly trusted official
+    file.
   - `load_from()` no longer excludes `mask_tokens`,
     `output_hypernetworks_mlps` or `iou_prediction_head`.  Those tensors
     are shape-compatible between vanilla SAM and the 256-input model, and

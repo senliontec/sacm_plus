@@ -124,13 +124,13 @@ def test_config_roundtrip():
 def test_real_fssam_forward():
     from baseline_zoo.models.fssam import build_fssam
 
-    sam2 = Path('checkpoints/sam2_hiera_large.pt')
-    dino = Path('checkpoints/dinov2_vitl14_pretrain.pth')
+    sam2 = Path('checkpoints/sam2_hiera_small.pt')
+    dino = Path('checkpoints/dinov2_vitb14_pretrain.pth')
     if not sam2.is_file() or not dino.is_file():
         pytest.skip('missing SAM 2 / DINOv2 checkpoints')
     model = build_fssam(
-        sam2, sam2_config='sam2_hiera_l.yaml', dino_weights=dino,
-        dino_size='vitl')
+        sam2, sam2_config='sam2_hiera_s.yaml', dino_weights=dino,
+        dino_size='vitb')
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     model = model.to(device).eval()
     query = torch.rand(1, 3, 512, 512, device=device) * 255

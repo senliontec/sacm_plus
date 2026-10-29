@@ -357,6 +357,8 @@ def cmd_doctor(args: argparse.Namespace) -> int:
          True),
         ('SAM ViT-H', REPO_ROOT / 'checkpoints' / 'sam_vit_h_4b8939.pth',
          True),
+        ('SAM-Med2D ViT-B', REPO_ROOT / 'checkpoints' /
+         'sam-med2d_b.pth', True),
         # SAM2-UNet is reference_only, so its missing Hiera checkpoint is
         # informational rather than a blocker for the paper zoo.
         ('SAM2 Hiera-L', REPO_ROOT / 'checkpoints' / 'sam2_hiera_large.pt',
@@ -386,8 +388,10 @@ def cmd_doctor(args: argparse.Namespace) -> int:
             'swin_tiny_patch4_window7_224.ms_in1k.safetensors'), False),
         ('DINOv2 ViT-B/14', REPO_ROOT / 'checkpoints' /
          'dinov2_vitb14_pretrain.pth', False),
-        ('DINOv3 ViT-B/16', REPO_ROOT / 'checkpoints' /
-         'dinov3_vitb16_pretrain.pth', False),
+        ('DINOv3 ViT-B/16', next(iter(sorted(
+            (REPO_ROOT / 'checkpoints').glob('*dinov3*vitb16*'))),
+            REPO_ROOT / 'checkpoints' /
+            'dinov3_vitb16_pretrain_lvd1689m-73cec8be.pth'), False),
     ]
     failures = 0
     optional_missing = 0
@@ -399,6 +403,9 @@ def cmd_doctor(args: argparse.Namespace) -> int:
             else:
                 optional_missing += 1
         print(f'asset {label:18s} {state:7s} {path}')
+    print('SAM-Med2D ViT-B download: '
+          'https://drive.google.com/file/d/'
+          '1ARiB5RkSsWmAB_8mqWnwDF8ZKTtFwsjl/view?usp=drive_link')
     print('SAM2 Hiera-L download: '
           'https://dl.fbaipublicfiles.com/segment_anything_2/072824/'
           'sam2_hiera_large.pt')

@@ -19,8 +19,11 @@ protocols: [seeded5, fixed]
 defaults:
   epochs: 800
 note: >-
-  Upstream OutConv referenced an undefined upconv2x2 and main.py imports a
-  missing warmlearnrate.py; both are repaired as a 1x1 logits projection
-  and the unified training loop. The original final block cannot be
-  recovered from the release or a local paper, so this row is a
-  reconstructed BCU-Net variant, not verified end-to-end release parity.
+  The paper's U-Net branch uses four normal upsampling blocks and sends its
+  final feature map to MRL fusion; no extra upconv2x2/BN/sigmoid is
+  specified. The release's undefined upconv2x2 and missing
+  warmlearnrate.py are replaced by a CE-compatible 1x1 logits projection
+  and the unified training loop. No official BCU-Net weights are released
+  or needed: this row trains from scratch on the shared split, with only
+  the ConvNeXt ImageNet backbone pretrained. Label the OutConv as a
+  reconstructed component, not as official code.

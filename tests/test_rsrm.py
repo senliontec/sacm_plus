@@ -148,7 +148,10 @@ def test_config_roundtrip():
 def test_real_rsrm_forward():
     from baseline_zoo.models.rsrm import build_rsrm
 
-    weights = Path('checkpoints/dinov3/pytorch_model.bin')
+    weights = Path(
+        'checkpoints/dinov3_vitb16_pretrain_lvd1689m-73cec8be.pth')
+    if not weights.is_file():
+        weights = Path('checkpoints/dinov3/pytorch_model.bin')
     if not weights.is_file():
         pytest.skip('missing DINOv3 checkpoint')
     model = build_rsrm(weights)

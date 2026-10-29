@@ -4,10 +4,13 @@
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
 
-import torch
 from functools import partial
-from .modeling import ImageEncoderViT, MaskDecoder, PromptEncoder, Sam, TwoWayTransformer
+
+import torch
 from torch.nn import functional as F
+
+from .modeling import ImageEncoderViT, MaskDecoder, PromptEncoder, Sam, TwoWayTransformer
+
 
 def build_sam_vit_h(args):
     return _build_sam(
@@ -110,22 +113,26 @@ def _build_sam(
     # sam.train()
     if checkpoint is not None:
         with open(checkpoint, "rb") as f:
-            state_dict = torch.load(f, map_location="cpu")
+            # The official SAM-Med2D checkpoint also stores an optimizer
+            # object, so PyTorch >=2.6's weights_only=True default rejects
+            # it.  This is an explicitly trusted, official checkpoint.
+            state_dict = torch.load(
+                f, map_location="cpu", weights_only=False)
         try:
             if 'model' in state_dict.keys():
                 print(encoder_adapter)
                 sam.load_state_dict(state_dict['model'], False)
             else:
-                if image_size==1024 and encoder_adapter==True:
+                if image_size == 1024 and encoder_adapter:
                     sam.load_state_dict(state_dict, False)
                 else:
                     sam.load_state_dict(state_dict)
-        except:
+        except Exception:
             print('*******interpolate')
-            new_state_dict = load_from(sam, state_dict, image_size, vit_patch_size)   
+            new_state_dict = load_from(sam, state_dict, image_size, vit_patch_size)
             sam.load_state_dict(new_state_dict)
         print(f"*******load {checkpoint}")
-        
+
     return sam
 
 

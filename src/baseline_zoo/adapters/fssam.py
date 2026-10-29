@@ -45,11 +45,9 @@ class FSSAMAdapter(BaselineAdapter):
         'training episodes use up to two supports after excluding the query '
         'image, while evaluation uses the protocol support set.',
         'The official model uses SAM 2-S (46M) and DINOv2-B (86M). This '
-        'port defaults to the official SAM 2-S config but uses the locally '
-        'available DINOv2-L/14 (the paper reports DINOv2-L as an ablation '
-        'variant); --fssam-dino-size vitb selects the official DINOv2-B '
-        'when its checkpoint is provided. The local SAM 2 checkpoint must '
-        'match the selected config.',
+        'port defaults to that official pair; DINOv2-L/14 remains an '
+        'explicit ablation via --fssam-dino-size vitl. The local SAM 2 '
+        'checkpoint must match the selected config.',
         'The released code runs under global bfloat16 autocast; this port '
         'runs in float32 for hardware independence and casts the memory '
         'features (which the upstream helper hard-codes to bf16) back to '
@@ -97,7 +95,7 @@ class FSSAMAdapter(BaselineAdapter):
             '--fssam-dino-weights', type=Path, default=None,
             help='defaults to checkpoints/dinov2_vitl14_pretrain.pth or '
                  'dinov2_vitb14_pretrain.pth according to --fssam-dino-size')
-        parser.add_argument('--fssam-dino-size', default='vitl',
+        parser.add_argument('--fssam-dino-size', default='vitb',
                             choices=['vitl', 'vitb'])
         parser.add_argument('--fssam-num-refine', type=int, default=3)
         parser.add_argument('--fssam-ver-refine', default='v1',
@@ -112,7 +110,7 @@ class FSSAMAdapter(BaselineAdapter):
         sam2_path = Path(getattr(
             args, 'fssam_sam2_checkpoint',
             REPO_ROOT / 'checkpoints' / 'sam2_hiera_small.pt'))
-        dino_size = str(getattr(args, 'fssam_dino_size', 'vitl'))
+        dino_size = str(getattr(args, 'fssam_dino_size', 'vitb'))
         dino_name = ('dinov2_vitb14_pretrain.pth'
                      if dino_size == 'vitb'
                      else 'dinov2_vitl14_pretrain.pth')
@@ -134,7 +132,7 @@ class FSSAMAdapter(BaselineAdapter):
             sam2_config=str(getattr(
                 args, 'fssam_sam2_config', 'sam2_hiera_s.yaml')),
             dino_weights=dino_path,
-            dino_size=str(getattr(args, 'fssam_dino_size', 'vitl')),
+            dino_size=str(getattr(args, 'fssam_dino_size', 'vitb')),
             num_refine=int(getattr(args, 'fssam_num_refine', 3)),
             ver_refine=str(getattr(args, 'fssam_ver_refine', 'v1')),
             input_size=self.input_size,
@@ -336,7 +334,7 @@ class FSSAMAdapter(BaselineAdapter):
             'sam2_config': str(
                 getattr(args, 'fssam_sam2_config', 'sam2_hiera_s.yaml')),
             'dino_weights': str(getattr(args, 'fssam_dino_weights', '')),
-            'dino_size': str(getattr(args, 'fssam_dino_size', 'vitl')),
+            'dino_size': str(getattr(args, 'fssam_dino_size', 'vitb')),
             'num_refine': int(getattr(args, 'fssam_num_refine', 3)),
             'ver_refine': str(getattr(args, 'fssam_ver_refine', 'v1')),
             'shots': int(getattr(args, 'fssam_shots', 3)),

@@ -26,7 +26,7 @@
 | `nnwnet` | nnWNet | `3rd/nnWNet` | 未收录 | 官方 nnU-Net trainer/plugin |
 | `nnunet2d` | nnU-Net 2D | `3rd/nnUNet` | 未收录 | 原生 nnunetv2 2D planner/trainer/predictor |
 | `flowsdf` | FlowSDF | `3rd/FlowSDF` | `parsing/[2025 ijcv] FlowSDF: Flow Matching for Medical Image Segmentation Using Distance Transforms` | 条件流匹配 + SDF；128 crop，Euler ODE；MIT |
-| `tpsegformer` | TPSegformer | `3rd/TPSegformer` | `parsing/[2026 cvpr] Hilbert Curve-Based Attention Enabling Topology-Preserving Image Tensor Representation for Semantic Segmentation Network` | Swin-T + SEM/HLFF/LCCM；MMSeg overlay 已改为纯 PyTorch；上游无 LICENSE |
+| `tpsegformer` | TPSegformer | `3rd/TPSegformer` | `parsing/[2026 cvpr] Hilbert Curve-Based Attention Enabling Topology-Preserving Image Tensor Representation for Semantic Segmentation Network` | Swin-T + SEM/HLFF/LCCM；MMSeg overlay 已改为纯 PyTorch；官方 Swin-T 权重自动加载并做 key 映射；上游无 LICENSE |
 | `s2mnet` | S2M-Net | `3rd/S2M-Net-Spectral-Spatial-Mixing-for-Medical-Segmentation` | `parsing/[2026 icml] S2M-Net: Spectral-Spatial Mixing with Morphology-Aware Adaptive Loss for Medical Image Segmentation` | TF/Keras 重写为 PyTorch；MRF-SE + SSTM + BFP + MAL；上游无 LICENSE |
 | `csunet` | CS-UNet | `3rd/CSUNet` | `parsing/[2026 icassp] Curvilinear Spectral U-Net: A Framework for Structure-Aware Road Extraction from Very High Resolution Imagery` | TF notebook 重写为 PyTorch；GFR/FSF + Snake；DynamicSnake 为占位实现；上游无 LICENSE |
 | `jtfn` | JTFN | `3rd/JTFN` | `parsing/[2021 iccv] Joint Topology-Preserving and Feature-Refinement Network for Curvilinear Structure Segmentation` | parsing 另有小写重复目录；上游无 LICENSE |
@@ -42,7 +42,7 @@
 |---|---|---|---|---|
 | `aco_moe_lora` | ACO-MoE-LoRA | `3rd/ACO-MoE-LoRA` | `parsing/[2026 icml] ACO-MoE-LoRA: Evolving-while-Training for Adapting Segment Anything Model 2 to Specialized Domains` | SAM2 Hiera-L + dynamic LoRA + ACO/MoE decoder；上游无 LICENSE |
 | `a2sam` | A2SAM (MIA 2026) | `3rd/A2SAM` | `parsing/[2026 MIA] Informativeness-driven active adaptation of SAM: Structural prompts and contrastive parameter selection for medical tubular segmentation` | 官方 SAM/prompt fusion/CPS/TA + 论文级 U-Net/prior + cripser persistence/Morse 重建；见 `docs/A2SAM_FIDELITY.md`；勿与 `3rd/a2sam` (NeurIPS 2024) 混淆 |
-| `sam_med2d` | SAM-Med2D | `3rd/SAM-Med2D` | 未收录 | 官方 SAM-Med2D checkpoint 缺失；当前为 ViT-L 二值适配 |
+| `sam_med2d` | SAM-Med2D | `3rd/SAM-Med2D` | 未收录 | 默认官方 ViT-B `sam-med2d_b.pth`；ViT-L 仅作显式对照 |
 | `sam_octa` | SAM-OCTA | `3rd/SAM-OCTA` | 未收录 | 上游 URL 未记录；另有 `3rd/sam-octa2` 参考；默认 ViT-L，可选 H |
 | `cwsam` | CWSAM | `3rd/CWSAM` | 未收录 | ClassWise-SAM-Adapter；默认官方 ViT-B，ViT-L 可选、二值 2-class 适配 |
 | `sam_adapter` | SAM-Adapter | `3rd/SAM-Adapter-PyTorch` | `parsing/[2023 iccvw] SAM-Adapter: Adapting Segment Anything in Underperformed Scenes` | 无作者训练权重，从 SAM ViT-L 训练 |

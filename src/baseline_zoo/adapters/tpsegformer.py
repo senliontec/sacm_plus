@@ -55,9 +55,9 @@ class TPSegformerAdapter(BaselineAdapter):
         'The release imports the external hilbertcurve/reference hbtrans '
         'modules; this port implements the same Hilbert traversal locally '
         'and keeps the LCCM attention math unchanged.',
-        'No local Swin-T ImageNet checkpoint is bundled, so training starts '
-        'from random initialization unless --tpsegformer-backbone-ckpt is '
-        'provided.',
+        'The official OpenMMLab Swin-T checkpoint is auto-detected under '
+        'checkpoints/*swin*tiny* and MMSeg keys are mapped to timm; random '
+        'initialization is used only when no checkpoint is present.',
         'The official 512 random-resize/random-crop/pad pipeline and '
         'PhotoMetricDistortion are approximated by a 512-square bilinear '
         'resize (nearest GT), horizontal flip and a light MMSeg-style '

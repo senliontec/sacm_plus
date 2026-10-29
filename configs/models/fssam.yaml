@@ -8,7 +8,7 @@ train_entrypoint: >-
   --data-root {split_root} --workdir {output_root}
   --fssam-sam2-checkpoint checkpoints/sam2_hiera_small.pt
   --fssam-sam2-config sam2_hiera_s.yaml
-  --fssam-dino-size vitl --fssam-shots 3 --fssam-num-refine 3
+  --fssam-dino-size vitb --fssam-shots 3 --fssam-num-refine 3
   --fssam-ver-refine v1
   --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
 eval_entrypoint: >-
@@ -32,9 +32,7 @@ note: >-
   effective batch 8) and extends 300/75 epochs to the shared 800-epoch
   budget. The released code's missing Weighted_GAP and k-shot SCMA loop are
   repaired. Requires local SAM 2 and DINOv2 checkpoints; no network access.
-  The official main model is SAM 2-S + DINOv2-B; this port defaults to
-  SAM 2-S + locally available DINOv2-L (paper ablation) and supports
-  --fssam-dino-size vitb, which auto-selects
+  The official main model is SAM 2-S + DINOv2-B and is now the default;
+  --fssam-dino-size vitb auto-selects
   checkpoints/dinov2_vitb14_pretrain.pth when --fssam-dino-weights is
-  omitted. Put the corresponding checkpoint under checkpoints/ for
-  main-table parity.
+  omitted. DINOv2-L remains an explicit ablation.

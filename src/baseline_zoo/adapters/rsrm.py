@@ -38,10 +38,9 @@ class RSRMAdapter(BaselineAdapter):
     support_based = True
     deviations = (
         'Training-free RSRM with a frozen DINOv3 backbone; no RSRM-specific '
-        'checkpoint exists, only the DINOv3 backbone is loaded. The paper '
-        'uses ViT-B/16; the local checkpoints/dinov3/pytorch_model.bin is a '
-        'timm ViT-S/16 export and is auto-detected (official Meta ViT-B/16 '
-        'state dicts are also accepted).',
+        'checkpoint exists, only the DINOv3 backbone is loaded. The default '
+        'is the official Meta DINOv3 ViT-B/16 LVD1689M checkpoint; the '
+        'timm ViT-S/16 export remains selectable for the paper ablation.',
         'The official code uses fast_pytorch_kmeans for regional prototypes; '
         'this port uses scikit-learn k-means++ on CPU with a deterministic '
         'per-call seed, keeping the same region-similarity computation.',
@@ -70,8 +69,8 @@ class RSRMAdapter(BaselineAdapter):
         parser.add_argument('--input-size', type=int, default=480)
         parser.add_argument(
             '--rsrm-dinov3-weights', type=Path,
-            default=REPO_ROOT / 'checkpoints' / 'dinov3' /
-            'pytorch_model.bin')
+            default=REPO_ROOT / 'checkpoints' /
+            'dinov3_vitb16_pretrain_lvd1689m-73cec8be.pth')
         parser.add_argument('--support-shots', type=int, default=3)
         parser.add_argument('--support-dataset', default='auto')
 
@@ -81,13 +80,13 @@ class RSRMAdapter(BaselineAdapter):
             raise SystemExit('RSRM uses the official 480x480 input')
         weights = Path(getattr(
             args, 'rsrm_dinov3_weights',
-            REPO_ROOT / 'checkpoints' / 'dinov3' / 'pytorch_model.bin'))
+            REPO_ROOT / 'checkpoints' /
+            'dinov3_vitb16_pretrain_lvd1689m-73cec8be.pth'))
         if not weights.is_file():
             raise SystemExit(
                 f'missing DINOv3 checkpoint: {weights}\n'
-                'The local file is auto-detected as ViT-S/16; the paper '
-                'uses ViT-B/16. Upload the matching DINOv3 weights under '
-                'checkpoints/ and pass --rsrm-dinov3-weights.')
+                'Download the official DINOv3 ViT-B/16 LVD1689M checkpoint '
+                'under checkpoints/ and pass --rsrm-dinov3-weights.')
         self._dinov3_sha = file_sha256(weights)
         if self._support_root is None:
             self._support_root = Path(getattr(args, 'data_root', ''))

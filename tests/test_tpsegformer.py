@@ -39,6 +39,18 @@ def _sample(tmp_path, width=64, height=48):
                   dataset='TEST', stem='TEST_0')
 
 
+def test_official_mmseg_swin_checkpoint_maps_to_timm():
+    checkpoint = Path(
+        'checkpoints/swin_tiny_patch4_window7_224_20220317-1cdeb081.pth')
+    if not checkpoint.is_file():
+        pytest.skip('missing official Swin-T checkpoint')
+    model = build_tpsegformer(image_size=256, num_classes=1)
+    counts = model.load_backbone_checkpoint(checkpoint)
+    assert counts['missing'] == 0
+    # relative_position_index/attn_mask/norm are source-only buffers.
+    assert counts['unexpected'] <= 32
+
+
 def _args(**overrides):
     values = dict(
         input_size=512,

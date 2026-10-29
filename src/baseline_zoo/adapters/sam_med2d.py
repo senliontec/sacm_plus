@@ -42,16 +42,18 @@ class SamMed2DAdapter(BaselineAdapter):
     train_batch_size = 2
     selection = 'dice'
     deviations = (
-        'The official SAM-Med2D checkpoint is not present; this port uses '
-        'vanilla SAM ViT-L weights with the official 256-input adapter and '
-        'the official load_from interpolation. The paper requires the shared '
-        'ViT-L encoder, but the decoder is initialized from SAM rather than '
-        'SAM-Med2D.',
-        'The official load_from() excludes mask_tokens, '
-        'output_hypernetworks_mlps and iou_prediction_head. This port '
-        'inherits every shape-compatible SAM tensor, so the full SAM '
-        'decoder is loaded; only the SAM-Med2D Adapter stays randomly '
-        'initialized for the controlled fine-tune-from-SAM protocol.',
+        'Default initialization is the official SAM-Med2D ViT-B checkpoint '
+        '(sam-med2d_b.pth, 256 input, encoder_adapter=True), matching the '
+        'released test.py. A vanilla SAM ViT-L initialization remains '
+        'available only as an explicit comparison via '
+        '--sam-med2d-model-type vit_l.',
+        'For official SAM-Med2D weights the full checkpoint is loaded; the '
+        'official load_from() only excludes mask_tokens, '
+        'output_hypernetworks_mlps and iou_prediction_head when it must '
+        'interpolate a 1024-input vanilla SAM checkpoint into 256. This '
+        'port keeps every shape-compatible tensor for the 256-input '
+        'official checkpoint and only interpolates size-dependent '
+        'positional embeddings.',
         'Data protocol: the 18/6-shot split replaces the official JSON '
         'manifests; BGR + SAM-statistics preprocessing and the 256 '
         'pad/resize rule are preserved.',
@@ -78,18 +80,29 @@ class SamMed2DAdapter(BaselineAdapter):
 
     def add_args(self, parser):
         parser.add_argument(
+            '--sam-med2d-model-type', default='vit_b',
+            choices=['vit_b', 'vit_l', 'vit_h'],
+            help='official SAM-Med2D weights are ViT-B; other types are '
+                 'explicit vanilla-SAM comparisons')
+        parser.add_argument(
             '--sam-checkpoint', type=Path,
-            default=REPO_ROOT / 'checkpoints' / 'sam_vit_l_0b3195.pth')
+            default=REPO_ROOT / 'checkpoints' / 'sam-med2d_b.pth')
         parser.add_argument('--mask-num', type=int, default=5)
         parser.add_argument('--iter-point', type=int, default=8)
         parser.add_argument('--point-list', default='1,3,5,9')
 
     def build_model(self, args):
         self.input_size = int(getattr(args, 'input_size', self.input_size))
-        if not args.sam_checkpoint.is_file():
+        self.model_type = str(getattr(
+            args, 'sam_med2d_model_type', 'vit_b'))
+        checkpoint = Path(args.sam_checkpoint)
+        if not checkpoint.is_file():
             raise SystemExit(
-                f'missing SAM ViT-L checkpoint: {args.sam_checkpoint}')
-        return build_sam_med2d(args.sam_checkpoint, model_type='vit_l',
+                f'missing SAM-Med2D {self.model_type} checkpoint: '
+                f'{checkpoint}\n'
+                'official weights: download sam-med2d_b.pth and put it at '
+                'checkpoints/sam-med2d_b.pth, or pass --sam-checkpoint')
+        return build_sam_med2d(checkpoint, model_type=self.model_type,
                                image_size=self.input_size,
                                encoder_adapter=True)
 
@@ -104,6 +117,9 @@ class SamMed2DAdapter(BaselineAdapter):
         checkpoint = getattr(args, 'sam_checkpoint', None)
         return {
             'input_size': int(self.input_size),
+            'model_type': str(getattr(
+                self, 'model_type',
+                getattr(args, 'sam_med2d_model_type', 'vit_b'))),
             'sam_checkpoint': str(checkpoint) if checkpoint else None,
             'mask_num': int(getattr(args, 'mask_num', 5)),
             'iter_point': int(getattr(args, 'iter_point', 8)),
@@ -111,6 +127,9 @@ class SamMed2DAdapter(BaselineAdapter):
         }
 
     def restore_config(self, args, config):
+        if config.get('model_type'):
+            args.sam_med2d_model_type = str(config['model_type'])
+            self.model_type = args.sam_med2d_model_type
         for key in ('mask_num', 'iter_point'):
             if key in config:
                 setattr(args, key, int(config[key]))

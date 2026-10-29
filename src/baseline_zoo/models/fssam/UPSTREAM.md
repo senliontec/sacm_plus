@@ -90,11 +90,10 @@ Apache-2.0.
    per seen domain. Training episodes use at most two supports after
    excluding the query image; evaluation uses the protocol's three supports
    (own domain for seen test sets, donor domain otherwise).
-2. Backbones: official main is SAM 2-S + DINOv2-B. Default here is SAM 2-S
-   + local DINOv2-L (the paper's ablation variant); Hiera-B+/L and
-   DINOv2-B are selectable. `--fssam-dino-size vitb` selects
-   `checkpoints/dinov2_vitb14_pretrain.pth` automatically unless
-   `--fssam-dino-weights` is supplied. The checkpoint must match the
+2. Backbones: official main is SAM 2-S + DINOv2-B and is the default;
+   Hiera-B+/L and DINOv2-L remain selectable ablations. `--fssam-dino-size
+   vitb` selects `checkpoints/dinov2_vitb14_pretrain.pth` automatically
+   unless `--fssam-dino-weights` is supplied. The checkpoint must match the
    selected size.
 3. fp32 instead of bf16 autocast (hardware-independent; the 3090 server
    could use bf16, but the shared runtime does not own an autocast loop).

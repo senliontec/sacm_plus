@@ -63,10 +63,11 @@ rights before publishing.
   per epoch).
 - No TTA or Dacl10k 512/341 sliding-window test; predictions are bilinearly
   upsampled to the exact GT resolution and thresholded.
-- No local Swin-T ImageNet checkpoint is bundled, so the default is
-  from-scratch training; a local `*swin*tiny*` file under `checkpoints/`
-  is auto-detected, and `--tpsegformer-backbone-ckpt` loads a specific
-  timm/MMSeg-compatible Swin-T file.
+- The official OpenMMLab Swin-T checkpoint is auto-detected under
+  `checkpoints/*swin*tiny*` and its MMSeg `stages`/`attn.w_msa`/`ffn.layers`
+  keys are mapped to timm; training falls back to random initialization
+  only if no checkpoint is present or `--tpsegformer-backbone-ckpt` is
+  explicitly omitted.
 - The paper targets UAV building defects; this is a task adaptation to
   curvilinear structures.
 

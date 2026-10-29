@@ -2,9 +2,9 @@
 
 The release is an MMSegmentation overlay.  This port uses timm's Swin-T
 (same depths/heads/window/patch and 0.3 drop path) and the vendored TPHead,
-so neither mmcv nor mmseg needs to be installed.  No pretrained Swin-T file
-is bundled; training starts from random initialization unless a local
-checkpoint is supplied.
+so neither mmcv nor mmseg needs to be installed.  A local official Swin-T
+checkpoint is auto-detected and MMSeg keys are mapped to timm; training
+falls back to random initialization only when no checkpoint is present.
 """
 
 from __future__ import annotations
@@ -25,8 +25,21 @@ def _strip_backbone_prefix(state: dict) -> dict:
         for prefix in ('module.', 'backbone.', 'model.backbone.'):
             if key.startswith(prefix):
                 key = key[len(prefix):]
-        # MMSeg and timm differ only in the patch-embedding projection name.
+        # MMSeg and timm differ in the patch-embedding projection name and
+        # (for the OpenMMLab Swin checkpoint) in the stage/FFN naming.
         key = key.replace('patch_embed.projection.', 'patch_embed.proj.')
+        parts = key.split('.')
+        if parts[0] == 'stages' and len(parts) >= 3:
+            stage = int(parts[1])
+            rest = '.'.join(parts[2:])
+            if rest.startswith('blocks.'):
+                key = f'layers_{stage}.{rest}'
+            elif rest.startswith('downsample.'):
+                # MMSeg's stage i downsample feeds timm's layers_{i+1}.
+                key = f'layers_{stage + 1}.{rest}'
+            key = key.replace('.attn.w_msa.', '.attn.')
+            key = key.replace('.ffn.layers.0.0.', '.mlp.fc1.')
+            key = key.replace('.ffn.layers.1.', '.mlp.fc2.')
         cleaned[key] = value
     return cleaned
 
@@ -80,8 +93,13 @@ class TPSegformerModel(nn.Module):
             raise RuntimeError(f'{path}: unsupported checkpoint format')
         state = _strip_backbone_prefix(state)
         result = self.backbone.load_state_dict(state, strict=False)
+        if result.missing_keys:
+            raise RuntimeError(
+                f'{path}: Swin-T checkpoint did not provide '
+                f'{len(result.missing_keys)} backbone tensors; first: '
+                f'{result.missing_keys[:5]}')
         return {
-            'missing': len(result.missing_keys),
+            'missing': 0,
             'unexpected': len(result.unexpected_keys),
         }
 

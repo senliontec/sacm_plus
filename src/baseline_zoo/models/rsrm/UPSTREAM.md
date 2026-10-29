@@ -59,16 +59,15 @@ the authors before releasing.
    ++', n_init=1, max_iter=100, random_state=seed+call)` on CPU. The
    official GPU k-means is not a dependency of this environment; the
    clustering objective is the same and the port is deterministic.
-2. The paper uses DINOv3 ViT-B/16. The local
-   `checkpoints/dinov3/pytorch_model.bin` is a timm ViT-S/16 export
-   (`reg_token`, `gamma_1/2`, no qkv bias). It is loaded through timm's own
-   `vit_small_patch16_dinov3` architecture.  A forward hook on
-   `block.attn` captures the attention output and applies the block's
-   `gamma_1` layer scale, matching Meta DINOv3's `F_attn`
-   (`ls1(attn(norm1(x)))`); the block output from
-   `forward_intermediates` supplies `F_sum`.  Official Meta ViT-B/16 state
-   dicts take the vendored architecture path. The config records which file
-   is used.
+2. The default is the official Meta DINOv3 ViT-B/16 LVD1689M checkpoint
+   (`dinov3_vitb16_pretrain_lvd1689m-73cec8be.pth`), matching the paper.
+   The older local `checkpoints/dinov3/pytorch_model.bin` timm ViT-S/16
+   export (`reg_token`, `gamma_1/2`, no qkv bias) remains selectable for
+   the ablation. For timm weights, a forward hook on `block.attn` captures
+   the attention output and applies the block's `gamma_1` layer scale,
+   matching Meta DINOv3's `F_attn`; `forward_intermediates` supplies
+   `F_sum`. Official Meta state dicts take the vendored architecture path.
+   The config records which file is used.
 3. The official test loop resizes query masks to 480 and computes metrics
    there; this port argmaxes at 480 (unchanged) and nearest-resizes the
    binary mask to the original GT for the shared evaluation contract.

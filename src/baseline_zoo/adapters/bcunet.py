@@ -43,10 +43,14 @@ class BCUNetAdapter(BaselineAdapter):
         'the port adds val-Dice selection for a common protocol.',
         'Upstream preprocessing is BGR [0,255] with no normalization '
         '(cv2.imread + INTER_AREA); preserved exactly.',
-        'Upstream OutConv referenced an undefined upconv2x2; repaired as a '
-        '1x1 logits projection at full resolution. Upstream main.py also '
-        'imports a missing warmlearnrate.py and cannot run; this adapter '
-        'supplies the official loss/optimizer loop instead.',
+        'The paper describes the U-Net branch as four normal upsampling '
+        'blocks whose final feature map goes to the MRL fusion module; it '
+        'does not specify an extra upconv2x2/BN/sigmoid. The release calls '
+        'an undefined upconv2x2 and imports a missing warmlearnrate.py, so '
+        'this port uses a 1x1 logits projection (CE-compatible) at full '
+        'resolution. No official BCU-Net training weights exist, and none '
+        'are required for the from-scratch shared protocol; only the '
+        'ConvNeXt ImageNet backbone is pretrained.',
         'The official Adam 1.5e-4, no scheduler and no augmentation are '
         'preserved. The official 50-epoch budget is replaced by 800 epochs '
         'for the 18-image 3-shot protocol.',
