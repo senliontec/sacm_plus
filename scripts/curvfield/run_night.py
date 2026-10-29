@@ -7,7 +7,9 @@ Matrix:
   evaluate every model on all 20 test datasets
 
 Two worker threads run one task per GPU; finished training/evaluation
-artifacts are reused.  The final report is results/curvfield_night/SUMMARY.md.
+artifacts are reused.  Every training and evaluation run logs to the shared
+self-hosted W&B server exactly like the baseline entrypoints.
+The final report is results/curvfield_night/SUMMARY.md.
 """
 
 from __future__ import annotations
@@ -25,6 +27,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 PYTHON = sys.executable
 DEFAULT_ROOT = REPO_ROOT / 'results' / 'curvfield_night'
 SAM_B = REPO_ROOT / 'checkpoints' / 'sam_vit_b_01ec64.pth'
+WANDB_GROUP = 'curvfield_night'
 
 MODELS = (
     ('convlora', 'convlora', ()),
@@ -42,7 +45,26 @@ def _env() -> dict[str, str]:
     env.setdefault('PYTORCH_CUDA_ALLOC_CONF', 'expandable_segments:True')
     env['HF_HUB_OFFLINE'] = '1'
     env['TRANSFORMERS_OFFLINE'] = '1'
+    # Same self-hosted W&B defaults as scripts/sacm_x/wandb_env.sh.  The API
+    # key is never set here; it comes from the environment or ~/.netrc.
+    env.setdefault('WANDB_BASE_URL', 'http://172.16.1.7:8080')
+    env.setdefault('WANDB_ENTITY', 'buaazqk')
+    env.setdefault('WANDB_PROJECT', 'sacm')
+    env.setdefault('WANDB_MODE', 'online')
+    env.setdefault('WANDB_FINISH_TIMEOUT', '60')
     return env
+
+
+def _wandb_args(tag: str, seed: int, job_type: str,
+                extra_tags: tuple[str, ...] = ()) -> list[str]:
+    tags = (tag, f'seed{seed}', *extra_tags, WANDB_GROUP)
+    return [
+        '--use_wandb', 'true',
+        '--wandb_name', f'{WANDB_GROUP}-{tag}-seed{seed}-{job_type}',
+        '--wandb_group', WANDB_GROUP,
+        '--wandb_job_type', job_type,
+        '--wandb_tags', ','.join(tags),
+    ]
 
 
 def _run(cmd: list[str], log: Path) -> None:
@@ -93,7 +115,7 @@ def _train(root: Path, seed: int, tag: str, method: str,
         '--workdir', str(workdir),
         '--epochs', str(epochs), '--batch-size', '1',
         '--seed', str(seed), '--device', f'cuda:{gpu}',
-        '--use_wandb', 'false',
+        *_wandb_args(tag, seed, 'train', ('3shot',)),
         '--convlora-model-type', 'vit_b',
         '--convlora-checkpoint', str(SAM_B),
         *extra,
@@ -123,7 +145,7 @@ def _evaluate(root: Path, seed: int, tag: str, method: str,
         '--pred-root', str(workdir / 'predictions'),
         '--paper-root', str(workdir / 'paper'),
         '--device', f'cuda:{gpu}',
-        '--use_wandb', 'false',
+        *_wandb_args(tag, seed, 'eval', ('3shot', 'paper_metrics')),
         '--skip-visualize',
     ]
     _run(cmd, log)
