@@ -65,6 +65,7 @@ METHOD_META = {
     'sam2_unet': ('SAM2-UNet', '✗'),
     'sam_vit_l_unet': ('SAM ViT-L + U-Net', '✗'),
     'scrwkv': ('SCRWKV', '✗'),
+    'curvfield': ('CurvField', '✗'),
     'cwsam': ('CWSAM', '✓'),
     'knowsam': ('KnowSAM', '✓'),
     'kprism': ('K-Prism (ICLR 2026)', '✗'),
@@ -75,7 +76,6 @@ METHOD_META = {
     'sam_adapter': ('SAM-Adapter', '✓'),
     'samed': ('SAMed', '✓'),
     'topolora': ('TopoLoRA-SAM', '✓'),
-    'topoweave': ('TopoWeave', '✗'),
     'tpsegformer': ('TPSegformer', '✗'),
     'ucs': ('UCS', '✓'),
 }

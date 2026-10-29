@@ -50,7 +50,7 @@ From this file's directory: `../../../../3rd`
 ├── segdino               -> 3rd/segdino
 ├── segdino_v2            -> 3rd/segdino_v2
 ├── topolora              -> 3rd/Seglab
-├── topoweave             -> (no upstream; project extension derived from MaskVSC)
+├── curvfield             -> (no 3rd; project extension built on Conv-LoRA)
 ├── tpsegformer           -> 3rd/TPSegformer
 ├── ucs                   -> 3rd/UCS
 └── unet                  -> 3rd/Pytorch-UNet

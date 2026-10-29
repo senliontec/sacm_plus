@@ -30,9 +30,9 @@ def test_registry_contains_all_self_contained_models():
         'nnwnet',
         'persam',
         'rsrm', 's2mnet', 'sacm_official', 'sacm_x', 'sam2_unet',
-        'sam_adapter',
-        'sam_med2d', 'sam_octa', 'sam_vit_l_unet', 'samed', 'sansa',
-        'scrwkv', 'segdino', 'segdino_v2', 'topolora', 'topoweave',
+        'sam_adapter', 'sam_med2d', 'sam_octa', 'sam_vit_l_unet', 'samed',
+        'sansa',
+        'scrwkv', 'segdino', 'segdino_v2', 'topolora', 'curvfield',
         'tpsegformer', 'ucs', 'unet'}
     assert set(models) == expected
     available = {model.id for model in models.values() if model.available}

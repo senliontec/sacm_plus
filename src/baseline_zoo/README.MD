@@ -12,7 +12,7 @@
 - **未收录** 表示 `parsing/` 中没有对应论文目录；不是链接失效。
 - 同一篇论文在 `parsing/` 中可能存在大小写不同的重复目录，表中列主目录，并在备注中标出重复项。
 - 当前覆盖：42 个 adapter（41 个官方/参考 baseline + 1 个项目扩展
-  TopoWeave）中，18 个在 `parsing/` 有论文目录，其余标记为“未收录”。
+  CurvField）中，18 个在 `parsing/` 有论文目录，其余标记为“未收录”。
 
 ## Baseline ↔ 3rd 代码 ↔ parsing 论文
 
@@ -66,7 +66,7 @@
 |---|---|---|---|---|
 | `sam2_unet` | SAM2-UNet | `3rd/SAM2-UNet` | `parsing/[2024 arxiv] SAM2-UNet: Segment Anything 2 Makes Strong Encoder for Natural and Medical Image Segmentation` | 附录扩展 baseline；需 SAM2 Hiera-L 权重 |
 | `sam_vit_l_unet` | SAM ViT-L + U-Net | `3rd/segment-anything` | `parsing/[2023 iccv] Segment Anything` | 本项目扩展，不是论文 baseline；3rd 仅提供 SAM 基座，U-Net decoder 为自包含实现 |
-| `topoweave` | TopoWeave | 无（新方法） | 未收录 | 本项目扩展，由 MaskVSC 的设计教训衍生；单阶段 GroupNorm ResUNet + 门控双输入图 refiner + width-aware TopoMask + bounded soft-clDice；不是官方 baseline，无官方权重/parity；见 `models/topoweave/UPSTREAM.md` |
+| `curvfield` | CurvField | 基于 Conv-LoRA（已有内部实现） | 未收录 | 本项目扩展：共享曲线结构场（中心线/半径/方向/分叉）+ 零初始化场条件化 adapter；不是官方 Conv-LoRA/SACM baseline；见 `models/curvfield/` |
 | `ucs` | UCS | `3rd/UCS` | `parsing/[2023 iccv] UCS: A Universal Model for Curvilinear Structure Segmentation` | oracle-prompted reference，不是 prompt-free |
 
 ## 未集成 / 已排除（不属于 registry 的方法）
