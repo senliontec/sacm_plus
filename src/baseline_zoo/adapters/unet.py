@@ -127,34 +127,44 @@ class UNetAdapter(BaselineAdapter):
             # Generic epoch-based override (--scheduler cosine/poly/...).
             scheduler.step()
 
-    def _resize_pair(self, sample):
-        """Official BasicDataset.preprocess at ``scale`` (image/mask pair)."""
+    def _load_image(self, sample):
+        """Official BasicDataset.preprocess for the image."""
         with Image.open(sample.image_path) as image_file:
             image = image_file.convert('RGB')
             width, height = image.size
-            with Image.open(sample.mask_path) as mask_file:
-                mask = mask_file.convert('L')
-                if mask.size != image.size:
-                    raise RuntimeError(
-                        f'{self.id}: image/mask size mismatch for '
-                        f'{sample.image_path}: {image.size} vs {mask.size}')
-                new_w = int(self.scale * width)
-                new_h = int(self.scale * height)
-                if new_w <= 0 or new_h <= 0:
-                    raise RuntimeError(
-                        f'{self.id}: scale={self.scale} produces an empty '
-                        f'image for {sample.image_path} '
-                        f'({width}x{height})')
-                image = image.resize((new_w, new_h), Image.BICUBIC)
-                mask = mask.resize((new_w, new_h), Image.NEAREST)
-
+            new_w = int(self.scale * width)
+            new_h = int(self.scale * height)
+            if new_w <= 0 or new_h <= 0:
+                raise RuntimeError(
+                    f'{self.id}: scale={self.scale} produces an empty '
+                    f'image for {sample.image_path} ({width}x{height})')
+            image = image.resize((new_w, new_h), Image.BICUBIC)
         image_np = np.asarray(image, dtype=np.float32).copy()
         if (image_np > 1).any():  # official uint8 -> [0, 1]
             image_np /= 255.0
+        return image_np, (width, height)
+
+    def _load_mask(self, sample, image_size):
+        """Official BasicDataset.preprocess for the mask (training only)."""
+        with Image.open(sample.mask_path) as mask_file:
+            mask = mask_file.convert('L')
+            if mask.size != image_size:
+                raise RuntimeError(
+                    f'{self.id}: image/mask size mismatch for '
+                    f'{sample.image_path}: {image_size} vs {mask.size}')
+            new_w = int(self.scale * mask.size[0])
+            new_h = int(self.scale * mask.size[1])
+            mask = mask.resize((new_w, new_h), Image.NEAREST)
         # Every protocol mask is {0, 255}; this is equivalent to the
         # official sorted mask_values mapping and keeps the binary head.
         mask_np = (np.asarray(mask, dtype=np.float32).copy() > 127.0)
-        return image_np, mask_np.astype(np.float32)
+        return mask_np.astype(np.float32)
+
+    def _resize_pair(self, sample):
+        """Official BasicDataset.preprocess at ``scale`` (image/mask pair)."""
+        image_np, image_size = self._load_image(sample)
+        mask_np = self._load_mask(sample, image_size)
+        return image_np, mask_np
 
     def prepare_train_batch(self, samples, rng: random.Random):
         del rng  # the official U-Net trainer has no augmentation
@@ -178,19 +188,22 @@ class UNetAdapter(BaselineAdapter):
                 dice_loss(logits, masks))
 
     def prepare_eval_sample(self, sample, device):
-        image_np, _ = self._resize_pair(sample)
+        # predict.py preprocesses the image only; the GT mask is opened
+        # later for the output size.
+        image_np, _ = self._load_image(sample)
         tensor = torch.from_numpy(image_np).permute(2, 0, 1)
         return tensor.unsqueeze(0).to(device)
 
     def predict_sample(self, model, prepared, sample):
-        logits = model(prepared)
+        # Upstream moves the logits to CPU, upsamples them, and only then
+        # applies sigmoid; interpolating probabilities changes boundary
+        # decisions, and CPU bilinear matches predict.py exactly.
+        logits = model(prepared).float().cpu()
         with Image.open(sample.mask_path) as mask:
             width, height = mask.size
-        # Upstream predicts logits first, then upsamples, then applies
-        # sigmoid; interpolating probabilities changes boundary decisions.
         logits = F.interpolate(logits, size=(height, width),
                                mode='bilinear', align_corners=False)
-        return (torch.sigmoid(logits)[0, 0].cpu().numpy() > 0.5)
+        return (torch.sigmoid(logits)[0, 0].numpy() > 0.5)
 
     def save_config(self, args):
         return {'scale': float(self.scale)}
