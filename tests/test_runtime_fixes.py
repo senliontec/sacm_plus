@@ -679,3 +679,23 @@ def test_tuning_trial_command_passes_selection_and_seed():
     assert '--scheduler cosine' in command
     assert '--warmup-epochs 5' in command
     assert '--wandb_name unet-seed3-trial7' in command
+
+
+def test_compact_log_table_puts_cldice_next_to_dice():
+    from baseline_zoo.runtime import LOG_COLS, LOG_WIDTHS
+    assert LOG_COLS == ('ep', 'tr_loss', 'Dice↑', 'clDice↑', 'IoU↑',
+                        'HD95↓', 'lr', 'time')
+    assert len(LOG_COLS) == len(LOG_WIDTHS)
+
+
+def test_compact_log_row_follows_header_order(monkeypatch):
+    from baseline_zoo import runtime
+    printed = []
+    monkeypatch.setattr(runtime.console, 'print',
+                        lambda *args, **kwargs: printed.append(args[0]))
+    runtime.print_epoch_row(
+        1, 1.0,
+        {'dice': 0.1, 'cldice': 0.2, 'iou': 0.3, 'hd95': 4.0},
+        1e-5, 2, False)
+    row = printed[-1]
+    assert row.index('0.1000') < row.index('0.2000') < row.index('0.3000')

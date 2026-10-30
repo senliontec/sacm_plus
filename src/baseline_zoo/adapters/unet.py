@@ -1,11 +1,14 @@
 """U-Net baseline: vendored milesial/PyTorch-UNet architecture.
 
-The adapter follows the official training/inference recipe: per-image
-``scale=0.5`` preprocessing (variable input size), batch size 1, RMSprop,
-``ReduceLROnPlateau`` on validation Dice, no augmentation, BCE + the
-official global Dice loss, and logit-space bilinear upsampling at
-prediction.  The shared 3-shot protocol supplies 18 train / 6 val images
-and 800 epochs; those protocol-level choices are listed in ``deviations``.
+The official milesial architecture, BCE+Dice loss, per-image scale
+preprocessing and logit-space bilinear upsampling are preserved.  The
+literal official training recipe (RMSprop lr=1e-5, ReduceLROnPlateau,
+scale=0.5, no augmentation) is not usable on the 18-image 3-shot split:
+its plateau collapses the LR to 1e-8 by epoch 19.  This port therefore
+uses a documented 3-shot recipe: scale=1.0 (native resolution), batch 1,
+AdamW lr=1e-3/wd=1e-4, cosine over 800 epochs, flips/90-degree
+rotations, gradient clipping 1.0.  Label the row "3-shot U-Net (official
+architecture; adapted recipe)".
 """
 
 from __future__ import annotations
@@ -47,73 +50,61 @@ class UNetAdapter(BaselineAdapter):
     # Official preprocessing is a per-image scale factor, so the model input
     # is variable-size; 0 marks that this adapter does not use a fixed size.
     input_size = 0
-    scale = 0.5
-    official_lr = 1e-5
-    official_weight_decay = 1e-8
+    scale = 1.0
+    # 3-shot adapted defaults; the official RMSprop recipe is 1e-5/1e-8.
+    official_lr = 1e-3
+    official_weight_decay = 1e-4
     train_batch_size = 1
     default_grad_clip = 1.0
     selection = 'dice'
-    # ReduceLROnPlateau needs the validation metric, so the shared runtime
-    # steps it after evaluate() instead of inside train_epoch().
+    # The shared runtime steps the scheduler after validation; the override
+    # below handles cosine and any future metric-based scheduler.
     scheduler_after_validation = True
     deviations = (
-        'There is no canonical U-Net 3-shot trainer; the vendored milesial '
-        'architecture, BCE+Dice loss, RMSprop optimizer, '
-        'ReduceLROnPlateau scheduler and gradient clipping norm 1.0 follow '
-        'the official recipe.',
-        'Official per-image scale=0.5 resize (variable input size) and batch '
-        'size 1; the shared protocol supplies 18 train / 6 val images and '
-        'extends the official 5-epoch default to 800 epochs.',
-        'A one-class (BCE + foreground Dice) head is used; upstream train.py '
-        'defaults to two classes (CE + multiclass Dice), but its 1-class '
-        'branch is the official binary mode.',
-        'Grayscale protocol images are converted to RGB because the vendored '
-        'model expects three input channels; upstream keeps 2-D images '
-        'single-channel and would assert.',
-        'Checkpoint selected on the 6-image val split by Dice; upstream saves '
-        'every epoch and evaluates a random 10% split.',
+        'Official milesial architecture, BCE+Dice loss, per-image scale '
+        'preprocessing and logit-space bilinear upsampling are preserved.',
+        'The literal official 5-epoch RMSprop lr=1e-5/ReduceLROnPlateau '
+        'recipe collapsed the LR to 1e-8 by epoch 19 on the 18-image split '
+        '(three groups of five non-improving epochs; PyTorch eps=1e-8 then '
+        'prevents further reductions).  The 3-shot recipe therefore uses '
+        'scale=1.0 native resolution, batch 1, AdamW lr=1e-3/wd=1e-4, '
+        'cosine over 800 epochs and flips/90-degree rotations.  Label this '
+        'row "3-shot U-Net (official architecture; adapted recipe)", not '
+        'an official U-Net reproduction.',
+        'A one-class (BCE + foreground Dice) head is used; upstream '
+        'train.py defaults to two classes (CE + multiclass Dice), but its '
+        '1-class branch is the official binary mode.',
+        'Grayscale protocol images are converted to RGB because the '
+        'vendored model expects three input channels; upstream keeps 2-D '
+        'images single-channel and would assert.',
+        'Checkpoint selected on the 6-image val split by Dice; upstream '
+        'saves every epoch and evaluates a random 10% split.',
         'Validation Dice is computed at GT resolution by the shared '
         'evaluator; upstream evaluates at the scaled input resolution.',
-        'ReduceLROnPlateau is stepped once per epoch on the shared 6-image '
-        'validation split; upstream steps it every n_train // '
-        '(5*batch_size) steps on a random 10% split.',
-        'Official DataLoader workers=os.cpu_count(), shuffle=True and a global '
-        'RNG; this port uses workers=0 and a per-epoch seeded RNG, so data '
-        'order and floating-point accumulation are not bitwise identical.',
+        'Official DataLoader workers=os.cpu_count(), shuffle=True and a '
+        'global RNG; this port uses workers=0 and a per-epoch seeded RNG, '
+        'so data order and floating-point accumulation are not bitwise '
+        'identical.',
     )
 
     def add_args(self, parser):
         parser.add_argument(
             '--scale', type=float, default=self.scale,
-            help='Official per-image downscaling factor (default 0.5)')
-        parser.add_argument(
-            '--momentum', type=float, default=0.999,
-            help='RMSprop momentum (official 0.999)')
+            help='Per-image resampling factor (default 1.0 = native; use '
+                 '0.5 if a 24 GiB card cannot fit the largest image)')
 
     def build_model(self, args) -> nn.Module:
         self.scale = float(getattr(args, 'scale', self.scale))
         return UNet(n_channels=3, n_classes=1)
 
     def make_optimizer(self, model, args):
-        params = [p for p in model.parameters() if p.requires_grad]
-        kwargs = dict(
-            lr=args.lr,
-            weight_decay=args.weight_decay,
-            momentum=float(getattr(args, 'momentum', 0.999)),
-        )
-        # The official trainer runs on CUDA with foreach=True; CPU tests use
-        # the standard implementation.
-        use_foreach = any(p.is_cuda for p in params)
-        try:
-            return torch.optim.RMSprop(params, foreach=use_foreach, **kwargs)
-        except TypeError:  # pragma: no cover - torch without foreach
-            return torch.optim.RMSprop(params, **kwargs)
+        return torch.optim.AdamW(
+            [p for p in model.parameters() if p.requires_grad],
+            lr=args.lr, weight_decay=args.weight_decay)
 
     def make_scheduler(self, optimizer, args):
-        mode = ('min' if getattr(args, 'selection', 'dice') == 'hd95'
-                else 'max')
-        return torch.optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer, mode=mode, patience=5)
+        return torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, T_max=max(int(getattr(args, 'epochs', 1)), 1))
 
     def step_scheduler(self, scheduler, metrics: dict[str, float]) -> None:
         if scheduler is None:
@@ -124,7 +115,7 @@ class UNetAdapter(BaselineAdapter):
                    else self.selection)
             scheduler.step(metrics[key])
         else:
-            # Generic epoch-based override (--scheduler cosine/poly/...).
+            # Cosine / other epoch-based schedules.
             scheduler.step()
 
     def _load_image(self, sample):
@@ -167,17 +158,29 @@ class UNetAdapter(BaselineAdapter):
         return image_np, mask_np
 
     def prepare_train_batch(self, samples, rng: random.Random):
-        del rng  # the official U-Net trainer has no augmentation
         images, masks = [], []
         for sample in samples:
             image_np, mask_np = self._resize_pair(sample)
-            images.append(torch.from_numpy(image_np).permute(2, 0, 1))
-            masks.append(torch.from_numpy(mask_np).unsqueeze(0))
+            image = torch.from_numpy(image_np).permute(2, 0, 1)
+            mask = torch.from_numpy(mask_np).unsqueeze(0)
+            # Joint 3-shot augmentation (the official trainer has none).
+            if rng.random() < 0.5:
+                image = torch.flip(image, [-1])
+                mask = torch.flip(mask, [-1])
+            if rng.random() < 0.5:
+                image = torch.flip(image, [-2])
+                mask = torch.flip(mask, [-2])
+            k = rng.randrange(4)
+            if k:
+                image = torch.rot90(image, k, dims=[-2, -1])
+                mask = torch.rot90(mask, k, dims=[-2, -1])
+            images.append(image)
+            masks.append(mask)
         shapes = {tuple(tensor.shape) for tensor in images}
         if len(shapes) > 1:
             raise RuntimeError(
-                f'{self.id}: official scale=0.5 preprocessing produces '
-                f'variable input sizes ({sorted(shapes)}); use --batch-size 1')
+                f'{self.id}: scale={self.scale} produces variable input '
+                f'sizes ({sorted(shapes)}); use --batch-size 1')
         return (torch.stack(images).to(self.device),
                 torch.stack(masks).to(self.device))
 

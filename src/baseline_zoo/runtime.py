@@ -327,9 +327,9 @@ def evaluate(adapter: BaselineAdapter, model: nn.Module,
 
 
 LOG_SEP = ' │ '
-LOG_COLS = ('ep', 'tr_loss', 'Dice↑', 'IoU↑', 'clDice↑', 'HD95↓',
+LOG_COLS = ('ep', 'tr_loss', 'Dice↑', 'clDice↑', 'IoU↑', 'HD95↓',
             'lr', 'time')
-LOG_WIDTHS = (5, 8, 7, 7, 8, 7, 8, 8)
+LOG_WIDTHS = (5, 8, 7, 8, 7, 7, 8, 8)
 LOG_RULE = '─┼─'.join('─' * width for width in LOG_WIDTHS)
 LOG_FOOTER = '─' * (sum(LOG_WIDTHS) + 3 * (len(LOG_WIDTHS) - 1))
 
@@ -371,8 +371,8 @@ def print_epoch_row(epoch, loss, metrics, lr, elapsed, improved):
         f'E{epoch:03d}',
         f'{loss:.4f}',
         _metric_text(metrics['dice']),
-        _metric_text(metrics['iou']),
         _metric_text(metrics['cldice']),
+        _metric_text(metrics['iou']),
         _hd95_text(metrics['hd95']),
         f'{lr:.2e}',
         f'{elapsed:.0f}s{star}',

@@ -19,8 +19,8 @@ defaults:
     choices: [0, 5, 10, 20, 50]
 
 models:
-  # The official U-Net recipe uses ReduceLROnPlateau on validation Dice;
-  # generic epoch-scheduler/warmup overrides would replace it.
+  # The 3-shot U-Net recipe uses cosine; keep the scheduler fixed during
+  # HPO (lr/wd are still searched).
   unet:
     scheduler:
       choices: [official]

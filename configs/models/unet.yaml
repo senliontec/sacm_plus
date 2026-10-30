@@ -17,9 +17,11 @@ eval_entrypoint: >-
   --device cuda:{gpu} --use_wandb true --skip-visualize
 protocols: [seeded5, fixed]
 note: >-
-  Official milesial recipe (per-image scale=0.5, batch 1, RMSprop,
-  ReduceLROnPlateau on validation Dice, no augmentation) extended to the
-  shared 800-epoch 3-shot budget and 6-image validation split; 1-class
-  binary head.
+  3-shot adapted recipe: official milesial U-Net architecture + BCE/Dice,
+  per-image scale=1.0 (native), batch 1, AdamW lr=1e-3/wd=1e-4, cosine
+  over 800 epochs, flips/90-degree rotations.  The literal official
+  RMSprop 1e-5/ReduceLROnPlateau recipe collapsed the LR to 1e-8 by
+  epoch 19 on 18 images; label as "3-shot U-Net (official architecture;
+  adapted recipe)".
 defaults:
   epochs: 800

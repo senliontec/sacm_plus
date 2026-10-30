@@ -25,7 +25,7 @@ Legend:
 
 | model | architecture | recipe | inference | weights | proposed placement | note |
 |---|---|---|---|---|---|---|
-| `unet` | exact code, binary head | official | official | retrained | **main-adapted** | official code/config (scale=0.5, batch 1, RMSprop, ReduceLROnPlateau, no augmentation); 800-epoch 3-shot budget, 6-image val and 1-class head are protocol adaptations; disclose |
+| `unet` | exact code, binary head | adapted | official | retrained | **main-adapted** | official architecture/loss/scale preprocessing/logit upsample; 3-shot recipe adapted (scale=1.0, batch 1, AdamW 1e-3/cosine, flips/rot90) because the literal official RMSprop/ReduceLROnPlateau recipe collapsed LR on 18 images; disclose as "3-shot U-Net" |
 | `cs2net` | exact | official | adapted | retrained | **main-adapted** | official train recipe; official predict.py is unrunnable, port rewrites center-crop/Otsu/GT placement |
 | `bcunet` | repaired | approximate | adapted | retrained | **appendix** | official code has SyntaxError/undefined upconv2x2; loss/fused semantics changed; not an official reproduction |
 | `maskvsc` | exact | official | adapted | retrained | **main-adapted** | protocol/seed and GT export adapted; architecture and loss preserved |
@@ -59,7 +59,7 @@ wholesale. The differences fall into three groups.
 
 | model | official task/data | port difference |
 |---|---|---|
-| `unet` | Carvana RGB car masks; official 2-class output (`3rd/Pytorch-UNet/train.py:182`) | 20 mixed domains; 1-class head; official RMSprop/scale=0.5; 800-epoch 3-shot budget |
+| `unet` | Carvana RGB car masks; official 2-class output (`3rd/Pytorch-UNet/train.py:182`) | 20 mixed domains; 1-class head; 3-shot adapted AdamW/cosine/scale=1.0; 800-epoch budget |
 | `cs2net` | DRIVE/STARE retinal vessels (`3rd/CS-Net/README.md`) | 20 domains; official train recipe; inference rewritten |
 | `bcunet` | DRIVE/DR HAGIS/KVASIR/CVC binary (`3rd/BCU-Net/README.md:43`) | 20 domains; official code repaired |
 | `maskvsc` | five retinal vascular datasets, binary | 20 domains; architecture/loss preserved; selection/export adapted |

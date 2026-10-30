@@ -1,4 +1,4 @@
-"""Regression tests for the official U-Net baseline port."""
+"""Regression tests for the 3-shot U-Net baseline port."""
 
 import argparse
 import random
@@ -17,7 +17,7 @@ def _adapter() -> UNetAdapter:
     adapter = UNetAdapter()
     adapter.device = torch.device('cpu')
     adapter.args = argparse.Namespace(
-        selection='dice', lr=1e-5, weight_decay=1e-8, momentum=0.999)
+        selection='dice', lr=1e-3, weight_decay=1e-4)
     return adapter
 
 
@@ -25,14 +25,16 @@ def _sample(tmp_path: Path, width: int = 200, height: int = 100,
             name: str = 'img') -> Sample:
     image_path = tmp_path / f'{name}.png'
     mask_path = tmp_path / f'{name}_mask.png'
-    Image.new('RGB', (width, height), (10, 20, 30)).save(image_path)
+    image = Image.new('RGB', (width, height), (10, 20, 30))
     mask = Image.new('L', (width, height), 0)
-    # Off-centre so a flip/rotation would be visible in the no-augmentation
-    # regression test.
+    # Matching bright pixel block in image and mask, off-centre so a
+    # flip/rotation would be visible if the transforms were not joint.
     cx, cy = width // 4, height // 4
     for x in range(cx - 2, cx + 2):
         for y in range(cy - 2, cy + 2):
+            image.putpixel((x, y), (255, 255, 255))
             mask.putpixel((x, y), 255)
+    image.save(image_path)
     mask.save(mask_path)
     return Sample(image_path, mask_path, 'TEST', name)
 
@@ -60,35 +62,33 @@ def test_dice_loss_is_global_over_batch():
     assert torch.isfinite(logits.grad).all()
 
 
-def test_default_recipe_matches_official():
+def test_default_recipe_matches_3shot():
     args = build_parser(UNetAdapter()).parse_args(['--stage', 'train'])
-    assert args.lr == 1e-5
-    assert args.weight_decay == 1e-8
-    assert args.momentum == 0.999
-    assert args.scale == 0.5
+    assert args.lr == 1e-3
+    assert args.weight_decay == 1e-4
+    assert args.scale == 1.0
     assert args.batch_size == 1
     assert args.grad_clip == 1.0
 
 
-def test_optimizer_is_official_rmsprop():
+def test_optimizer_is_adamw():
     adapter = UNetAdapter()
     args = build_parser(adapter).parse_args(['--stage', 'train'])
     optimizer = adapter.make_optimizer(torch.nn.Linear(2, 2), args)
-    assert isinstance(optimizer, torch.optim.RMSprop)
+    assert isinstance(optimizer, torch.optim.AdamW)
     group = optimizer.param_groups[0]
-    assert group['lr'] == 1e-5
-    assert group['weight_decay'] == 1e-8
-    assert group['momentum'] == 0.999
+    assert group['lr'] == 1e-3
+    assert group['weight_decay'] == 1e-4
 
 
-def test_scheduler_is_plateau_on_dice():
+def test_scheduler_is_cosine():
     adapter = UNetAdapter()
     args = build_parser(adapter).parse_args(['--stage', 'train'])
     optimizer = adapter.make_optimizer(torch.nn.Linear(2, 2), args)
     scheduler = adapter.make_scheduler(optimizer, args)
-    assert isinstance(scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau)
-    assert scheduler.mode == 'max'
-    assert scheduler.patience == 5
+    assert isinstance(scheduler,
+                      torch.optim.lr_scheduler.CosineAnnealingLR)
+    assert scheduler.T_max == args.epochs
     assert adapter.scheduler_after_validation is True
 
 
@@ -117,19 +117,17 @@ def test_step_scheduler_generic_scheduler_uses_no_argument_step():
     assert calls == ['stepped']
 
 
-def test_official_preprocessing_is_scale_half_without_augmentation(tmp_path):
+def test_3shot_preprocessing_scale_one_with_joint_augmentation(tmp_path):
     adapter = _adapter()
-    sample = _sample(tmp_path, 200, 100)
+    sample = _sample(tmp_path, 200, 200)
     images, masks = adapter.prepare_train_batch([sample], random.Random(0))
-    assert tuple(images.shape) == (1, 3, 50, 100)
-    assert tuple(masks.shape) == (1, 1, 50, 100)
-    # No augmentation: the same sample is identical for any RNG seed.
-    images2, masks2 = adapter.prepare_train_batch([sample], random.Random(999))
-    assert torch.equal(images, images2)
-    assert torch.equal(masks, masks2)
-    # 0/255 mask -> 0/1 float; the foreground block survives NEAREST resize.
-    assert masks.max().item() == 1.0
-    assert masks.sum().item() > 0
+    assert tuple(images.shape) == (1, 3, 200, 200)
+    assert tuple(masks.shape) == (1, 1, 200, 200)
+    # The 4x4 foreground block survives flips/90-degree rotations.
+    assert masks.sum().item() == 16.0
+    # Image and mask must receive the same transform.
+    fg = masks[0, 0] > 0
+    assert images[0][:, fg].mean() > images[0][:, ~fg].mean()
 
 
 def test_variable_input_sizes_require_batch_one(tmp_path):
@@ -158,12 +156,12 @@ def test_scale_config_roundtrip():
     args = build_parser(UNetAdapter()).parse_args(
         ['--stage', 'predict', '--test-datasets', 'X:y'])
     adapter = UNetAdapter()
-    adapter.scale = 0.25
+    adapter.scale = 0.5
     config = adapter.save_config(args)
     restored = UNetAdapter()
     restored.restore_config(args, config)
-    assert restored.scale == 0.25
-    assert args.scale == 0.25
+    assert restored.scale == 0.5
+    assert args.scale == 0.5
 
 
 def test_default_grad_clip_matches_official():

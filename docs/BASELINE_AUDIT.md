@@ -18,7 +18,7 @@ collector and report pipeline.
 
 | Model | Status after audit | Main fixes |
 |---|---|---|
-| U-Net (`unet`) | OK with documented protocol deviations | official per-image scale=0.5, batch 1, RMSprop 1e-5/ReduceLROnPlateau, no augmentation; official batch Dice (eps 1e-6, empty-set branch) and logit-space upsample; 800-epoch 3-shot budget, 6-image val and 1-class/RGB deviations documented |
+| U-Net (`unet`) | OK with documented 3-shot adapted recipe | official milesial architecture, BCE+Dice, per-image scale preprocessing and logit-space upsample; 3-shot recipe: scale=1.0 native, batch 1, AdamW 1e-3/wd 1e-4, cosine 800, flips/rot90; the literal official RMSprop 1e-5/ReduceLROnPlateau recipe collapsed LR to 1e-8 by epoch 19; 1-class/RGB/6-image val documented |
 | CS2Net-2D (`cs2net`) | OK, identity clarified | official 2D branch `model/csnet.py` + `train.py`; `model/csnet_3d.py` is the separate 3D CS2Net extension and is not applicable to 2D protocol images; LambdaLR one-epoch offset matches upstream |
 | BCUNet (`bcunet`) | OK, paper profile | MRL/RecallCE on ConvNeXt/U-Net/fused, 0.5/0.5 fusion, bilinear U-Net (broken release branch repaired), 18× offline augmentation reconstruction, 100 epochs/batch 2; CE/0.4-0.6/no-aug ablations; OutConv 1×1 logits |
 | MaskVSC (`maskvsc`) | OK, full two-stage release main | stage-1 UNet + stage-2 ViG completion (`ViG(Seg(image))`); official patch16 token-fold decode, soft GCN labels, ViG 23.84M/full 31.61M; main baseline release L_C/flip-only/dot-product KNN; paper L_C/rotation/Euclidean are ablations because paper L_C overweights sparse domains (10-100× BCE) and collapsed CORN/CrackTree/DCA1 (100-epoch seed-0 A/B: release 0.4612/0.4726 vs paper 0.1133/0.1636); patch32 `coherent` ablation; pooled 512 / 600+200 |
@@ -118,10 +118,11 @@ Not unified, by design or documented exception:
 - **SegDINO**: real training needs DINOv3 weights. A size-matched file under
   `checkpoints/` is detected automatically; otherwise set `DINO_CKPT` /
   `--dino-ckpt` or `HF_TOKEN`. Prediction no longer downloads them.
-- **U-Net**: the official milesial recipe (per-image scale=0.5, batch 1,
-  RMSprop, ReduceLROnPlateau, no augmentation) is used; the 800-epoch
-  3-shot budget, 6-image validation split and 1-class binary head are
-  protocol adaptations listed in the adapter's `deviations`.
+- **U-Net**: official milesial architecture/BCE+Dice/per-image scale
+  preprocessing/logit upsample; the training recipe is adapted for 3-shot
+  (scale=1.0, batch 1, AdamW 1e-3/cosine, flips/rot90) because the literal
+  official RMSprop 1e-5/ReduceLROnPlateau recipe collapsed the LR to 1e-8
+  by epoch 19 on 18 images.
 - Full 5-seed × 20-dataset training has not been run; this audit covers
   source-level correctness and one-step/short smoke tests.
 
@@ -860,16 +861,22 @@ resulting pool is CHASEDB1 train-group fellow eyes (3), CREMI volume B
 asserts both exact-image and group-level exclusion.  KnowSAM runs started
 before this fix must not be used for the paper; rerun after the fix.
 
-## U-Net official-recipe addendum (2026-10-30)
+## U-Net 3-shot recipe addendum (2026-10-30)
 
-The U-Net adapter was re-ported to the official milesial recipe: per-image
-`scale=0.5` (variable input size, batch 1), RMSprop lr 1e-5/wd 1e-8/
-momentum 0.999, `ReduceLROnPlateau('max', patience=5)` stepped on
-validation Dice, no augmentation, BCE + official global Dice, gradient
-clipping 1.0, and logit-space bilinear upsampling.  The shared 3-shot
-protocol still supplies 18 train / 6 val images, 800 epochs, the 6-image
-validation split and the 1-class binary head; these are listed in
-`UNetAdapter.deviations`.  The previous fixed-512/AdamW/cosine/flip-rot90
-recipe is removed.  Numerical parity for loss, forward and prediction is
-unchanged (bit-exact); the one-epoch smoke must be rerun under the new
-preprocessing before reporting.
+The literal official milesial recipe (RMSprop lr 1e-5, `ReduceLROnPlateau`
+patience 5, `scale=0.5`, no augmentation) was run on the 18-image seed-0
+split.  The first epoch's 0.081 val Dice became the plateau best; after
+three groups of five non-improving epochs the LR reached 1e-8, and
+PyTorch's default `eps=1e-8` prevented further reductions, leaving the
+model nearly frozen from epoch 19 (val Dice 0.1467 at epoch 111).  This
+is official-recipe behavior, not a porting bug (`ReduceLROnPlateau` eps
+floor; the official trainer would step it even more often).
+
+The row therefore uses a documented 3-shot adapted recipe: official
+milesial architecture, BCE+Dice loss, per-image scale preprocessing and
+logit-space bilinear upsampling; `scale=1.0` native resolution, batch 1,
+AdamW lr 1e-3/wd 1e-4, cosine over 800 epochs, flips/90-degree
+rotations, gradient clipping 1.0.  A 30-epoch smoke (4 train / 2 val
+images) reached 0.486 val Dice at epoch 18 with a monotone cosine LR, so
+the recipe is trainable.  Label it "3-shot U-Net (official architecture;
+adapted recipe)"; do not claim an official U-Net reproduction.
