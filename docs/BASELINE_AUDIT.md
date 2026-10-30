@@ -26,7 +26,7 @@ collector and report pipeline.
 | SAM-Med2D (`sam_med2d`) | OK with official ViT-B checkpoint | default loads `sam-med2d_b.pth` at 256 with Adapter; full decoder inheritance and regression tests; ViT-L only an explicit comparison |
 | SAM-OCTA (`sam_octa`) | OK | removed pre-model padding; SAM now records the pre-pad size and crops postprocess correctly for non-square images |
 | CWSAM (`cwsam`) | OK | bilinear image resize matches `transforms.Resize`; UPSTREAM checkpointing claims corrected |
-| KnowSAM (`knowsam`) | OK | fixed protocol/validation leak in unlabeled pool; CORN source root; protocol seeding; CPU-safe import/training path; equal labeled/unlabeled streams; stale staging cleared; `--epochs` wired to iteration budget; docs updated |
+| KnowSAM (`knowsam`) | OK | fixed exact-stem and protocol-group validation/test leakage in the unlabeled pool (CREMI volume / CHASEDB1 subject / CORN batch); CORN source root; protocol seeding; CPU-safe import/training path; equal labeled/unlabeled streams; stale staging cleared; `--epochs` wired to iteration budget; docs updated |
 | SegDINO (`segdino`) | OK with local-weight requirement | auto-detects a size-matched checkpoint under `checkpoints/` (no env setup); prediction reconstructs the saved backbone size without a gated download; DPT uses the selected backbone’s layer indices; strict checkpoint coverage check; `drop_last=True`; config stored in checkpoint |
 | SACM official (`sacm_official`) | OK | gradient clipping 1.0 is now effective (`--clip-grad-norm` → `grad_clip`); bilinear resize; sigmoid-threshold correction documented; UPSTREAM claims corrected |
 | SAM ViT-L + U-Net (`sam_vit_l_unet`) | OK | augmentation moved back after the frozen encoder (matching the previous adapter); decoder-only checkpoint format restored; 1024 input guard restored |
@@ -837,3 +837,24 @@ official batch fits the 24 GiB target GPUs.  Prediction exported 20 DRIVE
 masks in 1 s at 565×584 with 0/255 values.  The local ResNet-34 loader was
 also checked with a synthetic 218-key state dict.  See
 `src/baseline_zoo/models/dconnnet/UPSTREAM.md`.
+
+## KnowSAM group-level pool fix (2026-10-30)
+
+A fresh parity audit of the eleven originally requested baselines found one
+remaining protocol bug in KnowSAM.  Staging excluded only the exact
+`source_image` stems listed in `split_manifest.csv`; it did not exclude the
+protocol `group`.  With seed 42 this admitted CREMI `sample_A_z001..z124`
+(validation volume A) and CHASEDB1 `Image_06L` (validation subject 06) into
+the unlabeled pool, biasing SGDL-Dice validation and best-checkpoint
+selection for those domains.  Test groups were still excluded exactly, so
+test masks were not directly staged, but the pool violated the group-level
+split.
+
+`KnowSAMAdapter._stage` now builds the validation/test group sets from the
+manifest and maps unmanifested source filenames to groups with
+`_source_group` (CREMI volume, CHASEDB1 subject, CORN batch).  A source image
+that cannot be mapped raises instead of silently entering the pool.  The
+resulting pool is CHASEDB1 train-group fellow eyes (3), CREMI volume B
+(122 slices) and CORN train batches.  `tests/test_runtime_fixes.py` now
+asserts both exact-image and group-level exclusion.  KnowSAM runs started
+before this fix must not be used for the paper; rerun after the fix.

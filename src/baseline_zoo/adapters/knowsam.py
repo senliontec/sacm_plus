@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import csv
 import json
+import re
 import shutil
 from pathlib import Path
 from types import SimpleNamespace
@@ -41,6 +42,31 @@ from core.wandb_utils import (
 )
 
 SOURCE_DOMAINS = ('DRIVE', 'CHASEDB1', 'DCA1', 'CREMI', 'CrackTree200', 'CORN')
+
+# Raw source filenames -> split_manifest.csv ``group``.  The protocol split
+# unit is the group (CREMI volume, CHASEDB1 subject, CORN batch), so sibling
+# slices/eyes of a validation or test image must be excluded even when their
+# own filename is not listed in the manifest.
+_GROUP_PATTERNS = {
+    'CREMI': re.compile(r'^sample_([A-Z])_z\d+$'),
+    'CHASEDB1': re.compile(r'^Image_(\d+)[LR]$'),
+    'CORN': re.compile(r'^batch_(\d+)_'),
+}
+
+
+def _source_group(domain: str, stem: str) -> str | None:
+    """Map a raw source stem to its protocol group, or ``None`` if unknown."""
+    pattern = _GROUP_PATTERNS.get(domain)
+    if pattern is None:
+        return None
+    match = pattern.match(stem)
+    if match is None:
+        return None
+    if domain == 'CHASEDB1':
+        return f'CHASEDB1/{int(match.group(1)):02d}'
+    if domain == 'CORN':
+        return f'CORN/{int(match.group(1))}'
+    return f'{domain}/{match.group(1)}'
 
 
 def _largest_cc(mask: np.ndarray) -> np.ndarray:
@@ -92,15 +118,17 @@ class KnowSAMAdapter(BaselineAdapter):
         'images; the 3-shot protocol supplies 18 labeled images, so the '
         'adapter uses a configurable 3+3 batch (default total 6).',
         'Unlabeled data are drawn from the six seen-domain full training '
-        'pools. Every source stem present in split_manifest.csv (train, '
-        'validation and test) is excluded, so the semi-supervised pool '
-        'cannot see any protocol test image; capped by --unlabeled-limit. '
-        'Upstream uses per-dataset unlabeled pools with patients_to_slices. '
-        'After excluding all protocol images, only CHASEDB1 (4), CREMI (246) '
-        'and CORN (134) contribute non-test unlabeled images; DRIVE, DCA1 and '
-        'CrackTree200 have none because their full pools are in the test '
-        'manifest. The 384-image cap is therefore dominated by CREMI/CORN, '
-        'not six-domain coverage; this limitation must be reported.',
+        'pools. Every source stem present in split_manifest.csv is excluded, '
+        'and every validation/test group is excluded at the protocol group '
+        'level (CREMI volume, CHASEDB1 subject, CORN batch), so sibling '
+        'slices/eyes of a held-out image cannot enter the pool; capped by '
+        '--unlabeled-limit. Upstream uses per-dataset unlabeled pools with '
+        'patients_to_slices. After group filtering only CHASEDB1 (3), CREMI '
+        '(122 volume-B slices) and CORN (train batches) contribute non-held-'
+        'out unlabeled images; DRIVE, DCA1 and CrackTree200 have none because '
+        'their full pools are in the manifest. The 384-image cap is therefore '
+        'dominated by CORN, not six-domain coverage; this limitation must be '
+        'reported.',
         'Official DataLoader workers are 2 (labeled) and 1 (unlabeled); this '
         'port uses workers=0 and the shared seeded per-epoch RNG, so '
         'augmentation/data order is not bitwise identical.',
@@ -193,21 +221,23 @@ class KnowSAMAdapter(BaselineAdapter):
 
         # The protocol stem is <DOMAIN>_<source stem>, while the source pool
         # uses <source stem>.  Read split_manifest.csv and exclude every
-        # train/val/test source image; comparing protocol stems directly
-        # silently leaked validation/test images into the pool.
+        # train/val/test source image and every validation/test group;
+        # comparing protocol stems directly silently leaked validation/test
+        # images into the pool.
         excluded = {}
+        heldout_groups = {}
         manifest = data_root / 'split_manifest.csv'
         if not manifest.is_file():
             raise SystemExit(
                 'KnowSAM requires split_manifest.csv to exclude test images '
                 f'from the unlabeled pool: {manifest}')
-        # Exclude every protocol image (train, val and seen_test).  Test
-        # images are not unlabeled training data and must never enter the
-        # semi-supervised pool.
         with manifest.open(newline='') as handle:
             for row in csv.DictReader(handle):
-                excluded.setdefault(row['dataset'], set()).add(
+                dataset = row['dataset']
+                excluded.setdefault(dataset, set()).add(
                     Path(row['source_image']).stem)
+                if row['split'] in ('val', 'test'):
+                    heldout_groups.setdefault(dataset, set()).add(row['group'])
 
         count = 0
         for domain in SOURCE_DOMAINS:
@@ -216,8 +246,19 @@ class KnowSAMAdapter(BaselineAdapter):
                 domain_root = domain_root / 'train'
             if not (domain_root / 'images').is_dir():
                 continue
+            blocked = heldout_groups.get(domain, set())
             for sample in RawPairDataset(domain_root).samples:
                 if sample.stem in excluded.get(domain, set()):
+                    continue
+                group = _source_group(domain, sample.stem)
+                if group is None:
+                    # An unmanifested source image must map to a protocol
+                    # group before it may enter the pool.  Refuse to widen
+                    # the pool silently when a new source layout appears.
+                    raise SystemExit(
+                        f'KnowSAM cannot map {domain} source '
+                        f'{sample.stem!r} to a split_manifest.csv group')
+                if group in blocked:
                     continue
                 self._save_pair(root / 'unlabeled', sample,
                                 f'{domain}_{sample.stem}')

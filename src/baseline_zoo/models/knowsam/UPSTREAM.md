@@ -19,7 +19,9 @@
     `np.ascontiguousarray` before tensor conversion in the official dataset.
   - The adapter seeds all RNGs with the protocol seed, stages labeled/val/
     unlabeled data from the split manifest, excludes the exact protocol
-    source stems from the unlabeled pool, and clears stale staging files.
+    source stems and every validation/test protocol group (CREMI volume,
+    CHASEDB1 subject, CORN batch) from the unlabeled pool, and clears stale
+    staging files.
 - Extra dependencies: `medpy==0.4.0`, `hausdorff` (imported by the official
   metrics module).
 - Runtime consumer: `baseline_zoo.adapters.knowsam.KnowSAMAdapter`

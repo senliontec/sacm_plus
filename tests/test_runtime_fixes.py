@@ -200,17 +200,59 @@ def test_knowsam_shared_wandb_interval_default():
         ['--knowsam-shared-val', '0']).knowsam_shared_val == 0
 
 
-def test_knowsam_unlabeled_pool_excludes_protocol_images(tmp_path):
+def test_knowsam_source_group_mapping():
+    from baseline_zoo.adapters.knowsam import _source_group
+
+    assert _source_group('CREMI', 'sample_A_z001') == 'CREMI/A'
+    assert _source_group('CREMI', 'sample_B_z124') == 'CREMI/B'
+    assert _source_group('CHASEDB1', 'Image_06L') == 'CHASEDB1/06'
+    assert _source_group('CHASEDB1', 'Image_14R') == 'CHASEDB1/14'
+    assert _source_group('CORN', 'batch_12_1') == 'CORN/12'
+    assert _source_group('CORN', 'batch_9_162') == 'CORN/9'
+    assert _source_group('DRIVE', '40_training') is None
+    assert _source_group('CREMI', 'not-a-cremi-name') is None
+
+
+def test_knowsam_unlabeled_pool_excludes_protocol_images_and_groups(tmp_path):
+    from baseline_zoo.adapters.knowsam import _source_group
+
     adapter = load_adapter('knowsam')
     root = tmp_path / 'stage'
-    adapter._stage(root, Path('data/sacm_3shot_seed0'), 8)
-    staged = {path.name for path in (root / 'unlabeled' / 'image').glob('*')}
-    manifest = Path('data/sacm_3shot_seed0/split_manifest.csv')
+    data_root = Path('data/sacm_3shot_seed0')
+    adapter._stage(root, data_root, 8)
+    staged = sorted(path.name for path in (root / 'unlabeled' / 'image').glob('*'))
+    assert staged
+
+    manifest = data_root / 'split_manifest.csv'
+    heldout = {}
     with manifest.open(newline='') as handle:
         for row in csv.DictReader(handle):
-            # The unlabeled pool must exclude train, val and test rows.
+            if row['split'] in ('val', 'test'):
+                heldout.setdefault(row['dataset'], set()).add(row['group'])
+            # The unlabeled pool must exclude every exact protocol image.
             name = f"{row['dataset']}_{Path(row['source_image']).stem}_image.png"
             assert name not in staged
+
+    domains = ('CrackTree200', 'CHASEDB1', 'DCA1', 'CREMI', 'DRIVE', 'CORN')
+    for name in staged:
+        for domain in domains:
+            prefix = f'{domain}_'
+            if name.startswith(prefix):
+                stem = name[len(prefix):-len('_image.png')]
+                break
+        else:  # pragma: no cover - staging always prefixes a known domain
+            raise AssertionError(f'unrecognised staged pool name: {name}')
+        group = _source_group(domain, stem)
+        assert group is not None
+        # Sibling slices/eyes of a held-out group must never be staged.
+        assert group not in heldout.get(domain, set()), (name, group)
+
+    # CORN train batches are admissible even though their filenames are not
+    # all listed in the manifest; val batch 9 and test batches 10/11 are not.
+    assert 'CORN/1' not in heldout.get('CORN', set())
+    assert 'CORN/9' in heldout.get('CORN', set())
+    assert 'CORN/10' in heldout.get('CORN', set())
+    assert 'CORN/11' in heldout.get('CORN', set())
 
 
 def test_knowsam_largest_cc():
