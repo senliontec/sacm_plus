@@ -5,7 +5,7 @@
 #   GPU=1 bash scripts/run_paper.sh --model unet --seeds 0
 #   bash scripts/run_paper.sh --model all --seeds all --gpus 0,1,2,3 --resume
 #   bash scripts/run_paper.sh --model unet --seeds 0 --gpus 2
-#   bash scripts/run_paper.sh --model all --seeds all --gpus 0 --kill-gpu
+#   bash scripts/run_paper.sh --model all --seeds all --gpus 0 --no-kill
 #   bash scripts/run_paper.sh --model all --seeds all --tables-only
 #   bash scripts/run_paper.sh --model all --seeds all --dry-run
 #
@@ -15,10 +15,10 @@
 #   stale GPU=... environment variable from silently selecting another card.
 #
 # GPU cleanup:
-#   Clearing compute processes on the selected GPU(s) is destructive and is
-#   disabled by default.  Pass --kill-gpu when you explicitly want to stop
-#   processes on those GPUs.  --no-kill is retained as a no-op for backward
-#   compatibility.  Other GPUs are never touched.
+#   The selected GPU(s) are ALWAYS cleared before training, so a stale run
+#   can never share the card.  Only the GPUs passed via --gpus/GPU are
+#   touched.  Pass --no-kill to skip cleanup (e.g. when sharing a card);
+#   --kill-gpu is retained as a no-op for backward compatibility.
 #
 # --tables-only skips training/evaluation and only regenerates the paper
 # tables and figures from existing metrics.
@@ -33,7 +33,9 @@ export HF_HUB_OFFLINE="${HF_HUB_OFFLINE:-1}"
 export TRANSFORMERS_OFFLINE="${TRANSFORMERS_OFFLINE:-1}"
 
 TABLES_ONLY=0
-KILL_GPU=0
+# Force-clear the selected GPU(s) before every train/eval run.  --no-kill
+# is the explicit opt-out; --kill-gpu remains accepted for compatibility.
+KILL_GPU=1
 GPU_ENV="${GPU:-}"
 GPU_FLAG=0
 ARGS=()
@@ -113,7 +115,7 @@ if [ "$TABLES_ONLY" -eq 0 ] && [ "$DRY_RUN" -eq 0 ]; then
   if [ "$KILL_GPU" -eq 1 ]; then
     bash scripts/tools/clear_gpus.sh --gpus "$GPU_SPEC"
   else
-    echo "[run-paper] GPU cleanup disabled; pass --kill-gpu to clear GPU(s) $GPU_SPEC"
+    echo "[run-paper] GPU cleanup skipped by --no-kill; leaving GPU(s) $GPU_SPEC untouched"
   fi
 fi
 

@@ -12,6 +12,12 @@
 #   - skips this script's own process tree and all ancestors
 #   - skips display servers / compositors / IDE/browser GPU helpers
 #   - never uses sudo; other users' PIDs cannot be killed by this user
+#   - sends SIGTERM first, then SIGKILL after 5 s, and waits up to
+#     GPU_CLEAN_WAIT_SECONDS (default 30) for live PIDs to disappear and GPU
+#     memory to drop; <defunct> (zombie) PIDs hold no GPU resources and are
+#     ignored
+#   - GPU_CLEAN_MEM_LIMIT_MIB (default 1024) is the per-GPU used-memory
+#     ceiling above which the script reports a stuck GPU context
 set -uo pipefail
 
 DRY_RUN=0
@@ -163,16 +169,102 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
   exit 0
 fi
 
+# Ask the processes to exit cleanly first.  A SIGKILL delivered mid-kernel can
+# leave the CUDA context stuck: nvidia-smi keeps reporting the memory as used
+# even though no process is alive, and only a GPU reset/reboot recovers it.
+for pid in "${targets[@]}"; do
+  kill -TERM "$pid" 2>/dev/null || true
+done
+for _ in $(seq 1 5); do
+  alive=0
+  for pid in "${targets[@]}"; do
+    if kill -0 "$pid" 2>/dev/null; then
+      alive=1
+      break
+    fi
+  done
+  [[ "$alive" -eq 0 ]] && break
+  sleep 1
+done
 for pid in "${targets[@]}"; do
   kill -9 "$pid" 2>/dev/null || true
 done
-sleep 2
 
-remaining="$(gpu_pids)"
-if [[ -n "$remaining" ]]; then
-  echo "[gpu-clean] ERROR: selected GPU(s) still occupied by PIDs: $remaining" >&2
-  ps -o pid=,user=,etime=,args= -p $remaining >&2 2>/dev/null || true
+# A killed child stays <defunct> until its parent reaps it, and nvidia-smi
+# keeps listing that dead PID.  Wait for LIVE processes to disappear and for
+# the driver to release memory; zombies hold no GPU resources.
+WAIT_SECONDS="${GPU_CLEAN_WAIT_SECONDS:-30}"
+MEM_LIMIT_MIB="${GPU_CLEAN_MEM_LIMIT_MIB:-1024}"
+deadline=$((SECONDS + WAIT_SECONDS))
+live=()
+zombies=()
+max_used=0
+while :; do
+  remaining="$(gpu_pids)"
+  live=()
+  zombies=()
+  for pid in $remaining; do
+    state="$(ps -o stat= -p "$pid" 2>/dev/null | tr -d ' ')"
+    if [[ -z "$state" ]]; then
+      # No readable state: only treat it as gone if the PID truly vanished
+      # (kill -0 fails).  A cross-namespace/container PID may be invisible
+      # to ps but still alive; be conservative.
+      if kill -0 "$pid" 2>/dev/null; then
+        live+=("$pid")
+      fi
+      continue
+    fi
+    if [[ "${state:0:1}" == "Z" ]]; then
+      zombies+=("$pid")             # defunct: no GPU resources held
+      continue
+    fi
+    live+=("$pid")
+  done
+
+  max_used=0
+  for gpu in "${GPUS[@]}"; do
+    used="$(nvidia-smi -i "$gpu" --query-gpu=memory.used \
+      --format=csv,noheader,nounits 2>/dev/null | tr -d ' ')"
+    if [[ "$used" =~ ^[0-9]+$ ]] && (( used > max_used )); then
+      max_used="$used"
+    fi
+  done
+
+  if [[ ${#live[@]} -eq 0 ]]; then
+    # No live process: a stale/defunct entry is harmless.  Only keep waiting
+    # when a zombie is still holding GPU memory (stuck driver context).
+    if [[ -z "$remaining" || "$max_used" -le "$MEM_LIMIT_MIB" ]]; then
+      break
+    fi
+  fi
+  if (( SECONDS >= deadline )); then
+    break
+  fi
+  sleep 1
+done
+
+if [[ ${#live[@]} -gt 0 ]]; then
+  echo "[gpu-clean] ERROR: selected GPU(s) still occupied by live PIDs: ${live[*]}" >&2
+  ps -o pid=,user=,etime=,args= -p "${live[@]}" >&2 2>/dev/null || true
   echo "[gpu-clean] free them manually, or rerun with a different GPU set" >&2
+  exit 1
+fi
+
+if [[ ${#zombies[@]} -gt 0 ]]; then
+  echo "[gpu-clean] ignoring defunct (zombie) PIDs: ${zombies[*]}"
+  for pid in "${zombies[@]}"; do
+    ppid="$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')"
+    echo "[gpu-clean]   pid $pid is <defunct> (parent ${ppid:-?}); the parent must reap it"
+  done
+fi
+
+if [[ -n "$remaining" && "$max_used" -gt "$MEM_LIMIT_MIB" ]]; then
+  echo "[gpu-clean] ERROR: GPU memory still in use (${max_used} MiB > ${MEM_LIMIT_MIB} MiB)." >&2
+  if [[ ${#zombies[@]} -gt 0 ]]; then
+    echo "[gpu-clean] a killed process left a zombie context; kill its parent launcher(s) and retry, e.g.:" >&2
+    echo "[gpu-clean]   pkill -f 'scripts/sacm_x/run_experiments.py'" >&2
+  fi
+  echo "[gpu-clean] if memory is still held, reset the GPU (root) or reboot." >&2
   exit 1
 fi
 
