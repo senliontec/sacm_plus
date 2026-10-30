@@ -14,7 +14,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
-MODELS="unet,cs2net,bcunet,maskvsc,nnwnet,jtfn,dscnet,segdino,samed,topolora,sam_adapter,sam_octa,cwsam,sacm_official,persam,knowsam,sam2_unet,sam_med2d,ucs,matcher,sam_vit_l_unet"
+MODELS="unet,cs2net,bcunet,maskvsc,nnwnet,jtfn,dscnet,segdino,samed,topolora,sam_adapter,sam_octa,cwsam,sacm_official,persam,knowsam,sam2_unet,sam_med2d,ucs,matcher"
 SEEDS="0"
 PROTOCOL="seeded5"
 DRY_RUN=0
@@ -62,9 +62,9 @@ if [ ! -x "$PYTHON" ]; then
   exit 1
 fi
 export PYTHONPATH="$ROOT/src${PYTHONPATH:+:$PYTHONPATH}"
-if [ -f "$ROOT/scripts/sacm_x/wandb_env.sh" ]; then
+if [ -f "$ROOT/scripts/tools/wandb_env.sh" ]; then
   # Reuse the project's W&B host/entity/key; non-fatal if unavailable.
-  source "$ROOT/scripts/sacm_x/wandb_env.sh" || true
+  source "$ROOT/scripts/tools/wandb_env.sh" || true
 fi
 
 if [ "$DRY_RUN" -eq 0 ] && [ "$ALLOW_BUSY" -eq 0 ]; then

@@ -1,7 +1,7 @@
 [project]
 name = "sacm-x"
 version = "0.1.0"
-description = "SACM-X: prompt-free curvilinear structure segmentation on SAM with dual-level geometric adapters, closed-loop coarse-to-fine decoding, topology-aligned training, and strict official ports of 14 topology losses and 20 evaluation metrics."
+description = "Curvilinear structure segmentation on SAM: SACM-X research framework, official baseline ports, and the NativeToken project method."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Apache-2.0" }
@@ -82,7 +82,7 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["core*", "baseline_zoo*", "models*"]
+include = ["core*", "baseline_zoo*", "models*", "methods*"]
 
 [tool.setuptools.package-data]
 "baseline_zoo.models.sam2_unet" = ["sam2_configs/*.yaml", "LICENSE", "UPSTREAM.md"]

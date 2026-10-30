@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# One-click: run all 21 paper baselines for seed 0 on GPU 0, sequentially.
+# One-click: run all 20 paper baselines for seed 0 on GPU 0, sequentially.
 #
 # Usage:
 #   bash scripts/tools/run_21_baselines_seed0_gpu0.sh
 #
-# The list is explicit so --model all (which also includes sacm_x) is not
-# used.  run_paper.sh performs train, eval, report, and figures in order.
+# The list is explicit so --model all is not used.  run_paper.sh performs
+# train, eval, report, and figures in order.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -31,7 +31,7 @@ fi
 export PYTHON
 export PYTHONPATH="$REPO_ROOT/src${PYTHONPATH:+:$PYTHONPATH}"
 
-# 21 baselines, in execution order.  sacm_x is deliberately excluded.
+# 20 baselines, in execution order.
 MODELS=(
   unet
   cs2net
@@ -53,7 +53,6 @@ MODELS=(
   sam_med2d
   ucs
   matcher
-  sam_vit_l_unet
 )
 MODELS_CSV=$(IFS=,; echo "${MODELS[*]}")
 

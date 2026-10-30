@@ -1,28 +1,30 @@
-# SACM-X
+# Curvilinear Segmentation Benchmark
 
-SACM-X is a PyTorch-based research framework for prompt-free curvilinear structure segmentation, built on the SACM baseline and the Segment Anything Model (SAM). The project provides custom training and testing scripts, and wraps SAM for easy extension and application.
-
-> SACM-X is the working name for the improved framework. The official SACM baseline is self-contained under `src/baseline_zoo/models/sacm_official/` (registry id `sacm_official`); `--preset sacm` is the SACM-equivalent preset inside SACM-X. The local checkout/server directory may still be named `sacm_plus`/`sacm-plus`.
+A PyTorch benchmark for 3-shot, prompt-free curvilinear structure segmentation
+on SAM. It contains 40 official/reference baseline ports, the SACM-X research
+framework, and the NativeToken project method, evaluated on 20 datasets with
+Seen / Unseen / Novel roles and dataset-macro Dice, IoU, clDice and HD95.
 
 ## Features
 
-- ViT-based image segmentation model (SAM)
-- Custom dataset training and evaluation
-- Automatic mask generation and prediction
-- Detailed logging and evaluation metrics (F1, Precision, Recall)
+- One self-contained adapter per official/reference baseline
+- Shared 18-image 3-shot split, 6-image validation set and frozen test protocol
+- Prompt-free SAM adaptation, topology-aware metrics and W&B logging
+- SACM-X research framework under `src/models/sacm_x` + `src/train` + `src/eval`
+- NativeToken project method under `src/methods/nativetok` (not a baseline)
 
 ## Directory Structure
 
 ```
-segment_anything/         # SAM model and components
-    __init__.py
-    build_sam.py          # Build different SAM model variants
-    predictor.py          # Inference and mask prediction
-    automatic_mask_generator.py # Automatic mask generation
-    modeling/             # Model architecture
-    utils/                # Utility functions
-src/train/trainer.py              # Training script
-src/eval/evaluate.py               # Testing script
+src/baseline_zoo/          # official/reference baseline adapters and models
+src/models/sacm_x/         # SACM-X research framework (restored)
+src/train/                 # SACM-X training entrypoint
+src/eval/                  # SACM-X evaluation entrypoint
+src/methods/nativetok/     # proposed NativeToken method (outside baseline)
+src/core/                  # shared losses, metrics and runtime utilities
+configs/models/            # baseline and SACM-X registry entries
+configs/methods/           # project-method entries
+scripts/                   # data, pipeline and one-click experiment scripts
 README.md
 ```
 
@@ -207,24 +209,12 @@ python scripts/data/prepare_data.py \
     --shots 3 --val_shots 1 --make_test \
     --out_dir data/sacm_3shot --seed 42
 
-# 2. Run the whole ablation matrix on multiple GPUs (train + test per job)
-python scripts/sacm_x/run_experiments.py --gpus 0 1 2 3 4 5 6 7 \
-    --checkpoint /path/sam_vit_l_0b3195.pth --train_root data/sacm_3shot \
-    --test_datasets DRIVE:/data/DRIVE CHASEDB1:/data/CHASEDB1 \
-    --presets sacm stage1 stage2 full --output_root results --epochs 50 --tta
+# 2. Train/evaluate official baselines through the unified registry
+bash scripts/run_train.sh --model convlora,sacm_official --seeds 0 --gpus 0,1
+bash scripts/run_eval.sh --model convlora,sacm_official --seeds 0 --gpus 0,1
 
-# 3. Aggregate per-job summaries into CSV + LaTeX tables
-python scripts/sacm_x/aggregate_results.py --root results --out results/tables
-
-# 4. AI-improvement-loop diagnostics: weakest metric -> suspect component
-#    -> suggested change (reads metrics_history.json written during training)
-python scripts/sacm_x/metrics_report.py --history results/full/DRIVE/metrics_history.json
-python scripts/sacm_x/metrics_report.py --root results --out results/tables/report.md
-
-# 4. Motivation diagnostics (head supervision + gating quality evidence)
-python -m models.sacm_x.diagnose --preset sacm --data_root /data/DRIVE \
-    --trained_weights results/sacm/DRIVE/best_model.pth \
-    --output_dir diagnosis/sacm_drive
+# 3. Regenerate cross-model / cross-seed tables from existing metrics only
+bash scripts/run_report.sh --model all --seeds all
 ```
 
 ## Baseline monitoring, paper statistics, and visualization
@@ -247,7 +237,7 @@ Example for the U-Net adapter:
 # checkpoints/sam2_hiera_large.pt.
 bash scripts/run_paper.sh --model all --seeds all --gpus 0,1,2,3 --resume
 
-# One-click Optuna HPO on GPU 0-6, seed 0; GPU 7 stays free for SACM-X.
+# One-click Optuna HPO on GPU 0-6, seed 0; GPU 7 stays free.
 bash scripts/tools/run_optuna_paper.sh
 
 # One model/seed through the same registry
@@ -325,11 +315,6 @@ LaTeX tables, and `paper_tables.md`. It also writes one `metrics.csv` per
 `visualize_predictions.py` writes
 `results/visualizations/<method>/<dataset>/<stem>.png` and `grid.png`
 with input, GT, prediction, and TP/FP/FN error panels.
-
-`src/models/sacm_x/diagnose.py` produces the paper's motivation evidence:
-per-head gradient norms under the original winner-take-all loss vs the
-full loss (showing 3/4 Stage-2 heads were unsupervised), and the gating
-rank vs ground-truth IoU correlation.
 
 ## Reference
 

@@ -45,7 +45,7 @@ BASELINE_MODELS = (
     'unet', 'cs2net', 'bcunet', 'maskvsc', 'nnwnet', 'jtfn', 'dscnet',
     'segdino', 'samed', 'topolora', 'sam_adapter', 'sam_octa', 'cwsam',
     'sacm_official', 'persam', 'knowsam', 'sam2_unet',
-    'sam_med2d', 'ucs', 'matcher', 'sam_vit_l_unet',
+    'sam_med2d', 'ucs', 'matcher',
 )
 
 

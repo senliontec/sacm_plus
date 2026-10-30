@@ -451,7 +451,7 @@ prediction can be evaluated by the shared metric code.
 ## 17. Immediate next step
 
 Do not start the migration during an active training/evaluation run. After the
-current SACM-X evaluation is complete:
+current evaluation is complete:
 
 1. freeze the current results and checkpoint;
 2. write the dependency matrix;

@@ -10,8 +10,8 @@ bash scripts/run_paper.sh --model all --seeds all --gpus 0,1,2,3 --resume
 ```
 
 `--model all` resolves every `status: available` model in
-`configs/models/` (SACM-X plus the 41 official/reference baselines and the
-CurvField project extension, including the
+`configs/models/` (the registered official/reference baselines plus the
+SACM-X research framework, including the
 appendix `sam2_unet`, the prompt-free `sam_adapter`/`samed`/`topolora`/
 `convlora`/`c2p`/`a2sam`/`kprism`, the non-SAM `jtfn`/`dscnet`/`rsrm`/`dka`/
 `scrwkv`/`flowsdf`/`tpsegformer`/`s2mnet`/`csunet`/`liot`/`dconnnet`,
@@ -33,7 +33,7 @@ Subsets and short runs:
 
 ```bash
 bash scripts/run_paper.sh --model unet --seeds 0 --gpus 2
-bash scripts/run_paper.sh --model unet,sacm_x --seeds 0 1 --gpus 2,3
+bash scripts/run_paper.sh --model unet,sacm_official --seeds 0 1 --gpus 2,3
 bash scripts/run_paper.sh --model all --seeds all --dry-run
 ```
 
@@ -55,7 +55,7 @@ overridden with `CHECKPOINT`, `DATA_ROOT`, and `OUTPUT`.
 ## W&B
 
 Baseline training and evaluation default to W&B. `run_train.sh` and
-`run_eval.sh` source `scripts/sacm_x/wandb_env.sh` and require credentials
+`run_eval.sh` source `scripts/tools/wandb_env.sh` and require credentials
 when `WANDB_MODE` is online; missing credentials fail fast with a clear
 message. Use `WANDB_MODE=offline` for local W&B files or
 `WANDB_MODE=disabled` to turn it off. Direct `run_one` also defaults to
@@ -116,9 +116,9 @@ bash scripts/tools/run_optuna_paper.sh
 ```
 
 It defaults to all paper baselines, **seed `0`**, 8 trials per
-(model, seed), and physical GPUs `0,1,2,3,4,5,6`.  GPU 7 is reserved for
-SACM-X: the script never queries it or includes it in
-`CUDA_VISIBLE_DEVICES`.  It refuses to start if any selected GPU already
+(model, seed), and physical GPUs `0,1,2,3,4,5,6`.  GPU 7 is left free:
+the script never queries it or includes it in `CUDA_VISIBLE_DEVICES`.
+It refuses to start if any selected GPU already
 has more than 512 MiB in use, and installs Optuna if it is missing.
 
 Useful overrides:
@@ -144,16 +144,11 @@ The runner dynamically assigns each trial to the next free GPU in the
 selected pool.  `nnWNet` and `KnowSAM` are skipped because their custom
 official pipelines do not yet expose the shared scheduler/LR interface;
 `Matcher`, `PerSAM`, `RSRM` and `C2P` are training-free or zero-shot.
-Thus 24 of the 41 official/reference baselines are in the tuning harness.
-The CurvField project extension is intentionally not in the 41-baseline
-sweep or HPO lists; run it explicitly with `--model curvfield`. The v2
-causal screen (Conv-LoRA control + 128x128 field + FiLM/decoder bias, oracle
-gate, seed0, full 20-dataset test) is one command:
-`bash scripts/curvfield/run_v2_screen.sh`. The Conv-LoRA + SDSConv
-thin-structure extension is screened with
-`bash scripts/sdsconv/run_screen.sh`. Conv-SACM (Conv-LoRA local MoE + external context + 512 high-res stage + clDice) is screened with `bash scripts/convsacm/run_screen.sh`. Newly added ports must be added
-to the explicit `BASELINE_MODELS` list and `configs/tuning/spaces.yaml`
-before `--models all` can tune them.  Trial
+Thus 24 of the official/reference baselines are in the tuning harness.
+The baseline registry contains official or reference implementations only;
+project-specific models are kept outside `baseline_zoo`. Newly added ports
+must be added to the explicit `BASELINE_MODELS` list and
+`configs/tuning/spaces.yaml` before `--models all` can tune them.  Trial
 `best_model*.pth` files are deleted after scoring unless
 `--keep-trial-checkpoints` is passed; the metrics history and trainer log
 are kept.  The selected configuration must be applied to a fresh
@@ -197,7 +192,7 @@ scripts/
 │   ├── visualize_predictions.py
 │   ├── metrics.py
 │   └── protocol_specs.py
-├── sacm_x/                 # SACM-X training/eval engine
+├── sacm_x/                 # SACM-X research framework entrypoints
 │   ├── run_sacm_x_quick.sh
 │   ├── eval_sacm_x_20.sh
 │   ├── run_experiments.py
@@ -218,8 +213,18 @@ scripts/
     ├── setup_baselines.sh
     ├── clear_gpus.sh
     ├── verify_against_official.py
+    ├── wandb_env.sh
+    ├── night_runner.py
     └── clean_pycache.sh
 ```
+
+## SACM-X research framework
+
+`sacm_x/` is the SACM-X training/evaluation engine; it is separate from the
+official/reference baseline adapters. Its model code lives in
+`src/models/sacm_x`, `src/train` and `src/eval`, and its registry entry is
+`configs/models/sacm_x.yaml`. NativeToken remains outside the baseline
+registry under `src/methods/nativetok`.
 
 ## Data preparation (one-time)
 
@@ -237,14 +242,6 @@ python scripts/data/build_protocol_manifest.py --split-root data/sacm_3shot \
 `scripts/data/datasets/prepare_*.py` build individual official test pools;
 `prepare_data.py`, `make_shot3_split.sh` and `build_protocol_manifest.py`
 write the train/val/test manifests.
-
-## SACM-X specific
-
-`run_sacm_x_quick.sh` and `eval_sacm_x_20.sh` are the commands embedded in
-`configs/models/sacm_x.yaml`; they use the SACM-X training/evaluation engine
-(`run_experiments.py`) and its report path (`aggregate_results.py`,
-`make_final_report.py`).  `run_ablation.sh` runs the SACM-X preset ablation
-matrix and uses the same engine.
 
 ## Notes
 

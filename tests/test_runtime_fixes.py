@@ -175,21 +175,6 @@ def test_sam_octa_does_not_prepad_non_square_image(tmp_path):
     assert prepared['original_size'] == (80, 60)
 
 
-def test_sam_vit_l_unet_state_dict_is_decoder_only():
-    adapter = load_adapter('sam_vit_l_unet')
-
-    class Dummy(torch.nn.Module):
-        def __init__(self):
-            super().__init__()
-            self.encoder = torch.nn.Linear(2, 2)
-            self.decoder = torch.nn.Linear(2, 2)
-
-    model = Dummy()
-    state = adapter.state_dict(model)
-    assert all(not key.startswith('encoder.') for key in state)
-    assert all(key in model.decoder.state_dict() for key in state)
-
-
 def test_knowsam_shared_wandb_interval_default():
     parser = build_parser(load_adapter('knowsam'))
     args = parser.parse_args([])
@@ -566,24 +551,6 @@ def test_sacm_adapter_dim_ratio_roundtrip():
     assert restored.adapter_dim_ratio == 0.25
     assert restored.bce_weight == 0.6
     assert restored.dice_weight == 0.4
-
-
-def test_sam_vit_l_unet_rejects_changed_base_sha(tmp_path):
-    from baseline_zoo.runtime import file_sha256
-    adapter = load_adapter('sam_vit_l_unet')
-    first = tmp_path / 'sam_a.pth'
-    second = tmp_path / 'sam_b.pth'
-    first.write_bytes(b'a')
-    second.write_bytes(b'b')
-    adapter._sam_sha = file_sha256(first)
-    config = adapter.save_config(
-        argparse.Namespace(sam_checkpoint=first))
-    assert config['sam_checkpoint_sha256'] == file_sha256(first)
-    restored = argparse.Namespace(
-        sam_checkpoint=second, input_size=0)
-    with pytest.raises(SystemExit):
-        adapter.restore_config(restored, config)
-    assert restored.input_size == 1024
 
 
 def _load_tuning_module():

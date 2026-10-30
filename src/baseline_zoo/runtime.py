@@ -84,6 +84,7 @@ class BaselineAdapter(ABC):
     train_batch_size: int = 1
     accumulation_steps: int = 1
     default_grad_clip: float = 0.0
+    default_epochs: int = 0
     selection: str = 'dice'
     deviations: tuple[str, ...] = ()
     custom_pipeline: bool = False
@@ -984,6 +985,9 @@ def _configured_epochs(adapter: BaselineAdapter) -> int:
 
     model = load_models().get(adapter.id)
     if model is None or 'epochs' not in model.defaults:
+        fallback = int(getattr(adapter, 'default_epochs', 0) or 0)
+        if fallback > 0:
+            return fallback
         raise SystemExit(
             f'{adapter.id}: missing defaults.epochs in configs/models')
     epochs = int(model.defaults['epochs'])

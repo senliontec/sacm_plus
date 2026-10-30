@@ -2,8 +2,8 @@
 # Train specified models/seeds through the unified registry.
 #
 # Usage:
-#   bash scripts/run_train.sh --model sacm_x --seeds 0
-#   bash scripts/run_train.sh --model unet,sacm_x --seeds 0 1 --gpus 2,3
+#   bash scripts/run_train.sh --model convlora --seeds 0
+#   bash scripts/run_train.sh --model unet,sacm_official --seeds 0 1 --gpus 2,3
 #   bash scripts/run_train.sh --model all --seeds all --gpus 0,1,2,3 --resume
 #   bash scripts/run_train.sh --model unet --seeds 0 --dry-run
 set -euo pipefail
@@ -24,7 +24,7 @@ export PYTHONPATH="$PWD/src${PYTHONPATH:+:$PYTHONPATH}"
 # Default W&B: load the self-hosted env and require credentials unless the
 # caller explicitly chooses offline/disabled.  The configs already pass
 # --use_wandb for every baseline.
-source "$PWD/scripts/sacm_x/wandb_env.sh"
+source "$PWD/scripts/tools/wandb_env.sh"
 export WANDB_MODE="${WANDB_MODE:-online}"
 DRY_RUN=0
 for arg in "$@"; do

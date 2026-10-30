@@ -48,16 +48,13 @@ collector and report pipeline.
 - Duplicate seeds/models are deduplicated; `.train_done`/`.eval_done`
   markers now record the checkpoint identity and are invalidated when the
   checkpoint changes.
-- Added the missing `fixed` protocol config and forwarded `PRESET` to
-  SACM-X evaluation.
 - Metric collection accepts 0/1 as well as 0/255 PNGs, includes GT files in
   the cache signature, and refuses to overwrite a complete table with a
   subset unless `--allow-partial-overwrite` is passed.
-- Reports select the requested SACM-X preset and fail on missing
-  model/seed runs unless `--allow-missing` is passed.
+- Reports fail on missing model/seed runs unless `--allow-missing` is
+  passed.
 - `run_paper.sh --dry-run` no longer regenerates figures.
-- Eval resume now also requires a non-empty eval artifact
-  (`paper_metrics.csv` or SACM-X `tables/all_metrics.csv`); a stale
+- Eval resume now also requires a non-empty `paper_metrics.csv`; a stale
   `.eval_done` can no longer hide deleted predictions/tables.
 - Per-dataset metric caches and report tables are written atomically
   (`.tmp` + `os.replace`), so an interrupted write cannot leave a
@@ -70,8 +67,8 @@ Unified interface:
 - **Data/protocol**: one `split_manifest.csv` membership check, 18 train /
   6 val, the same 20 frozen test roots and image stems for every model.
   Test roots come from a single parser (`scripts/pipeline/protocol_specs.py`);
-  `run_baseline_test.read_specs` delegates to it, so baseline and SACM-X
-  evaluation resolve the same roots and fail identically on a conflicting
+  `run_baseline_test.read_specs` delegates to it, so all baseline
+  evaluations resolve the same roots and fail identically on a conflicting
   dataset root.
 - **Adapter input contract**: original-resolution PIL image plus boolean
   GT mask; adapters own their official resize/normalization/channel/prompt

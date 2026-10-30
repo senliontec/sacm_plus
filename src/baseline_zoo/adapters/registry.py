@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+import os
 
 _ADAPTERS = {
     'a2sam': ('baseline_zoo.adapters.a2sam', 'A2SAMAdapter'),
@@ -11,12 +12,10 @@ _ADAPTERS = {
     'bcunet': ('baseline_zoo.adapters.bcunet', 'BCUNetAdapter'),
     'blo_sam': ('baseline_zoo.adapters.blo_sam', 'BLOSAMAdapter'),
     'convlora': ('baseline_zoo.adapters.convlora', 'ConvLoRAAdapter'),
-    'convsacm': ('baseline_zoo.adapters.convsacm', 'ConvSACMAdapter'),
     'cs2net': ('baseline_zoo.adapters.cs2net', 'CS2NetAdapter'),
     'csunet': ('baseline_zoo.adapters.csunet', 'CSUNetAdapter'),
     'c2p': ('baseline_zoo.adapters.c2p', 'C2PAdapter'),
     'cwsam': ('baseline_zoo.adapters.cwsam', 'CWSAMAdapter'),
-    'curvfield': ('baseline_zoo.adapters.curvfield', 'CurvFieldAdapter'),
     'dconnnet': ('baseline_zoo.adapters.dconnnet', 'DconnNetAdapter'),
     'dka': ('baseline_zoo.adapters.dka', 'DKAAdapter'),
     'dscnet': ('baseline_zoo.adapters.dscnet', 'DSCNetAdapter'),
@@ -41,9 +40,6 @@ _ADAPTERS = {
     'sam_octa': ('baseline_zoo.adapters.sam_octa', 'SAMOCTAAdapter'),
     'sansa': ('baseline_zoo.adapters.sansa', 'SANSAAdapter'),
     's2mnet': ('baseline_zoo.adapters.s2mnet', 'S2MNetAdapter'),
-    'sam_vit_l_unet': ('baseline_zoo.adapters.sam_vit_l_unet',
-                       'SAMViTLUNetAdapter'),
-    'sdsconv': ('baseline_zoo.adapters.sdsconv', 'SDSConvAdapter'),
     'scrwkv': ('baseline_zoo.adapters.scrwkv', 'SCRWKVAdapter'),
     'samed': ('baseline_zoo.adapters.samed', 'SAMedAdapter'),
     'segdino': ('baseline_zoo.adapters.segdino', 'SegDINOAdapter'),
@@ -54,6 +50,13 @@ _ADAPTERS = {
     'ucs': ('baseline_zoo.adapters.ucs', 'UCSAdapter'),
     'unet': ('baseline_zoo.adapters.unet', 'UNetAdapter'),
 }
+
+# The proposed NativeToken method lives under ``src/methods`` and is not a
+# baseline.  Project runs opt in explicitly; the default registry stays
+# official/reference-only.
+if os.environ.get('SACM_ENABLE_PROJECT_MODELS') == '1':
+    _ADAPTERS['nativetok'] = (
+        'methods.nativetok.adapter', 'NativeTokenAdapter')
 
 
 def available_adapters() -> list[str]:

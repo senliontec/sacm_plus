@@ -46,7 +46,7 @@ PORTED = set(available_adapters())
 CUSTOM_CHECKPOINTS = {'nnunet2d', 'nnwnet', 'knowsam'}
 SAM_CHECKPOINT_METHODS = {
     'cwsam', 'sacm_official', 'sam_adapter', 'sam_med2d',
-    'sam_octa', 'sam_vit_l_unet', 'ucs'}
+    'sam_octa', 'ucs'}
 
 
 def read_specs(protocol: Path, dataset_filter):
@@ -207,7 +207,7 @@ def main():
                         default=REPO_ROOT / 'checkpoints' /
                         'sam_vit_l_0b3195.pth',
                         help='frozen SAM ViT-L checkpoint for '
-                             'sam_vit_l_unet')
+                             'SACM official')
     default_data_root = REPO_ROOT / 'data' / 'sacm_3shot'
     parser.add_argument('--data-root', type=Path,
                         default=default_data_root,

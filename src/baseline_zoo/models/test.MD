@@ -44,13 +44,11 @@ From this file's directory: `../../../../3rd`
 ├── samed                 -> 3rd/SAMed
 ├── sam_med2d             -> 3rd/SAM-Med2D
 ├── sam_octa              -> 3rd/SAM-OCTA
-├── sam_vit_l_unet        -> (no 3rd; project extension)
 ├── sansa                 -> 3rd/SANSA
 ├── scrwkv                -> 3rd/SCRWKV
 ├── segdino               -> 3rd/segdino
 ├── segdino_v2            -> 3rd/segdino_v2
 ├── topolora              -> 3rd/Seglab
-├── curvfield             -> (no 3rd; project extension built on Conv-LoRA)
 ├── tpsegformer           -> 3rd/TPSegformer
 ├── ucs                   -> 3rd/UCS
 └── unet                  -> 3rd/Pytorch-UNet
@@ -71,8 +69,6 @@ From this file's directory: `../../../../3rd`
   installed `nnunetv2` package, not this tree.
 - `topolora`: primary source is `3rd/Seglab`; SAM reference is
   `3rd/segment-anything`.
-- `sam_vit_l_unet`: no `3rd` source. This is a project extension using
-  `src/models/sam_network` and the local SAM ViT-L checkpoint.
 - `bcunet`: paper is
   `parsing/[2023 cbm] BCU-Net: Bridging ConvNeXt and U-Net for medical image
   segmentation`; official code is `3rd/BCU-Net`. The paper profile uses MRL,

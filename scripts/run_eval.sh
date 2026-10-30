@@ -3,7 +3,7 @@
 # This never trains; it requires the checkpoint declared by each model config.
 #
 # Usage:
-#   bash scripts/run_eval.sh --model sacm_x --seeds 0
+#   bash scripts/run_eval.sh --model convlora --seeds 0
 #   bash scripts/run_eval.sh --model unet,sacm_official --seeds 0 1
 #   bash scripts/run_eval.sh --model all --seeds all --gpus 0,1,2,3 --resume
 #   bash scripts/run_eval.sh --model unet --seeds 0 --dry-run
@@ -25,7 +25,7 @@ export PYTHONPATH="$PWD/src${PYTHONPATH:+:$PYTHONPATH}"
 # Default W&B: load the self-hosted env and require credentials unless the
 # caller explicitly chooses offline/disabled.  The configs already pass
 # --use_wandb for every baseline.
-source "$PWD/scripts/sacm_x/wandb_env.sh"
+source "$PWD/scripts/tools/wandb_env.sh"
 export WANDB_MODE="${WANDB_MODE:-online}"
 DRY_RUN=0
 for arg in "$@"; do

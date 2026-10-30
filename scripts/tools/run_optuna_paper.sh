@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # One-click Optuna HPO for the paper baselines on GPUs 0-6.
 #
-# GPU 7 is reserved for SACM-X: it is never checked, masked in, or used here.
+# GPU 7 is left free: it is never checked, masked in, or used here.
 # The runner dynamically assigns trials to the free GPUs in the selected pool.
 #
 # Usage (after uploading the code to the server):
@@ -141,7 +141,7 @@ for index in "${!PHYSICAL_GPUS[@]}"; do
 done
 
 if [[ ",$PHYSICAL_SPEC," == *",7,"* && "${ALLOW_GPU7:-0}" != 1 ]]; then
-    echo "GPU 7 is reserved for SACM-X; refusing to use it." >&2
+    echo "GPU 7 is left free; refusing to use it." >&2
     echo "Set ALLOW_GPU7=1 only if you intentionally want to share it." >&2
     exit 2
 fi
@@ -229,7 +229,7 @@ fi
 echo "storage:    $STORAGE"
 echo "protocol:   $PROTOCOL"
 echo "log:        $LOG"
-echo "GPU 7 is reserved for SACM-X and is not part of this run."
+echo "GPU 7 is left free and is not part of this run."
 
 CMD=(
     "$PYTHON" -u scripts/tools/tune_baselines.py

@@ -20,12 +20,12 @@ sys.path.insert(0, str(REPO_ROOT / 'src'))
 from baseline_zoo.protocols import load_protocol  # noqa: E402
 from baseline_zoo.registry import load_models  # noqa: E402
 
-# Keep this list explicit: --model all would also include SACM-X.
+# Keep this list explicit so --model all does not change the CUE set.
 MODELS = (
     'unet', 'cs2net', 'bcunet', 'maskvsc', 'nnwnet', 'jtfn', 'dscnet',
     'segdino', 'samed', 'topolora', 'sam_adapter', 'sam_octa', 'cwsam',
     'sacm_official', 'persam', 'knowsam', 'sam2_unet',
-    'sam_med2d', 'ucs', 'matcher', 'sam_vit_l_unet',
+    'sam_med2d', 'ucs', 'matcher',
 )
 
 # Iteration-based models cannot be ordered by their YAML epoch field.

@@ -43,7 +43,7 @@
 | **VesMamba** CVPR'26 | 非 SAM 3D | Mamba 结构感知 + 尺度滤波 | clDice/HD95 | L/M | [code](https://github.com/Lzpbright/VesMamba) |
 | **SATLoss** ICCV'25 | 非 SAM | 空间感知持久特征匹配 | 拓扑 loss | **H（组件）** | 可直接监督候选拓扑 · [code](https://github.com/bw05025/SATLoss) |
 | **MATCH** NeurIPS'25 | 非 SAM | 多面拓扑一致性匹配 | 拓扑匹配 | **H（组件）** | 候选打分/匹配先例 · [code](https://github.com/Melon-Xu/MATCH) |
-| **Topograph** ICLR'25 | 非 SAM | 组件图严格拓扑 loss | 严格拓扑 | **H（组件）** | 已在 `SACM-X` 中 · [code](https://github.com/AlexanderHBerger/Topograph) |
+| **Topograph** ICLR'25 | 非 SAM | 组件图严格拓扑 loss | 严格拓扑 | **H（组件）** | 已在项目中 · [code](https://github.com/AlexanderHBerger/Topograph) |
 | **SCNP** CVPR'26 | 非 SAM | 邻居像素惩罚 | 拓扑 loss | M（低成本 loss） | 可做候选打分 · [project](https://jmlipman.github.io/SCNP-SameClassNeighborPenalization) |
 | **TopoFuse** ECCV'26 | SAM ViT-B tri-planar | 持久同调投影 + 拓扑先验头 | 拓扑推理；非选择 | H/M（拓扑推理先例） | 投影修正，不是候选选择 · [code](https://github.com/rohitsalla/TopoFuse) |
 
@@ -127,7 +127,7 @@
 
 ---
 
-## 7. 与 `SACM-X` 的对应关系
+## 7. 与项目方法的对应关系
 
 **已有资产：**
 
@@ -195,7 +195,7 @@ SACM 的卖点是 **18 张图（6 数据集 × 3-shot）+ 跨域泛化**，不�
 - **Dynamic Snake Convolution Based on Topological Geometric Constraints for Tubular Structure Segmentation**（ICCV 2023）——动态 snake 卷积，把管状几何先验做进卷积核；是与我们的 strip/window adapter 最接近的早期工作之一，必须对比。
 - **DTU-Net: Learning Topological Similarity for Curvilinear Structure Segmentation**（IPMI 2023）——曲线结构的拓扑相似性学习；作为曲线拓扑基线引用。
 - **Topology-Aware Uncertainty for Image Segmentation**（NeurIPS 2023）——拓扑与不确定性结合；与“不确定性/校准驱动的候选选择”相关。
-- **Skeleton Recall Loss**（ECCV 2024）——骨架召回连通性 loss；已在 `3rd/Skeleton-Recall`，但尚未接入 `SACM-X`。
+- **Skeleton Recall Loss**（ECCV 2024）——骨架召回连通性 loss；已在 `3rd/Skeleton-Recall`，但尚未接入项目方法。
 - **Topologically Faithful Image Segmentation via Induced Matching of Persistence Barcodes**（ICML 2023）——Betti matching 的原始论文；已通过 `Betti-matching` 接入。
 - **Structure-aware Image Segmentation with Homotopy Warping**（NeurIPS 2022）——homotopy warping loss；已通过 `Warping` 接入。
 

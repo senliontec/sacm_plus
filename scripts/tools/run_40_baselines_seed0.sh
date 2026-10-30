@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
-# One-click: run all 41 baselines (excluding SACM-X) for seed 0 on 8 GPUs.
-# (The historical filename keeps the 40-baseline command working; K-Prism is
-# now the 41st model.)
+# One-click: run all 40 baselines for seed 0 on 8 GPUs.
 #
 # Default: train + validation only.  Set FULL=1 for train -> test -> report
 # -> figures.  Set KILL_GPU=1 to clear the selected GPUs first.
@@ -19,7 +17,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.." || exit 1
 
-MODELS='a2sam,aco_moe_lora,bcunet,blo_sam,c2p,convlora,cs2net,csunet,cwsam,dconnnet,dka,dscnet,flowsdf,fssam,jtfn,knowsam,kprism,liot,maskvsc,matcher,medcagd,nnunet2d,nnwnet,persam,rsrm,s2mnet,sacm_official,sam2_unet,sam_adapter,sam_med2d,sam_octa,sam_vit_l_unet,samed,sansa,scrwkv,segdino,segdino_v2,topolora,tpsegformer,ucs,unet'
+MODELS='a2sam,aco_moe_lora,bcunet,blo_sam,c2p,convlora,cs2net,csunet,cwsam,dconnnet,dka,dscnet,flowsdf,fssam,jtfn,knowsam,kprism,liot,maskvsc,matcher,medcagd,nnunet2d,nnwnet,persam,rsrm,s2mnet,sacm_official,sam2_unet,sam_adapter,sam_med2d,sam_octa,samed,sansa,scrwkv,segdino,segdino_v2,topolora,tpsegformer,ucs,unet'
 GPUS="${GPUS:-0,1,2,3,4,5,6,7}"
 SEED="${SEED:-0}"
 KILL_GPU="${KILL_GPU:-0}"

@@ -1,15 +1,10 @@
 #!/usr/bin/env python3
-"""One-click overnight CurvField screening campaign.
+"""Generic multi-arm screening campaign helper.
 
-Matrix:
-  seeds 0/1/2 x {Conv-LoRA, CurvField fw=0.2, CurvField static-field}
-  train 100 epochs on the matching data/sacm_3shot_seed<seed> split
-  evaluate every model on all 20 test datasets
-
-Two worker threads run one task per GPU; finished training/evaluation
-artifacts are reused.  Every training and evaluation run logs to the shared
-self-hosted W&B server exactly like the baseline entrypoints.
-The final report is results/curvfield_night/SUMMARY.md.
+The caller supplies ``MODELS`` and ``WANDB_GROUP``; this module runs one
+task per GPU, reuses finished checkpoints/metrics, and writes a summary.
+Training and evaluation use the same W&B/protocol/artifacts as the shared
+baseline entrypoints.
 """
 
 from __future__ import annotations
@@ -25,17 +20,12 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PYTHON = sys.executable
-DEFAULT_ROOT = REPO_ROOT / 'results' / 'curvfield_night'
+DEFAULT_ROOT = REPO_ROOT / 'results' / 'night_campaign'
 SAM_B = REPO_ROOT / 'checkpoints' / 'sam_vit_b_01ec64.pth'
-WANDB_GROUP = 'curvfield_night'
+WANDB_GROUP = 'night_campaign'
 
-MODELS = (
-    ('convlora', 'convlora', ()),
-    ('curvfield_fw02', 'curvfield',
-     ('--curvfield-field-weight', '0.2')),
-    ('curvfield_static', 'curvfield',
-     ('--curvfield-static-field', '--curvfield-field-weight', '0')),
-)
+# Set by the caller before invoking _summary/_worker.
+MODELS: tuple = ()
 
 
 def _env() -> dict[str, str]:
@@ -45,7 +35,7 @@ def _env() -> dict[str, str]:
     env.setdefault('PYTORCH_CUDA_ALLOC_CONF', 'expandable_segments:True')
     env['HF_HUB_OFFLINE'] = '1'
     env['TRANSFORMERS_OFFLINE'] = '1'
-    # Same self-hosted W&B defaults as scripts/sacm_x/wandb_env.sh.  The API
+    # Same self-hosted W&B defaults as scripts/tools/wandb_env.sh.  The API
     # key is never set here; it comes from the environment or ~/.netrc.
     env.setdefault('WANDB_BASE_URL', 'http://172.16.1.7:8080')
     env.setdefault('WANDB_ENTITY', 'buaazqk')
@@ -191,7 +181,7 @@ def _summary(root: Path, seeds: list[int]) -> None:
             writer.writeheader()
             writer.writerows(rows)
 
-    lines = ['# CurvField overnight screening', '',
+    lines = ['# Overnight screening', '',
              'Matrix: seeds 0/1/2, 100 epochs, ViT-B, full 20-dataset test.', '']
     lines.append('## All / Novel by model and seed')
     lines.append('')
@@ -254,8 +244,9 @@ def _summary(root: Path, seeds: list[int]) -> None:
     errors = sorted(root.glob('logs/*_error.txt'))
     lines += [f'- {path.name}: {path.read_text().strip()}'
               for path in errors] or ['- none']
+    log_root = root.relative_to(REPO_ROOT) / 'logs'
     lines += ['', f'Per-run metrics: `{out}`', '',
-              'Raw training/eval logs: `results/curvfield_night/logs/`.', '']
+              f'Raw training/eval logs: `{log_root}`.', '']
     (root / 'SUMMARY.md').write_text('\n'.join(lines))
 
 
