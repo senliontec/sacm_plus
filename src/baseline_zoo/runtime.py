@@ -22,7 +22,6 @@ import json
 import math
 import os
 import random
-import shutil
 import time
 import warnings
 from abc import ABC, abstractmethod
@@ -149,6 +148,17 @@ class BaselineAdapter(ABC):
     def train_step(self, model: nn.Module, batch: Any) -> torch.Tensor:
         """Official loss for one batch."""
 
+    def val_step(self, model: nn.Module, samples: Sequence[Sample],
+                 rng: random.Random) -> float | None:
+        """Official validation loss for ``samples``; None = not reported.
+
+        Only adapters whose official loop reports a validation loss override
+        this.  It must be deterministic (no training-time augmentation):
+        the samples are validation images.
+        """
+        del model, samples, rng
+        return None
+
     @abstractmethod
     def prepare_eval_sample(self, sample: Sample, device: torch.device) -> Any:
         """Official inference preprocessing for one sample."""
@@ -254,6 +264,19 @@ class BaselineAdapter(ABC):
 
 METRIC_NAMES = ('dice', 'iou', 'cldice', 'hd95')
 
+# Per-epoch validation computes exactly the columns of the compact terminal
+# table shared with SACM-X (ep │ tr_loss │ Dice │ IoU │ clDice │ HD95 │ lr │
+# time).  Nothing else is evaluated per epoch; the final paper evaluation
+# keeps the full metric suite.
+VAL_METRIC_NAMES = METRIC_NAMES
+
+_METRIC_FUNCS = {
+    'dice': dice_score,
+    'iou': iou_score,
+    'cldice': cldice_score,
+    'hd95': hd95_score,
+}
+
 
 def _mean(values: Iterable[float]) -> float:
     values = list(values)
@@ -264,26 +287,37 @@ def _mean(values: Iterable[float]) -> float:
         return float(np.nanmean(values))
 
 
-def binary_metrics(pred: np.ndarray, gt: np.ndarray) -> dict[str, float]:
+def binary_metrics(pred: np.ndarray, gt: np.ndarray,
+                   metric_names: Iterable[str] = METRIC_NAMES
+                   ) -> dict[str, float]:
     # Use the same canonical metric functions as paper-metric collection
     # (medpy Dice/IoU conventions, no epsilon smoothing) so validation
     # checkpoint selection and reported test metrics share one definition.
-    return {
-        'dice': dice_score(pred, gt),
-        'iou': iou_score(pred, gt),
-        'cldice': cldice_score(pred, gt),
-        'hd95': hd95_score(pred, gt),
-        'empty': float(pred.sum() == 0),
-    }
+    values = {name: _METRIC_FUNCS[name](pred, gt) for name in metric_names}
+    values['empty'] = float(pred.sum() == 0)
+    return values
 
 
 @torch.no_grad()
 def evaluate(adapter: BaselineAdapter, model: nn.Module,
-             samples: Sequence[Sample], device: torch.device
+             samples: Sequence[Sample], device: torch.device,
+             metric_names: Iterable[str] = METRIC_NAMES,
+             compute_loss: bool = False
              ) -> tuple[dict[str, float], dict[str, dict[str, float]]]:
+    """Validate one epoch.
+
+    Only ``metric_names`` are computed; the shared training loop passes
+    :data:`VAL_METRIC_NAMES` because those are the columns the terminal
+    table shows.  When ``compute_loss`` is set and the adapter implements
+    :meth:`BaselineAdapter.val_step`, the mean validation loss is returned
+    as ``metrics['val_loss']``.
+    """
+    metric_names = tuple(metric_names)
     model.eval()
-    overall = {key: [] for key in (*METRIC_NAMES, 'empty')}
+    overall = {key: [] for key in (*metric_names, 'empty')}
     per_dataset: dict[str, dict[str, list[float]]] = {}
+    losses: list[float] = []
+    rng = random.Random(int(getattr(adapter.args, 'seed', 0) or 0))
     for sample in samples:
         prepared = adapter.prepare_eval_sample(sample, device)
         pred = adapter.predict_sample(model, prepared, sample)
@@ -295,15 +329,21 @@ def evaluate(adapter: BaselineAdapter, model: nn.Module,
             raise RuntimeError(
                 f'{adapter.id}: prediction shape {pred.shape} != GT '
                 f'{gt.shape} for {sample.image_path}')
-        values = binary_metrics(pred, gt)
+        values = binary_metrics(pred, gt, metric_names)
         bucket = per_dataset.setdefault(
-            sample.dataset, {key: [] for key in (*METRIC_NAMES, 'empty')})
+            sample.dataset, {key: [] for key in (*metric_names, 'empty')})
         for key, value in values.items():
             overall[key].append(value)
             bucket[key].append(value)
+        if compute_loss:
+            loss = adapter.val_step(model, [sample], rng)
+            if loss is not None:
+                losses.append(float(loss))
 
     metrics = {key: _mean(values) for key, values in overall.items()}
     metrics['empty_prediction_rate'] = metrics.pop('empty')
+    if losses:
+        metrics['val_loss'] = float(np.mean(losses))
     datasets = {}
     for dataset, values in sorted(per_dataset.items()):
         datasets[dataset] = {
@@ -315,11 +355,11 @@ def evaluate(adapter: BaselineAdapter, model: nn.Module,
 
 
 LOG_SEP = ' │ '
-LOG_COLS = ('ep', 'tr_loss', 'Dice↑', 'IoU↑', 'clDice↑', 'HD95↓',
+# Keep in sync with core.console.BASE_LOG_* so baseline adapters and SACM-X
+# print exactly the same compact table.
+LOG_COLS = ('ep', 'tr_loss', 'Dice↑', 'clDice↑', 'IoU↑', 'HD95↓',
             'lr', 'time')
-LOG_WIDTHS = (5, 8, 7, 7, 8, 7, 8, 8)
-LOG_RULE = '─┼─'.join('─' * width for width in LOG_WIDTHS)
-LOG_FOOTER = '─' * (sum(LOG_WIDTHS) + 3 * (len(LOG_WIDTHS) - 1))
+LOG_WIDTHS = (5, 8, 7, 8, 7, 7, 8, 8)
 
 
 def _metric_text(value, digits=4):
@@ -350,7 +390,7 @@ def print_epoch_header(adapter: BaselineAdapter, epochs, seed, device,
         LOG_SEP.join(f'{name:^{width}}'
                      for name, width in zip(LOG_COLS, LOG_WIDTHS)),
         style='bold cyan')
-    console.print(LOG_RULE, style='dim')
+    console.print('─┼─'.join('─' * width for width in LOG_WIDTHS), style='dim')
 
 
 def print_epoch_row(epoch, loss, metrics, lr, elapsed, improved):
@@ -359,8 +399,8 @@ def print_epoch_row(epoch, loss, metrics, lr, elapsed, improved):
         f'E{epoch:03d}',
         f'{loss:.4f}',
         _metric_text(metrics['dice']),
-        _metric_text(metrics['iou']),
         _metric_text(metrics['cldice']),
+        _metric_text(metrics['iou']),
         _hd95_text(metrics['hd95']),
         f'{lr:.2e}',
         f'{elapsed:.0f}s{star}',
@@ -371,7 +411,8 @@ def print_epoch_row(epoch, loss, metrics, lr, elapsed, improved):
 
 
 def print_epoch_footer():
-    console.print(LOG_FOOTER, style='dim')
+    console.print('─' * (sum(LOG_WIDTHS) + 3 * (len(LOG_WIDTHS) - 1)),
+                  style='dim')
 
 
 # ---------------------------------------------------------------------------
@@ -565,11 +606,6 @@ def run_training_free(adapter: BaselineAdapter,
     workdir = Path(args.workdir)
     workdir.mkdir(parents=True, exist_ok=True)
     ckpt_path = workdir / 'best_model.pth'
-    if ckpt_path.is_file() and not args.resume:
-        backup = ckpt_path.with_name(
-            f'best_model.before_{time.strftime("%Y%m%d_%H%M%S")}.pth')
-        shutil.copy2(ckpt_path, backup)
-        print(f'backup previous checkpoint -> {backup}')
 
     payload = {
         'adapter': adapter.id,
@@ -672,19 +708,17 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
     workdir = Path(args.workdir)
     workdir.mkdir(parents=True, exist_ok=True)
     ckpt_path = workdir / 'best_model.pth'
-    if ckpt_path.is_file() and not args.resume:
-        backup = ckpt_path.with_name(
-            f'best_model.before_{time.strftime("%Y%m%d_%H%M%S")}.pth')
-        shutil.copy2(ckpt_path, backup)
-        print(f'backup previous checkpoint -> {backup}')
 
     history = []
     history_path = workdir / 'metrics_history.json'
     dataset_csv_path = workdir / 'val_metrics_by_dataset.csv'
     dataset_names = sorted({sample.dataset for sample in val_samples})
-    csv_fields = (['epoch', 'train_loss', 'lr', 'is_best'] +
+    # Per-epoch columns are exactly the compact table columns shared with
+    # SACM-X; no extra metrics are evaluated per epoch.
+    val_metric_names = list(VAL_METRIC_NAMES)
+    csv_fields = (['epoch', 'train_loss', 'val_loss', 'lr', 'is_best'] +
                   [f'{dataset}_{metric}'
-                   for dataset in dataset_names for metric in METRIC_NAMES])
+                   for dataset in dataset_names for metric in val_metric_names])
     if not args.resume:
         with dataset_csv_path.open('w', newline='') as f:
             csv.DictWriter(f, fieldnames=csv_fields).writeheader()
@@ -731,13 +765,14 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
                     row = {
                         'epoch': entry.get('epoch', ''),
                         'train_loss': _csv_value(entry.get('train_loss')),
+                        'val_loss': _csv_value(entry.get('val_loss')),
                         'lr': _csv_value(entry.get('lr')),
                         'is_best': int(bool(entry.get('is_best', False))),
                     }
                     datasets = entry.get('datasets', {})
                     for dataset in dataset_names:
                         values = datasets.get(dataset, {})
-                        for metric in METRIC_NAMES:
+                        for metric in val_metric_names:
                             row[f'{dataset}_{metric}'] = _csv_value(
                                 values.get(metric))
                     writer.writerow(row)
@@ -756,18 +791,20 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
         train_loss = adapter.train_epoch(model, loader, optimizer, scheduler,
                                          args)
         val_metrics, val_per_dataset = evaluate(
-            adapter, model, val_samples, device)
+            adapter, model, val_samples, device,
+            metric_names=val_metric_names, compute_loss=True)
         elapsed = time.time() - epoch_t0
         lr = adapter.display_lr(optimizer)
+        val_loss = val_metrics.get('val_loss', float('nan'))
         score = adapter.selection_score(val_metrics, val_per_dataset)
         selection_metric = val_metrics.get(args.selection, float('nan'))
-        wb = {'epoch': epoch, 'train/loss': train_loss, 'lr': lr,
-              'val/selection': score}
-        wb.update({f'val/{key}': value
-                   for key, value in val_metrics.items()})
-        for dataset, values in val_per_dataset.items():
-            wb.update({f'val/{dataset}/{metric}': values[metric]
-                       for metric in METRIC_NAMES})
+        # Per-epoch W&B scalars mirror the terminal table: train/val loss
+        # plus the validation metrics.  The per-dataset breakdown stays in
+        # the local history/CSV instead of multiplying W&B panels.
+        wb = {'epoch': epoch, 'train/loss': train_loss,
+              'val/loss': val_loss, 'lr': lr, 'val/selection': score}
+        wb.update({f'val/{name}': val_metrics[name]
+                   for name in val_metric_names})
         log_scalars(run, wb)
 
         improved = (adapter.checkpoint_eligible(epoch)
@@ -790,6 +827,7 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
                 'best_score': best_score,
                 'selection': args.selection,
                 'val_dice': val_metrics['dice'],
+                'val_loss': val_loss,
                 'val_metrics': val_metrics,
                 'val_per_dataset': val_per_dataset,
                 'input_size': adapter.input_size,
@@ -806,6 +844,7 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
         history.append({
             'epoch': epoch,
             'train_loss': round(train_loss, 6),
+            'val_loss': _json_value(val_loss),
             'lr': lr,
             'is_best': improved,
             'selection': _json_value(selection_metric),
@@ -820,12 +859,13 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
         csv_row = {
             'epoch': epoch,
             'train_loss': f'{train_loss:.6f}',
+            'val_loss': _csv_value(val_loss),
             'lr': f'{lr:.8g}',
             'is_best': int(improved),
         }
         for dataset in dataset_names:
             values = val_per_dataset.get(dataset, {})
-            for metric in METRIC_NAMES:
+            for metric in val_metric_names:
                 csv_row[f'{dataset}_{metric}'] = _csv_value(
                     values.get(metric))
         try:

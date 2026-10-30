@@ -79,6 +79,26 @@ def test_sacm_official_clip_default_is_effective():
     assert parser.parse_args(['--grad-clip', '0.25']).grad_clip == 0.25
 
 
+def test_baseline_table_matches_sacm_x_table():
+    # The baseline and SACM-X terminal tables are two implementations; they
+    # must stay byte-identical so one log format works for every model.
+    from baseline_zoo import runtime
+    from core import console
+    assert runtime.LOG_COLS == console.BASE_LOG_COLS
+    assert runtime.LOG_WIDTHS == console.BASE_LOG_WIDTHS
+
+
+def test_sacm_grad_checkpointing_auto_policy():
+    adapter = load_adapter('sacm_official')
+    adapter.args = argparse.Namespace(grad_checkpointing=None)
+    adapter.device = torch.device('cpu')
+    assert adapter._grad_checkpointing() is False
+    adapter.args = argparse.Namespace(grad_checkpointing=True)
+    assert adapter._grad_checkpointing() is True
+    adapter.args = argparse.Namespace(grad_checkpointing=False)
+    assert adapter._grad_checkpointing() is False
+
+
 def test_pipeline_commands_use_current_interpreter():
     import shlex
     import sys

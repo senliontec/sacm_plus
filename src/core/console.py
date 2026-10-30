@@ -181,9 +181,9 @@ def print_metrics_table(metrics, title="val metrics"):
 # and all baseline adapters produce exactly the same terminal table.
 
 BASE_LOG_SEP = ' │ '
-BASE_LOG_COLS = ('ep', 'tr_loss', 'Dice↑', 'IoU↑', 'clDice↑', 'HD95↓',
+BASE_LOG_COLS = ('ep', 'tr_loss', 'Dice↑', 'clDice↑', 'IoU↑', 'HD95↓',
                  'lr', 'time')
-BASE_LOG_WIDTHS = (5, 8, 7, 7, 8, 7, 8, 8)
+BASE_LOG_WIDTHS = (5, 8, 7, 8, 7, 7, 8, 8)
 BASE_LOG_RULE = '─┼─'.join('─' * width for width in BASE_LOG_WIDTHS)
 BASE_LOG_FOOTER = '─' * (sum(BASE_LOG_WIDTHS) +
                          3 * (len(BASE_LOG_WIDTHS) - 1))
@@ -231,8 +231,8 @@ def print_epoch_row(epoch, loss, metrics, lr, elapsed, improved):
         f'E{epoch:03d}',
         f'{loss:.4f}',
         _base_metric_text(metrics.get('dice')),
-        _base_metric_text(metrics.get('iou')),
         _base_metric_text(metrics.get('cldice')),
+        _base_metric_text(metrics.get('iou')),
         _base_hd95_text(metrics.get('hd95')),
         f'{lr:.2e}',
         f'{elapsed:.0f}s{star}',

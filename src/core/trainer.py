@@ -687,7 +687,7 @@ class Trainer:
         official = log_style == 'official'
         if not official:
             # Reuse the baseline's canonical compact table:
-            # ep │ tr_loss │ Dice↑ │ IoU↑ │ clDice↑ │ HD95↓ │ lr │ time
+            # ep │ tr_loss │ Dice↑ │ clDice↑ │ IoU↑ │ HD95↓ │ lr │ time
             num_params = sum(p.numel() for p in self.model.parameters())
             trainable = sum(p.numel() for p in self.model.parameters()
                             if p.requires_grad)

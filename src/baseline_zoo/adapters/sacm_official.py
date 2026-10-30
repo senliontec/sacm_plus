@@ -8,6 +8,7 @@ unified protocol.
 
 from __future__ import annotations
 
+import argparse
 import random
 from pathlib import Path
 
@@ -47,8 +48,9 @@ class SACMOfficialAdapter(BaselineAdapter):
         'adapters, and the zero-prompt forward are preserved; the official '
         '60-epoch budget is replaced by 800 epochs for the 18-image 3-shot '
         'protocol.',
-        'Per-block activation checkpointing is enabled for 11 GiB training; '
-        'it changes memory, not the computation.',
+        'Per-block activation checkpointing is enabled automatically on GPUs '
+        'with < 16 GiB (override with --grad-checkpointing / '
+        '--no-grad-checkpointing); it changes memory, not the computation.',
         'Official train_sam.py uses DataLoader workers=4 and no explicit seed; '
         'this port uses workers=0 and the shared seeded runtime. Official '
         'test_sam.py reads its own SegmentationDataset(root_dir) over '
@@ -72,6 +74,11 @@ class SACMOfficialAdapter(BaselineAdapter):
         # argparse does not override the generic --grad-clip default when a
         # second action shares the destination, so set it explicitly.
         parser.set_defaults(grad_clip=1.0)
+        parser.add_argument(
+            '--grad-checkpointing', dest='grad_checkpointing',
+            action=argparse.BooleanOptionalAction, default=None,
+            help='per-block activation checkpointing; default: auto '
+                 '(on when the GPU has < 16 GiB, off otherwise)')
 
     def build_model(self, args):
         # Prediction loads a full SACM state dict.  Upstream test_sam.py
@@ -105,6 +112,27 @@ class SACMOfficialAdapter(BaselineAdapter):
             if key in config:
                 setattr(args, key, config[key])
 
+    def _grad_checkpointing(self) -> bool:
+        """Auto policy: checkpointing only where memory forces it.
+
+        Upstream train_sam.py has no activation checkpointing, so on the
+        24 GiB server cards it is pure slowdown; on 11 GiB cards it is what
+        makes ViT-L at 1024^2 trainable at all.  ``--grad-checkpointing`` /
+        ``--no-grad-checkpointing`` overrides the automatic choice.
+        """
+        choice = getattr(self.args, 'grad_checkpointing', None)
+        if choice is not None:
+            return bool(choice)
+        if self.device.type != 'cuda':
+            return False
+        try:
+            total_gib = (
+                torch.cuda.get_device_properties(self.device).total_memory
+                / 2 ** 30)
+        except (RuntimeError, ValueError):
+            return True
+        return total_gib < 16.0
+
     def configure_trainable(self, model):
         for name, parameter in model.image_encoder.named_parameters():
             parameter.requires_grad_('adapter' in name)
@@ -112,7 +140,7 @@ class SACMOfficialAdapter(BaselineAdapter):
             parameter.requires_grad_(False)
         for parameter in model.mask_decoder.parameters():
             parameter.requires_grad_(True)
-        model.image_encoder.grad_checkpointing = True
+        model.image_encoder.grad_checkpointing = self._grad_checkpointing()
 
     def make_optimizer(self, model, args):
         adapter_params = [p for n, p in model.image_encoder.named_parameters()
@@ -180,6 +208,13 @@ class SACMOfficialAdapter(BaselineAdapter):
         union = prob.sum() + masks.sum()
         dice = 1.0 - (2.0 * inter + 1e-6) / (union + 1e-6)
         return (self.args.bce_weight * bce + self.args.dice_weight * dice)
+
+    def val_step(self, model, samples, rng):
+        # Official train_sam.py reports the same DiceBCE term on its
+        # validation split.  This adapter applies no random augmentation,
+        # so the training preprocessing is exactly the validation one.
+        batch = self.prepare_train_batch(samples, rng)
+        return float(self.train_step(model, batch).detach())
 
     def prepare_eval_sample(self, sample, device):
         image = load_rgb(sample.image_path).resize(

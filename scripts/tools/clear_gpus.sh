@@ -262,7 +262,7 @@ if [[ -n "$remaining" && "$max_used" -gt "$MEM_LIMIT_MIB" ]]; then
   echo "[gpu-clean] ERROR: GPU memory still in use (${max_used} MiB > ${MEM_LIMIT_MIB} MiB)." >&2
   if [[ ${#zombies[@]} -gt 0 ]]; then
     echo "[gpu-clean] a killed process left a zombie context; kill its parent launcher(s) and retry, e.g.:" >&2
-    echo "[gpu-clean]   pkill -f 'scripts/sacm_x/run_experiments.py'" >&2
+    echo "[gpu-clean]   kill <parent-pid>   # or pkill -f '[r]un_experiments.py'" >&2
   fi
   echo "[gpu-clean] if memory is still held, reset the GPU (root) or reboot." >&2
   exit 1
