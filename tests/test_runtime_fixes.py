@@ -195,6 +195,9 @@ def test_knowsam_shared_wandb_interval_default():
     args = parser.parse_args([])
     assert args.log_interval == 50
     assert args.val_interval == 200
+    assert args.knowsam_shared_val == 1
+    assert parser.parse_args(
+        ['--knowsam-shared-val', '0']).knowsam_shared_val == 0
 
 
 def test_knowsam_unlabeled_pool_excludes_protocol_images(tmp_path):

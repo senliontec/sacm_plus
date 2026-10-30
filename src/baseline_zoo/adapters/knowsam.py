@@ -27,7 +27,12 @@ from baseline_zoo.models.knowsam.transforms import (
     build_transforms,
     build_weak_strong_transforms,
 )
-from baseline_zoo.runtime import REPO_ROOT, BaselineAdapter, file_sha256
+from baseline_zoo.runtime import (
+    REPO_ROOT,
+    BaselineAdapter,
+    binary_metrics,
+    file_sha256,
+)
 from core.wandb_utils import (
     finish_run,
     log_artifact,
@@ -60,6 +65,15 @@ def _postprocess_prediction(pred: np.ndarray, largest_cc: bool) -> np.ndarray:
     if largest_cc:
         return _largest_cc(pred)
     return pred
+
+
+_SHARED_METRICS = ('dice', 'iou', 'cldice', 'hd95')
+
+
+def _mean_metric(values):
+    """NaN-aware mean matching ``runtime._mean`` for shared metrics."""
+    finite = [float(value) for value in values if value == value]
+    return float(np.mean(finite)) if finite else float('nan')
 
 
 class KnowSAMAdapter(BaselineAdapter):
@@ -138,6 +152,11 @@ class KnowSAMAdapter(BaselineAdapter):
         parser.add_argument(
             '--log-interval', type=int, default=50,
             help='iterations between shared train/loss and lr W&B points')
+        parser.add_argument(
+            '--knowsam-shared-val', type=int, default=1,
+            help='1 = also log the shared Dice/IoU/clDice/HD95 validation '
+                 'metrics with the same W&B keys as other baselines; '
+                 '0 = official branch Dice only')
         parser.add_argument('--unlabeled-limit', type=int, default=384)
         parser.add_argument('--labeled-batch', type=int, default=3)
         parser.add_argument(
@@ -228,6 +247,64 @@ class KnowSAMAdapter(BaselineAdapter):
             sam_checkpoint=str(args.sam_checkpoint),
         )
 
+    @torch.no_grad()
+    def _shared_val_metrics(self, trainer, kargs, samples, device, args):
+        """Evaluate the current SGDL prediction with the shared metric suite.
+
+        Mirrors ``run_prediction``'s GT-resolution prediction path (argmax at
+        network resolution, nearest zoom to GT) and the shared
+        ``runtime.binary_metrics`` definitions.  Used only for W&B monitoring;
+        the official SGDL-Dice checkpoint selection is unchanged.
+        """
+        was_training = trainer.SGDL.training
+        trainer.SGDL.eval()
+        transform = build_transforms(kargs)['valid_test']
+        overall = {key: [] for key in (*_SHARED_METRICS, 'empty')}
+        per_dataset = {}
+        try:
+            for sample in samples:
+                image = np.asarray(
+                    load_rgb(sample.image_path), dtype=np.float32) / 255.0
+                dummy = np.zeros(image.shape[:2], dtype=np.uint8)
+                augmented = transform(image=image, mask=dummy)
+                tensor = torch.from_numpy(
+                    augmented['image'].transpose(2, 0, 1).copy()
+                ).float().unsqueeze(0).to(device)
+                outputs = trainer.SGDL(tensor)
+                fusion = outputs[-1]
+                pred_low = torch.argmax(
+                    torch.softmax(fusion, dim=1), dim=1)[0]
+                gt = load_mask(sample.mask_path)
+                pred = zoom(
+                    pred_low.cpu().numpy().astype(np.uint8),
+                    (gt.shape[0] / pred_low.shape[0],
+                     gt.shape[1] / pred_low.shape[1]),
+                    order=0) > 0
+                pred = _postprocess_prediction(
+                    pred, bool(getattr(args, 'knowsam_largest_cc', False)))
+                values = binary_metrics(pred, gt)
+                bucket = per_dataset.setdefault(
+                    sample.dataset,
+                    {key: [] for key in (*_SHARED_METRICS, 'empty')})
+                for key, value in values.items():
+                    overall[key].append(value)
+                    bucket[key].append(value)
+        finally:
+            if was_training:
+                trainer.SGDL.train()
+
+        metrics = {key: _mean_metric(values)
+                   for key, values in overall.items()}
+        metrics['empty_prediction_rate'] = metrics.pop('empty')
+        datasets = {}
+        for dataset, values in sorted(per_dataset.items()):
+            datasets[dataset] = {
+                key: _mean_metric(items) for key, items in values.items()
+                if key != 'empty'}
+            datasets[dataset]['empty_prediction_rate'] = _mean_metric(
+                values['empty'])
+        return metrics, datasets
+
     # ---- training -----------------------------------------------------
     def run_training(self, args):
         if args.resume:
@@ -253,6 +330,10 @@ class KnowSAMAdapter(BaselineAdapter):
         seed_everything(args.seed)
         workdir = Path(args.workdir)
         workdir.mkdir(parents=True, exist_ok=True)
+        self.args = args
+        val_samples = load_split_samples(Path(args.data_root), 'val')
+        if args.limit_val:
+            val_samples = val_samples[:args.limit_val]
         # A rerun must not silently keep a checkpoint from an earlier run.
         for stale_name in (
                 'SGDL_best_model.pth', 'sam_best_model.pth',
@@ -309,6 +390,9 @@ class KnowSAMAdapter(BaselineAdapter):
             'selection': 'SGDL validation Dice (official)',
             'val_dice_source': 'current SGDL validation Dice; best_* remain '
                                'the official best-so-far checkpoint values',
+            'wandb_val_metrics': (
+                'shared Dice/IoU/clDice/HD95 on the val split; official '
+                'SGDL Dice remains the checkpoint-selection metric'),
         }
         run = setup_wandb(args, name=f'knowsam-seed{args.seed}',
                           config=run_config)
@@ -329,11 +413,16 @@ class KnowSAMAdapter(BaselineAdapter):
                                 num_workers=0)
 
         iteration = 0
+        train_window = []
         while iteration < iterations:
             for batch in loader:
                 images = batch['image'].to(args.device)
                 labels = batch['label'].to(args.device)
                 trainer.train(images, labels, iteration)
+                loss_value = getattr(trainer, 'last_losses', {}).get(
+                    'SGDL_loss')
+                if loss_value is not None:
+                    train_window.append(float(loss_value))
                 iteration += 1
                 if run is not None and iteration % args.log_interval == 0:
                     losses = getattr(trainer, 'last_losses', {})
@@ -354,21 +443,60 @@ class KnowSAMAdapter(BaselineAdapter):
                         if value is not None})
                 if iteration % args.val_interval == 0:
                     trainer.val(val_loader, str(workdir), iteration)
+                    window_loss = (_mean_metric(train_window)
+                                   if train_window else None)
+                    train_window = []
                     if run is not None:
                         current = getattr(trainer, 'last_val_dice', {})
                         scalars = {
+                            'epoch': iteration // args.val_interval,
                             'iteration': iteration,
-                            'val/dice': current.get('SGDL'),
-                            'val/sgdl_dice': current.get('SGDL'),
-                            'val/sam_dice': current.get('sam'),
-                            'val/unet_dice': current.get('unet'),
-                            'val/vnet_dice': current.get('vnet'),
-                            'val/selection': current.get('SGDL'),
-                            'val/SGDL_best_dice':
+                            'train/loss': window_loss,
+                            'lr': getattr(trainer, 'last_lrs', {}).get(
+                                'sgdl'),
+                            # Official KnowSAM selection / checkpoint metric.
+                            'val/knowsam_selection': current.get('SGDL'),
+                            'val/knowsam/sgdl_dice': current.get('SGDL'),
+                            'val/knowsam/sam_dice': current.get('sam'),
+                            'val/knowsam/unet_dice': current.get('unet'),
+                            'val/knowsam/vnet_dice': current.get('vnet'),
+                            'val/knowsam/SGDL_best_dice':
                                 trainer.best_performance_SGDL,
-                            'val/SAM_best_dice':
+                            'val/knowsam/SAM_best_dice':
                                 trainer.best_performance_sam,
                         }
+                        if int(getattr(args, 'knowsam_shared_val', 1)):
+                            try:
+                                shared_metrics, shared_datasets = (
+                                    self._shared_val_metrics(
+                                        trainer, kargs, val_samples,
+                                        args.device, args))
+                            except Exception as exc:
+                                print('[knowsam] shared validation failed: '
+                                      f'{exc}', flush=True)
+                            else:
+                                scalars.update({
+                                    'val/selection': shared_metrics['dice'],
+                                    'val/dice': shared_metrics['dice'],
+                                    'val/iou': shared_metrics['iou'],
+                                    'val/cldice': shared_metrics['cldice'],
+                                    'val/hd95': shared_metrics['hd95'],
+                                    'val/empty_prediction_rate':
+                                        shared_metrics[
+                                            'empty_prediction_rate'],
+                                })
+                                for dataset, values in (
+                                        shared_datasets.items()):
+                                    for metric in ('dice', 'iou', 'cldice',
+                                                   'hd95'):
+                                        scalars[
+                                            f'val/{dataset}/{metric}'] = (
+                                                values[metric])
+                        else:
+                            # Backward-compatible monitor when the shared
+                            # evaluation is explicitly disabled.
+                            scalars['val/selection'] = current.get('SGDL')
+                            scalars['val/dice'] = current.get('SGDL')
                         log_scalars(run, {
                             key: value for key, value in scalars.items()
                             if value is not None})
