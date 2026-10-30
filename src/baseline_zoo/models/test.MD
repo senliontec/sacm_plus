@@ -11,49 +11,51 @@ From this file's directory: `../../../../3rd`
 `3rd` is a read-only upstream reference. Do not import from it at runtime.
 
 ```text
+└── unet                  -> 3rd/Pytorch-UNet
+├── cs2net                -> 3rd/CS-Net
+├── bcunet                -> 3rd/BCU-Net
+├── maskvsc               -> 3rd/MaskVSC
+├── nnwnet                -> 3rd/nnWNet
+├── sam_med2d             -> 3rd/SAM-Med2D
+├── sam_octa              -> 3rd/SAM-OCTA
+├── cwsam                 -> 3rd/CWSAM
+├── knowsam               -> 3rd/KnowSAM
+├── segdino               -> 3rd/segdino
+├── sacm_official         -> 3rd/SACM
+
+
 .
 ├── a2sam                 -> 3rd/A2SAM 
 ├── aco_moe_lora          -> 3rd/ACO-MoE-LoRA
-├── bcunet                -> 3rd/BCU-Net
 ├── blo_sam               -> 3rd/BLO-SAM
 ├── c2p                   -> 3rd/Concept-to-Pixel
 ├── convlora              -> 3rd/autogluon/examples/automm/Conv-LoRA [牛逼]
-├── cs2net                -> 3rd/CS-Net
 ├── csunet                -> 3rd/CSUNet
-├── cwsam                 -> 3rd/CWSAM
 ├── dconnnet              -> 3rd/DconnNet
 ├── dka                   -> 3rd/DKA
 ├── dscnet                -> 3rd/DSCNet
 ├── flowsdf               -> 3rd/FlowSDF
 ├── fssam                 -> 3rd/FSSAM
 ├── jtfn                  -> 3rd/JTFN
-├── knowsam               -> 3rd/KnowSAM
 ├── kprism                -> 3rd/K-Prism
 ├── liot                  -> 3rd/LIOT
-├── maskvsc               -> 3rd/MaskVSC
 ├── matcher               -> 3rd/Matcher
 ├── medcagd               -> 3rd/MedCAGD
 ├── nnunet2d              -> 3rd/nnUNet
-├── nnwnet                -> 3rd/nnWNet
 ├── persam                -> 3rd/Personalize-SAM
 ├── rsrm                  -> 3rd/RSRM
 ├── s2mnet                -> 3rd/S2M-Net-Spectral-Spatial-Mixing-for-Medical-Segmentation
-├── sacm_official         -> 3rd/SACM
 ├── sam2_unet             -> 3rd/SAM2-UNet
 ├── sam_adapter           -> 3rd/SAM-Adapter-PyTorch
 ├── samed                 -> 3rd/SAMed
-├── sam_med2d             -> 3rd/SAM-Med2D
-├── sam_octa              -> 3rd/SAM-OCTA
 ├── sam_vit_l_unet        -> (no 3rd; project extension)
 ├── sansa                 -> 3rd/SANSA
 ├── scrwkv                -> 3rd/SCRWKV
-├── segdino               -> 3rd/segdino
 ├── segdino_v2            -> 3rd/segdino_v2
 ├── topolora              -> 3rd/Seglab
 ├── curvfield             -> (no 3rd; project extension built on Conv-LoRA)
 ├── tpsegformer           -> 3rd/TPSegformer
 ├── ucs                   -> 3rd/UCS
-└── unet                  -> 3rd/Pytorch-UNet
 ```
 
 ## Multi-directory / special mappings
