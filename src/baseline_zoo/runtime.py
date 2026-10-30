@@ -85,6 +85,9 @@ class BaselineAdapter(ABC):
     accumulation_steps: int = 1
     default_grad_clip: float = 0.0
     selection: str = 'dice'
+    # Metric-based schedulers (ReduceLROnPlateau) are stepped by the main
+    # loop after validation, where the selected metric is available.
+    scheduler_after_validation: bool = False
     deviations: tuple[str, ...] = ()
     custom_pipeline: bool = False
     training_free: bool = False
@@ -177,6 +180,16 @@ class BaselineAdapter(ABC):
         """LR to show in the epoch table for the active training stage."""
         return float(optimizer.param_groups[0]['lr'])
 
+    def step_scheduler(self, scheduler, metrics: dict[str, float]) -> None:
+        """Step the epoch scheduler after validation.
+
+        The default keeps the historical no-argument ``step()`` used by
+        epoch-based schedules.  Metric-based schedulers (for example
+        ReduceLROnPlateau) override this and consume ``metrics``.
+        """
+        if scheduler is not None:
+            scheduler.step()
+
     def train_epoch(self, model: nn.Module, loader: DataLoader,
                     optimizer: torch.optim.Optimizer, scheduler,
                     args: argparse.Namespace) -> float:
@@ -217,7 +230,7 @@ class BaselineAdapter(ABC):
                     args.grad_clip)
             optimizer.step()
             optimizer.zero_grad(set_to_none=True)
-        if scheduler is not None:
+        if scheduler is not None and not self.scheduler_after_validation:
             scheduler.step()
         return running / max(seen, 1)
 
@@ -431,9 +444,12 @@ def make_training_scheduler(adapter: BaselineAdapter,
                             args: argparse.Namespace):
     """Build either the adapter's official scheduler or a generic override.
 
-    The shared runtime calls ``scheduler.step()`` once per epoch.  The
-    generic ``onecycle`` mode is therefore an epoch-granular OneCycle, not
-    PyTorch's usual per-iteration schedule.
+    The shared runtime steps the scheduler once per epoch: inside
+    ``train_epoch`` for epoch-based schedules, or via
+    ``adapter.step_scheduler`` after validation for metric-based schedules
+    (for example ReduceLROnPlateau).  The generic ``onecycle`` mode is
+    therefore an epoch-granular OneCycle, not PyTorch's usual per-iteration
+    schedule.
     """
     choice = getattr(args, 'scheduler', 'official') or 'official'
     if choice == 'official':
@@ -756,6 +772,8 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
                                          args)
         val_metrics, val_per_dataset = evaluate(
             adapter, model, val_samples, device)
+        if adapter.scheduler_after_validation:
+            adapter.step_scheduler(scheduler, val_metrics)
         elapsed = time.time() - epoch_t0
         lr = adapter.display_lr(optimizer)
         score = adapter.selection_score(val_metrics, val_per_dataset)

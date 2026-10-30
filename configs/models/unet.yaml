@@ -16,5 +16,10 @@ eval_entrypoint: >-
   --paper-root {output_root}
   --device cuda:{gpu} --use_wandb true --skip-visualize
 protocols: [seeded5, fixed]
+note: >-
+  Official milesial recipe (per-image scale=0.5, batch 1, RMSprop,
+  ReduceLROnPlateau on validation Dice, no augmentation) extended to the
+  shared 800-epoch 3-shot budget and 6-image validation split; 1-class
+  binary head.
 defaults:
   epochs: 800

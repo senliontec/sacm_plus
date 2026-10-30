@@ -1,5 +1,5 @@
 model,G0,G1,G2,G3,G4,G5,G6a,G6b,G6c,main_blocker,post_fix,a0_reaudit
-unet,pass,pass,fail,unverified,pass,pass,unverified,N/A,unverified,G2: official global Dice vs port per-image Dice,fixed G2 global Dice; after-fix probe loss/grad diff=0,post-A0 code-level
+unet,pass,pass,fail,unverified,pass,pass,unverified,N/A,unverified,G2: official global Dice vs port per-image Dice,fixed G2 global Dice; after-fix probe loss/grad diff=0; official scale=0.5/RMSprop/ReduceLROnPlateau/no-augmentation recipe restored,post-A0 code-level
 cs2net,pass,pass,pass,unverified,pass,pass,pass,N/A,unverified,G3: single-GPU vs 2-GPU DataParallel; workers/RNG undocumented,disclosed GPU/workers/RNG; G0 path/commit,not yet
 bcunet,pass,unverified,unverified,unverified,unverified,pass,unverified,N/A,unverified,official model is not constructible (SyntaxError/upconv2x2),fixed prediction pretrained download,not yet
 maskvsc,pass,pass,pass,unverified,pass,pass,unverified,N/A,unverified,"G3: ratio=0 RNG, flip/worker differences",disclosed RNG/workers; G0 path/commit,not yet

@@ -18,7 +18,7 @@ collector and report pipeline.
 
 | Model | Status after audit | Main fixes |
 |---|---|---|
-| U-Net (`unet`) | OK with documented 3-shot deviations | official batch Dice (eps 1e-6, empty-set branch); logit-space upsample; LR/WD/batch and 1-class/RGB deviations documented |
+| U-Net (`unet`) | OK with documented protocol deviations | official per-image scale=0.5, batch 1, RMSprop 1e-5/ReduceLROnPlateau, no augmentation; official batch Dice (eps 1e-6, empty-set branch) and logit-space upsample; 800-epoch 3-shot budget, 6-image val and 1-class/RGB deviations documented |
 | CS2Net-2D (`cs2net`) | OK, identity clarified | official 2D branch `model/csnet.py` + `train.py`; `model/csnet_3d.py` is the separate 3D CS2Net extension and is not applicable to 2D protocol images; LambdaLR one-epoch offset matches upstream |
 | BCUNet (`bcunet`) | OK, paper profile | MRL/RecallCE on ConvNeXt/U-Net/fused, 0.5/0.5 fusion, bilinear U-Net (broken release branch repaired), 18× offline augmentation reconstruction, 100 epochs/batch 2; CE/0.4-0.6/no-aug ablations; OutConv 1×1 logits |
 | MaskVSC (`maskvsc`) | OK, full two-stage release main | stage-1 UNet + stage-2 ViG completion (`ViG(Seg(image))`); official patch16 token-fold decode, soft GCN labels, ViG 23.84M/full 31.61M; main baseline release L_C/flip-only/dot-product KNN; paper L_C/rotation/Euclidean are ablations because paper L_C overweights sparse domains (10-100× BCE) and collapsed CORN/CrackTree/DCA1 (100-epoch seed-0 A/B: release 0.4612/0.4726 vs paper 0.1133/0.1636); patch32 `coherent` ablation; pooled 512 / 600+200 |
@@ -118,9 +118,10 @@ Not unified, by design or documented exception:
 - **SegDINO**: real training needs DINOv3 weights. A size-matched file under
   `checkpoints/` is detected automatically; otherwise set `DINO_CKPT` /
   `--dino-ckpt` or `HF_TOKEN`. Prediction no longer downloads them.
-- **U-Net**: the 3-shot recipe uses AdamW/cosine and a higher LR/batch than
-  the upstream RMSprop example; these are explicitly listed as protocol
-  deviations.
+- **U-Net**: the official milesial recipe (per-image scale=0.5, batch 1,
+  RMSprop, ReduceLROnPlateau, no augmentation) is used; the 800-epoch
+  3-shot budget, 6-image validation split and 1-class binary head are
+  protocol adaptations listed in the adapter's `deviations`.
 - Full 5-seed × 20-dataset training has not been run; this audit covers
   source-level correctness and one-step/short smoke tests.
 
@@ -858,3 +859,17 @@ resulting pool is CHASEDB1 train-group fellow eyes (3), CREMI volume B
 (122 slices) and CORN train batches.  `tests/test_runtime_fixes.py` now
 asserts both exact-image and group-level exclusion.  KnowSAM runs started
 before this fix must not be used for the paper; rerun after the fix.
+
+## U-Net official-recipe addendum (2026-10-30)
+
+The U-Net adapter was re-ported to the official milesial recipe: per-image
+`scale=0.5` (variable input size, batch 1), RMSprop lr 1e-5/wd 1e-8/
+momentum 0.999, `ReduceLROnPlateau('max', patience=5)` stepped on
+validation Dice, no augmentation, BCE + official global Dice, gradient
+clipping 1.0, and logit-space bilinear upsampling.  The shared 3-shot
+protocol still supplies 18 train / 6 val images, 800 epochs, the 6-image
+validation split and the 1-class binary head; these are listed in
+`UNetAdapter.deviations`.  The previous fixed-512/AdamW/cosine/flip-rot90
+recipe is removed.  Numerical parity for loss, forward and prediction is
+unchanged (bit-exact); the one-epoch smoke must be rerun under the new
+preprocessing before reporting.

@@ -19,6 +19,14 @@ defaults:
     choices: [0, 5, 10, 20, 50]
 
 models:
+  # The official U-Net recipe uses ReduceLROnPlateau on validation Dice;
+  # generic epoch-scheduler/warmup overrides would replace it.
+  unet:
+    scheduler:
+      choices: [official]
+    warmup_epochs:
+      choices: [0]
+
   # Iteration-based custom trainer; its internal optimizers/schedulers are
   # not covered by the shared --scheduler/--warmup-epochs interface yet.
   nnwnet:
