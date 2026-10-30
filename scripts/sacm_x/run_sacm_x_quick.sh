@@ -2,7 +2,7 @@
 # Quick same-protocol test for SACM-X's own model.
 #
 # 18-image train_root, all 20 frozen-protocol test sets, ONE preset,
-# no TTA, W&B on, fast validation, then aggregate the 4 paper metrics.
+# no TTA, W&B on, full validation, then aggregate the 4 paper metrics.
 #
 # Usage:
 #   GPU=1 PRESET=full EPOCHS=200 bash scripts/sacm_x/run_sacm_x_quick.sh
@@ -11,16 +11,19 @@
 #     bash scripts/sacm_x/run_sacm_x_quick.sh
 #
 # Environment:
-#   PYTHON, GPU, PRESET, EPOCHS, VAL_INTERVAL, SEED, DATASETS, CKPT,
+#   PYTHON, GPU, MODEL, PRESET, EPOCHS, VAL_INTERVAL, SEED, DATASETS, CKPT,
 #   TRAIN_ROOT, OUTPUT_ROOT, MONITOR, USE_WANDB, WANDB_MODE,
-#   INIT_STAGE2_FROM_STAGE1, SKIP_TEST, SCNP, SCNP_WINDOW,
-#   SCNP_ORIGINAL_WEIGHT
+#   INIT_STAGE2_FROM_STAGE1, SKIP_TEST, SKIP_AGGREGATE, SCNP, SCNP_WINDOW,
+#   SCNP_ORIGINAL_WEIGHT, WANDB_GROUP (fallback: WANDB_RUN_GROUP)
 #
-# MONITOR=official (default): official SACM-style loss/F1/LR terminal lines,
-#   no FOV in validation or test, and only loss/F1 during training validation.
-# MONITOR=sacm: fast validation but still prints the rich wide table (legacy).
-# MONITOR=full: re-enable the full validation metric suite (Dice/IoU/clDice/
-#   HD95 + AUC/Betti/Topograph engines).
+# MODEL defaults to sam_l (the ViT-L checkpoint). For a local ViT-B smoke,
+# set MODEL=sam_b and CKPT=checkpoints/sam_vit_b_01ec64.pth.
+#
+# MONITOR=official (default): baseline-format compact table and full
+#   validation metrics (Dice/IoU/clDice/HD95), no FOV in validation or test.
+# MONITOR=sacm: fast validation (loss/F1 only; table metric cells show —).
+# MONITOR=full: full validation metric suite (AUC/Betti/Topograph engines,
+#   plus FOV masking).
 set -euo pipefail
 cd "$(dirname "$0")/../.." || exit 1
 REPO="$(pwd)"
@@ -35,10 +38,11 @@ if [ -z "${PYTHON:-}" ]; then
   fi
 fi
 GPU="${GPU:-0}"
+MODEL="${MODEL:-sam_l}"
 PRESET="${PRESET:-full}"
 source scripts/sacm_x/wandb_env.sh
 EPOCHS="${EPOCHS:-200}"
-VAL_INTERVAL="${VAL_INTERVAL:-10}"
+VAL_INTERVAL="${VAL_INTERVAL:-1}"
 SEED="${SEED:-42}"
 DATASETS="${DATASETS:-}"
 CKPT="${CKPT:-checkpoints/sam_vit_l_0b3195.pth}"
@@ -52,8 +56,10 @@ SCNP_ORIGINAL_WEIGHT="${SCNP_ORIGINAL_WEIGHT:-0.0}"
 DEEP_CLOSING_CKPT="${DEEP_CLOSING_CKPT:-}"
 DEEP_CLOSING_THRESHOLD="${DEEP_CLOSING_THRESHOLD:-}"
 SKIP_TEST="${SKIP_TEST:-false}"
+SKIP_AGGREGATE="${SKIP_AGGREGATE:-false}"
 USE_WANDB="${USE_WANDB:-true}"
 WANDB_MODE="${WANDB_MODE:-online}"
+WANDB_GROUP="${WANDB_GROUP:-${WANDB_RUN_GROUP:-}}"
 export WANDB_MODE
 if [ "$USE_WANDB" = "true" ] && [ "$WANDB_MODE" != "offline" ] && [ "$WANDB_MODE" != "disabled" ]; then
   if ! wandb_auth_ok; then
@@ -63,9 +69,9 @@ if [ "$USE_WANDB" = "true" ] && [ "$WANDB_MODE" != "offline" ] && [ "$WANDB_MODE
   fi
 fi
 case "$MONITOR" in
-  official) TRAIN_EXTRA=(--use_wandb "$USE_WANDB" --fast_val true
+  official) TRAIN_EXTRA=(--use_wandb "$USE_WANDB" --fast_val false
               --val_auc false --val_betti_matching false --val_topograph false
-              --log_style official --no-fov)
+              --log_style table --no-fov)
             EVAL_EXTRA="--use_wandb $USE_WANDB --no-fov" ;;
   sacm) TRAIN_EXTRA=(--use_wandb "$USE_WANDB" --fast_val true
           --val_auc false --val_betti_matching false --val_topograph false)
@@ -76,8 +82,13 @@ case "$MONITOR" in
      exit 2 ;;
 esac
 
-TRAIN_EXTRA+=(--scnp "$SCNP" --scnp_window "$SCNP_WINDOW" \
+TRAIN_EXTRA+=(--model "$MODEL" \
+              --scnp "$SCNP" --scnp_window "$SCNP_WINDOW" \
               --scnp_original_weight "$SCNP_ORIGINAL_WEIGHT")
+if [ -n "$WANDB_GROUP" ]; then
+  TRAIN_EXTRA+=(--wandb_group "$WANDB_GROUP")
+fi
+EVAL_EXTRA+=" --model $MODEL"
 
 if [ -n "$DEEP_CLOSING_CKPT" ]; then
   if [ ! -f "$DEEP_CLOSING_CKPT" ]; then
@@ -110,7 +121,7 @@ SPECS="$("$PYTHON" scripts/pipeline/protocol_specs.py \
   --datasets "$DATASETS")"
 read -r -a spec_array <<< "$SPECS"
 
-echo "preset=$PRESET epochs=$EPOCHS gpu=$GPU monitor=$MONITOR init_stage2_from_stage1=$INIT_STAGE2_FROM_STAGE1 scnp=$SCNP($SCNP_WINDOW) deep_closing=${DEEP_CLOSING_CKPT:-none} skip_test=$SKIP_TEST"
+echo "model=$MODEL preset=$PRESET epochs=$EPOCHS gpu=$GPU monitor=$MONITOR init_stage2_from_stage1=$INIT_STAGE2_FROM_STAGE1 scnp=$SCNP($SCNP_WINDOW) deep_closing=${DEEP_CLOSING_CKPT:-none} skip_test=$SKIP_TEST"
 echo "datasets=${#spec_array[@]}  output=$OUTPUT_ROOT"
 RUN_EXTRA=()
 if [ "$SKIP_TEST" = "true" ]; then
@@ -131,6 +142,11 @@ fi
 if [ "$SKIP_TEST" = "true" ]; then
   echo "== test/eval skipped (SKIP_TEST=true) =="
   echo "checkpoint/log dir: $OUTPUT_ROOT/$PRESET"
+  exit 0
+fi
+
+if [ "$SKIP_AGGREGATE" = "true" ]; then
+  echo "== aggregate skipped (SKIP_AGGREGATE=true) =="
   exit 0
 fi
 

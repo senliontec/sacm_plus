@@ -34,6 +34,7 @@ from core.losses import (
     DiceBCELoss,
     SCNPCriterion,
     SoftclDiceLoss,
+    SoftSkeletonRecallLoss,
     build_topology_loss,
 )
 from core.registry import MODEL_REGISTRY, get_model_spec
@@ -227,6 +228,14 @@ def train(args):
             f"original_weight={args.scnp_original_weight} "
             f"(main BCE/Dice and Stage-1 deep supervision use SCNP logits)")
     soft_cl = SoftclDiceLoss(num_iter=args.cl_dice_iters)
+    skeleton_recall = None
+    if args.skeleton_recall_weight > 0:
+        skeleton_recall = SoftSkeletonRecallLoss(
+            do_tube=args.skeleton_recall_tube)
+        logging.info(
+            f"Skeleton Recall loss enabled: weight={args.skeleton_recall_weight} "
+            f"(warmup {args.skeleton_recall_warmup} ep, ramp "
+            f"{args.skeleton_recall_ramp} ep, tube={args.skeleton_recall_tube})")
     try:
         topo_loss = build_topology_loss(args.topology_loss,
                                         resolution=args.topology_resolution)
@@ -268,6 +277,7 @@ def train(args):
     trainer = Trainer(
         model=sam, spec=spec, device=device,
         criterion=criterion, soft_cl=soft_cl, topo_loss=topo_loss,
+        skeleton_recall=skeleton_recall,
         optimizer=optimizer, scheduler=scheduler,
         train_loader=train_loader, val_loader=val_loader,
         args=args, is_ddp=is_ddp, train_sampler=train_sampler,
@@ -294,7 +304,7 @@ if __name__ == '__main__':
     parser.add_argument('--decoder_lr', type=float, default=1e-5, help='Learning rate for original mask decoder parameters (lowered to curb few-shot overfitting)')
     parser.add_argument('--weight_decay', type=float, default=0.01, help='Weight decay for optimizer')
     parser.add_argument('--epochs', type=int, default=50, help='Number of epochs (aligned with the paper protocol)')
-    parser.add_argument('--val_interval', type=int, default=10, help='Validation interval (epochs)')
+    parser.add_argument('--val_interval', type=int, default=1, help='Validation interval (epochs)')
     parser.add_argument('--fast_val', type=str2bool, default=False,
                         help='Validation computes only loss + F1; skips the full metric suite and '
                              'topology monitor (training-time speed; full metrics stay in evaluate.py)')
@@ -338,9 +348,9 @@ if __name__ == '__main__':
                              'to evaluation --pred_threshold')
     parser.add_argument('--log_style', type=str, default='table',
                         choices=['table', 'official'],
-                        help="Terminal monitoring style: 'table' = rich full-metric "
-                             "table; 'official' = SACM-style train loss / val loss / "
-                             "F1 / LR lines only")
+                        help="Terminal monitoring style: 'table' = baseline-style "
+                             "compact table (ep/tr_loss/Dice/IoU/clDice/HD95/lr/time); "
+                             "'official' = legacy SACM-style loss/F1/LR lines")
     parser.add_argument('--no-fov', dest='no_fov', action='store_true',
                         help='Do not mask predictions/GT by the FOV; matches the '
                              'official SACM adapter and paper-metric predictions')
@@ -348,6 +358,15 @@ if __name__ == '__main__':
     parser.add_argument('--cl_dice_warmup', type=int, default=10, help='Epochs before the clDice loss activates')
     parser.add_argument('--cl_dice_ramp', type=int, default=5, help='Epochs for the clDice weight to ramp to its max')
     parser.add_argument('--cl_dice_iters', type=int, default=10, help='Soft-skeleton iterations of the clDice loss (official clDice repo default: 10)')
+    parser.add_argument('--skeleton_recall_weight', type=float, default=0.0,
+                        help='Max weight of the Skeleton Recall loss (ECCV 2024, '
+                             'tubed GT skeleton). 0 disables it; presets can set it.')
+    parser.add_argument('--skeleton_recall_warmup', type=int, default=10,
+                        help='Epochs before the Skeleton Recall loss activates')
+    parser.add_argument('--skeleton_recall_ramp', type=int, default=5,
+                        help='Epochs for the Skeleton Recall weight to ramp to its max')
+    parser.add_argument('--skeleton_recall_tube', type=str2bool, default=True,
+                        help='Use the official 2-px tubed GT skeleton')
     parser.add_argument('--iou_loss_weight', type=float, default=1.0, help='Weight of the IoU head MSE supervision')
 
     # Full val metric suite: 16 常规指标 + 4 可选指标全部默认开启
@@ -389,6 +408,8 @@ if __name__ == '__main__':
                         help='wandb API key (default: WANDB_API_KEY env; empty '
                              'falls back to the wandb login/config store)')
     parser.add_argument('--wandb_name', type=str, default=None, help='wandb run name (default: model_preset)')
+    parser.add_argument('--wandb_group', type=str, default=None,
+                        help='wandb group (e.g. a seed/sweep name)')
     parser.add_argument('--wandb_tags', type=str, default=None, help='Comma-separated wandb tags')
 
     # Data augmentation

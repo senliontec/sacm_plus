@@ -64,7 +64,6 @@ METHOD_META = {
     'sansa': ('SANSA', '✓'),
     'sam2_unet': ('SAM2-UNet', '✗'),
     'scrwkv': ('SCRWKV', '✗'),
-    'nativetok': ('NativeToken', '✗'),
     'cwsam': ('CWSAM', '✓'),
     'knowsam': ('KnowSAM', '✓'),
     'kprism': ('K-Prism (ICLR 2026)', '✗'),

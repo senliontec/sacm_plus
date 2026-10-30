@@ -267,7 +267,7 @@ def main():
                         choices=[p for p in PRESETS if p != 'none'])
     parser.add_argument('--output_root', type=str, default='outputs')
     parser.add_argument('--epochs', type=int, default=50)
-    parser.add_argument('--val_interval', type=int, default=10)
+    parser.add_argument('--val_interval', type=int, default=1)
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--selection', type=str, default=None,
                         help="Override mask selection ('iou' or 'gating'); "

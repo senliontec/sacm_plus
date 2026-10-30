@@ -182,6 +182,7 @@ All four accept `--model`, `--seeds`, `--gpus`, `--protocol`, `--resume`,
 ```text
 scripts/
 ├── run_paper.sh            # one-click all experiments
+├── run_sacm_vitl_compare.sh # official SACM + SACM-X presets (ViT-L)
 ├── run_train.sh            # stage wrappers
 ├── run_eval.sh
 ├── run_report.sh
@@ -193,6 +194,7 @@ scripts/
 │   ├── metrics.py
 │   └── protocol_specs.py
 ├── sacm_x/                 # SACM-X research framework entrypoints
+│   ├── run_sacm_x_800.sh   # one-click 800-epoch ViT-L training + W&B
 │   ├── run_sacm_x_quick.sh
 │   ├── eval_sacm_x_20.sh
 │   ├── run_experiments.py
@@ -223,8 +225,67 @@ scripts/
 `sacm_x/` is the SACM-X training/evaluation engine; it is separate from the
 official/reference baseline adapters. Its model code lives in
 `src/models/sacm_x`, `src/train` and `src/eval`, and its registry entry is
-`configs/models/sacm_x.yaml`. NativeToken remains outside the baseline
-registry under `src/methods/nativetok`.
+`configs/models/sacm_x.yaml`.
+
+### Skeleton Recall topology arm
+
+SACM-X includes an opt-in Skeleton Recall loss (ECCV 2024, Apache-2.0
+adaptation in `src/core/losses/skeleton_recall.py`). The `full` preset is
+unchanged; topology presets are explicit:
+
+| Preset | Skeleton Recall weight | Tube |
+|---|---:|---|
+| `full` | 0.0 | — |
+| `full_srec` | 0.2 | yes |
+| `full_srec_low` | 0.1 | yes |
+| `full_srec_high` | 0.5 | yes |
+| `full_srec_notube` | 0.2 | no |
+
+The loss runs on the tubed GT skeleton at 1024 and is warmed up through the
+existing `skeleton_recall_warmup/ramp` schedule (the presets start at epoch 0
+and ramp over five epochs).
+
+One-click ViT-L comparison on the server (official SACM on GPU0; one SACM-X
+preset per subsequent GPU):
+
+```bash
+# Baseline only (backward-compatible default)
+bash scripts/run_sacm_vitl_compare.sh
+
+# Topology arm: official SACM + SACM-X full + SACM-X full_srec
+SACM_X_PRESETS="full full_srec" bash scripts/run_sacm_vitl_compare.sh
+
+# Weight sweep on three GPUs
+SACM_X_PRESETS="full full_srec_low full_srec_high" \
+  SACM_X_GPUS="1 2 3" bash scripts/run_sacm_vitl_compare.sh
+```
+
+The script trains every preset on the same seed/split, evaluates all 20
+datasets, and writes one aggregated table under
+`results/sacm_vitl_compare/seed<SEED>/sacm_x/tables/`.
+
+### 800-epoch training run (W&B, no test evaluation)
+
+```bash
+# Default: ViT-L full, GPU0, seed0, 800 epochs, validation every epoch
+bash scripts/sacm_x/run_sacm_x_800.sh
+
+# Topology arm
+PRESET=full_srec GPU=1 SEED=0 bash scripts/sacm_x/run_sacm_x_800.sh
+
+# 24GB-card fallback if full OOMs
+PRESET=stage2 GPU=0 bash scripts/sacm_x/run_sacm_x_800.sh
+```
+
+Outputs: `results/sacm_x_vitl_800/seed<SEED>/<PRESET>/best_model.pth` and
+`metrics_history.json`; the W&B run is in entity `buaazqk`, project `sacm`,
+run name `sacm_x_<MODEL>_<PRESET>_seed<SEED>`, group
+`sacm_x_<MODEL>_<PRESET>_800_seed<SEED>`. W&B logs exactly the baseline
+monitor keys: global `val/dice`, `val/iou`, `val/cldice`, `val/hd95`,
+`val/empty_prediction_rate`, `val/selection`, plus per-domain
+`val/<DATASET>/{dice,iou,cldice,hd95}`. The full metric suite stays in
+`metrics_history.json`. Override `CKPT`, `TRAIN_ROOT`, or `OUTPUT_ROOT` for
+a different server layout.
 
 ## Data preparation (one-time)
 

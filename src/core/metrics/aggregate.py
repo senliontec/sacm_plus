@@ -19,7 +19,12 @@ from .pixel import (
 )
 from .distance import asd_score, assd_score, hausdorff_score, hd95_score, ravd_score
 from .surface import nsd_score
-from .topology import betti_error, cldice_score
+from .topology import (
+    betti_error,
+    cldice_score,
+    skeleton_precision_score,
+    skeleton_recall_score,
+)
 
 
 def _auc_scores(probs, gt, n_thresholds=9):
@@ -66,9 +71,10 @@ def compute_metrics(
             (official engine, at 256 resolution; needs networkx/scipy).
     Returns:
         dict with keys dice, iou, precision, recall, sensitivity,
-        specificity, accuracy, mcc, cldice, hd, hd95, assd, asd, ravd,
-        nsd, betti (+ dice_auc, cldice_auc when compute_auc, and
-        betti_matching / topograph_error when their flags are set).
+        specificity, accuracy, mcc, cldice, skeleton_recall,
+        skeleton_precision, hd, hd95, assd, asd, ravd, nsd, betti
+        (+ dice_auc, cldice_auc when compute_auc, and betti_matching /
+        topograph_error when their flags are set).
         Distance/topology metrics are NaN when a mask is empty or a
         dependency is missing; callers aggregate with NaN exclusion.
     """
@@ -87,6 +93,8 @@ def compute_metrics(
         "accuracy": accuracy_score(pred, ref),
         "mcc": mcc_score(pred, ref),
         "cldice": cldice_score(pred, ref),
+        "skeleton_recall": skeleton_recall_score(pred, ref),
+        "skeleton_precision": skeleton_precision_score(pred, ref),
         "hd": hausdorff_score(pred, ref),
         "hd95": hd95_score(pred, ref),
         "assd": assd_score(pred, ref),

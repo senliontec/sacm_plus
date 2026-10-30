@@ -20,6 +20,8 @@ from core.metrics import (
     ravd_score,
     recall_score,
     sensitivity_score,
+    skeleton_precision_score,
+    skeleton_recall_score,
     specificity_score,
 )
 
@@ -75,6 +77,27 @@ def test_cldice_empty_skeleton_is_nan():
     assert np.isnan(cldice_score(empty, full))
 
 
+def test_skeleton_recall_and_precision():
+    gt = np.zeros((32, 32), dtype=np.uint8)
+    gt[16, 4:28] = 1
+    gt[4:28, 16] = 1
+    assert skeleton_recall_score(gt, gt) == pytest.approx(1.0)
+    assert skeleton_precision_score(gt, gt) == pytest.approx(1.0)
+
+    # Only the horizontal branch: half of the GT skeleton is missed.
+    pred = np.zeros_like(gt)
+    pred[16, 4:28] = 1
+    assert skeleton_recall_score(pred, gt) < 0.75
+    # The predicted skeleton is entirely inside GT (no hallucinations).
+    assert skeleton_precision_score(pred, gt) == pytest.approx(1.0)
+
+    empty = np.zeros_like(gt)
+    # Empty prediction covers none of the GT skeleton; its own skeleton is
+    # undefined, so precision is NaN.
+    assert skeleton_recall_score(empty, gt) == pytest.approx(0.0)
+    assert np.isnan(skeleton_precision_score(empty, gt))
+
+
 def test_betti_error_counts_components():
     gt = np.zeros((16, 16), dtype=np.uint8)
     gt[2:5, 2:5] = 1
@@ -94,7 +117,8 @@ def test_compute_metrics_keys_and_finiteness():
     m = compute_metrics(logits, gt)
     expected = {
         "dice", "iou", "precision", "recall", "sensitivity", "specificity",
-        "accuracy", "mcc", "cldice", "hd", "hd95", "assd", "asd", "ravd",
+        "accuracy", "mcc", "cldice", "skeleton_recall",
+        "skeleton_precision", "hd", "hd95", "assd", "asd", "ravd",
         "nsd", "betti",
     }
     assert expected.issubset(m.keys())

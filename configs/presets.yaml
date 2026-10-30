@@ -21,3 +21,11 @@ preset: full
 # scnp: true
 # scnp_window: 3
 # scnp_original_weight: 0.0
+
+# Skeleton Recall (ECCV 2024, tubed GT skeleton) — training-only topology
+# term. Equivalent presets: full_srec (0.2), full_srec_low (0.1),
+# full_srec_high (0.5), full_srec_notube.
+# skeleton_recall_weight: 0.2
+# skeleton_recall_warmup: 0
+# skeleton_recall_ramp: 5
+# skeleton_recall_tube: true

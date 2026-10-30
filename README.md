@@ -1,9 +1,9 @@
 # Curvilinear Segmentation Benchmark
 
 A PyTorch benchmark for 3-shot, prompt-free curvilinear structure segmentation
-on SAM. It contains 40 official/reference baseline ports, the SACM-X research
-framework, and the NativeToken project method, evaluated on 20 datasets with
-Seen / Unseen / Novel roles and dataset-macro Dice, IoU, clDice and HD95.
+on SAM. It contains 40 official/reference baseline ports and the SACM-X research
+framework, evaluated on 20 datasets with Seen / Unseen / Novel roles and
+dataset-macro Dice, IoU, clDice and HD95.
 
 ## Features
 
@@ -11,7 +11,8 @@ Seen / Unseen / Novel roles and dataset-macro Dice, IoU, clDice and HD95.
 - Shared 18-image 3-shot split, 6-image validation set and frozen test protocol
 - Prompt-free SAM adaptation, topology-aware metrics and W&B logging
 - SACM-X research framework under `src/models/sacm_x` + `src/train` + `src/eval`
-- NativeToken project method under `src/methods/nativetok` (not a baseline)
+- Opt-in Skeleton Recall topology arm (`full_srec`) with skeleton
+  recall/precision diagnostics
 
 ## Directory Structure
 
@@ -20,10 +21,8 @@ src/baseline_zoo/          # official/reference baseline adapters and models
 src/models/sacm_x/         # SACM-X research framework (restored)
 src/train/                 # SACM-X training entrypoint
 src/eval/                  # SACM-X evaluation entrypoint
-src/methods/nativetok/     # proposed NativeToken method (outside baseline)
 src/core/                  # shared losses, metrics and runtime utilities
 configs/models/            # baseline and SACM-X registry entries
-configs/methods/           # project-method entries
 scripts/                   # data, pipeline and one-click experiment scripts
 README.md
 ```

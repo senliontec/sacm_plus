@@ -1,0 +1,15 @@
+┌  Initializing CodeGraph
+│
+◆  Initialized in /home/dev/mywork/project/segment/sacm_plus/cod reviewer
+│
+Scanning files...
+Parsing code...
+Resolving refs...
+Linking dynamic dispatch...
+│
+◆  Indexed 29 files
+│
+●  201 nodes, 332 edges in 182ms
+│
+└  Done
+

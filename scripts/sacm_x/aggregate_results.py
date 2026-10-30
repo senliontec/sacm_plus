@@ -29,7 +29,8 @@ MAIN_METRICS = ['dice', 'iou', 'cldice', 'hd95']
 # All reported metrics, in output order (AUC keys appear only when the
 # test ran with --auc; parsing is tolerant to missing entries)
 ALL_METRICS = ['dice', 'iou', 'precision', 'recall', 'sensitivity',
-               'specificity', 'accuracy', 'mcc', 'cldice', 'hd', 'hd95',
+               'specificity', 'accuracy', 'mcc', 'cldice',
+               'skeleton_recall', 'skeleton_precision', 'hd', 'hd95',
                'assd', 'asd', 'ravd', 'nsd', 'betti', 'dice_auc',
                'cldice_auc', 'betti_matching', 'topograph_error']
 

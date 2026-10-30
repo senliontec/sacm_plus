@@ -19,7 +19,9 @@ from core.metrics import compute_metrics
 from core.wandb_utils import finish_run, log_scalars, setup_wandb
 
 METRIC_KEYS = ['dice', 'iou', 'precision', 'recall', 'sensitivity', 'specificity',
-               'accuracy', 'mcc', 'cldice', 'hd', 'hd95', 'assd', 'asd', 'ravd', 'nsd', 'betti']
+               'accuracy', 'mcc', 'cldice', 'skeleton_recall',
+               'skeleton_precision', 'hd', 'hd95', 'assd', 'asd', 'ravd',
+               'nsd', 'betti']
 AUC_KEYS = ['dice_auc', 'cldice_auc']
 BETTI_MATCHING_KEYS = ['betti_matching']
 TOPOGRAPH_KEYS = ['topograph_error']

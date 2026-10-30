@@ -1,0 +1,25 @@
+┌  Initializing CodeGraph
+│
+◆  Initialized in /home/dev/mywork/project/segment/sacm_plus/configs
+│
+Scanning files...
+Parsing code...
+Resolving refs...
+Linking dynamic dispatch...
+│
+◆  Indexed 45 files (1 could not be parsed)
+│
+●  0 nodes, 0 edges in 194ms
+│
+◇  Error breakdown ───────────╮
+│                             │
+│  1 files could not be read  │
+│                             │
+├─────────────────────────────╯
+│
+●  See .codegraph/errors.log for details
+│
+●  The index is fully usable — only the failed files are missing.
+│
+└  Done
+

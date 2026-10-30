@@ -55,6 +55,16 @@ def test_scnp_preset_is_opt_in():
     assert "scnp" not in PRESETS["full"]
 
 
+def test_skeleton_recall_presets_are_opt_in():
+    # The main comparison (`full`) must remain unchanged.
+    assert PRESETS["full"]["skeleton_recall_weight"] == 0.0
+    assert PRESETS["full_srec"]["skeleton_recall_weight"] > 0
+    assert PRESETS["full_srec"]["skeleton_recall_warmup"] == 0
+    assert PRESETS["full_srec_high"]["skeleton_recall_weight"] > \
+        PRESETS["full_srec_low"]["skeleton_recall_weight"]
+    assert PRESETS["full_srec_notube"]["skeleton_recall_tube"] is False
+
+
 def test_d8_supervision_modes_are_explicit():
     assert PRESETS["full"]["stage2_supervision"] == "soft"
     assert PRESETS["full_soft"]["stage2_supervision"] == "soft"

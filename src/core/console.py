@@ -172,3 +172,76 @@ def print_metrics_table(metrics, title="val metrics"):
             row.append(f"{val:.4f}" if val == val else "nan")
         t.add_row(*row)
     console.print(t)
+
+
+# ---------------------------------------------------------------------------
+# Baseline-compatible compact log table
+# ---------------------------------------------------------------------------
+# Keep these constants/formatting in sync with baseline_zoo.runtime so SACM-X
+# and all baseline adapters produce exactly the same terminal table.
+
+BASE_LOG_SEP = ' │ '
+BASE_LOG_COLS = ('ep', 'tr_loss', 'Dice↑', 'IoU↑', 'clDice↑', 'HD95↓',
+                 'lr', 'time')
+BASE_LOG_WIDTHS = (5, 8, 7, 7, 8, 7, 8, 8)
+BASE_LOG_RULE = '─┼─'.join('─' * width for width in BASE_LOG_WIDTHS)
+BASE_LOG_FOOTER = '─' * (sum(BASE_LOG_WIDTHS) +
+                         3 * (len(BASE_LOG_WIDTHS) - 1))
+
+
+def _base_metric_text(value, digits=4):
+    if value is None or value != value:
+        return '—'
+    return f'{value:.{digits}f}'
+
+
+def _base_hd95_text(value):
+    if value is None or value != value:
+        return '—'
+    value = abs(value)
+    if value >= 1000:
+        return f'{value:.0f}'
+    if value >= 100:
+        return f'{value:.1f}'
+    return f'{value:.2f}'
+
+
+def print_epoch_header(model_id, epochs, seed, device, num_params,
+                       trainable=None):
+    """Print the baseline-format header (same columns/widths)."""
+    console.print()
+    extra = ''
+    if trainable is not None:
+        extra = f'  trainable {trainable / 1e6:.1f}M'
+    console.print(
+        f' [bold cyan]{model_id}[/]  [dim]{num_params:,} params{extra}  '
+        f'{epochs} epochs  seed {seed}  {device}[/]')
+    console.print(
+        BASE_LOG_SEP.join(f'{name:^{width}}'
+                          for name, width in zip(BASE_LOG_COLS,
+                                                 BASE_LOG_WIDTHS)),
+        style='bold cyan')
+    console.print(BASE_LOG_RULE, style='dim')
+
+
+def print_epoch_row(epoch, loss, metrics, lr, elapsed, improved):
+    """Print one baseline-format epoch row (one line, centered)."""
+    star = ' *' if improved else ''
+    values = (
+        f'E{epoch:03d}',
+        f'{loss:.4f}',
+        _base_metric_text(metrics.get('dice')),
+        _base_metric_text(metrics.get('iou')),
+        _base_metric_text(metrics.get('cldice')),
+        _base_hd95_text(metrics.get('hd95')),
+        f'{lr:.2e}',
+        f'{elapsed:.0f}s{star}',
+    )
+    row = BASE_LOG_SEP.join(f'{value:^{width}}'
+                            for value, width in zip(values, BASE_LOG_WIDTHS))
+    console.print(row, style='bold green' if improved else None)
+
+
+def print_epoch_footer():
+    """Print the baseline-format closing rule."""
+    console.print(BASE_LOG_FOOTER, style='dim')

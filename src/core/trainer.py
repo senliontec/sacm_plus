@@ -20,12 +20,15 @@ from torch import nn
 from sklearn.metrics import f1_score
 from tqdm import tqdm
 
-from core.console import console, epoch_header, epoch_row, topo_legend
+from core.console import (
+    console,
+    print_epoch_footer,
+    print_epoch_header,
+    print_epoch_row,
+)
 from core.evaluator import resolve_selection
 from core.losses.monitor import topology_loss_monitor
-from core.losses.registry import TOPOLOGY_LOSS_REGISTRY
 from core.metrics import compute_metrics
-from core.metrics_advisor import advise
 from core.wandb_utils import finish_run, log_scalars, setup_wandb
 
 
@@ -49,6 +52,17 @@ class ForwardWrapper(nn.Module):
             self.model, images.shape[0])
         return self.spec.forward(
             self.model, images, sparse, dense, return_stage1=True)
+
+
+def _dataset_name_from_image_name(image_name):
+    """Derive the 3-shot domain name from a validation filename.
+
+    The split names files as ``<DATASET>_<source...>`` (e.g.
+    ``CHASEDB1_Image_04L.png``, ``CrackTree200_...``).  The training/val
+    domains have no underscore in their names, so the prefix is the domain.
+    """
+    stem = os.path.splitext(os.path.basename(str(image_name)))[0]
+    return stem.split('_', 1)[0] if stem else 'unknown'
 
 
 def calculate_f1_score(pred_masks, true_masks, threshold=0.0):
@@ -92,10 +106,11 @@ def stage2_soft_weights(iou_pred, mix=0.5, tau=1.0):
 def _merge_val_payloads(gathered):
     """Merge per-rank validation payloads into global metrics (rank 0).
 
-    gathered: list of dicts with keys loss_sum/count/tp/fp/fn/cldice/metrics
-    (see _validate). F1 comes from the GLOBAL confusion counts (exact micro-F1,
-    identical to sklearn on the concatenated shards); all other metrics are
-    nanmean-aggregated so a NaN on one shard never poisons a column.
+    gathered: list of dicts with keys loss_sum/count/tp/fp/fn/cldice/metrics/
+    per_dataset/empty_sum/image_count (see _validate). F1 comes from the
+    GLOBAL confusion counts (exact micro-F1, identical to sklearn on the
+    concatenated shards); all other metrics are nanmean-aggregated so a NaN
+    on one shard never poisons a column.
     """
     avg_val_loss = sum(g['loss_sum'] for g in gathered) / max(
         sum(g['count'] for g in gathered), 1)
@@ -104,17 +119,33 @@ def _merge_val_payloads(gathered):
     fn = sum(g['fn'] for g in gathered)
     denom = 2 * tp + fp + fn
     f1 = 2 * tp / denom if denom > 0 else 0.0
+    # Empty-prediction rate: same definition as baseline_zoo.runtime.evaluate
+    # (fraction of validation images whose prediction mask has no foreground).
+    n_empty = sum(int(g.get('empty_sum', 0)) for g in gathered)
+    n_images = sum(int(g.get('image_count', 0)) for g in gathered)
+    empty_rate = n_empty / n_images if n_images > 0 else float('nan')
     acc = {}
     for g in gathered:
         for k, v in g['metrics'].items():
             acc.setdefault(k, []).extend(v)
     cldice_all = [x for g in gathered for x in g['cldice']]
+    per_dataset = {}
+    for g in gathered:
+        for dataset, values in (g.get('per_dataset') or {}).items():
+            bucket = per_dataset.setdefault(dataset, {})
+            for key, vals in values.items():
+                bucket.setdefault(key, []).extend(vals)
     with warnings.catch_warnings():
         # 全部 NaN(空预测)时 nanmean 会打 "Mean of empty slice"
         warnings.simplefilter('ignore', RuntimeWarning)
         avg_val_cldice = float(np.nanmean(cldice_all)) if cldice_all else float('nan')
         val_metrics = {k: float(np.nanmean(v)) for k, v in acc.items() if v}
-    return avg_val_loss, f1, avg_val_cldice, val_metrics
+        val_per_dataset = {
+            dataset: {k: float(np.nanmean(v)) for k, v in values.items() if v}
+            for dataset, values in per_dataset.items()
+        }
+    return (avg_val_loss, f1, avg_val_cldice, val_metrics, val_per_dataset,
+            empty_rate)
 
 
 class Trainer:
@@ -122,13 +153,14 @@ class Trainer:
 
     def __init__(self, model, spec, device, criterion, soft_cl, topo_loss,
                  optimizer, scheduler, train_loader, val_loader, args,
-                 is_ddp=False, train_sampler=None):
+                 is_ddp=False, train_sampler=None, skeleton_recall=None):
         self.model = model
         self.spec = spec
         self.device = device
         self.criterion = criterion
         self.soft_cl = soft_cl
         self.topo_loss = topo_loss
+        self.skeleton_recall = skeleton_recall
         self.optimizer = optimizer
         self.scheduler = scheduler
         self.train_loader = train_loader
@@ -166,7 +198,8 @@ class Trainer:
         if self.train_sampler is not None:
             self.train_sampler.set_epoch(epoch)  # DDP: 每 epoch 换采样顺序
         train_loss = 0.0
-        comps_sum = {k: 0.0 for k in ('loss_main', 'loss_ds', 'loss_iou', 'loss_cl', 'loss_topo')}
+        comps_sum = {k: 0.0 for k in ('loss_main', 'loss_ds', 'loss_iou',
+                                     'loss_cl', 'loss_topo', 'loss_srec')}
         # 进度条已移除:逐 epoch 的 rich 宽表 + time 列取代进度反馈
         train_pbar = tqdm(self.train_loader, total=len(self.train_loader),
                           desc=f"Epoch {epoch+1}/{self.args.epochs} [Train]",
@@ -244,6 +277,19 @@ class Trainer:
             if mu > 0:
                 loss_cl = self.soft_cl(aux_mask, masks)
 
+            # Skeleton Recall (ECCV 2024): soft recall over the tubed GT
+            # skeleton, which is not differentiated. This directly penalizes
+            # missed thin branches that Dice/BCE tolerate as tiny areas.
+            loss_srec = 0.0
+            mu_srec = 0.0
+            if self.skeleton_recall is not None:
+                mu_srec = self.args.skeleton_recall_weight * \
+                    cl_dice_weight_schedule(
+                        epoch, self.args.skeleton_recall_warmup,
+                        self.args.skeleton_recall_ramp)
+                if mu_srec > 0:
+                    loss_srec = self.skeleton_recall(aux_mask, masks)
+
             # Extra topology loss (optional; strict ports)
             loss_topo = 0.0
             if self.topo_loss is not None:
@@ -254,6 +300,7 @@ class Trainer:
                 + self.args.deep_sup_weight * loss_ds
                 + self.args.iou_loss_weight * loss_iou
                 + mu * loss_cl
+                + mu_srec * loss_srec
                 + self.args.topology_loss_weight * loss_topo
             )
 
@@ -271,7 +318,8 @@ class Trainer:
             train_loss += loss.item()
             for k in comps_sum:
                 comps_sum[k] += locals()[k].item() if isinstance(locals()[k], torch.Tensor) else float(locals()[k])
-            train_pbar.set_postfix({'loss': loss.item(), 'cl': mu})
+            train_pbar.set_postfix({'loss': loss.item(), 'cl': mu,
+                                    'srec': round(mu_srec, 3)})
 
         n = len(self.train_loader)
         comps = {k: v / n for k, v in comps_sum.items()}
@@ -287,8 +335,11 @@ class Trainer:
         val_loss = 0.0
         n_batches = 0
         tp = fp = fn = 0
+        n_empty = 0
+        n_images = 0
         val_cldice = []
         metrics_acc = {}
+        per_dataset_acc = {}
         val_has_monitored = False
         vis_items = []  # (image, gt, pred) 供 wandb 可视化
         VAL_ENGINE_IMGS = 50  # 引擎指标子集大小(均值估计,验证提速关键)
@@ -315,10 +366,14 @@ class Trainer:
                         disable=True)
 
         with torch.no_grad():
-            for val_idx, (images, masks, original_size, _img_name, fov_mask) in enumerate(val_pbar):
+            for val_idx, (images, masks, original_size, img_name, fov_mask) in enumerate(val_pbar):
                 images = images.to(self.device)
                 masks = masks.to(self.device)
                 fov_mask = fov_mask.to(self.device)
+                image_name = (img_name[0]
+                              if isinstance(img_name, (list, tuple))
+                              else img_name)
+                dataset_name = _dataset_name_from_image_name(image_name)
 
                 masks_stage2, iou_pred, _masks_stage1 = self._forward(images)
 
@@ -355,6 +410,8 @@ class Trainer:
                 tp += int((pred_bin & true_bin).sum())
                 fp += int((pred_bin & ~true_bin).sum())
                 fn += int((~pred_bin & true_bin).sum())
+                n_images += 1
+                n_empty += int(pred_bin.sum().item() == 0)
 
                 if not fast_val:
                     # Full metric suite on the ORIGINAL-size main mask. The
@@ -374,6 +431,8 @@ class Trainer:
                     # 聚合层用 nanmean 跳过 NaN(见下文),列位保持稳定
                     for k, v in m.items():
                         metrics_acc.setdefault(k, []).append(v)
+                        per_dataset_acc.setdefault(
+                            dataset_name, {}).setdefault(k, []).append(v)
                     # 拓扑损失监控:全部注册损失在当前预测上的值。
                     # 每个 rank 只在其第 1 张验证图上跑(128 输入 + 引擎 64 分辨率)
                     # ——引擎级损失秒级/图;DDP 分片后 8 rank 合计监控 8 张,更稳。
@@ -402,14 +461,18 @@ class Trainer:
                 'loss_sum': float(val_loss), 'count': n_batches,
                 'tp': tp, 'fp': fp, 'fn': fn,
                 'cldice': val_cldice, 'metrics': metrics_acc,
+                'per_dataset': per_dataset_acc,
+                'empty_sum': n_empty, 'image_count': n_images,
             }
             gathered = [None] * world_size
             dist.all_gather_object(gathered, payload)
             if rank == 0:
-                avg_val_loss, f1, avg_val_cldice, val_metrics = (
-                    _merge_val_payloads(gathered))
+                (avg_val_loss, f1, avg_val_cldice, val_metrics,
+                 val_per_dataset, empty_rate) = _merge_val_payloads(gathered)
             else:
-                avg_val_loss = f1 = avg_val_cldice = val_metrics = None
+                avg_val_loss = f1 = avg_val_cldice = None
+                val_metrics = val_per_dataset = None
+                empty_rate = None
             # Every DDP rank must advance ReduceLROnPlateau with the same
             # value, otherwise rank 0 lowers its LR while the other ranks
             # keep the old LR and the replicas diverge.
@@ -419,11 +482,12 @@ class Trainer:
             if self.args.scheduler == 'reduce':
                 self.scheduler.step(avg_val_loss)
             if rank != 0:
-                return None, None, None, None
+                return None, None, None, None, None, None
         else:
             denom = 2 * tp + fp + fn
             f1 = 2 * tp / denom if denom > 0 else 0.0
             avg_val_loss = val_loss / max(n_batches, 1)
+            empty_rate = n_empty / n_images if n_images > 0 else float('nan')
             with warnings.catch_warnings():
                 # 全部 NaN(空预测)时 nanmean 会打 "Mean of empty slice"
                 warnings.simplefilter('ignore', RuntimeWarning)
@@ -432,6 +496,13 @@ class Trainer:
                 # 单张 NaN(空 GT/空预测守卫)不再传染整列——此前 np.mean
                 # 导致 BM/TE 两列恒为 "—";全 NaN 时保持 NaN(显示 "—")
                 val_metrics = {k: float(np.nanmean(v)) for k, v in metrics_acc.items() if v}
+                val_per_dataset = {
+                    dataset: {
+                        k: float(np.nanmean(v))
+                        for k, v in values.items() if v
+                    }
+                    for dataset, values in per_dataset_acc.items()
+                }
             if self.args.scheduler == 'reduce':
                 self.scheduler.step(avg_val_loss)
         # 逐 epoch 的 val 数值全部由 rich 宽表呈现,不再刷 INFO 日志
@@ -454,6 +525,7 @@ class Trainer:
                 'optimizer_state_dict': self.optimizer.state_dict(),
                 'val_loss': avg_val_loss,
                 'val_cldice': avg_val_cldice,
+                'val_per_dataset': val_per_dataset,
                 'f1_score': f1,
                 'config': {
                     'model': self.args.model,
@@ -485,7 +557,8 @@ class Trainer:
             }, self.args.save_path)
             logging.info(f'👍New best model saved with F1 score: {self.best_f1_score:.4f}')
 
-        return f1, avg_val_loss, avg_val_cldice, val_metrics
+        return (f1, avg_val_loss, avg_val_cldice, val_metrics,
+                val_per_dataset, empty_rate)
 
     def _log_val_images(self, epoch, items):
         """验证图可视化(原图/GT/预测三列)上传 wandb;失败不影响训练。"""
@@ -535,6 +608,14 @@ class Trainer:
             'soft_select_mix': getattr(self.args, 'soft_select_mix', 0.5),
             'soft_select_tau': getattr(self.args, 'soft_select_tau', 1.0),
             'cl_dice_weight': self.args.cl_dice_weight,
+            'skeleton_recall_weight': getattr(
+                self.args, 'skeleton_recall_weight', 0.0),
+            'skeleton_recall_warmup': getattr(
+                self.args, 'skeleton_recall_warmup', 10),
+            'skeleton_recall_ramp': getattr(
+                self.args, 'skeleton_recall_ramp', 5),
+            'skeleton_recall_tube': getattr(
+                self.args, 'skeleton_recall_tube', True),
             'scnp': bool(getattr(self.args, 'scnp', False)),
             'scnp_window': getattr(self.args, 'scnp_window', 3),
             'scnp_original_weight': getattr(
@@ -595,21 +676,25 @@ class Trainer:
         if self._rank0:
             run = setup_wandb(
                 self.args,
-                name=f"{self.args.model}_{self.args.preset}",
+                name=(f"sacm_x_{self.args.model}_{self.args.preset}"
+                      f"_seed{self.args.seed}"),
                 config=self._run_config(),
             )
         self._wandb_run = run
         history = []
-        advice_log = {}
         best_epoch = -1
         log_style = getattr(self.args, 'log_style', 'table')
         official = log_style == 'official'
-        # 宽表:紧凑单行(49 列,~290 字符);表头下打一次拓扑损失缩写对照
-        topo_names = sorted(TOPOLOGY_LOSS_REGISTRY)
         if not official:
-            for line in epoch_header(topo_names):
-                console.print(line, style="bold")
-            console.print(topo_legend(topo_names), style="dim")
+            # Reuse the baseline's canonical compact table:
+            # ep │ tr_loss │ Dice↑ │ IoU↑ │ clDice↑ │ HD95↓ │ lr │ time
+            num_params = sum(p.numel() for p in self.model.parameters())
+            trainable = sum(p.numel() for p in self.model.parameters()
+                            if p.requires_grad)
+            print_epoch_header(
+                f'sacm_x/{self.args.model}/{self.args.preset}',
+                self.args.epochs, self.args.seed, self.device,
+                num_params, trainable)
 
         try:
             for epoch in range(self.args.epochs):
@@ -630,7 +715,8 @@ class Trainer:
                               f'Average Train Loss: {train_loss:.4f}',
                               flush=True)
                 else:
-                    wm = {'epoch': epoch, 'train/loss': avg_train_loss,
+                    # 1-based epoch on the same axis as baseline_zoo.runtime.
+                    wm = {'epoch': epoch + 1, 'train/loss': avg_train_loss,
                           'lr': self.optimizer.param_groups[0]['lr'],
                           'train/time_s': train_s}
                     for k, v in comps.items():
@@ -641,21 +727,31 @@ class Trainer:
                 best_before = self.best_f1_score
                 f1 = vloss = None
                 val_metrics = None
+                val_per_dataset = None
+                empty_rate = None
                 val_s = None
                 is_best = False
                 if (epoch + 1) % self.args.val_interval == 0:
                     val_t0 = time.time()
-                    f1, vloss, avg_val_cldice, val_metrics = self._validate(epoch)
+                    (f1, vloss, avg_val_cldice, val_metrics, val_per_dataset,
+                     empty_rate) = self._validate(epoch)
                     val_s = time.time() - val_t0
                     if self._rank0:
                         if official:
                             wm.update({'val/loss': vloss, 'val/f1': f1})
+                            for k, v in (val_metrics or {}).items():
+                                wm[f'val/{k}'] = v
                         else:
                             wm.update({'val/loss': vloss, 'val/f1': f1,
                                        'val/cldice': avg_val_cldice,
                                        'val/time_s': val_s})
                             for k, v in val_metrics.items():
                                 wm[f'val/{k}'] = v
+                        # Same per-domain keys as the baseline runtime:
+                        # val/<dataset>/<metric> (Dice, clDice, ...).
+                        for dataset, values in (val_per_dataset or {}).items():
+                            for k, v in values.items():
+                                wm[f'val/{dataset}/{k}'] = v
                         is_best = self.best_f1_score > best_before
                         if official:
                             wm['val/best_f1'] = self.best_f1_score
@@ -673,28 +769,46 @@ class Trainer:
                                 print(f'👍New best model saved with F1 score: '
                                       f'{self.best_f1_score:.4f}', flush=True)
                     else:
-                        for line in epoch_row(epoch + 1, avg_train_loss, comps,
-                                              self.optimizer.param_groups[0]['lr'],
-                                              time.time() - t0, f1, vloss, val_metrics,
-                                              topo_names, train_s=train_s, val_s=val_s):
-                            console.print(line, style="bold green" if is_best else "")
-                        # Online advisor: metric patterns -> optimization
-                        # directions, printed while training (history already
-                        # includes this epoch).
-                        if val_metrics is not None:
-                            # 顾问去重:同一条提示至少间隔 3 个验证 epoch 才重复
-                            for sev, msg in advise(history, self.args):
-                                last = advice_log.get(msg, -99)
-                                if epoch + 1 - last >= 3:
-                                    console.print(f"  ⚠ {msg}",
-                                                  style="yellow" if sev == 'warn' else "cyan")
-                                    advice_log[msg] = epoch + 1
+                        vm = val_metrics or {}
+                        row_metrics = {
+                            'dice': vm.get('dice', float('nan')),
+                            'iou': vm.get('iou', float('nan')),
+                            'cldice': vm.get('cldice', float('nan')),
+                            'hd95': vm.get('hd95', float('nan')),
+                        }
+                        print_epoch_row(
+                            epoch + 1, avg_train_loss, row_metrics,
+                            self.optimizer.param_groups[0]['lr'],
+                            time.time() - t0, is_best)
 
-                    log_scalars(run, wm)
+                    if official:
+                        wb = wm
+                    else:
+                        # W&B validation-panel parity with baseline_zoo.runtime:
+                        # log exactly the baseline keys (Dice/IoU/clDice/HD95,
+                        # empty-prediction rate, selection score, and the same
+                        # four per-domain metrics) so one dashboard works for
+                        # SACM-X and every baseline.  metrics_history.json
+                        # below still keeps the full metric suite.
+                        wb = {k: v for k, v in wm.items()
+                              if not k.startswith('val/')}
+                        if f1 is not None:
+                            # SACM-X checkpoint selection is F1 on the global
+                            # confusion counts, so val/selection = F1.
+                            wb['val/selection'] = f1
+                            wb['val/empty_prediction_rate'] = empty_rate
+                            for key in ('dice', 'iou', 'cldice', 'hd95'):
+                                wb[f'val/{key}'] = (val_metrics or {}).get(
+                                    key, float('nan'))
+                            for dataset, values in (
+                                    val_per_dataset or {}).items():
+                                for key in ('dice', 'iou', 'cldice', 'hd95'):
+                                    if key in values:
+                                        wb[f'val/{dataset}/{key}'] = values[key]
+                    log_scalars(run, wb)
 
-                    # **wm first so the explicit 1-based epoch wins (wm stores
-                    # the 0-based wandb epoch)
                     history.append({**wm, 'epoch': epoch + 1,
+                                    'val_per_dataset': val_per_dataset,
                                     'time_s': round(time.time() - t0, 2),
                                     'train_s': round(train_s, 2),
                                     'val_s': round(val_s, 2) if val_s is not None else None})
@@ -723,3 +837,9 @@ class Trainer:
             # fencing-algs 模式:训练结束统一收队,再各自退出
             if self.is_ddp:
                 dist.barrier()
+        if self._rank0 and not official:
+            print_epoch_footer()
+            if best_epoch > 0:
+                console.print(
+                    f' [bold]Best[/]  E{best_epoch:03d}  '
+                    f'F1={self.best_f1_score:.4f}')

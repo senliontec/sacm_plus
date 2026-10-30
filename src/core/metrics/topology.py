@@ -33,6 +33,38 @@ def cldice_score(pred, gt):
         return float(2.0 * tprec * tsens / (tprec + tsens))
 
 
+def skeleton_recall_score(pred, gt):
+    """Project extension: fraction of the GT skeleton covered by ``pred``.
+
+    Uses the same plain (untubed) hard skeletonization as the clDice metric.
+    Returns NaN when the GT has no skeleton, matching clDice's empty-mask
+    convention. This is a diagnostic for the Skeleton Recall training loss;
+    it is not one of the official benchmark metrics.
+    """
+    v_p = _bool(pred)
+    v_l = _bool(gt)
+    s_l = skeletonize(v_l)
+    n = np.count_nonzero(s_l)
+    if n == 0:
+        return float("nan")
+    return float(np.sum(v_p * s_l) / n)
+
+
+def skeleton_precision_score(pred, gt):
+    """Project extension: fraction of the predicted skeleton covered by ``gt``.
+
+    The complement of skeleton recall; useful to detect hallucinated
+    branches. Returns NaN when the prediction has no skeleton.
+    """
+    v_p = _bool(pred)
+    v_l = _bool(gt)
+    s_p = skeletonize(v_p)
+    n = np.count_nonzero(s_p)
+    if n == 0:
+        return float("nan")
+    return float(np.sum(v_l * s_p) / n)
+
+
 def betti_error(pred, gt, connectivity=2):
     """Betti number error: |b0_pred - b0_gt| + |b1_pred - b1_gt|.
 

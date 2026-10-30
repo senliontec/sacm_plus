@@ -6,7 +6,10 @@ import pytest
 import torch
 
 from core.losses import TOPOLOGY_LOSS_REGISTRY, build_topology_loss
-from core.losses import DiceBCELoss, SCNP, SCNPCriterion, SoftclDiceLoss
+from core.losses import (
+    DiceBCELoss, SCNP, SCNPCriterion, SoftclDiceLoss,
+    SoftSkeletonRecallLoss, tubed_skeletonize,
+)
 
 
 def _make_inputs(size=64):
@@ -134,3 +137,62 @@ def test_softcl_dice_iterations_alias():
     b = SoftclDiceLoss(iterations=5)(logits, target)
     assert torch.isfinite(a) and torch.isfinite(b)
     assert a.item() == b.item()
+
+
+def _cross_target(size=32):
+    target = torch.zeros(1, 1, size, size)
+    target[:, :, 4:28, 15:17] = 1.0   # vertical branch
+    target[:, :, 15:17, 4:28] = 1.0   # horizontal branch
+    return target
+
+
+def test_skeleton_recall_zero_for_identity():
+    target = _cross_target()
+    logits = torch.where(target > 0.5,
+                         torch.tensor(50.0), torch.tensor(-50.0))
+    loss = SoftSkeletonRecallLoss()(logits, target)
+    assert loss.item() == pytest.approx(0.0, abs=1e-4)
+
+
+def test_skeleton_recall_penalizes_missing_branch():
+    target = _cross_target()
+    # Prediction has only the horizontal branch: the vertical skeleton is
+    # completely missed, so recall must drop.
+    pred = torch.zeros_like(target)
+    pred[:, :, 15:17, 4:28] = 1.0
+    logits = torch.where(pred > 0.5,
+                         torch.tensor(50.0), torch.tensor(-50.0))
+    loss = SoftSkeletonRecallLoss()(logits, target)
+    assert loss.item() > 0.1
+
+
+def test_skeleton_recall_empty_target_is_zero():
+    target = torch.zeros(1, 1, 32, 32)
+    logits = torch.randn_like(target)
+    loss = SoftSkeletonRecallLoss()(logits, target)
+    assert loss.item() == pytest.approx(0.0, abs=1e-6)
+
+
+def test_tubed_skeleton_stays_inside_foreground():
+    target = _cross_target()[0, 0].numpy()
+    skel = tubed_skeletonize(target > 0.5, do_tube=True)
+    assert skel.any()
+    assert not (skel & ~(target > 0.5)).any()
+
+
+def test_skeleton_recall_gradients_are_finite():
+    target = _cross_target()
+    logits = torch.randn_like(target, requires_grad=True)
+    loss = SoftSkeletonRecallLoss()(logits, target)
+    loss.backward()
+    assert torch.isfinite(loss)
+    assert logits.grad is not None
+    assert torch.isfinite(logits.grad).all()
+
+
+def test_skeleton_recall_rejects_bad_shapes():
+    target = torch.zeros(1, 1, 16, 16)
+    with pytest.raises(ValueError):
+        SoftSkeletonRecallLoss()(torch.zeros(1, 2, 16, 16), target)
+    with pytest.raises(ValueError):
+        SoftSkeletonRecallLoss()(torch.zeros(1, 1, 8, 8), target)

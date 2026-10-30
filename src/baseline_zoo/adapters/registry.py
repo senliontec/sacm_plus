@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import importlib
-import os
 
 _ADAPTERS = {
     'a2sam': ('baseline_zoo.adapters.a2sam', 'A2SAMAdapter'),
@@ -50,13 +49,6 @@ _ADAPTERS = {
     'ucs': ('baseline_zoo.adapters.ucs', 'UCSAdapter'),
     'unet': ('baseline_zoo.adapters.unet', 'UNetAdapter'),
 }
-
-# The proposed NativeToken method lives under ``src/methods`` and is not a
-# baseline.  Project runs opt in explicitly; the default registry stays
-# official/reference-only.
-if os.environ.get('SACM_ENABLE_PROJECT_MODELS') == '1':
-    _ADAPTERS['nativetok'] = (
-        'methods.nativetok.adapter', 'NativeTokenAdapter')
 
 
 def available_adapters() -> list[str]:

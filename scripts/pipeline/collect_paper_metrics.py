@@ -75,7 +75,6 @@ METHOD_META = {
     'sam_octa': ('SAM-OCTA', '✓'),
     'sansa': ('SANSA', '✓'),
     'scrwkv': ('SCRWKV', '✗'),
-    'nativetok': ('NativeToken', '✗'),
     'cwsam': ('CWSAM', '✓'),
     'knowsam': ('KnowSAM', '✓'),
     'kprism': ('K-Prism (ICLR 2026)', '✗'),
@@ -444,7 +443,8 @@ def macro(summary, role_map, metric):
 
 PERCENT_METRICS = {
     'dice', 'iou', 'precision', 'recall', 'sensitivity', 'specificity',
-    'accuracy', 'mcc', 'cldice', 'nsd', 'dice_auc', 'cldice_auc',
+    'accuracy', 'mcc', 'cldice', 'skeleton_recall', 'skeleton_precision',
+    'nsd', 'dice_auc', 'cldice_auc',
 }
 
 

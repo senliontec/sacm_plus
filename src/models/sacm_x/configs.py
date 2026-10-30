@@ -30,6 +30,11 @@ FULL = dict(
     deep_sup_weight=0.3,
     cl_dice_weight=0.5,
     iou_loss_weight=1.0,
+    # ECCV 2024 Skeleton Recall (opt-in; off in the `full` baseline).
+    skeleton_recall_weight=0.0,
+    skeleton_recall_warmup=10,
+    skeleton_recall_ramp=5,
+    skeleton_recall_tube=True,
     # D8 fix: every Stage-2 head receives mask gradient via detached
     # uniform + IoU-softmax weights.  The original behaviour is kept as
     # the `full_wta` ablation and in the `sacm` baseline.
@@ -91,6 +96,26 @@ PRESETS = {
     # Full model + Same-Class Neighbor Penalization (SCNP, CVPR 2026):
     # training-only logit transform in front of BCE/Dice, no inference cost.
     "full_scnp": {**FULL, "scnp": True},
+    # Full model + Skeleton Recall (ECCV 2024) on the tubed GT skeleton.
+    # The weight sweep is a small, fixed set of presets because presets are
+    # applied after argparse (CLI flags cannot override them).
+    "full_srec": {
+        **FULL, "skeleton_recall_weight": 0.2,
+        "skeleton_recall_warmup": 0,
+    },
+    "full_srec_low": {
+        **FULL, "skeleton_recall_weight": 0.1,
+        "skeleton_recall_warmup": 0,
+    },
+    "full_srec_high": {
+        **FULL, "skeleton_recall_weight": 0.5,
+        "skeleton_recall_warmup": 0,
+    },
+    "full_srec_notube": {
+        **FULL, "skeleton_recall_weight": 0.2,
+        "skeleton_recall_warmup": 0,
+        "skeleton_recall_tube": False,
+    },
     # Single-module ablations (full model minus one component).
     "no_geo_i": {**FULL, "use_geo_i": False},
     "no_geo_e": {**FULL, "use_geo_e": False},

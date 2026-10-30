@@ -13,6 +13,7 @@ Direct usage:
 """
 
 from .core import DiceLoss, DiceBCELoss, soft_dice, SoftSkeletonize, SoftclDiceLoss
+from .skeleton_recall import SoftSkeletonRecallLoss, tubed_skeletonize
 from .scnp import SCNP, SCNPCriterion
 from .registry import TOPOLOGY_LOSS_REGISTRY, build_topology_loss, register
 

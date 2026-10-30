@@ -11,9 +11,9 @@
   `layout.json`、`content_list*.json` 和 `images/` 是版面/图片解析结果。
 - **未收录** 表示 `parsing/` 中没有对应论文目录；不是链接失效。
 - 同一篇论文在 `parsing/` 中可能存在大小写不同的重复目录，表中列主目录，并在备注中标出重复项。
-- 当前覆盖：40 个官方/参考 baseline adapter；项目方法 NativeToken 位于
-  `src/methods/nativetok`，不进入 baseline registry。18 个在 `parsing/`
-  有论文目录，其余标记为“未收录”。
+- 当前覆盖：40 个官方/参考 baseline adapter；SACM-X 是独立研究框架，
+  不在 baseline adapter 表中。18 个在 `parsing/` 有论文目录，其余标记为
+  “未收录”。
 
 ## Baseline ↔ 3rd 代码 ↔ parsing 论文
 

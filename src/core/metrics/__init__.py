@@ -14,7 +14,8 @@ of its official source (verified line-by-line):
     topograph_error (256-resolution evaluation).
 
 Project extensions (no external official implementation): accuracy, mcc,
-betti (count-based), dice_auc / cldice_auc (threshold-sweep robustness).
+betti (count-based), dice_auc / cldice_auc (threshold-sweep robustness),
+skeleton_recall / skeleton_precision (Skeleton Recall diagnostics).
 
 Direct usage:
 
@@ -45,6 +46,11 @@ from .surface import (
     compute_surface_distances_deepmind,
     nsd_score,
 )
-from .topology import betti_error, cldice_score
+from .topology import (
+    betti_error,
+    cldice_score,
+    skeleton_precision_score,
+    skeleton_recall_score,
+)
 from .persistence import betti_matching_score, topograph_error_score
 from .aggregate import compute_metrics
