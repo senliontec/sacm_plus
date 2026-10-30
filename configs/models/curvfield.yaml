@@ -8,7 +8,10 @@ train_entrypoint: >-
   --data-root {split_root} --workdir {output_root}
   --convlora-model-type vit_b
   --convlora-checkpoint checkpoints/sam_vit_b_01ec64.pth
-  --curvfield-field-weight 1.0
+  --curvfield-field-size 128
+  --curvfield-field-weight 0.2
+  --curvfield-film-scale 0.5
+  --curvfield-decoder-bias true
   --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
 eval_entrypoint: >-
   python scripts/pipeline/run_baseline_test.py --method curvfield
@@ -24,15 +27,18 @@ defaults:
 note: >-
   Project extension, not an official Conv-LoRA/SACM baseline. Builds the
   existing Conv-LoRA port unchanged (qkv Conv-LoRA + multi-scale MoE,
-  prompt-free one-token decoder) and adds a structure-field head on the
-  frozen SAM patch embedding plus zero-initialized structure-conditioned
-  adapters at three transformer blocks. The field is trained only from
+  prompt-free one-token decoder) and adds a 128x128 structure-field head on
+  the frozen SAM patch embedding plus zero-initialized field-conditioned
+  FiLM adapters at three transformer blocks. The field is trained only from
   training masks: skeleton/centerline, distance-transform radius,
-  skeleton-tangent orientation, branch points and coherence. The residual
-  adapter starts at gamma=0, so step 0 is numerically the Conv-LoRA
-  baseline. ViT-B is the local 11 GiB profile; pass
+  skeleton-tangent orientation, branch points and coherence. The v2 adapter
+  keeps the local depthwise branch and drops the v1 strip/scalar gate, which
+  diagnosis showed was field-insensitive. The residual adapter starts at
+  gamma=0, so step 0 is numerically the Conv-LoRA baseline. ViT-B is the
+  local 11 GiB profile; pass
   --convlora-model-type vit_h with the local ViT-H checkpoint for the
   24 GiB server profile. The field-guided decoder threshold and
-  Skeleton Recall are planned ablations, not enabled in this v1.
-  Eight-hundred-epoch project budget, 18-image 3-shot split,
+  Skeleton Recall are planned ablations, not enabled in this v2. The
+  oracle-field diagnostic must show a visible Dice change before a full
+  campaign. Eight-hundred-epoch project budget, 18-image 3-shot split,
   validation-Dice selection, GT-resolution export and shared evaluator.

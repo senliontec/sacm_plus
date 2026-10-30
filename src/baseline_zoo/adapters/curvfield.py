@@ -45,16 +45,22 @@ class CurvFieldAdapter(BaselineAdapter):
     selection = 'dice'
     deviations = (
         'CurvField is a project extension. It builds the existing Conv-LoRA '
-        'port unchanged and adds a structure-field head and zero-initialized '
-        'structure-conditioned adapters; no official CurvField weights exist.',
+        'port unchanged and adds a 128x128 structure-field head and '
+        'zero-initialized field-conditioned FiLM adapters; no official '
+        'CurvField weights exist.',
         'The structure field is supervised only from training GT masks: '
         'skeleton/centerline, distance-transform radius, skeleton tangent '
         'orientation, branch points and orientation coherence. No validation '
         'or test masks enter training.',
         'The field does not replace the Conv-LoRA qkv experts or the official '
-        'one-token decoder; those remain the B0 baseline. The new adapter is '
-        'residual with gamma initialized to zero, so the initial model is '
-        'numerically the Conv-LoRA baseline.',
+        'one-token decoder; those remain the B0 baseline. The v2 adapter keeps '
+        'the local depthwise branch and conditions it with a field-driven '
+        'FiLM scale/shift; the v1 strip/scalar gate was removed after an '
+        'oracle-field diagnosis showed it was field-insensitive. A '
+        'zero-initialized field-conditioned decoder logit bias is trained '
+        'directly, so the field can affect decisions from early training. '
+        'The adapter is residual with gamma initialized to zero, so the '
+        'initial model is numerically the Conv-LoRA baseline.',
         'The default local profile is SAM ViT-B. ViT-L/H can be selected for '
         'the 24 GiB server profile. The project 800-epoch budget, 18-image '
         '3-shot split, validation-Dice checkpoint selection, GT-resolution '
@@ -72,11 +78,12 @@ class CurvFieldAdapter(BaselineAdapter):
         self._experts = 8
         self._moe_weight = 1.0
         self._field_hidden = 128
+        self._field_size = 128
         self._adapter_hidden = 64
         self._adapter_fractions = (0.25, 0.5, 0.75)
-        self._k = 7
-        self._max_step = 4.0
-        self._field_weight = 1.0
+        self._film_scale = 0.5
+        self._decoder_bias = True
+        self._field_weight = 0.2
         self._new_lr_mult = 10.0
         self._static_field = False
 
@@ -93,13 +100,22 @@ class CurvFieldAdapter(BaselineAdapter):
         parser.add_argument('--convlora-experts', type=int, default=8)
         parser.add_argument('--convlora-moe-weight', type=float, default=1.0)
         parser.add_argument('--curvfield-field-hidden', type=int, default=128)
+        parser.add_argument(
+            '--curvfield-field-size', type=int, default=128,
+            choices=[64, 128], help='structure-field output resolution')
         parser.add_argument('--curvfield-adapter-hidden', type=int, default=64)
         parser.add_argument(
             '--curvfield-adapter-fractions', nargs='+', type=float,
             default=[0.25, 0.5, 0.75])
-        parser.add_argument('--curvfield-k', type=int, default=7)
-        parser.add_argument('--curvfield-max-step', type=float, default=4.0)
-        parser.add_argument('--curvfield-field-weight', type=float, default=1.0)
+        parser.add_argument(
+            '--curvfield-film-scale', type=float, default=0.5,
+            help='maximum field-driven FiLM scale/shift')
+        parser.add_argument(
+            '--curvfield-decoder-bias',
+            type=lambda value: str(value).lower() in ('1', 'true', 'yes', 'on'),
+            default=True, help='add field-conditioned decoder logit bias')
+        parser.add_argument(
+            '--curvfield-field-weight', type=float, default=0.2)
         parser.add_argument(
             '--curvfield-new-lr-mult', type=float, default=10.0,
             help='learning-rate multiplier for field head and adapters')
@@ -122,31 +138,35 @@ class CurvFieldAdapter(BaselineAdapter):
             getattr(args, 'convlora_moe_weight', 1.0))
         self._field_hidden = int(
             getattr(args, 'curvfield_field_hidden', 128))
+        self._field_size = int(
+            getattr(args, 'curvfield_field_size', 128))
         self._adapter_hidden = int(
             getattr(args, 'curvfield_adapter_hidden', 64))
         fractions = tuple(
             float(value) for value in getattr(
                 args, 'curvfield_adapter_fractions', [0.25, 0.5, 0.75]))
         self._adapter_fractions = fractions
-        self._k = int(getattr(args, 'curvfield_k', 7))
-        self._max_step = float(getattr(args, 'curvfield_max_step', 4.0))
+        self._film_scale = float(
+            getattr(args, 'curvfield_film_scale', 0.5))
+        self._decoder_bias = bool(
+            getattr(args, 'curvfield_decoder_bias', True))
         self._field_weight = float(
-            getattr(args, 'curvfield_field_weight', 1.0))
+            getattr(args, 'curvfield_field_weight', 0.2))
         self._new_lr_mult = float(
             getattr(args, 'curvfield_new_lr_mult', 10.0))
         self._static_field = bool(
             getattr(args, 'curvfield_static_field', False))
         if self._field_hidden < 8 or self._adapter_hidden < 8:
             raise SystemExit('CurvField hidden dimensions must be >= 8')
+        if self._field_size not in (64, 128):
+            raise SystemExit('--curvfield-field-size must be 64 or 128')
+        if self._film_scale <= 0:
+            raise SystemExit('--curvfield-film-scale must be positive')
         if not self._adapter_fractions:
             raise SystemExit('CurvField needs at least one adapter fraction')
         if any(not 0.0 <= value <= 1.0
                for value in self._adapter_fractions):
             raise SystemExit('CurvField adapter fractions must be in [0, 1]')
-        if self._k < 3 or self._k % 2 == 0:
-            raise SystemExit('--curvfield-k must be odd and >= 3')
-        if self._max_step < 1.0:
-            raise SystemExit('--curvfield-max-step must be >= 1')
         if self._field_weight < 0 or self._new_lr_mult <= 0:
             raise SystemExit('CurvField weights must be non-negative')
         self._encoder_weights = Path(getattr(
@@ -172,10 +192,11 @@ class CurvFieldAdapter(BaselineAdapter):
         return CurvFieldSAM(
             base,
             field_hidden=self._field_hidden,
+            field_size=self._field_size,
             adapter_hidden=self._adapter_hidden,
             adapter_fractions=self._adapter_fractions,
-            k=self._k,
-            max_step=self._max_step,
+            film_scale=self._film_scale,
+            decoder_bias=self._decoder_bias,
             static_field=self._static_field,
         )
 
@@ -184,6 +205,9 @@ class CurvFieldAdapter(BaselineAdapter):
             parameter.requires_grad_(True)
         for parameter in model.adapters.parameters():
             parameter.requires_grad_(True)
+        if model.decoder_bias:
+            for parameter in model.field_decoder.parameters():
+                parameter.requires_grad_(True)
         trainable = sum(p.numel() for p in model.parameters()
                         if p.requires_grad)
         if trainable == 0:
@@ -195,7 +219,7 @@ class CurvFieldAdapter(BaselineAdapter):
         for name, parameter in model.named_parameters():
             if not parameter.requires_grad:
                 continue
-            if name.startswith(('field_head.', 'adapters.')):
+            if name.startswith(('field_head.', 'adapters.', 'field_decoder.')):
                 new_params.append(parameter)
             else:
                 base_params.append(parameter)
@@ -287,10 +311,11 @@ class CurvFieldAdapter(BaselineAdapter):
             'convlora_checkpoint': str(self._encoder_weights or ''),
             'sam_checkpoint_sha256': self._sam_sha,
             'field_hidden': self._field_hidden,
+            'field_size': self._field_size,
             'adapter_hidden': self._adapter_hidden,
             'adapter_fractions': list(self._adapter_fractions),
-            'k': self._k,
-            'max_step': self._max_step,
+            'film_scale': self._film_scale,
+            'decoder_bias': self._decoder_bias,
             'field_weight': self._field_weight,
             'new_lr_mult': self._new_lr_mult,
             'static_field': self._static_field,
@@ -314,10 +339,11 @@ class CurvFieldAdapter(BaselineAdapter):
             args.convlora_checkpoint = Path(config['convlora_checkpoint'])
         mapping = {
             'field_hidden': 'curvfield_field_hidden',
+            'field_size': 'curvfield_field_size',
             'adapter_hidden': 'curvfield_adapter_hidden',
             'adapter_fractions': 'curvfield_adapter_fractions',
-            'k': 'curvfield_k',
-            'max_step': 'curvfield_max_step',
+            'film_scale': 'curvfield_film_scale',
+            'decoder_bias': 'curvfield_decoder_bias',
             'field_weight': 'curvfield_field_weight',
             'new_lr_mult': 'curvfield_new_lr_mult',
             'static_field': 'curvfield_static_field',

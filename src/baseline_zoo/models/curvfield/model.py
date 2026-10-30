@@ -8,7 +8,9 @@ forward hooks on the frozen SAM encoder:
    structure-conditioned adapter to the block output.
 
 The mask decoder and the Conv-LoRA qkv experts remain exactly the official
-Conv-LoRA ones, so ``gamma=0`` reproduces the baseline numerically.
+Conv-LoRA ones.  A zero-initialized field->logit bias can additionally
+condition the decoder decision; both residual paths start at zero, so the
+initial model is numerically the Conv-LoRA baseline.
 """
 
 from __future__ import annotations
@@ -16,12 +18,13 @@ from __future__ import annotations
 from typing import Iterable
 
 import torch
+import torch.nn.functional as F
 from torch import nn
 
 from baseline_zoo.models.convlora import ConvLoRASAM
 
 from .adapter import StructureConditionedAdapter
-from .head import StructureFieldHead
+from .head import FieldDecoderBias, StructureFieldHead
 
 
 def _block_indices(count: int, fractions: Iterable[float]) -> list[int]:
@@ -38,21 +41,27 @@ class CurvFieldSAM(ConvLoRASAM):
     """Conv-LoRA plus a shared structure field and field-conditioned adapters."""
 
     def __init__(self, base: ConvLoRASAM, field_hidden: int = 128,
-                 adapter_hidden: int = 64,
+                 field_size: int = 128, adapter_hidden: int = 64,
                  adapter_fractions: Iterable[float] = (0.25, 0.5, 0.75),
-                 k: int = 7, max_step: float = 4.0,
+                 film_scale: float = 0.5, decoder_bias: bool = True,
                  static_field: bool = False):
         super().__init__(base.sam, moe_weight=base.moe_weight)
         self.static_field = bool(static_field)
+        self.field_size = int(field_size)
+        self.decoder_bias = bool(decoder_bias)
+        if self.field_size not in (64, 128):
+            raise ValueError('field_size must be 64 or 128')
         patch_embed = self.sam.image_encoder.patch_embed
         in_dim = int(patch_embed.proj.out_channels)
-        self.field_head = StructureFieldHead(in_dim, hidden=field_hidden)
+        self.field_head = StructureFieldHead(
+            in_dim, hidden=field_hidden, out_size=self.field_size)
+        self.field_decoder = FieldDecoderBias(hidden=32)
         blocks = self.sam.image_encoder.blocks
         indices = _block_indices(len(blocks), adapter_fractions)
         self.adapter_indices = indices
         self.adapters = nn.ModuleList([
             StructureConditionedAdapter(
-                in_dim, hidden=adapter_hidden, k=k, max_step=max_step)
+                in_dim, hidden=adapter_hidden, film_scale=film_scale)
             for _ in indices
         ])
         self._field: torch.Tensor | None = None
@@ -87,7 +96,8 @@ class CurvFieldSAM(ConvLoRASAM):
         if self.static_field:
             batch = int(images.shape[0])
             field = torch.zeros(
-                batch, 6, 64, 64, device=images.device, dtype=images.dtype)
+                batch, 6, self.field_size, self.field_size,
+                device=images.device, dtype=images.dtype)
             field[:, 0] = 1.0   # centerline
             field[:, 1] = 0.3   # normalized radius
             field[:, 2] = 1.0   # horizontal double-angle orientation
@@ -96,6 +106,13 @@ class CurvFieldSAM(ConvLoRASAM):
         else:
             self._field = None
         logits, moe_loss = super().forward(images)
+        if self.decoder_bias and self._field is not None:
+            bias = self.field_decoder(self._field)
+            if bias.shape[-2:] != logits.shape[-2:]:
+                bias = F.interpolate(
+                    bias, size=logits.shape[-2:], mode='bilinear',
+                    align_corners=False)
+            logits = logits + bias
         return logits, moe_loss, self._field
 
 

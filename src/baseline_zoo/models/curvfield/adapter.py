@@ -1,13 +1,11 @@
-"""Structure-conditioned adapter for CurvField.
+"""Field-conditioned FiLM adapter for CurvField.
 
-The adapter has two branches:
-
-- a small isotropic depthwise convolution for local detail;
-- a long anisotropic branch that samples K points along the predicted
-  tangent, with a step proportional to the predicted local radius.
-
-The field gates the two branches and the residual is zero-initialized, so
-a freshly built CurvField is exactly the Conv-LoRA baseline.
+The v1 anisotropic strip branch and scalar gate were removed after diagnosis:
+the gate saturated near 0.49, an oracle GT field changed segmentation by less
+than 0.3 pp, and the strip branch was worse than the local branch on LEAF/XCAD.
+The v2 adapter keeps the local depthwise branch and conditions it directly with
+a field-driven FiLM scale/shift.  The residual is still zero-initialized, so a
+freshly built CurvField is exactly the Conv-LoRA baseline.
 """
 
 from __future__ import annotations
@@ -20,29 +18,24 @@ from torch import nn
 
 
 class StructureConditionedAdapter(nn.Module):
-    """Field-conditioned residual adapter."""
+    """Field-conditioned residual adapter with a local depthwise branch."""
 
-    def __init__(self, dim: int, hidden: int = 64, k: int = 7,
-                 max_step: float = 4.0):
+    def __init__(self, dim: int, hidden: int = 64,
+                 film_scale: float = 0.5):
         super().__init__()
-        if k < 3 or k % 2 == 0:
-            raise ValueError('k must be an odd integer >= 3')
-        if max_step < 1:
-            raise ValueError('max_step must be >= 1')
+        if film_scale <= 0:
+            raise ValueError('film_scale must be positive')
         self.dim = int(dim)
-        self.k = int(k)
-        self.max_step = float(max_step)
+        self.hidden = int(hidden)
+        self.film_scale = float(film_scale)
         self.down = nn.Linear(dim, hidden, bias=False)
         self.local = nn.Conv2d(
             hidden, hidden, 5, padding=2, groups=hidden, bias=False)
-        self.strip = nn.Conv3d(
-            hidden, hidden, (1, 1, self.k),
-            padding=(0, 0, self.k // 2), groups=hidden, bias=False)
-        self.gate = nn.Sequential(
-            nn.Conv2d(3, 16, 1),
-            nn.GELU(),
-            nn.Conv2d(16, 1, 1),
-        )
+        # Direct field -> per-channel scale/shift.  Small random init keeps the
+        # field path alive while gamma=0 still gives exact baseline identity.
+        self.film = nn.Conv2d(6, 2 * hidden, 1)
+        nn.init.normal_(self.film.weight, std=0.01)
+        nn.init.zeros_(self.film.bias)
         self.up = nn.Linear(hidden, dim, bias=False)
         self.gamma = nn.Parameter(torch.zeros(1))
 
@@ -88,44 +81,22 @@ class StructureConditionedAdapter(nn.Module):
         radius = torch.sigmoid(field[:, 1:2])
         cos2 = field[:, 2:3]
         sin2 = field[:, 3:4]
+        norm = torch.sqrt(cos2 * cos2 + sin2 * sin2).clamp_min(1e-6)
+        cos2 = cos2 / norm
+        sin2 = sin2 / norm
+        branch = torch.sigmoid(field[:, 4:5])
         coherence = torch.sigmoid(field[:, 5:6])
-        theta = 0.5 * torch.atan2(sin2, cos2)
-        direction_x = torch.cos(theta)
-        direction_y = torch.sin(theta)
-        step = 1.0 + (self.max_step - 1.0) * radius
+        condition = torch.cat(
+            [center, radius, cos2, sin2, branch, coherence], dim=1)
+        film = self.film(condition)
+        scale, shift = film.chunk(2, dim=1)
+        scale = torch.tanh(scale) * self.film_scale
+        shift = torch.tanh(shift) * self.film_scale
+        fused = local * (1.0 + scale) + shift
 
-        ys = torch.arange(height, device=tokens.device, dtype=tokens.dtype)
-        xs = torch.arange(width, device=tokens.device, dtype=tokens.dtype)
-        grid_y, grid_x = torch.meshgrid(ys, xs, indexing='ij')
-        base_x = grid_x / max(width - 1, 1) * 2.0 - 1.0
-        base_y = grid_y / max(height - 1, 1) * 2.0 - 1.0
-        base_x = base_x.view(1, 1, height, width)
-        base_y = base_y.view(1, 1, height, width)
-
-        offsets = torch.arange(
-            self.k, device=tokens.device, dtype=tokens.dtype)
-        offsets = offsets - (self.k // 2)
-        offsets = offsets.view(1, 1, 1, 1, self.k)
-        dx = 2.0 * step * direction_x / max(width - 1, 1)
-        dy = 2.0 * step * direction_y / max(height - 1, 1)
-        sample_x = base_x.unsqueeze(-1) + offsets * dx.unsqueeze(-1)
-        sample_y = base_y.unsqueeze(-1) + offsets * dy.unsqueeze(-1)
-        grid = torch.stack([sample_x, sample_y], dim=-1)
-        grid = grid.reshape(batch, height, width * self.k, 2)
-        sampled = F.grid_sample(
-            hidden, grid, mode='bilinear', padding_mode='border',
-            align_corners=True)
-        sampled = sampled.reshape(
-            batch, hidden.shape[1], height, width, self.k)
-        strip = self.strip(sampled).mean(dim=-1)
-
-        gate_in = torch.cat([center, radius, coherence], dim=1)
-        gate = torch.sigmoid(self.gate(gate_in))
-        fused = gate * strip + (1.0 - gate) * local
         out = self.up(fused.permute(0, 2, 3, 1)).permute(
             0, 3, 1, 2).contiguous()
         out = self.gamma * out
-
         if nhwc:
             out = out.permute(0, 2, 3, 1)
         return tokens + out

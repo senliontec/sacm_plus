@@ -96,11 +96,44 @@ def structure_targets(masks: torch.Tensor, size: int = 64):
             torch.stack(foreground).to(masks.device))
 
 
+def _soft_dice_loss(prob: torch.Tensor, target: torch.Tensor,
+                    eps: float = 1.0) -> torch.Tensor:
+    """Per-image soft Dice loss; stable for sparse centerline targets."""
+    dims = tuple(range(1, prob.ndim))
+    intersection = (prob * target).sum(dims)
+    denominator = prob.sum(dims) + target.sum(dims)
+    return (1.0 - (2.0 * intersection + eps) /
+            (denominator + eps)).mean()
+
+
+def _weighted_corr_loss(pred: torch.Tensor, target: torch.Tensor,
+                        weight: torch.Tensor) -> torch.Tensor:
+    """1 - weighted Pearson correlation; zero when variance is absent."""
+    denominator = weight.sum().clamp_min(1.0)
+    pred_mean = (pred * weight).sum() / denominator
+    target_mean = (target * weight).sum() / denominator
+    pred_centered = (pred - pred_mean) * weight
+    target_centered = (target - target_mean) * weight
+    pred_var = (pred_centered * pred_centered).sum() / denominator
+    target_var = (target_centered * target_centered).sum() / denominator
+    covariance = (pred_centered * target_centered).sum() / denominator
+    correlation = covariance / (
+        pred_var.clamp_min(1e-12).sqrt() *
+        target_var.clamp_min(1e-12).sqrt())
+    return 1.0 - correlation.clamp(-1.0, 1.0)
+
+
 def field_loss(pred: torch.Tensor, target: torch.Tensor,
                foreground: torch.Tensor) -> torch.Tensor:
     """Supervised field loss for ``[B,6,S,S]`` predictions.
 
     Channel order: centerline, radius, cos2t, sin2t, branch, coherence.
+
+    Centerline/branch add a soft-Dice term to the class-weighted BCE so the
+    sparse channels are calibrated to cross 0.5 on structure.  Radius adds a
+    foreground correlation term because plain L1 can collapse to a constant.
+    Coherence is supervised on foreground pixels only; elsewhere its target is
+    not meaningful.
     """
     if pred.shape != target.shape:
         raise ValueError(
@@ -110,17 +143,22 @@ def field_loss(pred: torch.Tensor, target: torch.Tensor,
     c_t, r_t, cos_t, sin_t, b_t, k_t = target.unbind(1)
     fg = foreground[:, 0]
 
-    loss_c = F.binary_cross_entropy_with_logits(
-        c_pred, c_t, pos_weight=torch.tensor(
-            5.0, device=pred.device, dtype=pred.dtype))
-    loss_b = F.binary_cross_entropy_with_logits(
-        b_pred, b_t, pos_weight=torch.tensor(
-            5.0, device=pred.device, dtype=pred.dtype))
+    pos_weight = torch.tensor(5.0, device=pred.device, dtype=pred.dtype)
+    loss_c = (
+        F.binary_cross_entropy_with_logits(c_pred, c_t, pos_weight=pos_weight)
+        + _soft_dice_loss(torch.sigmoid(c_pred), c_t)
+    )
+    loss_b = 0.5 * (
+        F.binary_cross_entropy_with_logits(b_pred, b_t, pos_weight=pos_weight)
+        + _soft_dice_loss(torch.sigmoid(b_pred), b_t)
+    )
 
     radius_pred = torch.sigmoid(r_pred)
     radius_weight = fg / fg.sum().clamp_min(1.0)
     loss_r = ((radius_pred - r_t).abs() * radius_weight).sum() / (
         radius_weight.sum().clamp_min(1.0))
+    if fg.sum() >= 2:
+        loss_r = loss_r + 0.1 * _weighted_corr_loss(radius_pred, r_t, fg)
 
     # Orientations are double-angle unit vectors.  The target is a unit
     # vector whose reliability is given by kappa; junctions have low kappa.
@@ -134,8 +172,10 @@ def field_loss(pred: torch.Tensor, target: torch.Tensor,
     loss_orient = ((1.0 - dot) * orient_weight).sum() / (
         orient_weight.sum().clamp_min(1.0))
 
-    loss_kappa = F.smooth_l1_loss(torch.sigmoid(k_pred), k_t)
-    return loss_c + loss_b + loss_r + loss_orient + loss_kappa
+    kappa_bce = F.binary_cross_entropy_with_logits(
+        k_pred, k_t, reduction='none')
+    loss_kappa = (kappa_bce * fg).sum() / fg.sum().clamp_min(1.0)
+    return loss_c + loss_b + loss_r + loss_orient + 0.5 * loss_kappa
 
 
 __all__ = ['field_loss', 'structure_targets']

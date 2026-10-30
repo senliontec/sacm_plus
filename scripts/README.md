@@ -146,9 +146,12 @@ official pipelines do not yet expose the shared scheduler/LR interface;
 `Matcher`, `PerSAM`, `RSRM` and `C2P` are training-free or zero-shot.
 Thus 24 of the 41 official/reference baselines are in the tuning harness.
 The CurvField project extension is intentionally not in the 41-baseline
-sweep or HPO lists; run it explicitly with `--model curvfield`. Newly added
-ports must be added to the explicit `BASELINE_MODELS` list and
-`configs/tuning/spaces.yaml` before `--models all` can tune them.  Trial
+sweep or HPO lists; run it explicitly with `--model curvfield`. The v2
+causal screen (Conv-LoRA control + 128x128 field + FiLM/decoder bias, oracle
+gate, seed0, full 20-dataset test) is one command:
+`bash scripts/curvfield/run_v2_screen.sh`. Newly added ports must be added
+to the explicit `BASELINE_MODELS` list and `configs/tuning/spaces.yaml`
+before `--models all` can tune them.  Trial
 `best_model*.pth` files are deleted after scoring unless
 `--keep-trial-checkpoints` is passed; the metrics history and trainer log
 are kept.  The selected configuration must be applied to a fresh

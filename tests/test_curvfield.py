@@ -13,6 +13,7 @@ from baseline_zoo.adapters.registry import available_adapters, load_adapter
 from baseline_zoo.models.convlora import build_convlora
 from baseline_zoo.models.curvfield import (
     CurvFieldSAM,
+    FieldDecoderBias,
     StructureConditionedAdapter,
     StructureFieldHead,
     field_loss,
@@ -35,11 +36,12 @@ def _args(**overrides):
         convlora_moe_weight=1.0,
         convlora_checkpoint=CHECKPOINT,
         curvfield_field_hidden=32,
+        curvfield_field_size=128,
         curvfield_adapter_hidden=16,
         curvfield_adapter_fractions=[0.25, 0.5, 0.75],
-        curvfield_k=7,
-        curvfield_max_step=4.0,
-        curvfield_field_weight=1.0,
+        curvfield_film_scale=0.5,
+        curvfield_decoder_bias=True,
+        curvfield_field_weight=0.2,
         curvfield_new_lr_mult=10.0,
     )
     values.update(overrides)
@@ -64,15 +66,15 @@ def test_registry_and_metadata():
 
 def test_structure_targets_and_loss():
     mask = _mask()
-    targets, foreground = structure_targets(mask, size=64)
-    assert targets.shape == (1, 6, 64, 64)
-    assert foreground.shape == (1, 1, 64, 64)
+    targets, foreground = structure_targets(mask, size=128)
+    assert targets.shape == (1, 6, 128, 128)
+    assert foreground.shape == (1, 1, 128, 128)
     assert torch.isfinite(targets).all()
     assert targets[:, 0].max() > 0.5
     assert targets[:, 4].max() > 0.5
     assert targets[:, 1].max() > 0.0
 
-    head = StructureFieldHead(16, hidden=32)
+    head = StructureFieldHead(16, hidden=32, out_size=128)
     features = torch.randn(1, 64, 64, 16)
     pred = head(features)
     assert pred.shape == targets.shape
@@ -83,9 +85,9 @@ def test_structure_targets_and_loss():
 
 
 def test_adapter_is_identity_at_init_and_uses_field():
-    adapter = StructureConditionedAdapter(16, hidden=16, k=7)
+    adapter = StructureConditionedAdapter(16, hidden=16, film_scale=0.5)
     tokens = torch.randn(1, 64, 64, 16)
-    field = torch.zeros(1, 6, 64, 64)
+    field = torch.zeros(1, 6, 128, 128)
     field[:, 0] = 1.0
     field[:, 1] = 0.5
     field[:, 2] = 1.0
@@ -94,8 +96,28 @@ def test_adapter_is_identity_at_init_and_uses_field():
     assert out.shape == tokens.shape
     assert torch.allclose(out, tokens)
     adapter.gamma.data.fill_(1.0)
-    out = adapter(tokens, field)
-    assert not torch.allclose(out, tokens)
+    out_a = adapter(tokens, field)
+    field_b = torch.zeros_like(field)
+    field_b[:, 0] = 1.0
+    field_b[:, 2] = 1.0
+    field_b[:, 4] = 1.0
+    field_b[:, 5] = 1.0
+    out_b = adapter(tokens, field_b)
+    assert not torch.allclose(out_a, tokens)
+    assert not torch.allclose(out_a, out_b)
+
+
+def test_decoder_bias_is_identity_at_init_and_uses_field():
+    bias = FieldDecoderBias(hidden=16)
+    field_a = torch.zeros(1, 6, 128, 128)
+    field_a[:, 0] = 1.0
+    field_b = torch.zeros_like(field_a)
+    field_b[:, 0] = 1.0
+    field_b[:, 4] = 1.0
+    assert torch.allclose(bias(field_a), torch.zeros_like(bias(field_a)))
+    with torch.no_grad():
+        bias.net[-1].weight.normal_(0.0, 0.1)
+    assert not torch.allclose(bias(field_a), bias(field_b))
 
 
 def test_config_roundtrip():
@@ -106,18 +128,21 @@ def test_config_roundtrip():
     target = CurvFieldAdapter()
     restored = _args(
         curvfield_field_hidden=128,
+        curvfield_field_size=64,
         curvfield_adapter_hidden=64,
         curvfield_adapter_fractions=[0.25],
-        curvfield_k=5,
+        curvfield_film_scale=0.25,
         curvfield_field_weight=0.0,
         curvfield_new_lr_mult=1.0,
     )
     target.restore_config(restored, config)
     assert target._field_hidden == 32
+    assert target._field_size == 128
     assert target._adapter_hidden == 16
     assert target._adapter_fractions == (0.25, 0.5, 0.75)
-    assert target._k == 7
-    assert target._field_weight == pytest.approx(1.0)
+    assert target._film_scale == pytest.approx(0.5)
+    assert target._decoder_bias is True
+    assert target._field_weight == pytest.approx(0.2)
     assert target._new_lr_mult == pytest.approx(10.0)
 
 
@@ -126,13 +151,13 @@ def test_config_roundtrip():
 def test_hooks_preserve_baseline_at_zero_gamma():
     base = build_convlora(CHECKPOINT, model_type='vit_b').eval()
     model = CurvFieldSAM(
-        base, field_hidden=32, adapter_hidden=16,
-        adapter_fractions=(0.25, 0.5, 0.75), k=7).eval()
+        base, field_hidden=32, field_size=128, adapter_hidden=16,
+        adapter_fractions=(0.25, 0.5, 0.75), film_scale=0.5).eval()
     images = torch.rand(1, 3, 1024, 1024) * 255
     with torch.no_grad():
         baseline, _ = base(images)
         logits, _, field = model(images)
-    assert field is not None and field.shape == (1, 6, 64, 64)
+    assert field is not None and field.shape == (1, 6, 128, 128)
     assert logits.shape == baseline.shape
     assert torch.allclose(logits, baseline, atol=1e-6)
     assert len(model.adapters) == 3
