@@ -5,6 +5,11 @@
 #   bash scripts/tools/run_paper_cue.sh --seeds 0
 #   bash scripts/tools/run_paper_cue.sh --models unet,dscnet --seeds 0 --dry-run
 #   bash scripts/tools/run_paper_cue.sh --models samed,dscnet --seeds 0 --no-resume
+#   bash scripts/tools/run_paper_cue.sh --seeds "0 1 2 3 4" --order seed
+#
+# Queue order defaults to a strict seed barrier: for seed 0, train all models
+# to completion, then evaluate all models; only then start seed 1.  Pass
+# --order model for the older all-train-then-all-eval, longest-first order.
 #
 # cue schedules one job per GPU and assigns each job via
 # CUDA_VISIBLE_DEVICES.  It does not detect already-running processes, so the
@@ -20,17 +25,19 @@ PROTOCOL="seeded5"
 DRY_RUN=0
 ALLOW_BUSY=0
 NO_RESUME=0
+ORDER="seed"
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --models) MODELS="${2:?missing value for --models}"; shift 2 ;;
     --seeds) SEEDS="${2:?missing value for --seeds}"; shift 2 ;;
     --protocol) PROTOCOL="${2:?missing value for --protocol}"; shift 2 ;;
+    --order) ORDER="${2:?missing value for --order}"; shift 2 ;;
     --dry-run) DRY_RUN=1; shift ;;
     --allow-busy) ALLOW_BUSY=1; shift ;;
     --no-resume) NO_RESUME=1; shift ;;
     -h|--help)
-      sed -n '2,12p' "$0"
+      sed -n '2,16p' "$0"
       exit 0
       ;;
     *)
@@ -80,23 +87,24 @@ fi
 
 STAMP="$(date +%Y%m%d_%H%M%S)"
 CUE_ROOT="$ROOT/results/cue"
-TRAIN_YAML="$CUE_ROOT/train_${PROTOCOL}_${STAMP}.yaml"
-EVAL_YAML="$CUE_ROOT/eval_${PROTOCOL}_${STAMP}.yaml"
 RESUME_ARGS=()
 if [ "$NO_RESUME" -eq 1 ]; then
   RESUME_ARGS+=(--no-resume)
 fi
+case "$ORDER" in
+  model|seed) ;;
+  *) echo "ERROR: --order must be 'model' or 'seed', got '$ORDER'" >&2
+     exit 2 ;;
+esac
 
-"$PYTHON" "$ROOT/scripts/tools/make_cue_config.py" \
-  --stage train --models "$MODELS" --seeds $SEEDS \
-  --protocol "$PROTOCOL" --out "$TRAIN_YAML" \
-  --python-cmd "$PYTHON" --log-dir "$CUE_ROOT/logs" \
-  "${RESUME_ARGS[@]}"
-"$PYTHON" "$ROOT/scripts/tools/make_cue_config.py" \
-  --stage eval --models "$MODELS" --seeds $SEEDS \
-  --protocol "$PROTOCOL" --out "$EVAL_YAML" \
-  --python-cmd "$PYTHON" --log-dir "$CUE_ROOT/logs" \
-  "${RESUME_ARGS[@]}"
+make_config() {
+  local stage="$1" seeds="$2" out="$3"
+  "$PYTHON" "$ROOT/scripts/tools/make_cue_config.py" \
+    --stage "$stage" --models "$MODELS" --seeds $seeds \
+    --protocol "$PROTOCOL" --order "$ORDER" --out "$out" \
+    --python-cmd "$PYTHON" --log-dir "$CUE_ROOT/logs" \
+    "${RESUME_ARGS[@]}"
+}
 
 run_cue() {
   local yaml="$1"
@@ -108,8 +116,32 @@ run_cue() {
   fi
 }
 
-run_cue "$TRAIN_YAML"
-run_cue "$EVAL_YAML"
+if [ "$ORDER" = "seed" ]; then
+  # Strict barrier: finish train+eval for one seed before starting the next.
+  if [ "$SEEDS" = "all" ]; then
+    SEEDS="$("$PYTHON" - "$PROTOCOL" <<'PY'
+import sys
+from baseline_zoo.protocols import load_protocol
+print(*load_protocol(sys.argv[1]).seeds)
+PY
+)"
+  fi
+  for seed in $SEEDS; do
+    TRAIN_YAML="$CUE_ROOT/train_${PROTOCOL}_seed${seed}_${STAMP}.yaml"
+    EVAL_YAML="$CUE_ROOT/eval_${PROTOCOL}_seed${seed}_${STAMP}.yaml"
+    make_config train "$seed" "$TRAIN_YAML"
+    run_cue "$TRAIN_YAML"
+    make_config eval "$seed" "$EVAL_YAML"
+    run_cue "$EVAL_YAML"
+  done
+else
+  TRAIN_YAML="$CUE_ROOT/train_${PROTOCOL}_${STAMP}.yaml"
+  EVAL_YAML="$CUE_ROOT/eval_${PROTOCOL}_${STAMP}.yaml"
+  make_config train "$SEEDS" "$TRAIN_YAML"
+  make_config eval "$SEEDS" "$EVAL_YAML"
+  run_cue "$TRAIN_YAML"
+  run_cue "$EVAL_YAML"
+fi
 
 if [ "$DRY_RUN" -eq 0 ]; then
   bash "$ROOT/scripts/run_report.sh" \

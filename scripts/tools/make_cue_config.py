@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
 """Generate cue-ml YAML for one baseline stage (train or eval).
 
-The generated config contains one experiment per model; each run invokes
-``scripts/tools/cue_job.py``.  Models are ordered by a coarse expected cost so
-cue's FIFO scheduler starts long jobs first, reducing the idle tail.
+Each run invokes ``scripts/tools/cue_job.py``.  Two queue orders are
+supported:
+
+* ``--order model`` (default): one experiment per model, longest model first.
+  This minimizes the idle tail.
+* ``--order seed``: one experiment per seed, longest model first inside each
+  seed.  cue's FIFO queue therefore dispatches every model for seed 0 before
+  seed 1, then seed 2, and so on.
 """
 
 from __future__ import annotations
@@ -60,6 +65,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument('--seeds', nargs='+', default=['0'])
     parser.add_argument('--protocol', default='seeded5')
     parser.add_argument(
+        '--order', choices=('model', 'seed'), default='model',
+        help='queue order: model-major (longest first) or seed-major '
+             '(all models for seed 0, then seed 1)')
+    parser.add_argument(
         '--no-resume', action='store_true',
         help='make every generated job ignore matching done markers')
     parser.add_argument('--out', type=Path, required=True)
@@ -92,18 +101,28 @@ def main(argv: list[str] | None = None) -> int:
     if not script_path.is_file():
         raise SystemExit(f'cue wrapper not found: {script_path}')
 
+    suffix = ' --no-resume' if args.no_resume else ''
+
+    def run_args(model_id: str, seed: int) -> dict:
+        return {'args': (f'--stage {args.stage} --model {model_id} '
+                         f'--seed {seed} --protocol {args.protocol}{suffix}')}
+
     experiments = []
-    for model_id in model_ids:
-        suffix = ' --no-resume' if args.no_resume else ''
-        runs = [{
-            'args': (f'--stage {args.stage} --model {model_id} '
-                     f'--seed {seed} --protocol {args.protocol}{suffix}')
-        } for seed in seeds]
-        experiments.append({
-            'name': f'{args.stage}_{model_id}',
-            'script': str(script_path),
-            'runs': runs,
-        })
+    if args.order == 'seed':
+        # cue uses a FIFO job queue: queue every model for seed 0 first.
+        for seed in seeds:
+            experiments.append({
+                'name': f'{args.stage}_seed_{seed}',
+                'script': str(script_path),
+                'runs': [run_args(model_id, seed) for model_id in model_ids],
+            })
+    else:
+        for model_id in model_ids:
+            experiments.append({
+                'name': f'{args.stage}_{model_id}',
+                'script': str(script_path),
+                'runs': [run_args(model_id, seed) for seed in seeds],
+            })
 
     payload = {
         'config': {
@@ -116,8 +135,8 @@ def main(argv: list[str] | None = None) -> int:
     out.parent.mkdir(parents=True, exist_ok=True)
     with out.open('w') as handle:
         yaml.safe_dump(payload, handle, sort_keys=False, width=1000)
-    print(f'cue config -> {out} ({len(experiments)} models, '
-          f'{len(seeds)} seed(s), stage={args.stage})')
+    print(f'cue config -> {out} ({len(model_ids)} models, '
+          f'{len(seeds)} seed(s), order={args.order}, stage={args.stage})')
     return 0
 
 
