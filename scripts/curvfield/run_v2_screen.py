@@ -110,6 +110,20 @@ def main() -> int:
     for thread in threads:
         thread.join()
     night._summary(args.root, [args.seed])
+    summary = args.root / 'SUMMARY.md'
+    if summary.is_file():
+        text = summary.read_text()
+        text = text.replace(
+            'Matrix: seeds 0/1/2, 100 epochs, ViT-B, full 20-dataset test.',
+            f'Matrix: seed {args.seed}, 100 epochs, ViT-B, full 20-dataset test.')
+        text = text.replace(
+            'Raw training/eval logs: `results/curvfield_night/logs/`.',
+            f'Raw training/eval logs: `{args.root.relative_to(REPO_ROOT)}/logs/`.')
+        gate = args.root / 'logs' / f'curvfield_v2_seed{args.seed}_field_diag.log'
+        if gate.is_file():
+            text += (f'\nOracle-field gate log: '
+                     f'`{gate.relative_to(REPO_ROOT)}`.\n')
+        summary.write_text(text)
     print(f'wrote {args.root / "SUMMARY.md"}', flush=True)
     return 0
 

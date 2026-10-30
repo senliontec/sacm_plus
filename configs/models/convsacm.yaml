@@ -1,0 +1,40 @@
+id: convsacm
+display_name: Conv-SACM
+family: sam
+status: available
+checkpoint: "{output_root}/best_model.pth"
+train_entrypoint: >-
+  python -m baseline_zoo.run_one --model convsacm --stage train
+  --data-root {split_root} --workdir {output_root}
+  --convlora-model-type vit_b
+  --convlora-checkpoint checkpoints/sam_vit_b_01ec64.pth
+  --convsacm-external-hidden 64
+  --convsacm-external-fractions 0.25 0.5 0.75
+  --convsacm-refiner-hidden 16
+  --convsacm-refiner-size 512
+  --convsacm-topo-weight 0.2
+  --convsacm-topo-warmup 10
+  --convsacm-new-lr-mult 10
+  --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
+eval_entrypoint: >-
+  python scripts/pipeline/run_baseline_test.py --method convsacm
+  --protocol {test_manifest}
+  --seed {seed}
+  --checkpoint {output_root}/best_model.pth
+  --pred-root {output_root}/predictions
+  --paper-root {output_root}
+  --device cuda:{gpu} --use_wandb true --skip-visualize
+protocols: [seeded5, fixed]
+defaults:
+  epochs: 800
+note: >-
+  New project model, not the official SACM baseline. Keeps Conv-LoRA's qkv
+  LoRA, multi-scale conv MoE and prompt-free decoder, adds a zero-init
+  external-context residual over a few encoder blocks and a 512x512
+  second-stage refiner, with coarse+high-resolution deep supervision and a
+  soft clDice auxiliary loss. Unlike the official SACM code, both outputs are
+  supervised and no untrained Stage-1/gating/4-head-only-1-loss mechanism is
+  used. ViT-B is the local 11 GiB profile; ViT-H/L can be selected for the
+  24 GiB server. The official `sacm_official` baseline remains unmodified.
+  Eight-hundred-epoch project budget, 18-image 3-shot split, validation-Dice
+  selection, GT-resolution export and shared evaluator.

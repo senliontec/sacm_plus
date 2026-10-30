@@ -67,6 +67,8 @@
 | `sam2_unet` | SAM2-UNet | `3rd/SAM2-UNet` | `parsing/[2024 arxiv] SAM2-UNet: Segment Anything 2 Makes Strong Encoder for Natural and Medical Image Segmentation` | 附录扩展 baseline；需 SAM2 Hiera-L 权重 |
 | `sam_vit_l_unet` | SAM ViT-L + U-Net | `3rd/segment-anything` | `parsing/[2023 iccv] Segment Anything` | 本项目扩展，不是论文 baseline；3rd 仅提供 SAM 基座，U-Net decoder 为自包含实现 |
 | `curvfield` | CurvField | 基于 Conv-LoRA（已有内部实现） | 未收录 | 本项目扩展：128×128 共享曲线结构场（中心线/半径/方向/分叉）+ 零初始化场条件化 FiLM local adapter；v2 已移除 v1 的 strip/scalar gate；不是官方 Conv-LoRA/SACM baseline；见 `models/curvfield/` |
+| `sdsconv` | Conv-LoRA + SDSConv | 基于 Conv-LoRA（已有内部实现）+ CSWinUNETR SDSConv 思路 | `parsing/[2026 miccai] CSWinUNETR...` | 本项目扩展：镜像 embedding 后的零初始化 SDSConv residual；独立实现，非官方 baseline |
+| `convsacm` | Conv-SACM | 基于 Conv-LoRA + SACM 思路 | 未收录 | 新项目模型：Conv-LoRA local MoE + 轻量 external context + 512 高分辨率二阶段 + clDice；官方 `sacm_official` 保持原样 |
 | `ucs` | UCS | `3rd/UCS` | `parsing/[2023 iccv] UCS: A Universal Model for Curvilinear Structure Segmentation` | oracle-prompted reference，不是 prompt-free |
 
 ## 未集成 / 已排除（不属于 registry 的方法）

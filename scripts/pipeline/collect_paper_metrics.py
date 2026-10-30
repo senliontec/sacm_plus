@@ -76,6 +76,8 @@ METHOD_META = {
     'sansa': ('SANSA', '✓'),
     'scrwkv': ('SCRWKV', '✗'),
     'curvfield': ('CurvField', '✗'),
+    'convsacm': ('Conv-SACM', '✗'),
+    'sdsconv': ('Conv-LoRA + SDSConv', '✗'),
     'cwsam': ('CWSAM', '✓'),
     'knowsam': ('KnowSAM', '✓'),
     'kprism': ('K-Prism (ICLR 2026)', '✗'),

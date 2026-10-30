@@ -149,7 +149,9 @@ The CurvField project extension is intentionally not in the 41-baseline
 sweep or HPO lists; run it explicitly with `--model curvfield`. The v2
 causal screen (Conv-LoRA control + 128x128 field + FiLM/decoder bias, oracle
 gate, seed0, full 20-dataset test) is one command:
-`bash scripts/curvfield/run_v2_screen.sh`. Newly added ports must be added
+`bash scripts/curvfield/run_v2_screen.sh`. The Conv-LoRA + SDSConv
+thin-structure extension is screened with
+`bash scripts/sdsconv/run_screen.sh`. Conv-SACM (Conv-LoRA local MoE + external context + 512 high-res stage + clDice) is screened with `bash scripts/convsacm/run_screen.sh`. Newly added ports must be added
 to the explicit `BASELINE_MODELS` list and `configs/tuning/spaces.yaml`
 before `--models all` can tune them.  Trial
 `best_model*.pth` files are deleted after scoring unless

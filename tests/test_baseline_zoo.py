@@ -32,7 +32,7 @@ def test_registry_contains_all_self_contained_models():
         'rsrm', 's2mnet', 'sacm_official', 'sacm_x', 'sam2_unet',
         'sam_adapter', 'sam_med2d', 'sam_octa', 'sam_vit_l_unet', 'samed',
         'sansa',
-        'scrwkv', 'segdino', 'segdino_v2', 'topolora', 'curvfield',
+        'scrwkv', 'segdino', 'segdino_v2', 'topolora', 'curvfield', 'convsacm', 'sdsconv',
         'tpsegformer', 'ucs', 'unet'}
     assert set(models) == expected
     available = {model.id for model in models.values() if model.available}
@@ -168,7 +168,7 @@ def test_train_dry_run_does_not_create_marker(capsys):
 def test_doctor_reports_self_contained_models(capsys):
     main(['doctor'])
     output = capsys.readouterr().out
-    assert 'models: 43  available: 43' in output
+    assert 'models: 45  available: 45' in output
     assert 'sam2_hiera_large.pt' in output
     assert 'SAM2 Hiera-L download' in output
     assert 'DINOv3' in output or 'segdino' in output

@@ -66,6 +66,8 @@ METHOD_META = {
     'sam_vit_l_unet': ('SAM ViT-L + U-Net', '✗'),
     'scrwkv': ('SCRWKV', '✗'),
     'curvfield': ('CurvField', '✗'),
+    'convsacm': ('Conv-SACM', '✗'),
+    'sdsconv': ('Conv-LoRA + SDSConv', '✗'),
     'cwsam': ('CWSAM', '✓'),
     'knowsam': ('KnowSAM', '✓'),
     'kprism': ('K-Prism (ICLR 2026)', '✗'),
