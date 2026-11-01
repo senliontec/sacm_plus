@@ -18,4 +18,6 @@ import the algorithm layer. Model registry names remain `sam_l`, `sam_b`,
 
 The official SACM baseline is self-contained at
 `src/baseline_zoo/models/sacm_official/`; `baselines/sacm/` is only a
-development reference snapshot and may be deleted.
+development reference snapshot and may be deleted.  The corrected variant
+`src/baseline_zoo/models/sacm_plus/` (registry id `sacm_plus`) is a separate
+analysis baseline and does not replace the official entry.

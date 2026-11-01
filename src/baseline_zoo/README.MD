@@ -11,8 +11,8 @@
   `layout.json`、`content_list*.json` 和 `images/` 是版面/图片解析结果。
 - **未收录** 表示 `parsing/` 中没有对应论文目录；不是链接失效。
 - 同一篇论文在 `parsing/` 中可能存在大小写不同的重复目录，表中列主目录，并在备注中标出重复项。
-- 当前覆盖：42 个 adapter（41 个官方/参考 baseline + 1 个项目扩展
-  CurvField）中，18 个在 `parsing/` 有论文目录，其余标记为“未收录”。
+- 当前覆盖：43 个 adapter（41 个官方/参考 baseline + 2 个项目扩展/修复变体
+  CurvField、SACM+）中，19 个在 `parsing/` 有论文目录，其余标记为“未收录”。
 
 ## Baseline ↔ 3rd 代码 ↔ parsing 论文
 
@@ -50,6 +50,7 @@
 | `topolora` | TopoLoRA-SAM | `3rd/Seglab` | `parsing/[2026 icpr] TopoLoRA-SAM: Topology-Aware Parameter-Efficient Adaptation of Foundation Segmenters for Thin-Structure and Cross-Domain Binary Semantic Segmentation` | 官方仓库是 Seglab，不是独立 TopoLoRA 目录；实现位于 `seglab/models/sam_peft/`；parsing 另有 arxiv 重复目录 |
 | `samed` | SAMed | `3rd/SAMed` | `parsing/[2023 arxiv] Customized Segment Anything Model for Medical Image Segmentation` | 官方 8 类权重未用于二值头；从 SAM ViT-B 训练 |
 | `sacm_official` | SACM (official) | `3rd/SACM` | `parsing/[2026 cvpr] Dual-level Adapter Boosting Prompt-free Curvilinear Structure Segmentation` | 官方 SACM baseline，不是 SACM-X |
+| `sacm_plus` | SACM+（官方代码修复版） | `3rd/SACM` | `parsing/[2026 cvpr] Dual-level Adapter Boosting Prompt-free Curvilinear Structure Segmentation` | 独立分析变体：修复官方实现的归一化、Eq.6 融合权重、Eq.10 descriptor 重排、Stage-1/Stage-2/IoU 监督与 IoU 选头等；**不替换** `sacm_official` 主表；逐条修改见 `models/sacm_plus/UPSTREAM.md` |
 
 ### Training-free / semi-supervised
 
@@ -72,7 +73,7 @@
 ## 未集成 / 已排除（不属于 registry 的方法）
 
 以下方法的 `3rd/` 代码和 `parsing/` 论文都在本地，但未进入 `baseline_zoo` 的 adapter 列表，
-不计入上表 42 个 adapter。
+不计入上表 43 个 adapter。
 
 | 方法 | 3rd 代码目录 | parsing 论文目录 | 状态 |
 |---|---|---|---|

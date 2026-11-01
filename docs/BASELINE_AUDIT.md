@@ -29,6 +29,7 @@ collector and report pipeline.
 | KnowSAM (`knowsam`) | OK | fixed exact-stem and protocol-group validation/test leakage in the unlabeled pool (CREMI volume / CHASEDB1 subject / CORN batch); CORN source root; protocol seeding; CPU-safe import/training path; equal labeled/unlabeled streams; stale staging cleared; `--epochs` wired to iteration budget; docs updated |
 | SegDINO (`segdino`) | OK with local-weight requirement | auto-detects a size-matched checkpoint under `checkpoints/` (no env setup); prediction reconstructs the saved backbone size without a gated download; DPT uses the selected backbone’s layer indices; strict checkpoint coverage check; `drop_last=True`; config stored in checkpoint |
 | SACM official (`sacm_official`) | OK | gradient clipping 1.0 is now effective (`--clip-grad-norm` → `grad_clip`); bilinear resize; sigmoid-threshold correction documented; UPSTREAM claims corrected |
+| SACM+ (`sacm_plus`) | Fixed analysis variant (does not replace `sacm_official`) | SAM normalization + `no_mask_embed`; per-block Adapter-E LN; Eq.6 softmax-over-FFN fusion weights; Eq.10 Stage-2 descriptor reorder; all Stage-1/Stage-2 heads + per-head IoU supervised, IoU-head selection; batch-repeat/predictor/dead-code/weight-decay fixes; full list in `models/sacm_plus/UPSTREAM.md` |
 | SAM ViT-L + U-Net (`sam_vit_l_unet`) | OK | augmentation moved back after the frozen encoder (matching the previous adapter); decoder-only checkpoint format restored; 1024 input guard restored |
 
 ## Shared runtime/pipeline fixes
@@ -872,11 +873,17 @@ model nearly frozen from epoch 19 (val Dice 0.1467 at epoch 111).  This
 is official-recipe behavior, not a porting bug (`ReduceLROnPlateau` eps
 floor; the official trainer would step it even more often).
 
-The row therefore uses a documented 3-shot adapted recipe: official
-milesial architecture, BCE+Dice loss, per-image scale preprocessing and
-logit-space bilinear upsampling; `scale=1.0` native resolution, batch 1,
-AdamW lr 1e-3/wd 1e-4, cosine over 800 epochs, flips/90-degree
-rotations, gradient clipping 1.0.  A 30-epoch smoke (4 train / 2 val
-images) reached 0.486 val Dice at epoch 18 with a monotone cosine LR, so
-the recipe is trainable.  Label it "3-shot U-Net (official architecture;
-adapted recipe)"; do not claim an official U-Net reproduction.
+The row therefore uses a documented 3-shot adapted recipe.  The first
+version (native resolution, batch 1, 800 epochs) overfitted: W&B
+`unet-seed1` / `unet-seed2` reached train loss 0.24 with final-epoch val
+Dice only 0.014 / 0.104 (best val Dice stayed in the ~0.1-0.2 range).  The current recipe follows the standard 2D supervised
+U-Net trainer in Mamba-UNet/SSL4MIS (whole-image 256 resize, batch 24,
+10k iterations, flips/rotation, 0.5*(CE+Dice), SGD 0.01/poly): native
+512x512 random patches, 50% foreground-centred, batch 8, 8 patches per
+training image per epoch (~14.4k steps at 800 epochs), AdamW lr 1e-3/wd
+1e-4, cosine, flips/90-degree rotations + mild photometric jitter,
+gradient clipping 1.0.  Native patches retain the thin CREMI/CrackTree
+structures that a 1250->256 resize destroys.  Validation and prediction
+keep the official native-resolution preprocessing.  Label it "3-shot
+U-Net (official architecture; adapted recipe)"; do not claim an official
+U-Net reproduction.

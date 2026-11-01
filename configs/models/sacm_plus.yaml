@@ -1,0 +1,20 @@
+id: sacm_plus
+display_name: SACM+ (fixed official)
+family: sam
+status: available
+checkpoint: "{output_root}/best_model.pth"
+train_entrypoint: >-
+  python -m baseline_zoo.run_one --model sacm_plus --stage train
+  --data-root {split_root} --workdir {output_root}
+  --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
+eval_entrypoint: >-
+  python scripts/pipeline/run_baseline_test.py --method sacm_plus
+  --protocol {test_manifest}
+  --seed {seed}
+  --checkpoint {output_root}/best_model.pth
+  --pred-root {output_root}/predictions
+  --paper-root {output_root}
+  --device cuda:{gpu} --use_wandb true --skip-visualize
+protocols: [seeded5, fixed]
+defaults:
+  epochs: 800

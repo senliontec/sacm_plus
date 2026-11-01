@@ -18,9 +18,10 @@ eval_entrypoint: >-
 protocols: [seeded5, fixed]
 note: >-
   3-shot adapted recipe: official milesial U-Net architecture + BCE/Dice,
-  per-image scale=1.0 (native), batch 1, AdamW lr=1e-3/wd=1e-4, cosine
-  over 800 epochs, flips/90-degree rotations.  The literal official
-  RMSprop 1e-5/ReduceLROnPlateau recipe collapsed the LR to 1e-8 by
+  native-resolution 512x512 random patches (50% foreground-centred), batch 8,
+  8 patches per training image per epoch, AdamW lr=1e-3/wd=1e-4, cosine over
+  800 epochs, flips/90-degree rotations + mild photometric jitter. The literal
+  official RMSprop 1e-5/ReduceLROnPlateau recipe collapsed the LR to 1e-8 by
   epoch 19 on 18 images; label as "3-shot U-Net (official architecture;
   adapted recipe)".
 defaults:

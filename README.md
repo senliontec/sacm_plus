@@ -2,7 +2,7 @@
 
 SACM-X is a PyTorch-based research framework for prompt-free curvilinear structure segmentation, built on the SACM baseline and the Segment Anything Model (SAM). The project provides custom training and testing scripts, and wraps SAM for easy extension and application.
 
-> SACM-X is the working name for the improved framework. The official SACM baseline is self-contained under `src/baseline_zoo/models/sacm_official/` (registry id `sacm_official`); `--preset sacm` is the SACM-equivalent preset inside SACM-X. The local checkout/server directory may still be named `sacm_plus`/`sacm-plus`.
+> SACM-X is the working name for the improved framework. The official SACM baseline is self-contained under `src/baseline_zoo/models/sacm_official/` (registry id `sacm_official`); `--preset sacm` is the SACM-equivalent preset inside SACM-X. The corrected analysis variant is `src/baseline_zoo/models/sacm_plus/` (registry id `sacm_plus`, see `UPSTREAM.md`); it never replaces the official main-table entry. The local checkout/server directory may still be named `sacm_plus`/`sacm-plus`.
 
 ## Features
 

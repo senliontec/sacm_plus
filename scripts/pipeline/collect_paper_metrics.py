@@ -82,6 +82,7 @@ METHOD_META = {
     'segdino': ('SegDINO', '✓'),
     'segdino_v2': ('SegDINO v2', '✓'),
     'sacm_official': ('SACM (official)', '✗'),
+    'sacm_plus': ('SACM+ (fixed official)', '✗'),
     'sam_vit_l_unet': ('SAM ViT-L + U-Net', '✗'),
     'sam2_unet': ('SAM2-UNet', '✗'),
     'sam_adapter': ('SAM-Adapter', '✓'),

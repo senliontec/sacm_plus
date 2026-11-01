@@ -4,7 +4,6 @@ import argparse
 import random
 from pathlib import Path
 
-import pytest
 import torch
 from PIL import Image
 
@@ -67,8 +66,12 @@ def test_default_recipe_matches_3shot():
     assert args.lr == 1e-3
     assert args.weight_decay == 1e-4
     assert args.scale == 1.0
-    assert args.batch_size == 1
+    assert args.batch_size == 8
     assert args.grad_clip == 1.0
+    assert args.unet_patch_size == 512
+    assert args.unet_crops_per_image == 8
+    assert args.unet_fg_crop_prob == 0.5
+    assert args.unet_photometric == 1
 
 
 def test_optimizer_is_adamw():
@@ -117,12 +120,12 @@ def test_step_scheduler_generic_scheduler_uses_no_argument_step():
     assert calls == ['stepped']
 
 
-def test_3shot_preprocessing_scale_one_with_joint_augmentation(tmp_path):
+def test_3shot_preprocessing_uses_native_square_patches(tmp_path):
     adapter = _adapter()
     sample = _sample(tmp_path, 200, 200)
     images, masks = adapter.prepare_train_batch([sample], random.Random(0))
-    assert tuple(images.shape) == (1, 3, 200, 200)
-    assert tuple(masks.shape) == (1, 1, 200, 200)
+    assert tuple(images.shape) == (1, 3, 512, 512)
+    assert tuple(masks.shape) == (1, 1, 512, 512)
     # The 4x4 foreground block survives flips/90-degree rotations.
     assert masks.sum().item() == 16.0
     # Image and mask must receive the same transform.
@@ -130,12 +133,38 @@ def test_3shot_preprocessing_scale_one_with_joint_augmentation(tmp_path):
     assert images[0][:, fg].mean() > images[0][:, ~fg].mean()
 
 
-def test_variable_input_sizes_require_batch_one(tmp_path):
+def test_mixed_input_sizes_produce_uniform_patches(tmp_path):
     adapter = _adapter()
     first = _sample(tmp_path, 200, 100, name='first')
     second = _sample(tmp_path, 120, 80, name='second')
-    with pytest.raises(RuntimeError, match='batch-size 1'):
-        adapter.prepare_train_batch([first, second], random.Random(0))
+    images, masks = adapter.prepare_train_batch(
+        [first, second], random.Random(0))
+    # Native patches normalise shapes, so batch > 1 no longer needs equal
+    # source resolutions.
+    assert tuple(images.shape) == (2, 3, 512, 512)
+    assert tuple(masks.shape) == (2, 1, 512, 512)
+
+
+def test_foreground_biased_crops_keep_foreground(tmp_path):
+    adapter = _adapter()
+    adapter.patch_size = 256
+    adapter.fg_crop_prob = 1.0
+    sample = _sample(tmp_path, 900, 600)
+    for seed in range(12):
+        _, masks = adapter.prepare_train_batch(
+            [sample], random.Random(seed))
+        assert masks.sum().item() > 0
+
+
+def test_train_dataset_repeats_each_image(tmp_path):
+    adapter = _adapter()
+    args = build_parser(UNetAdapter()).parse_args(['--stage', 'train'])
+    samples = [_sample(tmp_path, 64, 64, name=str(i)) for i in range(3)]
+    dataset = adapter.make_train_dataset(samples, args)
+    assert len(dataset) == 3 * args.unet_crops_per_image
+    stems = [dataset[index].stem for index in range(len(dataset))]
+    for sample in samples:
+        assert stems.count(sample.stem) == args.unet_crops_per_image
 
 
 def test_predict_upsamples_logits_to_gt(tmp_path):
@@ -157,11 +186,23 @@ def test_scale_config_roundtrip():
         ['--stage', 'predict', '--test-datasets', 'X:y'])
     adapter = UNetAdapter()
     adapter.scale = 0.5
+    adapter.patch_size = 384
+    adapter.crops_per_image = 4
+    adapter.fg_crop_prob = 0.75
+    adapter.photometric = False
     config = adapter.save_config(args)
     restored = UNetAdapter()
     restored.restore_config(args, config)
     assert restored.scale == 0.5
     assert args.scale == 0.5
+    assert restored.patch_size == 384
+    assert args.unet_patch_size == 384
+    assert restored.crops_per_image == 4
+    assert args.unet_crops_per_image == 4
+    assert restored.fg_crop_prob == 0.75
+    assert args.unet_fg_crop_prob == 0.75
+    assert restored.photometric is False
+    assert args.unet_photometric == 0
 
 
 def test_default_grad_clip_matches_official():
