@@ -5,7 +5,7 @@
 # no TTA, W&B on, fast validation, then aggregate the 4 paper metrics.
 #
 # Usage:
-#   GPU=1 PRESET=full EPOCHS=200 bash scripts/sacm_x/run_sacm_x_quick.sh
+#   GPU=1 PRESET=full EPOCHS=800 bash scripts/sacm_x/run_sacm_x_quick.sh
 #   GPU=1 PRESET=sacm EPOCHS=20 bash scripts/sacm_x/run_sacm_x_quick.sh
 #   GPU=1 PRESET=full EPOCHS=5 DATASETS="CHASEDB1 WIRE" \
 #     bash scripts/sacm_x/run_sacm_x_quick.sh
@@ -37,7 +37,7 @@ fi
 GPU="${GPU:-0}"
 PRESET="${PRESET:-full}"
 source scripts/sacm_x/wandb_env.sh
-EPOCHS="${EPOCHS:-200}"
+EPOCHS="${EPOCHS:-800}"
 VAL_INTERVAL="${VAL_INTERVAL:-10}"
 SEED="${SEED:-42}"
 DATASETS="${DATASETS:-}"
@@ -45,7 +45,7 @@ CKPT="${CKPT:-checkpoints/sam_vit_l_0b3195.pth}"
 TRAIN_ROOT="${TRAIN_ROOT:-data/sacm_3shot}"
 OUTPUT_ROOT="${OUTPUT_ROOT:-results/sacm_x_quick}"
 MONITOR="${MONITOR:-official}"
-INIT_STAGE2_FROM_STAGE1="${INIT_STAGE2_FROM_STAGE1:-false}"
+INIT_STAGE2_FROM_STAGE1="${INIT_STAGE2_FROM_STAGE1:-true}"
 SCNP="${SCNP:-false}"
 SCNP_WINDOW="${SCNP_WINDOW:-3}"
 SCNP_ORIGINAL_WEIGHT="${SCNP_ORIGINAL_WEIGHT:-0.0}"

@@ -293,7 +293,7 @@ if __name__ == '__main__':
     parser.add_argument('--new_module_lr', type=float, default=1e-4, help='Learning rate for newly added decoder modules')
     parser.add_argument('--decoder_lr', type=float, default=1e-5, help='Learning rate for original mask decoder parameters (lowered to curb few-shot overfitting)')
     parser.add_argument('--weight_decay', type=float, default=0.01, help='Weight decay for optimizer')
-    parser.add_argument('--epochs', type=int, default=50, help='Number of epochs (aligned with the paper protocol)')
+    parser.add_argument('--epochs', type=int, default=800, help='Number of epochs (shared 800-epoch project budget)')
     parser.add_argument('--val_interval', type=int, default=10, help='Validation interval (epochs)')
     parser.add_argument('--fast_val', type=str2bool, default=False,
                         help='Validation computes only loss + F1; skips the full metric suite and '
@@ -312,10 +312,10 @@ if __name__ == '__main__':
     parser.add_argument('--use_coarse_to_fine', type=str2bool, default=True, help='Closed-loop coarse-to-fine refinement')
     parser.add_argument('--use_fusion_v2', type=str2bool, default=True, help='Fusion v2 (concat+FFN weights + spatial gate); off = original SACM fusion')
     parser.add_argument('--use_multi_depth', type=str2bool, default=True, help='Multi-depth semantic path from encoder intermediates')
-    parser.add_argument('--init_stage2_from_stage1', type=str2bool, default=False,
+    parser.add_argument('--init_stage2_from_stage1', type=str2bool, default=True,
                         help='Warm-start the new Stage-2 mask heads from the pretrained '
-                             'Stage-1 heads (identity initialization); default off for '
-                             'reproducibility with the official random initialization')
+                             'Stage-1 heads (identity initialization); default ON for SACM-X '
+                             'so the final output starts from SAM\'s pretrained mask head')
 
     # Auxiliary losses
     parser.add_argument('--deep_sup_weight', type=float, default=0.3, help='Weight of Stage-1 deep supervision (all heads)')
@@ -333,6 +333,12 @@ if __name__ == '__main__':
                         choices=['auto', 'iou', 'gating'],
                         help='Mask used for validation/checkpoint selection: '
                              'auto -> iou when iou_loss_weight>0, else gating')
+    parser.add_argument('--selection_metric', type=str, default='dice',
+                        choices=['dice', 'f1', 'cldice'],
+                        help='Validation metric used to select the best checkpoint: '
+                             'dice (default; equals F1 for binary masks and matches '
+                             'the sacm_official val-Dice rule), f1 (alias), or cldice '
+                             '(requires full validation; fast_val falls back to dice).')
     parser.add_argument('--pred_threshold', type=float, default=0.0,
                         help='Logit threshold for validation F1/metrics; keep equal '
                              'to evaluation --pred_threshold')

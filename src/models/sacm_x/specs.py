@@ -33,7 +33,9 @@ SAM_DEFAULTS = dict(
     use_coarse_to_fine=True,
     use_fusion_v2=True,
     use_multi_depth=True,
-    init_stage2_from_stage1=False,
+    # Default ON for SACM-X: the final masks come from the new Stage-2 heads,
+    # so initialize them from SAM's pretrained Stage-1 heads instead of random.
+    init_stage2_from_stage1=True,
 )
 
 

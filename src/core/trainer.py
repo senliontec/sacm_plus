@@ -137,6 +137,16 @@ class Trainer:
         self.is_ddp = is_ddp
         self.train_sampler = train_sampler
         self.best_f1_score = 0.0
+        # Checkpoint selection metric.  F1 == Dice for binary masks, so the
+        # default is numerically identical to the baseline's val Dice; the
+        # explicit name prevents the two protocols from drifting apart.
+        self.selection_metric = getattr(args, 'selection_metric', 'dice')
+        self.best_selection_score = 0.0
+        if (self.selection_metric == 'cldice'
+                and getattr(args, 'fast_val', False)):
+            logging.warning(
+                "selection_metric='cldice' requires full validation; "
+                "fast_val=True falls back to dice for checkpoint selection.")
         if getattr(args, 'stage2_supervision', 'soft') == 'wta' and self._rank0:
             logging.warning(
                 "D8: stage2_supervision='wta' — only the gating champion "
@@ -438,7 +448,17 @@ class Trainer:
 
         self._log_val_images(epoch, vis_items)
 
-        if f1 > self.best_f1_score:
+        # Checkpoint selection.  dice/f1 use the binary F1 (== Dice);
+        # cldice needs the full validation suite (fast_val=False).
+        if self.selection_metric == 'cldice':
+            selection_score = avg_val_cldice
+            if not np.isfinite(selection_score):
+                selection_score = f1
+        else:
+            selection_score = f1
+
+        if selection_score > self.best_selection_score:
+            self.best_selection_score = selection_score
             self.best_f1_score = f1
             if self.is_ddp:
                 inner = self.model.module
@@ -471,6 +491,7 @@ class Trainer:
                     'iou_loss_weight': self.args.iou_loss_weight,
                     'pred_threshold': getattr(self.args, 'pred_threshold', 0.0),
                     'val_selection': getattr(self.args, 'val_selection', 'auto'),
+                    'selection_metric': self.selection_metric,
                     'no_fov': getattr(self.args, 'no_fov', False),
                     'log_style': getattr(self.args, 'log_style', 'table'),
                     'deep_sup_weight': self.args.deep_sup_weight,
@@ -483,7 +504,9 @@ class Trainer:
                     'topology_loss_weight': self.args.topology_loss_weight,
                 },
             }, self.args.save_path)
-            logging.info(f'👍New best model saved with F1 score: {self.best_f1_score:.4f}')
+            logging.info(
+                f'👍New best model saved with {self.selection_metric}='
+                f'{selection_score:.4f} (F1={f1:.4f})')
 
         return f1, avg_val_loss, avg_val_cldice, val_metrics
 
@@ -542,6 +565,7 @@ class Trainer:
             'iou_loss_weight': self.args.iou_loss_weight,
             'pred_threshold': getattr(self.args, 'pred_threshold', 0.0),
             'val_selection': getattr(self.args, 'val_selection', 'auto'),
+            'selection_metric': getattr(self.args, 'selection_metric', 'dice'),
             'no_fov': getattr(self.args, 'no_fov', False),
             'log_style': getattr(self.args, 'log_style', 'table'),
             'topology_loss': self.args.topology_loss,
@@ -575,6 +599,8 @@ class Trainer:
             'config': self._run_config(),
             'best_epoch': best_epoch,
             'best_f1': self.best_f1_score,
+            'best_selection': self.best_selection_score,
+            'selection_metric': self.selection_metric,
             'history': history,
         }
         try:
@@ -638,7 +664,7 @@ class Trainer:
 
                 # DDP 下验证在所有 rank 分片执行(_validate 内部 gather
                 # 汇总),日志/保存只在 rank 0;其余 rank 只训练并同步梯度
-                best_before = self.best_f1_score
+                best_before = self.best_selection_score
                 f1 = vloss = None
                 val_metrics = None
                 val_s = None
@@ -656,9 +682,11 @@ class Trainer:
                                        'val/time_s': val_s})
                             for k, v in val_metrics.items():
                                 wm[f'val/{k}'] = v
-                        is_best = self.best_f1_score > best_before
+                        is_best = self.best_selection_score > best_before
                         if official:
                             wm['val/best_f1'] = self.best_f1_score
+                            wm['val/best_selection'] = self.best_selection_score
+                            wm['val/selection_metric'] = self.selection_metric
                 if is_best:
                     best_epoch = epoch + 1
 
@@ -670,8 +698,11 @@ class Trainer:
                             print(f'Epoch {epoch+1}/{self.args.epochs} - '
                                   f'F1 Score: {f1:.4f}', flush=True)
                             if is_best:
-                                print(f'👍New best model saved with F1 score: '
-                                      f'{self.best_f1_score:.4f}', flush=True)
+                                print(f'👍New best model saved with '
+                                      f'{self.selection_metric}: '
+                                      f'{self.best_selection_score:.4f} '
+                                      f'(F1={self.best_f1_score:.4f})',
+                                      flush=True)
                     else:
                         for line in epoch_row(epoch + 1, avg_train_loss, comps,
                                               self.optimizer.param_groups[0]['lr'],
@@ -716,6 +747,8 @@ class Trainer:
                 if run is not None:
                     try:
                         run.summary['best_f1'] = self.best_f1_score
+                        run.summary['best_selection'] = self.best_selection_score
+                        run.summary['selection_metric'] = self.selection_metric
                     except Exception:
                         pass
                 finish_run(run)
