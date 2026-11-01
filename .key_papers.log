@@ -1,0 +1,1092 @@
+==================== /home/dev/mywork/project/segment/parsing/[2026 arxiv] TopoLoRA-SAM: Topology-Aware Parameter-Efficient Adaptation of Foundation Segmenters for Thin-Structure and Cross-Domain Binary Semantic Segmentation
+![](images/1b3e356146cbd119fe1d580d80e10df8e54d4b16949aab6b03c607cd0a926d2f.jpg)
+
+# TopoLoRA-SAM: Topology-Aware Parameter-Efficient Adaptation of Foundation Segmenters for Thin-Structure and Cross-Domain Binary Semantic Segmentation
+
+Salim Khazem¹
+
+1Talan Research & Innovation Center, Paris, France
+
+Foundation segmentation models such as the Segment Anything Model (SAM) exhibit strong zero-shot generalization through large-scale pretraining, but adapting them to domain-specific semantic segmentation remains challenging, particularly for thin structures (e.g., retinal vessels) and noisy modalities (e.g., SAR imagery). Full fine-tuning is computationally expensive and risks catastrophic forgetting. We propose TopoLoRA-SAM, a topology-aware and parameter-efficient adaptation framework for binary semantic segmentation. TopoLoRA-SAM injects Low-Rank Adaptation (LoRA) into the frozen ViT encoder, augmented with a lightweight spatial convolutional adapter and optional topology-aware supervision via differentiable clDice. We evaluate our approach on five benchmarks spanning retinal vessel segmentation (DRIVE, STARE, CHASE DB1), polyp segmentation (Kvasir-SEG), and SAR sea/- land segmentation (SL-SSDD), comparing against U-Net, DeepLabV3+, SegFormer, and Mask2Former. TopoLoRA-SAM achieves the best retina-average Dice and the best overall average Dice across datasets, while training only 5.2% of model parameters (\~4.9M). On the challenging CHASE DB1 dataset, our method substantially improves segmentation accuracy and robustness, demonstrating that topologyaware parameter-efficient adaptation can match or exceed fully fine-tuned specialist models. Code is available at : https://github.com/salimkhazem/Seglab.git
+
+Keywords: semantic segmentation , parameter-efficient fine-tuning , topology-aware loss , Segment Anything Model , cross-domain
+
+Date: January 6, 2026
+
+Correspondence: salim.khazem@talan.com
+
+Code: https://github.com/salimkhazem/Seglab.git
+
+ORCID: 0000-0001-5958-6120
+
+## 1 Introduction
+
+Semantic segmentation underpins numerous critical applications in medical imaging and remote sensing, from automated diabetic retinopathy screening [1] to maritime surveillance and environmental monitoring [2] While recent foundation models such as the Segment Anything Model (SAM) [3] have achieved remarkable zero-shot generalization through web-scale pretraining, significant challenges remain when adapting these models to specialized domains with distinct visual characteristics. Two challenges are particularly acute in this setting. First, thin and elongated structures such as retinal vasculature or road networks exhibit extreme aspect ratios, where small pixel-level errors can disconnect entire branches; standard region-based losses (e.g., Dice, cross-entropy) are largely insensitive to such topological violations [4, 5]. Second, cross-domain visual shift arises in modalities such as SAR or fundoscopy, whose texture, noise characteristics, and semantics differ substantially from natural images, limiting the transferability of web-pretrained representations [6].
+
+Full fine-tuning of billion-parameter foundation models is computationally prohibitive and risks catastrophic forgetting of generalizable representations [7]. Parameter-efficient fine-tuning (PEFT) methods such as LoRA [7], adapters [8, 9], and visual prompt tuning [10] offer compelling alternatives by updating only a small fraction of parameters while preserving pretrained knowledge. Recent work has begun exploring PEFT for SAM adaptation [11, 12, 13], yet systematic studies investigating topology-aware adaptation for domain-specific binary segmentation remain limited.
+
+![](images/382471a25562688aad47bca40ae9164ef2b278ea4e43dbd056df14264c497e61.jpg)  
+Figure 1 TopoLoRA-SAM architecture overview. We freeze the SAM ViT-B image encoder and inject LoRA modules (red) into the feed-forward network (FFN) layers of each transformer block. A lightweight depthwise-separable convolutional adapter (green) refines the high-resolution embedding tensor before mask decoding. Training uses a topology-aware loss combining BCE, Dice, and clDice.
+
+In this work, we introduce TopoLoRA-SAM, a principled framework that unifies parameter-efficient adaptation with topology-preserving supervision for binary semantic segmentation across diverse domains. Our approach freezes the SAM ViT-B image encoder and injects trainable LoRA modules into its feed-forward layers, complemented by a lightweight depthwise-separable convolutional adapter operating on high-resolution feature maps. This design enables fine-grained adaptation while preserving the generalizable representations learned during pretraining. To address topological integrity critical for thin structures we incorporate the differentiable clDice loss [4], which explicitly optimizes skeleton overlap and encourages connected centerlines. Our contributions are: (i) a topology-aware, parameter-efficient adaptation of SAM combining LoRA and a lightweight spatial adapter; (ii) a benchmark across five binary segmentation datasets (retinal vessels polyps, SAR sea/land) with region, boundary, topology, and calibration metrics; and (iii) strong performance on CHASE\_DB1 and best retina-average Dice while training only 5.2% of model parameters, with a fully reproducible codebase. In this work, ideas related to simplified geometric representations for efficient visual learning [14] and lightweight adaptation via visual prompting [15] are leveraged within a foundation-model segmentation framework.
+
+## 2 Related Work
+
+Semantic segmentation architectures. Fully convolutional networks revolutionized semantic segmentation, with U-Net [16] establishing the encoder-decoder paradigm with skip connections that remains foundational in medical imaging. DeepLabV3+ [17| introduced atrous spatial pyramid pooling for multi-scale context aggregation, while recent self-configuring approaches like nnU-Net [18| achieve strong performance through systematic hyperparameter optimization. [19, 20] used these kind of architectures for different applications. Transformer-based architectures have emerged as powerful alternatives: SegFormer [21] proposes an efficient hierarchical design with lightweight MLP decoders, while Mask2Former [22]| unifies instance, semantic, and panoptic segmentation through masked attention. These architectures build upon foundational work on vision transformers [23] and hierarchical designs [24].
+
+Foundation models for segmentation. The Segment Anything Model [3] represents a paradigm shift, trained on over 1 billion masks to enable promptable zero-shot segmentation. While SAM excels at interactive mask generation, adapting it to semantic segmentation particularly for domain-specific binary masks without prompts requires careful consideration of the prompt-mask relationship. SAM 2 [25] extends this capability to video, demonstrating the scalability of the prompting paradigm. However, for domains with significant distribution shift (medical imaging, remote sensing), prompt-free adaptation with task-specific tuning remains essential [26].
+
+SAM adaptation for specialized domains. Several concurrent works address SAM adaptation for medical imaging. MedSAM [12] fine-tunes SAM on large-scale medical datasets, demonstrating strong generalization across modalities. SAM-Adapter [11] proposes domain-specific adapter modules for underperformed scenes, while SAM-Med2D [27] focuses on 2D medical image segmentation. HQ-SAM [28] introduces a high-quality output token for improved mask boundaries. PerSAM [29] enables one-shot personalization through trainingfree prompt learning. Our work differs by jointly addressing parameter efficiency (LoRA + adapters) and topology preservation (clDice) for thin-structure domains where connectivity is critical.
+
+Parameter-efficient fine-tuning. PEFT methods enable foundation model adaptation with minimal parameter overhead. LoRA [7] reparameterizes weight updates as low-rank matrices, achieving comparable performance to full fine-tuning on language models. AdaLoRA [30] extends this with adaptive rank allocation, while DoRA [31] decomposes weights into magnitude and direction for improved learning dynamics. Adapter modules [8] insert trainable bottleneck layers between transformer blocks, and AdaptFormer [9] adapts this for vision. Visual Prompt Tuning (VPT) [10] prepends learnable tokens to input sequences. Scale-and-shift tuning (SSF) [32] offers an even more parameter-efficient alternative. These methods share the goal of preserving pretrained knowledge while enabling task-specific adaptation.
+
+Topology-aware losses and metrics. Standard overlap metrics (Dice [33], IoU) are insensitive to topological errors that break connectivity in thin structures. clDice [4] addresses this by computing skeleton overlap using differentiable soft-skeletonization, encouraging connected centerlines in tubular structures. Complementary approaches include TopoLoss [5], which uses persistent homology to penalize Betti number mismatches, and Betti matching [34], which aligns persistence barcodes for topologically faithful predictions. Boundary focused metrics such as BFScore [35] evaluate contour precision. For probabilistic outputs, calibration metrics like Expected Calibration Error (ECE) [36, 37] assess reliability, which is critical for clinical deployment [38]. Recent work emphasizes the importance of comprehensive metric evaluation [39].
+
+## 2.1 Problem Formulation
+
+Given an input image $\mathbf { x } \in \mathbb { R } ^ { H \times W \times 3 }$ , we aim to predict a binary semantic mask $\hat { \mathbf { y } } \in [ 0 , 1 ] ^ { H \times W }$ indicating foreground probability (vessel, polyp, or sea regions). Unlike SAM's promptable paradigm that produces instance-agnostic masks conditioned on user-provided points or boxes, our task requires semantic predictions without runtime prompts. This necessitates adapting SAM's encoder-decoder architecture to directly output semantic masks through end-to-end training.
+
+## 2.2 SAM Architecture and Prompt-Free Decoding
+
+We adopt the SAM ViT-B architecture [3], comprising: (i) a Vision Transformer (ViT) image encoder with 12 transformer blocks, producing embeddings $\mathbf { z } \in \mathbb { R } ^ { 2 5 6 \times \frac { H } { 1 6 } \times \frac { W } { 1 6 } }$ ; (ii) a prompt encoder mapping user interactions to embedding space; and (iii) a lightweight mask decoder that combines image and prompt embeddings via cross-attention. For semantic segmentation, we operate in prompt-free mode by providing null prompt embeddings (∅), treating the mask decoder as a semantic prediction head. The decoder outputs a single binary mask, upsampled to the target resolution via bilinear interpolation.
+
+## 2.3 Low-Rank Adaptation (LoRA)
+
+To enable efficient adaptation while preserving pretrained representations, we inject LoRA modules [7] into the frozen image encoder. For a pretrained linear layer with weight matrix $\mathbf { W } _ { 0 } \in \mathbb { R } ^ { d _ { \mathrm { o u t } } \times d _ { \mathrm { i n } } }$ , LoRA reparameterizes the forward pass as:
+
+$$
+\begin{array} { r } { \mathbf { h } = \mathbf { W } _ { 0 } \mathbf { x } + \Delta \mathbf { W } \mathbf { x } = \mathbf { W } _ { 0 } \mathbf { x } + \mathbf { B } \mathbf { A } \mathbf { x } , } \end{array}\tag{1}
+$$
+
+where $\mathbf { A } \in \mathbb { R } ^ { r \times d _ { \mathrm { i n } } }$ and $\mathbf { B } \in \mathbb { R } ^ { d _ { \mathrm { o u t } } \times r }$ are trainable low-rank factors with rank $r \ll \operatorname* { m i n } ( d _ { \mathrm { i n } } , d _ { \mathrm { o u t } } )$ . We initialize A with Kaiming uniform and B with zeros, ensuring $\Delta \mathbf { W } = \mathbf { 0 }$ at initialization for stable training. A scaling factor $\alpha / r$ modulates the magnitude of low-rank updates.
+
+We target the feed-forward network (FFN) layers within each transformer block, specifically the mlp.1in1 and mlp.lin2 projections. This design choice follows the intuition that FFN layers capture task-specific feature transformations, while attention weights encode more transferable relational patterns. With r = 16 and LoRA applied to all 12 blocks, we add approximately 2.4M trainable parameters to the encoder.
+
+Table 1 Parameter efficiency comparison. TopoLoRA-SAM trains only 5.2% of parameters while achieving competitive or superior performance.
+<table><tr><td>Model</td><td>Total (M)</td><td>Trainable (M)</td><td>Trainable %</td></tr><tr><td>U-Net (ResNet34)</td><td>24.4</td><td>24.4</td><td>100.0%</td></tr><tr><td>DeepLabV3+ (ResNet50)</td><td>39.8</td><td>39.8</td><td>100.0%</td></tr><tr><td>SegFormer (MiT-B0)</td><td>3.7</td><td>3.7</td><td>100.0%</td></tr><tr><td>Mask2Former (Swin-T)</td><td>47.4</td><td>47.4</td><td>100.0%</td></tr><tr><td>TopoLoRA-SAM (ours)</td><td>93.7</td><td>4.9</td><td>5.2%</td></tr></table>
+
+## 2.4 Spatial Convolutional Adapter
+
+While LoRA enables semantic adaptation of the encoder's representational capacity, thin structures require fine-grained spatial reasoning at higher resolutions than SAM's 16× downsampled embeddings. We introduce a lightweight depthwise-separable convolutional adapter applied to the image embedding tensor z:
+
+$$
+\mathbf { z } ^ { \prime } = \mathbf { z } + \operatorname { C o n v } _ { 1 \times 1 } \left( \operatorname { R e L U } \left( \operatorname { D e p t h w i s e C o n v } _ { 3 \times 3 } ( \mathbf { z } ) \right) \right) .\tag{2}
+$$
+
+The adapter comprises a $3 \times 3$ depthwise convolution (256 groups) followed by ReLU activation and $1 \times 1$ pointwise projection, wrapped in a residual connection. This adds only \~66K parameters while enabling local spatial refinement crucial for thin-structure boundary preservation.
+
+## 2.5 Topology-Aware Training Objective
+
+Our training objective combines multiple complementary loss terms:
+
+$$
+\mathcal { L } = \lambda _ { \mathrm { b c e } } \mathcal { L } _ { \mathrm { B C E } } + \lambda _ { \mathrm { d i c e } } \mathcal { L } _ { \mathrm { D i c e } } + \lambda _ { \mathrm { c l } } \mathcal { L } _ { \mathrm { c l D i c e } } + \lambda _ { \mathrm { b d } } \mathcal { L } _ { \mathrm { B o u n d a r y } } ,\tag{3}
+$$
+
+with default weights $\lambda _ { \mathrm { b c e } } = 1 . 0 , \lambda _ { \mathrm { d i c e } } = 1 . 0 , \lambda _ { \mathrm { c l } } = 0 . 5 , \mathrm { a n d } \lambda _ { \mathrm { b d } } = 0 . 0 .$
+
+Binary cross-entropy (BCE) provides pixel-wise gradient signal:
+
+$$
+\mathcal { L } _ { \mathrm { B C E } } = - \frac { 1 } { N } \sum _ { i = 1 } ^ { N } \left[ y _ { i } \log ( \hat { y } _ { i } ) + ( 1 - y _ { i } ) \log ( 1 - \hat { y } _ { i } ) \right] .\tag{4}
+==================== /home/dev/mywork/project/segment/parsing/[2025 iccv] TopoTTA: Topology-Enhanced Test-Time Adaptation for Tubular Structure Segmentation
+# TopoTTA: Topology-Enhanced Test-Time Adaptation for Tubular Structure Segmentation
+
+Jiale Zhou1,2, Wenhan Wang3, Shikun Li, Xiaolei Qu3, Xin Guo3, Yizhong Liu³, Wenzhong Tang3, Xun Lin2,3,\*, Yefeng Zheng2,\*
+
+1Zhejiang University2Westlake University3Beihang University
+
+{zhoujiale, zhengyefeng}@westlake.edu.cnlinxun@buaa.edu.cn
+
+## Abstract
+
+Tubular structure segmentation (TSS) is important for various applications, such as hemodynamic analysis and route navigation. Despite significant progress in TSS, domain shifts remain a major challenge, leading to performance degradation in unseen target domains. Unlike other segmentation tasks, TSS is more sensitive to domain shifts, as changes in topological structures can compromise segmentation integrity, and variations in local features distinguishing foreground from background (e.g., texture and contrast) may further disrupt topological continuity. To address these challenges, we propose Topology-enhanced Test-Time Adaptation (TopoTTA), the first test-time adaptation framework designed specifically for TSS. TopoTTA consists of two stages: Stage 1 adapts models to cross-domain topological discrepancies using the proposed Topological Meta Difference Convolutions (TopoMDCs), which enhance topological representation without altering pre-trained parameters; Stage 2 improves topological continuity by a novel Topology Hard sample Generation (TopoHG) strategy and prediction alignment on hard samples with pseudo-labels in the generated pseudobreaks. Extensive experiments across four scenarios and ten datasets demonstrate TopoTTA's effectiveness in handling topological distribution shifts, achieving an average improvement of 31.81% in clDice. TopoTTA also serves as a plug-and-play TTA solution for CNN-based TSS models.
+
+## 1. Introduction
+
+Tubular structure segmentation (TSS), also known as curvilinear object segmentation [45], plays a critical role in various applications (e.g., hemodynamic analysis [24, 55] and route planning [64, 73]). Although many TSS methods have been proposed and achieved inspiring performance [15, 21], domain shifts remain a common challenge in real-world scenarios [42] due to discrepancies in imaging devices [1, 13] and sample heterogeneity [11].
+
+![](images/0866da74e469171d9dee9c115d671de8edf0f31eed939a3397b989fcaec7133d.jpg)  
+Figure 1. Comparison between TopoTTA and existing TTA solutions. (a) represents the model during the source domain training phase, while (b) denotes the model in the target domain testing phase. (b1-b4) show the results of directly testing the sourcetrained model, the TENT [58] method with updated BN layers, the CoTTA [60] method using a teacher-student scheme, and our topology-enhanced approach, respectively.
+
+Domain shifts undermine the effectiveness of TSS models trained on the source domain when applied to an unseen target domain [36, 50]. Unlike segmentation models trained for other tasks, e.g., semantic [35, 67] or tumor segmentation [9, 30, 31, 47, 77], TSS models are more sensitive to domain shifts [50]. Beyond the common variations such as contrast and noise distribution [62, 63], TSS faces additional challenges related to unseen topological structural characteristics, including variations in trajectory, curvature, branching patterns, and thickness [6, 46]. These factors degrade segmentation performance and even disrupt the topological continuity of the structures [65] (see Fig. 1 (b1)), which may mislead critical downstream applications [37, 55, 64].
+
+Recently, a special domain adaptation (DA) paradigm, namely test-time adaptation (TTA) [27, 40, 43], has been proposed and successfully applied to various image segmentation tasks, including semantic [22, 60, 61] and medical image segmentation [3, 74]. Unlike other DA paradigms, TTA performs continuous online adaptation during the test stage (after model deployment) [71]. It uses extremely small amounts of data (e.g., a single sample or batch), aligning better with real-world scenarios where data must be processed sequentially [58].
+
+Most TTA methods update pre-trained models using self-supervised methods [27], which can typically be categorized into normalization-based methods [58, 72] and teacher-student schemes [10, 60]. Normalization-based methods update normalization layer statistics [53] (e.g., batch/layer normalization (BN/LN)) or leverage the difference in normalization statistics before and after adaptation to update external model parameters [3, 49]. These methods are initially designed for classification tasks, and their performance may degrade when applied to segmentation tasks with severe pixel-level class imbalance [5]. The second category, teacher-student schemes (based on pseudolabels), updates all model parameters and achieves performance gains in general segmentation tasks [69]. However, as shown in Fig. 1, these methods perform poorly in TSS due to two unique challenges in cross-domain scenarios:
+
+• Challenge 1: Discrepant topological structures. Tubular structures in the source and target domains can exhibit substantial topological differences (e.g., thickness, curvature, and branching patterns). Prior TTA methods general-purpose model adaptation strategies struggle to effectively capture these cross-domain topological variations when adapting to individual samples.
+
+• Challenge 2: Fragile topological continuity. In crossdomain settings, the local characteristics (e.g., color, texture, and contrast) distinguishing foreground from background may change significantly [50]. Existing TTA methods lack targeted adaptation to these local variations, resulting in catastrophic disruptions to topological continuity (see Fig. 1) by misclassifying foreground pixels.
+
+To address the aforementioned challenges, we propose Topology-Enhanced Test-Time Adaptation (TopoTTA) in this paper. It includes two adaptation stages: topological structure adaptation (Stage 1) and topological continuity refinement (Stage 2).
+
+Stage 1 aims to enhance the model's capability to adapt to discrepant topological structures by utilizing a topologyperceiving model adaptation strategy. Inspired by the Central Difference Convolution (CDC) [70], which captures differences between the central pixel and its neighbors to enhance local representations, we extend this concept to accommodate the elongated and diverse trajectories of tubular structures. Specifically, we introduce Topological Meta
+
+Difference Convolutions (TopoMDCs), which perform a dual-pixel difference operation by extending the central pixel's interaction across eight directional neighbors. As shown in Fig. 2, we learn weighted combinations of different directional TopoMDCs (instead of the vanilla convolution) for different regions to enhance the representations of hard-to-detect tubular branches, improving adaptability to discrepant topological structures.
+
+Within Stage 2, we design a Topology Hard sample Generation (TopoHG) strategy to construct samples with pseudo-breaks. These pseudo-breaks mislead the models to make weakened predictions with poor topological continuity. We then emphasize the local consistency between the predictions and original pseudo-labels in these hard regions. This stage encourages the models to adapt the characteristics distinguishing foreground from background and helps address continuity destructions in the target domain.
+
+Our contributions are as follows:
+
+• We propose the first TTA framework for tubular structure segmentation, named TopoTTA, which effectively adapts to unseen domains by enhancing topological information.
+
+• We design eight directional Topological Meta Difference Convolutions (TopoMDCs) within TopoTTA, and learn how to adaptively combine different TopoMDCs based on the topological features of the test sample. TopoMDCs enhance adaptability to unseen topological structures.
+
+• We propose a Topology Hard sample Generation strategy for TopoTTA, namely TopoHG, which generates pseudobreaks at confidently predicted regions. We then align the predictions around these pseudo breaks to the original pseudo labels, improving the topological continuity in the unseen domain.
+
+• Extensive experiments on four scenarios across ten datasets validate the effectiveness of TopoTTA in addressing topological distribution shifts, achieving an average performance improvement of 31.81% in clDice.
+
+## 2. Related Works
+
+## 2.1. Tubular Structure Segmentation
+
+Tubular structures, characterized by their thin and long topological structures as well as complex layouts, usually cannot be accurately and continuously localized by general segmentation methods [59]. To tackle these challenges, researchers have incorporated topological priors into model designs, including specialized deformable convolution kernels [46], attention mechanisms [14, 66], and tailored model architectures [33]. Complementary to these module innovations, PointScatter [59] was introduced to represent tubular structures as point sets, addressing the flexibility limitations of masks constrained by fixed grids. DconnNet [68] employed a unique design to separate directional subspaces from the latent space, enhancing feature representation for connectivity. Meanwhile, a growing body of works focused on novel loss functions [2, 17, 19, 20, 23, 52, 57] that explicitly optimize the topological continuity of segmentation results. More recently, some research has started to explore the use of synthetic data [25, 28, 51] and the integration of additional topological information [21, 63] to further improve performance. However, these TSS methods ignore the existence of domain shifts, resulting in suboptimal performance when applied to unseen domains.
+
+## 2.2. Test-Time Adaptation
+
+TTA adaptively adjusts the model at test time based on a small number of unlabeled samples from a different distribution. Early TTA methods primarily modified model representations by adjusting BN's statistics [38, 44, 61, 75]. Mirza et al. [38] adapted target domain features by updating BN statistics continuously. Most TTA methods used self-supervised learning to adjust pre-trained parameters, including normalization-based methods [3, 43, 53, 58, 72] and teacher-student (TS) schemes [10, 41, 56, 60]. Wang et al. [58] proposed TENT, an entropy minimization method that updates BN affine transformation parameters to improve confidence in the target domain. Motivated by TENT, some recent works achieved better performance [3, 72] by designing various strategies to fine-tune BN. Zhang et al. [72] incorporated source domain statistics and extended the entropy minimization loss to utilize target domain information better. More recently, Chen et al. [3] reduced generalization errors by aligning source and target statistics to update external model parameters. However, many TTA methods are designed for classification tasks, ignoring pixel-wise class imbalance. In segmentation tasks, where sample imbalance is more severe, simple statistical adjustments and minor parameter updates are easily dominated by the majority of background pixels, reducing segmentation performance [69]. The TS scheme, which applies consistency regularization to update all model parameters, has shown effectiveness in general segmentation tasks. CoTTA [60] used weight-averaged and augmentation-averaged predictions, further reducing error accumulation in continuous inference. However, these methods lack a focus on tubular structure and topological continuity, leading to performance decline and continuity destruction in TSS.
+
+## 3. Proposed TopoTTA
+
+## 3.1. Preliminary
+
+Let $\mathcal { D } ^ { s } = \{ ( \pmb { x } _ { i } ^ { s } , \pmb { y } _ { i } ^ { s } ) \} _ { i = 1 } ^ { N ^ { s } }$ denote the labeled source domain dataset, where $\pmb { x } _ { i } ^ { s } \in \mathbb { R } ^ { \hat { H } \times W \times C }$ is an image with height H, width W, and channel number C, and $\pmb { y } _ { i } ^ { s } \in \{ 0 , 1 \} ^ { H \times W \times C }$ denotes the corresponding ground-truth label. Given a TSS model $\mathcal { F } ( \cdot ; \theta ^ { s } )$ trained on $\mathcal { D } ^ { s }$
+
+$$
+\begin{array} { r } { \theta ^ { s } = \underset { \theta ^ { s } } { \arg \operatorname* { m i n } } \mathbb { E } _ { ( \pmb { x } ^ { s } , \pmb { y } ^ { s } ) \sim \mathcal { D } ^ { s } } \left[ \mathcal { L } _ { s e g } \big ( \mathcal { F } ( \pmb { x } ^ { s } ; \theta ^ { s } ) , \pmb { y } ^ { s } ) \right] , } \end{array}\tag{1}
+$$
+
+where $\mathcal { L } _ { s e g } ( \cdot , \cdot )$ can be any TSS loss function. Let $\mathcal { D } ^ { t } =$ $\{ \boldsymbol { x } _ { i } ^ { t } \} _ { i = 1 } ^ { N ^ { t } }$ represent the unlabeled target domain dataset. During testing, TTA methods aim to update the model parameters for each input image $\pmb { x } _ { i } ^ { t } \in \mathcal { D } ^ { t }$ and produce segmentation outputs $\hat { \pmb { y } } _ { i } ^ { t } = \mathcal { F } ( \pmb { x } _ { i } ^ { t } ; \hat { \theta _ { i - 1 } ^ { t } } )$ as follows:
+
+$$
+\theta _ { i } ^ { t } = \underset { \theta _ { i - 1 } ^ { t } } { \arg \operatorname* { m i n } } \mathcal { L } _ { t t a } ( \mathcal { F } ( \cdot ; \theta _ { i - 1 } ^ { t } ) , \pmb { x } _ { i } ^ { t } ) ,\tag{2}
+$$
+
+where $\theta _ { i } ^ { t }$ are the parameters of the TSS model $\mathcal F ( \cdot ; \cdot )$ at the i-th iteration, and $\mathcal { L } _ { t t a } ( \cdot , \cdot )$ denotes the self-supervised loss function for TTA. Before performing TTA, we set $\theta _ { 0 } ^ { t } = \theta ^ { s }$
+
+To improve readability, we use the simplified notation x instead of $\boldsymbol { x } _ { i } ^ { t }$ in the following sections and figures.
+
+## 3.2. Overview of TopoTTA
+
+As discussed in Section 1, existing TTA methods cannot effectively segment tubular structures due to two major challenges: discrepant topological structures and fragile topological continuity. To solve these issues, we propose TopoTTA, which consists of two stages: Stage 1 performs topological structure adaptation to overcome the insufficient cross-domain topological structure adaptation; Stage 2 conducts topological continuity refinement to enhance the topological continuity of the final predictions. An overview of our TopoTTA is illustrated in Fig. 2. The details of Stage 1 and Stage 2 are described in Section 3.3 and Section 3.4, respectively.
+
+## 3.3. Stage 1: Topological Structure Adaptation
+
+This stage aims to adapt the pre-trained TSS model to discrepant topological structures caused by domain shifts. To achieve this, we propose TopoMDCs based on diverse fundamental topological patterns and adaptively reweight and combine TopoMDCs according to the topological features of different regions. We introduce the details of TopoMDCs and the model parameter updating process below.
+
+Topology-Meta Difference Convolutions (TopoMDCs). TopoMDCs draw inspiration from central difference convolution (CDC) [70], which captures the difference between the central pixel of a convolution kernel and its neighbors to detect local gradient changes. However, the local topological shapes of tubular structures often exhibit directionality and continuity. CDC, initially designed for other finegrained vision tasks (e.g., face anti-spoofing [29, 32, 70]) lacks the ability to perceive these two features of tubular structures, making them ineffective in representing the complex topologies and geometric constraints within local regions. Let $\pmb { x } _ { \mathrm { i n } }$ denote the input feature map. The vanilla convolution $\mathcal { C } _ { 0 }$ and $\mathbf { C D C } \mathcal { C } _ { c }$ can be formulated as:
+
+$$
+\mathcal { C } _ { 0 } ( r _ { x } , r _ { y } ) = \sum _ { ( \Delta r _ { x } , \Delta r _ { y } ) \in \mathcal { R } } w ( \Delta r _ { x } , \Delta r _ { y } ) \cdot \pmb { x } _ { \mathrm { i n } } ( r _ { x } - \Delta r _ { x } , r _ { y } - \Delta r _ { y } ) ,\tag{3}
+$$
+==================== /home/dev/mywork/project/segment/parsing/[2026 eccv] IP-SAM: Rethinking Prompt-Conditioned Segmentation for Prompt-Absent Deployment
+# IP-SAM: Rethinking Prompt-Conditioned Segmentation for Prompt-Absent Deployment
+
+Huiyao Zhang1,2, Jin Bai1,2, Rui Guo1,2, Jianwen Tan1,2, Hongfei Wang1,2, andYe L¹
+
+1 Technology and Engineering Center for Space Utilization, Chinese Academy of Sciences, Beijing, China
+
+2 University of Chinese Academy of Sciences, Beijing, China zhanghuiyao25@csu.ac.cn, baijin25@mails.ucas.ac.cn, liye@csu.ac.cn
+
+Abstract. Prompt-conditioned foundation segmenters rely on explicit spatial prompts, such as points, boxes, or masks, to guide mask decoding. In prompt-absent deployment, however, no external/user prompts or detector-generated prompts are available at test time, creating a mismatch between the expected prompt-conditioned interface and automatic inference. We propose IP-SAM, a prompt-space adaptation framework that restores prompt-conditioned decoding without external prompts. Instead of bypassing SAM2's prompt interface through direct feature-space adaptation, IP-SAM synthesizes complementary intrinsic foreground/back prompts and routes their dense logits through SAM2's frozen prompt encoder, translating task-specific spatial cues into the native prompt embedding space. To reduce background leakage under severe camouflage, Prompt-Space Gating uses the intrinsic background prompt as an asymmetric suppressive constraint before decoding. Under a deterministic noexternal-prompt protocol, IP-SAM achieves state-of-the-art performance across four COD benchmarks, including MAE 0.017 on COD10K, with only 21.26M trainable parameters from SPG, PSG, a SAM2-initialized downstream mask decoder, and image-encoder LoRA, while keeping the prompt encoder frozen. Medical polyp experiments in the main paper and supplementary SOD results further show that the same prompt-space adaptation route transfers within foreground-background segmentation.
+
+Keywords: Prompt-Absent Segmentation · Prompt-Space Conditioning · SAM2 Adaptation · Camouflaged Object Detection
+
+## 1 Introduction
+
+Prompt-conditioned segmentation has emerged as a new paradigm for visual foundation models. Instead of directly predicting masks, these models rely on explicit spatial prompts—such as points, boxes, or masks—to guide the decoding process. Representative systems such as the Segment Anything Model (SAM) and its successor SAM2 [16, 28] demonstrate remarkable flexibility under interactive settings, enabling users to steer segmentation through simple spatial cues.
+
+However, this paradigm reveals a fundamental mismatch in fully automatic deployment. In many real-world scenarios, segmentation must operate without human interaction, leaving the model strictly prompt-absent at inference time. This creates a structural paradox: the decoder is designed to rely on promptconditioned signals, yet no prompts are available during deployment.
+
+This issue becomes particularly evident in Camouflaged Object Detection (COD), where targets blend into surrounding textures [6]. Without disambiguating prompts, models frequently activate visually similar background regions, leading to unstable masks and severe background leakage. Although we evaluate on COD as a challenging stress-test benchmark, the prompt-absent deployment problem arises broadly across automatic segmentation tasks.
+
+To address this challenge, most existing adaptations modify intermediate features by introducing adapters, lateral fusion modules, or task-specific decoders [4, 7]. While these feature-space modifications improve task alignment, they inadvertently bypass the native prompt interface that the architecture was originally designed to exploit. As a result, the prompt-conditioned decoding pathway remains weakly activated, leading to suboptimal adaptation. We argue that bypassing the prompt interface weakens the design assumption of prompt-conditioned segmenters and limits prompt-conditioned decoding.
+
+To resolve this mismatch, we propose Intrinsic Prompting SAM (IP-SAM), which revisits adaptation from a prompt-space perspective through explicit promptspace conditioning. Instead of injecting task information into intermediate features, IP-SAM synthesizes intrinsic prompts that activate the model through its native prompt interface. Concretely, a Self-Prompt Generator (SPG) distills aliased image contexts into complementary prompt candidates that serve as coarse regional anchors. These cues are projected through SAM2's frozen prompt encoder, translating task-specific signals into the model's native prompt manifold and restoring prompt-conditioned decoding.
+
+Furthermore, camouflaged scenes exhibit severe foreground-background ambiguity. Traditional feature fusion tends to symmetrically mix foreground and background cues, often amplifying deceptive textures. To address this, we introduce Prompt-Space Gating (PSG), which uses the intrinsic background prompt as an asymmetric suppressive constraint. By filtering deceptive activations prior to decoding, PSG suppresses background-induced false positives through promptspace interaction.
+
+We evaluate IP-SAM under a deterministic no-external-prompt protocol across four COD benchmarks. With only 21.26M tunable parameters—optimizing SPG, PSG, and a task-specific mask decoder alongside image-encoder LoRA while keeping the prompt encoder strictly frozen—IP-SAM consistently outperforms heavy specialist COD models and recent SAM adaptation baselines. In essence IP-SAM restores the missing prompt signal by synthesizing intrinsic prompts and conditioning SAM2 through its native prompt interface.
+
+Contributions. (i) We formulate prompt-absent deployment as an interface mismatch in prompt-conditioned segmentation and introduce prompt-space conditioning, which restores SAM2's native prompt pathway without external prompts.
+
+(ii) We develop IP-SAM with complementary intrinsic foreground/background prompts and Prompt-Space Gating (PSG), using background-derived prompt embeddings as asymmetric suppressive constraints before decoding. (iii) Under a deterministic no-external-prompt protocol, IP-SAM achieves state-of-the-art COD performance with 21.26M trainable parameters, and further demonstrates transferability within foreground-background segmentation through main-paper medical polyp experiments and supplementary SOD evaluations.
+
+## 2 Related Work
+
+## 2.1 Camouflaged Object Detection
+
+Camouflaged Object Detection (COD) aims to segment objects intentionally concealed within their surroundings, a task plagued by extreme foregroundbackground aliasing [6, 25]. While early approaches relied on heavy task-specific designs (e.g., explicit boundary modeling, multi-scale aggregation) [6, 18, 37] recent Transformer-based models [15, 26, 35] have improved global structural modeling. Nevertheless, specialist COD models trained from scratch on limited datasets can struggle with domain generalization and diverse camouflage topologies. This motivates exploring large-scale pretrained foundation segmenters, which provide richer semantic representations and geometric priors.
+
+## 2.2 Adapting SAM for Downstream Tasks
+
+The Segment Anything Model (SAM) [16, 28] has inspired extensive domain adaptation efforts [4, 24]. To handle prompt-absent scenarios, prevalent methods rely heavily on feature-space adaptation, injecting structural patches—such as adapters or heavy decoding heads—into the backbone or decoder [3,4,7]. Recent SAM-based COD models largely follow this feature-centric paradigm [1,7,20,36]. However, by predominantly modulating intermediate features, these methods often underutilize SAM's defining characteristic: its prompt-conditioned decoding interface. This raises a critical question: rather than relying primarily on intermediate feature modulation, how can we translate task requirements into SAM's native prompt manifold while preserving prompt-conditioned decoding?
+
+## 2.3 Automatic Prompting and Parameter-Efficient Tuning
+
+To automate SAM, recent works train auxiliary networks to generate explicit geometric cues (points, boxes) [2, 29, 34], explore prompt-free deployment via self-prompting and test-time calibration [5,38], or leverage class activation maps and domain-adaptive prototypes for medical segmentation [33]. In COD, however, automatically generated explicit prompts can be brittle. Due to extreme visual aliasing, predicted boxes may misregister on deceptive distractors, injecting background-induced false positives into the decoder. Furthermore, while some prior work generates dense conceptual prompts [21], they typically rely on symmetric fusion without actively isolating background interference.
+
+Our approach avoids this fragility. Rather than relying on discrete coordinate predictions, heavy feature-space addition, or test-time optimization, we translate complementary dense spatial priors into SAM's frozen prompt manifold. Crucially, we distinguish our method from prior self-prompting approaches by introducing Prompt-Space Gating (PSG) to preemptively filter noise via asymmetric suppression. Resolving semantic conflicts before decoding maximizes the effectiveness of Parameter-Efficient Fine-Tuning (PEFT) like LoRA [10]. Without reliable prompt conditions, PEFT can be forced to absorb much of the feature realignment burden. By reactivating the prompt manifold, IP-SAM provides a more direct adaptation route with efficient updates.
+
+## 3 Method
+
+## 3.1 Overview
+
+To resolve the structural paradox of prompt-absent deployment, IP-SAM revisits adaptation by conditioning SAM2 through its native prompt space. Specifically, IP-SAM synthesizes task-aware prompts and feeds them through SAM2's native prompt interface. As illustrated in Fig. 1, a Self-Prompt Generator (SPG) synthesizes dense intrinsic prompts. These cues are projected through SAM2's frozen prompt encoder, structurally aligning the task with the prompt-conditioned decoding process used by our task-specific decoder. To reduce false positives, Prompt-Space Gating (PSG) (Fig. 2) imposes background-derived asymmetric suppressive constraints strictly prior to decoding.
+
+## 3.2 Intrinsic Prompt Generation and Frozen Encoding
+
+Image embedding. Given an input image I, the SAM2 image encoder $\mathcal { F }$ extracts high-dimensional visual semantics to produce an image embedding $E =$ $\mathcal { F } ( I ) \in \bar { \mathbb { R } ^ { C \times H \times W } }$
+
+Self-Prompt Generator (SPG). Instead of relying on heuristic pseudo-prompts (boxes/points) that are brittle under extreme camouflage, we learn dense masklike priors as intrinsic prompts. We design a dual-branch Self-Prompt Generator $\mathcal { G }$ driven by learnable task queries $Q \in \mathbb { R } ^ { N \times d }$ . Specifically, $E \in \mathbb { R } ^ { \hat { 2 } 5 6 \times 3 2 \times 3 2 }$ denotes the highest-semantic-level feature map produced by the FPN neck, at $\frac { 1 } { 1 6 }$ of the input resolution. We flatten E into a sequence of length $( H W ) \times C$ before cross-attention. G employs a 2-layer TwoWayTransformer decoder (structurally identical to SAM's default transformer block, with $d \ : = \ : 2 5 6$ , 8 heads, MLP dim 2048). Here, Q (comprising standard sparse prompt slots K and $K _ { m } = 4$ learnable mask tokens) extracts complementary foreground and background semantics from the flattened E via cross-attention $( i . e . , \mathrm { A t t n } ( Q , E , E ) )$ . Through a dedicated projection head (which upsamples the feature map by a factor of 4 using bilinear upsampling and a $3 \times 3$ convolution), SPG distills this aggregated context into complementary dense prompt logits $( P ^ { + } , P ^ { - } \in \mathbb { R } ^ { 1 \times 1 2 8 \times 1 2 8 } )$ alongside continuous sparse prompt tokens $( S ^ { + } , S ^ { - } )$ . Notably, the positive branch additionally yields a set of specialized propagated output tokens $\mathcal { T } _ { \mathrm { p r o p } }$ (depicted as the purple block in Fig. 1) to serve as strong semantic anchors:
+
+![](images/ce31821cf2d5d6d98fb230c3c80f58f1d81d1bce84c9671b45ea501fd3dfc60d.jpg)  
+Fig. 1: Overall architecture of IP-SAM. Shifting the paradigm to prompt-space conditioning, IP-SAM utilizes a Self-Prompt Generator (SPG) to synthesize complementary intrinsic prompts $( P ^ { \pm } )$ . These are projected into SAM2's native manifold via the frozen prompt encoder. Prior to decoding, Prompt-Space Gating (PSG) leverages the negative embedding $\left( Z ^ { - } \right)$ to asymmetrically suppress deceptive cues in the positive embedding $( Z ^ { + } )$ . The purified condition (Z) explicitly steers the mask decoder. For visual clarity, the optional auxiliary lateral inhibition module (Lat., ablated in Sec. 4.3) is omitted.
+
+$$
+\{ P ^ { + } , S ^ { + } , \mathcal { T } _ { \mathrm { p r o p } } \} , \{ P ^ { - } , S ^ { - } \} = \mathcal { G } ( E , Q ) ,\tag{1}
+$$
+
+where $\mathcal { T } _ { \mathrm { p r o p } } \in \mathbb { R } ^ { K _ { m } \times C }$ strictly matches the number $( K _ { m } = 4 )$ and dimensionality $( C = 2 5 6 )$ of SAM2's default mask tokens. Given the extreme foregroundbackground aliasing in COD, these synthesized prompts inherently inherit positional ambiguity and structural noise from the camouflaged scene. They provide essential high-level spatial intents, while the mask decoder performs fine-grained disambiguation.
+
+Manifold projection and sparse alignment. We feed the real-valued dense logits $P ^ { \pm }$ directly into SAM2's frozen native prompt encoder $\mathcal { E } .$ yielding the encoded dense prompt embeddings $Z ^ { \pm } = \mathcal { E } ( P ^ { \pm } ) \in \bar { \mathbb { R } } ^ { C \times H _ { e } \times W _ { e } }$ . In practice, although native masks are binary, we intentionally feed continuous logits into the frozen prompt encoder without explicit binarization. Empirically, we found that binarizing the masks or applying temperature scaling consistently degrades performance, suggesting that continuous logits provide richer spatial uncertainty for prompt conditioning while remaining compatible with the encoder's embedding space. For sparse prompts, SPG bypasses the discrete coordinate-to-embedding step by directly outputting continuous token embeddings $S ^ { \pm }$ . We use the same number of sparse prompt slots as SAM2 (denoted K) and add the corresponding pre-trained (positive/negative) point-type embeddings to form the encoded sparse conditions $U ^ { \pm } \in \mathbb { R } ^ { K \times C }$ . Keeping E strictly frozen translates task-specific cues into $\mathrm { S A M 2 ^ { \prime } s }$ native prompt embedding space used for decoding, formalizing our prompt-space conditioning.
+
+![](images/419d9e53395a60b49a69dd708fde6c7b4bf3c95eb09e746bc2411cc6989933b4.jpg)  
+Fig. 2: Detailed schematic of Prompt-Space Gating (PSG). PSG suppresses background-induced false positives before they enter the decoder. It formulates a localized gate decision map from the negative prompt embedding $( Z ^ { - } )$ to suppress deceptive cues in the positive counterpart $( Z ^ { + } )$ . The gated feature $( \widetilde Z ^ { + } )$ is then fused with unactivated background cues and compensated via an anchored residual connection to yield the conditioned prompt embedding (Z).
+
+## 3.3 Prompt-Space Gating (PSG)
+
+In camouflaged scenes, standard symmetric feature fusion often amplifies deceptive textures. Although the prompt encoder can successfully embed the negative dense prior $P ^ { - }$ into the native prompt space, directly providing the resulting dense background embedding to the decoder as a symmetric condition tends to amplify background activations under camouflage, leading to more false positives. Therefore, we use the negative dense branch exclusively to form a suppressive gate prior to decoder interaction.
+
+First, the negative dense prompt embedding $Z ^ { - }$ is transformed into an unactivated background cue $B = \phi _ { \mathrm { f e a t } } ( Z ^ { - } )$ and a localized gate map $G \mathrm { : }$
+
+$$
+B = \phi _ { \mathrm { f e a t } } ( Z ^ { - } ) , \quad G = \sigma ( \phi _ { \mathrm { g a t e } } ( B ) ) , \quad \widetilde { Z } ^ { + } = Z ^ { + } \odot ( 1 - G ) .\tag{2}
+$$
+
+Here, $( 1 - G )$ suppresses background-correlated activations in the positive dense prompt embedding $Z ^ { + }$ , yielding the gated feature $\widetilde { Z } ^ { + }$
+
+To restore structural integrity while retaining useful background cues, we fuse $[ \tilde { Z } ^ { + } , B ]$ through a fusion block $\psi$ and apply an anchored residual correction:
+
+$$
+Z = \psi ( [ \widetilde { Z } ^ { + } , B ] ) + Z ^ { + } .\tag{3}
+==================== /home/dev/mywork/project/segment/parsing/[2026 eccv] Concept-to-Pixel: Prompt-Free Universal Medical Image Segmentation
+# Concept-to-Pixel: Prompt-Free Universal Medical Image Segmentation
+
+Haoyun Chen1,2,3†, Fenghe Tang1,2,3†©, Wenxin Ma1,2,30, and Shaohua Kevin Zhou1,2,3,4,5\*0
+
+1 School of Biomedical Engineering, Division of Life Sciences and Medicine, University of Science and Technology of China (USTC), Hefei, Anhui, China 230026
+
+2 Medical Imaging, Robotics, Analytic Computing & Learning (MIRACLE) Lab,   
+YRD-RIGHT, USTC Suzhou Institute for Advanced Research, Suzhou, Jiangsu, China   
+3 Jiangsu Provincial Key Laboratory of Multimodal Digital Twin Technology, Suzhou, Jiangsu, China 215123
+
+4 Biomedical Basic Research Center (BBRC) of Jiangsu Province, Suzhou, Jiangsu, China 215123
+
+5 State Key Laboratory of Precision and Intelligent Chemistry, Hefei, Anhui, China {chenhaoyun,fhtan9,wxma}@mail.ustc.edu.cn, {skevinzhou}@ustc.edu.cn
+
+Abstract. Universal medical image segmentation seeks to use a single foundational model to handle diverse tasks across multiple imaging modalities. However, existing approaches often rely heavily on manual visual prompts or retrieved reference images, which limits their automation and robustness. In addition, naive joint training across modalities often fails to address large domain shifts. To address these limitations, we propose Concept-to-Pixel (C2P), a novel prompt-free universal segmentation framework. C2P explicitly separates anatomical knowledge into two components: Geometric and Semantic representations. It leverages Multimodal Large Language Models (MLLMs) to distill abstract, highlevel medical concepts into learnable Semantic Tokens and introduces explicitly supervised Geometric Tokens to enforce universal physical and structural constraints. These disentangled tokens interact deeply with image features to generate input-specific dynamic kernels for precise mask prediction. Furthermore, we introduce a Geometry-Aware Inference Consensus mechanism, which utilizes the model's predicted geometric constraints to assess prediction reliability and suppress outliers. Extensive experiments and analysis on a unified benchmark comprising eight diverse datasets across seven modalities demonstrate the significant superiority of our jointly trained approach, compared to universe- or single-model approaches. Remarkably, our unified model demonstrates strong generalization, achieving impressive results not only on zero-shot tasks involving unseen cases but also in cross-modal transfers across similar tasks. Code is available at: https://github.com/Yundi218/Concept-to-Pixel.
+
+Keywords: Universal Segmentation· MLLM Distillation · Disentangled Representation · Dynamic Convolution · Medical Foundation Models
+
+Corresponding author † Equal Contribution
+
+![](images/598667b5880197fc9d9553c5469db090427148d993ac1aa7be76a0e2dd2678cd.jpg)  
+Fig. 1: Comparison of existing medical image segmentation paradigms and our proposed Concept-to-Pixel framework. Unlike existing paradigms that suffer from limited versatility (A), limited manual prompts (B), or reliance on reference quality (C), our prompt-free model (D), inspired by clinical diagnostic workflows, explicitly decouples modality semantics and physical geometry via [SEM] and [GE0]. The radar chart in (D) Right demonstrates that our zero-reference method (Conceptto-Pixel) significantly outperforms SOTA models (Spider and SR-ICL), exhibiting impressive in-domain performance and zero-shot generalization even on completely unseen modalities (e.g., X-Ray).
+
+## 1 Introduction
+
+Medical image segmentation is an important task of computer-aided diagnosis [37, 46, 47, 49–51, 61], but the vast diversity of modalities and severe domain gaps in tissue contrast and noise distributions have historically confined the field to specialized, modality-specific solutions [23, 30, 39, 48, 59]. Beyond their computational cost and poor scalability, these "one-model-one-task" architectures fundamentally fail to exploit cross-modal anatomical knowledge for mutual performance gains. This has inspired a paradigm shift toward universal medical segmentation models [7, 9, 33, 38, 60], which aim to unify diverse segmentation tasks across modalities within a single framework.
+
+However, building such a unified model that matches or exceeds specialized counterparts remains extremely difficult. As shown in Fig. 1 (B,C), existing approaches fall into three categories: (1) Prompt-based methods [13, 32] excel at interactive boundary delineation but rely heavily on manual visual prompts (points or boxes), lacking the semantic understanding necessary for fully automatic lesion and anatomy discovery. (2) In-context learning (ICL) methods [9, 60] perform segmentation by conditioning on reference image-mask pairs, but this inference-heavy paradigm suffers from high variance and depends critically on the quality and relevance of retrieved support examples, making it difficult to globally internalize medical knowledge. (3) Naive joint training on large-scale heterogeneous datasets frequently induces negative transfer: conflicting low-level visual cues from different input sources drive gradients in opposing directions [53]. For example, a dark hypoechoic region signals malignancy in ultrasound yet represents healthy fluid in MRI, forcing the network to implicitly reconcile irreconcilable pixel-level patterns and ultimately causing feature collapse.
+
+Previous work [10, 56] reveals that the root cause of this collapse is that the network is forced to reconcile conflicts at the pixel level, without any structured intermediate representation. Structured clinical diagnosis, by contrast, naturally avoids such confusion by evaluating disentangled concepts: a clinician assesses a lesion by implicitly decoupling its Geometry, including modality-agnostic physical properties such as shape, location, and boundaries, from its Semantics, which is modality-specific textural appearance and internal signal characteristics [18, 28, 29, 57]. We illustrate the procedure in Fig. 1 (D).
+
+Motivated by this diagnostic principle, we propose Concept-to-Pixel (C2P), a novel framework that fundamentally mitigates negative transfer by explicitly disentangling anatomical understanding into separate Geometric and Semantic representations. Specifically, to enforce universal shape priors, we introduce learnable Geometric Tokens, marked as [GE0], that are explicitly supervised to regress physical attributes (e.g., area, centroid), imposing a strict structural constraint largely ignored by conventional U-Nets. For semantic understanding, we leverage Multimodal Large Language Models (MLLMs) to generate and extract fine-grained concepts from clinical reports (e.g., "irregular margin", "heterogeneous texture"). We distill these text concepts into Semantic Tokens marked as [SEM]. Subsequently, [GE0] and [SEM] serve as the sample-aware priors, interacting with visual features through a Token-Guided Dynamic Head (TGDH) to generate sample-aware dynamic segmentation head [26, 52]. Furthermore, we introduce an intrinsic Geometry-Aware Inference Consensus mechanism, utilizing the explicitly regressed geometric priors to self-evaluate prediction reliability across perturbed views and confidently suppress outliers. Together, these designs establish C2P as a principled and generalizable framework. Extensive experiments have proven that our method achieves state-of-the-art performance across eight datasets spanning seven modalities with a single universal model. Remarkably, our C2P demonstrates strong zero-shot generalization on five unseen datasets without relying on any references or prompts, and attains competitive performance even on entirely unseen modalities.
+
+Our main contributions are summarized as follows:
+
+— We propose Concept-to-Pixel (C2P), a universal segmentation framework that decouples anatomical understanding into [GE0] (supervised by physical attributes) and [SEM] (distilled from MLLM-extracted clinical concepts), enabling modality-agnostic representations that mitigate negative transfer in heterogeneous multi-modal training.
+
+— While the learned tokens capture universal geometric and semantic representations, we design a Token-Guided Dynamic Head (TGDH) that conditions on per-sample tokens to generate instance-specific convolution kernels, enabling the model to adapt its segmentation behavior to each individual sample rather than applying a shared static head across all targets.
+
+— Extensive experiments on eight datasets across seven modalities show that C2P, as a single universal model, achieves 88.22% average Dice, surpassing both state-of-the-art universal methods and the task-specialized nnU-Net V2. Additionally, our C2P demonstrates strong generalization ability without requiring additional prompts or references, achieving competitive results on unseen datasets and modalities.
+
+## 2 Method
+
+## 2.1 Overview
+
+We propose Concept-to-Pixel (C2P), a universal segmentation framework that explicitly disentangles anatomical understanding into Geometric and Semantic representations to mitigate negative transfer across modalities. Unlike conventional U-Nets that implicitly entangle these features, C2P leverages a deeply guided token-interaction mechanism. As illustrated in Fig. 2, our framework consists of four key components: (1) Token Formulation & Modality Injection: Initializes universal [GE0] and MLLM-distilled [SEM], utilizing a Style-Content Fusion Module (SCFM) to resolve cross-modality ambiguities. (2) Bidirectional Token-Image Interaction: Enables deep interaction via Cross Attention, where tokens query image features while simultaneously guiding them with high-level priors. (3) Token-Guided Dynamic Head (TGDH): Synthesizes instance-specific convolutional kernels driven by the aggregated tokens and global context for precise mask prediction. (4) Geometry-Aware Inference Consensus: An intrinsic evaluation mechanism leveraging the physical self-consistency of [GE0] to filter unreliable predictions.
+
+## 2.2 Disentangled Concepts to Pixel-Level Segmentation
+
+The core philosophy of our framework is to translate abstract, modality-agnostic physical and clinical expectations into specific pixel-level decision boundaries. To achieve this, we design a coherent three-stage process: Disentangled Concept Extraction, Bidirectional Token-Image Interaction, and Token-Guided Dynamic Prediction.
+
+Disentangled Token Formulation. To bridge the gap between low-level visual features and high-level medical concepts, we define two distinct sets of tokens: (i) Geometry Tokens [GEO] $( \mathcal { T } _ { g e o } )$ . To capture the universal physical attributes of lesions, we initialize a set of $N _ { g e o }$ learnable tokens $\mathcal { T } _ { g e o } \in \bar { \mathbb { R } } ^ { \bar { N _ { g e o } } \times C }$ . Crucially, instead of treating these tokens as latent black boxes, each token is explicitly and strictly supervised to regress one of the $N _ { g e o }$ specific geometric properties. This explicit structural constraint forces the model to encode modality-agnostic "shape" and "location" physics, ensuring that a topologically identical lesion is recognized consistently regardless of its imaging modality. (ii) Semantic Tokens [SEM] $( \mathcal { T } _ { s e m } )$
+
+![](images/cb88c2f59566ff602c9fd2405d55e111421aad350379e059dfee115a7b43a7eb.jpg)  
+Fig. 2: Overview of the proposed Concept-to-Pixel (C2P) framework. (1) The model first extracts shallow (E2) and deep (E5) backbone features to infer modality embeddings via the Style-Content Fusion Module (SCFM), which are dynamically injected into the [SEM]. (2) The universal [GE0] and modality-aware [SEM] interact with visual tokens through bidirectional Cross Attention. (3) The aggregated concepts are then fed into the Token-Guided Dynamic Head (TGDH) to generate instancespecific parameters for the final Dynamic Head to predict precise masks. To guarantee explicit decoupling, the tokens are deeply supervised by physical properties $( \mathcal { L } _ { G e o } )$ and MLLM-distilled knowledge $( \mathcal { L } _ { S e m } )$
+
+To inject medical semantic knowledge, we leverage the reasoning capability of Large Multi-modal-Language Models, generating structured clinical descriptions for training images across $N _ { s e m }$ explicit diagnostic dimensions. These texts are encoded into embeddings via PubMedBERT [21]. We initialize $N _ { s e m }$ learnable [SEM] $\mathcal { T } _ { s e m } \in \mathbb { R } ^ { N _ { s e m } \times C }$ and align them with the MLLM-derived text embeddings using a contrastive loss. This explicit cross-modal alignment effectively distills the structured clinical semantics into the network's latent space, enabling the model to segment targets based on expert-level diagnostic concepts rather than mere pixel intensities.
+
+Style-Content Fusion Module (SCFM). While geometry is essentially universal in segmentation, semantics are highly modality-dependent. To disentangle semantics, we introduce the Style-Content Fusion Module (SCFM). Specifically, we extract the channel-wise mean µ (i.e., representing brightness/tone) and standard deviation σ (i.e., representing texture/noise) from the shallow backbone features (E2) as the Style statistics. Concurrently, we extract the global context from the deep features (E5) via global average pooling (GAP) as the Content. These representations are compressed and fused via a gated MLP to infer a dense modality embedding $V _ { m o d a l i t y }$ . We then selectively inject this modality bias only into the [SEM]:
+
+$$
+\begin{array} { r } { \widehat { \mathcal { T } } _ { s e m } = \mathcal { T } _ { s e m } + V _ { m o d a l i t y } . } \end{array}\tag{1}
+$$
+
+Bidirectional Token-Image Interaction. To establish a deep mapping between the abstract concepts and the concrete visual evidence, we propose a multi-layer bidirectional interaction mechanism. First, the deepest visual features from the backbone $\left( F _ { E 5 } \right)$ are flattened and projected to the token dimension d. To preserve spatial topology, a learnable 2D positional encoding is added to $F _ { E 5 }$ Concurrently, the geometric and modality-injected [SEM] are concatenated as $\mathcal { T } = [ \mathcal { T } _ { g e o } , \widehat { \mathcal { T } } _ { s e m } ] \ \in \ \mathbb { R } ^ { ( N _ { g e o } + N _ { s e m } ) \times d }$ . These representations then undergo an iterative, two-phase Cross Attention process:
+
+Token-to-Image Attention (Abstraction). In this phase, the concept tokens act as queries (Q) to scan the global image features $( K , V )$ . This allows each token to adaptively aggregate relevant instance-specific visual evidence from the image $( e . g .$ , the “margin" token searches for edge-like features). Structurally, this is implemented via Multi-head Cross-Attention (MCA) and a Feed-Forward Network (FFN) with residual connections:
+
+$$
+\mathcal { T } ^ { \prime } = \mathcal { T } + \mathrm { M C A } ( \mathrm { L N } ( \mathcal { T } ) , F _ { E 5 } , F _ { E 5 } ) ,\tag{2}
+$$
+
+$$
+\mathcal { T } _ { o u t } = \mathcal { T } ^ { \prime } + \mathrm { F F N } ( \mathrm { L N } ( \mathcal { T } ^ { \prime } ) ) ,\tag{3}
+$$
+
+where $\operatorname { L N } ( \cdot )$ denotes Layer Normalization. Through this process, the tokens transition from static global priors to dynamic, instance-aware concept representations.
+
+Image-to-Token Attention (Guidance). Conversely, the image features must be refined by the high-level concepts to suppress irrelevant background noise. Here, the image features act as queries to retrieve information from the updated tokens dictionary:
+
+$$
+F _ { E 5 } ^ { \prime } = F _ { E 5 } + \mathrm { M C A } ( \mathrm { L N } ( F _ { E 5 } ) , \mathcal { T } _ { o u t } , \mathcal { T } _ { o u t } ) ,\tag{4}
+$$
+
+$$
+F _ { o u t } = F _ { E 5 } ^ { \prime } + \mathrm { F F N } ( \mathrm { L N } ( F _ { E 5 } ^ { \prime } ) ) .\tag{5}
+$$
+
+By querying the concept tokens, the pixel-level features explicitly highlight regions that align with the predefined geometric and semantic expectations, yielding deeply coupled representations.
+
+==================== /home/dev/mywork/project/segment/parsing/[2026 eccv] LoCA: Spatially-Aware Low-Rank Convolutional Adaptation of Vision Foundation Models
+# LoCA: Spatially-Aware Low-Rank Convolutional Adaptation of Vision Foundation Models
+
+Sojung An1\*, Junha Lee2,3\*, Sujeong You2, Nam Ik Cho3, Donghyun Kim1†
+
+1 Korea University, Seoul, Republic of Korea
+
+2 Korea Institute of Industrial Technology, Ansan, Republic of Korea 3 Seoul National University, Seoul, Republic of Korea
+
+\*Equal contribution †Corresponding author: d\_kim@korea.ac.kr https://github.com/ssojungan/loca
+
+Abstract. Pre-trained Vision Foundation Models (VFMs) provide strong visual representations for diverse downstream tasks. The key challenge of VFM adaptation stems from the prohibitive costs of full fine-tuning and catastrophic forgetting. To address this, Low-Rank Adaptation (LoRA) has emerged as the prevailing paradigm for Parameter-Efficient Fine-Tuning (PEFT). However, LoRA is typically designed for transformer self-attention layers parameterized by 2D matrices. Since convolutional kernels inherently couple spatial and channel information within a 4D tensor, forcing them into a monolithic 2D matrix disrupts the inherent spatial topology. In this paper, we propose Low-Rank Convolutional Adaptation (LoCA), a convolution-aware PEFT framework that addresses spatial-channel entanglement by decoupling channel and spatial adaptation. LoCA introduces a low-rank channel adaptation for dense crosschannel mixing and refines spatial bases extracted from pre-trained kernels via Singular Value Decomposition (SVD). Experimental results show that LoCA preserves pre-trained spatial priors and achieves competitive or state-of-the-art performance across fine-grained classification, domaingeneralized semantic segmentation, and generative benchmarks.
+
+Keywords: Parameter-Efficient Fine-Tuning · Low-Rank Adaptation · Spatial Inductive Bias · Convolutional Networks
+
+## 1 Introduction
+
+Vision Foundation Models (VFMs) enable a wide array of general vision tasks [10, 26,35]. These models learn rich multi-scale representations from large-scale data and transfer effectively to downstream problems through fine-tuning or frozen feature extraction [22,25]. However, full fine-tuning of large-scale VFMs not only incurs prohibitive computational costs but also leads to catastrophic forgetting of pre-trained knowledge. Parameter-Efficient Fine-Tuning (PEFT) addresses this by optimizing only a small subset of parameters while freezing the original weights [14, 39]. Among these, Low-Rank Adaptation (LoRA) has emerged as the de facto standard, offering high representational capacity with minimal trainable parameters [9, 19, 42, 45].
+
+![](images/9dfde99fc023e2835c91c5fd456ab32f9699eb4458713c88c55dca76c6780b99.jpg)  
+(a) Radial Spread (↑)
+
+![](images/74cd6091a0abedefebb68e49e1f71e0306777b17a4d1599e2d7c085c9815e909.jpg)  
+(b) Center Energy Ratio (↓)
+
+![](images/61781b02ca835ac7f6bfaf0b550940be3010e92bdcfe6ddb8766a21673dd4516.jpg)  
+(c) Low-Freq Energy Ratio (↑)  
+Fig. 1: The training dynamics of Effective Receptive Field (ERF) across convolutional layers (dwconv) forFFT,LoRA, FSF, andLoCA. (a) Radial Spread: Average distance of gradients from the map center. (b) Center Energy Ratio: Gradient ratio in the 3 × 3 center. (c) Low-Freq Energy: Fourier low-frequency power ratio. LoRA and FSF exhibit transient ERF growth followed by a reconvergence toward localized patterns, which limit sustained global context. Spatial reconvergence necessitates a structurepreserving design to achieve an expansive receptive field comparable to FFT.
+
+While LoRA is typically designed for linear projections in transformers, convolutional operators in VFM backbones remain relatively underexplored. This gap is critical because convolutional operators remain fundamental across modern VFM backbones. ConvNeXt is a modern convolutional backbone that emphasizes convolution as a sliding-window, weight-sharing strategy that encodes spatial inductive biases [38]. Self-attention in ViT [10] enables global tokento-token interactions but provides limited built-in spatial inductive bias. This prompts hybrid designs that incorporate convolutional components to encode spatial priors [5]. Mamba-based State Space Model (SSM) vision backbones have gained recent attention [12, 15]. Some architectures retain convolutional blocks in early high-resolution stages for local feature extraction. In addition to visual perception, convolutional networks are widely used in generative models such as Stable Diffusion [33] in the U-Net backbone. Given that convolutional operators remain fundamental across modern VFM backbones, extending LoRA beyond Transformer linear layers to convolutional layers becomes an important problem in PEFT.
+
+However, directly applying LoRA's low-rank updates to convolution layers is suboptimal, as they operate over spatial regions. Naive LoRA flattens convolutional kernels (4D tensor) into a two-dimensional matrix for low-rank updates [8]. Flattening the convolutional kernel collapses the inherent spatial topology by enforcing cross-channel mixing within a single low-rank parameterization. This structural mismatch limits the preservation of spatial priors, including locality and directionality, and reduces adaptation gains reported in prior work [4, 46] Recent filter subspace approaches address spatial-channel entanglement by decomposing convolutional filters into spatial bases and channel coefficients [4]. Sparse coding approximates pre-trained kernels within this decomposed subspace. Such approximation inevitably modifies pre-trained representations prior to fine-tuning. Freezing cross-channel mixing coefficients limits the adaptation of inter-channel correlations in new domains.
+
+![](images/9a10054ac22610d1b9de0bf3548ed437634cf257c87fd13911ed6a0d1a9f47fb.jpg)
+
+![](images/299ef59cea49b2f5da63e1b76307e486deb185432354cc3fc31884cf6de5559e.jpg)  
+(b) Generalization performance of PEFT methods across diverse vision benchmarks
+
+(a) Parameter-efficient scaling behavior. The x-axis is sorted by GFLOPs.  
+![](images/88c1a11678adba12847f54d8914c9752d2016c4dbe5d65b6438a0e50ca622693.jpg)  
+(c) Trainable parameter comparison across convolution kernel sizes (K). Detailed analysis is provided in Appendix A.  
+Fig. 2: Performance comparison of PEFT-based methods on downstream tasks
+
+As shown in Fig. 1, we analyze the Effective Receptive Field (ERF) [16] and low-frequency retention during fine-tuning. Higher Radial Spread with lower Center Energy Ratio indicates outward gradient propagation and receptive field growth, while higher Low-Freq Energy reflects stronger retention of informative low-frequency structures. FFT and LoCA show consistent increases in spatial coverage and low-frequency energy throughout training. In contrast, LoRA [19] and Filter Subspace Fine-Tuning (FSF) [4] exhibit only transient spatial expansion, followed by reconvergence toward localized update patterns and unstable frequency behavior. These observations suggest that preserving convolutional spatial structure is crucial for maintaining broad receptive fields, motivating our spatial-channel disentanglement approach with joint adaptation.
+
+To this end, we propose Low-Rank Convolutional Adaptation (LoCA), a structured low-rank reparameterization that adapts convolutional layers by decoupling channel mixing from spatial basis refinement. We first introduce a lowrank channel adaptation process that captures dense cross-channel mixing while mitigating spatial-channel entanglement. Such channel adaptation prevents the topological collapse induced by naive kernel flattening and the structural inaccuracies of conventional weight decomposition. We then design a spatial adaptation mechanism that preserves pre-trained priors through structural bases derived from Singular Value Decomposition (SVD). Additionally, we introduce a hierarchical rank scheduling for convolutional foundation models. LoCA preserves the spatial inductive bias of pre-trained representations and achieves robust performance across diverse downstream tasks.
+
+We summarize the contributions of this work as follows:
+
+\- We propose the LoCA framework to address spatial-channel entanglement by decoupling channel and spatial adaptation.
+
+\- We introduce SVD-based spatial basis refinement to preserve pre-trained spatial inductive biases effectively.
+
+— We propose a hierarchical rank scheduling tailored to convolutional foundation models.
+
+— Extensive experiments demonstrate that LoCA achieves competitive or stateof-the-art performance across fine-grained classification, domain-generalized segmentation, and generative benchmarks (see Fig. 2).
+
+## 2 Related Work
+
+## 2.1 Parameter-Efficient Fine-Tuning
+
+PEFT has emerged as a practical paradigm for adapting large-scale VFMs to downstream tasks by updating only a small subset of parameters while freezing pre-trained backbones [19, 20]. Existing approaches include adapter-based methods [3, 18], which insert lightweight trainable modules into network blocks; prompt-based methods [20,24], which add learnable tokens to the input sequence; selective fine-tuning methods [1, 13], which update specific components such as bias terms; and reparameterization-based methods [9, 19, 42, 45], which optimize implicit low-rank structures for seamless merging into the original weights at inference.
+
+Most PEFT techniques are formulated for Transformer architectures that operate on token sequences with multi-head self-attention [30]. Extending these paradigms to vision tasks such as detection and segmentation remains challenging because pixel-level prediction relies on spatial inductive biases and multiscale hierarchies.
+
+## 2.2 Parameter-Efficient Fine-Tuning for Convolutional Layers
+
+Convolution preserves 2D image structure by leveraging inherent spatial inductive biases [26, 27]. Early convolution-specific PEFT methods such as Conv-Adapter [3] introduce trainable modules into convolutional blocks and increase inference-time computation. Flattening-based extensions convert 2D convolutional kernels parameterized as 4D tensors into 2D matrices to reuse linear LoRA formulations [8]. This dimensional collapse entangles spatial topology with crosschannel mixing, compromising locality and weight sharing [4, 46].
+
+Filter subspace methods constrain updates by decomposing pre-trained kernels into spatial atoms and mixing coefficients [4]. This decomposition reconstructs the pre-trained weights only approximately while introducing accumulation error. Reconstructing weights from these decomposed atoms can also restrict cross-channel flexibility by freezing mixing coefficients. These limitations motivate a convolution-aware PEFT that preserves the original weights while enabling spatially structured low-rank updates.
+
+## 2.3 Low-Rank Adaptation and Singular Value Decomposition
+
+LoRA represents weight adaptation using low-rank factors. To maximize parameter efficiency, subsequent methods have explored rank adaptation. For example, AdaLoRA dynamically adjusts the rank budget across different layers based on importance scores [45]. Other works leverage SVD to replace random initialization with informed low-rank initialization. PiSSA [28], SoMA [42], and SoRA [9] decompose pre-trained weights and use principal or minor components to initialize low-rank factors, improving convergence and knowledge retention. These works suggest that singular components capture reusable structure in pre-trained weights. Building upon this idea, we employ SVD to extract spatial bases from convolutional kernels.
+
+## 3 Preliminaries
+
+LoRA. LoRA freezes pre-trained weights and approximates updates using lowrank matrices. Motivated by the hypothesis that weight changes during model adaptation possess a low intrinsic rank, LoRA parameterizes the incremental update via the product of two low-rank matrices [19]. For a pre-trained weight matrix $W _ { 0 } \in \mathbb { R } ^ { d _ { o u t } \times d _ { i n } }$ , where $d _ { i n }$ and $d _ { o u t }$ denote the input and output dimensions respectively, LoRA decomposes the update $\varDelta W \in \mathbb { R } ^ { d _ { o u t } \times d _ { i n } }$ into $B A .$ where $B \in \mathbb { R } ^ { d _ { o u t } \times r }$ and $A \in \mathbb { R } ^ { r \times d _ { i n } }$ are low-rank matrices with rank r  min $( d _ { o u t } , d _ { i n } )$ and α is a constant scaling factor. Consequently, the fine-tuned weight $W ^ { \prime }$ is formulated as:
+
+$$
+W ^ { \prime } = W _ { 0 } + \varDelta W = W _ { 0 } + \frac { \alpha } { r } B A\tag{1}
+$$
+
+where $W _ { 0 }$ remains frozen during training and α denotes a constant scaling factor.   
+One factor is zero-initialized, yielding $\varDelta W = 0$ at initialization.
+
+A 2D convolutional layer is parameterized by a 4D weight tensor $W _ { 0 } \in$ $\mathbb { R } ^ { C _ { o u t } \times C _ { i n } \times k _ { h } \times k _ { u } }$ with $C _ { o u t }$ output channels, $C _ { i n }$ input channels, and spatial kernel size $k _ { h } \times k _ { w }$ . LoRA is formulated for matrix multiplication, so a naive extension to convolution reshapes the kernel tensor into a matrix. This reshaping merges the spatial dimensions into the input-channel axis and produces the flattened weight $\mathbf { \bar { \boldsymbol { W } } } _ { 0 } ^ { \flat } \in \mathbb { R } ^ { C _ { o u t } \times ( C _ { i n } k _ { h } k _ { w } ) }$ . The low-rank update is computed in the flattened space by applying Eq. (1) to $W _ { 0 } ^ { \flat }$
+
+$$
+W ^ { \prime \flat } = W _ { 0 } ^ { \flat } + \frac { \alpha } { r } B A ,\tag{2}
+$$
+==================== /home/dev/mywork/project/segment/parsing/[2026 iclr] Dual-Kernel Adapter: Expanding Spatial Horizons for Data-Constrained Medical Image Analysis
+# DUAL-KERNEL ADAPTER: EXPANDING SPATIAL HORIZONS FOR DATA-CONSTRAINED MEDICAL IMAGE ANALYSIS
+
+Ziquan Zhu1\*, Hanruo Zhu1\*, Si-Yuan Lu2\*, Xiang Li3, Yanda Meng4, Gaojie Jin⁵ Lu Yin6, Lijie Hu7, Di Wang7, Lu Liu⁵, Tianjin Huang5,9†
+
+1 School of Computing and Mathematical Sciences, University of Leicester, Leicester, UK
+
+2 School of Communications and Information Engineering, Nanjing University of Posts and Telecommunications, Nanjing, China
+
+3 Department of Computer Science, University of Bristol, Bristol, UK
+
+4 Department of Bioengineering, King Abdullah University of Science and Technology, Thuwal, Saudi Arabia
+
+5 Department of Computer Science, University of Exeter, Exeter, UK
+
+6 Computer Science Research Centre, University of Surrey, Guildford, UK
+
+7 Machine Learning Department, Mohamed bin Zayed University of Artificial Intelligence, Abu Dhabi, UAE
+
+8 Division of Computer, Electrical and Mathematical Sciences and Engineering, King Abdullah University of Science and Technology, Thuwal, Saudi Arabia
+
+9 Department of Mathematics and Computer Science, Eindhoven University of Technology, Eindhoven, NL
+
+## ABSTRACT
+
+Adapters have become a widely adopted strategy for efficient fine-tuning of large pretrained models, particularly in resource-constrained settings. However, their performance under extreme data scarcity—common in medical imaging due to high annotation costs, privacy regulations, and fragmented datasets—remains underexplored. In this work, we present the first comprehensive study of adapter-based fine-tuning for large pretrained models in low-data medical imaging scenarios. We find that, contrary to their promise, conventional Adapters can degrade performance under severe data constraints, performing even worse than simple linear probing when trained on less than 1% of the corresponding training data. Through systematic analysis, we identify a sharp reduction in Effective Receptive Field (ERF) as a key factor behind this degradation. Motivated by these findings, we propose the Dual-Kernel Adapter (DKA), a lightweight module that expands spatial context via large-kernel convolutions while preserving local detail with small-kernel counterparts. Extensive experiments across diverse classification and segmentation benchmarks show that DKA significantly outperforms existing Adapter methods, establishing new leading results in both data-constrained and data-rich regimes. Code is available at https://github.com/misswayguy/DKA.
+
+## 1 INTRODUCTION
+
+The rapid proliferation of large pretrained models has significantly advanced various fields such as natural language processing (Chowdhary & Chowdhary, 2020) and computer vision (Szeliski, 2022), yet it has also amplified challenges related to computational overhead (Thompson et al., 2020), memory consumption (Mahendran, 2021), and the complexity of downstream adaptation (Jiang et al., 2024), especially when deploying these models in specialized domains like medical imaging (Strubell et al., 2020; Ji et al., 2021; Wang et al., 2025). To address these issues, adapter-based fine-tuning (Wang et al., 2020b; Wu et al., 2025; Gong et al., 2023; Hu et al., 2024; Chen et al., 2024) has emerged as a popular strategy, enabling efficient adaptation by adjusting only a small subset of model parameters rather than performing full fine-tuning.
+
+In medical imaging, assembling large, well-annotasted datasets is notoriously costly: expert radiologists must painstakingly delineate structures in high-resolution 2-D and 3-D scans, and inter-observer variability further inflates the annotation burden (Suzuki, 2017; Ritter et al., 2011). Strict privacy regulations such as HIPAA (U.S. Department of Health & Human Services, 2003) and the GDPR (European Union, 2016), coupled with heterogeneous institutional policies, severely limit data sharing, fragmenting what little data exist (Schäfer et al., 2023; Wang et al., 2021). As a result, many clinically important downstream tasks still operate in a pronounced low-data regime. This scenario naturally leads to the critical question:
+
+## Can standard Adapter perform effectively in medical imaging tasks under constrained data?
+
+In this paper, we first provide a comprehensive evaluation and analysis of applying conventional Adapter (Houlsby et al., 2019) under constrained-data scenarios across various datasets and backbone architectures. Our study reveals several key insights:
+
+![](images/5a9b7c0d31b2dcec23079d2fbaf44fe93ca03a49d74b976223346b0d579962dc.jpg)
+
+![](images/1e12558b8e6f37e9b2f7b760a4db46016456fa9071a5fb9c65d3a66a24e95b65.jpg)
+
+![](images/080eda1321c7a0613d476d10c10b9ded9679680df218a9c94cb3c7952ee21d3f.jpg)  
+Figure 1: Performance of Adapter across Various Training Data Sizes. ∆ACC = $\mathrm { A C C } _ { L i n e a r P r o b i n g + A d a p t e r } - \mathrm { A C C } _ { L i n e a r P r o b i n g } .$ Experiments are conducted on the pretrained ViT-B, Swin-T, and Swin-B backbones for Tiny ImageNet and CIFAR-100 (In-Domain), COVID, BUSI, and ISIC-2019 (Out-of-Domain).
+
+• Data Size Significantly Impacts Adapter Performance. We observe that the benefits of using Adapters diminish substantially as the size of the training dataset decreases. This effect is particularly pronounced for medical imaging (see Figure 1).
+
+• Adapters Can Harm Performance Under Severe Low Data Settings. When the training data size is reduced to 1% or less, specifically in the context of adapting large pretrained models to medical imaging, Adapters perform worse than linear probing. This indicates that, under extreme data constraints, Adapters may negatively affect model adaptation (see Figure 1).
+
+• Effective Receptive Field (ERF) Decreases with Reduced Training Data. Visualization of the ERF demonstrates that smaller training datasets result in reduced ERF, offering a plausible explanation for the observed performance degradation (see Figure 2).
+
+Inspired by these insights, we propose a Dual-Kernel Adapter (DKA) that explicitly enlarges the ERF of standard Adapter modules. Each DKA module introduces a dual-branch convolution design: one branch leverages a depthwise large-kernel convolution to broaden the ERF, while the other employs a depthwise small-kernel convolution to preserve fine-grained local details. We evaluate DKA on a range of medical imaging tasks, including both classification and segmentation, across diverse datasets and large pretrained models. Experimental results demonstrate that DKA consistently outperforms existing methods in both data-constrained and data-rich settings.
+
+## Summary of Contributions
+
+\* We present the first systematic study of adapter-based fine-tuning for large pretrained models in low-data medical-imaging scenarios, showing that the conventional Adapter can actually degrade performance under severe data scarcity.
+
+\*We introduce the Dual-Kernel Adapter (DKA), a lightweight module that pairs large- and small-receptive-field convolutions in parallel, simultaneously broadening spatial context and preserving fine-grained detail.
+
+\* Extensive experiments on multiple segmentation and classification benchmarks demonstrate that DKA sets new state of the art, and ablation studies reveal that using asynchronous learning rates between adapters and linear head is critical to its gains.
+
+## 2 UNDERSTANDING STANDARD ADAPTER IN CONSTRAINED-DATA SETTINGS
+
+Adapters have gained popularity in medical image analysis due to their parameter efficiency and adaptability for fine-tuning large pretrained models. However, their performance under constrained data conditions remains underexplored. In this section, we investigate this critical aspect using a diverse set of datasets, including Tiny ImageNet (Le & Yang, 2015), CIFAR-100 (Sharma et al., 2018), COVID (Chowdhury et al., 2020), BUSI (Zhang et al., 2022), and ISIC-2019 (Gessert et al., 2020). Our experiments utilize three backbones—ViT-B (Dosovitskiy et al., 2021), Swin-T (Liu et al., 2021), and Swin-B (Liu et al., 2021)—all pretrained on the ImageNet (Deng et al., 2009), to evaluate the impact of Adapters across varying data sizes, ranging from 0.63% to 100% of the training data. We report the difference in accuracy between the application of Adapters and the non-application of Adapters, which is denoted by $\Delta \mathrm { A C C } = \mathrm { A C C } _ { L i n e a r P r o b i n g + A d a p t e r } - \mathrm { A C C } _ { L i n e a r P r o b i n g ; }$ Our key observations are summarized as follows.
+
+① Degraded Adapter Performance with Less Training Data. In Figure 1, we consistently observe that the performance gains provided by Adapters diminish across multiple tasks and pretrained models. Notably, this decline is significantly more pronounced in medical datasets (COVID, BUSI, ISIC-2019) compared to natural-vision datasets (TinyImageNet, CIFAR-100). A plausible explanation is that medical tasks represent out-of-domain scenarios, requiring feature representations that diverge considerably from those learned by the original pretrained models. This challenge is further exacerbated in low-data settings, where learning domain-specific features becomes more difficult. In contrast, natural-vision tasks remain largely in-domain, aligning more closely with the pretraining distribution, and thus benefiting more from adapter-based fine-tuning.
+
+② Negative Effects of Adapters in Extremely Low Training Data in Medical Imaging. We further observe that in medical imaging tasks, when training data is limited to 1% or less, the performance gain from applying Adapters becomes negative, indicating a detrimental impact on model performance. Unlike natural images, medical images typically exhibit low contrast, ambiguous boundaries, and small or irregular pathological structures (Zhang et al., 2024), which usually demand a large effective receptive field (ERF) to capture long-range contextual dependencies. However, standard Adapter do not possess a strong inductive bias toward expanding the ERF. We hypothesize that under limited supervision, this limitation restricts the Adapter's capacity to learn spatially dispersed features and long-range contextual dependence, thereby contributing to the observed degradation in performance.
+
+③ Reduced Effective Receptive Field Under Constrained Training Data. To validate whether reduced supervision limits the Adapter's ability to capture spatially dispersed features and longrange contextual dependencies, we visualize the ERF of Adapters trained on varying proportions of the training set, ranging from 0.63% to 100%, using the COVID dataset and the pretrained ViT-B model. Following the definition in (Araujo et al., 2019), the ERF of a neural network layer refers to the region encompassing all input pixels that exert a non-negligible influence on a given output unit. As shown in Figure 2, the ERF becomes progressively smaller as the amount of training data decreases. This observation supports our hypothesis that limited supervision restricts the Adapter's ability to learn spatially diverse patterns and long-range contextual relationships, which are particularly crucial in medical imaging tasks. We provide complementary ERF analysis on an alternative backbone (Swin-T) in Appendix F.4, which leads to consistent conclusions, reinforcing the generality of our observations.
+
+These findings indicate that standard Adapter fail to enlarge the ERF in low-data settings, which in turn degrades model performance. Consequently, it is crucial to develop new Adapter architectures with a built-in inductive bias toward expanding the ERF.
+
+![](images/c82cf82572148ca28e6d1ad1ed0b4b4dfacc7eb6ebf02845e3865bfc6ecca4af.jpg)  
+Figure 2: Effective Receptive Field of Standard Adapters Across Varying Training Set Ratios. Experiments are conducted on the COVID dataset using the pretrained ViT-B.
+
+## 3 DUAL-KERNEL ADAPTER
+
+To mitigate the adverse effects of standard Adapter in low-data regimes, we propose the Dual-Kernel Adapter (DKA), which explicitly integrates a large-kernel convolution to expand the ERF and a small-kernel convolution to preserve local spatial details. Prior studies have demonstrated that large kernels introduce a strong inductive bias toward capturing broader contextual information by expanding the ERF (Huang et al., 2023; Liu et al., 2022; Ding et al., 2022).
+
+As illustrated in Figure 3, DKA first reduces the dimensionality of the input features through a linear down-projection. After this step, the patch tokens are reshaped back to their 2D spatial layout so that depthwise convolutions can be applied in the image domain. The reduced features are then processed in parallel by two depthwise convolution branches—a computationally efficient form of convolution that applies a distinct filter to each input channel (Chollet, 2017). One branch employs a large kernel to significantly enlarge the receptive field, facilitating the modeling of long-range dependencies. The other branch uses a smaller kernel to retain fine-grained spatial features essential for capturing localized structures. The outputs from the two branches are aggregated via element-wise summation, followed by a GELU activation, a linear up-projection, and a residual connection to the input.
+
+Formally, the DKA operation can be expressed as:
+
+$$
+f _ { \mathrm { D K A } } ( \pmb x ) = \pmb x + \mathrm { U p } \big ( \sigma \big ( \mathrm { D W C o n v } _ { \mathrm { l a r g e } } \big ( \mathrm { D o w n } ( \pmb x ) \big ) + \mathrm { D W C o n v } _ { \mathrm { s m a l l } } \big ( \mathrm { D o w n } ( \pmb x ) \big ) \big ) \big )\tag{1}
+$$
+
+where Down(·) and Up(·) denote linear projection layers, $\mathrm { D W C o n v _ { l a r g e } }$ and $\mathrm { D W C o n v } _ { \mathrm { s m a l l } }$ are depthwise convolutions with kernel sizes 51 and 5 respectively, and σ is the GELU activation.
+
+## 4 EXPERIMENTS
+
+==================== /home/dev/mywork/project/segment/parsing/[2023 iccv] Dynamic Snake Convolution based on Topological Geometric Constraints for Tubular Structure Segmentation
+# Dynamic Snake Convolution based on Topological Geometric Constraints for Tubular Structure Segmentation
+
+Yaolei Qi¹, Yuting He1, Xiaoming Qi1, Yuan Zhang1, and Guanyu Yang1,2,3\*
+
+1 Key Laboratory of New Generation Artificial Intelligence Technology and Its Interdisciplinary Applications (Southeast University), Ministry of Education, Nanjing 210096, China 2 Jiangsu Province Joint International Research Laboratory of Medical Information Processing, Southeast University, Nanjing, China
+
+3 Centre de Recherche en Information Biomédicale Sino-Français (CRIBs), Strasbourg, France yaolei710@seu.edu.cn, yang.list@seu.edu.cn
+
+## Abstract
+
+Accurate segmentation of topological tubular structures, such as blood vessels and roads, is crucial in various fields, ensuring accuracy and efficiency in downstream tasks. However, many factors complicate the task, including thin local structures and variable global morphologies. In this work, we note the specificity of tubular structures and use this knowledge to guide our DSCNet to simultaneously enhance perception in three stages: feature extraction, feature fusion, and loss constraint. First, we propose a dynamic snake convolution to accurately capture the features of tubular structures by adaptively focusing on slender and tortuous local structures. Subsequently, we propose a multi-view feature fusion strategy to complement the attention to features from multiple perspectives during feature fusion, ensuring the retention of important information from different global morphologies. Finally, a continuity constraint loss function, based on persistent homology, is proposed to constrain the topological continuity of the segmentation better. Experiments on 2D and 3D datasets show that our DSCNet provides better accuracy and continuity on the tubular structure segmentation task compared with several methods. Our codes are publicly available.
+
+## 1. Introduction
+
+The accurate segmentation of topological tubular structures is paramount in various fields to ensure the precision and efficiency of downstream tasks. In clinical applications, a well-delineated blood vessel is a crucial prerequisite for computational hemodynamics, and it assists radiologists in locating and diagnosing lesions [13, 16]. In remote sensing applications, complete road segmentation provides a solid foundation for route planning. Regardless of the field, these structures share common features of being thin and tortuous, which make them challenging to capture due to their small proportion in images. Therefore, there is an urgent need to enhance the perception of thin tubular structures.
+
+![](images/484cc88080bca0863601c19cfc80713eadf6769bc88f5605688868807061770f.jpg)  
+Figure 1. Challenges. The above figure shows a 3D heart vascular dataset and a 2D remote road dataset. Both datasets aim to extract tubular structures, but this task faces challenges due to fragile local structures and complex global morphology. Motivation. The standard convolutional kernel is intended to extract local features. On this basis, deformable convolutional kernels have been designed to enrich their application and adapt to geometric deformations of different targets. However, due to the aforementioned challenges, it is difficult to focus efficiently on the thin tubular structures.
+
+However, it remains challenging due to the following difficulties: (1) Thin and fragile local structure. As shown in Figure 1, thin structures account for only a small proportion of the overall image with limited pixel composition. Moreover, these structures are susceptible to interference from complex backgrounds, rendering it difficult to precisely discriminate subtle target variations by the model. Consequently, the model may struggle to differentiate these structures, resulting in the fracture of the segmentation. (2) Complex and variable global morphology. Figure 1 shows the complex and variable morphology of thin tubular structures, even within the same image. Morphological variations are observed in targets located in different regions, depending on the number of branches, the location of bifurcations, and the path length. The model may tend to overfit features that have already been seen, resulting in weak generalization when the data exhibits unprecedented morphological structures.
+
+Recently, many studies have proposed incorporating domain knowledge (e.g. geometric topology and tree structure) to guide the model better to perceive the distinctive features of the tubular structures, thus focusing on improving the accuracy of local segmentation and maintaining the continuity of global morphology. Existing methods can be broadly classified into three categories: (1) Networkbased methods [7, 12, 31, 28, 14, 8] design specific network architectures according to the characteristics of the tubular structures that guide the model to focus on critical features. However, given the small proportion of tubular structures, the network may inevitably lose the perception of the corresponding structures. (2) Feature-based methods [21, 33, 15, 35, 20] enhance the comprehension of the particular geometric and topological features of tubular structures by supplementing the model with additional feature representations. However, some redundant feature representations exacerbate the computational burden while not providing a positive influence on the model. (3) Loss-based methods [24, 29, 1, 30] incorporate measurement methods to supplement constraints during the training process, typically through loss functions. These methods reinforce the stringent constraints on segmentation. Building on this foundation, structured losses combined with continuity constraints from the topological perspective will potentially further improve the accuracy of the tubular segmentation.
+
+To tackle the above obstacles, we propose a novel framework, DSCNet, involving a tubular-aware convolution kernel, multi-view feature fusion strategy, and topological continuity constraint loss function. (1) To address the challenge of the small proportion of thin and fragile local structures that are difficult for the model to focus on, we propose Dynamic Serpentine Convolution (DSConv) to enhance the perception of the geometric structure by adaptively focusing on the thin and curved local features of tubular structures. Unlike deformable convolution [6], which leaves the network completely free to learn geometrical changes, thus causing perceptual regions to wander, especially on thin tubular structures, our DSConv considers the snake-like morphology of tubular structures and supplements the free learning process with constraints that allow for targeted enhancement of the perception of tubular structures. (2) To address the challenge of complex and variable global morphology, we propose a multi-view feature fusion strategy. In this method, we generate multiple morphological kernel templates based on DSConv for viewing the structural features of the target from various perspectives and achieve efficient feature fusion by summarizing typical vital features. (3) To address the problem that segmentation of tubular structures is prone to fracture, we propose a Topological Continuity Constrained Loss Function (TCLoss) based on Persistent Homology (PH). PH[9, 19, 5] responds to the process of topological features from emergence to disappearance. It obtains adequate topological information from noisy high-dimensional data. The related Betti numbers are one way of describing connectivity in the topological space. Unlike [30, 10], our TCLoss combines PH with point set similarity to pilot the network to focus on fracture regions with anomalous pixel/voxel distributions, achieving continuity constraints from a topological perspective.
+
+To summarize, our work proposes a novel framework of knowledge fusion addressing the difficulties of the thin tubular structures, and the specific contributions are threefold. (1) We propose a dynamic snake convolution to adaptively focus on the slender and tortuous local features and realize the accurate tubular structures segmentation on both 2D and 3D datasets. Our model is thoroughly verified using both internal and external test data. (2) We propose a multi-perspective feature fusion strategy to supplement the attention to the vital features from multiple perspectives. (3) We propose a topological continuity constraint loss function based on Persistent Homology, which better constrains the continuity of the segmentation.
+
+## 2. Related Work
+
+## 2.1. Methods based on Network Design
+
+Various methods have been proposed to achieve better performance by designing particular network architectures and modules according to the morphology of the tubular structures. (1) Methods based on the convolutional kernel design, represented by the famous dilated convolution [32] and deformable convolution [6], are proposed to deal with the inherent limited geometric transformation in CNNs, showing outstanding performance on sophisticated detection and segmentation tasks. These methods [7, 34, 12, 31] are also designed to dynamically perceive the geometric features of the objects to adapt to the structure with changeable morphology. For example, DUNet proposed in [12] integrates the deformable convolution into the U-shape architecture and adaptively adjusts the receptive field according to the vessels’ scales and shapes. (2) Methods based on the network architecture design are proposed to learn the special geometric topological features of the tubular structures. PointScatter [28] is proposed to represent the tubular structure with points set, which is an alternative to the segmentation models for the tubular structure extraction task. [14] proposed a tree-structured convolutional gated recurrent unit to model the coronary artery's topological structures explicitly. Different from the ideas mentioned above of allowing the model to learn the geometric changes completely freely, considering the limitation of the convergence difficulty caused by excessive randomness and the possibility that the model will focus on the unexpected regions of the target. Our work integrates the domain knowledge of tubular structure morphology to stably enhance the perception of the tubular structure in the feature extraction process.
+
+## 2.2. Methods based on Features Fusion
+
+Methods based on features fusion [35, 15, 33, 21, 20] strengthens the representation of the tubular structure by supplementing additional feature information to the model. Considering the topology and the sparsity of the tubular structures, [35] proposed a cross-network multi-scale feature fusion method performed between two networks to support high-quality vessel segmentation effectively. In [15], a global transformer and dual local attention network via deep-shallow hierarchical feature fusion are investigated to simultaneously capture the global and local characterizations. [33] proposed to fuse the contextual anatomical information and vascular topologies for accurate tubular structure segmentation. In our work, we propose a multiperspective feature fusion strategy to supplement the attention to the vital features from multiple perspectives. In this strategy, we generate numerous morphological kernel templates based on our DSConv to observe the structural characteristics of the target from multiple perspectives and realize the feature fusion by summarizing the essential standard features, thus improving the performance of our model.
+
+## 2.3. Methods based on Loss Function
+
+Methods based on loss function [24, 29, 1] introduce measurement methods to supplement constraints in the training process. These methods strengthen the strong constraints on the tubular structures segmentation. [24] introduced a similarity measurement termed centerline Dice, which is calculated on the intersection of the segmentation masks and the skeleton. [29] proposed a geometryaware tubular structure segmentation method, Deep Distance Transform (DDT), which combines intuitions from the classical distance transform for skeletonization and tubular structure segmentation. These methods focus on the continuity of the tubular structure segmentation, but the skeleton's inaccuracy and offset will affect the constraints' precision. [1] proposed a similarity index that captures the topological consistency of the predicted segmentation and designs a loss function based on the morphological closing operator for tubular structure segmentation. In [30], topological data analysis methods are incorporated with a geometric deep learning model for fine-grained segmentation for 3D objects. These methods will capture the features of the topological objects. Drawing inspiration from this, our work proposes a topological continuity constraint loss function (TCLoss) that better constrains the continuity of the segmentation from a topological perspective. Our TCLoss gradually introduces constraints based on Persistence Homology [27, 2] during the training process to guide the network to focus on the fracture regions and realize continuity.
+
+## 3. Methodology
+
+Our method is designed to deal simultaneously with 2D and 3D feature maps of thin tubular structures. For simplicity, our modules are described in 2D, and the detailed extension to 3D is also provided in our open source.
+
+## 3.1. Dynamic Snake Convolution
+
+In this section, we discuss how to perform Dynamic Snake Convolution (DSConv) to extract the tubular structure's local features. Given the standard 2D convolution coordinates as $K ,$ the central coordinate is $K _ { i } = ( x _ { i } , y _ { i } )$ . A $3 \times 3$ kernel K with dilation 1 is expressed as:
+
+$$
+K = \{ ( x - 1 , y - 1 ) , ( x - 1 , y ) , \cdot \cdot \cdot , ( x + 1 , y + 1 ) \}\tag{1}
+$$
+
+To give the convolution kernel more flexibility to focus on complex geometric features of the target, inspired by [6], we introduced deformation offsets $\Delta .$ However, if the model is left free to learn the deformation offsets, the perceptual field tends to stray outside the target, especially in the case of thin tubular structures. Therefore, we use an iterative strategy (Figure 3), selecting the following position to be observed in turn for each target to be processed, thus ensuring continuity of the attention and not spreading the field of sensation too far due to the large deformation offsets.
+
+In DSConv, we straighten the standard convolution kernel, both in the direction of the x-axis and the y-axis. We consider a convolution kernel of size 9 and take the xaxis direction as an example, the specific position of each grid in K is represented as: $K _ { i \pm c } = ( x _ { i \pm c } , y _ { i \pm c } )$ , where $c = \{ 0 , 1 , 2 , 3 , 4 \}$ denotes the horizontal distance from the central grid. The selection of each grid position $K _ { i \pm c }$ in the convolution kernel K is a cumulative process. Starting from the center position $K _ { i }$ , the position away from the center grid depends on the position of the previous grid: $K _ { i + 1 }$ is augmented with an offset $\Delta = \{ \delta | \delta \in [ - 1 , 1 ] \}$ compared to $K _ { i }$ . Hence, the offset needs to be Σ, thus ensuring that the convolution kernel conforms to a linear morphological structure. Figure 3 in the direction of the x-axis becomes:
+
+![](images/68f257016371342f9a8b1eb47b26cb266204fbfcece6bca9e6d8b8dfd408359c.jpg)  
+Figure 2. Methodology. Schematic overview of our proposed method illustrated on an example of the 3D coronary artery segmentation Our method has three sections: (1) Dynamic snake convolution (DSConv), which learns the deformation according to the input feature map, adaptively focuses on the slender and tortuous local features under the knowledge of the tubular structure morphology. (2) Multi-view feature fusion strategy, which generates multiple morphological kernel templates based on our DSConv and is used to observe the structural characteristics of the target from multiple perspectives. (3) Loss function, called topological continuity constraint loss function (TCLoss), is based on Persistent Homology to guide the network to focus on the fracture regions with abnormally low pixels/voxels distribution and realize continuity constraint.
+
+$$
+K _ { i \pm c } = \left\{ \begin{array} { l } { { ( x _ { i + c } , y _ { i + c } ) = ( x _ { i } + c , y _ { i } + \Sigma _ { i } ^ { i + c } \Delta y ) , } } \\ { { ( x _ { i - c } , y _ { i - c } ) = ( x _ { i } - c , y _ { i } + \Sigma _ { i - c } ^ { i } \Delta y ) , } } \end{array} \right.\tag{2}
+$$
+
+and Equation 2 in the direction of the y-axis becomes:
+
+$$
+K _ { j \pm c } = \left\{ \begin{array} { l } { ( x _ { j + c } , y _ { j + c } ) = ( x _ { j } + \Sigma _ { j } ^ { j + c } \Delta x , y _ { j } + c ) , } \\ { ( x _ { j - c } , y _ { j - c } ) = ( x _ { j } + \Sigma _ { j - c } ^ { j } \Delta x , y _ { j } - c ) , } \end{array} \right.\tag{3}
+$$
+
+As the offset $\Delta$ is typically fractional, bilinear interpolation is implemented as:
+
+$$
+K = \Sigma _ { K ^ { \prime } } B ( K ^ { \prime } , K ) \cdot K ^ { \prime }\tag{4}
+$$
+
+![](images/b7cc10e083ce6198065b9ad6632ea369c7e800f8ca35a55b4f046182efb1421c.jpg)  
+Figure 3. Left: Illustration of the coordinates calculation of the DSConv. Right: The receptive field of the DSConv.
+
+where K denotes a fractional location for Equation 2 and Equation 3, $K ^ { \prime }$ enumerates all integral spatial locations and B is the bilinear interpolation kernel and it is separated into two one-dimensional kernels as:
+
+$$
+B ( K , K ^ { \prime } ) = b ( K _ { x } , K _ { x } ^ { \prime } ) \cdot b ( K _ { y } , K _ { y } ^ { \prime } )\tag{5}
+$$
+
+As shown in Figure 3, our DSConv covers a $9 \times 9$ range during the deformation process due to the two-dimensional (x-axis, y-axis) changes. DSConv is designed to better adapt to the slender tubular structure based on the dynamic structures so as to better perceive the key features.
+
+## 3.2. Multi-view Feature Fusion Strategy
+
+This section discusses implementing the multi-view feature fusion strategy to guide the model to complement the focus on essential features from multiple perspectives. For each K, two feature maps $f ^ { l } ( K _ { x } )$ and $f ^ { l } ( K _ { y } )$ from layer l are extracted from the x-axis and y-axis, expressed as:
+==================== /home/dev/mywork/project/segment/parsing/[2025 cvpr] DeformCL: Learning Deformable Centerline Representation for Vessel Extraction in 3D Medical Image
+# DeformCL: Learning Deformable Centerline Representation for Vessel Extraction in 3D Medical Image
+
+Ziwei Zhao1\* Zhixing Zhang2,5\* Yuhang Liu¹† Zhao Zhang2
+
+Haojun Yu⁴ Dong Wang1 Liwei Wang3,4
+
+1Yizhun Medical AI Co., Ltd 2Center for Data Science, Peking University
+
+3Center for Machine Learning Research, Peking University
+
+4State Key Laboratory of General Artificial Intelligence, School of Intelligence Science and Technology, Peking University 5Pazhou Laboratory (Huangpu), Guangzhou, Guangdong, China
+
+{ziwei.zhao, yuhang.liu, dong.wang}@yizhun-ai.com
+
+{zhangzhixing@stu., zhangzh@stu., haojunyu@, wanglw@}pku.edu.cn
+
+## Abstract
+
+In the field of 3D medical imaging, accurately extracting and representing the blood vessels with curvilinear structures holds paramount importance for clinical diagnosis. Previous methods have commonly relied on discrete representation like mask, often resulting in local fractures or scattered fragments due to the inherent limitations of the per-pixel classification paradigm. In this work, we introduce DeformCL, a new continuous representation based on Deformable Centerlines, where centerline points act as nodes connected by edges that capture spatial relationships. Compared with previous representations, DeformCL offers three key advantages: natural connectivity noise robustness, and interaction facility. We present a comprehensive training pipeline structured in a cascaded manner to fully exploit these favorable properties of DeformCL. Extensive experiments on four 3D vessel segmentation datasets demonstrate the effectiveness and superiority of our method. Furthermore, the visualization of curved planar reformation images validates the clinical significance of the proposed framework. We release the code in https://github.com/barry664/DeformCL.
+
+## 1. Introduction
+
+Cerebro-cardiovascular disease is one of the most severe global health threats [22]. Timely detection of potential high-risk locations and prompt intervention are crucial to reducing mortality, relying on accurate extraction, reconstruction, and analysis of major vessels in CTA images [16].
+
+In clinical practice, the primary requirement is to achieve accurate segmentation of primary vessel branches to enable comprehensive vascular system assessment and detailed local analysis.
+
+Previous methodologies [1, 21, 25, 26, 29, 31] have predominantly adopted the traditional semantic segmentation approach, which relies on fine-grained, per-pixel classification within a discrete mask representation. As illustrated in the top part of Figure 1, to improve the volumetric scores (e.g. Dice) or topological metrics (e.g. betti number errors) for segmentation, these approaches introduce a variety of innovations, such as incorporating tubular priors into network architecture [13, 21, 25, 31, 36, 39] or designing topology-preserving loss functions [1, 9, 26]. Despite these advancements in the training process, the core issue that the discrete mask representation is not well-suited for the curvilinear vessels remains unchanged, imposing several inherent limitations that restrict the model's performance and applicability, as shown in the top part of Figure 2. Firstly, the neural networks struggle to recognize fragile and tortuous local structures, which may lead to segmentation fractures [21]. Moreover, the discrete representation exhibits poor robustness to local noise [26, 29], such as variations in tissue density, due to the lack of a holistic view of the global morphology. Consequently, it may mistakenly identify the tissues with appearances similar to target vessels. Finally, designing an effective feature aggregation strategy along tubular curves remains challenging, considering the lack of explicit relationships among elements in discrete mask representations.
+
+These challenges motivate us to seek a continuous representation that can explicitly fit the tubular structures from a holistic view, rather than confined to per-pixel classification paradigm. In this paper, we introduce DeformCL, a new representation for vessel extraction in 3D medical image based on Deformable Centerline. As shown in the bottom part of Figure 1, DeformCL employs a graph structure, wherein centerline points serve as nodes connected by edges representing their spatial relationships. This continuously defined representation accurately depicts the curvilinear structures, thus circumventing the drawbacks of discrete mask representation and has its own merits: (1) the incorporation of natural connectivity mitigates centerline ruptures, particularly in the thin and fragile areas; (2) by considering the entire curvilinear structures rather than local pixels, DeformCL ensures a comprehensive understanding of the global morphology, thus reducing local artifacts and false positives; (3) the inherent graph structure facilitates efficient and effective feature aggregation along the tubular curves, enhancing overall segmentation performance.
+
+![](images/e1a8b5303504c99e59cdb2bffcf5c39c2e6377af038808deb9117a583fb668bb.jpg)  
+Figure 1. Previous methods [1, 21, 26, 29, 31] primarily rely on the discrete mask representation, adopting a per-pixel classification paradigm for vessel segmentation. Common techniques in these approaches include incorporating tubular priors and applying topologypreserving loss functions. In contrast, we introduce a new continuous representation, DeformCL, which employs centerline points connected by edges to gradually fit the curvilinear vessels via a template deformation process. Once structured centerlines are obtained, generating segmentation predictions with improved topological accuracy becomes a straightforward task.
+
+We propose a novel framework to learn deformable centerline representation from 3D medical images. Our framework consists of several key steps. Firstly, we adaptively generate an initial continuous centerline template based on the input image, taking anatomical variations among different individuals into account. Next, the centerline points within the template will interact with each other to capture features along tubular curves. The whole centerline template will be iteratively refined by deformation and unpooling layers, gradually aligning with the ground truth centerlines. Finally, after obtaining precise centerlines of tubular structures, crafting a high-quality segmentation algorithm becomes a straightforward task. In our approach, we leverage the distance map derived from the predicted centerline points to execute the final segmentation process effortlessly. Benefiting from the high-quality continuous centerlines, the segmentation performance is improved significantly.
+
+We benchmark DeformCL on four 3D medical datasets, and the extensive experiments validate the effectiveness of our proposed method. Additionally, due to its continuous nature, DeformCL's centerline predictions can be directly used as a structural representation of vessels, commonly as directional centerlines [10, 24]. This structural representation is crucial in clinical practice, serving as an indispensable component in various subsequent diagnostic tasks, such as curved planar reformation [11] and computational hemodynamics [27]. We qualitatively demonstrate the clinical relevance of DeformCL, highlighting its potential applicability for diagnostic purposes.
+
+In summary, our main contributions are three-fold:
+
+• We introduce a continuous representation, called DeformCL, which possesses several favorable properties for curvilinear vessels in 3D medical image.
+
+• We propose a comprehensive pipeline for effectively training DeformCL through a cascaded deformation process.
+
+• Our approach significantly bolsters the performance of several baselines on four 3D vessel extraction datasets.
+
+## 2. Related Work
+
+## 2.1. Vessel Segmentation in 3D Medical Image
+
+Vessel segmentation in 3D medical image is a crucial task due to the prevalence of curvilinear vessels in the human body. Classical modern segmentation models like UNet [3, 23] and FCN [17] face challenges in accurately extracting tubular structures due to their complex global morphology and fragile thin structures. Previous methods have adopted various strategies to address these challenges: incorporate tubular priors into network architecture [14, 21, 25, 31, 33, 36, 39], design topology-preserving loss functions [1, 9, 26] or employ more flexible representation [29, 38]. Shit et al. [26] introduces a new connectivityaware similarity measure called clDice, and the differentiable version can be used to train segmentation models for tubular structures. Qi et al. [21] proposes a dynamic snake convolution to let networks adaptively focus on the tubular structures and make more accurate predictions. Wang et al. [29] relies on the flexibility of point set representation which is not restricted to a fixed grid to promote the performance of tubular structure extraction.
+
+## 2.2. Deformable Paradigm
+
+The deformable paradigm is a widely used technique in deep learning, particularly in computer vision, where it plays a crucial role in capturing complex structures and achieving significant advancements in various tasks. Introduced by Dai et al. [4], deformable convolution extends traditional convolutions to capture complex structures effectively. It has been successfully applied in tasks such as object detection and segmentation, allowing models to adapt to object variations and complex shapes. Deformable DETR [41] combines attention mechanism with deformable paradigm for efficient feature extraction process. In addition, deformable structures have also found applications in 3D reconstruction tasks [2, 14, 30, 32, 34, 40]. For instance, Pixel2Mesh [30] generates 3D shapes represented as triangular meshes from single images by progressively deforming an initial ellipsoid. Similarly, Voxel2Mesh [32] extends this approach to generate organ surfaces from 3D medical volumes, facilitating organ segmentation and visualization. Kong et al. [14] proposed a deep-learning approach to generate whole heart geometries from pre-defined mesh templates, demonstrating the versatility of deformable structures in human anatomical modeling.
+
+## 3. Method
+
+In this section, we will first introduce the new representation DeformCL and its favorable properties in Sec 3.1. Sec 3.2 elaborates on the network architecture for learning deformation centerline representation from 3D medical images. Sec 3.3 presents the training losses for the framework.
+
+## 3.1. Representation of DeformCL
+
+In 3D medical imaging, a common representation of a given volume $I \in \overline { { \mathbb { R } } } ^ { \overline { { \mathbb { H } } } \times \mathbb { W } \times \mathbb { D } }$ is its segmentation mask, denoted as $Y ~ \in ~ \mathbb { R } ^ { \mathbb { H } \times \mathbb { W } \times \mathbb { D } }$ Nearly all previous methods [1, 21, 25, 26, 29, 31] rely on this discrete mask representation, framing the task as per-pixel classification. This paradigm inherently possesses several limitations, as illustrated in the top part of Figure 2, which ultimately restrict the model's performance.
+
+In this paper, we introduce a novel continuous representation called Deformable CenterLine (DeformCL) to efficiently and effectively capture tubular structures in 3D medical image. Instead of relying on segmentation mask, we represent tubular structures using a graph $\mathcal { G } ~ = ~ \{ \nu , \epsilon \}$ where $\mathcal { V } = \{ v _ { i } | v _ { i } \in \mathbb { R } ^ { 3 } \} _ { i = 1 } ^ { N }$ is a set of N vertices standing for centerline points, $\epsilon = \{ ( k , w ) | 1 \leq k , w \leq N \}$ is the set of edges connecting adjacent vertices.
+
+![](images/d4d12bfdc75e8be1b708e1a8a44030c790c9ca39b7aa0f567cf5b569552e9277.jpg)  
+Figure 2. Three significant properties of DeformCL compared with the discrete mask representation. (Zoom in for more details.)
+
+As shown in the bottom part of Figure 2, compared with previous discrete representations, DeformCL possesses several favorable properties, making it a reasonable and effective representation for tubular structure modeling.
+
+Natural connectivity. Unlike traditional discrete representations, DeformCL naturally exhibits the connectivity among centerline points, which explicitly models the tubular structures in a continuously defined way. On one hand, this continuous representation helps prevent predictions from breaking in thin and fragile regions. On the other hand, the traditionally complex and time-consuming continuous centerlines extraction [10, 19] from segmentation for curved planner reconstruction [11] is eliminated.
+
+Noise robustness. Thanks to its top-down manner, DeformCL exhibits robustness to noise and local disturbances, such as variations in tissue density or the presence of contrast agents. This inherent property enables DeformCL to effectively filter out local artifacts and false positives, leading to more accurate and reliable tubular structure extraction compared to previous bottom-up methods.
+
+Interaction facility. Constrained by the discrete representation, previous methods [21, 26, 29, 31] lack of an effective approach for tubular feature aggregation. On the contrary, DeformCL's graph structure facilitates feature fusion process via methods like GCN [12] or Transformer [28] along the tubular curve. This global information interaction is significant for the structure completeness and topology correctness of tubular predictions.
+
+## 3.2. Network Architecture
+
+In this subsection, we will introduce the network architecture for learning deformable centerline representation. The whole framework is shown in Figure 3. Given a 3D medical image $I \in \mathbb { R } ^ { \mathbb { H } \times \mathbb { W } \times \mathbb { D } }$ , we first pass it through a 3D backbone (e.g. 3D UNet [3]) to obtain hierarchical feature maps $\{ F _ { i } \} _ { i = 1 } ^ { m }$ at different down-sampled rates. Additionally, the backbone network produces a coarse segmentation result $\hat { Y } _ { c } \in \mathbb { R } ^ { \mathbb { H } \times \mathbb { W } \times \mathbb { D } }$ for each category of vessels.
+
+Adaptive Template Generation. In order to initialize the graph structure of DeformCL, we attempt to initialize a tubular template motivated by mesh generation methods [30, 32]. However, unlike human organs, tubular structures in 3D medical image, such as coronary arteries, exhibit complex global morphology and variable extension direction, which means that discovering a universal template for such structures poses significant challenges. Therefore, we introduce a new method to adaptively generate initial templates for each image.
+
+![](images/5b96d8fe10c13614eaad53452268e185666b40beaaf98f19de9f9e0c301afcea.jpg)  
+Figure 3. Overview of the training process. Given a 3D medical image, the segmentation network first outputs a coarse prediction and generates hierarchical downsampled feature maps. An initial template, produced by the Adaptive Template Generation module, is then iteratively fed through deformation and unpooling layers to progressively adapt to the curvilinear structures. Finally, refined segmentation results are generated based on the accurately aligned continuous centerlines. We apply Dice loss to both the coarse and refined segmentation predictions, and local chamfer loss, SDF loss, and regularization loss for centerline predictions.
+
+The template generation process, illustrated in the Figure 4, is conducted independently for each category of vessels. Firstly, the coarse segmentation result $\hat { Y } _ { c }$ is converted into discrete centerline points via traditional 3D thinning algorithm [15]. These points are then reconstructed into a graph using the minimum spanning tree algorithm [7] following the strategy in [37]. Next, a set of $k$ control points is selected from the graph at fixed distances, serving as the abstraction of the structure. Finally, curvilinear interpolation (e.g. Bezier Curve Interpolation, Linear Interpolation) is applied based on the control points to generate the initial template, denoted as $\{ v _ { i } ^ { c } | v _ { i } ^ { c } \in \bar { \mathbb { R } } ^ { 3 } \} _ { i = 1 } ^ { N _ { c } }$ . Here, $v _ { i } ^ { c }$ represents the i-th point for category $c , N _ { c }$ is the total number of points for category c, and $v _ { i } ^ { c }$ is connected with $v _ { i + 1 } ^ { c }$ by default.
+
+It is worth noting that we adopt a rough template generation strategy using control points instead of directly utilizing the reconstructed tree as the initial template. The reason is that we empirically find overly accurate initial templates may harm model performance, supported by experimental results shown in Table 3. We speculate that overly accurate initial templates may simplify the deformation task excessively, potentially leading to insufficient model training.
+
+Cascaded Deformation Process. After the generation of initial templates, we proceed with the cascaded deformation process to refine the centerline predictions. For clarity, we focus on the centerline points of one category of vessels in the subsequent sections of the paper.
+==================== /home/dev/mywork/project/segment/parsing/[2026 aaai] CaPro: Curvilinear-aware Prompt Learning with Single Unlabeled Image for Cost-effective Curvilinear Structure Segmentation
+Oriented Curviline Detecting
+
+# CaPro: Curvilinear-aware Prompt Learning with Single Unlabeled Image for Cost-effective Curvilinear Structure Segmentation
+
+Zhuangzhuang Chen 1\*, Qiangyu Chen 2\*, Chubin Ou3, Xiaomeng Li1†
+
+1 Department of Electronic and Computer Engineering, The Hong Kong University of Science and Technology
+
+2 College of Computer Science and Software Engineering, Shenzhen University
+
+3Department of Radiology, Guangdong Provincial People's Hospital, Southern Medical University eezzchen@ust.hk, 2021152010@email.szu.edu.cn, cou@connect.ust.hk, eexmli@ust.hk
+
+## Abstract
+
+Curvilinear structure segmentation (CSS) plays a vital role in industrial applications, including medical imaging and structural health monitoring. Recently, the strong capacity of the Segment Anything Model (SAM) has inspired its downstream application in CSS tasks. To adapt SAM to CSS tasks, previous methods heavily rely on a certain number of samples and costly pixel-level annotation, which are hard to access for a new scenario. Considering this, the goal of our work is to adapt SAM in a very cost-effective setting where only a single unlabeled image is given. This is far more challenging than the typical supervised, unsupervised, or self-supervised learning manner that needs a large number of training samples. To tackle this problem, we propose a finetuning-free SAM for curvilinear structure segmentation, called curvilinear-aware prompt learning (CaPro), which aims to automatically learn visual prompts via a single unlabeled image. In the first stage, we generate extensive curvilinear structures and oriented subcurvilinear box annotations. To increase the realness of generated curvilinear structures, we adapt these structures into real image domains via the Fourier Transform using a single realworld unlabeled image. Now, these adapted images can be used to train our oriented sub-curvilinear detector. In the second stage, we propose the curvilinear-aware discrete representation matching to filter those unreliable detection results. Afterward, these reliable detection results can be converted into informative prompts, contributing to the cost-effective SAM adaptation to CSS tasks. Experiments demonstrate the effectiveness of CaPro on medical image and crack segmentation tasks.
+
+Code — https://github.com/xmed-lab/CaPro
+
+## Introduction
+
+Curvilinear Structure Segmentation (CSS) shows its great importance in various real-world applications including industrial crack segmentation (Chen et al. 2024a) and medical blood vessel segmentation (Chen et al. 2024b). It aims to segment binary masks of those curvilinear objects, which can advance structural health monitoring in industrial scenarios (Liu et al. 2021) or assist doctors with lesion diagnosis in the medical domain (Li et al. 2018, 2020; Yao, Hu, and
+
+![](images/853803bcce478fa383b92d96c31b5d01b1fa1d8ada4e8cda2dfcbcfd876b6c9b.jpg)
+
+![](images/b556eb7a866e597c0f105e80b9fd11418b063e2a822f6703264136ec007eb2a4.jpg)
+
+![](images/4996bce0a33e5d31ceb0c063f4735dfa92b157de3c15a87e982c2fa9b4157939.jpg)
+
+![](images/fbaef25dedfde66ab2c0d7741900593de2ba8531b5c967bef3234d2a2bf7372d.jpg)
+
+![](images/162a69936b9846948c8482633f11a1fa6c092888429712cb59b6383684ad0068.jpg)  
+(b) SAM with Ours >> High Performance and No Labeling Costs
+
+![](images/c0c7207190d4ea1e90ac62430d777c976feda2babc22c970252874700faba777.jpg)  
+Figure 1: Visualization results of SAM on curvilinear structures. (a) Vanilla SAM without prompts involves limited performance. (b) SAM combined with our curvilinear-aware prompt learning enjoys high performance and is free of human costs with two key innovations: (1) We are the first ones to detect curvilinear structures in a self-supervised oriented detection manner. (2) We propose curvilinear-aware discrete representation matching to filter those unreliable detection results, thus enabling the provision of informative prompts.
+
+Li 2022; Wang et al. 2024b; Chen et al. 2025b). The substantial progress in the CSS tasks lies in the rise of deep learning (DL) (Zhang et al. 2024; Li et al. 2024a). First, DeepCrack (Zou et al. 2018) and JTFN (Cheng et al. 2021) successfully leverage Convolutional neural networks (CNNs) to segment cracks in an end-to-end manner. Later, with the witness of the success of Vision Transformer (ViT) in natural images (Li et al. 2024a; Li, Xiong, and Fan 2024), CrackFormer (Liu et al. 2021) shows the effectiveness of ViT in capturing long-range interactions (Wang et al. 2024a). However, these approaches require substantial annotated data.
+
+Considering the remarkable capabilities of the Segment Anything Model (SAM) (Kirillov et al. 2023), previous works (Ge et al. 2024; Xu et al. 2024) argue that SAM can be an ideal solution to overcome the limited availability of labeled samples in CSS tasks. However, directly applying SAM to CSS tasks in zero-shot settings results in very limited performance (See Fig. 1 (a) and Table 1), e.g., SAM achieves only 24.67% with the mIoU metric on the Deep-Crack dataset. Although existing prompt-free (Chen et al. 2023a; Cheng et al. 2024) and prompt-based (Feng, Zhu, and Yu 2023; Leng et al. 2024) SAM adaptation methods can greatly improve SAM performance on CSS tasks, these methods still rely on pixel-level annotations. Notably, it is labor-intensive to collect enough training samples form a new scenario (Lei, Zhong, and Dai 2024). Moreover, due to the complex curvilinear structures with ambiguous boundaries, such pixel-level labeling is time-consuming and relies on experienced experts. To this end, one remaining unexplored challenge arises: How can we adapt SAM to CSS tasks in a far more challenging and realistic scenario, where only a single unlabeled training image is provided?
+
+Inspired by FreeCOS (Shi et al. 2023), a naive solution is to leverage synthetic data to train the horizontal object detector in a self-supervised manner. Afterward, such a detector can provide prompts for SAM without any labeling costs. However, Table 1 shows that this simple approach yields suboptimal performance for two reasons: (i) The horizontal object detectors can not adapt to curvilinear structures that involve varying orientations. (ii) The prompts from those unreliable detection results would devastate SAM performance. To address these problems, here are two insights:
+
+• Curvilinear structures can be viewed as line objects with a certain orientation from local perspectives.
+
+• As shown in Fig. 4 (b), handwritten digits and curvilinear structure masks share topological isomorphism.
+
+Therefore, we propose curvilinear-aware prompt learning (CaPro), a two-stage framework for adapting SAM to CSS tasks without the SAM fine-tuning process. Our key idea is that the self-supervised oriented curvilinear object detector can be realized via curvilinear structures synthesis with a single unlabeled image, and then it can provide more informative prompts by filtering those unreliable ones. Specifically, in the first stage, motivated by the first insight, this is the first-of-its-kind work that detects curvilinear structures in a self-supervised oriented detection manner. To achieve this, we synthesize curvilinear structures using parametric fractal L-Systems (Zamir 2001) and generate the corresponding oriented bounding boxes. These structures are then adapted to real image domains via the Fourier Transform using a single unlabeled image. In return, many realistic synthetic samples with oriented bounding box annotations can be obtained. Afterward, our proposed customized oriented detector can be trained in a self-supervised manner with the help of the above synthetic data. Then, it enables automatic detection of curvilinear structures, and generates prompts for the SAM. In the second stage, motivated by the second insight, we propose curvilinear-aware discrete representation matching that leverages shared patterns between curvilinear structure and handwritten digits, to filter those unreliable detection results. In this way, SAM performance can be greatly enhanced by providing more reliable prompts. Our contributions are summarized as:
+
+• To the best of our knowledge, we are the first ones to adapt SAM to CSS tasks via self-supervised prompt generation without the costly SAM fine-tuning process.
+
+For this cause, this paper proposes the curvilinear-aware prompt learning (CaPro) that can serve as a plug-andplay module for the existing prompted-based SAM.
+
+• Propose the image-label pair curvilinear structures synthesis that enables our oriented detector to act as prompt generation module in an self-supervised manner.
+
+• Propose the curvilinear-aware discrete representation matching that acts in an self-supervised manner, to filter out unreliable prompts from inaccurate detection.
+
+• A labeled vessel segmentation dataset has been constructed, namely, OCT1600, which contains challenging samples with complex curvilinear structures, to facilitate the research on CSS tasks.
+
+## Related Work
+
+Curvilinear Structure Segmentation: Curvilinear Structure Segmentation receives extensive attention from various applications, e.g., crack detection (Liu et al. 2021; Lei et al. 2025), and biomedical image segmentation (Lei et al. 2024; Wang et al. 2019). Crackformer (Liu et al. 2021) achieves great success by embedding a novel Transformer encoder module. Despite these models’ great success, these models rely on extensive labeled crack samples for a new scenario and suffer from insufficient generalizability when faced with limited labeled training samples. To alleviate the annotation costs, (Lin et al. 2023) proposes a sparsely annotated segmentation framework. Meanwhile, (Carneiro-Esteves, Vacavant, and Merveille 2024) leverage real-world masks for obtaining pairs of connected/disconnected curvilinear structures. FreeCOS (Shi et al. 2023) generates curvilinear structures for training segmentation models.
+
+Herein, ours is distinct from these works in two-fold: (1) We perform CSS by adapting SAM via our self-supervised prompt generator without any annotation costs, SAM finetuning process, and training segmentation models. (2) Unlike the FreeCOS (Shi et al. 2023) generates curvilinear-like structures to enlarge segmentation training sets, we focus on image-label pair curvilinear synthesis for oriented curvilinear object detection. Then, we greatly boost the SAM performance on CSS tasks via our curvilinear-aware discrete representation matching to filter out those unreliable prompts.
+
+Vision Foundation Models for CSS Tasks: Since this paper focuses on leveraging large-scale foundation models for CSS tasks, we briefly review related research on this scope. Foundation models can serve as a new general paradigm of Artificial Intelligence (AI), showing its stronger intelligence than traditional models (Ge et al. 2024). Generally speaking, foundation models are pre-trained, large-scale models that allow for fast customization through fine-tuning (Wang and Li 2023a,b; Ye et al. 2024). Despite this great progress, it is not feasible to directly apply SAM for CSS tasks. The reason is that SAM does not encounter semantics related to curvilinear structures, such as cracks (Ye et al. 2024). Then, a few works attempt to fine-tune SAM to learn the specific semantics of curvilinear structures (Ge et al. 2024; Ye et al. 2024; Rakshitha et al. 2024). Ye et al. (Ye et al. 2024) and Ge et al. (Ge et al. 2024) utilize low-rank adaptation (LoRA)
+
+Stage I: Self-supervised Prompt Generation  
+![](images/81b6ea5da672d794e71ec21157647cd79f39283bf0fa69c9fecdcee52cc5c8d2.jpg)
+
+Stage II: Self-supervised Prompt Filtering  
+![](images/38f7bf6e651e8437d4bb174f096030d92d4c8ac9b247cc494905e5e7837111ce.jpg)  
+Figure 2: CaPro consists of two stages to facilitate SAM to CSS tasks without the SAM fine-tuning process with a single unlabeled image. In the first stage, we synthesize extensive Fractal-based curvilinear structures with the corresponding automatically generated oriented box annotations. Then, we leverage the above single unlabeled image and transform these synthesized curvilinear structures into the real-world domain via the Fourier Transform, to enable the training of our proposed oriented detector in a self-supervised manner. In the second stage, we propose curvilinear-aware discrete representation matching to filter those unreliable prompts by starting from a perspective, i.e., handwritten digits have similar patterns with curvilinear structures.
+
+(Hu et al. 2021) to apply SAM for crack segmentation. Rakshitha et al. (Rakshitha et al. 2024) combine crack detector and SAM to enhance the segment capacity. Meanwhile, UCS (Li et al. 2025) further improves the SAM's generalization capability with the proposed sparse adapter. However, UCS still requires a certain of labeled samples from different datasets.
+
+Unlike previous works that simply fine-tune SAM with extensive labeled samples, we leverage curvilinear structure characteristics and perform self-supervised oriented object detection by using a single unlabeled image. Meanwhile, our filter ensures the quality of generated prompts from the detector, contributing to adapting SAM to CSS without any fine-tuning process and eliminating annotation costs.
+
+Object Detector as Prompt Generator for SAM: Generally speaking, this paper mainly focuses on leveraging an oriented object detector as a prompt generator to adapt largescale foundation models to CSS. To this end, we present the related research in this area. Previous object detection methods for CSS tasks exploit horizontal bounding boxes to describe the location and the coarse size of curvilinear objects. Considering this, most existing detectors utilize the commonly used detectors in general computer vision tasks, e.g., Faster R-CNN (Ren et al. 2016), RetinaNet (Lin et al. 2017), Yolo (Redmon et al. 2016), CenterNet (Zhou, Wang, and
+
+Krähenbüh1 2019), and SSD (Liu et al. 2016). Rakshitha et al. (Rakshitha et al. 2024) integrates Detectron2 with SAM and train the object detection model using images and masks to generate approximate boundary boxes. However, previous horizontal object detection methods suffer from scale and intra-class variation, due to the various types of curvilinear structures. To this end, Chen et al. (Chen et al. 2023b) model cracks as a series of sub-cracks with the corresponding orientation. Despite the fact that it can eliminate the scale variation of cracks, it still involves a higher labeling cost than horizontal bounding boxes, while it is still limited in the full exploration for segmentation tasks.
+
+In contrast, our work focuses on training an oriented object detector as the prompt generator in a self-supervised manner, eliminating human labeling costs. We then introduce curvilinear-aware discrete representation matching to filter out unreliable prompts, allowing SAM to adapt to CSS tasks without additional fine-tuning processes.
+
+## Method
+
+Overview: In this paper, we propose a novel framework, called Curvilinear-aware Prompt Learning (CaPro) for adapting SAM to CSS tasks without fine-tuning SAM. As illustrated in Fig. 2, our CaPro consists of two stages. In the first stage, we aim to train an oriented detector as the prompt generator in an self-supervised manner by leveraging Fractal-based curvilinear structure synthesis. Then, in the second stage, we filter those unreliable prompts $( \mathrm { i . e . }$ converted from oriented bounding box) by leveraging the similar characteristics between curvilinear structure mask and handwritten digits. In the following, we will discuss more details of $C a P r o$
+
+## Stage I: Self-supervised Prompt Generation
+
+Motivation: While the existing methods based on parametric Fractal L-Systems for curvilinear structure synthesis exist, they concentrate on synthesizing curvilinear structure images for directly training segmentation models. In contrast, we argue that those synthesized curvilinear structures enjoy high consistency with real-world images at the box level compared to the pixel level. To this end, as shown in Fig 3, we aim to synthesize curvilinear structure images and the corresponding oriented box annotations. Then, we leverage a single unlabeled image to transform these synthetic samples into the real-world domain. Afterward, these more realistic transformed samples can enable the training of our oriented sub-curvilinear structure detector in a selfsupervised manner. Afterward, this detector can serve as the prompt generation module to help SAM adapt to CSS tasks by providing informative prompts, which can be converted from the detected oriented boxes.
+==================== /home/dev/mywork/project/segment/parsing/[2026 eccv] From Reconstruction to Decision: A Post-Encoder Plug-in Adapter for Curvilinear Segmentation
+# From Reconstruction to Decision: A Post-Encoder Plug-in Adapter for Curvilinear Segmentation
+
+Qin Lei1,20, Jiang Zhong4, Xin Xiao4, Yuming Yang4, and Hao Wu1,2,30\*
+
+1 Center for Big Data and Intelligent Medicine, The First Affiliated Hospital of Chongqing Medical University, Chongqing, China
+
+2 Key Laboratory of Digital Health and Intelligent Medicine, Chongqing Municipal Health Commission, Chongqing, China
+
+3 Chongqing Translational Medicine Center, Chongqing, China College of Computer Science, Chongqing University, Chongqing, China qinlei@hospital.cqmu.edu.cn;zhongjiang@cqu.edu.cn; 20241401023@stu.cqu.edu.cn;ymyang@cqu.edu.cn;wuhao@cqmu.edu.cn;
+
+Abstract. Curvilinear object segmentation, including vessels and cracks, is challenging due to extreme spatial sparsity and topological fragility, where small local errors can cause severe structural disconnections. Meanwhile, modern segmentation pipelines increasingly rely on strong but hard-to-modify foundation encoders whose heavy downsampling limits fine structural recovery. Motivated by this, we focus on the post-encoder stage and study two recurring and actionable failure modes: a reconstruction bottleneck in high-resolution feature restoration and a decision bottleneck in binarization. We present PEPA, a lightweight Post-Encoder Plug-in Adapter for 2D curvilinear segmentation pipelines with accessible decoder/head features and target, query, or class descriptors. PEPA couples (i) Target-Conditioned Snake Upsampling (TCSU), which uses target-conditioned continuous snake-like sampling to better recover thin and tortuous structures during upsampling, and (ii) Target-Adaptive Differentiable Thresholding (TADT), which predicts target-specific thresholds and optimizes a soft-threshold surrogate with explicit safeguards against trivial bias shifting. Under this post-encoder interface, PEPA can be attached to both prompt-based decoders and conventional dense predictors. Experiments on five medical and industrial benchmarks show that adding PEPA to frozen-encoder baselines yields consistent improvements, with gains in topological connectivity (clDice) typically exceeding those in region overlap (IoU), indicating improved structural continuity. With only \~0.26M additional parameters, PEPA offers a practical postencoder enhancement for structure-centric segmentation.
+
+Keywords: Curvilinear segmentation · Vision foundation models · Postencoder adapter · Topology preservation
+
+## 1 Introduction
+
+Segmenting curvilinear objects, such as vessels [10,32], neuronal branches [27,37], and cracks [4, 5, 21, 29], is a core challenge in computer vision. Unlike compact macro-objects, curvilinear structures exhibit extreme spatial sparsity and topological fragility [3, 16, 37]. Their thin profiles and drastic local contrast decay make their topological integrity highly sensitive to high-frequency detail reconstruction and the final binarization boundary [19, 20, 22]. Consequently, even minor pixel-level errors can cause severe structural disconnections and undermine downstream analyses [17, 18, 37].
+
+Vision Foundation Models (VFMs), such as the SAM series [15,35] and DINO series [33, 39], have recently provided strong visual representations for dense prediction. However, applying them to curvilinear structures exposes a semanticspatial paradox: foundation encoders obtain semantic abstraction through heavy downsampling (e.g., 16×), but this process also removes the fine spatial granularity required to delineate delicate topologies. Since full fine-tuning of massive encoders is computationally expensive and may compromise their general representations, structure preservation is often delegated to the post-encoder stage. This raises a practical question: How can we design a lightweight post-encoder plug-in that improves the reconstruction and final decision of fragile curvilinear structures without modifying the foundation encoder?
+
+Input  
+![](images/28b4780f7dc1bc05ad026dc97273e33a4db5aac6e35baf1240a59eef19210664.jpg)
+
+t=0.80  
+![](images/78d5f794876376cea8c22d044a0864497aa1847f2e194b7c2d9216eba7e19498.jpg)  
+(a)
+
+t=0.62  
+![](images/fa7e7fe7a3b7211f25255474ef0677e1d3d5932b1108db0b91e40bc1126698fd.jpg)
+
+Input  
+![](images/2d35af0aa31f6b230ff673508cda76e987a65b3a32823487647b1bb8c433ccf7.jpg)
+
+Bilinear  
+![](images/58daa11772e45d684d409f7a3950ff70276630b4a2834939d60ce3d81d46aaea.jpg)  
+(b)
+
+TCSU  
+![](images/38eaf747302067b8a971b70df8dce9f3c6fcc24674074e1e435a357b533934ab.jpg)  
+Fig. 1: Motivation for our proposed PEPA. (a) Decision Bottleneck (TADT): Applying a static global threshold $( t = 0 . 8 0 , 0 . 5 0 , 0 . 3 0 )$ either breaks faint branches or introduces severe noise. A target-adaptive threshold (t = 0.62, red) balances connectivity and noise suppression. (b) Reconstruction Bottleneck (TCSU): Traditional bilinear interpolation and recent advanced upsamplers, such as DySample [28] and AnyUp [44], produce blurred or disconnected features for thin vessels. Our Target-Conditioned Snake Upsampling (TCSU) synthesizes sharper and more continuous structural responses.
+
+We focus on two recurring and actionable post-encoder bottlenecks for curvilinear segmentation: the Reconstruction Bottleneck of high-resolution feature restoration and the Decision Bottleneck of probability discretization. These bottlenecks are not intended to exhaust all possible failure modes; rather, they characterize two common stages where fragile structures are frequently broken after low-resolution semantic embeddings have been produced by the encoder.
+
+In the reconstruction phase, decoders typically rely on isotropic, target-agnostic operations such as bilinear upsampling. As shown in Fig. 1(b), passive interpolation can blur thin responses and cause topology breakage. Even recent advanced upsamplers, such as AnyUp [44] and DySample [28], are not explicitly constrained by curvilinear morphology, so strong gradients from thick structures may dominate the reconstruction process while faint branches remain fragmented. For topology-sensitive targets, upsampling should therefore move beyond passive interpolation toward active, morphology-conditioned geometric reconstruction.
+
+In the decision phase, converting continuous probabilities into binary masks is sensitive to the threshold choice. As shown in Fig. 1(a), a high global threshold can suppress faint terminal branches, whereas a low threshold can introduce noisy false positives. Although differentiable binarization has been effective in scene-level tasks such as text detection [25], naïvely applying learnable thresholds to dense, multi-target curvilinear segmentation can lead to trivial bias compensation: the network may jointly shift logits and thresholds to bypass true boundary improvement rather than learning a more topology-preserving decision boundary.
+
+To address these two post-encoder bottlenecks, we propose PEPA (Post-Encoder Plug-in Adapter), a modular and lightweight adapter for 2D curvilinear segmentation pipelines with accessible decoder/head features and target, query, or class descriptors. PEPA shifts the post-encoder stage from rigid reconstruction and fixed discretization to target-adaptive reconstruction and decision calibration through two core modules:
+
+Target-Conditioned Snake Upsampling (TCSU): TCSU generates subpixel sampling points along continuous and dynamically sized snake-like neighborhoods. By modulating chain length and deformation direction with a target descriptor, TCSU encourages high-resolution reconstruction to follow the queried structure while reducing interference from distractor gradients.
+
+\- Target-Adaptive Differentiable Thresholding (TADT): TADT predicts target-specific binarization thresholds and constructs an end-to-end optimizable soft-threshold surrogate. To mitigate threshold-learning degeneration, TADT uses logit centering, topology-aware supervision on the surrogate, and local threshold-perturbation consistency.
+
+In summary, our main contributions are three-fold:
+
+\- We identify reconstruction and decision calibration as two recurring postencoder bottlenecks for curvilinear segmentation, and propose TCSU, a target-conditioned upsampling operator that uses continuous snake-like sampling chains to synthesize structure-preserving high-resolution features.
+
+— We design TADT, a target-adaptive differentiable thresholding framework that optimizes the soft binarization surrogate with topology-aware objectives and explicit anti-degeneration safeguards.
+
+\- We integrate TCSU and TADT into PEPA, a lightweight post-encoder plug-in for 2D curvilinear segmentation pipelines. Extensive experiments across five medical and industrial benchmarks demonstrate that equipping frozen Vision Foundation Models with PEPA yields consistent improvements, achieving average absolute gains of +2.6% in IoU and +2.8% in clDice without fine-tuning the massive backbone encoders.
+
+## 2 Related Work
+
+## 2.1 Feature Upsampling
+
+In some visual tasks, feature upsampling is essential for restoring high-resolution spatial details from low-resolution semantic embeddings. Traditional methods typically rely on task-agnostic operations, such as bilinear interpolation or standard transposed convolutions, which process all spatial dimensions isotropically and often cause topological drift or edge blurring in thin structures |28]. To address this, learnable upsamplers like CARAFE [41] and DySample [28] introduce dynamic, content-aware sampling strategies. Recently, with the rise of Vision Foundation Models (VFMs), arbitrary-resolution and feature-agnostic upsamplers have emerged, including FeatUp [9], LoftUp [12], JAFAR [7], and AnyUp |44]. While these methods achieve state-of-the-art performance in general semantic segmentation, they apply globally-attended reconstruction without explicit morphological constraints. Consequently, the attention mechanisms are often hijacked by the gradients of thick background structures, leading to disconnected features for faint curvilinear targets. In contrast, our Target-Conditioned Snake Upsampling (TCSU) transitions from passive interpolation to active, morphologyconditioned geometric deformation, explicitly tracking the queried object's topology.
+
+## 2.2 Differentiable Binarization and Adaptive Thresholding
+
+Converting continuous probability maps into discrete binary masks typically relies on rigid global thresholds, which struggle to balance noise suppression and connectivity preservation due to the high intra-class variance of curvilinear structures [19]. To enable end-to-end optimization of the binarization process, DBNet [24, 25 proposed a differentiable approximate step function, achieving great success in scene text detection. Recently, this concept has been broadly extended to various vision domains; for instance, BAA [38] incorporates binarization behavior into gradient-based optimization for edge detection, while BI-DiffSR [2] and BiMaCoSR [26] utilize customized binarization architectures to compress diffusion models for image super-resolution. In the domain of crack and curvilinear segmentation, Lei et al. [19, 21, 22] advanced this paradigm by reformulating the task as a multi-objective problem, jointly optimizing dynamic pixel-level thresholds and utilizing causal augmentation to mitigate extreme class imbalance. Despite these advancements, directly applying differentiable binarization to dense, multi-target curvilinear segmentation often triggers trivial bias compensation, where the network jointly shifts logits and thresholds rather than sharpening actual decision boundaries. Our Target-Adaptive Differentiable Thresholding (TADT) module evades this degradation via logit centering and direct calibration with connectivity-aware losses.
+
+## 3 Method
+
+Curvilinear targets exhibit extreme spatial sparsity and structural fragility, making their topological integrity highly sensitive to high-resolution reconstruction and the final binary decision. Since modern segmentation increasingly relies on frozen foundation encoders, improvements must be plug-and-play across architectures. We propose PEPA (Post-Encoder Plug-in Adapter), coupling Target-Conditioned Snake Upsampling (TCSU) for structure-preserving reconstruction with Target-Adaptive Differentiable Thresholding (TADT) for decision calibration.
+
+Notation. Given encoder features $\mathbf { F } ~ \in ~ \mathbb { R } ^ { B \times C \times H \times W }$ and a target descriptor $\mathbf { e } _ { k } \in \mathbb { R } ^ { B \times d }$ (e.g., a prompted object or class embedding), TCSU upsamples F to a high-resolution substrate $\mathbf { U } _ { k } \in \mathbb { R } ^ { B \times C ^ { \prime } \times s H \times s W }$ (scale s). The mask head then outputs logits $\mathbf { z } _ { k }$ . Concurrently, TADT predicts a target-adaptive threshold $t _ { k }$ from $\mathbf { e } _ { k } .$ , enabling differentiable binarization during training and hard thresholding at inference.
+
+## 3.1 Target-Conditioned Snake Upsampling (TCSU)
+
+TCSU synthesizes high-resolution features by sampling along snake-shaped neighborhoods. Unlike standard interpolation, TCSU employs adaptive range and continuity-constrained deformation, both modulated by the target descriptor $\mathbf { e } _ { k }$ to track specific curvilinear topologies while avoiding clutter.
+
+Taking $2 \times$ upsampling (s=2) as an example, each low-resolution lattice $( x , y )$ introduces four subpixel centers $\mathbf { p } _ { m } ^ { 0 } ( x , y ) = ( x , y ) + \boldsymbol { \pi } _ { m }$ . Alongside a stable bilinear shortcut $\mathbf { U } _ { k } ^ { \mathrm { b i } } = \mathrm { B i l i n e a r U p } ( \mathbf { F } ; s )$ , TCSU branches reconstruct features via three sequential operations:
+
+1) Dynamic Length Prediction. We predict an effective chain length $L _ { k }$ to control the snake's extent. We modulate a base length $L _ { \mathrm { b a s e } }$ using feature evidence Summ(F) and the target $\mathbf { e } _ { k }$ , applying a straight-through estimator to enforce a symmetric odd length:
+
+$$
+L _ { k } = \mathrm { O d d R o u n d } \Big ( L _ { \mathrm { b a s e } } \cdot \big ( 1 + g ( \mathrm { S u m m } ( \mathbf { F } ) , \mathbf { e } _ { k } ) \big ) \Big ) \in \{ 1 , 3 , 5 , \ldots \} .\tag{1}
+$$
+
+![](images/76820afb70462f0faa663c2e4e0f5b999b4de20400ad52839aa6be1fb3c9a951.jpg)  
+==================== /home/dev/mywork/project/segment/parsing/[2025 nips] Gate to the Vessel: Residual Experts Restore What SAM Overlooks
+# Gate to the Vessel: Residual Experts Restore What SAM Overlooks
+
+Weili Jiang School of Computing and Artificial Intelligence Southwest Jiaotong University jiangweili@swjtu.edu.cn
+
+Jinrong Lv School of Computing and Artificial Intelligence Southwest Jiaotong University lvjinrong@my.swjtu.edu.cn
+
+Xun Gong School of Computing and Artificial Intelligence Southwest Jiaotong University xgong@swjtu.edu.cn
+
+Xiaomeng Li   
+Department of Electronic and Computer Engineering   
+The Hong Kong University of Science and Technology eexmli@ust.hk
+
+Chubin Ou\* Institute of Biomedical Engineering, Peking University Shenzhen Graduate School Department of Radiology, Guangdong Provincial People's Hospital cou@connect.ust.hk
+
+## Abstract
+
+Foundation segmentation models like Segment Anything (SAM) exhibit strong generalization on natural images but struggle with localized failures in medical imaging, especially on fine-grained structures such as vessels with complex morphology and indistinct boundaries. To address this, we propose FineSAM++, a structure-aware sparse expert framework designed to refine SAM outputs by introducing a confidence-driven soft Routing Module. This module dynamically identifies structurally uncertain regions and activates a lightweight Residual Expert to model and correct residual structural errors only within these areas, thereby achieving efficient "refinement over retraining." Extensive experiments on five public vascular segmentation datasets demonstrate that FineSAM++ consistently outperforms both SAM-adapted baselines and task-specific models in terms of accuracy, topological consistency. Our results highlight the effectiveness of sparse, structure-driven Mixture-of-Experts (MoE) strategies for enhancing the reliability of foundation vision models in clinical image understanding tasks.
+
+## 1 Introduction
+
+![](images/f8a94c1dc4f035530284674b1e0c8862ac107b7167673f6023d4116b8038e6d7.jpg)  
+Figure 1: Illustration of the core motivation behind FineSAM++.
+
+Foundation vision models such as Segment Anything Model (SAM)[1] have demonstrated remarkable prompt responsiveness and zero-shot generalization capabilities for natural image segmentation tasks. With the increasing popularity of SAM in general-purpose computer vision, recent efforts have explored its adaptation to medical image segmentation [2–4]. However, empirical studies consistently report substantial performance degradation when SAM is applied to medical structures, especially for fine-grained targets like vessels, where predictions often suffer from topological errors, including disconnections, boundary ambiguity, and local omissions [4, 5] (see Fig.1).
+
+To bridge the domain gap between natural and medical images, existing approaches have explored domain adaptation strategies including Adapters [6, 7], LoRA [8], prompt generation [9], and SAM-CLIP hybrid models [10, 11] (see Fig.2). Nevertheless, these methods primarily focus on aligning global semantic representations, leaving structurally ambiguous or uncertain regions undermodeled [5, 4]. As a result, they fail to resolve the persistent issue of local structural degradation. We further observe that mispredictions in medical images predominantly occur around blurred boundaries or fine structural details, which typically manifest as high uncertainty or large residual deviations from the ground truth. This suggests that a unified global adaptation scheme inherently struggles to satisfy both semantic alignment and structural recovery, as the modeling objectives present a natural conflict.
+
+![](images/38c33c59e8b0d00776e4cf3fc13358ecbaa04fdd5d08a0f8b098eebbe6ff8242.jpg)  
+Figure 2: Comparison of SAM-based adaptation methods for medical image segmentation.
+
+Inspired by the sparse activation of Mixture-of-Experts (MoE) architectures in large model design [12–14], we argue that MoE provides a promising paradigm for fine-grained structure modeling. By dynamically activating expert pathways only where necessary, an MoE-inspired framework can focus modeling capacity on local difficult regions without sacrificing overall efficiency. Based on this principle, we propose FineSAM++, a structure-enhanced framework following the MoE philosophy. FineSAM++ introduces two expert modules: a global LoRA Expert for domain adaptation and a Residual Expert for local residual correction and structural refinement. Their activation and cooperation are jointly controlled by an uncertainty-aware Gating Module, resulting in an efficient shared-backbone + localized refinement strategy. Our main contributions are summarized as follows.
+
+• We propose FineSAM++, the structure-aware sparse MoE framework that integrates multiple localized residual correction pathways into frozen foundation segmentation models like SAM, addressing their systematic failures on fine-grained medical structures.
+
+• We design a spatially-aware soft routing mechanism that jointly predicts spatial uncertainty masks and fractional expert routing weights, dynamically activating only a small subset of residual experts for structurally ambiguous regions.
+
+• We conduct extensive experiments to validate the effectiveness of the proposed module and achieve state-of-the-art performance on five public vessel datasets covering three distinct imaging modalities.
+
+## 2 Related Work
+
+## 2.1 Foundation Models for Medical Image Segmentation
+
+Foundation vision models such as the SAM [1] have demonstrated strong generalization and zero-shot capabilities in natural image segmentation. However, their performance degrades significantly in medical imaging tasks, particularly for fine-grained structures like vessels and retinal layers, due to domain shifts and a lack of priors for thin, low-contrast anatomy[15, 16]. To bridge this gap recent studies have explored adapter-based tuning [6, 7], LoRA-based silent fine-tuning [8], automatic prompt generation [9], and hybrid approaches combining SAM with CLIP [10, 11], as well as methods that improve boundary accuracy through high-quality priors and edge-aware refinement [17]. While these methods improve global adaptability, they often overlook localized structural failures—such as vessel discontinuities, blurred edges, and fragmented predictions—that are critical in clinical applications [18]. FineSAM++ addresses this limitation by introducing a sparse residual expert framework guided by uncertainty-aware gating, enabling selective correction of structurally uncertain regions while preserving global semantic consistency.
+
+## 2.2 Mixture-of-Experts Architectures in Vision Modeling
+
+Mixture-of-Experts (MoE) architectures have emerged as a powerful paradigm for scaling deep networks while maintaining efficiency [12, 13]. In vision, recent works have explored various MoE formulations for different purposes. Switch Transformers [19] propose token-based routing to conditionally activate expert blocks in large-scale transformers. Expert Choice Routing [14] and SwitchHead [20] further improve routing efficiency and stability by optimizing expert selection and assignment. CuMo [21] introduces co-upcycled expert reuse to scale multimodal models, achieving strong performance with limited expert redundancy. Neural Experts [22] and related vision-specific MoE designs have focused primarily on large-scale classification and vision-language pretraining tasks. However, these works focus on token or patch-level routing for classification or vision-language tasks, and have not explored dense prediction or fine-grained structural correction. FineSAM++ to systematically integrate sparse expert routing into a dense segmentation pipeline. By introducing a soft Gating Module and Residual Expert, FineSAM++ applies MoE principles to address local structural inconsistencies in medical vessel segmentation, which remains largely underexplored in prior vision MoE literature.
+
+## 3 Method
+
+Inspired by the success of sparse MoE in scaling LLMs and vision models [12, 13], we propose FineSAM++, a sparse expert framework designed for fine-grained targets. Fine-grained target segmentation naturally fits the MoE paradigm due to the extreme sparsity, topology irregularity, and strong locality of error-prone regions. Our framework incorporates two specialized lightweight experts: a global LoRA Expert for domain adaptation and a Residual Expert for structure-aware local residual correction. A differentiable Gating Module inspired by Expert Choice Routing [21] coordinates dynamic activation of experts.
+
+![](images/d6f5c92e48859197691be86969ac9b8399b11d2784ff8206d27452bb6a8c9eb8.jpg)  
+Figure 3: Overview of the FineSAM++ architecture.
+
+## 3.1 Overview
+
+Given an input image $\boldsymbol { x } \in \mathbb { R } ^ { H \times W \times 3 }$ , FineSAM++ first generates a coarse segmentation prediction ÎSAM $\in [ 0 , \dot { 1 } ] ^ { H \times W }$ using a LoRA-SAM model with degraded inputs (see Sec. 3.3 for details). Here, LoRA-ŠAM refers to a frozen SAM backbone augmented with LoRA adapters, following the parameter-efficient fine-tuning strategy in [2]. Additionally, for the prompt encoder in LoRA-SAM, FineSAM++ does not require any manual prompts; instead, it learns a fixed default embedding during training. While the coarse prediction is generally effective, it often exhibits topological inconsistencies in challenging regions such as vascular bifurcations, blurred boundaries, and disconnected thin structures.
+
+To address this, FineSAM++ introduces a modular sparse refinement pathway consisting of (1) a Gating Module to estimate spatial uncertainty and expert routing weights, and (2) J lightweight Residual Experts to perform localized residual correction (see Fig.3). Each Residual Expert receives a perturbed variant of the coarse mask to promote specialization. The final output is obtained by fusing the original SAM prediction with the aggregated residual corrections:
+
+$$
+\hat { y } = \sigma \left( \hat { y } _ { \mathrm { S A M } } + m \odot \left( \sum _ { j = 1 } ^ { J } w _ { j } \cdot r ^ { ( j ) } \right) \right) ,\tag{1}
+$$
+
+where m is the uncertainty mask, $w _ { j }$ are routing weights, and $r ^ { ( j ) }$ are the expert outputs.  denotes element-wise multiplication
+
+## 3.2 Gating Module
+
+Classical MoE architectures rely on token-level routing based on dense embedding vectors [12, 19]. However, dense vision transformers like SAM produce structured 2D feature maps, where localized spatial uncertainty plays a critical role. To address this gap, FineSAM++ introduces a spatiallyaware soft routing mechanism via a dedicated Gating module. Our Gating module $g _ { \theta }$ serves two purposes: (1) generate a soft mask $m \in [ 0 , 1 ] ^ { H \times W }$ indicating spatial uncertainty at each pixel, and (2) output fractional routing weights $\{ w _ { j } \}$ for $J$ parallel Residual Experts. The module receives the concatenation of the image x and coarse mask ÎsAm as input, capturing both appearance and prediction context:
+
+$$
+m , \{ w _ { j } \} = g _ { \theta } ( \mathbf { C o n c a t } ( x , \hat { y } _ { \mathrm { S A M } } ) ) .\tag{2}
+$$
+
+This design is fundamentally different from standard MoE routers, which treat each input as independent. Instead, our Gating module explicitly leverages spatial correlations, identifying localized regions that require residual correction. By assigning soft weights to multiple experts, the routing mechanism enables fine-grained specialization without hard top-k decisions, which are known to suffer from instability and expert imbalance [14, 22].
+
+We supervise the Gating module using pseudo-labels derived from backbone prediction errors. A binary pseudo-label mask $g _ { t }$ is first generated by thresholding the absolute error between the SAM coarse prediction $\hat { y } _ { \mathrm { S A M } }$ and the ground truth label y:
+
+$$
+g _ { t } ( i ) = \mathbb { I } \left( | \hat { y } _ { \mathrm { S A M } } ( i ) - y ( i ) | > \delta \right) ,\tag{3}
+$$
+
+where $\mathbb { I } ( \cdot )$ is the indicator function that outputs 1 if the condition holds and 0 otherwise, and δ is a pre-defined error threshold. The Gating module is trained to predict a router map $m \in [ 0 , 1 ] ^ { H \times W }$ where higher values indicate greater structural uncertainty. We optimize the Gating output using the standard binary cross-entropy (BCE) loss:
+
+$$
+\mathcal { L } _ { \mathrm { g a t e } } = - \frac { 1 } { N } \sum _ { i } \left[ g _ { t } ( i ) \log m ( i ) + ( 1 - g _ { t } ( i ) ) \log ( 1 - m ( i ) ) \right] ,\tag{4}
+$$
+
+where N is the total number of pixels. This loss encourages the Gating module to activate only in regions where the backbone prediction is structurally unreliable, while suppressing unnecessary expert invocation elsewhere.
+==================== /home/dev/mywork/project/segment/parsing/[2025 iccv] NETracer: A Topology-Aware Iterative Tracing Approach for Tubular Structure Extraction
+# NETracer: A Topology-Aware Iterative Tracing Approach for Tubular Structure Extraction
+
+Chao Liu1, Yangbo Jiang2, Nenggan Zheng1, 3, 4 1Zhejiang University, China
+
+2Zhejiang University of Finance and Economics, China 3Collaborative Innovation Center for Artificial Intelligence by MOE and Zhejiang Provincial Government, China 4Bengbu University, China
+
+supermeliu@zju.edu.cn, jiangyangbo@zufe.edu.cn, zng@cs.zju.edu.cn
+
+## Abstract
+
+Extracting tubular structures from images is a widespread and challenging task in computer vision. To explore these continuous structures, iterative tracing methods offer a promising direction. However, in scenes with dense and blurred branches, existing tracing methods tend to jump to adjacent branches during the tracing process, leading to a significant topological mistake. The reason for this shortcoming is that the tracing model only focuses on the estimation of discrete nodes and ignores their connection attribution. To solve this problem, we introduce NETracer, a topology-aware iterative tracing method to improve the continuity and topological accuracy. In our approach, a node-edge estimation network with local connectivity loss is trained to produce the future nodes and their connective edges. Then, a geodesic distance-based search strategy is employed with the help of predicted edge cues to trace the future branches more accurately. Additionally, to comprehensively assess the effect of the tracing model, a new tracing metric is proposed to evaluate the local accuracy, continuity, and topological correctness of the traced branches. We demonstrate that our method outperforms existing segmentation and tracing methods on five 2D road, vessel, and 3D neuron datasets. The code of NETracer is available at https://github.com/CSDLLab/NETracer.
+
+## 1. Introduction
+
+Tubular structure extraction is a crucial and challenging task in computer vision, such as the reconstruction of neuronal dendrites or axons [15, 24], the segmentation of retinal vessels [28], and the delineation of road networks from aerial imagery [5, 33]. These tubular structure can be represented as a series of nodes and edges connecting them, and our objective is to precisely extract these continuous objects to align with the image evidence.
+
+![](images/6c6bb0fbf630ac282b842b1afea4f3f1116b7f29585d5541bee5db19de1af5aa.jpg)  
+(a) Ground Truth
+
+![](images/67b24aa4e96286306bdcc79881ab4e4c7f9821e3bac49f709e2092ec2c19f194.jpg)  
+(c) Existing Tracing Approaches
+
+![](images/c8bd394246c11b3ab6152604a31b1312ec851adbe26281ba19e8164634b746c9.jpg)  
+(b) Segmentation Results
+
+![](images/8ab013dd6da8eec6f86272a75612bdc4ab1343c0be3ba59abfd4d3f8f7a5b6e5.jpg)  
+(d) Ours Proposed Method  
+Figure 1. Motivation. (a) 3D neuron image and ground truth. (b) Segmentation results misinterpret ambiguous branches as a single entity. (c) Existing tracing approaches overlook the connectivity between discrete nodes, resulting in topological errors. (d) Integrating edge information can improve the topological accuracy.
+
+Most existing methods tackle this problem as a twostage segmentation task: first, employing a segmentation network [13, 25, 27, 44] to learn the centerline features, followed by the use of a post-processing algorithm [11, 12, 19, 32] to extract the topological connectivity patterns. However, the major drawback of these approaches is that they place significant reliance on the segmentation results from the first stage. When the signal-to-noise ratio (SNR) of image evidence is low, segmentation results may exhibit merging or blurring in localized regions, as illustrated in Fig. 1 (b). This issue can mislead post-processing algorithms into producing shortcut topological errors.
+
+In contrast, iterative tracing approaches provide a more streamlined method to explicitly model the continuity of the branches. They start from a set of seed nodes and progressively explore unknown branches. The key to these methods lies in estimating the position of next node to drive the iterative process. This encompasses estimating the branch direction [1, 4, 14] and deriving the future node position from a probability map [10, 30]. However, the shortcoming of these approaches is that they treat the extraction of continuous curves as a discrete node prediction task, lacking the ability to learn the connectivity features between adjacent nodes. When encountering scenarios where two branches are closely spaced or entangled, multiple potential future nodes may become available for selection, as shown in Fig. 1 (c). Thus, a natural question will be raised: How to choose the most suitable future node?
+
+To address this challenge, we introduce NETracer, a novel topology-aware iterative tracing model. Our proposed method aims to model the tubular structure as continuous sub-segments rather than discrete nodes, thereby integrating the local connectivity patterns of these nodes into the tracing process. Firstly, we theoretically analyze the limitations of existing tracing methods, and propose a new optimization objective that emphasizes branch continuity. Following this criterion, a node-edge estimation network (NENet) is proposed which includes three subtask learning blocks: centerline, future node, and future edge. The additional future edge information can provide crucial connectivity cues for guiding the selection of future nodes. Notably, a local connectivity loss is added in the future edge estimation block to ensure the reliability of local edge prediction. In the tracing process, a geodesic distance-based search strategy (GDS) is developed to select the most suitable future node from several potential node sets with the predicted edge cues. Finally, since there are few evaluation metrics for tracing models, we propose an iterative tracing metric that encompasses three sub-metrics to evaluate the continuity and topological accuracy of the tracing results. Our contributions are summarized as follows:
+
+• We introduce NETracer, a novel topology-aware iterative tracing model. It seamlessly integrates connectivity features into the tracing process for the first time.
+
+• NETracer employs a NENet with a local connectivity loss to produce future nodes and edges. Then, a GDS strategy is applied to pinpoint the most suitable future node based on the predicted edge cues.
+
+• A brand-new iterative tracing metric is introduced to assess the local position accuracy, continuity, and topological accuracy of the tracing model.
+
+• The extensive experiments on five 2D and 3D datasets show that our NETracer model surpasses other state-ofthe-art (SOTA) segmentation and tracing methods.
+
+## 2. Related work
+
+## 2.1. Two-stage Segmentation Approaches
+
+As mentioned in the previous section, these two-stage methods divide the feature learning of tubular structure into two distinct phases. Firstly, a segmentation network is trained to learn the centerline features. Then, a post-processing algorithm is applied to extract their topological connectivity patterns. In recent years, various centerline segmentation networks have demonstrated significant progress in addressing complex tubular structure extraction tasks and can be categorized into two primary groups. One category focuses on enhancing the network backbone, with notable contributions from the incorporation of attention mechanisms [20], deformable convolutions [6, 7, 25], and graph convolutions [41, 43], among others. Other approaches focus on refining downstream tasks or imposing specialized loss functions, including the topological constraint loss [27, 37], regional connectivity [21, 31], and tubular flux features learning block [34].
+
+However, segmentation results can only provide a binary mask of the tubular structure, which is insufficient for constructing the final representation. To address this, various post-processing techniques have been developed. APP and APP2 [23, 38] apply a fast marching method using geodesic distance to reconstruct grayscale neuron images. Path-CNN [11] employs a progressive minimal path method on the segmentation centerline, providing geometric cues to improve performance. These methods directly extract curves from a global predicted centerline map without imposing any topological constraints, resulting in low reliability of the local structures. As an improved method, [19] extracts all significant nodes and applies the A\* algorithm to connect them into an overcomplete graph. Subsequently, a path classifier is trained to determine whether the given path exists. However, this method still faces the same challenge: its path classifier must be an extremely robust binary classification model. Otherwise, the probability of generating shortcut branches rises significantly
+
+## 2.2. Iterative Tracing Approaches
+
+Iterative tracing approaches aim to estimate the position of future nodes to finish the tracing process. To capture the continuous features of branches, some methods rely on parametric geometric models designed based on prior knowledge. neuTu [42] utilizes a cylinder template to fit the branch in the image. [17, 36] employs a ray burst sampling method to recursively explore along the neurite branches. [26] proposes the voxel-scooping spherical model to iteratively carve out the neuron branch. However, these methods are only effective in certain applications and rely on manually crafted features, making it difficult to tune parameters when dealing with different datasets.
+
+With the advent of deep learning networks, RoadTracer [1] and SPE [4] construct the CNN-based models to learn the direction and radius of branches to estimate the next iteration step. However, the estimation of these high-level semantic features of branches consistently leads to positional errors contrasted with the ground truth, and this deviation tends to increase throughout the iterative tracing process. To enhance the accuracy of the tracing process, DeepBranch-Tracer [14] takes global centerline features into consideration to adjust the position of predicted future nodes at each step, effectively increasing the continuity of the branches. As another simplified solution, Vec-Road [30] proposes that future nodes can be obtained directly from the peak of the predicted position distribution probability maps. Nonetheless, all of these tracing approaches do not consider the connectivity feature of two neighboring nodes, and the predicted nodes may jump to other adjacent branches, leading to significant topological errors.
+
+## 3. Method
+
+In this section, we formulate the tubular structure tracing problem as an optimization objective, encompassing the posterior probability of historical paths and the continuity of branches. Based on this principle, we propose the NENet to learn the local branch attributions, which integrate the centerline, future node, and future edge blocks with a topologyaware constraint loss. In the tracing process, a geodesic distance-based search strategy is proposed and can search along the edge probability map to candidate the most suitable future node from the several potential future nodes.
+
+## 3.1. Problem Formulation
+
+A tubular structure is a continuous curve traversing 3D space, formally denoted as $\{ \mathbf { c } ( t ) = ( x ( t ) , y ( t ) , z ( t ) ) ^ { \bar { T } } , t \in$ $( 0 , 1 ) \} \in C$ , where $C \subset \mathbb { R } ^ { 3 }$ . The extraction of tubular structure is trying to seek the optimal curve c given the image evidence I, and can be represented as $P ( \mathbf { c } | I )$ . For the tracing models, they discretized this curve into M discrete nodes $\mathbf { c } ( t _ { i } )$ and the tracing task can be formulated within a probabilistic framework:
+
+$$
+P ( \mathbf { c } | I ) \propto P ( \mathbf { c } ( t _ { 1 } ) | I ) \prod _ { i = 2 } ^ { M } P \left( \mathbf { c } ( t _ { i } ) | W [ \mathbf { c } ( t _ { 1 } ) , \cdots , \mathbf { c } ( t _ { i - 1 } ) ] , I \right) ,\tag{1}
+$$
+
+where I is the input image. The first term $P ( \mathbf { c } ( t _ { 1 } ) | I )$ represents the initial seed node for the tracing process, and the second term can be represented as estimating the future nodes by maximizing a posterior probability given the image evidence I and the historical path W. Thus, the optimization objective for iterative tracing approaches can be
+
+written as:
+
+$$
+c ^ { * } = { \underset { \mathbf { c } ( t _ { i } ) \in C } { \operatorname { a r g m a x } } } P ( \mathbf { c } ( t _ { i } ) | W [ \mathbf { c } ( t _ { 1 } ) , \cdots , \mathbf { c } ( t _ { i - 1 } ) ] , I ) .\tag{2}
+$$
+
+However, as an approximate optimization objective, the continuity and connectivity between two neighboring nodes $\mathbf { c } ( t _ { i } )$ and $\mathbf { c } ( t _ { i - 1 } )$ is ignored, leading to critical topological errors in the tracing scenario of two adjacent branches, as shown in Fig. 1(c). To tackle this problem, a better tracing model should estimate not just the future nodes but also the edges that interconnect them, aiming to enhance the topological integrity. Building upon this concept, a new optimization objective can be formalized as follows:
+
+$$
+c ^ { * } = \underset { { \bf c } ( t _ { i } ) \in C } { \arg \operatorname* { m a x } } \int _ { t _ { i - 1 } } ^ { t _ { i } } P ( { \bf c } ( t ) | W [ { \bf c } ( t _ { 1 } ) , \cdot \cdot \cdot , { \bf c } ( t _ { i - 1 } ) ] , I ) \mathrm { d } t ,\tag{3}
+$$
+
+where the integral from $t _ { i - 1 }$ to $t _ { i }$ on the curve can capture the probability of the continuous edge from the current node $\mathbf { c } ( t _ { i - 1 } )$ to the future node $\mathbf { c } ( t _ { i } )$ . Based on this criterion, the model can learn to predict future nodes that not only individually align well with the image evidence, but also form a sequence that adheres to the expected topology.
+
+## 3.2. NENet Architecture
+
+Following the above optimization objective, the design of a deep network for iterative tracing can be decoupled into three subtasks:
+
+• Exploring Future Nodes: The primary task of an iterative tracing model is to explore future nodes along the branch.

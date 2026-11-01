@@ -1,0 +1,359 @@
+/home/dev/mywork/project/segment/parsing/[1995 siggraph] Intelligent Scissors for Image Composition
+/home/dev/mywork/project/segment/parsing/[2001 iccv] Interactive Graph Cuts for Optimal Boundary and Region Segmentation of Objects in N-D Images
+/home/dev/mywork/project/segment/parsing/[2017 iccv] Learned Watershed: End-to-End Learning of Seeded Segmentation
+/home/dev/mywork/project/segment/parsing/[2017 icml] End-to-end Learning for Structured Prediction Energy Networks
+/home/dev/mywork/project/segment/parsing/[2019] Context-Aware Spatio-Recurrent Curvilinear Structure Segmentation
+/home/dev/mywork/project/segment/parsing/[2019 cvpr] Content-Aware Multi-Level Guidance for Interactive Instance Segmentation
+/home/dev/mywork/project/segment/parsing/[2019 cvpr] Context-Aware Spatio-Recurrent Curvilinear Structure Segmentation
+/home/dev/mywork/project/segment/parsing/[2019 cvpr] Dual Attention Network for Scene Segmentation
+/home/dev/mywork/project/segment/parsing/[2019 cvpr] End-To-End Learned Random Walker for Seeded Image Segmentation
+/home/dev/mywork/project/segment/parsing/[2019 cvpr] Fast User-Guided Video Object Segmentation by Interaction-And-Propagation Networks
+/home/dev/mywork/project/segment/parsing/[2019 cvpr] Interactive Full Image Segmentation by Considering All Regions Jointly
+/home/dev/mywork/project/segment/parsing/[2019 cvpr] Interactive Image Segmentation via Backpropagating Refinement Scheme
+/home/dev/mywork/project/segment/parsing/[2019 cvpr] Large-Scale Interactive Object Segmentation With Human Annotators
+/home/dev/mywork/project/segment/parsing/[2019 iccv] MultiSeg: Semantically Meaningful, Scale-Diverse Segmentations From Minimal User Input
+/home/dev/mywork/project/segment/parsing/[2019 iccv] Topological Map Extraction From Overhead Images
+/home/dev/mywork/project/segment/parsing/[2019 nips] Topology-Preserving Deep Image Segmentation
+/home/dev/mywork/project/segment/parsing/[2019 tip] Minimal Paths for Tubular Structure Segmentation With Coherence Penalty and Adaptive Anisotropy
+/home/dev/mywork/project/segment/parsing/[2019 tpami] Joint Segmentation and Path Classification of Curvilinear Structures
+/home/dev/mywork/project/segment/parsing/[2019 tpami] Large Scale Image Segmentation with Structured Loss Based Deep Learning for Connectome Reconstruction
+/home/dev/mywork/project/segment/parsing/[2020 arxiv] clDice -- A Novel Topology-Preserving Loss Function for Tubular Structure Segmentation
+/home/dev/mywork/project/segment/parsing/[2020 cvpr] Deep Distance Transform for Tubular Structure Segmentation in CT Scans
+/home/dev/mywork/project/segment/parsing/[2020 cvpr] F-BRS: Rethinking Backpropagating Refinement for Interactive Segmentation
+/home/dev/mywork/project/segment/parsing/[2020 cvpr] FDA: Fourier Domain Adaptation for Semantic Segmentation
+/home/dev/mywork/project/segment/parsing/[2020 cvpr] Interactive Image Segmentation With First Click Attention
+/home/dev/mywork/project/segment/parsing/[2020 cvpr] Interactive Object Segmentation With Inside-Outside Guidance
+/home/dev/mywork/project/segment/parsing/[2020 cvpr] Iteratively-Refined Interactive 3D Medical Image Segmentation With Multi-Agent Reinforcement Learning
+/home/dev/mywork/project/segment/parsing/[2020 cvpr] Memory Aggregation Networks for Efficient Interactive Video Object Segmentation
+/home/dev/mywork/project/segment/parsing/[2020 iclr] Differentiation of Blackbox Combinatorial Solvers
+/home/dev/mywork/project/segment/parsing/[2020 iclr] Learning with Differentiable Perturbed Optimizers
+/home/dev/mywork/project/segment/parsing/[2020 nips] Learning with Differentiable Perturbed Optimizers
+/home/dev/mywork/project/segment/parsing/[2020 tip] Deep Retinal Image Segmentation With Regularization Under Geometric Priors
+/home/dev/mywork/project/segment/parsing/[2020 tpami] A Topological Loss Function for Deep-Learning based Image Segmentation using Persistent Homology
+/home/dev/mywork/project/segment/parsing/[2020 tpami] A Topological Loss Function for Deep-Learning Based Image Segmentation Using Persistent Homology
+/home/dev/mywork/project/segment/parsing/[2021 access] Cylindrical Shape Decomposition for 3D Segmentation of Tubular Objects
+/home/dev/mywork/project/segment/parsing/[2021 arxiv] Neural Weighted A*: Learning Graph Costs and Heuristics with Differentiable Anytime A*
+/home/dev/mywork/project/segment/parsing/[2021 cvpr] clDice - a Novel Topology-Preserving Loss Function for Tubular Structure Segmentation
+/home/dev/mywork/project/segment/parsing/[2021 cvpr] ColorRL: Reinforced Coloring for End-to-End Instance Segmentation
+/home/dev/mywork/project/segment/parsing/[2021 cvpr] Confluent Vessel Trees With Accurate Bifurcations
+/home/dev/mywork/project/segment/parsing/[2021 cvpr] Guided Interactive Video Object Segmentation Using Reliability-Based Attention Maps
+/home/dev/mywork/project/segment/parsing/[2021 cvpr] Learning To Recommend Frame for Interactive Video Object Segmentation in the Wild
+/home/dev/mywork/project/segment/parsing/[2021 cvpr] Modular Interactive Video Object Segmentation: Interaction-to-Mask, Propagation and Difference-Aware Fusion
+/home/dev/mywork/project/segment/parsing/[2021 iccv] Conditional Diffusion for Interactive Segmentation
+/home/dev/mywork/project/segment/parsing/[2021 iccv] Joint Topology-Preserving and Feature-Refinement Network for Curvilinear Structure Segmentation
+/home/dev/mywork/project/segment/parsing/[2021 iccv] Self-Supervised Vessel Segmentation via Adversarial Learning
+/home/dev/mywork/project/segment/parsing/[2021 icml] Neuro-algorithmic Policies Enable Fast Combinatorial Generalization
+/home/dev/mywork/project/segment/parsing/[2021 icml] Path Planning using Neural A* Search
+/home/dev/mywork/project/segment/parsing/[2021 nips] Implicit MLE: Backpropagating Through Discrete Exponential Family Distributions
+/home/dev/mywork/project/segment/parsing/[2021 nips] Nonsmooth Implicit Differentiation for Machine Learning and Optimization
+/home/dev/mywork/project/segment/parsing/[2021 tim] Efficient Critical Point Detection for Curvilinear Structures Using a Ring-Like Ray-Shooting Model
+/home/dev/mywork/project/segment/parsing/[2021 tmi] Learning Tubule-Sensitive CNNs for Pulmonary Airway and Artery-Vein Segmentation in CT
+/home/dev/mywork/project/segment/parsing/[2021 tpami] Promoting Connectivity of Network-Like Structures by Enforcing Region Separation
+/home/dev/mywork/project/segment/parsing/[2021 wacv] Deep Interactive Thin Object Selection
+/home/dev/mywork/project/segment/parsing/[2022 aaai] Learning to Model Pixel-Embedded Affinity for Homogeneous Instance Segmentation
+/home/dev/mywork/project/segment/parsing/[2022 cvpr] DAFormer: Improving Network Architectures and Training Strategies for Domain-Adaptive Semantic Segmentation
+/home/dev/mywork/project/segment/parsing/[2022 cvpr] Efficient Classification of Very Large Images With Tiny Objects
+/home/dev/mywork/project/segment/parsing/[2022 cvpr] FocalClick: Towards Practical Interactive Image Segmentation
+/home/dev/mywork/project/segment/parsing/[2022 cvpr] FocusCut: Diving Into a Focus View in Interactive Segmentation
+/home/dev/mywork/project/segment/parsing/[2022 cvpr] Image Segmentation Using Text and Image Prompts
+/home/dev/mywork/project/segment/parsing/[2022 cvpr] Interactive Multi-Class Tiny-Object Detection
+/home/dev/mywork/project/segment/parsing/[2022 cvpr] Interactive Segmentation and Visualization for Tiny Objects in Multi-Megapixel Images
+/home/dev/mywork/project/segment/parsing/[2022 cvpr] Semantic-Aware Domain Generalized Segmentation
+/home/dev/mywork/project/segment/parsing/[2022 eccv] Highly Accurate Dichotomous Image Segmentation
+/home/dev/mywork/project/segment/parsing/[2022 eccv] Learning topological interactions for multi-class medical image segmentation
+/home/dev/mywork/project/segment/parsing/[2022 eccv] Slim Scissors: Segmenting Thin Object from Synthetic Background
+/home/dev/mywork/project/segment/parsing/[2022 eccv] Slim Scissors: Segmenting Thin Object from Synthetic Background supp
+/home/dev/mywork/project/segment/parsing/[2022 mm] KnifeCut: Refining Thin Part Segmentation with Cutting Lines
+/home/dev/mywork/project/segment/parsing/[2022 nips] Efficient and Modular Implicit Differentiation
+/home/dev/mywork/project/segment/parsing/[2022 nips] Integrating Symmetry into Differentiable Planning
+/home/dev/mywork/project/segment/parsing/[2022 nips] Structure-aware image segmentation with homotopy warping
+/home/dev/mywork/project/segment/parsing/[2022 tip] Local Intensity Order Transformation for Robust Curvilinear Object Segmentation
+/home/dev/mywork/project/segment/parsing/[2022 tip] SemiCurv: Semi-Supervised Curvilinear Structure Segmentation
+/home/dev/mywork/project/segment/parsing/[2022 tip] Trajectory Grouping With Curvature Regularization for Tubular Structure Tracking
+/home/dev/mywork/project/segment/parsing/[2022 tmi] A persistent homology-based topological loss for CNN-based multiclass segmentation of CMR
+/home/dev/mywork/project/segment/parsing/[2022 wacv] Ta-net: Topology-aware network for gland segmentation
+/home/dev/mywork/project/segment/parsing/[2023 aipr] Multi-Loss Topology-Aware Deep Learning Network for Segmentation of Vessels in Microscopy Images
+/home/dev/mywork/project/segment/parsing/[2023 arxiv] Customized Segment Anything Model for Medical Image Segmentation
+/home/dev/mywork/project/segment/parsing/[2023 arxiv] Deep Equilibrium Object Detection
+/home/dev/mywork/project/segment/parsing/[2023 arxiv] nnSAM: Plug-and-play Segment Anything Model Improves nnUNet Performance
+/home/dev/mywork/project/segment/parsing/[2023 arxiv] Self-Supervised Neuron Segmentation with Multi-Agent Reinforcement Learning
+/home/dev/mywork/project/segment/parsing/[2023 cbm] BCU-Net: Bridging ConvNeXt and U-Net for medical image segmentation
+/home/dev/mywork/project/segment/parsing/[2023 cvpr] Directional connectivity-based segmentation of medical images
+/home/dev/mywork/project/segment/parsing/[2023 cvpr] Efficient Mask Correction for Click-Based Interactive Image Segmentation
+/home/dev/mywork/project/segment/parsing/[2023 cvpr] Explicit Visual Prompting for Low-Level Structure Segmentations
+/home/dev/mywork/project/segment/parsing/[2023 cvpr] Focused and Collaborative Feedback Integration for Interactive Image Segmentation
+/home/dev/mywork/project/segment/parsing/[2023 cvpr] HGFormer: Hierarchical Grouping Transformer for Domain Generalized Semantic Segmentation
+/home/dev/mywork/project/segment/parsing/[2023 cvpr] Interactive Segmentation As Gaussion Process Classification
+/home/dev/mywork/project/segment/parsing/[2023 cvpr] Interactive Segmentation of Radiance Fields
+/home/dev/mywork/project/segment/parsing/[2023 cvpr] SimpSON: Simplifying Photo Cleanup With Single-Click Distracting Object Segmentation Network
+/home/dev/mywork/project/segment/parsing/[2023 iccv] Dynamic snake convolution based on topological geometric constraints for tubular structure segmentation
+/home/dev/mywork/project/segment/parsing/[2023 iccv] Dynamic Snake Convolution based on Topological Geometric Constraints for Tubular Structure Segmentation
+/home/dev/mywork/project/segment/parsing/[2023 iccv] Dynamic Snake Convolution Based on Topological Geometric Constraints for Tubular Structure Segmentation
+/home/dev/mywork/project/segment/parsing/[2023 iccv] DynaMITe: Dynamic Query Bootstrapping for Multi-object Interactive Segmentation Transformer
+/home/dev/mywork/project/segment/parsing/[2023 iccv] FreeCOS: Self-Supervised Learning from Fractals and Unlabeled Images for Curvilinear Object Segmentation
+/home/dev/mywork/project/segment/parsing/[2023 iccv] InterFormer: Real-time Interactive Image Segmentation
+/home/dev/mywork/project/segment/parsing/[2023 iccv] Multi-granularity Interaction Simulation for Unsupervised Interactive Segmentation
+/home/dev/mywork/project/segment/parsing/[2023 iccv] Segment Anything
+/home/dev/mywork/project/segment/parsing/[2023 iccv] Segmentation of Tubular Structures Using Iterative Training with Tailored Samples
+/home/dev/mywork/project/segment/parsing/[2023 iccv] SimpleClick: Interactive Image Segmentation with Simple Vision Transformers
+/home/dev/mywork/project/segment/parsing/[2023 iccv] The Devil is in the Crack Orientation: A New Perspective for Crack Detection
+/home/dev/mywork/project/segment/parsing/[2023 iccv] TopoSeg: Topology-Aware Nuclear Instance Segmentation
+/home/dev/mywork/project/segment/parsing/[2023 iccv] UCS: A Universal Model for Curvilinear Structure Segmentation
+/home/dev/mywork/project/segment/parsing/[2023 iccvw] SAM-Adapter: Adapting Segment Anything in Underperformed Scenes
+/home/dev/mywork/project/segment/parsing/[2023 iccvw] Tiny and Efficient Model for the Edge Detection Generalization
+/home/dev/mywork/project/segment/parsing/[2023 iclr] Newton Losses Efficiently Including Second-Order Information into Gradient Descent
+/home/dev/mywork/project/segment/parsing/[2023 icml] Topologically faithful image segmentation via induced matching of persistence barcodes
+/home/dev/mywork/project/segment/parsing/[2023 ijcai] Appearance Prompt Vision Transformer for Connectome Reconstruction
+/home/dev/mywork/project/segment/parsing/[2023 ijcai] Self-supervised neuron segmentation with multi-agent reinforcement learning
+/home/dev/mywork/project/segment/parsing/[2023 IPMI] DTU-Net: Learning Topological Similarity for Curvilinear Structure Segmentation
+/home/dev/mywork/project/segment/parsing/[2023 nips] A Near-Linear Time Algorithm for the Chamfer Distance
+/home/dev/mywork/project/segment/parsing/[2023 nips] NeuroGF: A Neural Representation for Fast Geodesic Distance and Path Queries
+/home/dev/mywork/project/segment/parsing/[2023 nips] Segment Any Stream: Scalable Water Extent Detection with the Segment Anything Model
+/home/dev/mywork/project/segment/parsing/[2023 nips] Segment Anything in High Quality
+/home/dev/mywork/project/segment/parsing/[2023 nips] SegRefiner: Towards Model-Agnostic Segmentation Refinement with Discrete Diffusion Process
+/home/dev/mywork/project/segment/parsing/[2023 nips] Topology-Aware Uncertainty for Image Segmentation
+/home/dev/mywork/project/segment/parsing/[2023 pmlr] Topologically Faithful Image Segmentation via Induced Matching of Persistence Barcodes
+/home/dev/mywork/project/segment/parsing/[2023 tpami] Persistent Homology With Improved Locality Information for More Effective Delineation
+/home/dev/mywork/project/segment/parsing/[2024 aaai] CFR-ICL: Cascade-Forward Refinement with Iterative Click Loss for Interactive Image Segmentation
+/home/dev/mywork/project/segment/parsing/[2024 arxiv] LoRA-GA: Low-Rank Adaptation with Gradient Approximation
+/home/dev/mywork/project/segment/parsing/[2024 arxiv] SAM2-UNet: Segment Anything 2 Makes Strong Encoder for Natural and Medical Image Segmentation
+/home/dev/mywork/project/segment/parsing/[2024 cvpr] AlignSAM: Aligning Segment Anything Model to Open Context via Reinforcement Learning
+/home/dev/mywork/project/segment/parsing/[2024 cvpr] APSeg: Auto-Prompt Network for Cross-Domain Few-Shot Semantic Segmentation
+/home/dev/mywork/project/segment/parsing/[2024 cvpr] ASAM: Boosting Segment Anything Model with Adversarial Tuning
+/home/dev/mywork/project/segment/parsing/[2024 cvpr] BA-SAM: Scalable Bias-Mode Attention Mask for Segment Anything Model
+/home/dev/mywork/project/segment/parsing/[2024 cvpr] EfficientSAM: Leveraged Masked Image Pretraining for Efficient Segment Anything
+/home/dev/mywork/project/segment/parsing/[2024 cvpr] Fantastic Animals and Where to Find Them: Segment Any Marine Animal with Dual SAM
+/home/dev/mywork/project/segment/parsing/[2024 cvpr] FISBe: A Real-World Benchmark Dataset for Instance Segmentation of Long-Range Thin Filamentous Structures
+/home/dev/mywork/project/segment/parsing/[2024 cvpr] FocSAM: Delving Deeply into Focused Objects in Segmenting Anything
+/home/dev/mywork/project/segment/parsing/[2024 cvpr] GoodSAM: Bridging Domain and Capacity Gaps via Segment Anything Model for Distortion-aware Panoramic Semantic Segmentation
+/home/dev/mywork/project/segment/parsing/[2024 cvpr] GraCo: Granularity-Controllable Interactive Segmentation
+/home/dev/mywork/project/segment/parsing/[2024 cvpr] Improving the Generalization of Segmentation Foundation Model under Distribution Shift via Weakly Supervised Adaptation
+/home/dev/mywork/project/segment/parsing/[2024 cvpr] MemSAM: Taming Segment Anything Model for Echocardiography Video Segmentation
+/home/dev/mywork/project/segment/parsing/[2024 cvpr] MFP: Making Full Use of Probability Maps for Interactive Image Segmentation
+/home/dev/mywork/project/segment/parsing/[2024 cvpr] Mind marginal non-crack regions: Clustering-inspired representation learning for crack segmentation
+/home/dev/mywork/project/segment/parsing/[2024 cvpr] One-Prompt to Segment All Medical Images
+/home/dev/mywork/project/segment/parsing/[2024 cvpr] Parameter Efficient Fine-tuning via Cross Block Orchestration for Segment Anything Model
+/home/dev/mywork/project/segment/parsing/[2024 cvpr] PTQ4SAM: Post-Training Quantization for Segment Anything
+/home/dev/mywork/project/segment/parsing/[2024 cvpr] Rethinking Interactive Image Segmentation with Low Latency High Quality and Diverse Prompts
+/home/dev/mywork/project/segment/parsing/[2024 cvpr] RobustSAM: Segment Anything Robustly on Degraded Images
+/home/dev/mywork/project/segment/parsing/[2024 cvpr] SANeRF-HQ: Segment Anything for NeRF in High Quality
+/home/dev/mywork/project/segment/parsing/[2024 cvpr] Semantic-aware SAM for Point-Prompted Instance Segmentation
+/home/dev/mywork/project/segment/parsing/[2024 cvpr] Stronger Fewer & Superior: Harnessing Vision Foundation Models for Domain Generalized Semantic Segmentation
+/home/dev/mywork/project/segment/parsing/[2024 cvpr] UniVS: Unified and Universal Video Segmentation with Prompts as Queries
+/home/dev/mywork/project/segment/parsing/[2024 cvpr] Unsegment Anything by Simulating Deformation
+/home/dev/mywork/project/segment/parsing/[2024 cvpr] ZePT: Zero-Shot Pan-Tumor Segmentation via Query-Disentangling and Self-Prompting
+/home/dev/mywork/project/segment/parsing/[2024 eccv] ControlNet++: Improving Conditional Controls with Efficient Consistency Feedback
+/home/dev/mywork/project/segment/parsing/[2024 eccv] Representing Topological Self-Similarity Using Fractal Feature Maps for Accurate Segmentation of Tubular Structures
+/home/dev/mywork/project/segment/parsing/[2024 eccv] Semi-supervised Segmentation of Histopathology Images with Noise-Aware Topological Consistency
+/home/dev/mywork/project/segment/parsing/[2024 eccv] Skeleton Recall Loss for Connectivity Conserving and Resource Efficient Segmentation of Thin Tubular Structures
+/home/dev/mywork/project/segment/parsing/[2024 iclr] Convolution Meets LoRA: Parameter Efficient Finetuning for Segment Anything Model
+/home/dev/mywork/project/segment/parsing/[2024 iclr] Matcher: Segment Anything with One Shot Using All-Purpose Feature Matching
+/home/dev/mywork/project/segment/parsing/[2024 iclr] Personalize Segment Anything Model with One Shot
+/home/dev/mywork/project/segment/parsing/[2024 icml] BLO-SAM: Bi-level Optimization Based Finetuning of the Segment Anything Model for Overfitting-Preventing Semantic Segmentation
+/home/dev/mywork/project/segment/parsing/[2024 ijcai]  Enhancing Boundary Segmentation for Topological Accuracy with Skeleton-based Methods.
+/home/dev/mywork/project/segment/parsing/[2024 lclr] PERSONALIZE SEGMENT ANYTHING MODEL WITH ONE SHOT
+/home/dev/mywork/project/segment/parsing/[2024 nature communication] Segment anything in medical images
+/home/dev/mywork/project/segment/parsing/[2024 nips] Flaws can be Applause: Unleashing Potential of Segmenting Ambiguous Objects in SAM
+/home/dev/mywork/project/segment/parsing/[2024 nips] GaussianCut: Interactive segmentation via graph cut for 3D Gaussian Splatting
+/home/dev/mywork/project/segment/parsing/[2024 nips] GraphMorph: Tubular Structure Extraction by Morphing Predicted Graphs
+/home/dev/mywork/project/segment/parsing/[2024 nips] Newton Losses: Using Curvature Information for Learning with Differentiable Algorithms
+/home/dev/mywork/project/segment/parsing/[2024 nips] PaCE: Parsimonious Concept Engineering for Large Language Models
+/home/dev/mywork/project/segment/parsing/[2024 nips] Scribbles for All: Benchmarking Scribble Supervised Segmentation Across Datasets
+/home/dev/mywork/project/segment/parsing/[2024 scientific data] Dataset for Automatic Region-based Coronary Artery Disease Diagnostics Using X-Ray Angiography Images
+/home/dev/mywork/project/segment/parsing/[2024 tmi] Deep Closing: Enhancing Topological Connectivity in Medical Tubular Segmentation
+/home/dev/mywork/project/segment/parsing/[2024 tog] Differentiable Geodesic Distance for Intrinsic Minimization on Triangle Meshes
+/home/dev/mywork/project/segment/parsing/[2024 tpami] DeepMulticut: Deep Learning of Multicut Problem for Neuron Segmentation from Electron Microscopy Volume
+/home/dev/mywork/project/segment/parsing/[2025 arxiv] Benchmarking Feature Upsampling Methods for Vision Foundation Models using Interactive Segmentation
+/home/dev/mywork/project/segment/parsing/[2025 arxiv] GLCP: Global-to-Local Connectivity Preservation for Tubular Structure Segmentation
+/home/dev/mywork/project/segment/parsing/[2025 arxiv] Progressive Curriculum Learning with Scale-Enhanced U-Net for Continuous Airway Segmentation
+/home/dev/mywork/project/segment/parsing/[2025 arxiv] You Point, I Learn: Online Adaptation of Interactive Segmentation Models for Handling Distribution Shifts in Medical Imaging
+/home/dev/mywork/project/segment/parsing/[2025 cvpr] DeformCL: Learning Deformable Centerline Representation for Vessel Extraction in 3D Medical Image
+/home/dev/mywork/project/segment/parsing/[2025 cvpr]  Domain-Dependent Decorrelation for Continual Test-Time Adaption of 3D LiDAR Segmentation
+/home/dev/mywork/project/segment/parsing/[2025 cvpr] Effective SAM Combination for Open-Vocabulary Semantic Segmentation
+/home/dev/mywork/project/segment/parsing/[2025 cvpr] FisherTune: Fisher-Guided Robust Tuning of Vision Foundation Models for Domain Generalized Segmentation
+/home/dev/mywork/project/segment/parsing/[2025 cvpr] Interactive Medical Image Segmentation: A Benchmark Dataset and Baseline
+/home/dev/mywork/project/segment/parsing/[2025 cvpr] iSegMan: Interactive Segment-and-Manipulate 3D Gaussians
+/home/dev/mywork/project/segment/parsing/[2025 cvpr] Lessons and Insights from a Unifying Study of Parameter-Efficient Fine-Tuning (PEFT) in Visual Recognition
+/home/dev/mywork/project/segment/parsing/[2025 cvpr] MaSS13K: A Matting-level Semantic Segmentation Benchmark
+/home/dev/mywork/project/segment/parsing/[2025 cvpr] nnWNet: Rethinking the Use of Transformers in Biomedical Image Segmentation and Calling for a Unified Evaluation Benchmark
+/home/dev/mywork/project/segment/parsing/[2025 cvpr] NTClick: Achieving Precise Interactive Segmentation With Noise-tolerant Clicks
+/home/dev/mywork/project/segment/parsing/[2025 cvpr] NTClick: Achieving Precise Interactive Segmentation With Noise-tolerant Clicks_supp
+/home/dev/mywork/project/segment/parsing/[2025 cvpr] Repurposing Stable Diffusion Attention for Training-Free Unsupervised Interactive Segmentation
+/home/dev/mywork/project/segment/parsing/[2025 cvpr] ROS-SAM: High-Quality Interactive Segmentation for Remote Sensing Moving Object
+/home/dev/mywork/project/segment/parsing/[2025 cvpr] SAM2-LOVE: Segment Anything Model 2 in Language-aided Audio-Visual Scenes
+/home/dev/mywork/project/segment/parsing/[2025 cvpr] SAM2Object: Consolidating View Consistency via SAM2 for Zero-Shot 3D Instance Segmentation
+/home/dev/mywork/project/segment/parsing/[2025 cvpr] SAM-I2V: Upgrading SAM to Support Promptable Video Segmentation with Less than 0.2% Training Cost
+/home/dev/mywork/project/segment/parsing/[2025 cvpr] SAM-REF: Introducing Image-Prompt Synergy during Interaction for Detail Enhancement in the Segment Anything Model
+/home/dev/mywork/project/segment/parsing/[2025 cvpr] SAMWISE: Infusing Wisdom in SAM2 for Text-Driven Video Segmentation
+/home/dev/mywork/project/segment/parsing/[2025 cvpr] SegAgent: Exploring Pixel Understanding Capabilities in MLLMs by Imitating Human Annotator Trajectories
+/home/dev/mywork/project/segment/parsing/[2025 cvpr] Segment Any-Quality Images with Generative Latent Space Enhancement
+/home/dev/mywork/project/segment/parsing/[2025 cvpr] Segment Anything, Even Occluded
+/home/dev/mywork/project/segment/parsing/[2025 cvpr] Segment This Thing: Foveated Tokenization for Efficient Point-Prompted Segmentation
+/home/dev/mywork/project/segment/parsing/[2025 cvpr] Sketchy Bounding-box Supervision for 3D Instance Segmentation
+/home/dev/mywork/project/segment/parsing/[2025 cvpr] Test-Time Domain Generalization via Universe Learning: A Multi-Graph Matching Approach for Medical Image Segmentation
+/home/dev/mywork/project/segment/parsing/[2025 cvpr] TSAM: Temporal SAM Augmented with Multimodal Prompts for Referring Audio-Visual Segmentation
+/home/dev/mywork/project/segment/parsing/[2025 cvpr] UNICL-SAM: Uncertainty-Driven In-Context Segmentation with Part Prototype Discovery
+/home/dev/mywork/project/segment/parsing/[2025 cvpr] vesselFM: A Foundation Model for Universal 3D Blood Vessel Segmentation
+/home/dev/mywork/project/segment/parsing/[2025 iccv2] Topology-Preserving Image Segmentation with Spatial-Aware Persistent Feature Matching
+/home/dev/mywork/project/segment/parsing/[2025 iccv] Adapt Foundational Segmentation Models with Heterogeneous Searching Space
+/home/dev/mywork/project/segment/parsing/[2025 iccv] AHCPTQ: Accurate and Hardware-Compatible Post-Training Quantization for Segment Anything Model
+/home/dev/mywork/project/segment/parsing/[2025 iccv] Correlated Low-Rank Adaptation for ConvNets
+/home/dev/mywork/project/segment/parsing/[2025 iccv] Correspondence as Video: Test-Time Adaption on SAM2 for Reference Segmentation in the Wild
+/home/dev/mywork/project/segment/parsing/[2025 iccv] DAA*: Deep Angular A Star for Image-based Path Planning
+/home/dev/mywork/project/segment/parsing/[2025 iccv] DC-TTA: Divide-and-Conquer Framework for Test-Time Adaptation of Interactive Segmentation
+/home/dev/mywork/project/segment/parsing/[2025 iccv] Easy3D: A Simple Yet Effective Method for 3D Interactive Segmentation
+/home/dev/mywork/project/segment/parsing/[2025 iccv] E-SAM: Training-Free Segment Every Entity Model
+/home/dev/mywork/project/segment/parsing/[2025 iccv] HarmonySeg: Tubular Structure Segmentation with Deep-Shallow Feature Fusion and Growth-Suppression Balanced Loss
+/home/dev/mywork/project/segment/parsing/[2025 iccv] Inter2Former: Dynamic Hybrid Attention for Efficient High-Precision Interactive Segmentation
+/home/dev/mywork/project/segment/parsing/[2025 iccv]  MaskSAM: Auto-prompt SAM with Mask Classification for Volumetric Medical Image Segmentation
+/home/dev/mywork/project/segment/parsing/[2025 iccv] MaskSAM: Auto-prompt SAM with Mask Classification for Volumetric Medical Image Segmentation
+/home/dev/mywork/project/segment/parsing/[2025 iccv] MPG-SAM 2: Adapting SAM 2 with Mask Priors and Global Context for Referring Video Object Segmentation
+/home/dev/mywork/project/segment/parsing/[2025 iccv] Multi-modal Segment Anything Model for Camouflaged Scene Segmentation
+/home/dev/mywork/project/segment/parsing/[2025 iccv] MultiverSeg: Scalable Interactive Segmentation of Biomedical Imaging Datasets with In-Context Guidance
+/home/dev/mywork/project/segment/parsing/[2025 iccv] NETracer: A Topology-Aware Iterative Tracing Approach for Tubular Structure Extraction
+/home/dev/mywork/project/segment/parsing/[2025 iccv] OmniSAM: Omnidirectional Segment Anything Model for UDA in Panoramic Semantic Segmentation
+/home/dev/mywork/project/segment/parsing/[2025 iccv] One Polyp Identifies All: One-Shot Polyp Segmentation with SAM via Cascaded Priors and Iterative Prompt Evolution
+/home/dev/mywork/project/segment/parsing/[2025 iccv] Progressive Test Time Energy Adaptation for Medical Image Segmentation
+/home/dev/mywork/project/segment/parsing/[2025 iccv] ProSAM: Enhancing the Robustness of SAM-based Visual Reference Segmentation with Probabilistic Prompts
+/home/dev/mywork/project/segment/parsing/[2025 iccv] SAM2Long: Enhancing SAM 2 for Long Video Segmentation with a Training-Free Memory Tree
+/home/dev/mywork/project/segment/parsing/[2025 iccv] SAM4D: Segment Anything in Camera and LiDAR Streams
+/home/dev/mywork/project/segment/parsing/[2025 iccv] SegAnyPET: Universal Promptable Segmentation from Positron Emission Tomography Images
+/home/dev/mywork/project/segment/parsing/[2025 iccv] Topology-Preserving Image Segmentation with Spatial-Aware Persistent Feature Matching
+/home/dev/mywork/project/segment/parsing/[2025 iccv] TopoTTA: Topology-Enhanced Test-Time Adaptation for Tubular Structure Segmentation
+/home/dev/mywork/project/segment/parsing/[2025 iccv] Towards Fine-grained Interactive Segmentation in Images and Videos
+/home/dev/mywork/project/segment/parsing/[2025 iccv] Unified Open-World Segmentation with Multi-Modal Prompts
+/home/dev/mywork/project/segment/parsing/[2025 iclr] Generalizing Stochastic Smoothing for Differentiation and Gradient Estimation
+/home/dev/mywork/project/segment/parsing/[2025 iclr] IMDPrompter: Adapting SAM to Image Manipulation Detection by Cross-View Automated Prompt Learning
+/home/dev/mywork/project/segment/parsing/[2025 iclr] MaxCutPool differentiable feature-aware Maxcut for pooling in graph neural networks
+/home/dev/mywork/project/segment/parsing/[2025 iclr] MTSAM: Multi-Task Fine-Tuning for Segment Anything Model
+/home/dev/mywork/project/segment/parsing/[2025 iclr] Order-aware Interactive Segmentation
+/home/dev/mywork/project/segment/parsing/[2025 iclr] SAM-CP: Marrying SAM with Composable Prompts for Versatile Segmentation
+/home/dev/mywork/project/segment/parsing/[2025 iclr] SAMRefiner: Taming Segment Anything Model for Universal Mask Refinement
+/home/dev/mywork/project/segment/parsing/[2025 iclr] TopoDiffusionNet: A Topology-aware Diffusion Model
+/home/dev/mywork/project/segment/parsing/[2025 iclr] Topograph: An Efficient Graph-Based Framework for Strictly Topology Preserving Image Segmentation
+/home/dev/mywork/project/segment/parsing/[2025 iclr] Towards Scalable Topological Regularizers
+/home/dev/mywork/project/segment/parsing/[2025 icml] Adapter Naturally Serves as Decoupler for Cross-Domain Few-Shot Semantic Segmentation
+/home/dev/mywork/project/segment/parsing/[2025 icml] Cover learning for large-scale topology representation
+/home/dev/mywork/project/segment/parsing/[2025 icml] InfoSAM: Fine-Tuning the Segment Anything Model from An Information-Theoretic Perspective
+/home/dev/mywork/project/segment/parsing/[2025 icml] UncertainSAM: Fast and Efficient Uncertainty Quantification of the Segment Anything Model
+/home/dev/mywork/project/segment/parsing/[2025 icml] Unlocking the Power of SAM 2 for Few-Shot Segmentation
+/home/dev/mywork/project/segment/parsing/[2025 ijcv] FlowSDF: Flow Matching for Medical Image Segmentation Using Distance Transforms
+/home/dev/mywork/project/segment/parsing/[2025 isbi] UniCurvSeg: Learning Contextual Prompt for Universal Vessel-Like Curvilinear Structure Segmentation
+/home/dev/mywork/project/segment/parsing/[2025 JSTARS] Multiscale Adapter Based on SAM for Remote Sensing Semantic Segmentation
+/home/dev/mywork/project/segment/parsing/[2025 nips] Alligat0R: Pre-Training through Covisibility Segmentation for Relative Camera Pose Regression
+/home/dev/mywork/project/segment/parsing/[2025 nips] ARGenSeg: Image Segmentation with Autoregressive Image Generation Model
+/home/dev/mywork/project/segment/parsing/[2025 nips] Attention (as Discrete-Time Markov) Chains
+/home/dev/mywork/project/segment/parsing/[2025 nips] Beyond Masked and Unmasked: Discrete Diffusion Models via Partial Masking
+/home/dev/mywork/project/segment/parsing/[2025 nips] Bringing SAM to new heights: leveraging elevation data for tree crown segmentation from drone imagery
+/home/dev/mywork/project/segment/parsing/[2025 nips] Correlated Low-Rank Adaptation for ConvNets
+/home/dev/mywork/project/segment/parsing/[2025 nips] COS3D: Collaborative Open-Vocabulary 3D Segmentation
+/home/dev/mywork/project/segment/parsing/[2025 nips] Diffusion-Driven Two-Stage Active Learning for Low-Budget Semantic Segmentation
+/home/dev/mywork/project/segment/parsing/[2025 nips] DuSA: Fast and Accurate Dual-Stage Sparse Attention Mechanism Accelerating Both Training and Inference
+/home/dev/mywork/project/segment/parsing/[2025 nips] GaRA-SAM: Robustifying Segment Anything Model with Gated-Rank Adaptation
+/home/dev/mywork/project/segment/parsing/[2025 nips] Gate to the Vessel: Residual Experts Restore What SAM Overlooks
+/home/dev/mywork/project/segment/parsing/[2025 nips] GraLoRA: Granular Low-Rank Adaptation for Parameter-Efficient Fine-Tuning
+/home/dev/mywork/project/segment/parsing/[2025 nips] KLASS: KL-Guided Fast Inference in Masked Diffusion Models
+/home/dev/mywork/project/segment/parsing/[2025 nips] MATCH: Multi-faceted Adaptive Topo-Consistency for Semi-Supervised Histopathology Segmentation
+/home/dev/mywork/project/segment/parsing/[2025 nips] Native Segmentation Vision Transformers
+/home/dev/mywork/project/segment/parsing/[2025 nips] OVS Meets Continual Learning: Towards Sustainable Open-Vocabulary Segmentation
+/home/dev/mywork/project/segment/parsing/[2025 nips] Polyline Path Masked Attention for Vision Transformer
+/home/dev/mywork/project/segment/parsing/[2025 nips] SaFiRe: Saccade-Fixation Reiteration with Mamba for Referring Image Segmentation
+/home/dev/mywork/project/segment/parsing/[2025 nips] SANSA: Unleashing the Hidden Semantics in SAM2 for Few-Shot Segmentation
+/home/dev/mywork/project/segment/parsing/[2025 nips] Seg2Any: Open-set Segmentation-Mask-to-Image Generation with Precise Shape and Semantic Control
+/home/dev/mywork/project/segment/parsing/[2025 nips] SegGraph: Leveraging Graphs of SAM Segments for Few-Shot 3D Part Segmentation
+/home/dev/mywork/project/segment/parsing/[2025 nips] Topology-Aware Learning of Tubular Manifolds via SE(3)-Equivariant Network on Ball B-Spline Curve
+/home/dev/mywork/project/segment/parsing/[2025 nips] Towards Generalizable Retina Vessel Segmentation with Deformable Graph Priors
+/home/dev/mywork/project/segment/parsing/[2025 nips] Towards Unsupervised Domain Bridging via Image Degradation in Semantic Segmentation
+/home/dev/mywork/project/segment/parsing/[2025 nips] VIPAMIN: Visual Prompt Initialization via Embedding Selection and Subspace Expansion
+/home/dev/mywork/project/segment/parsing/[2025 nips] VQ-Seg: Vector-Quantized Token Perturbation for Semi-Supervised Medical Image Segmentation
+/home/dev/mywork/project/segment/parsing/[2025 pr] Curvi-Tracker: : Curvilinear structure segmentation refinement by iterative tracking
+/home/dev/mywork/project/segment/parsing/[2025 tcss] TSCNet: Transformer and Snake Convolution Feature Attention Network for OCTA Vessel Segmentation
+/home/dev/mywork/project/segment/parsing/[2025 tim] DSHR-Net: A Deep Snake High-Resolution Network for Dorsal Hand Vein Segmentation
+/home/dev/mywork/project/segment/parsing/[2025 tmi] Frenet-Serret Frame-Based Decomposition for Part Segmentation of 3-D Curvilinear Structures
+/home/dev/mywork/project/segment/parsing/[2025 tmi] Masked Vascular Structure Segmentation and Completion in Retinal Images
+/home/dev/mywork/project/segment/parsing/[2025 tmi] SATO: Straighten Any 3D Tubular Object
+/home/dev/mywork/project/segment/parsing/[2025 tmi] Serp-Mamba: Advancing High-Resolution Retinal Vessel Segmentation With Selective State-Space Model
+/home/dev/mywork/project/segment/parsing/[2025 tmi] Topology Optimization in Medical Image Segmentation with Fast χ Euler Characteristic
+/home/dev/mywork/project/segment/parsing/[2025 tpami] Enhancing Object Detection With Fourier Series
+/home/dev/mywork/project/segment/parsing/[2026 aaai] Capro: Curvilinear-aware Prompt Learning with Single Unlabeled Image for Cost-effective Curvilinear Structure Segmentation
+/home/dev/mywork/project/segment/parsing/[2026 aaai] CaPro: Curvilinear-aware Prompt Learning with Single Unlabeled Image for Cost-effective Curvilinear Structure Segmentation
+/home/dev/mywork/project/segment/parsing/[2026 acl] SAM3-I: Segment Anything with Instructions
+/home/dev/mywork/project/segment/parsing/[2026 aistats] Beyond Spectral Clustering: Probabilistic Cuts for Differentiable Graph Partitioning
+/home/dev/mywork/project/segment/parsing/[2026 arxiv] Can Frozen Hyperspherical Features Guide the Selection of Pseudo Masks?
+/home/dev/mywork/project/segment/parsing/[2026 arxiv] Dynamic Exploration on Segment-Proposal Graphs for Tubular Centerline Tracking
+/home/dev/mywork/project/segment/parsing/[2026 arxiv] SuReNav: Superpixel Graph-based Constraint Relaxation for Navigation in Over-constrained Environments
+/home/dev/mywork/project/segment/parsing/[2026 arxiv] Topology-Aware Query Selection for Surgical Instrument Instance Segmentation
+/home/dev/mywork/project/segment/parsing/[2026 arxiv] TopoLoRA-SAM: Topology-Aware Parameter-Efficient Adaptation of Foundation Segmenters for Thin-Structure and Cross-Domain Binary Semantic Segmentation
+/home/dev/mywork/project/segment/parsing/[2026] CoroSAM: adaptation of the Segment Anything Model for interactive segmentation in Coronary angiograms
+/home/dev/mywork/project/segment/parsing/[2026 cvpr] Attack for Defense: Adversarial Agents for Point Prompt Optimization Empowering Segment Anything Model
+/home/dev/mywork/project/segment/parsing/[2026 cvpr] Bootstrapping Video Semantic Segmentation Model via Distillation-assisted Test-Time Adaptation
+/home/dev/mywork/project/segment/parsing/[2026 cvpr] CAR-SAM: Cross-Attention Reconstruction for Post-Training Quantization of the Segment Anything Model
+/home/dev/mywork/project/segment/parsing/[2026 cvpr] CDICS: Delving Into Fine-Grained Attribute for In-Context Segmentation via Compositional Prompts and Phased Decoupling
+/home/dev/mywork/project/segment/parsing/[2026 cvpr] CoSMo3D: Open-World Promptable 3D Semantic Segmentation through LLM-Guided Canonical Spatial Modeling
+/home/dev/mywork/project/segment/parsing/[2026 cvpr] DeformCL: Learning Deformable Centerline Representation for Vessel Extraction in 3D Medical Image
+/home/dev/mywork/project/segment/parsing/[2026 cvpr] Differentiable Laplacian Matrix Guided Superpixel Segmentation
+/home/dev/mywork/project/segment/parsing/[2026 cvpr] Discover, Segment, and Select: A Progressive Mechanism for Zero-shot Camouflaged Object Segmentation
+/home/dev/mywork/project/segment/parsing/[2026 cvpr] Dual-level Adapter Boosting Prompt-free Curvilinear Structure Segmentation
+/home/dev/mywork/project/segment/parsing/[2026 cvpr] ESAM++: Efficient Online 3D Perception on the Edge
+/home/dev/mywork/project/segment/parsing/[2026 cvpr] Focus on Background: Exploring SAM's Potential in Few-shot Medical Image Segmentation with Background-centric Prompting
+/home/dev/mywork/project/segment/parsing/[2026 cvpr] GeCo: Geometry-Consistent Regularization for Domain Generalized Semantic Segmentation
+/home/dev/mywork/project/segment/parsing/[2026 cvpr] GeoSAM2: Unleashing the Power of SAM2 for 3D Part Segmentation
+/home/dev/mywork/project/segment/parsing/[2026 cvpr] Hilbert Curve-Based Attention Enabling Topology-Preserving Image Tensor Representation for Semantic Segmentation Network
+/home/dev/mywork/project/segment/parsing/[2026 cvpr] Hyperbolic Prototype Learning with Uncertainty-Aware Consistency for Continual Test-Time Segmentation
+/home/dev/mywork/project/segment/parsing/[2026 cvpr] Learning and Aligning Click-Aware Shape Prior for Interactive Amodal Instance Segmentation
+/home/dev/mywork/project/segment/parsing/[2026 cvpr] Live Interactive Training for Video Segmentation
+/home/dev/mywork/project/segment/parsing/[2026 cvpr] M4-SAM: Multi-Modal Mixture-of-Experts with Memory-Augmented SAM for RGB-D Video Salient Object Detection
+/home/dev/mywork/project/segment/parsing/[2026 cvpr] MixerCSeg: An Efficient Mixer Architecture for Crack Segmentation via Decoupled Mamba Attention
+/home/dev/mywork/project/segment/parsing/[2026 cvpr] Mixture of Prototypes for Test-time Adaptive Segmentation
+/home/dev/mywork/project/segment/parsing/[2026 cvpr] Parallelised Differentiable Straightest Geodesics for 3D Meshes
+/home/dev/mywork/project/segment/parsing/[2026 cvpr] PR-MaGIC: Prompt Refinement Via Mask Decoder Gradient Flow For In-Context Segmentation
+/home/dev/mywork/project/segment/parsing/[2026 cvpr] PromptMoE: A Segmentation Refinement Framework Leveraging Mixture of Experts for Improved Prompting
+/home/dev/mywork/project/segment/parsing/[2026 cvpr] ReSAM: Refine, Requery, and Reinforce: Self-Prompting Point-Supervised Segmentation for Remote Sensing Images
+/home/dev/mywork/project/segment/parsing/[2026 cvpr] Robust Promptable Video Object Segmentation
+/home/dev/mywork/project/segment/parsing/[2026 cvpr] RoSAMDepth: Robust Self-supervised Depth Estimation Leveraging Segment Anything Model
+/home/dev/mywork/project/segment/parsing/[2026 cvpr] SAGE: Style-Adaptive Generalization for Privacy-Constrained Semantic Segmentation Across Domains
+/home/dev/mywork/project/segment/parsing/[2026 cvpr] SAME: Sparse and Anchored Model Editing for Heterogeneous Incremental Learning under Limited Data
+/home/dev/mywork/project/segment/parsing/[2026 cvpr] SAMIX: Reinforcing SAM2 with Semantic Adapter and Reference Selecting Policy for Mix-Supervised Segmentation
+/home/dev/mywork/project/segment/parsing/[2026 cvpr] SAMosaic3D: Modular Scene Assembly for Real-Time 3D Segment Anything
+/home/dev/mywork/project/segment/parsing/[2026 cvpr] SAMTok: Representing Any Mask with Two Words
+/home/dev/mywork/project/segment/parsing/[2026 cvpr] SCSegamba: Lightweight Structure-Aware Vision Mamba for Crack Segmentation in Structures
+/home/dev/mywork/project/segment/parsing/[2026 cvpr] SegMoTE: Token-Level Mixture of Experts for Medical Image Segmentation
+/home/dev/mywork/project/segment/parsing/[2026 cvpr] SHAPE: Structure-aware Hierarchical Unsupervised Domain Adaptation with Plausibility Evaluation for Medical Image Segmentation
+/home/dev/mywork/project/segment/parsing/[2026 cvpr] Simple-ViLMedSAM: Simple Text Prompts Meet Vision-Language Models for Medical Image Segmentation
+/home/dev/mywork/project/segment/parsing/[2026 cvpr] Spatial-SAM: Spatially Consistent 3D Electron Microscopy Segmentation with SDF Memory and Semi-Supervised Learning
+/home/dev/mywork/project/segment/parsing/[2026 cvpr] SPOT: Spatiotemporal Prompt Optimization for Motion-Stabilized MLLM-Guided Video Segmentation
+/home/dev/mywork/project/segment/parsing/[2026 cvpr] TF-SSD: A Strong Pipeline via Synergic Mask Filter for Training-free Co-salient Object Detection
+/home/dev/mywork/project/segment/parsing/[2026 cvpr] The SA-FARI Dataset: Segment Anything in Footage of Animals for Recognition and Identification
+/home/dev/mywork/project/segment/parsing/[2026 cvpr] Towards High-Quality Image Segmentation: Improving Topology Accuracy by Penalizing Neighbor Pixels
+/home/dev/mywork/project/segment/parsing/[2026 cvpr] Towards High-Quality Image Segmentation: Improving Topology Accuracy by Penalizing Neighbor Pixels 
+/home/dev/mywork/project/segment/parsing/[2026 cvpr] Towards Persistence: Learning Topological Constraints For Event-based Small Object Detection
+/home/dev/mywork/project/segment/parsing/[2026 cvpr] V^2-SAM: Marrying SAM2 with Multi-Prompt Experts for Cross-View Object Correspondence
+/home/dev/mywork/project/segment/parsing/[2026 cvpr] VesMamba: 3D Pulmonary Vessel Segmentation from CT images via Mamba with Structural Perception and Scale-aware Filtering
+/home/dev/mywork/project/segment/parsing/[2026 cvpr] VoxTell: Free-Text Promptable Universal 3D Medical Image Segmentation
+/home/dev/mywork/project/segment/parsing/[2026 cvprw] Hyperbolic Twins: Efficient Finetuning Vision Language Model for Few-Shot Learning via Hyperbolic Geometry
+/home/dev/mywork/project/segment/parsing/[2026 eccv] Concept-to-Pixel: Prompt-Free Universal Medical Image Segmentation
+/home/dev/mywork/project/segment/parsing/[2026 eccv] From Reconstruction to Decision: A Post-Encoder Plug-in Adapter for Curvilinear Segmentation
+/home/dev/mywork/project/segment/parsing/[2026 eccv] IP-SAM: Rethinking Prompt-Conditioned Segmentation for Prompt-Absent Deployment
+/home/dev/mywork/project/segment/parsing/[2026 eccv] LoCA: Spatially-Aware Low-Rank Convolutional Adaptation of Vision Foundation Models
+/home/dev/mywork/project/segment/parsing/[2026 eccv] MedCAGD: Context-Aware Gated Decoder for Robust Medical Image Segmentation
+/home/dev/mywork/project/segment/parsing/[2026 eccv] P3-SAM: Native 3D Part Segmentation
+/home/dev/mywork/project/segment/parsing/[2026 eccv] TopoFuse: Topology-Aware Tri-Planar Fusion for 3D Cryo-Electron Tomography Segmentation
+/home/dev/mywork/project/segment/parsing/[2026 eccv] Training-free Cross-domain Few-shot Segmentation via Robust Semantic Representation and Matching
+/home/dev/mywork/project/segment/parsing/[2026 icassp] Curvilinear Spectral U-Net: A Framework for Structure-Aware Road Extraction from Very High Resolution Imagery
+/home/dev/mywork/project/segment/parsing/[2026 icassp] Progressively Injecting Structural Semantics from the Frequency Domain into Mamba for Accurate Curvilinear Structure Segmentation
+/home/dev/mywork/project/segment/parsing/[2026 iclr] Bi-LoRA: Efficient Sharpness-Aware Minimization for Fine-Tuning Large-Scale Models
+/home/dev/mywork/project/segment/parsing/[2026 iclr] Dual-Kernel Adapter: Expanding Spatial Horizons for Data-Constrained Medical Image Analysis
+/home/dev/mywork/project/segment/parsing/[2026 iclr] K-Prism: A Knowledge-Guided and Prompt Integrated Universal Medical Image Segmentation Model
+/home/dev/mywork/project/segment/parsing/[2026 iclr] SAM-Veteran: An MLLM-Based Human-like SAM Agent for Reasoning Segmentation
+/home/dev/mywork/project/segment/parsing/[2026 icml] ACO-MoE-LoRA: Evolving-while-Training for Adapting Segment Anything Model 2 to Specialized Domains
+/home/dev/mywork/project/segment/parsing/[2026 icml] Generalizing Stochastic Smoothing for Differentiation and Gradient Estimation
+/home/dev/mywork/project/segment/parsing/[2026 icml] Parameters as Experts: Adapting Vision Models with Dynamic Parameter Routing
+/home/dev/mywork/project/segment/parsing/[2026 icml] S2M-Net: Spectral-Spatial Mixing with Morphology-Aware Adaptive Loss for Medical Image Segmentation
+/home/dev/mywork/project/segment/parsing/[2026 icml] SCRWKV: Ultra-Compact Structure-Calibrated Vision-RWKV for Topological Crack Segmentation
+/home/dev/mywork/project/segment/parsing/[2026 icml] Spatial Priors via Space Filling Curves for Small and Limited Data Vision Transformers
+/home/dev/mywork/project/segment/parsing/[2026 icpr] TopoLoRA-SAM: Topology-Aware Parameter-Efficient Adaptation of Foundation Segmenters for Thin-Structure and Cross-Domain Binary Semantic Segmentation
+/home/dev/mywork/project/segment/parsing/[2026 MIA] Informativeness-driven active adaptation of SAM: Structural prompts and contrastive parameter selection for medical tubular segmentation
+/home/dev/mywork/project/segment/parsing/[2026 miccai] CSWinUNETR: Segmentation of Thin Anatomical Structures in Medical Images
+/home/dev/mywork/project/segment/parsing/[2026 tgrs] RFSNet: Rotational Frequency-Aware Structural Network for Road Segmentation via Frequency-Geometry Collaboration
+/home/dev/mywork/project/segment/parsing/[2026 tmi] Few-Shot Pulmonary Vessel Segmentation Based on Tubular-Aware Prompt-Tuning
+358 .parsing_dirs.log
