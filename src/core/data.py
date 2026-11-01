@@ -6,6 +6,7 @@
   original resolution for evaluation (verbatim from test_sam.py).
 """
 
+import csv
 import logging
 import os
 
@@ -102,8 +103,33 @@ class TestDataset(Dataset):
         if not self.image_files:
             raise ValueError(f"No valid image-mask pairs found in {self.image_dir}")
 
+        # Dataset name per output stem, used by SACM-X validation to log
+        # the same per-dataset W&B keys as the baseline runner.  The
+        # split manifest lives at the root (root/split_manifest.csv).
+        self.dataset_by_output = {}
+        manifest_path = os.path.join(root_dir, 'split_manifest.csv')
+        if os.path.isfile(manifest_path):
+            with open(manifest_path, newline='') as handle:
+                for row in csv.DictReader(handle):
+                    if split is not None and row.get('split') != split:
+                        continue
+                    output = row.get('output', '')
+                    dataset = row.get('dataset', '')
+                    if output and dataset:
+                        self.dataset_by_output[os.path.splitext(output)[0]] = dataset
+
     def __len__(self):
         return len(self.image_files)
+
+    def dataset_for(self, img_name):
+        """Return the dataset that produced an image filename."""
+        stem = os.path.splitext(os.path.basename(str(img_name)))[0]
+        dataset = self.dataset_by_output.get(stem)
+        if dataset:
+            return dataset
+        # Single-dataset test roots have no manifest; the protocol's
+        # filenames are prefixed with the dataset name.
+        return stem.split('_')[0] or 'val'
 
     def __getitem__(self, idx):
         from torchvision import transforms

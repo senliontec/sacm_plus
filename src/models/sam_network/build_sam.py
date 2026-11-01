@@ -7,6 +7,8 @@
 # Modified: builder arguments for the geometric adapters, the closed-loop
 # coarse-to-fine decoder, Fusion v2 and the multi-depth path.
 
+import logging
+
 import torch
 
 from functools import partial
@@ -217,5 +219,24 @@ def _build_sam(
     if checkpoint is not None:
         with open(checkpoint, "rb") as f:
             state_dict = torch.load(f)
-        sam.load_state_dict(state_dict, strict=False)
+        missing, unexpected = sam.load_state_dict(state_dict, strict=False)
+        logging.info(
+            "SAM checkpoint loaded: %d missing keys, %d unexpected keys",
+            len(missing), len(unexpected))
+        if missing:
+            logging.info("  missing (first 10): %s", missing[:10])
+        if unexpected:
+            logging.info("  unexpected (first 10): %s", unexpected[:10])
+
+        # Stage-2 warm-start must happen AFTER the base checkpoint load.
+        # A full SACM-X checkpoint already contains Stage-2 weights; never
+        # overwrite those.  A base SAM checkpoint has no Stage-2 keys, so
+        # copy the now-loaded Stage-1 heads into Stage-2.
+        has_stage2 = any(
+            key.startswith('mask_decoder.output_hypernetworks_mlps_stage2.')
+            for key in state_dict)
+        if init_stage2_from_stage1 and not has_stage2:
+            sam.mask_decoder.copy_stage1_to_stage2()
+            logging.info(
+                "Initialized Stage-2 mask heads from the loaded Stage-1 heads")
     return sam

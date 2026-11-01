@@ -2,22 +2,26 @@
 # Quick same-protocol test for SACM-X's own model.
 #
 # 18-image train_root, all 20 frozen-protocol test sets, ONE preset,
-# no TTA, W&B on, fast validation, then aggregate the 4 paper metrics.
+# no TTA, W&B on, baseline-compatible validation, then aggregate the 4
+# paper metrics.
 #
 # Usage:
 #   GPU=1 PRESET=full EPOCHS=800 bash scripts/sacm_x/run_sacm_x_quick.sh
-#   GPU=1 PRESET=sacm EPOCHS=20 bash scripts/sacm_x/run_sacm_x_quick.sh
+#   GPU=1 PRESET=sacm EPOCHS=20 MONITOR=official bash scripts/sacm_x/run_sacm_x_quick.sh
 #   GPU=1 PRESET=full EPOCHS=5 DATASETS="CHASEDB1 WIRE" \
 #     bash scripts/sacm_x/run_sacm_x_quick.sh
 #
 # Environment:
 #   PYTHON, GPU, PRESET, EPOCHS, VAL_INTERVAL, SEED, DATASETS, CKPT,
-#   TRAIN_ROOT, OUTPUT_ROOT, MONITOR, USE_WANDB, WANDB_MODE,
+#   TRAIN_ROOT, OUTPUT_ROOT, MONITOR, USE_WANDB, WANDB_MODE, WANDB_NAME,
 #   INIT_STAGE2_FROM_STAGE1, SKIP_TEST, SCNP, SCNP_WINDOW,
 #   SCNP_ORIGINAL_WEIGHT
 #
-# MONITOR=official (default): official SACM-style loss/F1/LR terminal lines,
-#   no FOV in validation or test, and only loss/F1 during training validation.
+# MONITOR=baseline (default): every-epoch macro Dice/IoU/clDice/HD95 and
+#   per-dataset W&B keys, exactly like src/baseline_zoo/runtime.py;
+#   checkpoint selection uses macro Dice; no FOV.
+# MONITOR=official: official SACM-style loss/F1/LR terminal lines, no FOV,
+#   and only loss/F1 during training validation.
 # MONITOR=sacm: fast validation but still prints the rich wide table (legacy).
 # MONITOR=full: re-enable the full validation metric suite (Dice/IoU/clDice/
 #   HD95 + AUC/Betti/Topograph engines).
@@ -38,13 +42,13 @@ GPU="${GPU:-0}"
 PRESET="${PRESET:-full}"
 source scripts/sacm_x/wandb_env.sh
 EPOCHS="${EPOCHS:-800}"
-VAL_INTERVAL="${VAL_INTERVAL:-10}"
-SEED="${SEED:-42}"
+VAL_INTERVAL="${VAL_INTERVAL:-}"
+SEED="${SEED:-0}"
 DATASETS="${DATASETS:-}"
 CKPT="${CKPT:-checkpoints/sam_vit_l_0b3195.pth}"
-TRAIN_ROOT="${TRAIN_ROOT:-data/sacm_3shot}"
+TRAIN_ROOT="${TRAIN_ROOT:-data/sacm_3shot_seed${SEED}}"
 OUTPUT_ROOT="${OUTPUT_ROOT:-results/sacm_x_quick}"
-MONITOR="${MONITOR:-official}"
+MONITOR="${MONITOR:-baseline}"
 INIT_STAGE2_FROM_STAGE1="${INIT_STAGE2_FROM_STAGE1:-true}"
 SCNP="${SCNP:-false}"
 SCNP_WINDOW="${SCNP_WINDOW:-3}"
@@ -63,18 +67,27 @@ if [ "$USE_WANDB" = "true" ] && [ "$WANDB_MODE" != "offline" ] && [ "$WANDB_MODE
   fi
 fi
 case "$MONITOR" in
+  baseline) TRAIN_EXTRA=(--use_wandb "$USE_WANDB" --fast_val false
+                --val_auc false --val_betti_matching false --val_topograph false
+                --log_style baseline --no-fov)
+              EVAL_EXTRA="--use_wandb $USE_WANDB --no-fov"
+              [ -n "$VAL_INTERVAL" ] || VAL_INTERVAL=1 ;;
   official) TRAIN_EXTRA=(--use_wandb "$USE_WANDB" --fast_val true
               --val_auc false --val_betti_matching false --val_topograph false
               --log_style official --no-fov)
-            EVAL_EXTRA="--use_wandb $USE_WANDB --no-fov" ;;
+            EVAL_EXTRA="--use_wandb $USE_WANDB --no-fov"
+            [ -n "$VAL_INTERVAL" ] || VAL_INTERVAL=10 ;;
   sacm) TRAIN_EXTRA=(--use_wandb "$USE_WANDB" --fast_val true
           --val_auc false --val_betti_matching false --val_topograph false)
-        EVAL_EXTRA="--use_wandb $USE_WANDB" ;;
+        EVAL_EXTRA="--use_wandb $USE_WANDB"
+        [ -n "$VAL_INTERVAL" ] || VAL_INTERVAL=10 ;;
   full) TRAIN_EXTRA=(--use_wandb "$USE_WANDB")
-        EVAL_EXTRA="--use_wandb $USE_WANDB" ;;
-  *) echo "ERROR: MONITOR must be 'official', 'sacm', or 'full', got '$MONITOR'" >&2
+        EVAL_EXTRA="--use_wandb $USE_WANDB"
+        [ -n "$VAL_INTERVAL" ] || VAL_INTERVAL=10 ;;
+  *) echo "ERROR: MONITOR must be 'baseline', 'official', 'sacm', or 'full', got '$MONITOR'" >&2
      exit 2 ;;
 esac
+TRAIN_EXTRA+=(--wandb_name "${WANDB_NAME:-sacm_x_seed${SEED}_${PRESET}}")
 
 TRAIN_EXTRA+=(--scnp "$SCNP" --scnp_window "$SCNP_WINDOW" \
               --scnp_original_weight "$SCNP_ORIGINAL_WEIGHT")
@@ -110,7 +123,7 @@ SPECS="$("$PYTHON" scripts/pipeline/protocol_specs.py \
   --datasets "$DATASETS")"
 read -r -a spec_array <<< "$SPECS"
 
-echo "preset=$PRESET epochs=$EPOCHS gpu=$GPU monitor=$MONITOR init_stage2_from_stage1=$INIT_STAGE2_FROM_STAGE1 scnp=$SCNP($SCNP_WINDOW) deep_closing=${DEEP_CLOSING_CKPT:-none} skip_test=$SKIP_TEST"
+echo "preset=$PRESET epochs=$EPOCHS gpu=$GPU monitor=$MONITOR val_interval=$VAL_INTERVAL init_stage2_from_stage1=$INIT_STAGE2_FROM_STAGE1 scnp=$SCNP($SCNP_WINDOW) deep_closing=${DEEP_CLOSING_CKPT:-none} skip_test=$SKIP_TEST"
 echo "datasets=${#spec_array[@]}  output=$OUTPUT_ROOT"
 RUN_EXTRA=()
 if [ "$SKIP_TEST" = "true" ]; then

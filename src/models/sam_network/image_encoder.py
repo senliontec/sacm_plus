@@ -86,6 +86,9 @@ class ImageEncoderViT(nn.Module):
         self.patch_size = patch_size
         self.depth = depth
         self.global_attn_indexes = tuple(global_attn_indexes)
+        # Matches official SACM / sacm_plus: recompute block activations in
+        # backward instead of retaining the full ViT-L activation graph.
+        self.grad_checkpointing = False
 
         self.patch_embed = PatchEmbed(
             kernel_size=(patch_size, patch_size),
@@ -144,7 +147,7 @@ class ImageEncoderViT(nn.Module):
         # AdapterEGlobal whose strip convolutions provide explicit
         # cross-window propagation.
         self.external_adapters = nn.ModuleList()
-        self.adapter_norm = None
+        self.adapter_norms = None
         if use_adapter:
             for i in range(depth):
                 is_geo_e_layer = use_geo_e and (
@@ -158,7 +161,37 @@ class ImageEncoderViT(nn.Module):
                     self.external_adapters.append(
                         AdapterModule(embed_dim, adapter_dim_ratio, act_layer)
                     )
-            self.adapter_norm = norm_layer(embed_dim)
+            # Per-block LayerNorm (SACM Eq.3): the shared norm used by the
+            # original code mixed statistics from different depths.
+            self.adapter_norms = nn.ModuleList(
+                [norm_layer(embed_dim) for _ in range(depth)])
+
+    def _load_from_state_dict(self, state_dict, prefix, local_metadata,
+                              strict, missing_keys, unexpected_keys,
+                              error_msgs):
+        """Migrate pre-fix checkpoints that stored one shared adapter norm.
+
+        Old SACM-X checkpoints have ``image_encoder.adapter_norm.weight/bias``;
+        the fixed model stores one norm per block.  Expand the legacy values
+        to every block and drop the legacy keys so strict checkpoint loads
+        remain possible.
+        """
+        legacy_w = prefix + 'adapter_norm.weight'
+        legacy_b = prefix + 'adapter_norm.bias'
+        if self.adapter_norms is not None and (
+                legacy_w in state_dict or legacy_b in state_dict):
+            for i in range(len(self.adapter_norms)):
+                weight_key = prefix + f'adapter_norms.{i}.weight'
+                bias_key = prefix + f'adapter_norms.{i}.bias'
+                if weight_key not in state_dict and legacy_w in state_dict:
+                    state_dict[weight_key] = state_dict[legacy_w].detach().clone()
+                if bias_key not in state_dict and legacy_b in state_dict:
+                    state_dict[bias_key] = state_dict[legacy_b].detach().clone()
+            state_dict.pop(legacy_w, None)
+            state_dict.pop(legacy_b, None)
+        super()._load_from_state_dict(
+            state_dict, prefix, local_metadata, strict, missing_keys,
+            unexpected_keys, error_msgs)
 
     def forward(self, x: torch.Tensor, return_features: bool = False) -> torch.Tensor:
         x = self.patch_embed(x)
@@ -174,7 +207,11 @@ class ImageEncoderViT(nn.Module):
         # Process through blocks
         for i, blk in enumerate(self.blocks):
             # Process through block
-            x = blk(x)
+            if self.grad_checkpointing and self.training:
+                x = torch.utils.checkpoint.checkpoint(
+                    blk, x, use_reentrant=False)
+            else:
+                x = blk(x)
 
             # Save intermediate features for the multi-depth decoder path
             if return_features and i in [0, self.depth // 3, 2 * self.depth // 3, self.depth - 1]:
@@ -188,7 +225,8 @@ class ImageEncoderViT(nn.Module):
                 if self.use_geo_e and (i in self.global_attn_indexes or
                                        (self.geo_e_indices is not None and i not in self.geo_e_indices)):
                     continue
-                external_adapter_out = self.external_adapters[i](self.adapter_norm(x))
+                external_adapter_out = self.external_adapters[i](
+                    self.adapter_norms[i](x))
                 adapter_features.append(external_adapter_out)
 
                 # Directly add the adapter output to the main branch

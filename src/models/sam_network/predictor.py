@@ -86,12 +86,19 @@ class SamPredictor:
         self.original_size = original_image_size
         self.input_size = tuple(transformed_image.shape[-2:])
         input_image = self.model.preprocess(transformed_image)
-        encoder_out = self.model.image_encoder(input_image)
-        # With adapters enabled the encoder returns
-        # (output, None, adapter_features); keep only the embeddings.
+        encoder_out = self.model.image_encoder(
+            input_image, return_features=True)
         if isinstance(encoder_out, tuple):
-            encoder_out = encoder_out[0]
-        self.features = encoder_out
+            if len(encoder_out) == 3:
+                (self.features, self.intermediate_features,
+                 self.adapter_features) = encoder_out
+            else:
+                self.features, self.intermediate_features = encoder_out
+                self.adapter_features = None
+        else:
+            self.features = encoder_out
+            self.intermediate_features = None
+            self.adapter_features = None
         self.is_image_set = True
 
     def predict(
@@ -237,6 +244,8 @@ class SamPredictor:
             sparse_prompt_embeddings=sparse_embeddings,
             dense_prompt_embeddings=dense_embeddings,
             multimask_output=multimask_output,
+            adapter_features=self.adapter_features,
+            intermediate_features=self.intermediate_features,
         )
 
         # Upscale the masks to the original image resolution
@@ -268,6 +277,8 @@ class SamPredictor:
         """Resets the currently set image."""
         self.is_image_set = False
         self.features = None
+        self.adapter_features = None
+        self.intermediate_features = None
         self.orig_h = None
         self.orig_w = None
         self.input_h = None

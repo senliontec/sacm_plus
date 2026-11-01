@@ -43,7 +43,7 @@ fi
 
 SEED="${SEED:-0}"
 EPOCHS="${EPOCHS:-800}"
-VAL_INTERVAL="${VAL_INTERVAL:-10}"
+VAL_INTERVAL="${VAL_INTERVAL:-1}"
 TRAIN_ROOT="${TRAIN_ROOT:-data/sacm_3shot_seed${SEED}}"
 OUTPUT_ROOT="${OUTPUT_ROOT:-results/recipe_matrix}"
 CKPT="${CKPT:-checkpoints/sam_vit_l_0b3195.pth}"
@@ -72,7 +72,7 @@ if [ "${#GPUS[@]}" -eq 0 ]; then
 fi
 
 # Keep the training-time validation cheap and identical across recipes.
-COMMON_TRAIN_ARGS="--fast_val true --val_auc false --val_betti_matching false --val_topograph false --log_style official --no-fov"
+COMMON_TRAIN_ARGS="--fast_val false --val_auc false --val_betti_matching false --val_topograph false --log_style baseline --no-fov"
 
 RECIPE_NAMES=(
   sacm_control

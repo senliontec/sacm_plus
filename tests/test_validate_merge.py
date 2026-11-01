@@ -37,7 +37,7 @@ def test_f1_matches_global_sklearn():
         all_pred.append(pred)
         all_gt.append(gt)
 
-    avg_loss, f1, cldice, metrics = _merge_val_payloads(shards)
+    avg_loss, f1, cldice, metrics, per_dataset = _merge_val_payloads(shards)
 
     p = (np.concatenate(all_pred) > 0).astype(np.uint8)
     t = (np.concatenate(all_gt) > 0.5).astype(np.uint8)
@@ -51,7 +51,7 @@ def test_f1_matches_global_sklearn():
 def test_all_nan_keeps_nan():
     g = {'loss_sum': 0.0, 'count': 1, 'tp': 0, 'fp': 0, 'fn': 0,
          'cldice': [np.nan], 'metrics': {'bm': [np.nan]}}
-    avg_loss, f1, cldice, metrics = _merge_val_payloads([g])
+    avg_loss, f1, cldice, metrics, per_dataset = _merge_val_payloads([g])
     assert avg_loss == 0.0
     assert f1 == 0.0                                  # 零分母 -> 0
     assert np.isnan(cldice)
@@ -64,7 +64,7 @@ def test_merge_across_uneven_shards():
                   metrics={'dice': [0.5], 'bm': [2.0]})
     g1 = _payload(np.ones(10), np.ones(10), count=1,
                   metrics={'dice': [1.0]})
-    _, _, _, metrics = _merge_val_payloads([g0, g1])
+    _, _, _, metrics, _ = _merge_val_payloads([g0, g1])
     assert metrics['dice'] == pytest.approx(0.75)
     assert metrics['bm'] == pytest.approx(2.0)        # 只按存在分片平均
 
@@ -76,8 +76,31 @@ def test_empty_shard_contributes_zero():
                       metrics={'dice': [1.0]})
     g_empty = {'loss_sum': 0.0, 'count': 0, 'tp': 0, 'fp': 0, 'fn': 0,
                'cldice': [], 'metrics': {}}
-    avg_loss, f1, cldice, metrics = _merge_val_payloads([g_full, g_empty])
+    avg_loss, f1, cldice, metrics, per_dataset = _merge_val_payloads(
+        [g_full, g_empty])
     assert f1 == pytest.approx(1.0)          # 只有非空分片参与 F1
     assert avg_loss == pytest.approx(1.5)    # 1.5 / 1
     assert cldice == pytest.approx(0.9)
     assert metrics['dice'] == pytest.approx(1.0)
+
+
+def test_baseline_macro_and_per_dataset_merge():
+    """Baseline-style macro metrics and per-dataset buckets merge exactly."""
+    g0 = {
+        'loss_sum': 1.0, 'count': 1, 'tp': 1, 'fp': 0, 'fn': 0,
+        'cldice': [], 'metrics': {},
+        'macro': {'dice': [0.5, 1.0], 'iou': [0.25, 1.0],
+                  'cldice': [np.nan, 0.8], 'hd95': [np.nan, 2.0]},
+        'empty': [1.0, 0.0],
+        'per_dataset': {
+            'DRIVE': {'dice': [0.5, 1.0], 'iou': [0.25, 1.0],
+                      'cldice': [np.nan, 0.8], 'hd95': [np.nan, 2.0],
+                      'empty': [1.0, 0.0]},
+        },
+    }
+    _, _, cldice, metrics, per_dataset = _merge_val_payloads([g0])
+    assert cldice == pytest.approx(0.8)
+    assert metrics['dice'] == pytest.approx(0.75)
+    assert metrics['empty_prediction_rate'] == pytest.approx(0.5)
+    assert per_dataset['DRIVE']['dice'] == pytest.approx(0.75)
+    assert per_dataset['DRIVE']['empty_prediction_rate'] == pytest.approx(0.5)

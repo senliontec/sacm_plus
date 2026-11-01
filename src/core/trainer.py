@@ -24,7 +24,7 @@ from core.console import console, epoch_header, epoch_row, topo_legend
 from core.evaluator import resolve_selection
 from core.losses.monitor import topology_loss_monitor
 from core.losses.registry import TOPOLOGY_LOSS_REGISTRY
-from core.metrics import compute_metrics
+from core.metrics import BINARY_METRICS, binary_metrics, compute_metrics
 from core.metrics_advisor import advise
 from core.wandb_utils import finish_run, log_scalars, setup_wandb
 
@@ -92,10 +92,12 @@ def stage2_soft_weights(iou_pred, mix=0.5, tau=1.0):
 def _merge_val_payloads(gathered):
     """Merge per-rank validation payloads into global metrics (rank 0).
 
-    gathered: list of dicts with keys loss_sum/count/tp/fp/fn/cldice/metrics
-    (see _validate). F1 comes from the GLOBAL confusion counts (exact micro-F1,
-    identical to sklearn on the concatenated shards); all other metrics are
-    nanmean-aggregated so a NaN on one shard never poisons a column.
+    gathered: list of dicts with keys loss_sum/count/tp/fp/fn plus the
+    optional full-validation fields cldice/metrics/macro/empty/per_dataset
+    (see _validate). F1 comes from the GLOBAL confusion counts (exact
+    micro-F1, identical to sklearn on the concatenated shards). Baseline
+    style additionally returns macro per-image metrics and per-dataset
+    buckets, matching ``src/baseline_zoo/runtime.py::evaluate``.
     """
     avg_val_loss = sum(g['loss_sum'] for g in gathered) / max(
         sum(g['count'] for g in gathered), 1)
@@ -105,16 +107,47 @@ def _merge_val_payloads(gathered):
     denom = 2 * tp + fp + fn
     f1 = 2 * tp / denom if denom > 0 else 0.0
     acc = {}
+    macro_acc = {}
+    empty_all = []
+    per_dataset = {}
     for g in gathered:
-        for k, v in g['metrics'].items():
+        for k, v in g.get('metrics', {}).items():
             acc.setdefault(k, []).extend(v)
-    cldice_all = [x for g in gathered for x in g['cldice']]
+        for k, v in g.get('macro', {}).items():
+            macro_acc.setdefault(k, []).extend(v)
+        empty_all.extend(g.get('empty', []))
+        for dataset, values in g.get('per_dataset', {}).items():
+            bucket = per_dataset.setdefault(dataset, {})
+            for k, v in values.items():
+                bucket.setdefault(k, []).extend(v)
+    cldice_all = [x for g in gathered for x in g.get('cldice', [])]
     with warnings.catch_warnings():
         # 全部 NaN(空预测)时 nanmean 会打 "Mean of empty slice"
         warnings.simplefilter('ignore', RuntimeWarning)
-        avg_val_cldice = float(np.nanmean(cldice_all)) if cldice_all else float('nan')
-        val_metrics = {k: float(np.nanmean(v)) for k, v in acc.items() if v}
-    return avg_val_loss, f1, avg_val_cldice, val_metrics
+        if any(macro_acc.values()):
+            # Baseline-style path: macro per-image metrics.
+            val_metrics = {k: float(np.nanmean(v))
+                           for k, v in macro_acc.items() if v}
+            if empty_all:
+                val_metrics['empty_prediction_rate'] = float(
+                    np.nanmean(empty_all))
+            avg_val_cldice = val_metrics.get('cldice', float('nan'))
+        else:
+            # Rich-table / legacy path.
+            avg_val_cldice = (
+                float(np.nanmean(cldice_all)) if cldice_all else float('nan'))
+            val_metrics = {k: float(np.nanmean(v))
+                           for k, v in acc.items() if v}
+        val_per_dataset = {}
+        for dataset, values in per_dataset.items():
+            merged = {}
+            for k, v in values.items():
+                name = ('empty_prediction_rate'
+                        if k == 'empty' else k)
+                merged[name] = float(np.nanmean(v))
+            val_per_dataset[dataset] = merged
+    return (avg_val_loss, f1, avg_val_cldice, val_metrics,
+            val_per_dataset)
 
 
 class Trainer:
@@ -137,11 +170,17 @@ class Trainer:
         self.is_ddp = is_ddp
         self.train_sampler = train_sampler
         self.best_f1_score = 0.0
-        # Checkpoint selection metric.  F1 == Dice for binary masks, so the
-        # default is numerically identical to the baseline's val Dice; the
-        # explicit name prevents the two protocols from drifting apart.
+        # Checkpoint selection metric.  With full validation 'dice' means
+        # macro per-image Dice, exactly matching the baseline runner's
+        # selection rule.  Under fast_val no macro Dice exists, so the
+        # default falls back to micro F1 (binary F1 == binary Dice).
         self.selection_metric = getattr(args, 'selection_metric', 'dice')
-        self.best_selection_score = 0.0
+        # Baseline runner initializes its best score to -inf; do the same in
+        # baseline mode so a first validation epoch with score 0.0 still
+        # saves a checkpoint.  Keep the historical 0.0 for table/official.
+        log_style = getattr(args, 'log_style', 'table')
+        self.best_selection_score = (
+            -float('inf') if log_style == 'baseline' else 0.0)
         if (self.selection_metric == 'cldice'
                 and getattr(args, 'fast_val', False)):
             logging.warning(
@@ -243,7 +282,12 @@ class Trainer:
                     gt_bin = (masks > 0.5).float()
                     inter = (m2_bin * gt_bin).sum(dim=(2, 3))
                     union = m2_bin.sum(dim=(2, 3)) + gt_bin.sum(dim=(2, 3)) - inter
-                    iou_gt = inter / (union + 1e-6)
+                    # Match the metric convention: IoU/Dice = 1 when BOTH
+                    # masks are empty; otherwise use the normal ratio.
+                    iou_gt = torch.where(
+                        union > 0,
+                        inter / union.clamp_min(1e-6),
+                        torch.ones_like(inter))
                 loss_iou = F.mse_loss(iou_pred, iou_gt)
 
             # Differentiable clDice on the selected mask, with warmup ramp
@@ -287,6 +331,15 @@ class Trainer:
         comps = {k: v / n for k, v in comps_sum.items()}
         return train_loss / n, comps
 
+    def _val_dataset_name(self, img_name):
+        """Dataset name for one validation image (baseline W&B parity)."""
+        if isinstance(img_name, (list, tuple)):
+            img_name = img_name[0] if img_name else ''
+        dataset = getattr(self.val_loader, 'dataset', None)
+        if dataset is not None and hasattr(dataset, 'dataset_for'):
+            return dataset.dataset_for(img_name)
+        return 'val'
+
     def _validate(self, epoch):
         self.model.eval()
         # 验证期在训练缓存之上叠加前向/指标,先清碎片避免 OOM 峰
@@ -294,11 +347,21 @@ class Trainer:
         if self.device.type == 'cuda':
             torch.cuda.empty_cache()
         fast_val = bool(getattr(self.args, 'fast_val', False))
+        log_style = getattr(self.args, 'log_style', 'table')
+        baseline_style = log_style == 'baseline'
+        if baseline_style and fast_val:
+            logging.warning(
+                "log_style='baseline' requires full validation; "
+                "fast_val=True falls back to loss + F1 only.")
+            baseline_style = False
         val_loss = 0.0
         n_batches = 0
         tp = fp = fn = 0
         val_cldice = []
         metrics_acc = {}
+        macro_acc = {key: [] for key in BINARY_METRICS}
+        empty_acc = []
+        per_dataset_acc = {}
         val_has_monitored = False
         vis_items = []  # (image, gt, pred) 供 wandb 可视化
         VAL_ENGINE_IMGS = 50  # 引擎指标子集大小(均值估计,验证提速关键)
@@ -367,32 +430,49 @@ class Trainer:
                 fn += int((~pred_bin & true_bin).sum())
 
                 if not fast_val:
-                    # Full metric suite on the ORIGINAL-size main mask. The
-                    # few-shot val sets are tiny (6 images in the 3-shot
-                    # protocol), so the distance/topology metrics are cheap.
-                    # 引擎级指标(秒/图)只在前 50 张验证图上算。
-                    engine_subset = (rank == 0) and (val_idx < VAL_ENGINE_IMGS)
-                    m = compute_metrics(
-                        main_mask[0], masks[0],
-                        threshold=pred_threshold,
-                        compute_auc=self.args.val_auc and engine_subset,
-                        compute_betti_matching=self.args.val_betti_matching and engine_subset,
-                        compute_topograph=self.args.val_topograph and engine_subset,
-                    )
-                    val_cldice.append(m['cldice'])
-                    # 保留 NaN 项(空预测时 HD/cD/β 无定义):累积层不动,
-                    # 聚合层用 nanmean 跳过 NaN(见下文),列位保持稳定
-                    for k, v in m.items():
-                        metrics_acc.setdefault(k, []).append(v)
-                    # 拓扑损失监控:全部注册损失在当前预测上的值。
-                    # 每个 rank 只在其第 1 张验证图上跑(128 输入 + 引擎 64 分辨率)
-                    # ——引擎级损失秒级/图;DDP 分片后 8 rank 合计监控 8 张,更稳。
-                    if not val_has_monitored:
-                        val_has_monitored = True
-                        m128 = F.interpolate(main_mask, size=(128, 128), mode='bilinear', align_corners=False)
-                        t128 = F.interpolate(masks, size=(128, 128), mode='bilinear', align_corners=False)
-                        for k, v in topology_loss_monitor(m128, t128, resolution=64).items():
-                            metrics_acc.setdefault(f'topo_{k}', []).append(v)
+                    if baseline_style:
+                        # Baseline parity: per-image metrics at the ORIGINAL
+                        # GT resolution, macro-averaged below.  This is the
+                        # same metric set as baseline_zoo.runtime.evaluate.
+                        m = binary_metrics(
+                            pred_bin.detach().cpu().numpy(),
+                            true_bin.detach().cpu().numpy())
+                        for k in BINARY_METRICS:
+                            macro_acc[k].append(m[k])
+                        empty_acc.append(m['empty'])
+                        dataset = self._val_dataset_name(_img_name)
+                        bucket = per_dataset_acc.setdefault(
+                            dataset,
+                            {key: [] for key in (*BINARY_METRICS, 'empty')})
+                        for k, v in m.items():
+                            bucket[k].append(v)
+                    else:
+                        # Rich-table path (legacy): full metric suite on the
+                        # ORIGINAL-size main mask. The few-shot val sets are
+                        # tiny, so the distance/topology metrics are cheap.
+                        # 引擎级指标(秒/图)只在前 50 张验证图上算。
+                        engine_subset = (rank == 0) and (val_idx < VAL_ENGINE_IMGS)
+                        m = compute_metrics(
+                            main_mask[0], masks[0],
+                            threshold=pred_threshold,
+                            compute_auc=self.args.val_auc and engine_subset,
+                            compute_betti_matching=self.args.val_betti_matching and engine_subset,
+                            compute_topograph=self.args.val_topograph and engine_subset,
+                        )
+                        val_cldice.append(m['cldice'])
+                        # 保留 NaN 项(空预测时 HD/cD/β 无定义):累积层不动,
+                        # 聚合层用 nanmean 跳过 NaN(见下文),列位保持稳定
+                        for k, v in m.items():
+                            metrics_acc.setdefault(k, []).append(v)
+                        # 拓扑损失监控:全部注册损失在当前预测上的值。
+                        # 每个 rank 只在其第 1 张验证图上跑(128 输入 + 引擎 64 分辨率)
+                        # ——引擎级损失秒级/图;DDP 分片后 8 rank 合计监控 8 张,更稳。
+                        if not val_has_monitored:
+                            val_has_monitored = True
+                            m128 = F.interpolate(main_mask, size=(128, 128), mode='bilinear', align_corners=False)
+                            t128 = F.interpolate(masks, size=(128, 128), mode='bilinear', align_corners=False)
+                            for k, v in topology_loss_monitor(m128, t128, resolution=64).items():
+                                metrics_acc.setdefault(f'topo_{k}', []).append(v)
                 if len(vis_items) < 3:
                     vis_img = F.interpolate(
                         images[0:1], size=masks.shape[-2:],
@@ -412,14 +492,17 @@ class Trainer:
                 'loss_sum': float(val_loss), 'count': n_batches,
                 'tp': tp, 'fp': fp, 'fn': fn,
                 'cldice': val_cldice, 'metrics': metrics_acc,
+                'macro': macro_acc, 'empty': empty_acc,
+                'per_dataset': per_dataset_acc,
             }
             gathered = [None] * world_size
             dist.all_gather_object(gathered, payload)
             if rank == 0:
-                avg_val_loss, f1, avg_val_cldice, val_metrics = (
-                    _merge_val_payloads(gathered))
+                (avg_val_loss, f1, avg_val_cldice, val_metrics,
+                 val_per_dataset) = _merge_val_payloads(gathered)
             else:
                 avg_val_loss = f1 = avg_val_cldice = val_metrics = None
+                val_per_dataset = None
             # Every DDP rank must advance ReduceLROnPlateau with the same
             # value, otherwise rank 0 lowers its LR while the other ranks
             # keep the old LR and the replicas diverge.
@@ -429,7 +512,7 @@ class Trainer:
             if self.args.scheduler == 'reduce':
                 self.scheduler.step(avg_val_loss)
             if rank != 0:
-                return None, None, None, None
+                return None, None, None, None, None, None
         else:
             denom = 2 * tp + fp + fn
             f1 = 2 * tp / denom if denom > 0 else 0.0
@@ -437,23 +520,50 @@ class Trainer:
             with warnings.catch_warnings():
                 # 全部 NaN(空预测)时 nanmean 会打 "Mean of empty slice"
                 warnings.simplefilter('ignore', RuntimeWarning)
-                avg_val_cldice = float(np.nanmean(val_cldice)) if val_cldice else float('nan')
-                # nanmean 聚合:引擎指标子集(BM/TE/dAUC/cAh 只算前 50 张)里
-                # 单张 NaN(空 GT/空预测守卫)不再传染整列——此前 np.mean
-                # 导致 BM/TE 两列恒为 "—";全 NaN 时保持 NaN(显示 "—")
-                val_metrics = {k: float(np.nanmean(v)) for k, v in metrics_acc.items() if v}
+                if any(macro_acc.values()):
+                    # Baseline-style path: macro per-image metrics.
+                    val_metrics = {k: float(np.nanmean(v))
+                                   for k, v in macro_acc.items() if v}
+                    if empty_acc:
+                        val_metrics['empty_prediction_rate'] = float(
+                            np.nanmean(empty_acc))
+                    avg_val_cldice = val_metrics.get(
+                        'cldice', float('nan'))
+                else:
+                    # Rich-table / legacy path.
+                    avg_val_cldice = (
+                        float(np.nanmean(val_cldice))
+                        if val_cldice else float('nan'))
+                    # nanmean 聚合:引擎指标子集(BM/TE/dAUC/cAh 只算前 50 张)里
+                    # 单张 NaN(空 GT/空预测守卫)不再传染整列——此前 np.mean
+                    # 导致 BM/TE 两列恒为 "—";全 NaN 时保持 NaN(显示 "—")
+                    val_metrics = {k: float(np.nanmean(v))
+                                   for k, v in metrics_acc.items() if v}
+                val_per_dataset = {}
+                for dataset, values in per_dataset_acc.items():
+                    merged = {}
+                    for k, v in values.items():
+                        name = ('empty_prediction_rate'
+                                if k == 'empty' else k)
+                        merged[name] = float(np.nanmean(v))
+                    val_per_dataset[dataset] = merged
             if self.args.scheduler == 'reduce':
                 self.scheduler.step(avg_val_loss)
         # 逐 epoch 的 val 数值全部由 rich 宽表呈现,不再刷 INFO 日志
 
         self._log_val_images(epoch, vis_items)
 
-        # Checkpoint selection.  dice/f1 use the binary F1 (== Dice);
-        # cldice needs the full validation suite (fast_val=False).
+        # Checkpoint selection.  With full validation, 'dice' selects the
+        # macro per-image Dice used by every baseline; under fast_val it
+        # falls back to the global micro F1.  'cldice' needs full validation.
+        macro_dice = val_metrics.get('dice') if val_metrics else None
         if self.selection_metric == 'cldice':
             selection_score = avg_val_cldice
             if not np.isfinite(selection_score):
-                selection_score = f1
+                selection_score = (
+                    macro_dice if macro_dice is not None else f1)
+        elif self.selection_metric == 'dice' and macro_dice is not None:
+            selection_score = macro_dice
         else:
             selection_score = f1
 
@@ -494,6 +604,9 @@ class Trainer:
                     'selection_metric': self.selection_metric,
                     'no_fov': getattr(self.args, 'no_fov', False),
                     'log_style': getattr(self.args, 'log_style', 'table'),
+                    'val_interval': getattr(self.args, 'val_interval', 10),
+                    'grad_checkpointing': getattr(
+                        self.args, 'grad_checkpointing', True),
                     'deep_sup_weight': self.args.deep_sup_weight,
                     'cl_dice_weight': self.args.cl_dice_weight,
                     'scnp': bool(getattr(self.args, 'scnp', False)),
@@ -508,12 +621,13 @@ class Trainer:
                 f'👍New best model saved with {self.selection_metric}='
                 f'{selection_score:.4f} (F1={f1:.4f})')
 
-        return f1, avg_val_loss, avg_val_cldice, val_metrics
+        return (f1, avg_val_loss, avg_val_cldice, val_metrics,
+                val_per_dataset, selection_score)
 
     def _log_val_images(self, epoch, items):
         """验证图可视化(原图/GT/预测三列)上传 wandb;失败不影响训练。"""
-        if getattr(self.args, 'log_style', 'table') == 'official':
-            return  # official-comparison mode: no extra W&B artifacts
+        if getattr(self.args, 'log_style', 'table') in ('official', 'baseline'):
+            return  # official/baseline modes: no extra W&B artifacts
         run = getattr(self, '_wandb_run', None)
         if run is None or not items:
             return
@@ -568,6 +682,9 @@ class Trainer:
             'selection_metric': getattr(self.args, 'selection_metric', 'dice'),
             'no_fov': getattr(self.args, 'no_fov', False),
             'log_style': getattr(self.args, 'log_style', 'table'),
+            'val_interval': getattr(self.args, 'val_interval', 10),
+            'grad_checkpointing': getattr(
+                self.args, 'grad_checkpointing', True),
             'topology_loss': self.args.topology_loss,
             'topology_loss_weight': self.args.topology_loss_weight,
             'use_geo_i': self.args.use_geo_i,
@@ -599,7 +716,8 @@ class Trainer:
             'config': self._run_config(),
             'best_epoch': best_epoch,
             'best_f1': self.best_f1_score,
-            'best_selection': self.best_selection_score,
+            'best_selection': (None if not np.isfinite(
+                self.best_selection_score) else self.best_selection_score),
             'selection_metric': self.selection_metric,
             'history': history,
         }
@@ -630,9 +748,10 @@ class Trainer:
         best_epoch = -1
         log_style = getattr(self.args, 'log_style', 'table')
         official = log_style == 'official'
+        baseline_style = log_style == 'baseline'
         # 宽表:紧凑单行(49 列,~290 字符);表头下打一次拓扑损失缩写对照
         topo_names = sorted(TOPOLOGY_LOSS_REGISTRY)
-        if not official:
+        if not official and not baseline_style:
             for line in epoch_header(topo_names):
                 console.print(line, style="bold")
             console.print(topo_legend(topo_names), style="dim")
@@ -655,6 +774,10 @@ class Trainer:
                         print(f'Epoch {epoch+1}/{self.args.epochs} - '
                               f'Average Train Loss: {train_loss:.4f}',
                               flush=True)
+                elif baseline_style:
+                    wm = {'epoch': epoch + 1,
+                          'train/loss': avg_train_loss,
+                          'lr': self.optimizer.param_groups[0]['lr']}
                 else:
                     wm = {'epoch': epoch, 'train/loss': avg_train_loss,
                           'lr': self.optimizer.param_groups[0]['lr'],
@@ -667,15 +790,34 @@ class Trainer:
                 best_before = self.best_selection_score
                 f1 = vloss = None
                 val_metrics = None
+                val_per_dataset = {}
+                selection_score = None
                 val_s = None
                 is_best = False
                 if (epoch + 1) % self.args.val_interval == 0:
                     val_t0 = time.time()
-                    f1, vloss, avg_val_cldice, val_metrics = self._validate(epoch)
+                    (f1, vloss, avg_val_cldice, val_metrics,
+                     val_per_dataset, selection_score) = self._validate(epoch)
                     val_s = time.time() - val_t0
                     if self._rank0:
                         if official:
                             wm.update({'val/loss': vloss, 'val/f1': f1})
+                        elif baseline_style:
+                            # Same key set and per-dataset layout as the
+                            # baseline runner (src/baseline_zoo/runtime.py).
+                            wm.update({k: v for k, v in {
+                                'val/dice': val_metrics.get('dice'),
+                                'val/iou': val_metrics.get('iou'),
+                                'val/cldice': val_metrics.get('cldice'),
+                                'val/hd95': val_metrics.get('hd95'),
+                                'val/empty_prediction_rate':
+                                    val_metrics.get('empty_prediction_rate'),
+                                'val/selection': selection_score,
+                            }.items() if v is not None})
+                            for dataset, values in (val_per_dataset or {}).items():
+                                for metric in BINARY_METRICS:
+                                    if metric in values:
+                                        wm[f'val/{dataset}/{metric}'] = values[metric]
                         else:
                             wm.update({'val/loss': vloss, 'val/f1': f1,
                                        'val/cldice': avg_val_cldice,
@@ -702,6 +844,22 @@ class Trainer:
                                       f'{self.selection_metric}: '
                                       f'{self.best_selection_score:.4f} '
                                       f'(F1={self.best_f1_score:.4f})',
+                                      flush=True)
+                    elif baseline_style:
+                        if f1 is not None and val_metrics is not None:
+                            print(
+                                f'Epoch {epoch+1}/{self.args.epochs} - '
+                                f'train_loss: {avg_train_loss:.4f} - '
+                                f'val_dice: {val_metrics.get("dice", float("nan")):.4f} - '
+                                f'val_iou: {val_metrics.get("iou", float("nan")):.4f} - '
+                                f'val_cldice: {val_metrics.get("cldice", float("nan")):.4f} - '
+                                f'val_hd95: {val_metrics.get("hd95", float("nan")):.2f} - '
+                                f'lr: {self.optimizer.param_groups[0]["lr"]:.7f}',
+                                flush=True)
+                            if is_best:
+                                print(f'👍New best model saved with '
+                                      f'{self.selection_metric}='
+                                      f'{self.best_selection_score:.4f}',
                                       flush=True)
                     else:
                         for line in epoch_row(epoch + 1, avg_train_loss, comps,
@@ -747,7 +905,9 @@ class Trainer:
                 if run is not None:
                     try:
                         run.summary['best_f1'] = self.best_f1_score
-                        run.summary['best_selection'] = self.best_selection_score
+                        run.summary['best_selection'] = (
+                            None if not np.isfinite(self.best_selection_score)
+                            else self.best_selection_score)
                         run.summary['selection_metric'] = self.selection_metric
                     except Exception:
                         pass

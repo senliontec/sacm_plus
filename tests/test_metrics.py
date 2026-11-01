@@ -8,6 +8,7 @@ from core.metrics import (
     asd_score,
     assd_score,
     betti_error,
+    binary_metrics,
     cldice_score,
     compute_metrics,
     dice_score,
@@ -117,3 +118,18 @@ def test_persistence_metrics_are_finite():
         logits, gt, compute_betti_matching=True, compute_topograph=True)
     assert "betti_matching" in m and np.isfinite(m["betti_matching"])
     assert "topograph_error" in m and np.isfinite(m["topograph_error"])
+
+
+def test_binary_metrics_matches_baseline_definition():
+    """SACM-X val must use the exact baseline per-image metric set."""
+    pred = np.array([[1, 0], [0, 0]], dtype=np.uint8)
+    gt = np.array([[1, 1], [0, 0]], dtype=np.uint8)
+    m = binary_metrics(pred, gt)
+    assert set(m) == {"dice", "iou", "cldice", "hd95", "empty"}
+    assert m["dice"] == pytest.approx(2.0 / 3.0)
+    assert m["iou"] == pytest.approx(1.0 / 2.0)
+    assert m["empty"] == 0.0
+
+    empty = binary_metrics(np.zeros_like(pred), gt)
+    assert empty["empty"] == 1.0
+    assert empty["dice"] == pytest.approx(0.0)

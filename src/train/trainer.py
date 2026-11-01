@@ -142,6 +142,12 @@ def train(args):
         init_stage2_from_stage1=getattr(args, 'init_stage2_from_stage1', False),
     )
     sam.to(device)
+    if hasattr(sam.image_encoder, 'grad_checkpointing'):
+        sam.image_encoder.grad_checkpointing = bool(
+            getattr(args, 'grad_checkpointing', True))
+        logging.info(
+            "Encoder gradient checkpointing: %s",
+            sam.image_encoder.grad_checkpointing)
 
     total_params, trainable_params = count_parameters(sam)
     logging.info(f"Total parameters: {total_params:,}")
@@ -294,10 +300,16 @@ if __name__ == '__main__':
     parser.add_argument('--decoder_lr', type=float, default=1e-5, help='Learning rate for original mask decoder parameters (lowered to curb few-shot overfitting)')
     parser.add_argument('--weight_decay', type=float, default=0.01, help='Weight decay for optimizer')
     parser.add_argument('--epochs', type=int, default=800, help='Number of epochs (shared 800-epoch project budget)')
-    parser.add_argument('--val_interval', type=int, default=10, help='Validation interval (epochs)')
+    parser.add_argument('--val_interval', type=int, default=None,
+                        help='Validation interval (epochs); default 1 for '
+                             'log_style=baseline, 10 otherwise')
+    parser.add_argument('--grad_checkpointing', type=str2bool, default=True,
+                        help='Block-wise gradient checkpointing for the ViT '
+                             'encoder (reduces training memory; default ON)')
     parser.add_argument('--fast_val', type=str2bool, default=False,
                         help='Validation computes only loss + F1; skips the full metric suite and '
-                             'topology monitor (training-time speed; full metrics stay in evaluate.py)')
+                             'topology monitor (training-time speed; full metrics stay in evaluate.py). '
+                             'log_style=baseline requires fast_val=false.')
     parser.add_argument('--clip_grad_norm', type=float, default=1.0, help='Gradient clipping norm (0 to disable)')
     parser.add_argument('--seed', type=int, default=42, help='Random seed')
     parser.add_argument('--save_path', type=str, default='best_model.pth', help='Where to save the best checkpoint (per-job paths for parallel runs)')
@@ -313,9 +325,10 @@ if __name__ == '__main__':
     parser.add_argument('--use_fusion_v2', type=str2bool, default=True, help='Fusion v2 (concat+FFN weights + spatial gate); off = original SACM fusion')
     parser.add_argument('--use_multi_depth', type=str2bool, default=True, help='Multi-depth semantic path from encoder intermediates')
     parser.add_argument('--init_stage2_from_stage1', type=str2bool, default=True,
-                        help='Warm-start the new Stage-2 mask heads from the pretrained '
-                             'Stage-1 heads (identity initialization); default ON for SACM-X '
-                             'so the final output starts from SAM\'s pretrained mask head')
+                        help='Warm-start the new Stage-2 mask heads from the '
+                             'loaded pretrained Stage-1 heads (applied after '
+                             'the base SAM checkpoint is loaded); default ON '
+                             'for SACM-X')
 
     # Auxiliary losses
     parser.add_argument('--deep_sup_weight', type=float, default=0.3, help='Weight of Stage-1 deep supervision (all heads)')
@@ -336,17 +349,20 @@ if __name__ == '__main__':
     parser.add_argument('--selection_metric', type=str, default='dice',
                         choices=['dice', 'f1', 'cldice'],
                         help='Validation metric used to select the best checkpoint: '
-                             'dice (default; equals F1 for binary masks and matches '
-                             'the sacm_official val-Dice rule), f1 (alias), or cldice '
-                             '(requires full validation; fast_val falls back to dice).')
+                             'dice (default; macro per-image Dice under full '
+                             'validation, matching the baseline runner; micro F1 '
+                             'fallback under fast_val), f1 (global micro F1), or '
+                             'cldice (requires full validation).')
     parser.add_argument('--pred_threshold', type=float, default=0.0,
                         help='Logit threshold for validation F1/metrics; keep equal '
                              'to evaluation --pred_threshold')
     parser.add_argument('--log_style', type=str, default='table',
-                        choices=['table', 'official'],
-                        help="Terminal monitoring style: 'table' = rich full-metric "
-                             "table; 'official' = SACM-style train loss / val loss / "
-                             "F1 / LR lines only")
+                        choices=['table', 'official', 'baseline'],
+                        help="Terminal/W&B monitoring style: 'table' = rich "
+                             "full-metric table; 'official' = SACM-style train "
+                             "loss / val loss / F1 / LR only; 'baseline' = the "
+                             "baseline runner's macro Dice/IoU/clDice/HD95 + "
+                             "per-dataset W&B keys")
     parser.add_argument('--no-fov', dest='no_fov', action='store_true',
                         help='Do not mask predictions/GT by the FOV; matches the '
                              'official SACM adapter and paper-metric predictions')
@@ -436,4 +452,10 @@ if __name__ == '__main__':
     if args.config is not None:
         from models.sacm_x.configs import apply_yaml_presets
         apply_yaml_presets(args, args.config)
+    if args.val_interval is None:
+        args.val_interval = 1 if args.log_style == 'baseline' else 10
+    if args.log_style == 'baseline' and args.fast_val:
+        parser.error(
+            "--log_style baseline requires full validation; "
+            "use --fast_val false (or MONITOR=official for F1-only).")
     train(args)

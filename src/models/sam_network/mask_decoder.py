@@ -112,15 +112,10 @@ class MaskDecoder(nn.Module):
                 for i in range(self.num_mask_tokens)
             ]
         )
-        if init_stage2_from_stage1:
-            # Warm-start the new Stage-2 branch from the pretrained Stage-1
-            # branch.  The refiner/fusion residuals are zero-initialized, so
-            # Stage-2 then starts as an identity of Stage-1 instead of a
-            # random (often near-empty) mask.
-            for stage1_mlp, stage2_mlp in zip(
-                    self.output_hypernetworks_mlps,
-                    self.output_hypernetworks_mlps_stage2):
-                stage2_mlp.load_state_dict(stage1_mlp.state_dict())
+        # NOTE: Stage-2 is intentionally NOT copied here.  The SAM
+        # checkpoint is loaded by build_sam.py after construction, so a
+        # copy in __init__ would only copy the random Stage-1 weights.
+        # Call copy_stage1_to_stage2() after the base checkpoint is loaded.
 
         # IoU / quality prediction head (for each head)
         self.iou_prediction_head = MLP(
@@ -171,6 +166,17 @@ class MaskDecoder(nn.Module):
             nn.init.zeros_(self.fuse_two.weight)
             nn.init.zeros_(self.fuse_two.bias)
 
+    def copy_stage1_to_stage2(self):
+        """Warm-start Stage-2 heads from the *loaded* Stage-1 heads.
+
+        Must be called after the base SAM checkpoint is loaded; doing it
+        in __init__ only copies random Stage-1 parameters.
+        """
+        for stage1_mlp, stage2_mlp in zip(
+                self.output_hypernetworks_mlps,
+                self.output_hypernetworks_mlps_stage2):
+            stage2_mlp.load_state_dict(stage1_mlp.state_dict())
+
     def forward(
         self,
         image_embeddings: torch.Tensor,
@@ -209,7 +215,10 @@ class MaskDecoder(nn.Module):
         )
 
         if multimask_output:
-            mask_slice = slice(1, None)
+            # SACM-X returns all heads in gating-ranked order; index 0 is
+            # the best candidate.  Unlike vanilla SAM, token 0 is not a
+            # separate single-mask token, so do not discard it.
+            mask_slice = slice(0, self.num_multimask_outputs)
         else:
             mask_slice = slice(0, 1)
         masks = masks[:, mask_slice, :, :]
@@ -277,6 +286,21 @@ class MaskDecoder(nn.Module):
         if dense_prompt_embeddings.shape[0] == image_batch and repeats > 1:
             dense_prompt_embeddings = dense_prompt_embeddings.repeat_interleave(
                 repeats, dim=0)
+        # Multi-prompt inference (SamPredictor / K prompts per image): the
+        # encoder features are still per-image and must follow the same
+        # repetition as the image embeddings.
+        if adapter_features is not None and repeats > 1:
+            adapter_features = [
+                feat.repeat_interleave(repeats, dim=0)
+                if feat.shape[0] == image_batch else feat
+                for feat in adapter_features
+            ]
+        if intermediate_features is not None and repeats > 1:
+            intermediate_features = [
+                feat.repeat_interleave(repeats, dim=0)
+                if feat.shape[0] == image_batch else feat
+                for feat in intermediate_features
+            ]
         src = src + dense_prompt_embeddings
         b, c, h, w = src.shape
 
@@ -325,29 +349,35 @@ class MaskDecoder(nn.Module):
             upscaled_embedding = self.coarse_refiner(upscaled_embedding, masks_stage1)
 
         # --------------------- Stage 2: refined masks ---------------------
+        # Eq.10: reorder the descriptors by the Stage-1 gating order, then
+        # apply each Stage-2 MLP to its ranked slot.  The masks are produced
+        # directly in ranked order, so they must NOT be gathered again.
+        sorted_tokens = torch.gather(
+            mask_tokens_out, 1,
+            sorted_indices.unsqueeze(-1).expand(
+                -1, -1, mask_tokens_out.shape[-1]))
         hyper_in_list_stage2: List[torch.Tensor] = []
         for i in range(self.num_mask_tokens):
-            hyper_in_list_stage2.append(self.output_hypernetworks_mlps_stage2[i](mask_tokens_out[:, i, :]))
+            hyper_in_list_stage2.append(
+                self.output_hypernetworks_mlps_stage2[i](
+                    sorted_tokens[:, i, :]))
         hyper_in_stage2 = torch.stack(hyper_in_list_stage2, dim=1)
-        masks_stage2_all = (hyper_in_stage2 @ upscaled_embedding.view(b, c, h * w)).view(b, -1, h, w)
+        masks_stage2_ordered = (
+            hyper_in_stage2 @ upscaled_embedding.view(b, c, h * w)
+        ).view(b, -1, h, w)
 
-        # Reorder masks by gating scores so that index-0 is the best mask
-        gather_indices = sorted_indices.unsqueeze(-1).unsqueeze(-1).expand(-1, -1, h, w)
-        masks_stage2_ordered = torch.gather(masks_stage2_all, 1, gather_indices)
-
-        # IoU prediction head and reorder by the same indices.
-        # NOTE on training consistency: iou_pred's slot j is permanently
-        # bound to mask token j. Reordering BOTH iou_pred and the IoU
-        # targets (computed from the reordered masks) by the same
-        # per-sample permutation is a no-op for the MSE — every slot j is
-        # always trained against the quality of mask token j's output,
-        # regardless of the gating order. Inference likewise selects the
-        # reordered position with the best predicted score and takes the
-        # mask at the same reordered position (same coordinate system).
-        iou_pred = self.iou_prediction_head(iou_token_out)
-        iou_pred_ordered = torch.gather(iou_pred, 1, sorted_indices)
+        # Per-head IoU prediction: output slot j scores Stage-2 head j on
+        # its ranked descriptor, so the slot-to-head binding survives the
+        # gating permutation.
+        head_iou = [
+            self.iou_prediction_head(sorted_tokens[:, i, :])[:, i]
+            for i in range(self.num_mask_tokens)
+        ]
+        iou_pred_ordered = torch.stack(head_iou, dim=1)
 
         if return_stage1:
+            gather_indices = sorted_indices.unsqueeze(-1).unsqueeze(
+                -1).expand(-1, -1, h, w)
             masks_stage1_ordered = torch.gather(masks_stage1, 1, gather_indices)
             return masks_stage2_ordered, iou_pred_ordered, masks_stage1_ordered
 

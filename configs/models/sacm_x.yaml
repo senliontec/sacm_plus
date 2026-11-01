@@ -17,6 +17,6 @@ eval_entrypoint: >-
 protocols: [seeded5, fixed]
 defaults:
   preset: full
-  monitor: official
+  monitor: baseline
   epochs: 800
   init_stage2_from_stage1: true
