@@ -849,6 +849,26 @@ class Trainer:
         except OSError as e:
             logging.warning(f"Metric history save failed: {e}")
 
+        info_payload = {
+            'checkpoint': os.path.abspath(self.args.save_path),
+            'best_epoch': best_epoch,
+            'last_epoch': (
+                history[-1].get('epoch') if history else None),
+            'best_selection': payload['best_selection'],
+            'selection_metric': self.selection_metric,
+            'epochs': int(self.args.epochs),
+            'preset': getattr(self.args, 'preset', None),
+            'seed': int(getattr(self.args, 'seed', 0)),
+            'data_root': str(getattr(self.args, 'data_root', '')),
+        }
+        info_path = os.path.join(out_dir, 'run_info.json')
+        try:
+            with open(info_path, 'w') as f:
+                json.dump(info_payload, f, indent=2)
+            logging.info(f"Run info saved to {info_path}")
+        except OSError as e:
+            logging.warning(f"Run info save failed: {e}")
+
     def fit(self):
         """Run the full training schedule (wandb-monitored when enabled)."""
         # fencing-algs 模式:rank0 专属操作(wandb init)前先 barrier,

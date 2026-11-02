@@ -8,10 +8,17 @@
 #   DATASETS="DRIVE WIRE" bash scripts/sacm_x/eval_sacm_x_20.sh
 #
 # Environment:
-#   GPU (default 3), OUTPUT_ROOT, PRESET (default full),
+#   GPU (default 3), TRAIN_OUT, CKPT, OUTPUT_ROOT, PRESET (default full),
 #   SAM_CKPT, DATASETS, USE_WANDB, WANDB_MODE,
 #   SAVE_CANDIDATE_MASKS, SAVE_CANDIDATE_PROBS,
 #   SKIP_EVAL=1 (only aggregate + report existing results)
+#
+# Recommended layout:
+#   TRAIN_OUT=results/sacm_x/<run>/train
+#   OUTPUT_ROOT=results/sacm_x/<run>/eval/<tag>   (or auto: ${TRAIN_OUT}_eval)
+#   CKPT defaults to $TRAIN_OUT/$PRESET/best_model.pth
+# so evaluation never copies the 1.4 GiB checkpoint and never overwrites
+# the training run.log.
 set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 1
 
@@ -33,8 +40,31 @@ fi
 
 GPU="${GPU:-3}"
 PRESET="${PRESET:-full}"
-OUTPUT_ROOT="${OUTPUT_ROOT:-results/sacm_x_official_200}"
-CKPT="$OUTPUT_ROOT/$PRESET/best_model.pth"
+SEED="${SEED:-0}"
+TRAIN_OUT="${TRAIN_OUT:-}"
+if [ -z "${OUTPUT_ROOT:-}" ] && [ -n "$TRAIN_OUT" ]; then
+  if [[ "$TRAIN_OUT" == */train ]]; then
+    OUTPUT_ROOT="${TRAIN_OUT%/train}/eval"
+  else
+    OUTPUT_ROOT="${TRAIN_OUT}_eval"
+  fi
+fi
+OUTPUT_ROOT="${OUTPUT_ROOT:-results/sacm_x/${PRESET}_seed${SEED}/eval}"
+CKPT="${CKPT:-${TRAIN_OUT:-$OUTPUT_ROOT}/$PRESET/best_model.pth}"
+if [ -n "$TRAIN_OUT" ] && [ "$OUTPUT_ROOT" = "$TRAIN_OUT" ]; then
+  echo "ERROR: OUTPUT_ROOT must differ from TRAIN_OUT" >&2
+  echo "Use TRAIN_OUT=<run>/train and OUTPUT_ROOT=<run>/eval/<tag>." >&2
+  exit 2
+fi
+if [[ "$OUTPUT_ROOT" != *"seed_${SEED}"* ]]; then
+  echo "WARNING: OUTPUT_ROOT does not contain seed_${SEED}; different seeds can collide." >&2
+fi
+ckpt_seed=$(printf '%s\n' "$CKPT" | grep -o 'seed_[0-9]\+' | tail -n 1 || true)
+if [ -n "$ckpt_seed" ] && [ "$ckpt_seed" != "seed_${SEED}" ]; then
+  echo "ERROR: CKPT seed ($ckpt_seed) != SEED ($SEED)" >&2
+  echo "Use SEED=${ckpt_seed#seed_} or a checkpoint from seed_${SEED}." >&2
+  exit 2
+fi
 SAM_CKPT="${SAM_CKPT:-checkpoints/sam_vit_l_0b3195.pth}"
 DATASETS="${DATASETS:-}"
 USE_WANDB="${USE_WANDB:-true}"
@@ -42,7 +72,7 @@ WANDB_MODE="${WANDB_MODE:-online}"
 DETERMINISTIC="${DETERMINISTIC:-true}"
 DETERMINISTIC_STRICT="${DETERMINISTIC_STRICT:-true}"
 NUM_WORKERS="${NUM_WORKERS:-4}"
-TRAIN_ROOT="${TRAIN_ROOT:-data/sacm_3shot}"
+TRAIN_ROOT="${TRAIN_ROOT:-data/sacm_3shot_seed${SEED}}"
 EVAL_INPUT_MODE="${EVAL_INPUT_MODE:-aspect_pad}"
 USE_TTA="${USE_TTA:-false}"
 EMPTY_GUARD="${EMPTY_GUARD:-true}"
@@ -99,8 +129,11 @@ SPECS="$("$PYTHON" scripts/pipeline/protocol_specs.py \
   --datasets "$DATASETS")"
 read -r -a spec_array <<< "$SPECS"
 
+echo "seed=$SEED"
+echo "train_out=${TRAIN_OUT:-<none>}"
 echo "checkpoint=$CKPT"
-echo "datasets=${#spec_array[@]}  output=$OUTPUT_ROOT"
+echo "eval_root=$OUTPUT_ROOT"
+echo "datasets=${#spec_array[@]}"
 if [ -n "$DEEP_CLOSING_CKPT" ]; then
   if [ ! -f "$DEEP_CLOSING_CKPT" ]; then
     echo "ERROR: missing Deep Closing checkpoint: $DEEP_CLOSING_CKPT" >&2
@@ -176,7 +209,9 @@ else
     --test_datasets "${spec_array[@]}" \
     --presets "$PRESET" \
     --output_root "$OUTPUT_ROOT" \
+    --seed "$SEED" \
     --skip_train \
+    --trained_weights "$CKPT" \
     "${EXTRA_RUN[@]}" \
     --extra_eval_args "$EXTRA_EVAL"
   rc=$?
@@ -185,8 +220,14 @@ fi
 echo
 echo "== aggregate (partial results are kept if any dataset failed) =="
 agg_rc=0
+AGG_ARGS=(--root "$OUTPUT_ROOT" --out "$OUTPUT_ROOT/tables"
+  --preset "$PRESET")
+if [ -n "$DATASETS" ]; then
+  # shellcheck disable=SC2206
+  AGG_ARGS+=(--datasets $DATASETS)
+fi
 "$PYTHON" scripts/sacm_x/aggregate_results.py \
-  --root "$OUTPUT_ROOT" --out "$OUTPUT_ROOT/tables" || agg_rc=$?
+  "${AGG_ARGS[@]}" || agg_rc=$?
 
 echo
 echo "== final report =="
@@ -200,4 +241,14 @@ if [ "$rc" -ne 0 ] || [ "$agg_rc" -ne 0 ] || [ "$report_rc" -ne 0 ]; then
   echo "ERROR: eval/aggregate/report failed (eval=$rc aggregate=$agg_rc report=$report_rc)" >&2
   exit 1
 fi
+
+echo
+echo "== results =="
+echo "eval log:   $OUTPUT_ROOT/$PRESET/run_eval.log"
+echo "jobs:       $OUTPUT_ROOT/jobs_eval.csv"
+echo "manifest:   $OUTPUT_ROOT/run_manifest.json"
+echo "per-dataset:$OUTPUT_ROOT/$PRESET/<DATASET>/metrics.csv"
+echo "csv:        $OUTPUT_ROOT/tables/all_metrics.csv"
+echo "macro:      $OUTPUT_ROOT/tables/macro_metrics.csv"
+echo "report:     $OUTPUT_ROOT/tables/final_report.md"
 exit 0

@@ -431,6 +431,35 @@ def write_history(path: Path, config, history, best_epoch, best_score):
         print(f'WARNING: failed to write {path}: {exc}')
 
 
+def write_run_info(path: Path, *, method: str, seed: int, checkpoint: Path,
+                   best_epoch: int, last_epoch: int, selection: str,
+                   epochs: int):
+    """Write seed-aware checkpoint metadata next to metrics_history.json.
+
+    This is additive: it does not change the checkpoint format or the
+    baseline training/evaluation contract.  It gives every run one file
+    from which the model and its seed can be found without guessing.
+    """
+    payload = {
+        'family': 'baseline',
+        'method': str(method),
+        'seed': int(seed),
+        'checkpoint': str(Path(checkpoint).resolve()),
+        'best_epoch': int(best_epoch),
+        'last_epoch': int(last_epoch),
+        'selection': str(selection),
+        'epochs': int(epochs),
+    }
+    tmp = path.with_name(path.name + '.tmp')
+    try:
+        with tmp.open('w') as f:
+            json.dump(payload, f, indent=2, allow_nan=False)
+            f.write('\n')
+        os.replace(tmp, path)
+    except (OSError, ValueError) as exc:
+        print(f'WARNING: failed to write {path}: {exc}')
+
+
 def seed_everything(seed: int):
     random.seed(seed)
     np.random.seed(seed)
@@ -607,6 +636,16 @@ def run_training_free(adapter: BaselineAdapter,
     torch.save(payload, tmp_path)
     os.replace(tmp_path, ckpt_path)
     write_history(workdir / 'metrics_history.json', run_config, [], 0, 0.0)
+    write_run_info(
+        workdir / 'run_info.json',
+        method=adapter.id,
+        seed=args.seed,
+        checkpoint=ckpt_path,
+        best_epoch=0,
+        last_epoch=0,
+        selection=args.selection,
+        epochs=0,
+    )
 
     console.print(
         f'[bold]{adapter.display_name}[/] is training-free; '
@@ -862,6 +901,16 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
     console.print(
         f' [bold]Best[/]  E{best_epoch:03d}  '
         f'{args.selection}={best_metric:.4f}  -> {ckpt_path}')
+    write_run_info(
+        workdir / 'run_info.json',
+        method=adapter.id,
+        seed=args.seed,
+        checkpoint=ckpt_path,
+        best_epoch=best_epoch,
+        last_epoch=args.epochs,
+        selection=args.selection,
+        epochs=args.epochs,
+    )
     if run is not None:
         if args.wandb_log_artifact:
             log_artifact(run, ckpt_path, name=f'{adapter.id}-seed{args.seed}',

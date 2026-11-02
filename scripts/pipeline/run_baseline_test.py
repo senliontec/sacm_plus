@@ -20,6 +20,7 @@ import math
 import os
 import subprocess
 import sys
+import time
 from collections import Counter
 from pathlib import Path
 
@@ -438,9 +439,48 @@ def main():
 
         status.refresh()
         status.finish('done')
+        manifest = {
+            'family': 'baseline',
+            'method': args.method,
+            'seed': int(args.seed),
+            'checkpoint': str(args.checkpoint.resolve()),
+            'protocol': str(args.protocol),
+            'datasets': [name for name, _ in specs],
+            'pred_root': str(method_pred_root),
+            'paper_root': str(args.paper_root),
+            'paper_metrics': str(args.paper_root / 'paper_metrics.csv'),
+            'paper_macro': str(args.paper_root / 'paper_macro.csv'),
+            'per_dataset_metrics': str(
+                args.paper_root / args.method / '<DATASET>' / 'metrics.csv'),
+            'stages': stage_names,
+            'status': 'done',
+            'skip_predict': bool(args.skip_predict),
+            'skip_paper': bool(args.skip_paper),
+            'generated_at': time.strftime('%Y-%m-%dT%H:%M:%S'),
+        }
+        try:
+            args.paper_root.mkdir(parents=True, exist_ok=True)
+            (args.paper_root / 'run_manifest.json').write_text(
+                json.dumps(manifest, indent=2) + '\n')
+        except OSError as exc:
+            print(f'[warn] could not write run_manifest.json: {exc}')
     except BaseException as exc:
         status.refresh()
         status.fail(exc)
+        try:
+            args.paper_root.mkdir(parents=True, exist_ok=True)
+            (args.paper_root / 'run_manifest.json').write_text(
+                json.dumps({
+                    'family': 'baseline',
+                    'method': args.method,
+                    'seed': int(args.seed),
+                    'checkpoint': str(args.checkpoint.resolve()),
+                    'status': 'failed',
+                    'error': str(exc),
+                    'generated_at': time.strftime('%Y-%m-%dT%H:%M:%S'),
+                }, indent=2) + '\n')
+        except OSError:
+            pass
         raise
 
     print('done')

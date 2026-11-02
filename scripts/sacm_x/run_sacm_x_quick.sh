@@ -12,7 +12,7 @@
 #     bash scripts/sacm_x/run_sacm_x_quick.sh
 #
 # Environment:
-#   PYTHON, GPU, PRESET, EPOCHS, VAL_INTERVAL, SEED, DATASETS, CKPT,
+#   PYTHON, GPU, PRESET, RUN_NAME, EPOCHS, VAL_INTERVAL, SEED, DATASETS, CKPT,
 #   TRAIN_ROOT, OUTPUT_ROOT, MONITOR, USE_WANDB, WANDB_MODE, WANDB_NAME,
 #   INIT_STAGE2_FROM_STAGE1, SKIP_TEST, SCNP, SCNP_WINDOW,
 #   SCNP_ORIGINAL_WEIGHT
@@ -46,6 +46,7 @@ if [ -z "${PYTHON:-}" ]; then
 fi
 GPU="${GPU:-0}"
 PRESET="${PRESET:-full}"
+RUN_NAME="${RUN_NAME:-${PRESET}}"
 source scripts/sacm_x/wandb_env.sh
 EPOCHS="${EPOCHS:-400}"
 VAL_INTERVAL="${VAL_INTERVAL:-}"
@@ -53,7 +54,10 @@ SEED="${SEED:-0}"
 DATASETS="${DATASETS:-}"
 CKPT="${CKPT:-checkpoints/sam_vit_l_0b3195.pth}"
 TRAIN_ROOT="${TRAIN_ROOT:-data/sacm_3shot_seed${SEED}}"
-OUTPUT_ROOT="${OUTPUT_ROOT:-results/sacm_x_quick}"
+OUTPUT_ROOT="${OUTPUT_ROOT:-results/sacm_x/${RUN_NAME}_seed${SEED}/train}"
+if [[ "$OUTPUT_ROOT" != *"seed_${SEED}"* ]]; then
+  echo "WARNING: OUTPUT_ROOT does not contain seed_${SEED}; different seeds can collide." >&2
+fi
 MONITOR="${MONITOR:-baseline}"
 INIT_STAGE2_FROM_STAGE1="${INIT_STAGE2_FROM_STAGE1:-true}"
 INPUT_MODE="${INPUT_MODE:-aspect_pad}"
@@ -105,7 +109,7 @@ case "$MONITOR" in
   *) echo "ERROR: MONITOR must be 'baseline', 'official', 'sacm', or 'full', got '$MONITOR'" >&2
      exit 2 ;;
 esac
-TRAIN_EXTRA+=(--wandb_name "${WANDB_NAME:-sacm_x_seed${SEED}_${PRESET}}")
+TRAIN_EXTRA+=(--wandb_name "${WANDB_NAME:-sacm_x_${RUN_NAME}_seed${SEED}}")
 
 TRAIN_EXTRA+=(--scnp "$SCNP" --scnp_window "$SCNP_WINDOW" \
               --scnp_original_weight "$SCNP_ORIGINAL_WEIGHT")
@@ -141,7 +145,7 @@ SPECS="$("$PYTHON" scripts/pipeline/protocol_specs.py \
   --datasets "$DATASETS")"
 read -r -a spec_array <<< "$SPECS"
 
-echo "preset=$PRESET epochs=$EPOCHS gpu=$GPU monitor=$MONITOR val_interval=$VAL_INTERVAL init_stage2_from_stage1=$INIT_STAGE2_FROM_STAGE1 input_mode=$INPUT_MODE eval_input_mode=$EVAL_INPUT_MODE fg_crop_prob=$FG_CROP_PROB boundary_weight=$BOUNDARY_LOSS_WEIGHT tta=$USE_TTA empty_guard=$EMPTY_GUARD scnp=$SCNP($SCNP_WINDOW) deep_closing=${DEEP_CLOSING_CKPT:-none} skip_test=$SKIP_TEST"
+echo "seed=$SEED preset=$PRESET epochs=$EPOCHS gpu=$GPU monitor=$MONITOR val_interval=$VAL_INTERVAL init_stage2_from_stage1=$INIT_STAGE2_FROM_STAGE1 input_mode=$INPUT_MODE eval_input_mode=$EVAL_INPUT_MODE fg_crop_prob=$FG_CROP_PROB boundary_weight=$BOUNDARY_LOSS_WEIGHT tta=$USE_TTA empty_guard=$EMPTY_GUARD scnp=$SCNP($SCNP_WINDOW) deep_closing=${DEEP_CLOSING_CKPT:-none} skip_test=$SKIP_TEST"
 echo "datasets=${#spec_array[@]}  output=$OUTPUT_ROOT"
 RUN_EXTRA=()
 if [ "$SKIP_TEST" = "true" ]; then
@@ -174,15 +178,36 @@ fi
   --extra_eval_args "$EVAL_EXTRA" \
   ${RUN_EXTRA[@]+"${RUN_EXTRA[@]}"}
 
+echo
+echo "== artifacts =="
+echo "best checkpoint: $OUTPUT_ROOT/$PRESET/best_model.pth"
+echo "training log:    $OUTPUT_ROOT/$PRESET/run.log"
+echo "run info:        $OUTPUT_ROOT/$PRESET/run_info.json"
+echo "metrics history: $OUTPUT_ROOT/$PRESET/metrics_history.json"
+echo "manifest:        $OUTPUT_ROOT/run_manifest.json"
+echo "jobs:            $OUTPUT_ROOT/jobs.csv"
+
 if [ "$SKIP_TEST" = "true" ]; then
   echo "== test/eval skipped (SKIP_TEST=true) =="
-  echo "checkpoint/log dir: $OUTPUT_ROOT/$PRESET"
   exit 0
 fi
 
+echo "eval tables:     $OUTPUT_ROOT/tables"
+
 echo "== aggregate =="
-"$PYTHON" scripts/sacm_x/aggregate_results.py \
-  --root "$OUTPUT_ROOT" --out "$OUTPUT_ROOT/tables"
+AGG_ARGS=(--root "$OUTPUT_ROOT" --out "$OUTPUT_ROOT/tables"
+  --preset "$PRESET")
+if [ -n "$DATASETS" ]; then
+  # shellcheck disable=SC2206
+  AGG_ARGS+=(--datasets $DATASETS)
+fi
+"$PYTHON" scripts/sacm_x/aggregate_results.py "${AGG_ARGS[@]}"
 
 echo "== macro =="
 cat "$OUTPUT_ROOT/tables/macro_metrics.csv"
+
+echo "== final report =="
+"$PYTHON" scripts/sacm_x/make_final_report.py \
+  --tables-dir "$OUTPUT_ROOT/tables" \
+  --preset "$PRESET" \
+  --checkpoint "$OUTPUT_ROOT/$PRESET/best_model.pth"

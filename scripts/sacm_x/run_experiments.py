@@ -27,6 +27,7 @@ Options:
 
 import argparse
 import csv
+import json
 import os
 import subprocess
 import sys
@@ -195,8 +196,13 @@ def start_job(gpu, preset, test_datasets, args):
     """Start a preset job (train first, then all test datasets)."""
     preset_dir = os.path.join(args.output_root, preset)
     os.makedirs(preset_dir, exist_ok=True)
-    ckpt_path = os.path.join(preset_dir, 'best_model.pth')
-    log_fh = open(os.path.join(preset_dir, 'run.log'), 'w')
+    # An explicit checkpoint lets eval use the training directory without
+    # copying a 1.4 GiB best_model.pth into every eval root.
+    ckpt_path = (
+        args.trained_weights if args.trained_weights
+        else os.path.join(preset_dir, 'best_model.pth'))
+    log_name = 'run_eval.log' if args.skip_train else 'run.log'
+    log_fh = open(os.path.join(preset_dir, log_name), 'w')
     env = dict(os.environ)
     env['CUDA_VISIBLE_DEVICES'] = str(gpu)
     # Child processes must inherit a deterministic hash seed and cuBLAS
@@ -332,6 +338,9 @@ def main():
                         help='Fail on operators without deterministic CUDA '
                              'implementations')
     parser.add_argument('--skip_train', action='store_true')
+    parser.add_argument('--trained_weights', type=str, default=None,
+                        help='Explicit trained checkpoint for --skip_train; '
+                             'omit to use <output_root>/<preset>/best_model.pth')
     parser.add_argument('--skip_test', action='store_true')
     parser.add_argument('--extra_eval_args', type=str, default='',
                         help='extra args appended to every evaluate.py command')
@@ -341,6 +350,10 @@ def main():
 
     if args.skip_train and args.skip_test:
         parser.error('--skip_train and --skip_test cannot be combined')
+    if args.trained_weights and not args.skip_train:
+        parser.error('--trained_weights requires --skip_train')
+    if args.trained_weights and len(args.presets) != 1:
+        parser.error('--trained_weights requires exactly one --presets value')
 
     test_datasets = []
     for spec in args.test_datasets:
@@ -380,22 +393,56 @@ def main():
                 slots[gpu] = start_job(gpu, preset, datasets, args)
         time.sleep(2)
 
-    with open(os.path.join(args.output_root, 'jobs.csv'), 'w',
-              newline='') as f:
+    jobs_name = 'jobs_eval.csv' if args.skip_train else 'jobs.csv'
+    jobs_path = os.path.join(args.output_root, jobs_name)
+    with open(jobs_path, 'w', newline='') as f:
         writer = csv.DictWriter(
             f, fieldnames=['preset', 'dataset', 'gpu', 'status'])
         writer.writeheader()
         writer.writerows(status_rows_all)
+
+    checkpoints = {
+        preset: os.path.abspath(
+            args.trained_weights if args.trained_weights
+            else os.path.join(args.output_root, preset, 'best_model.pth'))
+        for preset in args.presets
+    }
+    manifest = {
+        'output_root': os.path.abspath(args.output_root),
+        'seed': int(args.seed),
+        'presets': list(args.presets),
+        'trained_weights': (
+            None if args.trained_weights is None
+            else os.path.abspath(args.trained_weights)),
+        'checkpoints': checkpoints,
+        'test_datasets': [
+            {'name': name, 'root': root}
+            for name, root in test_datasets
+        ],
+        'selection': {
+            preset: resolve_selection(args, preset)
+            for preset in args.presets
+        },
+        'eval_input_mode': args.eval_input_mode,
+        'skip_train': bool(args.skip_train),
+        'jobs_csv': os.path.abspath(jobs_path),
+        'jobs': status_rows_all,
+        'generated_at': time.strftime('%Y-%m-%dT%H:%M:%S'),
+    }
+    manifest_path = os.path.join(args.output_root, 'run_manifest.json')
+    with open(manifest_path, 'w') as f:
+        json.dump(manifest, f, indent=2)
+    print(f"Manifest: {manifest_path}")
+
     failed = [row for row in status_rows_all
               if row['status'] not in ('done', 'train_only')]
     if failed:
         print(f"FAILED jobs ({len(failed)}):")
         for row in failed:
             print(f"  {row['preset']}/{row['dataset']}: {row['status']}")
-        print(f"Status table: {os.path.join(args.output_root, 'jobs.csv')}")
+        print(f"Status table: {jobs_path}")
         raise SystemExit(1)
-    print(f"All jobs finished. Status table: "
-          f"{os.path.join(args.output_root, 'jobs.csv')}")
+    print(f"All jobs finished. Status table: {jobs_path}")
 
 
 if __name__ == '__main__':
