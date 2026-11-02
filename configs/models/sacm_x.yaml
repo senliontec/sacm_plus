@@ -18,5 +18,5 @@ protocols: [seeded5, fixed]
 defaults:
   preset: full
   monitor: baseline
-  epochs: 800
+  epochs: 400
   init_stage2_from_stage1: true

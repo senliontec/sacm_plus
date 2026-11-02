@@ -349,7 +349,7 @@ if __name__ == '__main__':
     parser.add_argument('--new_module_lr', type=float, default=1e-4, help='Learning rate for newly added decoder modules')
     parser.add_argument('--decoder_lr', type=float, default=1e-5, help='Learning rate for original mask decoder parameters (lowered to curb few-shot overfitting)')
     parser.add_argument('--weight_decay', type=float, default=0.01, help='Weight decay for optimizer')
-    parser.add_argument('--epochs', type=int, default=800, help='Number of epochs (shared 800-epoch project budget)')
+    parser.add_argument('--epochs', type=int, default=400, help='Number of training epochs (SACM-X default budget; explicit value overrides)')
     parser.add_argument('--val_interval', type=int, default=None,
                         help='Validation interval (epochs); default 1 for '
                              'log_style=baseline, 10 otherwise')

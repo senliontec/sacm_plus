@@ -16,7 +16,7 @@ Usage:
         --test_datasets DRIVE:data/sacm_3shot/test/DRIVE \
                         CHASEDB1:data/sacm_3shot/test/CHASEDB1 \
         --presets sacm stage1 stage2 full \
-        --output_root results --epochs 800 --tta
+        --output_root results --epochs 400 --tta
 
 Options:
     --skip_train   only run evaluation; checkpoints must already exist
@@ -293,7 +293,7 @@ def main():
                         default=['sacm', 'stage1', 'stage2', 'full'],
                         choices=[p for p in PRESETS if p != 'none'])
     parser.add_argument('--output_root', type=str, default='outputs')
-    parser.add_argument('--epochs', type=int, default=800)
+    parser.add_argument('--epochs', type=int, default=400)
     parser.add_argument('--val_interval', type=int, default=10)
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--selection', type=str, default=None,

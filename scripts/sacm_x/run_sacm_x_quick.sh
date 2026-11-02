@@ -6,7 +6,7 @@
 # paper metrics.
 #
 # Usage:
-#   GPU=1 PRESET=full EPOCHS=800 bash scripts/sacm_x/run_sacm_x_quick.sh
+#   GPU=1 PRESET=full EPOCHS=400 bash scripts/sacm_x/run_sacm_x_quick.sh
 #   GPU=1 PRESET=sacm EPOCHS=20 MONITOR=official bash scripts/sacm_x/run_sacm_x_quick.sh
 #   GPU=1 PRESET=full EPOCHS=5 DATASETS="CHASEDB1 WIRE" \
 #     bash scripts/sacm_x/run_sacm_x_quick.sh
@@ -47,7 +47,7 @@ fi
 GPU="${GPU:-0}"
 PRESET="${PRESET:-full}"
 source scripts/sacm_x/wandb_env.sh
-EPOCHS="${EPOCHS:-800}"
+EPOCHS="${EPOCHS:-400}"
 VAL_INTERVAL="${VAL_INTERVAL:-}"
 SEED="${SEED:-0}"
 DATASETS="${DATASETS:-}"
