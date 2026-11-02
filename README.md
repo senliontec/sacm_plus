@@ -74,7 +74,9 @@ make registry  # print the available topology-loss registry
 Wandb logging is optional: set `WANDB_API_KEY` (or run `wandb login`)
 before training/evaluation; no credential is stored in the source tree.
 
-Engineering conventions: `docs/ENGINEERING.md`.  Optional post-processing:
+Engineering conventions: `docs/ENGINEERING.md`.  Reproducible seeding,
+deterministic kernels, DataLoader workers, and environment manifests:
+`docs/REPRODUCIBILITY.md`.  Optional post-processing:
 `docs/DEEP_CLOSING.md`, `docs/SAM_REFINER.md`.
 
 ## Quick Start

@@ -207,6 +207,11 @@ class Evaluator:
                 'trained_weights': self.args.trained_weights,
                 'selection': self.args.selection,
                 'tta': self.args.tta,
+                'seed': getattr(self.args, 'seed', 0),
+                'deterministic': bool(getattr(
+                    self.args, 'deterministic', True)),
+                'num_workers': int(getattr(
+                    self.args, 'num_workers', 4)),
                 'pred_threshold': self.args.pred_threshold,
                 'eval_input_mode': getattr(
                     self.args, 'eval_input_mode', 'resize'),
@@ -601,6 +606,9 @@ class Evaluator:
             f.write(f"Model: {args.trained_weights}\n")
             f.write(f"Dataset: {args.data_root}\n")
             f.write(f"Num Samples: {len(csv_rows)}\n")
+            f.write(f"Seed: {getattr(args, 'seed', 0)}\n")
+            f.write(f"Deterministic: {getattr(args, 'deterministic', True)}\n")
+            f.write(f"Num workers: {getattr(args, 'num_workers', 4)}\n")
             f.write(f"Selection: {args.selection}\n")
             if getattr(args, 'fixed_head', None) is not None:
                 f.write(f"Fixed head: {args.fixed_head}\n")

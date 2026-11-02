@@ -678,6 +678,13 @@ class Trainer:
                     'pred_threshold': getattr(self.args, 'pred_threshold', 0.0),
                     'val_selection': getattr(self.args, 'val_selection', 'auto'),
                     'selection_metric': self.selection_metric,
+                    'seed': getattr(self.args, 'seed', 0),
+                    'deterministic': bool(getattr(
+                        self.args, 'deterministic', True)),
+                    'num_workers': int(getattr(
+                        self.args, 'num_workers', 4)),
+                    'reproducibility_info': getattr(
+                        self.args, 'reproducibility_info', {}),
                     'no_fov': getattr(self.args, 'no_fov', False),
                     'log_style': getattr(self.args, 'log_style', 'table'),
                     'val_interval': getattr(self.args, 'val_interval', 10),
@@ -806,6 +813,13 @@ class Trainer:
             'val_topograph': self.args.val_topograph,
             'fast_val': getattr(self.args, 'fast_val', False),
             'seed': self.args.seed,
+            'deterministic': bool(getattr(
+                self.args, 'deterministic', True)),
+            'deterministic_strict': bool(getattr(
+                self.args, 'deterministic_strict', True)),
+            'num_workers': int(getattr(self.args, 'num_workers', 4)),
+            'reproducibility_info': getattr(
+                self.args, 'reproducibility_info', {}),
         }
 
     def _write_history(self, history, best_epoch):

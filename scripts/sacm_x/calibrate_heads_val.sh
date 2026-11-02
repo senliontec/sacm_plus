@@ -25,6 +25,12 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.." || exit 1
 
+# Reproducibility: these must be set before Python starts.
+export PYTHONHASHSEED=0
+export CUBLAS_WORKSPACE_CONFIG=:4096:8
+export OMP_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+
 if [ -z "${PYTHON:-}" ]; then
   if [ -x /home/dev/anaconda3/envs/tsai/bin/python ]; then
     PYTHON=/home/dev/anaconda3/envs/tsai/bin/python
@@ -55,6 +61,9 @@ SELECTION="${SELECTION:-iou}"
 EMPTY_GUARD="${EMPTY_GUARD:-true}"
 THRESHOLDS="${THRESHOLDS:--2 -1 0 1 2}"
 USE_WANDB="${USE_WANDB:-false}"
+DETERMINISTIC="${DETERMINISTIC:-true}"
+DETERMINISTIC_STRICT="${DETERMINISTIC_STRICT:-true}"
+NUM_WORKERS="${NUM_WORKERS:-4}"
 
 if [ ! -f "$CKPT" ]; then
   echo "ERROR: missing checkpoint: $CKPT" >&2
@@ -103,6 +112,9 @@ for split in $SPLITS; do
     --audit_heads \
     --audit_head_thresholds $THRESHOLDS \
     --component_metrics \
+    --deterministic "$DETERMINISTIC" \
+    --deterministic_strict "$DETERMINISTIC_STRICT" \
+    --num_workers "$NUM_WORKERS" \
     --use_wandb "$USE_WANDB" \
     ${EXTRA[@]+"${EXTRA[@]}"}
 

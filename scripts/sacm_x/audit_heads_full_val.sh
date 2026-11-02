@@ -20,6 +20,12 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.." || exit 1
 
+# Reproducibility: these must be set before Python starts.
+export PYTHONHASHSEED=0
+export CUBLAS_WORKSPACE_CONFIG=:4096:8
+export OMP_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+
 if [ -z "${PYTHON:-}" ]; then
   if [ -x /home/dev/anaconda3/envs/tsai/bin/python ]; then
     PYTHON=/home/dev/anaconda3/envs/tsai/bin/python
@@ -48,6 +54,9 @@ AUDIT_ROOT="${AUDIT_ROOT:-$OUTPUT_ROOT/head_full_audit}"
 EVAL_INPUT_MODE="${EVAL_INPUT_MODE:-resize}"
 SELECTION="${SELECTION:-iou}"
 USE_WANDB="${USE_WANDB:-false}"
+DETERMINISTIC="${DETERMINISTIC:-true}"
+DETERMINISTIC_STRICT="${DETERMINISTIC_STRICT:-true}"
+NUM_WORKERS="${NUM_WORKERS:-4}"
 
 if [ ! -f "$CKPT" ]; then
   echo "ERROR: missing checkpoint: $CKPT" >&2
@@ -90,6 +99,9 @@ for split in $SPLITS; do
     --no-fov \
     --audit_heads_full \
     --component_metrics \
+    --deterministic "$DETERMINISTIC" \
+    --deterministic_strict "$DETERMINISTIC_STRICT" \
+    --num_workers "$NUM_WORKERS" \
     --use_wandb "$USE_WANDB"
 
   "$PYTHON" scripts/sacm_x/aggregate_head_full.py \

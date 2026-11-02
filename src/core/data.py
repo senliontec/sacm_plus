@@ -117,7 +117,10 @@ def _find_pairs(image_dir, mask_dir):
                 if os.path.exists(os.path.join(mask_dir, base_name + ext)):
                     pairs.append(filename)
                     break
-    return pairs
+    # os.listdir order is filesystem-dependent.  Sorting makes the
+    # index -> image mapping identical across machines/copies and is
+    # required for reproducible DataLoader shuffling.
+    return sorted(pairs)
 
 
 class SegmentationDataset(Dataset):

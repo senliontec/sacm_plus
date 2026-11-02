@@ -14,6 +14,12 @@
 set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 1
 
+# Reproducibility: these must be set before Python starts.
+export PYTHONHASHSEED=0
+export CUBLAS_WORKSPACE_CONFIG=:4096:8
+export OMP_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+
 if [ -z "${PYTHON:-}" ]; then
   if [ -x /home/dev/anaconda3/envs/tsai/bin/python ]; then
     PYTHON=/home/dev/anaconda3/envs/tsai/bin/python
@@ -32,6 +38,9 @@ SAM_CKPT="${SAM_CKPT:-checkpoints/sam_vit_l_0b3195.pth}"
 DATASETS="${DATASETS:-}"
 USE_WANDB="${USE_WANDB:-true}"
 WANDB_MODE="${WANDB_MODE:-online}"
+DETERMINISTIC="${DETERMINISTIC:-true}"
+DETERMINISTIC_STRICT="${DETERMINISTIC_STRICT:-true}"
+NUM_WORKERS="${NUM_WORKERS:-4}"
 TRAIN_ROOT="${TRAIN_ROOT:-data/sacm_3shot}"
 EVAL_INPUT_MODE="${EVAL_INPUT_MODE:-aspect_pad}"
 USE_TTA="${USE_TTA:-false}"
@@ -139,7 +148,10 @@ else
   if [ -n "$AUDIT_HEAD_THRESHOLDS" ]; then
     EXTRA_EVAL+=" --audit_head_thresholds $AUDIT_HEAD_THRESHOLDS"
   fi
-  EXTRA_RUN=(--eval_input_mode "$EVAL_INPUT_MODE")
+  EXTRA_RUN=(--eval_input_mode "$EVAL_INPUT_MODE"
+    --deterministic "$DETERMINISTIC"
+    --deterministic_strict "$DETERMINISTIC_STRICT"
+    --num_workers "$NUM_WORKERS")
   if [ -n "$SELECTION" ]; then
     EXTRA_RUN+=(--selection "$SELECTION")
   fi

@@ -38,6 +38,7 @@ from core.losses import (
     build_topology_loss,
 )
 from core.registry import MODEL_REGISTRY, get_model_spec
+from core.reproducibility import configure_determinism, seed_worker
 from core.trainer import ForwardWrapper, Trainer
 from core.wandb_utils import WANDB_API_KEY_DEFAULT, redact_secrets
 from models.sacm_x.configs import PRESETS, apply_preset, str2bool
@@ -102,15 +103,24 @@ def train(args):
     # so checkpoint + metrics_history.json saves never fail.
     os.makedirs(os.path.dirname(args.save_path) or '.', exist_ok=True)
 
-    random.seed(args.seed)
-    np.random.seed(args.seed)
-    torch.manual_seed(args.seed)
-
     # DDP:由 torchrun 启动时注入 LOCAL_RANK;否则退化为单卡。
     # 关键顺序(此前 manual_seed_all 在 init 之前执行,会在每个 rank 进程里
     # 初始化全部 8 张卡的 CUDA 上下文,导致与 NCCL 冲突无声崩溃):
     # 先建进程组 → 绑定本地卡 → 只播本地卡的种子。
     is_ddp = 'LOCAL_RANK' in os.environ
+    # Seed CPU RNGs and deterministic kernels before DDP.  Do not
+    # manual_seed_all here: that can create CUDA contexts on all visible
+    # GPUs inside every rank.  The selected device is seeded below.
+    reproducibility = configure_determinism(
+        args.seed,
+        deterministic=getattr(args, 'deterministic', True),
+        strict=getattr(args, 'deterministic_strict', True),
+        num_threads=getattr(args, 'deterministic_threads', 1),
+        cuda_seed_all=False,
+    )
+    args.reproducibility_info = reproducibility
+    logging.info("Reproducibility: %s", reproducibility)
+
     if is_ddp:
         import torch.distributed as dist
         local_rank = int(os.environ['LOCAL_RANK'])
@@ -225,16 +235,28 @@ def train(args):
     val_sampler = None
     if is_ddp:
         from torch.utils.data.distributed import DistributedSampler
-        train_sampler = DistributedSampler(train_dataset)
+        train_sampler = DistributedSampler(
+            train_dataset, seed=args.seed, shuffle=True)
         # Unique validation shards: no padding/duplicate samples on small
         # 3-shot val sets.  Empty trailing ranks are handled by _validate.
         val_sampler = DistributedEvalSampler(val_dataset)
-    train_loader = DataLoader(train_dataset, batch_size=args.batch_size,
-                              shuffle=(train_sampler is None), sampler=train_sampler,
-                              num_workers=4)
+    # A local generator fixes RandomSampler/worker base seeds; worker_init_fn
+    # fixes Python/NumPy RNGs inside each worker.
+    train_generator = torch.Generator()
+    train_generator.manual_seed(args.seed)
+    val_generator = torch.Generator()
+    val_generator.manual_seed(args.seed + 1)
+    num_workers = int(getattr(args, 'num_workers', 4))
+    train_loader = DataLoader(
+        train_dataset, batch_size=args.batch_size,
+        shuffle=(train_sampler is None), sampler=train_sampler,
+        num_workers=num_workers, worker_init_fn=seed_worker,
+        generator=train_generator)
     # Variable original GT sizes: batch_size must be 1 for validation.
-    val_loader = DataLoader(val_dataset, batch_size=1,
-                            shuffle=False, sampler=val_sampler, num_workers=4)
+    val_loader = DataLoader(
+        val_dataset, batch_size=1, shuffle=False, sampler=val_sampler,
+        num_workers=num_workers, worker_init_fn=seed_worker,
+        generator=val_generator)
 
     logging.info(f"Training dataset size: {len(train_dataset)}")
     logging.info(f"Validation dataset size: {len(val_dataset)}")
@@ -355,6 +377,18 @@ if __name__ == '__main__':
                              'log_style=baseline requires fast_val=false.')
     parser.add_argument('--clip_grad_norm', type=float, default=1.0, help='Gradient clipping norm (0 to disable)')
     parser.add_argument('--seed', type=int, default=42, help='Random seed')
+    parser.add_argument('--deterministic', type=str2bool, default=True,
+                        help='Enable deterministic RNG/kernel settings; '
+                             'keep on for reproducible comparisons')
+    parser.add_argument('--deterministic_strict', type=str2bool,
+                        default=True,
+                        help='Fail if an operator has no deterministic CUDA '
+                             'implementation. Set false only for a '
+                             'best-effort (not bitwise) run.')
+    parser.add_argument('--deterministic_threads', type=int, default=1,
+                        help='torch CPU threads in deterministic mode')
+    parser.add_argument('--num_workers', type=int, default=4,
+                        help='DataLoader workers; keep fixed across runs')
     parser.add_argument('--save_path', type=str, default='best_model.pth', help='Where to save the best checkpoint (per-job paths for parallel runs)')
 
     # Architecture preset (applied after parsing; use "none" for manual control)

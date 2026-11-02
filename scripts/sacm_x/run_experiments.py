@@ -38,7 +38,7 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fi
 SRC_DIR = os.path.join(REPO_ROOT, 'src')
 sys.path.insert(0, SRC_DIR)
 
-from models.sacm_x.configs import PRESETS  # noqa: E402
+from models.sacm_x.configs import PRESETS, str2bool  # noqa: E402
 
 
 def resolve_selection(args, preset):
@@ -67,6 +67,9 @@ def train_command(args, preset, ckpt_path, selection):
         '--boundary_loss_resolution', str(args.boundary_loss_resolution),
         '--boundary_loss_warmup', str(args.boundary_loss_warmup),
         '--boundary_loss_ramp', str(args.boundary_loss_ramp),
+        '--num_workers', str(args.num_workers),
+        '--deterministic', str(bool(args.deterministic)).lower(),
+        '--deterministic_strict', str(bool(args.deterministic_strict)).lower(),
     ]
     if args.extra_train_args:
         cmd += args.extra_train_args.split()
@@ -83,6 +86,10 @@ def test_command(args, preset, dataset, test_dir, ckpt_path, selection):
         '--selection', selection,
         '--pred_threshold', str(args.pred_threshold),
         '--eval_input_mode', args.eval_input_mode,
+        '--seed', str(args.seed),
+        '--num_workers', str(args.num_workers),
+        '--deterministic', str(bool(args.deterministic)).lower(),
+        '--deterministic_strict', str(bool(args.deterministic_strict)).lower(),
     ]
     fixed_head = getattr(args, 'fixed_head', None)
     if fixed_head is not None:
@@ -192,6 +199,13 @@ def start_job(gpu, preset, test_datasets, args):
     log_fh = open(os.path.join(preset_dir, 'run.log'), 'w')
     env = dict(os.environ)
     env['CUDA_VISIBLE_DEVICES'] = str(gpu)
+    # Child processes must inherit a deterministic hash seed and cuBLAS
+    # workspace; OMP/MKL single-threading avoids CPU reduction ordering
+    # differences in DataLoader workers.
+    env['PYTHONHASHSEED'] = '0'
+    env['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
+    env['OMP_NUM_THREADS'] = '1'
+    env['MKL_NUM_THREADS'] = '1'
     selection = resolve_selection(args, preset)
 
     slot = {
@@ -309,6 +323,14 @@ def main():
                              'selected mask is empty')
     parser.add_argument('--tta', action='store_true',
                         help='Enable four-way flip TTA at test time')
+    parser.add_argument('--num_workers', type=int, default=4,
+                        help='DataLoader workers; keep fixed across runs')
+    parser.add_argument('--deterministic', type=str2bool, default=True,
+                        help='Enable deterministic RNG/kernel settings')
+    parser.add_argument('--deterministic_strict', type=str2bool,
+                        default=True,
+                        help='Fail on operators without deterministic CUDA '
+                             'implementations')
     parser.add_argument('--skip_train', action='store_true')
     parser.add_argument('--skip_test', action='store_true')
     parser.add_argument('--extra_eval_args', type=str, default='',

@@ -38,6 +38,7 @@ import matplotlib.pyplot as plt
 from core.data import TestDataset
 from core.io import get_prompt_embeddings, predict_all
 from core.losses import DiceBCELoss, SoftclDiceLoss
+from core.reproducibility import configure_determinism, seed_worker
 from models.sacm_x.configs import PRESETS, apply_preset, str2bool
 from models.sam_network import build_sam_vit_l
 
@@ -294,19 +295,36 @@ def main():
     parser.add_argument('--use_multi_depth', type=str2bool, default=True)
     parser.add_argument('--use_typed_heads', type=str2bool, default=False,
                         help='Typed structural Stage-2 heads (full_typed checkpoint)')
+    parser.add_argument('--seed', type=int, default=0)
+    parser.add_argument('--deterministic', type=str2bool, default=True)
+    parser.add_argument('--deterministic_strict', type=str2bool, default=True)
+    parser.add_argument('--deterministic_threads', type=int, default=1)
+    parser.add_argument('--num_workers', type=int, default=4)
     parser.add_argument('--num_images_grad', type=int, default=8, help='Images for the gradient analysis')
     parser.add_argument('--num_images_gating', type=int, default=32, help='Images for the gating analysis')
     parser.add_argument('--skip_grad', action='store_true')
     parser.add_argument('--skip_gating', action='store_true')
     args = parser.parse_args()
     apply_preset(args, args.preset)
+    args.reproducibility_info = configure_determinism(
+        getattr(args, 'seed', 0),
+        deterministic=getattr(args, 'deterministic', True),
+        strict=getattr(args, 'deterministic_strict', True),
+        num_threads=getattr(args, 'deterministic_threads', 1),
+        cuda_seed_all=True,
+    )
 
     os.makedirs(args.output_dir, exist_ok=True)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     sam = build_model(args, device)
     dataset = TestDataset(args.data_root)
-    loader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=False, num_workers=2)
+    generator = torch.Generator()
+    generator.manual_seed(int(getattr(args, 'seed', 0)) + 1)
+    loader = torch.utils.data.DataLoader(
+        dataset, batch_size=1, shuffle=False,
+        num_workers=int(getattr(args, 'num_workers', 4)),
+        worker_init_fn=seed_worker, generator=generator)
 
     if not args.skip_grad:
         run_grad_analysis(sam, loader, device, args.num_images_grad, args.output_dir)

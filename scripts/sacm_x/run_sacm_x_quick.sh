@@ -29,6 +29,12 @@ set -euo pipefail
 cd "$(dirname "$0")/../.." || exit 1
 REPO="$(pwd)"
 
+# Reproducibility: these must be set before Python starts.
+export PYTHONHASHSEED=0
+export CUBLAS_WORKSPACE_CONFIG=:4096:8
+export OMP_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+
 if [ -z "${PYTHON:-}" ]; then
   if [ -x /home/dev/anaconda3/envs/tsai/bin/python ]; then
     PYTHON=/home/dev/anaconda3/envs/tsai/bin/python
@@ -67,6 +73,9 @@ DEEP_CLOSING_THRESHOLD="${DEEP_CLOSING_THRESHOLD:-}"
 SKIP_TEST="${SKIP_TEST:-false}"
 USE_WANDB="${USE_WANDB:-true}"
 WANDB_MODE="${WANDB_MODE:-online}"
+DETERMINISTIC="${DETERMINISTIC:-true}"
+DETERMINISTIC_STRICT="${DETERMINISTIC_STRICT:-true}"
+NUM_WORKERS="${NUM_WORKERS:-4}"
 export WANDB_MODE
 if [ "$USE_WANDB" = "true" ] && [ "$WANDB_MODE" != "offline" ] && [ "$WANDB_MODE" != "disabled" ]; then
   if ! wandb_auth_ok; then
@@ -152,6 +161,9 @@ fi
   --presets "$PRESET" \
   --output_root "$OUTPUT_ROOT" \
   --epochs "$EPOCHS" --val_interval "$VAL_INTERVAL" --seed "$SEED" \
+  --deterministic "$DETERMINISTIC" \
+  --deterministic_strict "$DETERMINISTIC_STRICT" \
+  --num_workers "$NUM_WORKERS" \
   --train_input_mode "$INPUT_MODE" --eval_input_mode "$EVAL_INPUT_MODE" \
   --foreground_crop_prob "$FG_CROP_PROB" \
   --boundary_loss_weight "$BOUNDARY_LOSS_WEIGHT" \

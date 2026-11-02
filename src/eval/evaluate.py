@@ -33,6 +33,7 @@ from core.evaluator import (
 )
 from core.losses import DiceBCELoss
 from core.registry import MODEL_REGISTRY, get_model_spec
+from core.reproducibility import configure_determinism, seed_worker
 from core.wandb_utils import WANDB_API_KEY_DEFAULT, redact_secrets
 from models.sacm_x.configs import PRESETS, apply_preset, str2bool
 
@@ -57,6 +58,16 @@ def setup_logging():
 
 def evaluate(args):
     setup_logging()
+
+    reproducibility = configure_determinism(
+        getattr(args, 'seed', 0),
+        deterministic=getattr(args, 'deterministic', True),
+        strict=getattr(args, 'deterministic_strict', True),
+        num_threads=getattr(args, 'deterministic_threads', 1),
+        cuda_seed_all=True,
+    )
+    args.reproducibility_info = reproducibility
+    logging.info("Reproducibility: %s", reproducibility)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     logging.info(f"Using device: {device}")
@@ -182,7 +193,12 @@ def evaluate(args):
     evaluator = Evaluator(
         sam, spec, device, criterion, args, metric_keys,
         deep_closing=deep_closing)
-    loader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=False, num_workers=4)
+    eval_generator = torch.Generator()
+    eval_generator.manual_seed(int(getattr(args, 'seed', 0)) + 1)
+    loader = torch.utils.data.DataLoader(
+        dataset, batch_size=1, shuffle=False,
+        num_workers=int(getattr(args, 'num_workers', 4)),
+        worker_init_fn=seed_worker, generator=eval_generator)
     summary, csv_rows, n_hd95_nan, avg_loss = evaluator.run(loader, args.output_dir)
 
     print("\nTest Results:")
@@ -243,6 +259,18 @@ if __name__ == '__main__':
                         help='Test geometry: aspect_pad preserves the source '
                              'aspect ratio and pads; resize is the legacy '
                              'square stretch.')
+    parser.add_argument('--seed', type=int, default=0,
+                        help='Seed for deterministic evaluation')
+    parser.add_argument('--deterministic', type=str2bool, default=True,
+                        help='Enable deterministic RNG/kernel settings')
+    parser.add_argument('--deterministic_strict', type=str2bool,
+                        default=True,
+                        help='Fail on operators without deterministic CUDA '
+                             'implementations')
+    parser.add_argument('--deterministic_threads', type=int, default=1,
+                        help='torch CPU threads in deterministic mode')
+    parser.add_argument('--num_workers', type=int, default=4,
+                        help='DataLoader workers; keep fixed across runs')
     parser.add_argument('--empty_guard', action='store_true',
                         help='If the selected mask is empty, fall back to the '
                              'candidate with the largest foreground area before '
