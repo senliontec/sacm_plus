@@ -84,6 +84,9 @@ def test_command(args, preset, dataset, test_dir, ckpt_path, selection):
         '--pred_threshold', str(args.pred_threshold),
         '--eval_input_mode', args.eval_input_mode,
     ]
+    fixed_head = getattr(args, 'fixed_head', None)
+    if fixed_head is not None:
+        cmd += ['--fixed_head', str(fixed_head)]
     if args.empty_guard:
         cmd.append('--empty_guard')
     if args.tta:
@@ -282,6 +285,10 @@ def main():
     parser.add_argument('--selection', type=str, default=None,
                         help="Override mask selection ('iou' or 'gating'); "
                              "default: iou iff preset trains the IoU head")
+    parser.add_argument('--fixed_head', type=int, default=None,
+                        choices=[0, 1, 2, 3],
+                        help='Force one Stage-2 head for every image; '
+                             'overrides --selection in evaluate.py')
     parser.add_argument('--pred_threshold', type=float, default=0.0,
                         help='Logit binarization threshold; SACM fidelity uses 0.5')
     parser.add_argument('--train_input_mode', type=str, default='aspect_pad',

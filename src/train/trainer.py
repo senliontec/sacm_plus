@@ -140,6 +140,7 @@ def train(args):
         use_coarse_to_fine=args.use_coarse_to_fine,
         use_fusion_v2=args.use_fusion_v2,
         use_multi_depth=args.use_multi_depth,
+        use_typed_heads=getattr(args, 'use_typed_heads', False),
         init_stage2_from_stage1=getattr(args, 'init_stage2_from_stage1', False),
     )
     sam.to(device)
@@ -366,6 +367,9 @@ if __name__ == '__main__':
     parser.add_argument('--use_coarse_to_fine', type=str2bool, default=True, help='Closed-loop coarse-to-fine refinement')
     parser.add_argument('--use_fusion_v2', type=str2bool, default=True, help='Fusion v2 (concat+FFN weights + spatial gate); off = original SACM fusion')
     parser.add_argument('--use_multi_depth', type=str2bool, default=True, help='Multi-depth semantic path from encoder intermediates')
+    parser.add_argument('--use_typed_heads', type=str2bool, default=False,
+                        help='Typed structural Stage-2 heads (thin/blob/boundary/recall); '
+                             'opt-in via preset full_typed or this flag')
     parser.add_argument('--init_stage2_from_stage1', type=str2bool, default=True,
                         help='Warm-start the new Stage-2 mask heads from the '
                              'loaded pretrained Stage-1 heads (applied after '
@@ -375,10 +379,11 @@ if __name__ == '__main__':
     # Auxiliary losses
     parser.add_argument('--deep_sup_weight', type=float, default=0.3, help='Weight of Stage-1 deep supervision (all heads)')
     parser.add_argument('--stage2_supervision', type=str, default='soft',
-                        choices=['wta', 'allhead', 'soft'],
+                        choices=['wta', 'allhead', 'soft', 'typed'],
                         help='Stage-2 candidate supervision: soft (default D8 fix; '
                              'uniform + IoU-softmax mixture, all candidates get gradient), '
                              'allhead (mean over all candidates; may collapse), '
+                             'typed (per-head structural losses; requires --use_typed_heads), '
                              'wta (original winner-take-all; baseline/ablation only)')
     parser.add_argument('--soft_select_mix', type=float, default=0.5,
                         help='soft mode: uniform/(IoU-softmax) mixture; 0=uniform all-head, 1=trust IoU head')
@@ -422,6 +427,13 @@ if __name__ == '__main__':
                         help='Epochs before the boundary loss activates')
     parser.add_argument('--boundary_loss_ramp', type=int, default=5,
                         help='Epochs for the boundary weight to ramp up')
+    parser.add_argument('--tversky_weight', type=float, default=0.0,
+                        help='Typed-head recall loss weight (Tversky, beta>alpha); '
+                             '0 disables it outside the full_typed preset')
+    parser.add_argument('--tversky_alpha', type=float, default=0.3,
+                        help='Tversky FP weight (lower -> recall-oriented when beta>alpha)')
+    parser.add_argument('--tversky_beta', type=float, default=0.7,
+                        help='Tversky FN weight (higher -> recall-oriented)')
 
     # Full val metric suite: 16 常规指标 + 4 可选指标全部默认开启
     # (few-shot val 集仅 3 图,引擎级指标秒级可承受;传 --val_auc false 等可关)

@@ -72,6 +72,26 @@ def select_mask(masks, iou_pred, selection, empty_guard=False,
     return masks[:, k:k + 1]
 
 
+def select_mask_fixed(masks, head, empty_guard=False,
+                      foreground_threshold=0.5):
+    """Select a fixed Stage-2 head.
+
+    Used for head-calibration diagnostics: the same head is used for every
+    image, so the score/candidate ranking is taken out of the comparison.
+    ``empty_guard`` only redirects an empty fixed head to the largest-area
+    candidate; keep it off when measuring the raw head.
+    """
+    k = int(head)
+    if k < 0 or k >= masks.shape[1]:
+        raise ValueError(
+            f"fixed head {k} out of range for {masks.shape[1]} candidates")
+    if empty_guard and masks.shape[1] > 1:
+        areas = (masks[0] > foreground_threshold).flatten(1).sum(dim=1)
+        if float(areas[k].item()) <= 0.0:
+            k = int(areas.argmax().item())
+    return masks[:, k:k + 1], k
+
+
 def select_mask_quality(masks, iou_pred, foreground_threshold=0.5,
                         small_component_weight=0.5,
                         component_count_weight=0.05,
@@ -172,6 +192,11 @@ class Evaluator:
                            or save_candidates)
         audit_thresholds = getattr(
             self.args, 'audit_thresholds', None) or []
+        audit_head_thresholds = getattr(
+            self.args, 'audit_head_thresholds', None) or []
+        audit_heads_full = bool(getattr(
+            self.args, 'audit_heads_full', False))
+        fixed_head = getattr(self.args, 'fixed_head', None)
 
         run = setup_wandb(
             self.args,
@@ -191,8 +216,11 @@ class Evaluator:
                     self.args, 'component_metrics', False)),
                 'component_prune_mode': getattr(
                     self.args, 'component_prune_mode', 'off'),
+                'fixed_head': fixed_head,
                 'audit_heads': audit_heads,
+                'audit_heads_full': audit_heads_full,
                 'audit_thresholds': list(audit_thresholds),
+                'audit_head_thresholds': list(audit_head_thresholds),
                 'save_candidate_masks': save_candidates,
                 'nsd_tolerance': self.args.nsd_tolerance,
                 'deep_closing': self.deep_closing is not None,
@@ -210,6 +238,8 @@ class Evaluator:
         csv_rows = []
         head_rows = []
         threshold_rows = []
+        head_threshold_rows = []
+        head_full_rows = []
         candidates_dir = os.path.join(output_dir, 'candidates')
         if save_candidates:
             os.makedirs(candidates_dir, exist_ok=True)
@@ -256,7 +286,14 @@ class Evaluator:
                 height = height.item() if torch.is_tensor(height) else int(height)
                 eval_mode = getattr(self.args, 'eval_input_mode', 'resize')
 
-                if self.args.selection == 'quality':
+                if fixed_head is not None:
+                    low_res_masks, selected_head = select_mask_fixed(
+                        masks_all, int(fixed_head),
+                        empty_guard=bool(getattr(
+                            self.args, 'empty_guard', False)),
+                        foreground_threshold=float(
+                            getattr(self.args, 'pred_threshold', 0.0)))
+                elif self.args.selection == 'quality':
                     low_res_masks, selected_head, quality_scores = (
                         select_mask_quality(
                             masks_all, iou_all,
@@ -405,6 +442,59 @@ class Evaluator:
                                 os.path.join(
                                     candidates_dir, f'{stem}_head{k}.png'))
 
+                # Head x threshold grid: unlike head_audit (one threshold)
+                # and threshold_audit (one selected head), this measures
+                # every Stage-2 candidate at every requested threshold.
+                if audit_head_thresholds:
+                    gt_head = gt_binary
+                    for k in range(masks_all.shape[1]):
+                        cand = _resize_to_original(
+                            masks_all[:, k:k + 1], width, height, eval_mode)
+                        if not getattr(self.args, 'no_fov', False):
+                            cand = cand * fov_mask
+                        for t in audit_head_thresholds:
+                            cand_bin = (
+                                cand[0, 0] > float(t)
+                            ).cpu().numpy()
+                            q = _quick_binary_metrics(cand_bin, gt_head)
+                            c = component_metrics(cand_bin, gt_head)
+                            head_threshold_rows.append({
+                                'image': img_name[0], 'head': k,
+                                'threshold': float(t),
+                                'iou_head_score': float(
+                                    iou_all[0, k].item()),
+                                **q, **c,
+                            })
+
+                # Full metric suite for each head (clDice/HD95/ASSD/...).
+                # This is intentionally opt-in: it is diagnostic-only and
+                # much more expensive than the quick head/threshold grid.
+                if audit_heads_full:
+                    for k in range(masks_all.shape[1]):
+                        cand = _resize_to_original(
+                            masks_all[:, k:k + 1], width, height, eval_mode)
+                        if not getattr(self.args, 'no_fov', False):
+                            cand = cand * fov_mask
+                        cand_bin = (
+                            cand[0, 0] > self.args.pred_threshold
+                        ).cpu().numpy()
+                        hm = compute_metrics(
+                            cand[0], original_mask[0],
+                            threshold=self.args.pred_threshold,
+                            nsd_tolerance=self.args.nsd_tolerance,
+                            compute_auc=self.args.auc,
+                            compute_betti_matching=self.args.betti_matching,
+                            compute_topograph=self.args.topograph_metric,
+                        )
+                        c = component_metrics(cand_bin, gt_binary)
+                        head_full_rows.append({
+                            'image': img_name[0], 'head': k,
+                            'iou_head_score': float(iou_all[0, k].item()),
+                            **{key: hm.get(key, float('nan'))
+                               for key in self.metric_keys},
+                            **c,
+                        })
+
                 # Optional selected-mask threshold sweep (lightweight
                 # metrics only; useful for calibration, not test tuning).
                 if audit_thresholds:
@@ -479,6 +569,18 @@ class Evaluator:
                 threshold_rows,
                 ['image', 'threshold', 'dice', 'iou', 'precision',
                  'recall', *COMPONENT_KEYS])
+        if audit_head_thresholds:
+            _write_rows(
+                os.path.join(output_dir, 'head_threshold_audit.csv'),
+                head_threshold_rows,
+                ['image', 'head', 'threshold', 'iou_head_score', 'dice',
+                 'iou', 'precision', 'recall', *COMPONENT_KEYS])
+        if audit_heads_full:
+            _write_rows(
+                os.path.join(output_dir, 'head_full_audit.csv'),
+                head_full_rows,
+                ['image', 'head', 'iou_head_score', *self.metric_keys,
+                 *COMPONENT_KEYS])
 
         avg_loss = float(np.mean(loss_values))
         logging.info(f"Average Loss: {avg_loss:.4f}")
@@ -500,6 +602,8 @@ class Evaluator:
             f.write(f"Dataset: {args.data_root}\n")
             f.write(f"Num Samples: {len(csv_rows)}\n")
             f.write(f"Selection: {args.selection}\n")
+            if getattr(args, 'fixed_head', None) is not None:
+                f.write(f"Fixed head: {args.fixed_head}\n")
             f.write(f"TTA: {args.tta}\n")
             f.write(f"Eval input mode: {getattr(args, 'eval_input_mode', 'resize')}\n")
             f.write(f"Empty guard: {getattr(args, 'empty_guard', False)}\n")
@@ -513,9 +617,13 @@ class Evaluator:
             if n_hd95_nan:
                 f.write(f"Note: HD95 undefined for {n_hd95_nan} images (empty mask)\n")
 
+        fieldnames = ['image'] + list(summary.keys())
+        # Selection audits record which candidate was chosen.  Keep the
+        # default schema unchanged unless a selector actually emitted it.
+        if any('selected_head' in row for row in csv_rows):
+            fieldnames.append('selected_head')
         with open(os.path.join(output_dir, 'metrics.csv'), 'w', newline='') as f:
             writer = csv.DictWriter(
-                f, fieldnames=['image'] + list(summary.keys()),
-                extrasaction='ignore')
+                f, fieldnames=fieldnames, extrasaction='ignore')
             writer.writeheader()
             writer.writerows(csv_rows)

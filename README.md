@@ -105,6 +105,9 @@ Engineering conventions: `docs/ENGINEERING.md`.  Optional post-processing:
 
    # Full model (default)
    python src/train/trainer.py --preset full --data_root <root> --checkpoint <sam_vit_l.pth>
+
+   # Typed structural candidates (B prototype)
+   python src/train/trainer.py --preset full_typed --data_root <root> --checkpoint <sam_vit_l.pth>
    ```
 
    Single-module ablations: `--preset no_geo_i / no_geo_e / no_c2f /
@@ -219,6 +222,46 @@ The SACM-X launcher defaults are now:
 `INPUT_MODE=aspect_pad`, `EVAL_INPUT_MODE=aspect_pad`, `FG_CROP_PROB=0.5`,
 `BOUNDARY_LOSS_WEIGHT=0.05`, `EMPTY_GUARD=true`, `USE_TTA=false`.
 
+### Typed structural heads (B prototype)
+
+`--preset full_typed` is an opt-in architecture experiment, not the default.
+It keeps four stable Stage-2 slots and zero-initialized type embeddings:
+
+| slot | type | extra training signal |
+|---:|---|---|
+| 0 | thin | clDice / skeleton |
+| 1 | blob | base Dice+BCE |
+| 2 | boundary | distance-transform boundary loss |
+| 3 | recall | Tversky (`alpha=0.3`, `beta=0.7`) |
+
+The base Dice+BCE loss is applied to every typed head; the type-specific
+terms only shape their specialisation. `stage2_supervision='typed'` requires
+`use_typed_heads=true` (the preset sets both). The old `full` preset remains
+untyped and is the control. Start with `full_typed` and compare the oracle
+head and fixed-head results on validation before adding any ranking module.
+
+Relevant flags: `--use_typed_heads {true,false}`,
+`--stage2_supervision {wta,allhead,soft,typed}`,
+`--tversky_weight`, `--tversky_alpha`, `--tversky_beta`.
+
+Minimal validation-first loop (no test tuning):
+
+```bash
+GPU=7 PRESET=full_typed EPOCHS=100 \
+OUTPUT_ROOT=results/sacm_x_typed_proto SKIP_TEST=true \
+bash scripts/sacm_x/run_sacm_x_quick.sh
+
+GPU=7 PRESET=full_typed \
+OUTPUT_ROOT=results/sacm_x_typed_proto \
+bash scripts/sacm_x/audit_heads_full_val.sh
+```
+
+The first command trains/validates only; the second compares the four typed
+heads with the full metric suite. Keep `full` as the untyped control.
+When evaluating a typed checkpoint, pass the same `--preset full_typed`
+(or the launcher's `PRESET=full_typed`); the type embeddings are part of the
+checkpoint and must match the architecture.
+
 ### Fragmentation / candidate audit
 
 `evaluate.py` now supports optional component diagnostics and post-processing:
@@ -229,6 +272,13 @@ The SACM-X launcher defaults are now:
   component statistics).
 - `--audit_thresholds -2 -1 0 1 2` writes `threshold_audit.csv` for
   calibration on validation data (do not tune on test).
+- `--audit_head_thresholds -2 -1 0 1 2` writes
+  `head_threshold_audit.csv`: every Stage-2 head at every threshold. This is
+  the grid needed to compare fixed heads and thresholds without confounding
+  the two.
+- `--fixed_head {0,1,2,3}` forces one Stage-2 head for every image and
+  overrides `--selection`; use it for head-calibration ablations, not final
+  test tuning.
 - `--save_candidate_masks` writes the four candidate masks under
   `<output>/candidates/`.
 - `--component_prune_mode {off,absolute,relative}` with the
@@ -250,6 +300,49 @@ AUDIT_THRESHOLDS="-2 -1 0 1 2" \
 OUTPUT_ROOT=results/paper/sacm_x_audit PRESET=full GPU=7 \
 bash scripts/sacm_x/eval_sacm_x_20.sh
 ```
+
+For **validation calibration only**, the one-click script runs the full
+head × threshold grid and writes a per-dataset report:
+
+```bash
+GPU=7 OUTPUT_ROOT=results/paper/sacm_x/seed_0 PRESET=full \
+bash scripts/sacm_x/calibrate_heads_val.sh
+# val = 6 seen images (1 per seen dataset); train/support = 18 seen images
+SPLITS="val train" GPU=7 bash scripts/sacm_x/calibrate_heads_val.sh
+```
+
+The val split has only one image per seen dataset, so its per-dataset
+winners are noisy; treat the macro table and the fixed-head reference as
+evidence, not as an oracle. Do not run this script on a test split.
+
+For the topology question (does a less-fragmented head win clDice/HD95?),
+run the full per-head audit instead of the quick grid:
+
+```bash
+GPU=7 OUTPUT_ROOT=results/paper/sacm_x/seed_0 PRESET=full \
+bash scripts/sacm_x/audit_heads_full_val.sh
+# report: results/paper/sacm_x/seed_0/head_full_audit/val/head_full_report.txt
+```
+
+It writes `head_full_audit.csv` with the full metric suite for each head
+and aggregates Dice/clDice/HD95/ASSD/NSD per dataset and macro. It uses one
+forward pass per image; the flag `--audit_heads_full` is diagnostic-only.
+As above, val is only six seen images; this cannot calibrate unseen/novel
+datasets.
+
+To check whether the `quality` component penalty actually selects the
+topology-friendly head without losing Dice, compare all selectors on the
+same split:
+
+```bash
+GPU=7 OUTPUT_ROOT=results/paper/sacm_x/seed_0 PRESET=full \
+bash scripts/sacm_x/compare_selectors_val.sh
+# report: results/paper/sacm_x/seed_0/selector_audit/val/selector_report.txt
+```
+
+It runs `iou`, `gating`, three `quality` weight settings, fixed head2 and
+fixed head0, then reports macro Dice/clDice/HD95/ASSD/NSD and the selected
+head distribution. Use it only on val/support, never on test.
 
 ## Experiment tooling
 

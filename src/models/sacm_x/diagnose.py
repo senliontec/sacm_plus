@@ -80,6 +80,7 @@ def build_model(args, device):
         use_coarse_to_fine=args.use_coarse_to_fine,
         use_fusion_v2=args.use_fusion_v2,
         use_multi_depth=args.use_multi_depth,
+        use_typed_heads=getattr(args, 'use_typed_heads', False),
     )
     sam.to(device)
     checkpoint = torch.load(args.trained_weights, map_location=device)
@@ -291,6 +292,8 @@ def main():
     parser.add_argument('--use_coarse_to_fine', type=str2bool, default=True)
     parser.add_argument('--use_fusion_v2', type=str2bool, default=True)
     parser.add_argument('--use_multi_depth', type=str2bool, default=True)
+    parser.add_argument('--use_typed_heads', type=str2bool, default=False,
+                        help='Typed structural Stage-2 heads (full_typed checkpoint)')
     parser.add_argument('--num_images_grad', type=int, default=8, help='Images for the gradient analysis')
     parser.add_argument('--num_images_gating', type=int, default=32, help='Images for the gating analysis')
     parser.add_argument('--skip_grad', action='store_true')

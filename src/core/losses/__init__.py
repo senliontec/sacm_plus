@@ -14,6 +14,7 @@ Direct usage:
 
 from .core import DiceLoss, DiceBCELoss, soft_dice, SoftSkeletonize, SoftclDiceLoss
 from .boundary import BoundaryLoss
+from .tversky import TverskyLoss
 from .scnp import SCNP, SCNPCriterion
 from .registry import TOPOLOGY_LOSS_REGISTRY, build_topology_loss, register
 

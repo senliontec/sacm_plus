@@ -41,6 +41,7 @@ class MaskDecoder(nn.Module):
         encoder_embed_dim: int = 1024,
         num_multidepth_levels: int = 4,
         init_stage2_from_stage1: bool = False,
+        use_typed_heads: bool = False,
     ) -> None:
         """
         Predicts masks given an image and prompt embeddings, using a
@@ -84,12 +85,21 @@ class MaskDecoder(nn.Module):
         self.use_fusion_v2 = use_fusion_v2
         self.use_multi_depth = use_multi_depth
         self.use_coarse_to_fine = use_coarse_to_fine
+        self.use_typed_heads = bool(use_typed_heads)
 
         self.num_multimask_outputs = num_multimask_outputs
 
         self.iou_token = nn.Embedding(1, transformer_dim)
         self.num_mask_tokens = num_multimask_outputs + 1
         self.mask_tokens = nn.Embedding(self.num_mask_tokens, transformer_dim)
+        if self.use_typed_heads:
+            # Each Stage-2 slot is a structural type.  Zero-initialized so
+            # the typed preset starts from the exact SACM-X behaviour; the
+            # type-specific losses (clDice/boundary/Tversky) differentiate
+            # the slots during training.  Typed heads keep a stable
+            # slot->type binding instead of following the gating order.
+            self.type_embeddings = nn.Parameter(
+                torch.zeros(self.num_mask_tokens, transformer_dim))
 
         self.output_upscaling = nn.Sequential(
             nn.ConvTranspose2d(transformer_dim, transformer_dim // 4, kernel_size=2, stride=2),
@@ -329,7 +339,11 @@ class MaskDecoder(nn.Module):
         # --------------------- Stage 1: initial masks ---------------------
         hyper_in_list_stage1: List[torch.Tensor] = []
         for i in range(self.num_mask_tokens):
-            hyper_in_list_stage1.append(self.output_hypernetworks_mlps[i](mask_tokens_out[:, i, :]))
+            token = mask_tokens_out[:, i, :]
+            if self.use_typed_heads:
+                token = token + self.type_embeddings[i]
+            hyper_in_list_stage1.append(
+                self.output_hypernetworks_mlps[i](token))
         hyper_in_stage1 = torch.stack(hyper_in_list_stage1, dim=1)
         b, c, h, w = upscaled_embedding.shape
         masks_stage1 = (hyper_in_stage1 @ upscaled_embedding.view(b, c, h * w)).view(b, -1, h, w)
@@ -349,6 +363,31 @@ class MaskDecoder(nn.Module):
             upscaled_embedding = self.coarse_refiner(upscaled_embedding, masks_stage1)
 
         # --------------------- Stage 2: refined masks ---------------------
+        # Typed variant: keep a stable slot -> structural-type binding.
+        # Unlike the gating-ranked SACM-X path, slot i always receives
+        # mask token i plus its type embedding, so head i can specialize as
+        # thin/blob/boundary/recall without chasing the gating permutation.
+        if self.use_typed_heads:
+            typed_tokens = mask_tokens_out + self.type_embeddings.unsqueeze(0)
+            hyper_in_list_stage2: List[torch.Tensor] = []
+            for i in range(self.num_mask_tokens):
+                hyper_in_list_stage2.append(
+                    self.output_hypernetworks_mlps_stage2[i](
+                        typed_tokens[:, i, :]))
+            hyper_in_stage2 = torch.stack(hyper_in_list_stage2, dim=1)
+            masks_stage2 = (
+                hyper_in_stage2 @ upscaled_embedding.view(b, c, h * w)
+            ).view(b, -1, h, w)
+            head_iou = [
+                self.iou_prediction_head(typed_tokens[:, i, :])[:, i]
+                for i in range(self.num_mask_tokens)
+            ]
+            iou_pred = torch.stack(head_iou, dim=1)
+            if return_stage1:
+                # Stage-1 and Stage-2 are both in stable type order.
+                return masks_stage2, iou_pred, masks_stage1
+            return masks_stage2, iou_pred
+
         # Eq.10: reorder the descriptors by the Stage-1 gating order, then
         # apply each Stage-2 MLP to its ranked slot.  The masks are produced
         # directly in ranked order, so they must NOT be gathered again.

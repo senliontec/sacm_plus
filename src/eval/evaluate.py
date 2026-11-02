@@ -78,6 +78,7 @@ def evaluate(args):
         use_coarse_to_fine=args.use_coarse_to_fine,
         use_fusion_v2=args.use_fusion_v2,
         use_multi_depth=args.use_multi_depth,
+        use_typed_heads=getattr(args, 'use_typed_heads', False),
     )
     sam.to(device)
 
@@ -120,7 +121,11 @@ def evaluate(args):
         args.no_fov = True
         logging.info("Using checkpoint no_fov=True (official comparison)")
     args.selection = resolve_selection(args.selection, iou_weight)
-    if args.selection == 'iou' and float(iou_weight or 0.0) <= 0:
+    if args.fixed_head is not None:
+        logging.info(
+            f"Fixed-head override: head {args.fixed_head}; "
+            f"--selection={args.selection} is ignored for the final mask")
+    elif args.selection == 'iou' and float(iou_weight or 0.0) <= 0:
         logging.warning(
             "selection='iou' was requested but the checkpoint has "
             "iou_loss_weight=0 (IoU head untrained); metrics are invalid. "
@@ -131,7 +136,7 @@ def evaluate(args):
             "the checkpoint has iou_loss_weight=0; compare with gating.")
     logging.info(
         f"Resolved mask selection: {args.selection} "
-        f"(iou_loss_weight={iou_weight})")
+        f"(iou_loss_weight={iou_weight}, fixed_head={args.fixed_head})")
 
     eval_input_mode = getattr(args, 'eval_input_mode', 'aspect_pad')
     dataset = TestDataset(
@@ -210,6 +215,9 @@ if __name__ == '__main__':
     parser.add_argument('--use_coarse_to_fine', type=str2bool, default=True, help='Closed-loop coarse-to-fine refinement')
     parser.add_argument('--use_fusion_v2', type=str2bool, default=True, help='Fusion v2 (concat+FFN weights + spatial gate)')
     parser.add_argument('--use_multi_depth', type=str2bool, default=True, help='Multi-depth semantic path from encoder intermediates')
+    parser.add_argument('--use_typed_heads', type=str2bool, default=False,
+                        help='Typed structural Stage-2 heads (must match the '
+                             'checkpoint; full_typed preset enables it)')
 
     # Inference options
     parser.add_argument('--selection', type=str, default='auto',
@@ -218,6 +226,11 @@ if __name__ == '__main__':
                              "trained the IoU head (iou_loss_weight>0), else gating; "
                              "'iou' = trained IoU head; 'gating' = gating-ranked head 0; "
                              "'quality' = IoU score minus fragmentation penalties")
+    parser.add_argument('--fixed_head', type=int, default=None,
+                        choices=[0, 1, 2, 3],
+                        help='Force one Stage-2 head for every image; overrides '
+                             '--selection. Intended for head-calibration audits, '
+                             'not for final test tuning.')
     parser.add_argument('--no-fov', dest='no_fov', action='store_true',
                         help='Disable FOV masking to match the official SACM '
                              'adapter / paper-metric prediction protocol')
@@ -260,10 +273,18 @@ if __name__ == '__main__':
     parser.add_argument('--audit_heads', action='store_true',
                         help='Write head_audit.csv with per-candidate '
                              'Dice/IoU/P/R/component metrics.')
+    parser.add_argument('--audit_heads_full', action='store_true',
+                        help='Write head_full_audit.csv with the full metric '
+                             'suite (clDice/HD95/ASSD/...) for every head. '
+                             'Diagnostic-only and slower than --audit_heads.')
     parser.add_argument('--audit_thresholds', nargs='+', type=float,
                         default=None,
                         help='Write threshold_audit.csv for these logit '
                              'thresholds (lightweight metrics only).')
+    parser.add_argument('--audit_head_thresholds', nargs='+', type=float,
+                        default=None,
+                        help='Write head_threshold_audit.csv for every head '
+                             'at every given logit threshold (calibration grid).')
     parser.add_argument('--save_candidate_masks', action='store_true',
                         help='Save per-head binary candidate PNGs under '
                              'output_dir/candidates/.')

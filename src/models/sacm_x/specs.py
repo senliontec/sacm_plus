@@ -20,6 +20,8 @@ NEW_DECODER_PREFIXES = (
     'mask_decoder.fuse_two',
     # Stage-2 heads are newly added, not part of the pretrained decoder.
     'mask_decoder.output_hypernetworks_mlps_stage2',
+    # Typed-head identity embeddings (full_typed only).
+    'mask_decoder.type_embeddings',
 )
 
 # Architecture switches shared by the whole SAM family (defaults = the
@@ -33,6 +35,9 @@ SAM_DEFAULTS = dict(
     use_coarse_to_fine=True,
     use_fusion_v2=True,
     use_multi_depth=True,
+    # Default OFF: the typed-head prototype is opt-in through the
+    # `full_typed` preset; the stable SACM-X path is unchanged.
+    use_typed_heads=False,
     # Default ON for SACM-X: the final masks come from the new Stage-2 heads,
     # so initialize them from SAM's pretrained Stage-1 heads instead of random.
     init_stage2_from_stage1=True,

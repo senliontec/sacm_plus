@@ -15,7 +15,7 @@ from core.data import (
     _resize_pad_pair,
     letterbox_rect,
 )
-from core.evaluator import select_mask
+from core.evaluator import select_mask, select_mask_fixed
 
 pytest.importorskip("scipy")
 
@@ -77,6 +77,20 @@ def test_segmentation_dataset_native_crop_shapes(tmp_path):
     assert tuple(image.shape) == (3, 64, 64)
     assert tuple(mask.shape) == (1, 64, 64)
     assert float(mask.sum()) > 0
+
+
+def test_select_mask_fixed_uses_requested_head():
+    masks = torch.tensor([[[[0.0]]], [[[1.0]]], [[[2.0]]], [[[3.0]]]])
+    chosen, head = select_mask_fixed(masks, 2)
+    assert head == 2
+    assert torch.equal(chosen, masks[:, 2:3])
+
+
+def test_select_mask_fixed_empty_guard_redirects_to_nonempty_head():
+    masks = torch.tensor([[[[-1.0]]], [[[1.0]]], [[[-2.0]]], [[[-3.0]]]])
+    chosen, head = select_mask_fixed(masks, 0, empty_guard=True)
+    assert head == 1
+    assert torch.equal(chosen, masks[:, 1:2])
 
 
 def test_testdataset_aspect_pad_keeps_original_mask_size(tmp_path):

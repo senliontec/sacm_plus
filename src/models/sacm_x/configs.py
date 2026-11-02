@@ -27,6 +27,7 @@ FULL = dict(
     use_coarse_to_fine=True,
     use_fusion_v2=True,
     use_multi_depth=True,
+    use_typed_heads=False,
     deep_sup_weight=0.3,
     cl_dice_weight=0.5,
     iou_loss_weight=1.0,
@@ -88,6 +89,18 @@ PRESETS = {
     "full_wta": {**FULL, "stage2_supervision": "wta"},
     "full_allhead": {**FULL, "stage2_supervision": "allhead"},
     "full_soft": {**FULL, "stage2_supervision": "soft"},
+    # Typed structural candidates (B prototype): stable head slots
+    # thin/blob/boundary/recall, trained with clDice/boundary/Tversky.
+    # The selection ranker is deliberately left as the existing IoU head.
+    "full_typed": {
+        **FULL,
+        "use_typed_heads": True,
+        "stage2_supervision": "typed",
+        "boundary_loss_weight": 0.05,
+        "tversky_weight": 0.5,
+        "tversky_alpha": 0.3,
+        "tversky_beta": 0.7,
+    },
     # Full model + Same-Class Neighbor Penalization (SCNP, CVPR 2026):
     # training-only logit transform in front of BCE/Dice, no inference cost.
     "full_scnp": {**FULL, "scnp": True},

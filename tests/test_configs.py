@@ -63,6 +63,9 @@ def test_d8_supervision_modes_are_explicit():
     assert PRESETS["sacm"]["stage2_supervision"] == "wta"
     assert PRESETS["stage1"]["stage2_supervision"] == "soft"
     assert PRESETS["stage2"]["stage2_supervision"] == "soft"
+    assert PRESETS["full_typed"]["stage2_supervision"] == "typed"
+    assert PRESETS["full_typed"]["use_typed_heads"] is True
+    assert PRESETS["full"]["use_typed_heads"] is False
 
 
 def test_yaml_uses_python_presets_as_source_of_truth(tmp_path):

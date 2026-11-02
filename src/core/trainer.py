@@ -25,8 +25,10 @@ from core.data import letterbox_rect
 from core.evaluator import resolve_selection
 from core.losses.monitor import topology_loss_monitor
 from core.losses.registry import TOPOLOGY_LOSS_REGISTRY
+from core.losses.tversky import TverskyLoss
 from core.metrics import BINARY_METRICS, binary_metrics, compute_metrics
 from core.metrics_advisor import advise
+from core.typed_heads import TYPED_HEAD_NAMES
 from core.wandb_utils import finish_run, log_scalars, setup_wandb
 
 
@@ -164,6 +166,9 @@ class Trainer:
         self.soft_cl = soft_cl
         self.topo_loss = topo_loss
         self.boundary_loss = boundary_loss
+        self.tversky = TverskyLoss(
+            alpha=float(getattr(args, 'tversky_alpha', 0.3)),
+            beta=float(getattr(args, 'tversky_beta', 0.7)))
         self.optimizer = optimizer
         self.scheduler = scheduler
         self.train_loader = train_loader
@@ -193,6 +198,19 @@ class Trainer:
                 "D8: stage2_supervision='wta' — only the gating champion "
                 "Stage-2 head receives mask loss. Use 'soft' (default) or "
                 "'allhead' unless running the D8 baseline/ablation.")
+        if (getattr(args, 'stage2_supervision', 'soft') == 'typed'
+                and not getattr(args, 'use_typed_heads', False)):
+            raise ValueError(
+                "stage2_supervision='typed' requires --use_typed_heads true "
+                "(the full_typed preset sets both)")
+        if (getattr(args, 'use_typed_heads', False)
+                and getattr(args, 'stage2_supervision', 'soft') != 'typed'
+                and self._rank0):
+            logging.warning(
+                "use_typed_heads=True but stage2_supervision=%s; typed heads "
+                "will receive no type-specific structural loss. Use the "
+                "full_typed preset or set stage2_supervision=typed.",
+                getattr(args, 'stage2_supervision', 'soft'))
 
     @property
     def _rank0(self):
@@ -265,10 +283,25 @@ class Trainer:
                 main_mask = (m2 * weights[:, :, None, None]).sum(dim=1, keepdim=True)
                 aux_mask = main_mask
                 loss_main = self.criterion(main_mask, masks)
+            elif stage2_mode == 'typed':
+                if not getattr(self.args, 'use_typed_heads', False):
+                    raise ValueError(
+                        "stage2_supervision='typed' requires use_typed_heads")
+                if m2.shape[1] != len(TYPED_HEAD_NAMES):
+                    raise ValueError(
+                        f"typed heads expect {len(TYPED_HEAD_NAMES)} "
+                        f"Stage-2 slots, got {m2.shape[1]}")
+                # Base Dice/BCE on every typed candidate; the type-specific
+                # structural terms below shape the specialization.
+                head_losses = [self.criterion(m2[:, k:k + 1], masks)
+                               for k in range(m2.shape[1])]
+                loss_main = sum(head_losses) / float(len(head_losses))
+                aux_mask = m2.mean(dim=1, keepdim=True)
+                main_mask = m2[:, 0:1]
             else:
                 raise ValueError(
                     f"Unknown stage2_supervision={stage2_mode!r}; "
-                    "expected one of wta/allhead/soft")
+                    "expected one of wta/allhead/soft/typed")
 
             # Stage-1 deep supervision: ALL heads vs GT. This is what makes
             # the gating scores meaningful in the first place.
@@ -294,25 +327,43 @@ class Trainer:
                         torch.ones_like(inter))
                 loss_iou = F.mse_loss(iou_pred, iou_gt)
 
-            # Differentiable clDice on the selected mask, with warmup ramp
+            # Differentiable clDice / boundary / recall terms.  In typed
+            # mode each structural term is attached to its own head; the
+            # selected/mean mask no longer receives a global clDice term.
             loss_cl = 0.0
+            loss_boundary = 0.0
+            loss_tversky = 0.0
             mu = self.args.cl_dice_weight * cl_dice_weight_schedule(
                 epoch, self.args.cl_dice_warmup, self.args.cl_dice_ramp
             )
-            if mu > 0:
-                loss_cl = self.soft_cl(aux_mask, masks)
-
-            # Distance-transform boundary term: directly targets boundary
-            # displacement / HD95 outliers while Dice+clDice keep overlap.
-            loss_boundary = 0.0
             boundary_weight = float(
                 getattr(self.args, 'boundary_loss_weight', 0.0))
             boundary_mu = boundary_weight * cl_dice_weight_schedule(
                 epoch,
                 int(getattr(self.args, 'boundary_loss_warmup', 10)),
                 int(getattr(self.args, 'boundary_loss_ramp', 5)))
-            if self.boundary_loss is not None and boundary_mu > 0:
-                loss_boundary = self.boundary_loss(aux_mask, masks)
+            tversky_mu = float(getattr(self.args, 'tversky_weight', 0.0)) * \
+                cl_dice_weight_schedule(
+                    epoch, self.args.cl_dice_warmup, self.args.cl_dice_ramp)
+
+            if stage2_mode == 'typed':
+                if mu > 0:
+                    loss_cl = self.soft_cl(
+                        m2[:, TYPED_HEAD_NAMES.index('thin'):
+                           TYPED_HEAD_NAMES.index('thin') + 1], masks)
+                if self.boundary_loss is not None and boundary_mu > 0:
+                    loss_boundary = self.boundary_loss(
+                        m2[:, TYPED_HEAD_NAMES.index('boundary'):
+                           TYPED_HEAD_NAMES.index('boundary') + 1], masks)
+                if tversky_mu > 0:
+                    loss_tversky = self.tversky(
+                        m2[:, TYPED_HEAD_NAMES.index('recall'):
+                           TYPED_HEAD_NAMES.index('recall') + 1], masks)
+            else:
+                if mu > 0:
+                    loss_cl = self.soft_cl(aux_mask, masks)
+                if self.boundary_loss is not None and boundary_mu > 0:
+                    loss_boundary = self.boundary_loss(aux_mask, masks)
 
             # Extra topology loss (optional; strict ports)
             loss_topo = 0.0
@@ -325,6 +376,7 @@ class Trainer:
                 + self.args.iou_loss_weight * loss_iou
                 + mu * loss_cl
                 + boundary_mu * loss_boundary
+                + tversky_mu * loss_tversky
                 + self.args.topology_loss_weight * loss_topo
             )
 
@@ -615,6 +667,8 @@ class Trainer:
                     'use_coarse_to_fine': self.args.use_coarse_to_fine,
                     'use_fusion_v2': self.args.use_fusion_v2,
                     'use_multi_depth': self.args.use_multi_depth,
+                    'use_typed_heads': bool(getattr(
+                        self.args, 'use_typed_heads', False)),
                     'init_stage2_from_stage1': getattr(self.args, 'init_stage2_from_stage1', False),
                     'adapter_dim_ratio': self.args.adapter_dim_ratio,
                     'stage2_supervision': getattr(self.args, 'stage2_supervision', 'soft'),
@@ -647,6 +701,12 @@ class Trainer:
                         self.args, 'boundary_loss_weight', 0.0),
                     'boundary_loss_resolution': getattr(
                         self.args, 'boundary_loss_resolution', 512),
+                    'tversky_weight': getattr(
+                        self.args, 'tversky_weight', 0.0),
+                    'tversky_alpha': getattr(
+                        self.args, 'tversky_alpha', 0.3),
+                    'tversky_beta': getattr(
+                        self.args, 'tversky_beta', 0.7),
                 },
             }, self.args.save_path)
             logging.info(
@@ -729,6 +789,11 @@ class Trainer:
                 self.args, 'boundary_loss_weight', 0.0),
             'boundary_loss_resolution': getattr(
                 self.args, 'boundary_loss_resolution', 512),
+            'tversky_weight': getattr(self.args, 'tversky_weight', 0.0),
+            'tversky_alpha': getattr(self.args, 'tversky_alpha', 0.3),
+            'tversky_beta': getattr(self.args, 'tversky_beta', 0.7),
+            'use_typed_heads': bool(getattr(
+                self.args, 'use_typed_heads', False)),
             'use_geo_i': self.args.use_geo_i,
             'use_geo_e': self.args.use_geo_e,
             'geo_e_layers': self.args.geo_e_layers,
