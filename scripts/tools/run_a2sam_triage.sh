@@ -13,9 +13,9 @@ cd "$(dirname "$0")/../.." || exit 1
 
 GPU_SPEC="${GPU:-0}"
 SEED="${SEED:-0}"
-CHECKPOINT="${CHECKPOINT:-results/runs/a2sam/default/seed${SEED}/best_model.pth}"
+CHECKPOINT="${CHECKPOINT:-results/runs/a2sam/default/seed_${SEED}/best_model.pth}"
 DATA_ROOT="${DATA_ROOT:-data/sacm_3shot_seed${SEED}}"
-OUTPUT="${OUTPUT:-results/diagnostics/a2sam_seed${SEED}}"
+OUTPUT="${OUTPUT:-results/diagnostics/a2sam_seed_${SEED}}"
 PYTHON="${PYTHON:-python}"
 
 if [ ! -f "$CHECKPOINT" ]; then

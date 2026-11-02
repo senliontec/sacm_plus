@@ -516,6 +516,32 @@ def main():
 
         status.refresh()
         status.finish('done')
+        requested_metrics = {item.strip() for item in args.metrics.split(',')
+                             if item.strip()}
+        full_metrics = (
+            args.metrics.strip().lower() == 'all'
+            or {'dice', 'iou', 'cldice', 'hd95'}.issubset(requested_metrics))
+        collect_partial = False
+        if not args.skip_paper:
+            stats_path = (args.paper_root / 'tables' /
+                          'collect_stats.json')
+            if stats_path.is_file():
+                try:
+                    stats = json.loads(stats_path.read_text())
+                except (OSError, json.JSONDecodeError):
+                    stats = {}
+                for item in stats.get('methods', {}).values():
+                    if (int(item.get('missing', 0) or 0) > 0
+                            or item.get('missing_datasets')):
+                        collect_partial = True
+                        break
+        full_eval = (not args.datasets and full_metrics
+                     and not args.skip_paper and not collect_partial)
+        canonical_eval = (Path(args.paper_root).resolve() ==
+                          (canonical_run / 'eval').resolve())
+        finalize_allowed = canonical_eval and full_eval
+        status_value = ('train_only' if args.skip_paper
+                        else 'done' if full_eval else 'partial')
         manifest = {
             'family': 'baseline',
             'method': args.method,
@@ -536,25 +562,16 @@ def main():
             'per_dataset_metrics': str(
                 args.paper_root / '<DATASET>' / 'metrics.csv'),
             'stages': stage_names,
-            'status': 'done' if not args.skip_paper else 'train_only',
+            'status': status_value,
             'skip_predict': bool(args.skip_predict),
             'skip_paper': bool(args.skip_paper),
             'generated_at': time.strftime('%Y-%m-%dT%H:%M:%S'),
         }
-        try:
-            args.paper_root.mkdir(parents=True, exist_ok=True)
-            (args.paper_root / 'run_manifest.json').write_text(
-                json.dumps(manifest, indent=2) + '\n')
-            stale_failure = args.paper_root / 'run_manifest.failed.json'
-            if stale_failure.is_file():
-                stale_failure.unlink()
-        except OSError as exc:
-            print(f'[warn] could not write run_manifest.json: {exc}')
-        # One user-facing layout for both baselines and SACM-X.  The
-        # collector already writes canonical eval tables; the finalizer
-        # promotes the checkpoint/metadata and writes the canonical manifest.
         finalize = REPO_ROOT / 'scripts' / 'pipeline' / 'finalize_run.py'
-        if finalize.is_file():
+        if finalize_allowed:
+            if not finalize.is_file():
+                raise RuntimeError(
+                    f'missing canonical finalizer: {finalize}')
             finalize_cmd = [
                 sys.executable, str(finalize),
                 '--family', 'baseline', '--method', args.method,
@@ -562,24 +579,41 @@ def main():
                 '--source-train', str(train_root),
                 '--source-eval', str(args.paper_root),
                 '--out-root', str(RUNS_ROOT),
+                '--checkpoint', str(args.checkpoint),
                 '--protocol', str(args.protocol),
                 '--pred-root', str(method_pred_root),
-                '--status', manifest['status']]
-            if Path(args.paper_root).resolve() == (canonical_run / 'eval').resolve():
-                finalize_cmd.append('--cleanup')
+                '--status', status_value,
+                '--cleanup']
             finalized = subprocess.run(finalize_cmd, cwd=REPO_ROOT,
                                        check=False)
             if finalized.returncode != 0:
                 raise RuntimeError(
                     'finalize_run failed; the canonical results/runs tree '
                     'is incomplete')
+        else:
+            reason = ('non-canonical eval root' if not canonical_eval
+                      else 'subset/partial run')
+            print(f'[warn] not publishing to canonical results/runs '
+                  f'({reason})')
+            try:
+                args.paper_root.mkdir(parents=True, exist_ok=True)
+                (args.paper_root / 'run_manifest.json').write_text(
+                    json.dumps(manifest, indent=2) + '\n')
+            except OSError as exc:
+                print(f'[warn] could not write run_manifest.json: {exc}')
+        stale_failure = args.paper_root / 'run_manifest.failed.json'
+        try:
+            if stale_failure.is_file():
+                stale_failure.unlink()
+        except OSError:
+            pass
     except BaseException as exc:
         status.refresh()
         status.fail(exc)
         try:
             args.paper_root.mkdir(parents=True, exist_ok=True)
-            # Keep a failed re-run from destroying the metadata of a prior
-            # successful evaluation; the success manifest remains canonical.
+            # The failed marker overrides any older success manifest in the
+            # index, so a finalize failure cannot be reported as done.
             (args.paper_root / 'run_manifest.failed.json').write_text(
                 json.dumps({
                     'family': 'baseline',

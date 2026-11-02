@@ -286,7 +286,7 @@ Minimal validation-first loop (no test tuning):
 
 ```bash
 SEED=0
-RUN_ROOT="results/runs/sacm_x/full_typed/seed${SEED}"
+RUN_ROOT="results/runs/sacm_x/full_typed/seed_${SEED}"
 
 GPU=7 PRESET=full_typed EPOCHS=100 SEED="$SEED" \
 OUTPUT_ROOT="$RUN_ROOT" SKIP_TEST=true \
@@ -335,7 +335,7 @@ variables, e.g.:
 
 ```bash
 SEED=0
-RUN_ROOT="results/runs/sacm_x/full_typed/seed${SEED}"
+RUN_ROOT="results/runs/sacm_x/full_typed/seed_${SEED}"
 DATASETS="CREMI ROAD DeepGlobe TopoMortar OCTA-500 TYRE WIRE" \
 AUDIT_HEADS=true COMPONENT_METRICS=true SAVE_CANDIDATE_MASKS=true \
 AUDIT_THRESHOLDS="-2 -1 0 1 2" \
@@ -367,7 +367,7 @@ run the full per-head audit instead of the quick grid:
 SEED=0
 GPU=7 SEED="$SEED" PRESET=full \
 bash scripts/sacm_x/audit_heads_full_val.sh
-# report: results/runs/sacm_x/full/seed${SEED}/eval/head_full_audit/val/head_full_report.txt
+# report: results/runs/sacm_x/full/seed_${SEED}/eval/head_full_audit/val/head_full_report.txt
 ```
 
 It writes `head_full_audit.csv` with the full metric suite for each head
@@ -384,7 +384,7 @@ same split:
 SEED=0
 GPU=7 SEED="$SEED" PRESET=full \
 bash scripts/sacm_x/compare_selectors_val.sh
-# report: results/runs/sacm_x/full/seed${SEED}/eval/selector_audit/val/selector_report.txt
+# report: results/runs/sacm_x/full/seed_${SEED}/eval/selector_audit/val/selector_report.txt
 ```
 
 It runs `iou`, `gating`, three `quality` weight settings, fixed head2 and
@@ -465,7 +465,7 @@ PYTHONPATH=src python -m baseline_zoo.run_one --model unet --stage predict \
 
 # Collect paper tables for the same subset (canonical eval root)
 SEED=0
-RUN_ROOT="results/runs/unet/default/seed${SEED}"
+RUN_ROOT="results/runs/unet/default/seed_${SEED}"
 python scripts/pipeline/collect_paper_metrics.py --methods unet \
     --datasets DRIVE WIRE --pred-root "$RUN_ROOT/predictions" \
     --out-root "$RUN_ROOT/eval" --layout canonical --family baseline \

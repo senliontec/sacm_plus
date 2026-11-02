@@ -60,7 +60,7 @@ DATASETS="${DATASETS:-}"
 CKPT="${CKPT:-checkpoints/sam_vit_l_0b3195.pth}"
 TRAIN_ROOT="${TRAIN_ROOT:-data/sacm_3shot_seed${SEED}}"
 CANONICAL_ROOT="${CANONICAL_ROOT:-results/runs}"
-FINAL_RUN_ROOT="${CANONICAL_ROOT}/sacm_x/${PRESET}/seed${SEED}"
+FINAL_RUN_ROOT="${CANONICAL_ROOT}/sacm_x/${PRESET}/seed_${SEED}"
 OUTPUT_ROOT="${OUTPUT_ROOT:-$FINAL_RUN_ROOT}"
 if ! printf '%s\n' "$OUTPUT_ROOT" | grep -qE "seed[_-]?${SEED}([^0-9]|$)"; then
   echo "WARNING: OUTPUT_ROOT does not contain seed_${SEED} or seed${SEED}; different seeds can collide." >&2

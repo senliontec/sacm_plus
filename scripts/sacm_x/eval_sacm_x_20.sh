@@ -42,7 +42,7 @@ GPU="${GPU:-3}"
 PRESET="${PRESET:-full}"
 SEED="${SEED:-0}"
 CANONICAL_ROOT="${CANONICAL_ROOT:-results/runs}"
-TRAIN_OUT="${TRAIN_OUT:-$CANONICAL_ROOT/sacm_x/$PRESET/seed$SEED}"
+TRAIN_OUT="${TRAIN_OUT:-$CANONICAL_ROOT/sacm_x/$PRESET/seed_$SEED}"
 # Backward compatibility: <run>/train was the old training subdirectory.
 if [[ "$TRAIN_OUT" == */train ]]; then
   TRAIN_OUT="${TRAIN_OUT%/train}"
@@ -219,8 +219,15 @@ else
   rc=$?
 fi
 
+if [ "$rc" -ne 0 ]; then
+  echo "ERROR: one or more dataset evaluations failed." >&2
+  echo "Refusing to overwrite the existing canonical eval tables with a partial set." >&2
+  echo "Raw partial outputs (if any): $OUTPUT_ROOT/$PRESET/" >&2
+  exit 1
+fi
+
 echo
-echo "== aggregate (partial results are kept if any dataset failed) =="
+echo "== aggregate =="
 agg_rc=0
 if [ "$SKIP_EVAL" = "true" ] || [ "$SKIP_EVAL" = "1" ]; then
   if [ -f "$OUTPUT_ROOT/tables/all_metrics.csv" ] \
@@ -268,11 +275,12 @@ fi
 
 echo
 echo "== unified run =="
-FINAL_RUN_ROOT="$CANONICAL_ROOT/sacm_x/$PRESET/seed$SEED"
+FINAL_RUN_ROOT="$CANONICAL_ROOT/sacm_x/$PRESET/seed_$SEED"
 "$PYTHON" scripts/pipeline/finalize_run.py \
   --family sacm_x --method sacm_x --variant "$PRESET" --seed "$SEED" \
   --source-train "$TRAIN_OUT" --source-eval "$OUTPUT_ROOT" \
   --out-root "$CANONICAL_ROOT" --cleanup \
+  --checkpoint "$CKPT" \
   --protocol "$TRAIN_ROOT/protocol_manifest.csv" \
   || { echo "ERROR: finalize_run failed" >&2; exit 1; }
 

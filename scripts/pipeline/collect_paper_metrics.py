@@ -677,6 +677,35 @@ def main():
     use_cache = args.resume and collect_metrics != 'all'
     if collect_metrics == 'all' and args.resume:
         print('[info] --metrics all disables per-dataset metric cache')
+    metric_subset = (collect_metrics != 'all'
+                     and set(collect_metrics) != set(MAIN_METRICS))
+    partial_run = (bool(args.datasets) or args.max_images is not None
+                   or metric_subset)
+    if args.layout == 'canonical':
+        target_table = args.out_root / 'tables' / 'all_metrics.csv'
+    else:
+        target_table = args.out_root / 'paper_metrics.csv'
+    if target_table.is_file() and not args.allow_partial_overwrite:
+        if partial_run:
+            raise SystemExit(
+                f'refusing to overwrite complete {target_table} with a '
+                'partial run (--datasets/--metrics/--max-images); rerun the '
+                'full protocol or pass --allow-partial-overwrite')
+        # Also preflight missing predictions before collect_method writes
+        # truncated per-dataset caches over a complete table.
+        for method in methods:
+            grouped = group_rows(rows, args.max_images)
+            for dataset, rows_ds in grouped.items():
+                missing = missing_predictions(
+                    method, dataset, rows_ds, args.pred_root)
+                if missing:
+                    raise SystemExit(
+                        f'refusing to overwrite complete {target_table}: '
+                        f'{method}/{dataset} has {len(missing)} missing '
+                        f'predictions (first={missing[0]}); regenerate them '
+                        'or pass --allow-partial-overwrite')
+    missing_any = False
+    missing_datasets_any = False
     status_path = Path(os.environ.get('SACM_RUN_STATUS') or
                        (args.pred_root.parent / '.run_status' /
                         f'{methods[0]}.json'))
@@ -708,6 +737,7 @@ def main():
                 raise SystemExit(
                     f'{method}: {len(missing)} missing predictions; '
                     f'first={missing[0]} (use --allow-missing to continue)')
+            missing_any = missing_any or bool(missing)
             if metric_names is None:
                 first_rows = next(iter(per_dataset.values()), [])
                 if not first_rows:
@@ -724,6 +754,7 @@ def main():
             expected = {row['dataset'] for row in rows}
             missing_datasets = sorted(expected - set(summary))
             if missing_datasets:
+                missing_datasets_any = True
                 print(f'[warn] {method}: missing datasets '
                       f'{missing_datasets}; macro denominators are reduced')
             all_summaries[method] = summary
@@ -746,10 +777,7 @@ def main():
         metric_fields = []
         for m in metric_names:
             metric_fields += [f'{m}_mean', f'{m}_std', f'{m}_n']
-        metric_subset = (collect_metrics != 'all'
-                         and set(collect_metrics) != set(MAIN_METRICS))
-        partial_run = (bool(args.datasets) or args.max_images is not None
-                       or metric_subset)
+        partial_run = (partial_run or missing_any or missing_datasets_any)
 
         if args.layout == 'canonical':
             tables = args.out_root / 'tables'

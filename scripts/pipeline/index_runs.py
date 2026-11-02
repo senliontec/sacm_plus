@@ -63,6 +63,8 @@ def _baseline_row(manifest: dict, path: Path) -> dict:
 
 def _canonical_row(manifest: dict, path: Path) -> dict:
     status = str(manifest.get('status', 'done'))
+    if (path.parent / 'run_manifest.failed.json').is_file():
+        status = 'failed'
     return {
         'family': manifest.get('family', ''),
         'method': manifest.get('method', ''),

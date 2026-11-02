@@ -7,6 +7,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / 'src'))
 sys.path.insert(0, str(REPO_ROOT / 'scripts' / 'pipeline'))
@@ -140,9 +142,13 @@ def test_finalize_baseline_in_place(tmp_path):
 def test_finalize_sacm_x_promotes_and_flattens(tmp_path):
     out_root = tmp_path / 'runs'
     run_root = out_root / 'sacm_x' / 'full_typed' / 'seed_0'
+    run_root.mkdir(parents=True)
+    # A previous finalize left an old checkpoint at the run root.  The fresh
+    # per-preset training output must win.
+    (run_root / 'best_model.pth').write_bytes(b'old-checkpoint')
     raw = run_root / 'full_typed'
     raw.mkdir(parents=True)
-    (raw / 'best_model.pth').write_bytes(b'checkpoint')
+    (raw / 'best_model.pth').write_bytes(b'new-checkpoint')
     _write_run_info(raw / 'run_info.json', family='sacm_x',
                     method='sacm_x', preset='full_typed')
     (raw / 'metrics_history.json').write_text('{"history": []}\n')
@@ -175,7 +181,7 @@ def test_finalize_sacm_x_promotes_and_flattens(tmp_path):
     target = finalize_run.finalize(args)
 
     assert target == run_root
-    assert (target / 'best_model.pth').is_file()
+    assert (target / 'best_model.pth').read_bytes() == b'new-checkpoint'
     assert (target / 'train.log').is_file()
     assert (target / 'eval' / 'DRIVE' / 'metrics.csv').is_file()
     assert (target / 'eval' / 'DRIVE' / 'summary.csv').is_file()
@@ -189,3 +195,19 @@ def test_finalize_sacm_x_promotes_and_flattens(tmp_path):
         row = next(csv.DictReader(f))
     assert row['dataset'] == 'DRIVE'
     assert row['role'] == 'Seen'
+
+
+def test_explicit_missing_checkpoint_fails(tmp_path):
+    run_root, eval_root = _write_baseline_source(tmp_path / 'runs')
+    missing = tmp_path / 'does-not-exist.pth'
+    args = _default_args(
+        source_train=run_root, source_eval=eval_root,
+        out_root=tmp_path / 'runs', checkpoint=missing)
+    with pytest.raises(SystemExit):
+        finalize_run.finalize(args)
+
+
+def test_canonical_seed_spelling(tmp_path):
+    path = finalize_run._run_root(
+        'sacm_x', 'full_typed', 0, root=tmp_path)
+    assert path.name == 'seed_0'

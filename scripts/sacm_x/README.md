@@ -58,7 +58,7 @@ root.
 ```bash
 SEED=0
 PRESET=full_typed
-RUN_ROOT="results/runs/sacm_x/${PRESET}/seed${SEED}"
+RUN_ROOT="results/runs/sacm_x/${PRESET}/seed_${SEED}"
 
 GPU=7 SEED="$SEED" PRESET="$PRESET" \
 TRAIN_ROOT="data/sacm_3shot_seed${SEED}" \

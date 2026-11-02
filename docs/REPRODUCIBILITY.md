@@ -53,7 +53,7 @@ mean ± std; do not treat a single-seed sub-point difference as evidence.
 
 ```bash
 SEED=0
-RUN_ROOT="results/runs/sacm_x/full_typed/seed${SEED}"
+RUN_ROOT="results/runs/sacm_x/full_typed/seed_${SEED}"
 PYTHONHASHSEED=0 CUBLAS_WORKSPACE_CONFIG=:4096:8 \
 GPU=7 PRESET=full_typed EPOCHS=800 VAL_INTERVAL=1 SKIP_TEST=true \
 OUTPUT_ROOT="$RUN_ROOT" \

@@ -18,7 +18,7 @@ It resolves them from the protocol manifest by `(dataset, stem)`:
 
 ```bash
 SEED=0
-RUN_ROOT="results/runs/unet/default/seed${SEED}"
+RUN_ROOT="results/runs/unet/default/seed_${SEED}"
 PYTHONPATH=src python scripts/tools/apply_sam_refiner.py \
   --input "$RUN_ROOT/predictions/unet" \
   --output "$RUN_ROOT/predictions/unet_samrefiner" \

@@ -77,6 +77,15 @@ def test_load_runs_reads_both_schemas(tmp_path):
         ('sacm_x', 'Seen'), ('sacm_x', 'Novel'), ('unet', 'Seen')}
 
 
+def test_explicit_preset_applies_only_to_sacm_x(tmp_path):
+    _write_sacm_x(tmp_path, 0)
+    _write_baseline(tmp_path, 0)
+    rows, missing = load_runs(['sacm_x', 'unet'], [0], tmp_path,
+                              preset='full')
+    assert missing == []
+    assert {row.model for row in rows} == {'sacm_x', 'unet'}
+
+
 def test_write_report_outputs_tables(tmp_path):
     _write_sacm_x(tmp_path, 0)
     _write_baseline(tmp_path, 0)

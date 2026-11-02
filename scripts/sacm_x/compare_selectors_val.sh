@@ -32,7 +32,7 @@ fi
 GPU="${GPU:-0}"
 PRESET="${PRESET:-full}"
 SEED="${SEED:-0}"
-OUTPUT_ROOT="${OUTPUT_ROOT:-results/runs/sacm_x/$PRESET/seed$SEED}"
+OUTPUT_ROOT="${OUTPUT_ROOT:-results/runs/sacm_x/$PRESET/seed_$SEED}"
 CKPT="${CKPT:-$OUTPUT_ROOT/best_model.pth}"
 if [ ! -f "$CKPT" ] && [ -f "$OUTPUT_ROOT/$PRESET/best_model.pth" ]; then
   CKPT="$OUTPUT_ROOT/$PRESET/best_model.pth"

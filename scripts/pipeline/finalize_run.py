@@ -160,6 +160,8 @@ def _checkpoint_candidate(path: Path | None) -> CheckpointInfo | None:
         return CheckpointInfo(path, 'directory')
     if path.suffix == '.txt':
         resolved = _pointer_path(path)
+        if not resolved.exists():
+            return None
         kind = 'directory' if resolved.is_dir() else 'file'
         return CheckpointInfo(resolved, kind)
     return CheckpointInfo(path, 'file')
@@ -167,18 +169,25 @@ def _checkpoint_candidate(path: Path | None) -> CheckpointInfo | None:
 
 def _resolve_checkpoint(source_train: Path, variant: str,
                         explicit: Path | None) -> CheckpointInfo:
-    found = _checkpoint_candidate(explicit)
-    if found is not None:
+    if explicit is not None:
+        found = _checkpoint_candidate(explicit)
+        if found is None:
+            raise SystemExit(
+                f'explicit checkpoint does not exist or has a broken '
+                f'pointer: {explicit}')
         return found
+    # Prefer the fresh per-preset training output over a checkpoint that was
+    # promoted by an earlier finalize; otherwise retraining into an existing
+    # run root silently reuses the old model.
     candidates = [
-        source_train / 'best_model.pth',
         source_train / variant / 'best_model.pth',
-        source_train / 'SGDL_best_model.pth',
+        source_train / 'best_model.pth',
         source_train / variant / 'SGDL_best_model.pth',
-        source_train / 'nnunet_model_dir.txt',
+        source_train / 'SGDL_best_model.pth',
         source_train / variant / 'nnunet_model_dir.txt',
-        source_train / 'knowsam_model.txt',
+        source_train / 'nnunet_model_dir.txt',
         source_train / variant / 'knowsam_model.txt',
+        source_train / 'knowsam_model.txt',
     ]
     for path in candidates:
         found = _checkpoint_candidate(path)
@@ -203,6 +212,12 @@ def _promote_checkpoint(info: CheckpointInfo, run_root: Path) -> Path:
                     pass
                 else:
                     target.unlink()
+            elif target.is_dir():
+                # A real copy from an earlier finalize must not shadow the
+                # fresh checkpoint directory.
+                shutil.rmtree(target)
+            elif target.exists():
+                target.unlink()
             if not target.exists():
                 try:
                     os.symlink(info.native.resolve(), target,
@@ -211,6 +226,8 @@ def _promote_checkpoint(info: CheckpointInfo, run_root: Path) -> Path:
                     shutil.copytree(info.native, target)
     else:
         target = run_root / 'best_model.pth'
+        if target.is_dir() and not target.is_symlink():
+            shutil.rmtree(target)
         _link_or_copy(info.native, target)
     payload = {
         'kind': info.kind,
@@ -727,13 +744,15 @@ def _cleanup(source_train: Path, source_eval: Path, run_root: Path,
         _safe_unlink(eval_root / 'run_eval.log')
 
     if in_place_train:
-        # Directory checkpoints may live in this intermediate dir; never
-        # remove their symlink target.
-        if checkpoint.kind == 'directory' and _is_below(
-                checkpoint.native, source_train / variant):
+        # Remove the raw per-preset directory only when the promoted
+        # checkpoint came from it.  A root/external checkpoint may coexist
+        # with a fresh training directory that must be preserved.
+        variant_dir = source_train / variant
+        if (checkpoint.kind == 'directory'
+                or not _is_below(checkpoint.native, variant_dir)):
             pass
         else:
-            _safe_unlink(source_train / variant)
+            _safe_unlink(variant_dir)
         _safe_unlink(source_train / 'run_manifest.json')
         _safe_unlink(source_train / 'jobs.csv')
         _safe_unlink(source_train / 'eval.log')

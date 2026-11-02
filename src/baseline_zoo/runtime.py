@@ -791,6 +791,18 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
             raise SystemExit(
                 f'checkpoint selection={stored_selection!r} but --selection '
                 f'is {args.selection!r}; scores are not comparable')
+        stored_split = payload.get('split_manifest_sha256')
+        if stored_split is None:
+            print('WARNING: resume checkpoint has no split_manifest_sha256; '
+                  'cannot prove it belongs to the current --data-root')
+        elif split_sha256 is None:
+            print('WARNING: current --data-root has no split_manifest.csv; '
+                  'cannot prove the resume split matches the checkpoint')
+        elif stored_split != split_sha256:
+            raise SystemExit(
+                'resume checkpoint was trained on a different split '
+                f'(checkpoint={stored_split}, current={split_sha256}); '
+                'use a matching --data-root or start a fresh run')
         adapter.load_state_dict(model, payload['model_state_dict'])
         if payload.get('optimizer_state_dict'):
             optimizer.load_state_dict(payload['optimizer_state_dict'])
@@ -1112,7 +1124,7 @@ def build_parser(adapter: BaselineAdapter) -> argparse.ArgumentParser:
     parser.add_argument('--checkpoint', type=Path, default=None)
     parser.add_argument('--pred-root', type=Path, default=None,
                         help='prediction output root (default: '
-                             '<workdir>/predictions)')
+                             '<workdir>/predictions/<model>)')
     parser.add_argument('--test-datasets', nargs='+', default=[])
     parser.add_argument('--epochs', type=int,
                         default=_configured_epochs(adapter))
@@ -1207,7 +1219,9 @@ def main_for(adapter: BaselineAdapter, argv: list[str] | None = None) -> int:
         from core.run_layout import run_root
         args.workdir = run_root(adapter.id, 'default', int(args.seed))
     if args.pred_root is None:
-        args.pred_root = Path(args.workdir) / 'predictions'
+        # Match the canonical predictions/<method>/<dataset> contract used
+        # by collect_paper_metrics and run_baseline_test.
+        args.pred_root = Path(args.workdir) / 'predictions' / adapter.id
     if args.stage == 'predict' and not args.test_datasets:
         raise SystemExit('--test-datasets is required for --stage predict')
     ckpt_path = args.checkpoint or (args.workdir / 'best_model.pth')

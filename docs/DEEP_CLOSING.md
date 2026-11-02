@@ -92,7 +92,7 @@ fact:
 
 ```bash
 SEED=0
-RUN_ROOT="results/runs/samed/default/seed${SEED}"
+RUN_ROOT="results/runs/samed/default/seed_${SEED}"
 PYTHONPATH=src python scripts/tools/apply_deep_closing.py \
   --input "$RUN_ROOT/predictions/samed" \
   --output "$RUN_ROOT/predictions/samed_deep_closing" \

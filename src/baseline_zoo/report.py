@@ -69,9 +69,13 @@ def load_run(run_root: Path, model: str, seed: int,
         return []
 
     rows: list[MetricRow] = []
+    # A preset only selects an SACM-X variant.  Baselines always live under
+    # variant=default, so applying --preset to them would drop every row.
+    filter_preset = preset if model == 'sacm_x' else None
     with open(path, newline='') as f:
         for raw in csv.DictReader(f):
-            if preset is not None and raw.get('preset') not in (None, preset):
+            if (filter_preset is not None
+                    and raw.get('preset') not in (None, filter_preset)):
                 continue
             dataset = raw.get('dataset', '').strip()
             role = _role(raw.get('role', ''))
@@ -79,8 +83,8 @@ def load_run(run_root: Path, model: str, seed: int,
                 continue
             # Canonical rows already carry the variant; a legacy table may
             # contain several presets in one file.
-            if (preset is not None
-                    and raw.get('variant') not in (None, preset)):
+            if (filter_preset is not None
+                    and raw.get('variant') not in (None, filter_preset)):
                 continue
             for metric in METRICS:
                 mean = _float(raw.get(f'{metric}_mean'))
@@ -118,7 +122,10 @@ def load_runs(models: Iterable[str], seeds: Iterable[int],
     rows: list[MetricRow] = []
     missing: list[str] = []
     for model in models:
-        variant = _run_variant(model, preset)
+        # --preset selects SACM-X's variant; baseline variants are always
+        # default regardless of the requested SACM-X preset.
+        variant = (preset if model == 'sacm_x' and preset
+                   else _run_variant(model, None))
         for seed in seeds:
             run_root = result_root / model / variant / f'seed_{seed}'
             if not run_root.is_dir():
