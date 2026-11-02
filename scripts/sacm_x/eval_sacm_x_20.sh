@@ -33,6 +33,22 @@ DATASETS="${DATASETS:-}"
 USE_WANDB="${USE_WANDB:-true}"
 WANDB_MODE="${WANDB_MODE:-online}"
 TRAIN_ROOT="${TRAIN_ROOT:-data/sacm_3shot}"
+EVAL_INPUT_MODE="${EVAL_INPUT_MODE:-aspect_pad}"
+USE_TTA="${USE_TTA:-false}"
+EMPTY_GUARD="${EMPTY_GUARD:-true}"
+SELECTION="${SELECTION:-}"
+QUALITY_SMALL_COMPONENT_WEIGHT="${QUALITY_SMALL_COMPONENT_WEIGHT:-0.5}"
+QUALITY_COMPONENT_WEIGHT="${QUALITY_COMPONENT_WEIGHT:-0.05}"
+AUDIT_HEADS="${AUDIT_HEADS:-false}"
+SAVE_CANDIDATE_MASKS="${SAVE_CANDIDATE_MASKS:-false}"
+COMPONENT_METRICS="${COMPONENT_METRICS:-false}"
+COMPONENT_PRUNE_MODE="${COMPONENT_PRUNE_MODE:-off}"
+COMPONENT_PRUNE_MIN_AREA="${COMPONENT_PRUNE_MIN_AREA:-0}"
+COMPONENT_PRUNE_MIN_SKELETON="${COMPONENT_PRUNE_MIN_SKELETON:-0}"
+COMPONENT_PRUNE_REL_AREA="${COMPONENT_PRUNE_REL_AREA:-0.0}"
+COMPONENT_PRUNE_REL_SKELETON="${COMPONENT_PRUNE_REL_SKELETON:-0.0}"
+COMPONENT_PRUNE_KEEP_LARGEST="${COMPONENT_PRUNE_KEEP_LARGEST:-1}"
+AUDIT_THRESHOLDS="${AUDIT_THRESHOLDS:-}"
 DEEP_CLOSING_CKPT="${DEEP_CLOSING_CKPT:-}"
 DEEP_CLOSING_THRESHOLD="${DEEP_CLOSING_THRESHOLD:-}"
 SKIP_EVAL="${SKIP_EVAL:-false}"
@@ -84,12 +100,45 @@ if [ "$SKIP_EVAL" = "true" ] || [ "$SKIP_EVAL" = "1" ]; then
   rc=0
 else
   echo "no retraining; evaluating with --skip_train"
+  echo "eval_input_mode=$EVAL_INPUT_MODE tta=$USE_TTA empty_guard=$EMPTY_GUARD"
   EXTRA_EVAL="--use_wandb $USE_WANDB --no-fov"
   if [ -n "$DEEP_CLOSING_CKPT" ]; then
     EXTRA_EVAL+=" --deep_closing_checkpoint $DEEP_CLOSING_CKPT"
     if [ -n "$DEEP_CLOSING_THRESHOLD" ]; then
       EXTRA_EVAL+=" --deep_closing_threshold $DEEP_CLOSING_THRESHOLD"
     fi
+  fi
+  EXTRA_EVAL+=" --quality_small_component_weight $QUALITY_SMALL_COMPONENT_WEIGHT"
+  EXTRA_EVAL+=" --quality_component_weight $QUALITY_COMPONENT_WEIGHT"
+  if [ "$COMPONENT_METRICS" = "true" ] || [ "$COMPONENT_METRICS" = "1" ]; then
+    EXTRA_EVAL+=" --component_metrics"
+  fi
+  if [ "$COMPONENT_PRUNE_MODE" != "off" ]; then
+    EXTRA_EVAL+=" --component_prune_mode $COMPONENT_PRUNE_MODE"
+    EXTRA_EVAL+=" --component_prune_min_area $COMPONENT_PRUNE_MIN_AREA"
+    EXTRA_EVAL+=" --component_prune_min_skeleton $COMPONENT_PRUNE_MIN_SKELETON"
+    EXTRA_EVAL+=" --component_prune_rel_area $COMPONENT_PRUNE_REL_AREA"
+    EXTRA_EVAL+=" --component_prune_rel_skeleton $COMPONENT_PRUNE_REL_SKELETON"
+    EXTRA_EVAL+=" --component_prune_keep_largest $COMPONENT_PRUNE_KEEP_LARGEST"
+  fi
+  if [ "$AUDIT_HEADS" = "true" ] || [ "$AUDIT_HEADS" = "1" ]; then
+    EXTRA_EVAL+=" --audit_heads"
+  fi
+  if [ "$SAVE_CANDIDATE_MASKS" = "true" ] || [ "$SAVE_CANDIDATE_MASKS" = "1" ]; then
+    EXTRA_EVAL+=" --save_candidate_masks"
+  fi
+  if [ -n "$AUDIT_THRESHOLDS" ]; then
+    EXTRA_EVAL+=" --audit_thresholds $AUDIT_THRESHOLDS"
+  fi
+  EXTRA_RUN=(--eval_input_mode "$EVAL_INPUT_MODE")
+  if [ -n "$SELECTION" ]; then
+    EXTRA_RUN+=(--selection "$SELECTION")
+  fi
+  if [ "$EMPTY_GUARD" = "true" ] || [ "$EMPTY_GUARD" = "1" ]; then
+    EXTRA_RUN+=(--empty_guard)
+  fi
+  if [ "$USE_TTA" = "true" ] || [ "$USE_TTA" = "1" ]; then
+    EXTRA_RUN+=(--tta)
   fi
   "$PYTHON" scripts/sacm_x/run_experiments.py \
     --gpus "$GPU" \
@@ -99,6 +148,7 @@ else
     --presets "$PRESET" \
     --output_root "$OUTPUT_ROOT" \
     --skip_train \
+    "${EXTRA_RUN[@]}" \
     --extra_eval_args "$EXTRA_EVAL"
   rc=$?
 fi

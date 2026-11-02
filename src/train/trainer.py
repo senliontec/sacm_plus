@@ -31,6 +31,7 @@ from core.augmentation import JointAugment
 from core.data import SegmentationDataset, TestDataset
 from core.losses import (
     TOPOLOGY_LOSS_REGISTRY,
+    BoundaryLoss,
     DiceBCELoss,
     SCNPCriterion,
     SoftclDiceLoss,
@@ -172,10 +173,17 @@ def train(args):
     logging.info(f"After freezing - Trainable parameters: {trainable_params:,}")
     logging.info(f"After freezing - Trainable parameters percentage: {trainable_params/total_params*100:.2f}%")
 
-    transform = transforms.Compose([
-        transforms.Resize((1024, 1024)),
-        transforms.ToTensor(),
-    ])
+    # Legacy ``resize`` stretches to a square.  ``aspect_pad`` preserves the
+    # source aspect ratio, and ``native_crop`` keeps native pixel scale for
+    # large images (e.g. 3504x2336 HRF) instead of shrinking every 1-2px
+    # structure to sub-pixel width.
+    if args.train_input_mode == 'resize':
+        transform = transforms.Compose([
+            transforms.Resize((1024, 1024)),
+            transforms.ToTensor(),
+        ])
+    else:
+        transform = transforms.ToTensor()
 
     # Joint augmentation for the training split only (validation stays
     # clean). Defaults are the curvature-safe set.
@@ -197,10 +205,20 @@ def train(args):
     else:
         logging.info("Joint augmentation disabled")
 
-    train_dataset = SegmentationDataset(args.data_root, 'train', transform, augment=augment)
+    train_dataset = SegmentationDataset(
+        args.data_root, 'train', transform, augment=augment,
+        input_mode=args.train_input_mode,
+        image_size=1024,
+        foreground_crop_prob=args.foreground_crop_prob)
     # Validation keeps GT at its ORIGINAL resolution so val HD95/clDice/NSD
     # are directly comparable to test metrics (not 1024-space metrics).
-    val_dataset = TestDataset(args.data_root, split='val')
+    val_dataset = TestDataset(
+        args.data_root, split='val', input_mode=args.eval_input_mode,
+        image_size=1024)
+    logging.info(
+        f"Input modes: train={args.train_input_mode} "
+        f"(fg_crop_prob={args.foreground_crop_prob}), "
+        f"eval={args.eval_input_mode}")
 
     train_sampler = None
     val_sampler = None
@@ -233,6 +251,14 @@ def train(args):
             f"original_weight={args.scnp_original_weight} "
             f"(main BCE/Dice and Stage-1 deep supervision use SCNP logits)")
     soft_cl = SoftclDiceLoss(num_iter=args.cl_dice_iters)
+    boundary_loss = None
+    if args.boundary_loss_weight > 0:
+        boundary_loss = BoundaryLoss(
+            resolution=args.boundary_loss_resolution)
+        logging.info(
+            "Boundary loss: weight=%s resolution=%d warmup=%d ramp=%d",
+            args.boundary_loss_weight, args.boundary_loss_resolution,
+            args.boundary_loss_warmup, args.boundary_loss_ramp)
     try:
         topo_loss = build_topology_loss(args.topology_loss,
                                         resolution=args.topology_resolution)
@@ -277,6 +303,7 @@ def train(args):
         optimizer=optimizer, scheduler=scheduler,
         train_loader=train_loader, val_loader=val_loader,
         args=args, is_ddp=is_ddp, train_sampler=train_sampler,
+        boundary_loss=boundary_loss,
     )
     try:
         trainer.fit()
@@ -306,6 +333,21 @@ if __name__ == '__main__':
     parser.add_argument('--grad_checkpointing', type=str2bool, default=True,
                         help='Block-wise gradient checkpointing for the ViT '
                              'encoder (reduces training memory; default ON)')
+    parser.add_argument('--train_input_mode', type=str, default='aspect_pad',
+                        choices=['resize', 'aspect_pad', 'native_crop'],
+                        help='Training geometry: resize (legacy square stretch), '
+                             'aspect_pad (preserve aspect ratio + pad), or '
+                             'native_crop (foreground-biased native-resolution '
+                             'crop for large images; small images use aspect_pad)')
+    parser.add_argument('--eval_input_mode', type=str, default='aspect_pad',
+                        choices=['resize', 'aspect_pad'],
+                        help='Validation/test geometry; aspect_pad preserves '
+                             'the source aspect ratio. Use resize only for '
+                             'legacy checkpoint comparison')
+    parser.add_argument('--foreground_crop_prob', type=float, default=0.5,
+                        help='native_crop: probability of centring the crop on '
+                             'a random foreground pixel instead of a random '
+                             'location')
     parser.add_argument('--fast_val', type=str2bool, default=False,
                         help='Validation computes only loss + F1; skips the full metric suite and '
                              'topology monitor (training-time speed; full metrics stay in evaluate.py). '
@@ -371,6 +413,15 @@ if __name__ == '__main__':
     parser.add_argument('--cl_dice_ramp', type=int, default=5, help='Epochs for the clDice weight to ramp to its max')
     parser.add_argument('--cl_dice_iters', type=int, default=10, help='Soft-skeleton iterations of the clDice loss (official clDice repo default: 10)')
     parser.add_argument('--iou_loss_weight', type=float, default=1.0, help='Weight of the IoU head MSE supervision')
+    parser.add_argument('--boundary_loss_weight', type=float, default=0.0,
+                        help='Max weight of the distance-transform boundary '
+                             'loss; 0 disables it (legacy behaviour).')
+    parser.add_argument('--boundary_loss_resolution', type=int, default=512,
+                        help='Resolution used for the boundary distance maps')
+    parser.add_argument('--boundary_loss_warmup', type=int, default=10,
+                        help='Epochs before the boundary loss activates')
+    parser.add_argument('--boundary_loss_ramp', type=int, default=5,
+                        help='Epochs for the boundary weight to ramp up')
 
     # Full val metric suite: 16 常规指标 + 4 可选指标全部默认开启
     # (few-shot val 集仅 3 图,引擎级指标秒级可承受;传 --val_auc false 等可关)

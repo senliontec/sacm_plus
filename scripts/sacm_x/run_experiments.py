@@ -60,6 +60,13 @@ def train_command(args, preset, ckpt_path, selection):
         '--save_path', ckpt_path,
         '--val_selection', selection,
         '--pred_threshold', str(args.pred_threshold),
+        '--train_input_mode', args.train_input_mode,
+        '--eval_input_mode', args.eval_input_mode,
+        '--foreground_crop_prob', str(args.foreground_crop_prob),
+        '--boundary_loss_weight', str(args.boundary_loss_weight),
+        '--boundary_loss_resolution', str(args.boundary_loss_resolution),
+        '--boundary_loss_warmup', str(args.boundary_loss_warmup),
+        '--boundary_loss_ramp', str(args.boundary_loss_ramp),
     ]
     if args.extra_train_args:
         cmd += args.extra_train_args.split()
@@ -75,7 +82,10 @@ def test_command(args, preset, dataset, test_dir, ckpt_path, selection):
         '--output_dir', os.path.join(args.output_root, preset, dataset),
         '--selection', selection,
         '--pred_threshold', str(args.pred_threshold),
+        '--eval_input_mode', args.eval_input_mode,
     ]
+    if args.empty_guard:
+        cmd.append('--empty_guard')
     if args.tta:
         cmd.append('--tta')
     if getattr(args, 'extra_eval_args', ''):
@@ -274,6 +284,22 @@ def main():
                              "default: iou iff preset trains the IoU head")
     parser.add_argument('--pred_threshold', type=float, default=0.0,
                         help='Logit binarization threshold; SACM fidelity uses 0.5')
+    parser.add_argument('--train_input_mode', type=str, default='aspect_pad',
+                        choices=['resize', 'aspect_pad', 'native_crop'],
+                        help='Training geometry (see train/trainer.py)')
+    parser.add_argument('--eval_input_mode', type=str, default='aspect_pad',
+                        choices=['resize', 'aspect_pad'],
+                        help='Validation/test geometry (see evaluate.py)')
+    parser.add_argument('--foreground_crop_prob', type=float, default=0.5,
+                        help='native_crop foreground-centred probability')
+    parser.add_argument('--boundary_loss_weight', type=float, default=0.0,
+                        help='Distance-transform boundary loss max weight')
+    parser.add_argument('--boundary_loss_resolution', type=int, default=512)
+    parser.add_argument('--boundary_loss_warmup', type=int, default=10)
+    parser.add_argument('--boundary_loss_ramp', type=int, default=5)
+    parser.add_argument('--empty_guard', action='store_true',
+                        help='Fallback to the non-empty candidate when the '
+                             'selected mask is empty')
     parser.add_argument('--tta', action='store_true',
                         help='Enable four-way flip TTA at test time')
     parser.add_argument('--skip_train', action='store_true')

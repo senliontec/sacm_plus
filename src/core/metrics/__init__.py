@@ -49,3 +49,4 @@ from .topology import betti_error, cldice_score
 from .persistence import betti_matching_score, topograph_error_score
 from .aggregate import compute_metrics
 from .binary import BINARY_METRICS, binary_metrics
+from .components import COMPONENT_KEYS, component_metrics

@@ -193,6 +193,64 @@ supervision (0.3), IoU-head supervision (1.0) and soft-clDice (0.5, with
 a 10-epoch warmup) on top of the same base loss — report these exact
 weights when writing up the method.
 
+## P0 SACM-X improvements (2026-11)
+
+The first high-ROI improvement pass is implemented as opt-in/controlled
+switches in the SACM-X training/evaluation path:
+
+- `--train_input_mode {resize,aspect_pad,native_crop}` / `--eval_input_mode {resize,aspect_pad}`:
+  `aspect_pad` preserves the source aspect ratio and pads (no square
+  stretch); `native_crop` keeps native pixel scale for large images via
+  foreground-biased 1024x1024 crops.  Defaults are `aspect_pad` for both
+  so training and evaluation use the same geometry.
+- `--boundary_loss_weight W --boundary_loss_resolution R --boundary_loss_warmup N --boundary_loss_ramp N`:
+  distance-transform boundary term targeting HD95/boundary outliers.
+  The default is `0` (legacy); the SACM-X launcher enables `0.05`.
+- `--empty_guard`: if the selected candidate is empty, fall back to the
+  candidate with the largest foreground area (label-free; helps
+  thick/dense domains where a head collapses).  The launcher enables it.
+- `--tta`: existing four-way flip TTA.  Off by default for fair comparison;
+  set `USE_TTA=true` for an X+TTA run and report it separately.
+- `native_crop` is available for experiments, but final evaluation should
+  currently use `aspect_pad`; native-resolution tiled inference is the next
+  planned step, otherwise train/test pixel scale differs on high-res data.
+
+The SACM-X launcher defaults are now:
+`INPUT_MODE=aspect_pad`, `EVAL_INPUT_MODE=aspect_pad`, `FG_CROP_PROB=0.5`,
+`BOUNDARY_LOSS_WEIGHT=0.05`, `EMPTY_GUARD=true`, `USE_TTA=false`.
+
+### Fragmentation / candidate audit
+
+`evaluate.py` now supports optional component diagnostics and post-processing:
+
+- `--component_metrics` adds `components_pred/gt`, `component_count_error`,
+  `small_component_rate`, `fp_area_ratio`, `fn_area_ratio` to the output.
+- `--audit_heads` writes `head_audit.csv` (per-candidate Dice/IoU/P/R and
+  component statistics).
+- `--audit_thresholds -2 -1 0 1 2` writes `threshold_audit.csv` for
+  calibration on validation data (do not tune on test).
+- `--save_candidate_masks` writes the four candidate masks under
+  `<output>/candidates/`.
+- `--component_prune_mode {off,absolute,relative}` with the
+  `--component_prune_*` thresholds removes components that are both small
+  and short in skeleton length.  It is opt-in; calibrate on validation,
+  and do not apply a global rule to LEAF/TYRE/WIRE where GT itself is
+  fragmented.
+- `--selection quality` combines the IoU score with a small-component /
+  component-count penalty.  Compare it against `iou` and `gating` on
+  validation before using it for a report.
+
+The one-click evaluation script forwards these through environment
+variables, e.g.:
+
+```bash
+DATASETS="CREMI ROAD DeepGlobe TopoMortar OCTA-500 TYRE WIRE" \
+AUDIT_HEADS=true COMPONENT_METRICS=true SAVE_CANDIDATE_MASKS=true \
+AUDIT_THRESHOLDS="-2 -1 0 1 2" \
+OUTPUT_ROOT=results/paper/sacm_x_audit PRESET=full GPU=7 \
+bash scripts/sacm_x/eval_sacm_x_20.sh
+```
+
 ## Experiment tooling
 
 ```bash

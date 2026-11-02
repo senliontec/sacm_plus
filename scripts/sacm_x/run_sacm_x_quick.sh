@@ -50,6 +50,15 @@ TRAIN_ROOT="${TRAIN_ROOT:-data/sacm_3shot_seed${SEED}}"
 OUTPUT_ROOT="${OUTPUT_ROOT:-results/sacm_x_quick}"
 MONITOR="${MONITOR:-baseline}"
 INIT_STAGE2_FROM_STAGE1="${INIT_STAGE2_FROM_STAGE1:-true}"
+INPUT_MODE="${INPUT_MODE:-aspect_pad}"
+EVAL_INPUT_MODE="${EVAL_INPUT_MODE:-aspect_pad}"
+FG_CROP_PROB="${FG_CROP_PROB:-0.5}"
+BOUNDARY_LOSS_WEIGHT="${BOUNDARY_LOSS_WEIGHT:-0.05}"
+BOUNDARY_LOSS_RESOLUTION="${BOUNDARY_LOSS_RESOLUTION:-512}"
+BOUNDARY_LOSS_WARMUP="${BOUNDARY_LOSS_WARMUP:-10}"
+BOUNDARY_LOSS_RAMP="${BOUNDARY_LOSS_RAMP:-5}"
+USE_TTA="${USE_TTA:-false}"
+EMPTY_GUARD="${EMPTY_GUARD:-true}"
 SCNP="${SCNP:-false}"
 SCNP_WINDOW="${SCNP_WINDOW:-3}"
 SCNP_ORIGINAL_WEIGHT="${SCNP_ORIGINAL_WEIGHT:-0.0}"
@@ -123,11 +132,17 @@ SPECS="$("$PYTHON" scripts/pipeline/protocol_specs.py \
   --datasets "$DATASETS")"
 read -r -a spec_array <<< "$SPECS"
 
-echo "preset=$PRESET epochs=$EPOCHS gpu=$GPU monitor=$MONITOR val_interval=$VAL_INTERVAL init_stage2_from_stage1=$INIT_STAGE2_FROM_STAGE1 scnp=$SCNP($SCNP_WINDOW) deep_closing=${DEEP_CLOSING_CKPT:-none} skip_test=$SKIP_TEST"
+echo "preset=$PRESET epochs=$EPOCHS gpu=$GPU monitor=$MONITOR val_interval=$VAL_INTERVAL init_stage2_from_stage1=$INIT_STAGE2_FROM_STAGE1 input_mode=$INPUT_MODE eval_input_mode=$EVAL_INPUT_MODE fg_crop_prob=$FG_CROP_PROB boundary_weight=$BOUNDARY_LOSS_WEIGHT tta=$USE_TTA empty_guard=$EMPTY_GUARD scnp=$SCNP($SCNP_WINDOW) deep_closing=${DEEP_CLOSING_CKPT:-none} skip_test=$SKIP_TEST"
 echo "datasets=${#spec_array[@]}  output=$OUTPUT_ROOT"
 RUN_EXTRA=()
 if [ "$SKIP_TEST" = "true" ]; then
   RUN_EXTRA+=(--skip_test)
+fi
+if [ "$EMPTY_GUARD" = "true" ] || [ "$EMPTY_GUARD" = "1" ]; then
+  RUN_EXTRA+=(--empty_guard)
+fi
+if [ "$USE_TTA" = "true" ] || [ "$USE_TTA" = "1" ]; then
+  RUN_EXTRA+=(--tta)
 fi
 "$PYTHON" scripts/sacm_x/run_experiments.py \
   --gpus "$GPU" \
@@ -137,6 +152,12 @@ fi
   --presets "$PRESET" \
   --output_root "$OUTPUT_ROOT" \
   --epochs "$EPOCHS" --val_interval "$VAL_INTERVAL" --seed "$SEED" \
+  --train_input_mode "$INPUT_MODE" --eval_input_mode "$EVAL_INPUT_MODE" \
+  --foreground_crop_prob "$FG_CROP_PROB" \
+  --boundary_loss_weight "$BOUNDARY_LOSS_WEIGHT" \
+  --boundary_loss_resolution "$BOUNDARY_LOSS_RESOLUTION" \
+  --boundary_loss_warmup "$BOUNDARY_LOSS_WARMUP" \
+  --boundary_loss_ramp "$BOUNDARY_LOSS_RAMP" \
   --extra_train_args "${TRAIN_EXTRA[*]}" \
   --extra_eval_args "$EVAL_EXTRA" \
   ${RUN_EXTRA[@]+"${RUN_EXTRA[@]}"}

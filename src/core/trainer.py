@@ -21,6 +21,7 @@ from sklearn.metrics import f1_score
 from tqdm import tqdm
 
 from core.console import console, epoch_header, epoch_row, topo_legend
+from core.data import letterbox_rect
 from core.evaluator import resolve_selection
 from core.losses.monitor import topology_loss_monitor
 from core.losses.registry import TOPOLOGY_LOSS_REGISTRY
@@ -155,13 +156,14 @@ class Trainer:
 
     def __init__(self, model, spec, device, criterion, soft_cl, topo_loss,
                  optimizer, scheduler, train_loader, val_loader, args,
-                 is_ddp=False, train_sampler=None):
+                 is_ddp=False, train_sampler=None, boundary_loss=None):
         self.model = model
         self.spec = spec
         self.device = device
         self.criterion = criterion
         self.soft_cl = soft_cl
         self.topo_loss = topo_loss
+        self.boundary_loss = boundary_loss
         self.optimizer = optimizer
         self.scheduler = scheduler
         self.train_loader = train_loader
@@ -215,7 +217,9 @@ class Trainer:
         if self.train_sampler is not None:
             self.train_sampler.set_epoch(epoch)  # DDP: 每 epoch 换采样顺序
         train_loss = 0.0
-        comps_sum = {k: 0.0 for k in ('loss_main', 'loss_ds', 'loss_iou', 'loss_cl', 'loss_topo')}
+        comps_sum = {k: 0.0 for k in (
+            'loss_main', 'loss_ds', 'loss_iou', 'loss_cl', 'loss_topo',
+            'loss_boundary')}
         # 进度条已移除:逐 epoch 的 rich 宽表 + time 列取代进度反馈
         train_pbar = tqdm(self.train_loader, total=len(self.train_loader),
                           desc=f"Epoch {epoch+1}/{self.args.epochs} [Train]",
@@ -298,6 +302,18 @@ class Trainer:
             if mu > 0:
                 loss_cl = self.soft_cl(aux_mask, masks)
 
+            # Distance-transform boundary term: directly targets boundary
+            # displacement / HD95 outliers while Dice+clDice keep overlap.
+            loss_boundary = 0.0
+            boundary_weight = float(
+                getattr(self.args, 'boundary_loss_weight', 0.0))
+            boundary_mu = boundary_weight * cl_dice_weight_schedule(
+                epoch,
+                int(getattr(self.args, 'boundary_loss_warmup', 10)),
+                int(getattr(self.args, 'boundary_loss_ramp', 5)))
+            if self.boundary_loss is not None and boundary_mu > 0:
+                loss_boundary = self.boundary_loss(aux_mask, masks)
+
             # Extra topology loss (optional; strict ports)
             loss_topo = 0.0
             if self.topo_loss is not None:
@@ -308,6 +324,7 @@ class Trainer:
                 + self.args.deep_sup_weight * loss_ds
                 + self.args.iou_loss_weight * loss_iou
                 + mu * loss_cl
+                + boundary_mu * loss_boundary
                 + self.args.topology_loss_weight * loss_topo
             )
 
@@ -408,6 +425,11 @@ class Trainer:
                 width, height = original_size
                 width = width.item() if torch.is_tensor(width) else int(width)
                 height = height.item() if torch.is_tensor(height) else int(height)
+                if getattr(self.args, 'eval_input_mode', 'resize') == 'aspect_pad':
+                    left, top, content_w, content_h = letterbox_rect(
+                        width, height, main_mask.shape[-1])
+                    main_mask = main_mask[
+                        :, :, top:top + content_h, left:left + content_w]
                 main_mask = F.interpolate(
                     main_mask, size=(height, width),
                     mode='bilinear', align_corners=False)
@@ -615,6 +637,16 @@ class Trainer:
                         self.args, 'scnp_original_weight', 0.0),
                     'topology_loss': self.args.topology_loss,
                     'topology_loss_weight': self.args.topology_loss_weight,
+                    'train_input_mode': getattr(
+                        self.args, 'train_input_mode', 'resize'),
+                    'eval_input_mode': getattr(
+                        self.args, 'eval_input_mode', 'resize'),
+                    'foreground_crop_prob': getattr(
+                        self.args, 'foreground_crop_prob', 0.0),
+                    'boundary_loss_weight': getattr(
+                        self.args, 'boundary_loss_weight', 0.0),
+                    'boundary_loss_resolution': getattr(
+                        self.args, 'boundary_loss_resolution', 512),
                 },
             }, self.args.save_path)
             logging.info(
@@ -687,6 +719,16 @@ class Trainer:
                 self.args, 'grad_checkpointing', True),
             'topology_loss': self.args.topology_loss,
             'topology_loss_weight': self.args.topology_loss_weight,
+            'train_input_mode': getattr(
+                self.args, 'train_input_mode', 'resize'),
+            'eval_input_mode': getattr(
+                self.args, 'eval_input_mode', 'resize'),
+            'foreground_crop_prob': getattr(
+                self.args, 'foreground_crop_prob', 0.0),
+            'boundary_loss_weight': getattr(
+                self.args, 'boundary_loss_weight', 0.0),
+            'boundary_loss_resolution': getattr(
+                self.args, 'boundary_loss_resolution', 512),
             'use_geo_i': self.args.use_geo_i,
             'use_geo_e': self.args.use_geo_e,
             'geo_e_layers': self.args.geo_e_layers,

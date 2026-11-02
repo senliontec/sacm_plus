@@ -125,12 +125,20 @@ def evaluate(args):
             "selection='iou' was requested but the checkpoint has "
             "iou_loss_weight=0 (IoU head untrained); metrics are invalid. "
             "Use --selection auto or gating.")
+    if args.selection == 'quality' and float(iou_weight or 0.0) <= 0:
+        logging.warning(
+            "selection='quality' uses the IoU head as one score term but "
+            "the checkpoint has iou_loss_weight=0; compare with gating.")
     logging.info(
         f"Resolved mask selection: {args.selection} "
         f"(iou_loss_weight={iou_weight})")
 
-    dataset = TestDataset(args.data_root)
-    logging.info(f"Validation dataset size: {len(dataset)}")
+    eval_input_mode = getattr(args, 'eval_input_mode', 'aspect_pad')
+    dataset = TestDataset(
+        args.data_root, input_mode=eval_input_mode, image_size=1024)
+    logging.info(
+        f"Validation dataset size: {len(dataset)} "
+        f"(eval_input_mode={eval_input_mode})")
 
     criterion = DiceBCELoss(bce_weight=args.bce_weight, dice_weight=args.dice_weight)
     logging.info(f"Using DiceBCELoss with BCE weight: {args.bce_weight}, Dice weight: {args.dice_weight}")
@@ -205,10 +213,11 @@ if __name__ == '__main__':
 
     # Inference options
     parser.add_argument('--selection', type=str, default='auto',
-                        choices=['auto', 'iou', 'gating'],
+                        choices=['auto', 'iou', 'gating', 'quality'],
                         help="Final mask selection: 'auto' = iou when the checkpoint "
                              "trained the IoU head (iou_loss_weight>0), else gating; "
-                             "'iou' = trained IoU head; 'gating' = gating-ranked head 0")
+                             "'iou' = trained IoU head; 'gating' = gating-ranked head 0; "
+                             "'quality' = IoU score minus fragmentation penalties")
     parser.add_argument('--no-fov', dest='no_fov', action='store_true',
                         help='Disable FOV masking to match the official SACM '
                              'adapter / paper-metric prediction protocol')
@@ -216,6 +225,48 @@ if __name__ == '__main__':
                         help='Binarization threshold on logits; 0.0 = probability 0.5 (standard). '
                              'Set 0.5 to replicate the original SACM evaluation convention '
                              '(used by the fidelity gate of the stage-0 protocol).')
+    parser.add_argument('--eval_input_mode', type=str, default='aspect_pad',
+                        choices=['resize', 'aspect_pad'],
+                        help='Test geometry: aspect_pad preserves the source '
+                             'aspect ratio and pads; resize is the legacy '
+                             'square stretch.')
+    parser.add_argument('--empty_guard', action='store_true',
+                        help='If the selected mask is empty, fall back to the '
+                             'candidate with the largest foreground area before '
+                             'computing metrics. Mitigates head-collapse on '
+                             'thick/dense domains without using test labels.')
+    parser.add_argument('--quality_small_component_weight', type=float,
+                        default=0.5,
+                        help='quality selection: penalty for small-component rate')
+    parser.add_argument('--quality_component_weight', type=float, default=0.05,
+                        help='quality selection: penalty for log(1 + n_components)')
+    parser.add_argument('--component_metrics', action='store_true',
+                        help='Add connected-component/fragmentation metrics to '
+                             'metrics.csv and summary (diagnostic extension).')
+    parser.add_argument('--component_prune_mode', type=str, default='off',
+                        choices=['off', 'absolute', 'relative'],
+                        help='Optional component pruning before metrics.')
+    parser.add_argument('--component_prune_min_area', type=int, default=0,
+                        help='absolute area threshold for component pruning')
+    parser.add_argument('--component_prune_min_skeleton', type=int, default=0,
+                        help='absolute skeleton-length threshold for pruning')
+    parser.add_argument('--component_prune_rel_area', type=float, default=0.0,
+                        help='relative area threshold (fraction of image area)')
+    parser.add_argument('--component_prune_rel_skeleton', type=float,
+                        default=0.0,
+                        help='relative skeleton threshold (fraction of max side)')
+    parser.add_argument('--component_prune_keep_largest', type=int, default=1,
+                        help='always keep this many largest components')
+    parser.add_argument('--audit_heads', action='store_true',
+                        help='Write head_audit.csv with per-candidate '
+                             'Dice/IoU/P/R/component metrics.')
+    parser.add_argument('--audit_thresholds', nargs='+', type=float,
+                        default=None,
+                        help='Write threshold_audit.csv for these logit '
+                             'thresholds (lightweight metrics only).')
+    parser.add_argument('--save_candidate_masks', action='store_true',
+                        help='Save per-head binary candidate PNGs under '
+                             'output_dir/candidates/.')
     parser.add_argument('--nsd_tolerance', type=float, default=1.0,
                         help='Tolerance (pixels) for the surface Dice / NSD metric')
     parser.add_argument('--tta', action='store_true', help='Enable four-way flip test-time augmentation')
