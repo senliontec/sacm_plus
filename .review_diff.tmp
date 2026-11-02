@@ -1,0 +1,4274 @@
+commit f814cd3af939a78ff758d826b74e89fe5ba8aecd
+add
+
+
+diff --git a/README.md b/README.md
+index a194f41..13d7d8e 100644
+--- a/README.md
++++ b/README.md
+@@ -135,6 +135,42 @@ deterministic kernels, DataLoader workers, and environment manifests:
+    `--selection gating` replicates the original SACM head-0 selection;
+    `--selection iou` uses the trained IoU head.
+ 
++## Unified results (baselines + SACM-X)
++
++Use the wrappers for paper runs.  Every run, baseline or SACM-X, writes one
++canonical directory:
++
++```text
++results/runs/<method>/<variant>/seed_<seed>/
++  best_model.pth            # file checkpoints (best_model/ for dirs)
++  checkpoint.json
++  run_info.json
++  metrics_history.json
++  train.log
++  predictions/              # baselines
++  eval/
++    <DATASET>/metrics.csv
++    <DATASET>/summary.csv
++    tables/all_metrics.csv
++    tables/macro_metrics.csv
++    tables/final_report.md
++    run_manifest.json
++    eval.log
++    jobs.csv
++```
++
++- baselines: `bash scripts/run_train.sh --model unet --seeds 0` then
++  `bash scripts/run_eval.sh --model unet --seeds 0`
++- SACM-X: `SEED=0 PRESET=full_typed SKIP_TEST=true bash scripts/sacm_x/run_sacm_x_quick.sh`
++  trains and promotes the best checkpoint; run
++  `bash scripts/sacm_x/eval_sacm_x_20.sh` for the 20-dataset eval.
++- index every run: `python scripts/pipeline/index_runs.py` →
++  `results/runs_index.csv`
++
++See `scripts/sacm_x/README.md` for the complete commands.  The low-level
++`src/train/trainer.py` / `src/eval/evaluate.py` examples below are direct
++architecture entrypoints; they do not promote results into the canonical tree.
++
+ ## New files
+ 
+ - `core/metrics/` — evaluation metrics (pixel/distance/surface/
+@@ -249,12 +285,14 @@ Relevant flags: `--use_typed_heads {true,false}`,
+ Minimal validation-first loop (no test tuning):
+ 
+ ```bash
+-GPU=7 PRESET=full_typed EPOCHS=100 \
+-OUTPUT_ROOT=results/sacm_x_typed_proto SKIP_TEST=true \
++SEED=0
++RUN_ROOT="results/runs/sacm_x/full_typed/seed${SEED}"
++
++GPU=7 PRESET=full_typed EPOCHS=100 SEED="$SEED" \
++OUTPUT_ROOT="$RUN_ROOT" SKIP_TEST=true \
+ bash scripts/sacm_x/run_sacm_x_quick.sh
+ 
+-GPU=7 PRESET=full_typed \
+-OUTPUT_ROOT=results/sacm_x_typed_proto \
++GPU=7 PRESET=full_typed SEED="$SEED" OUTPUT_ROOT="$RUN_ROOT" \
+ bash scripts/sacm_x/audit_heads_full_val.sh
+ ```
+ 
+@@ -296,10 +334,13 @@ The one-click evaluation script forwards these through environment
+ variables, e.g.:
+ 
+ ```bash
++SEED=0
++RUN_ROOT="results/runs/sacm_x/full_typed/seed${SEED}"
+ DATASETS="CREMI ROAD DeepGlobe TopoMortar OCTA-500 TYRE WIRE" \
+ AUDIT_HEADS=true COMPONENT_METRICS=true SAVE_CANDIDATE_MASKS=true \
+ AUDIT_THRESHOLDS="-2 -1 0 1 2" \
+-OUTPUT_ROOT=results/paper/sacm_x_audit PRESET=full GPU=7 \
++TRAIN_OUT="$RUN_ROOT" OUTPUT_ROOT="$RUN_ROOT/eval" \
++PRESET=full_typed SEED="$SEED" GPU=7 \
+ bash scripts/sacm_x/eval_sacm_x_20.sh
+ ```
+ 
+@@ -307,10 +348,12 @@ For **validation calibration only**, the one-click script runs the full
+ head × threshold grid and writes a per-dataset report:
+ 
+ ```bash
+-GPU=7 OUTPUT_ROOT=results/paper/sacm_x/seed_0 PRESET=full \
++SEED=0
++GPU=7 SEED="$SEED" PRESET=full \
+ bash scripts/sacm_x/calibrate_heads_val.sh
+ # val = 6 seen images (1 per seen dataset); train/support = 18 seen images
+-SPLITS="val train" GPU=7 bash scripts/sacm_x/calibrate_heads_val.sh
++SPLITS="val train" GPU=7 SEED="$SEED" \
++bash scripts/sacm_x/calibrate_heads_val.sh
+ ```
+ 
+ The val split has only one image per seen dataset, so its per-dataset
+@@ -321,9 +364,10 @@ For the topology question (does a less-fragmented head win clDice/HD95?),
+ run the full per-head audit instead of the quick grid:
+ 
+ ```bash
+-GPU=7 OUTPUT_ROOT=results/paper/sacm_x/seed_0 PRESET=full \
++SEED=0
++GPU=7 SEED="$SEED" PRESET=full \
+ bash scripts/sacm_x/audit_heads_full_val.sh
+-# report: results/paper/sacm_x/seed_0/head_full_audit/val/head_full_report.txt
++# report: results/runs/sacm_x/full/seed${SEED}/eval/head_full_audit/val/head_full_report.txt
+ ```
+ 
+ It writes `head_full_audit.csv` with the full metric suite for each head
+@@ -337,9 +381,10 @@ topology-friendly head without losing Dice, compare all selectors on the
+ same split:
+ 
+ ```bash
+-GPU=7 OUTPUT_ROOT=results/paper/sacm_x/seed_0 PRESET=full \
++SEED=0
++GPU=7 SEED="$SEED" PRESET=full \
+ bash scripts/sacm_x/compare_selectors_val.sh
+-# report: results/paper/sacm_x/seed_0/selector_audit/val/selector_report.txt
++# report: results/runs/sacm_x/full/seed${SEED}/eval/selector_audit/val/selector_report.txt
+ ```
+ 
+ It runs `iou`, `gating`, three `quality` weight settings, fixed head2 and
+@@ -360,23 +405,22 @@ python scripts/data/prepare_data.py \
+     --shots 3 --val_shots 1 --make_test \
+     --out_dir data/sacm_3shot --seed 42
+ 
+-# 2. Run the whole ablation matrix on multiple GPUs (train + test per job)
++# 2. Legacy multi-preset ablation matrix (not the canonical paper pipeline).
++#    It writes results/ablation/<preset>/; use the one-click wrappers above
++#    for canonical runs.
+ python scripts/sacm_x/run_experiments.py --gpus 0 1 2 3 4 5 6 7 \
+     --checkpoint /path/sam_vit_l_0b3195.pth --train_root data/sacm_3shot \
+     --test_datasets DRIVE:/data/DRIVE CHASEDB1:/data/CHASEDB1 \
+-    --presets sacm stage1 stage2 full --output_root results --epochs 50 --tta
++    --presets sacm stage1 stage2 full --output_root results/ablation \
++    --epochs 50 --tta
+ 
+ # 3. Aggregate per-job summaries into CSV + LaTeX tables
+-python scripts/sacm_x/aggregate_results.py --root results --out results/tables
+-
+-# 4. AI-improvement-loop diagnostics: weakest metric -> suspect component
+-#    -> suggested change (reads metrics_history.json written during training)
+-python scripts/sacm_x/metrics_report.py --history results/full/DRIVE/metrics_history.json
+-python scripts/sacm_x/metrics_report.py --root results --out results/tables/report.md
++python scripts/sacm_x/aggregate_results.py \
++    --root results/ablation --out results/ablation/tables
+ 
+ # 4. Motivation diagnostics (head supervision + gating quality evidence)
+ python -m models.sacm_x.diagnose --preset sacm --data_root /data/DRIVE \
+-    --trained_weights results/sacm/DRIVE/best_model.pth \
++    --trained_weights results/ablation/sacm/best_model.pth \
+     --output_dir diagnosis/sacm_drive
+ ```
+ 
+@@ -386,7 +430,7 @@ Every baseline adapter uses the shared W&B helper in
+ `src/core/wandb_utils.py` and writes the same prediction contract:
+ 
+ ```text
+-results/predictions/<method>/<dataset>/<stem>.png
++results/runs/<method>/default/seed_<seed>/predictions/<method>/<dataset>/<stem>.png
+ ```
+ 
+ Example for the U-Net adapter:
+@@ -416,30 +460,36 @@ PYTHONPATH=src python -m baseline_zoo.run_one --model unet --stage train \
+ 
+ # Predict on a subset (for a full run use scripts/pipeline/run_baseline_test.py)
+ PYTHONPATH=src python -m baseline_zoo.run_one --model unet --stage predict \
+-    --test-datasets DRIVE:data/sacm_3shot/test/DRIVE \
++    --test-datasets DRIVE:data/sacm_3shot_seed0/test/DRIVE \
+                    WIRE:datasets/novel/WIRE
+ 
+-# Collect paper tables for the same subset
++# Collect paper tables for the same subset (canonical eval root)
++SEED=0
++RUN_ROOT="results/runs/unet/default/seed${SEED}"
+ python scripts/pipeline/collect_paper_metrics.py --methods unet \
+-    --datasets DRIVE WIRE --out-root results/paper
++    --datasets DRIVE WIRE --pred-root "$RUN_ROOT/predictions" \
++    --out-root "$RUN_ROOT/eval" --layout canonical --family baseline \
++    --variant default --seed "$SEED"
+ 
+ # Save qualitative panels for the same subset
+ python scripts/pipeline/visualize_predictions.py --methods unet \
+-    --datasets DRIVE WIRE --num-samples 8
++    --datasets DRIVE WIRE --pred-root "$RUN_ROOT/predictions" \
++    --out-root "$RUN_ROOT/visualizations" --num-samples 8
+ 
+-# One command: predict on all protocol test sets, collect paper tables,
+-# and save visualizations.  Requires the trained checkpoint.
+-python scripts/pipeline/run_baseline_test.py
++# One command: predict on all protocol test sets, collect canonical tables,
++# and finalize the run.  Requires the trained checkpoint.
++python scripts/pipeline/run_baseline_test.py --method unet --seed "$SEED"
+ ```
+ 
+-Long test/evaluation runs print stage progress and keep a state file at
+-`results/.run_status/<method>.json`.
++Long test/evaluation runs print stage progress and keep a state file under
++the run root at `.run_status/<method>.json`.
+ 
+ Prediction prints every 50 images; metric collection prints per dataset and
+ every 100 images.  Per-dataset metric results are cached
+-(`results/paper/<method>/<dataset>/metrics.csv` + `metrics_meta.json`), so an
+-interrupted run resumes completed datasets automatically.  Metric collection
+-is parallel across datasets (`--workers`, default `min(8, CPU count)`):
++(`results/runs/<method>/default/seed_<seed>/eval/<dataset>/metrics.csv` +
++`metrics_meta.json`), so an interrupted run resumes completed datasets
++automatically.  Metric collection is parallel across datasets (`--workers`,
++default `min(8, CPU count)`):
+ 
+ ```bash
+ # Resume a run that stopped during prediction or metrics
+@@ -451,16 +501,17 @@ python scripts/pipeline/collect_paper_metrics.py --methods unet --no-resume
+ ```
+ 
+ The collector finishes by printing a per-dataset summary table plus
+-Seen/Unseen/Novel/All macro rows; the same values are in `paper_metrics.csv`
+-and `paper_macro.csv`.
++Seen/Unseen/Novel/All macro rows; the same values are in
++`eval/tables/all_metrics.csv` and `eval/tables/macro_metrics.csv` after
++`finalize_run.py` promotes the run.
+ 
+ U-Net training prints a rich one-line table (header + one row per epoch)
+ and persists the same values next to its checkpoint:
+ 
+ ```text
+-results/paper/unet/seed_<N>/metrics_history.json
++results/runs/unet/default/seed_<N>/metrics_history.json
+     config + per-epoch overall and per-dataset metrics (AI-readable)
+-results/paper/unet/seed_<N>/val_metrics_by_dataset.csv
++results/runs/unet/default/seed_<N>/val_metrics_by_dataset.csv
+     one row per epoch; 6 datasets x Dice/IoU/clDice/HD95 = 24 metric columns
+ ```
+ 
+@@ -471,12 +522,13 @@ because large artifacts can stall the end of a run on the self-hosted server;
+ enable it with `WANDB_LOG_ARTIFACT=true`.  Shutdown waits at most
+ `WANDB_FINISH_TIMEOUT` seconds (default 60) before returning.
+ 
+-`collect_paper_metrics.py` reads the frozen protocol manifest and emits
+-`paper_metrics.csv`, `paper_macro.csv`, `paper_stats.json`, per-metric
+-LaTeX tables, and `paper_tables.md`. It also writes one `metrics.csv` per
+-`<method>/<dataset>` (per-image rows) and a `metrics_meta.json` cache marker.
+-`visualize_predictions.py` writes
+-`results/visualizations/<method>/<dataset>/<stem>.png` and `grid.png`
++`collect_paper_metrics.py --layout canonical` reads the frozen protocol
++manifest and writes per-image `eval/<dataset>/metrics.csv`, per-dataset
++`summary.csv`, `eval/tables/all_metrics.csv`, `eval/tables/macro_metrics.csv`,
++`eval/tables/final_report.md`, and `collect_stats.json`.
++`finalize_run.py` then writes `eval/run_manifest.json`, `eval/eval.log`, and
++`eval/jobs.csv`. `visualize_predictions.py` writes
++`<run-root>/visualizations/<method>/<dataset>/<stem>.png` and `grid.png`
+ with input, GT, prediction, and TP/FP/FN error panels.
+ 
+ `src/models/sacm_x/diagnose.py` produces the paper's motivation evidence:
+diff --git a/configs/models/fssam.yaml b/configs/models/fssam.yaml
+index c44b674..addb5b9 100644
+--- a/configs/models/fssam.yaml
++++ b/configs/models/fssam.yaml
+@@ -14,6 +14,7 @@ train_entrypoint: >-
+ eval_entrypoint: >-
+   python scripts/pipeline/run_baseline_test.py --method fssam
+   --protocol {test_manifest}
++  --data-root {split_root}
+   --seed {seed}
+   --checkpoint {output_root}/best_model.pth
+   --pred-root {output_root}/predictions
+diff --git a/configs/models/sacm_x.yaml b/configs/models/sacm_x.yaml
+index bd4dabe..cef7355 100644
+--- a/configs/models/sacm_x.yaml
++++ b/configs/models/sacm_x.yaml
+@@ -5,7 +5,7 @@ display_name: SACM-X
+ family: sam
+ status: available
+ adapter: models.sacm_x
+-checkpoint: "{output_root}/{preset}/best_model.pth"
++checkpoint: "{output_root}/best_model.pth"
+ train_entrypoint: >-
+   GPU={gpu} TRAIN_ROOT={split_root} OUTPUT_ROOT={output_root}
+   SEED={seed} PRESET={preset} MONITOR={monitor} EPOCHS={epochs}
+@@ -13,10 +13,11 @@ train_entrypoint: >-
+   SKIP_TEST=true USE_WANDB=true bash scripts/sacm_x/run_sacm_x_quick.sh
+ eval_entrypoint: >-
+   GPU={gpu} TRAIN_ROOT={split_root} TRAIN_OUT={output_root}
+-  PRESET={preset} USE_WANDB=true bash scripts/sacm_x/eval_sacm_x_20.sh
++  OUTPUT_ROOT={output_root}/eval SEED={seed} PRESET={preset}
++  USE_WANDB=true bash scripts/sacm_x/eval_sacm_x_20.sh
+ protocols: [seeded5, fixed]
+ defaults:
+   preset: full
+   monitor: baseline
+-  epochs: 400
++  epochs: 800
+   init_stage2_from_stage1: true
+diff --git a/configs/models/sansa.yaml b/configs/models/sansa.yaml
+index 39e8120..5860db9 100644
+--- a/configs/models/sansa.yaml
++++ b/configs/models/sansa.yaml
+@@ -14,6 +14,7 @@ train_entrypoint: >-
+ eval_entrypoint: >-
+   python scripts/pipeline/run_baseline_test.py --method sansa
+   --protocol {test_manifest}
++  --data-root {split_root}
+   --seed {seed}
+   --checkpoint {output_root}/best_model.pth
+   --pred-root {output_root}/predictions
+diff --git a/docs/DEEP_CLOSING.md b/docs/DEEP_CLOSING.md
+index edea1de..c8ebc63 100644
+--- a/docs/DEEP_CLOSING.md
++++ b/docs/DEEP_CLOSING.md
+@@ -77,7 +77,8 @@ GPU=0 PRESET=full \
+ Fully one-click (train the shape prior if it is missing, then run SACM-X):
+ 
+ ```bash
+-GPU=0 PRESET=full OUTPUT_ROOT=results/sacm_x_dc_seed0 \
++SEED=0
++GPU=0 PRESET=full_typed SEED="$SEED" \
+   bash scripts/sacm_x/run_sacm_x_deep_closing.sh
+ ```
+ 
+@@ -90,9 +91,11 @@ This works for baseline predictions and for SACM-X predictions after the
+ fact:
+ 
+ ```bash
++SEED=0
++RUN_ROOT="results/runs/samed/default/seed${SEED}"
+ PYTHONPATH=src python scripts/tools/apply_deep_closing.py \
+-  --input results/paper/samed/seed_0/predictions \
+-  --output results/paper/samed/seed_0/predictions_deep_closing \
++  --input "$RUN_ROOT/predictions/samed" \
++  --output "$RUN_ROOT/predictions/samed_deep_closing" \
+   --checkpoint results/deep_closing/seed0_shape_prior.pth
+ ```
+ 
+diff --git a/docs/ENGINEERING.md b/docs/ENGINEERING.md
+index 69012c7..b7f1c29 100644
+--- a/docs/ENGINEERING.md
++++ b/docs/ENGINEERING.md
+@@ -33,10 +33,10 @@ SACM/                              # 项目 = 分割算法平台（框架 + 算
+ ├── datasets/                      # 协议数据: seen/unseen/novel（gitignored）
+ ├── data/sacm_3shot/               # 6 域 x 3-shot = 18 图（主协议；.gitignore 已放行）
+ ├── results/                       # 统一运行产物（gitignored）
+-│   ├── predictions/               #   预测 PNG
+-│   ├── paper/                     #   每模型/种子结果 + tables/figures
+-│   ├── logs/  wandb/  workdirs/   #   日志、W&B 本地缓存、临时训练目录
+-│   └── visualizations/
++│   ├── runs/<method>/<variant>/seed_<seed>/  # 唯一用户入口
++│   ├── tables/  figures/          #   report/figures 产物
++│   ├── logs/  wandb/              #   日志、W&B 本地缓存
++│   └── diagnostics/               #   可选诊断
+ ├── tests/                         # pytest（指标手算值、损失冒烟、增强、预设、慢速训练一步）
+ ├── docs/                          # 本手册 + 模型管理指南 + 设计书
+ ├── pyproject.toml / Makefile / README.md / .gitignore
+diff --git a/docs/REPRODUCIBILITY.md b/docs/REPRODUCIBILITY.md
+index 4180fda..f17dff5 100644
+--- a/docs/REPRODUCIBILITY.md
++++ b/docs/REPRODUCIBILITY.md
+@@ -52,10 +52,12 @@ mean ± std; do not treat a single-seed sub-point difference as evidence.
+ ## Reproducible comparison protocol
+ 
+ ```bash
++SEED=0
++RUN_ROOT="results/runs/sacm_x/full_typed/seed${SEED}"
+ PYTHONHASHSEED=0 CUBLAS_WORKSPACE_CONFIG=:4096:8 \
+ GPU=7 PRESET=full_typed EPOCHS=800 VAL_INTERVAL=1 SKIP_TEST=true \
+-OUTPUT_ROOT=results/sacm_x_typed_800 \
+-TRAIN_ROOT=data/sacm_3shot_seed0 \
++OUTPUT_ROOT="$RUN_ROOT" \
++TRAIN_ROOT="data/sacm_3shot_seed${SEED}" \
+ bash scripts/sacm_x/run_sacm_x_quick.sh
+ ```
+ 
+diff --git a/docs/SAM_REFINER.md b/docs/SAM_REFINER.md
+index 2ff3343..00151bd 100644
+--- a/docs/SAM_REFINER.md
++++ b/docs/SAM_REFINER.md
+@@ -17,10 +17,12 @@ The CLI needs the source images because SAMRefiner uses them for prompts.
+ It resolves them from the protocol manifest by `(dataset, stem)`:
+ 
+ ```bash
++SEED=0
++RUN_ROOT="results/runs/unet/default/seed${SEED}"
+ PYTHONPATH=src python scripts/tools/apply_sam_refiner.py \
+-  --input results/paper/unet/seed_0/predictions \
+-  --output results/paper/unet/seed_0/predictions_samrefiner \
+-  --manifest data/sacm_3shot_seed0/protocol_manifest.csv \
++  --input "$RUN_ROOT/predictions/unet" \
++  --output "$RUN_ROOT/predictions/unet_samrefiner" \
++  --manifest "data/sacm_3shot_seed${SEED}/protocol_manifest.csv" \
+   --checkpoint checkpoints/sam_vit_h_4b8939.pth \
+   --device cuda:0
+ ```
+diff --git a/scripts/pipeline/collect_paper_metrics.py b/scripts/pipeline/collect_paper_metrics.py
+index 439ed23..4d8818e 100644
+--- a/scripts/pipeline/collect_paper_metrics.py
++++ b/scripts/pipeline/collect_paper_metrics.py
+@@ -1,20 +1,28 @@
+ #!/usr/bin/env python3
+-"""Collect paper metrics for every baseline from the prediction contract.
++"""Collect paper metrics for a baseline from the prediction contract.
+ 
+-Reads ``data/sacm_3shot/protocol_manifest.csv`` and expects
+-``results/predictions/<method>/<dataset>/<stem>.png`` for every test image.
+-Writes per-image metrics, per-dataset mean/std, role macro averages, and
+-LaTeX/Markdown tables.
++Canonical mode (default) reads
++``results/runs/<method>/<variant>/seed_<seed>/predictions/<method>/<dataset>/
++<stem>.png`` and writes the unified eval tree under the same run root:
++``eval/<dataset>/metrics.csv``, ``eval/<dataset>/summary.csv``, and
++``eval/tables/{all_metrics,macro_metrics}.csv``.
+ 
+-Examples:
+-    # One method, four main metrics
+-    python scripts/pipeline/collect_paper_metrics.py --methods unet
++Legacy mode (``--layout legacy``) keeps the old
++``results/predictions -> results/paper`` contract for manual comparison.
+ 
+-    # All methods found under results/predictions
+-    python scripts/pipeline/collect_paper_metrics.py --metrics dice,iou,cldice,hd95
++Examples:
++    # Canonical, one method/seed
++    python scripts/pipeline/collect_paper_metrics.py \
++        --methods unet --seed 0
+ 
+     # Fast smoke test
+-    python scripts/pipeline/collect_paper_metrics.py --methods unet --datasets DRIVE
++    python scripts/pipeline/collect_paper_metrics.py \
++        --methods unet --datasets DRIVE --seed 0
++
++    # Legacy collector
++    python scripts/pipeline/collect_paper_metrics.py --layout legacy \
++        --methods unet --pred-root results/predictions \
++        --out-root results/paper
+ """
+ 
+ from __future__ import annotations
+@@ -161,8 +169,11 @@ def pred_signature(method, dataset, rows_ds, pred_root):
+     return digest.hexdigest()
+ 
+ 
+-def cache_paths(out_root, method, dataset):
+-    base = out_root / method / dataset
++def cache_paths(out_root, method, dataset, layout='legacy'):
++    if layout == 'canonical':
++        base = out_root / dataset
++    else:
++        base = out_root / method / dataset
+     return base / 'metrics.csv', base / 'metrics_meta.json'
+ 
+ 
+@@ -200,8 +211,8 @@ def load_cached(metrics_path, meta_path, metric_names, n_expected,
+     return rows
+ 
+ 
+-def save_meta(out_root, method, dataset, meta):
+-    _, meta_path = cache_paths(out_root, method, dataset)
++def save_meta(out_root, method, dataset, meta, layout='legacy'):
++    _, meta_path = cache_paths(out_root, method, dataset, layout)
+     tmp = meta_path.with_name(meta_path.name + '.tmp')
+     try:
+         with open(tmp, 'w') as f:
+@@ -248,7 +259,7 @@ def collect_chunk(method, dataset, chunk_index, rows_chunk, pred_root,
+ 
+ def collect_method(method, rows, pred_root, out_root, metric_names,
+                    max_images=None, workers=DEFAULT_WORKERS, resume=True,
+-                   status=None, chunk_size=100):
++                   status=None, chunk_size=100, layout='legacy'):
+     cache_enabled = metric_names != 'all'
+     grouped = group_rows(rows, max_images)
+     order = list(grouped)
+@@ -268,7 +279,8 @@ def collect_method(method, rows, pred_root, out_root, metric_names,
+     for dataset in order:
+         rows_ds = grouped[dataset]
+         signature = pred_signature(method, dataset, rows_ds, pred_root)
+-        metrics_path, meta_path = cache_paths(out_root, method, dataset)
++        metrics_path, meta_path = cache_paths(
++            out_root, method, dataset, layout)
+         cached = None
+         if resume and cache_enabled:
+             cached = load_cached(
+@@ -350,11 +362,20 @@ def collect_method(method, rows, pred_root, out_root, metric_names,
+                 missing.extend(dataset_missing_map[dataset])
+                 completed += 1
+                 active.discard(dataset)
+-                metrics_path, _ = cache_paths(out_root, method, dataset)
+-                fields = ['image', 'role']
+-                if per_rows_all:
+-                    fields += [k for k in per_rows_all[0]
+-                               if k not in ('image', 'role')]
++                metrics_path, _ = cache_paths(
++                    out_root, method, dataset, layout)
++                if layout == 'canonical':
++                    fields = ['dataset', 'image', 'role']
++                    if per_rows_all:
++                        fields += [k for k in per_rows_all[0]
++                                   if k not in ('dataset', 'image', 'role')]
++                    per_rows_all = [
++                        {'dataset': dataset, **row} for row in per_rows_all]
++                else:
++                    fields = ['image', 'role']
++                    if per_rows_all:
++                        fields += [k for k in per_rows_all[0]
++                                   if k not in ('image', 'role')]
+                 write_csv(metrics_path, fields, per_rows_all)
+                 if cache_enabled:
+                     meta = {
+@@ -368,7 +389,7 @@ def collect_method(method, rows, pred_root, out_root, metric_names,
+                         'generated_at_utc':
+                             datetime.now(timezone.utc).isoformat(),
+                     }
+-                    save_meta(out_root, method, dataset, meta)
++                    save_meta(out_root, method, dataset, meta, layout)
+                 print(f'{method}/{dataset}: {len(per_rows_all)} images '
+                       f'({len(dataset_missing_map[dataset])} missing)',
+                       flush=True)
+@@ -567,13 +588,15 @@ def print_summary(methods, summaries, macros, roles, metric_names):
+ 
+ def main():
+     parser = argparse.ArgumentParser(description=__doc__)
+-    parser.add_argument('--protocol', type=Path,
+-                        default=REPO_ROOT / 'data' / 'sacm_3shot' /
+-                        'protocol_manifest.csv')
+-    parser.add_argument('--pred-root', type=Path,
+-                        default=REPO_ROOT / 'results' / 'predictions')
+-    parser.add_argument('--out-root', type=Path,
+-                        default=REPO_ROOT / 'results' / 'paper')
++    parser.add_argument('--protocol', type=Path, default=None,
++                        help='protocol manifest (default: '
++                             'data/sacm_3shot_seed<seed> when present)')
++    parser.add_argument('--pred-root', type=Path, default=None,
++                        help='prediction root (canonical default: '
++                             'results/runs/<method>/<variant>/seed_<seed>/'
++                             'predictions)')
++    parser.add_argument('--out-root', type=Path, default=None,
++                        help='canonical eval root (default: .../eval)')
+     parser.add_argument('--methods', nargs='+', default=None,
+                         help='method directory names (default: discover all)')
+     parser.add_argument('--datasets', nargs='+', default=None,
+@@ -587,7 +610,7 @@ def main():
+     parser.add_argument(
+         '--allow-partial-overwrite', action='store_true',
+         help='allow a dataset/metric/max-images subset to overwrite an '
+-             'existing complete paper_metrics.csv')
++             'existing complete canonical table')
+     parser.add_argument('--workers', type=int, default=DEFAULT_WORKERS,
+                         help=f'parallel dataset workers (default: '
+                              f'{DEFAULT_WORKERS})')
+@@ -595,8 +618,42 @@ def main():
+                         help='images per worker task (default: 100)')
+     parser.add_argument('--no-resume', dest='resume', action='store_false',
+                         help='ignore per-dataset metric caches')
++    parser.add_argument(
++        '--layout', choices=['legacy', 'canonical'], default='canonical',
++        help='canonical writes <out-root>/{<DATASET>/metrics.csv,tables/*}')
++    parser.add_argument('--family', default='baseline',
++                        help='metadata written in canonical tables')
++    parser.add_argument('--variant', default='default',
++                        help='metadata written in canonical tables')
++    parser.add_argument('--seed', type=int, default=0,
++                        help='metadata written in canonical tables')
+     parser.set_defaults(resume=True)
+     args = parser.parse_args()
++    if args.layout == 'canonical' and (not args.methods
++                                       or len(args.methods) != 1):
++        raise SystemExit(
++            '--layout canonical requires exactly one --methods entry')
++    if args.protocol is None:
++        seed_protocol = (REPO_ROOT / 'data' /
++                         f'sacm_3shot_seed{args.seed}' /
++                         'protocol_manifest.csv')
++        args.protocol = (seed_protocol if seed_protocol.is_file() else
++                         REPO_ROOT / 'data' / 'sacm_3shot' /
++                         'protocol_manifest.csv')
++    if args.pred_root is None:
++        if args.layout == 'canonical':
++            run_root = (REPO_ROOT / 'results' / 'runs' / args.methods[0] /
++                        args.variant / f'seed_{args.seed}')
++            args.pred_root = run_root / 'predictions'
++        else:
++            args.pred_root = REPO_ROOT / 'results' / 'predictions'
++    if args.out_root is None:
++        if args.layout == 'canonical':
++            run_root = (REPO_ROOT / 'results' / 'runs' / args.methods[0] /
++                        args.variant / f'seed_{args.seed}')
++            args.out_root = run_root / 'eval'
++        else:
++            args.out_root = REPO_ROOT / 'results' / 'paper'
+     if args.max_images is not None and args.max_images <= 0:
+         raise SystemExit('--max-images must be positive (omit it to use all)')
+     if args.workers < 1:
+@@ -646,7 +703,7 @@ def main():
+             per_dataset, missing = collect_method(
+                 method, rows, args.pred_root, args.out_root,
+                 worker_metrics, args.max_images, args.workers,
+-                use_cache, status, args.chunk_size)
++                use_cache, status, args.chunk_size, args.layout)
+             if missing and not args.allow_missing:
+                 raise SystemExit(
+                     f'{method}: {len(missing)} missing predictions; '
+@@ -693,51 +750,117 @@ def main():
+                          and set(collect_metrics) != set(MAIN_METRICS))
+         partial_run = (bool(args.datasets) or args.max_images is not None
+                        or metric_subset)
+-        canonical_metrics = args.out_root / 'paper_metrics.csv'
+-        if (partial_run and canonical_metrics.is_file()
+-                and not args.allow_partial_overwrite):
+-            raise SystemExit(
+-                f'refusing to overwrite complete {canonical_metrics} with a '
+-                'partial run (--datasets/--metrics/--max-images); rerun the '
+-                'full protocol or pass --allow-partial-overwrite')
+-        dataset_rows = []
+-        for method in methods:
+-            for dataset, vals in sorted(all_summaries[method].items()):
+-                row = {'method': method, 'dataset': dataset,
+-                       'role': role_of(dataset, rows)}
+-                for m in metric_names:
+-                    item = vals.get(m, {})
+-                    row[f'{m}_mean'] = item.get('mean')
+-                    row[f'{m}_std'] = item.get('std')
+-                    row[f'{m}_n'] = item.get('n', 0)
+-                dataset_rows.append(row)
+-        write_csv(args.out_root / 'paper_metrics.csv',
+-                  ['method', 'dataset', 'role'] + metric_fields, dataset_rows)
+-
+-        macro_rows = []
+-        for method in methods:
+-            for role in ROLE_ORDER + ['All']:
+-                row = {'method': method, 'role': role}
+-                for m in metric_names:
+-                    item = all_macros[method][m][role]
+-                    row[f'{m}_mean'] = item['mean']
+-                    row[f'{m}_std'] = item['std']
+-                    row[f'{m}_n_datasets'] = item['n']
+-                macro_rows.append(row)
+-        macro_fields = []
+-        for m in metric_names:
+-            macro_fields += [f'{m}_mean', f'{m}_std', f'{m}_n_datasets']
+-        write_csv(args.out_root / 'paper_macro.csv',
+-                  ['method', 'role'] + macro_fields, macro_rows)
+-
+-        write_markdown(args.out_root / 'paper_tables.md',
+-                       methods, all_summaries, all_macros, metric_names)
+-        write_latex(args.out_root, methods, all_summaries, all_macros,
+-                    metric_names)
++
++        if args.layout == 'canonical':
++            tables = args.out_root / 'tables'
++            tables.mkdir(parents=True, exist_ok=True)
++            all_path = tables / 'all_metrics.csv'
++            if (partial_run and all_path.is_file()
++                    and not args.allow_partial_overwrite):
++                raise SystemExit(
++                    f'refusing to overwrite complete {all_path} with a '
++                    'partial run (--datasets/--metrics/--max-images); rerun '
++                    'the full protocol or pass --allow-partial-overwrite')
++            dataset_rows = []
++            for method in methods:
++                for dataset, vals in sorted(all_summaries[method].items()):
++                    row = {
++                        'family': args.family,
++                        'method': method,
++                        'variant': args.variant,
++                        'seed': args.seed,
++                        'dataset': dataset,
++                        'role': role_of(dataset, rows),
++                    }
++                    for m in metric_names:
++                        item = vals.get(m, {})
++                        row[f'{m}_mean'] = item.get('mean')
++                        row[f'{m}_std'] = item.get('std')
++                        row[f'{m}_n'] = item.get('n', 0)
++                    dataset_rows.append(row)
++            all_fields = (['family', 'method', 'variant', 'seed', 'dataset',
++                           'role'] + metric_fields)
++            write_csv(all_path, all_fields, dataset_rows)
++            for row in dataset_rows:
++                write_csv(args.out_root / row['dataset'] / 'summary.csv',
++                          all_fields, [row])
++
++            macro_rows = []
++            for method in methods:
++                for role in ROLE_ORDER + ['All']:
++                    for m in metric_names:
++                        item = all_macros[method][m][role]
++                        macro_rows.append({
++                            'family': args.family,
++                            'method': method,
++                            'variant': args.variant,
++                            'seed': args.seed,
++                            'role': role,
++                            'metric': m,
++                            'n_datasets': item['n'],
++                            'mean': item['mean'],
++                            'std': item['std'],
++                        })
++            write_csv(
++                tables / 'macro_metrics.csv',
++                ['family', 'method', 'variant', 'seed', 'role', 'metric',
++                 'n_datasets', 'mean', 'std'],
++                macro_rows)
++            write_markdown(tables / 'final_report.md', methods, all_summaries,
++                           all_macros, metric_names)
++            write_latex(tables, methods, all_summaries, all_macros,
++                        metric_names)
++            stats_path = tables / 'collect_stats.json'
++        else:
++            canonical_metrics = args.out_root / 'paper_metrics.csv'
++            if (partial_run and canonical_metrics.is_file()
++                    and not args.allow_partial_overwrite):
++                raise SystemExit(
++                    f'refusing to overwrite complete {canonical_metrics} with '
++                    'a partial run (--datasets/--metrics/--max-images); rerun '
++                    'the full protocol or pass --allow-partial-overwrite')
++            dataset_rows = []
++            for method in methods:
++                for dataset, vals in sorted(all_summaries[method].items()):
++                    row = {'method': method, 'dataset': dataset,
++                           'role': role_of(dataset, rows)}
++                    for m in metric_names:
++                        item = vals.get(m, {})
++                        row[f'{m}_mean'] = item.get('mean')
++                        row[f'{m}_std'] = item.get('std')
++                        row[f'{m}_n'] = item.get('n', 0)
++                    dataset_rows.append(row)
++            write_csv(args.out_root / 'paper_metrics.csv',
++                      ['method', 'dataset', 'role'] + metric_fields,
++                      dataset_rows)
++
++            macro_rows = []
++            for method in methods:
++                for role in ROLE_ORDER + ['All']:
++                    row = {'method': method, 'role': role}
++                    for m in metric_names:
++                        item = all_macros[method][m][role]
++                        row[f'{m}_mean'] = item['mean']
++                        row[f'{m}_std'] = item['std']
++                        row[f'{m}_n_datasets'] = item['n']
++                    macro_rows.append(row)
++            macro_fields = []
++            for m in metric_names:
++                macro_fields += [f'{m}_mean', f'{m}_std', f'{m}_n_datasets']
++            write_csv(args.out_root / 'paper_macro.csv',
++                      ['method', 'role'] + macro_fields, macro_rows)
++
++            write_markdown(args.out_root / 'paper_tables.md',
++                           methods, all_summaries, all_macros, metric_names)
++            write_latex(args.out_root, methods, all_summaries, all_macros,
++                        metric_names)
++            stats_path = args.out_root / 'paper_stats.json'
++
+         stats.update({
+             'protocol': str(args.protocol),
+             'pred_root': str(args.pred_root),
+             'metrics': metric_names,
++            'layout': args.layout,
+             'generated_at_utc': datetime.now(timezone.utc).isoformat(),
+             'test_rows': len(rows),
+             'macro': {
+@@ -749,7 +872,7 @@ def main():
+                 for method in methods
+             },
+         })
+-        with open(args.out_root / 'paper_stats.json', 'w') as f:
++        with open(stats_path, 'w') as f:
+             json.dump(stats, f, indent=2)
+             f.write('\n')
+         print_summary(methods, all_summaries, all_macros, all_roles,
+diff --git a/scripts/pipeline/finalize_run.py b/scripts/pipeline/finalize_run.py
+new file mode 100644
+index 0000000..eb5ebf7
+--- /dev/null
++++ b/scripts/pipeline/finalize_run.py
+@@ -0,0 +1,929 @@
++#!/usr/bin/env python3
++"""Promote one baseline/SACM-X run into the canonical results layout.
++
++The only user-facing tree is::
++
++    results/runs/<method>/<variant>/seed_<seed>/
++      best_model.pth            # file checkpoints
++      best_model                # directory checkpoints (symlink)
++      checkpoint.json           # kind + native checkpoint path
++      run_info.json
++      metrics_history.json
++      train.log
++      predictions/              # baselines, when present
++      eval/
++        <DATASET>/
++          metrics.csv           # per-image
++          summary.csv           # one canonical summary row
++          results_summary.txt ...
++        tables/
++          all_metrics.csv       # unified schema
++          macro_metrics.csv     # unified long schema
++          final_report.md
++          final_report.csv
++        run_manifest.json
++        eval.log
++        jobs.csv
++
++New runs write into this tree directly.  ``--source-train`` and
++``--source-eval`` may also point at the legacy raw trees; in that case the
++finalizer copies the artifacts into the canonical tree and leaves the source
++untouched.  With ``--cleanup`` and in-place paths it removes only the
++pipeline-specific intermediate directories after every canonical artifact has
++been written.
++"""
++
++from __future__ import annotations
++
++import argparse
++import csv
++import json
++import math
++import os
++import shutil
++import statistics
++import sys
++from dataclasses import dataclass
++from datetime import datetime
++from pathlib import Path
++
++REPO_ROOT = Path(__file__).resolve().parents[2]
++sys.path.insert(0, str(REPO_ROOT / 'src'))
++
++from core.run_layout import RUNS_ROOT, run_root as _run_root  # noqa: E402
++
++META_FIELDS = ['family', 'method', 'variant', 'seed']
++RESERVED_DIRS = {
++    '.run_status', '__pycache__', 'candidates', 'eval', 'logs',
++    'paper', 'predictions', 'tables', 'torchrun_logs', 'visualizations',
++}
++ROLE_ORDER = ('Seen', 'Unseen', 'Novel', 'All')
++MAIN_METRICS = ('dice', 'iou', 'cldice', 'hd95')
++
++
++# ---------------------------------------------------------------------------
++# small IO helpers
++# ---------------------------------------------------------------------------
++
++def _read_csv(path: Path) -> tuple[list[dict], list[str]]:
++    with path.open(newline='') as handle:
++        reader = csv.DictReader(handle)
++        return list(reader), list(reader.fieldnames or [])
++
++
++def _write_csv(path: Path, fields: list[str], rows: list[dict]) -> None:
++    path.parent.mkdir(parents=True, exist_ok=True)
++    tmp = path.with_name(path.name + '.tmp')
++    with tmp.open('w', newline='') as handle:
++        writer = csv.DictWriter(handle, fieldnames=fields,
++                                extrasaction='ignore')
++        writer.writeheader()
++        writer.writerows(rows)
++    os.replace(tmp, path)
++
++
++def _read_json(path: Path) -> dict:
++    try:
++        payload = json.loads(path.read_text())
++    except (OSError, json.JSONDecodeError):
++        return {}
++    return payload if isinstance(payload, dict) else {}
++
++
++def _same_path(left: Path | None, right: Path | None) -> bool:
++    if left is None or right is None:
++        return False
++    try:
++        return left.resolve() == right.resolve()
++    except OSError:
++        return False
++
++
++def _link_or_copy(source: Path, target: Path) -> None:
++    """Hardlink a file when possible; never duplicate a 1.4 GiB checkpoint."""
++    if _same_path(source, target):
++        return
++    target.parent.mkdir(parents=True, exist_ok=True)
++    if target.is_symlink() or target.is_file():
++        target.unlink()
++    try:
++        os.link(source, target)
++    except OSError:
++        shutil.copy2(source, target)
++
++
++def _copy_file(source: Path | None, target: Path) -> None:
++    if source is not None and source.is_file() and not _same_path(source, target):
++        _link_or_copy(source, target)
++
++
++def _merge_or_move(source: Path, target: Path, cleanup: bool) -> None:
++    """Expose a dataset directory at ``target`` while preserving sidecars."""
++    if _same_path(source, target):
++        return
++    target.parent.mkdir(parents=True, exist_ok=True)
++    if target.exists():
++        shutil.copytree(source, target, dirs_exist_ok=True)
++        if cleanup:
++            shutil.rmtree(source)
++        return
++    if cleanup:
++        shutil.move(str(source), str(target))
++    else:
++        # Copy rather than symlink: the canonical metrics.csv is rewritten
++        # in place, and a symlink would mutate the legacy source directory.
++        shutil.copytree(source, target)
++
++
++def _pointer_path(path: Path) -> Path:
++    text = path.read_text().strip().splitlines()
++    value = Path(text[0]) if text else path
++    if not value.is_absolute():
++        value = (path.parent / value).resolve()
++    return value
++
++
++# ---------------------------------------------------------------------------
++# checkpoint + metadata
++# ---------------------------------------------------------------------------
++
++@dataclass
++class CheckpointInfo:
++    native: Path
++    kind: str  # 'file' or 'directory'
++
++
++def _checkpoint_candidate(path: Path | None) -> CheckpointInfo | None:
++    if path is None or not path.exists():
++        return None
++    if path.is_dir():
++        return CheckpointInfo(path, 'directory')
++    if path.suffix == '.txt':
++        resolved = _pointer_path(path)
++        kind = 'directory' if resolved.is_dir() else 'file'
++        return CheckpointInfo(resolved, kind)
++    return CheckpointInfo(path, 'file')
++
++
++def _resolve_checkpoint(source_train: Path, variant: str,
++                        explicit: Path | None) -> CheckpointInfo:
++    found = _checkpoint_candidate(explicit)
++    if found is not None:
++        return found
++    candidates = [
++        source_train / 'best_model.pth',
++        source_train / variant / 'best_model.pth',
++        source_train / 'SGDL_best_model.pth',
++        source_train / variant / 'SGDL_best_model.pth',
++        source_train / 'nnunet_model_dir.txt',
++        source_train / variant / 'nnunet_model_dir.txt',
++        source_train / 'knowsam_model.txt',
++        source_train / variant / 'knowsam_model.txt',
++    ]
++    for path in candidates:
++        found = _checkpoint_candidate(path)
++        if found is not None:
++            return found
++    checkpoints = sorted(source_train.glob('*/best_model.pth'))
++    if len(checkpoints) == 1:
++        return CheckpointInfo(checkpoints[0], 'file')
++    raise SystemExit(
++        f'no checkpoint under {source_train} (variant={variant}); '
++        'pass --checkpoint explicitly')
++
++
++def _promote_checkpoint(info: CheckpointInfo, run_root: Path) -> Path:
++    """Put the checkpoint at a stable canonical path and describe it."""
++    run_root.mkdir(parents=True, exist_ok=True)
++    if info.kind == 'directory':
++        target = run_root / 'best_model'
++        if not _same_path(info.native, target):
++            if target.is_symlink():
++                if _same_path(target, info.native):
++                    pass
++                else:
++                    target.unlink()
++            if not target.exists():
++                try:
++                    os.symlink(info.native.resolve(), target,
++                               target_is_directory=True)
++                except OSError:
++                    shutil.copytree(info.native, target)
++    else:
++        target = run_root / 'best_model.pth'
++        _link_or_copy(info.native, target)
++    payload = {
++        'kind': info.kind,
++        'native': str(info.native.resolve()),
++        'canonical': str(target.resolve()),
++    }
++    (run_root / 'checkpoint.json').write_text(
++        json.dumps(payload, indent=2) + '\n')
++    return target
++
++
++def _find_file(*candidates: Path | None) -> Path | None:
++    for path in candidates:
++        if path is not None and path.is_file():
++            return path
++    return None
++
++
++def _read_source_run_info(source_train: Path, variant: str,
++                          checkpoint: CheckpointInfo) -> tuple[dict, Path | None]:
++    candidates = [
++        checkpoint.native.parent / 'run_info.json',
++        source_train / variant / 'run_info.json',
++        source_train / 'run_info.json',
++    ]
++    for path in candidates:
++        payload = _read_json(path)
++        if payload:
++            return payload, path
++    return {}, None
++
++
++# ---------------------------------------------------------------------------
++# evaluation artifacts
++# ---------------------------------------------------------------------------
++
++def _dataset_dirs(source_eval: Path, method: str,
++                  variant: str) -> list[Path]:
++    """Find raw per-dataset result dirs across current and legacy layouts."""
++    roots = [source_eval / variant, source_eval / method, source_eval]
++    found: dict[str, Path] = {}
++    for root in roots:
++        if not root.is_dir():
++            continue
++        for child in sorted(root.iterdir()):
++            if not child.is_dir() or child.name in RESERVED_DIRS:
++                continue
++            if child.name in found:
++                continue
++            if ((child / 'metrics.csv').is_file()
++                    or (child / 'results_summary.txt').is_file()):
++                found[child.name] = child
++    return [found[name] for name in sorted(found)]
++
++
++def _aggregate_source(source_eval: Path) -> Path | None:
++    return _find_file(
++        source_eval / 'tables' / 'all_metrics.csv',
++        source_eval / 'all_metrics.csv',
++        source_eval / 'paper_metrics.csv',
++    )
++
++
++def _is_metric_key(key: str) -> bool:
++    return key.endswith(('_mean', '_std', '_n'))
++
++
++def _resolve_protocol(args: argparse.Namespace, source_info: dict,
++                      source_train: Path) -> Path | None:
++    if args.protocol:
++        path = Path(args.protocol)
++        return path if path.is_file() else path
++    data_root = source_info.get('data_root')
++    candidates = []
++    if data_root:
++        candidates.append(Path(str(data_root)) / 'protocol_manifest.csv')
++    candidates += [
++        source_train / 'protocol_manifest.csv',
++        source_train.parent / 'protocol_manifest.csv',
++    ]
++    for candidate in candidates:
++        if candidate.is_file():
++            return candidate
++    return None
++
++
++def _role_from_protocol(protocol: Path | None) -> dict[str, str]:
++    roles: dict[str, str] = {}
++    if protocol is None or not protocol.is_file():
++        return roles
++    try:
++        with protocol.open(newline='') as handle:
++            for row in csv.DictReader(handle):
++                if not str(row.get('split', '')).endswith('_test'):
++                    continue
++                dataset = str(row.get('dataset', '')).strip()
++                role = str(row.get('role', '')).strip()
++                if dataset and role:
++                    roles[dataset] = role.capitalize()
++    except OSError:
++        pass
++    return roles
++
++
++def _per_image_rows(dataset_dir: Path) -> tuple[list[dict], list[str]]:
++    path = dataset_dir / 'metrics.csv'
++    if not path.is_file():
++        return [], []
++    try:
++        return _read_csv(path)
++    except OSError:
++        return [], []
++
++
++def _numeric_columns(fields: list[str]) -> list[str]:
++    return [key for key in fields
++            if key not in ('dataset', 'image', 'role', 'family', 'method',
++                           'variant', 'seed', 'preset', 'selected_head')
++            and not key.endswith(('_mean', '_std', '_n', '_meta'))]
++
++
++def _summary_from_rows(rows: list[dict], metrics: list[str]) -> dict[str, dict]:
++    summary: dict[str, dict] = {}
++    for metric in metrics:
++        values = []
++        for row in rows:
++            try:
++                value = float(row.get(metric, 'nan'))
++            except (TypeError, ValueError):
++                continue
++            if math.isfinite(value):
++                values.append(value)
++        summary[metric] = {
++            'mean': statistics.fmean(values) if values else float('nan'),
++            'std': statistics.pstdev(values) if len(values) > 1 else 0.0,
++            'n': len(values),
++        }
++    return summary
++
++
++def _aggregate_rows(source: Path | None, variant: str) -> tuple[list[dict], list[str]]:
++    if source is None:
++        return [], []
++    rows, fields = _read_csv(source)
++    filtered = []
++    for row in rows:
++        for key in ('variant', 'preset'):
++            value = row.get(key)
++            if value not in (None, '', variant):
++                break
++        else:
++            filtered.append(row)
++    return filtered, fields
++
++
++def _canonical_all_rows(aggregate_rows: list[dict],
++                        aggregate_fields: list[str],
++                        dataset_dirs: list[Path],
++                        roles: dict[str, str],
++                        family: str,
++                        method: str,
++                        variant: str,
++                        seed: int) -> tuple[list[dict], list[str]]:
++    """Build the unified all_metrics table.
++
++    Source aggregate means/std are authoritative; per-image metrics fill in
++    missing datasets, roles, and sample counts.
++    """
++    by_dataset: dict[str, dict] = {}
++    raw_by_dataset: dict[str, list[dict]] = {}
++    for dataset_dir in dataset_dirs:
++        rows, fields = _per_image_rows(dataset_dir)
++        raw_by_dataset[dataset_dir.name] = rows
++        if not rows:
++            continue
++        metrics = _numeric_columns(fields)
++        summary = _summary_from_rows(rows, metrics)
++        item = {
++            'dataset': dataset_dir.name,
++            'role': '',
++        }
++        for role_key in ('role',):
++            values = [str(row.get(role_key, '')).strip() for row in rows]
++            values = [value for value in values if value]
++            if values:
++                item['role'] = values[0].capitalize()
++        for metric in metrics:
++            item[f'{metric}_mean'] = summary[metric]['mean']
++            item[f'{metric}_std'] = summary[metric]['std']
++            item[f'{metric}_n'] = summary[metric]['n']
++        by_dataset[dataset_dir.name] = item
++
++    for row in aggregate_rows:
++        dataset = str(row.get('dataset', '')).strip()
++        if not dataset:
++            continue
++        item = by_dataset.setdefault(dataset, {'dataset': dataset,
++                                               'role': ''})
++        role = str(row.get('role', '')).strip()
++        if role:
++            item['role'] = role.capitalize()
++        for key in aggregate_fields:
++            if _is_metric_key(key):
++                value = row.get(key, '')
++                # Per-image metrics are authoritative and give every family
++                # the same mean/std/n convention.  The aggregate row fills
++                # metrics that the per-image table does not expose.
++                if (value not in ('', None)
++                        and (key not in item
++                             or item[key] in ('', None))):
++                    item[key] = value
++
++    for name, raw in raw_by_dataset.items():
++        if not raw:
++            continue
++        item = by_dataset.setdefault(name, {'dataset': name, 'role': ''})
++        fields = list(raw[0]) if raw else []
++        metrics = _numeric_columns(fields)
++        for metric in metrics:
++            key = f'{metric}_n'
++            if key not in item or item[key] in ('', None):
++                item[key] = sum(
++                    1 for row in raw
++                    if math.isfinite(_float(row.get(metric))))
++
++    for dataset, item in by_dataset.items():
++        if not item.get('role'):
++            item['role'] = roles.get(dataset, '')
++        item.update({
++            'family': family,
++            'method': method,
++            'variant': variant,
++            'seed': seed,
++        })
++
++    # Canonical paper tables always have the same four metrics and the same
++    # column order, regardless of family or how many extra metrics the raw
++    # evaluator produced.  Extra metrics remain in per-image metrics.csv.
++    fields = META_FIELDS + ['dataset', 'role']
++    for metric in MAIN_METRICS:
++        fields += [f'{metric}_mean', f'{metric}_std', f'{metric}_n']
++    rows = []
++    for dataset in sorted(by_dataset):
++        item = by_dataset[dataset]
++        row = {key: item.get(key, '') for key in fields}
++        rows.append(row)
++    return rows, fields
++
++
++def _float(value) -> float:
++    try:
++        return float(value)
++    except (TypeError, ValueError):
++        return float('nan')
++
++
++def _macro_rows(all_rows: list[dict], fields: list[str],
++                family: str, method: str, variant: str,
++                seed: int) -> list[dict]:
++    metric_bases = sorted({
++        key[:-5] for key in fields
++        if key.endswith('_mean') and key != 'mean'
++    })
++    rows: list[dict] = []
++    present_roles = {str(row.get('role', '')) for row in all_rows}
++    roles = [role for role in ROLE_ORDER if role in present_roles or role == 'All']
++    if 'All' not in present_roles and all_rows:
++        roles = [role for role in roles if role != 'All'] + ['All']
++    for role in roles:
++        if role == 'All':
++            group = list(all_rows)
++        else:
++            group = [row for row in all_rows if row.get('role') == role]
++            if not group and role != 'All':
++                continue
++        for metric in metric_bases:
++            values = []
++            for row in group:
++                value = _float(row.get(f'{metric}_mean'))
++                if math.isfinite(value):
++                    values.append(value)
++            if not values:
++                continue
++            rows.append({
++                'family': family,
++                'method': method,
++                'variant': variant,
++                'seed': seed,
++                'role': role,
++                'metric': metric,
++                'n_datasets': len(values),
++                'mean': statistics.fmean(values),
++                'std': (statistics.stdev(values)
++                        if len(values) > 1 else 0.0),
++            })
++    return rows
++
++
++def _normalise_dataset_metrics(dataset_dir: Path, target: Path,
++                               dataset: str, role: str) -> None:
++    rows, fields = _per_image_rows(dataset_dir)
++    if not rows:
++        return
++    metrics = [key for key in fields
++               if key not in ('dataset', 'image', 'role')]
++    out_fields = ['dataset', 'image', 'role'] + metrics
++    out_rows = []
++    for row in rows:
++        item = {
++            'dataset': dataset,
++            'image': row.get('image', ''),
++            'role': str(row.get('role', '') or role),
++        }
++        item.update({key: row.get(key, '') for key in metrics})
++        out_rows.append(item)
++    _write_csv(target / 'metrics.csv', out_fields, out_rows)
++
++
++def _write_csv_if_missing(source: Path | None, target: Path) -> None:
++    _copy_file(source, target)
++
++
++def _write_report(path: Path, all_rows: list[dict],
++                  macro_rows: list[dict], family: str, method: str,
++                  variant: str, seed: int) -> None:
++    metrics = [metric for metric in MAIN_METRICS
++               if any(f'{metric}_mean' in row for row in all_rows)]
++    lines = [
++        '# Unified run report',
++        '',
++        f'- Family: `{family}`',
++        f'- Method: `{method}`',
++        f'- Variant: `{variant}`',
++        f'- Seed: `{seed}`',
++        '',
++        'Values are fractions for Dice/IoU/clDice and pixels for HD95.',
++        '',
++        '## Macro (equal dataset weight)',
++        '',
++        '| Role | ' + ' | '.join(metrics) + ' | n |',
++        '|---|' + '---:|' * len(metrics) + '---:|',
++    ]
++    macro_by = {(row.get('role'), row.get('metric')): row
++                for row in macro_rows}
++    present_roles = {str(row.get('role', '')) for row in all_rows}
++    roles = [role for role in ROLE_ORDER
++             if role == 'All' or role in present_roles]
++    for role in roles:
++        cells = []
++        count = ''
++        for metric in metrics:
++            row = macro_by.get((role, metric))
++            cells.append('—' if row is None else f"{_float(row.get('mean')):.4f}")
++            if row is not None:
++                count = str(row.get('n_datasets', ''))
++        lines.append(f'| {role} | ' + ' | '.join(cells) + f' | {count} |')
++
++    lines += [
++        '',
++        '## Per dataset',
++        '',
++        '| Dataset | Role | ' + ' | '.join(metrics) + ' |',
++        '|---|---|' + '---:|' * len(metrics),
++    ]
++    for row in all_rows:
++        cells = []
++        for metric in metrics:
++            value = _float(row.get(f'{metric}_mean'))
++            cells.append('—' if not math.isfinite(value) else f'{value:.4f}')
++        lines.append(f"| {row.get('dataset', '')} | {row.get('role', '')} | "
++                     + ' | '.join(cells) + ' |')
++    path.write_text('\n'.join(lines) + '\n')
++
++
++def _write_report_csv(path: Path, all_rows: list[dict]) -> None:
++    fields = ['dataset', 'role']
++    for metric in MAIN_METRICS:
++        if any(f'{metric}_mean' in row for row in all_rows):
++            fields.append(metric)
++    rows = []
++    for row in all_rows:
++        item = {'dataset': row.get('dataset', ''),
++                'role': row.get('role', '')}
++        for metric in MAIN_METRICS:
++            item[metric] = row.get(f'{metric}_mean', '')
++        rows.append(item)
++    _write_csv(path, fields, rows)
++
++
++# ---------------------------------------------------------------------------
++# logs + jobs
++# ---------------------------------------------------------------------------
++
++def _promote_train_log(source_train: Path, variant: str,
++                       checkpoint: CheckpointInfo, run_root: Path) -> None:
++    source = _find_file(
++        checkpoint.native.parent / 'train.log',
++        checkpoint.native.parent / 'run.log',
++        source_train / 'train.log',
++        source_train / 'run.log',
++        source_train / variant / 'train.log',
++        source_train / variant / 'run.log',
++    )
++    _copy_file(source, run_root / 'train.log')
++
++
++def _promote_eval_log(source_eval: Path, source_train: Path,
++                      variant: str, eval_root: Path,
++                      cleanup: bool) -> None:
++    """Move the planner's live log when possible.
++
++    The planner redirects the child process to ``<run>/eval.log``.  Moving
++    that open file to ``eval/eval.log`` keeps the parent's file descriptor
++    writing into the canonical file after the child returns.  Copying a
++    still-open log would truncate the final lines.
++    """
++    target = eval_root / 'eval.log'
++    live = source_eval.parent / 'eval.log'
++    if (source_eval.name == 'eval' and live.is_file()
++            and not _same_path(live, target)):
++        if cleanup:
++            shutil.move(str(live), str(target))
++        else:
++            _copy_file(live, target)
++        if target.is_file():
++            return
++    source = _find_file(
++        source_eval / 'eval.log',
++        source_eval / variant / 'run_eval.log',
++        source_eval / 'run_eval.log',
++        source_train / 'eval.log',
++        source_train / variant / 'run_eval.log',
++    )
++    _copy_file(source, target)
++
++
++def _read_jobs(path: Path | None, phase: str) -> list[dict]:
++    if path is None or not path.is_file():
++        return []
++    try:
++        rows, _ = _read_csv(path)
++    except OSError:
++        return []
++    out = []
++    for row in rows:
++        out.append({
++            'phase': row.get('phase') or phase,
++            'preset': row.get('preset', ''),
++            'dataset': row.get('dataset', ''),
++            'gpu': row.get('gpu', ''),
++            'status': row.get('status', ''),
++        })
++    return out
++
++
++def _canonical_jobs(source_train: Path, source_eval: Path, variant: str,
++                    datasets: list[str], status: str,
++                    eval_root: Path) -> None:
++    rows = []
++    rows.extend(_read_jobs(source_eval / 'jobs_eval.csv', 'eval'))
++    rows.extend(_read_jobs(source_eval / 'jobs.csv', 'eval'))
++    rows.extend(_read_jobs(source_train / 'jobs.csv', 'train'))
++    if not rows:
++        for dataset in datasets:
++            rows.append({'phase': 'eval', 'preset': variant,
++                         'dataset': dataset, 'gpu': '', 'status': status})
++        if not datasets:
++            rows.append({'phase': 'train', 'preset': variant,
++                         'dataset': '', 'gpu': '', 'status': status})
++    _write_csv(eval_root / 'jobs.csv',
++               ['phase', 'preset', 'dataset', 'gpu', 'status'], rows)
++
++
++# ---------------------------------------------------------------------------
++# cleanup
++# ---------------------------------------------------------------------------
++
++def _safe_unlink(path: Path) -> None:
++    try:
++        if path.is_symlink() or path.is_file():
++            path.unlink()
++        elif path.is_dir():
++            shutil.rmtree(path)
++    except OSError:
++        pass
++
++
++def _cleanup(source_train: Path, source_eval: Path, run_root: Path,
++             eval_root: Path, variant: str, method: str,
++             checkpoint: CheckpointInfo) -> None:
++    in_place_train = _same_path(source_train, run_root)
++    in_place_eval = _same_path(source_eval, eval_root)
++
++    if in_place_eval:
++        tables = eval_root / 'tables'
++        tables.mkdir(parents=True, exist_ok=True)
++        # Preserve useful legacy reports/tables, then remove the raw views.
++        for tex in sorted(eval_root.glob('table_*.tex')):
++            _copy_file(tex, tables / tex.name)
++            _safe_unlink(tex)
++        _copy_file(eval_root / 'paper_tables.md', tables / 'source_report.md')
++        _copy_file(eval_root / 'paper_stats.json',
++                   tables / 'collect_stats.json')
++        for name in ('paper_metrics.csv', 'paper_macro.csv',
++                     'paper_tables.md', 'paper_stats.json',
++                     'jobs_eval.csv', 'run_eval.log',
++                     'run_manifest.failed.json'):
++            _safe_unlink(eval_root / name)
++        for name in (variant, method):
++            raw = eval_root / name
++            if (raw.is_dir() and not (raw / 'metrics.csv').is_file()
++                    and name not in RESERVED_DIRS):
++                _safe_unlink(raw)
++        _safe_unlink(eval_root / 'run_eval.log')
++
++    if in_place_train:
++        # Directory checkpoints may live in this intermediate dir; never
++        # remove their symlink target.
++        if checkpoint.kind == 'directory' and _is_below(
++                checkpoint.native, source_train / variant):
++            pass
++        else:
++            _safe_unlink(source_train / variant)
++        _safe_unlink(source_train / 'run_manifest.json')
++        _safe_unlink(source_train / 'jobs.csv')
++        _safe_unlink(source_train / 'eval.log')
++
++
++def _is_below(path: Path, parent: Path) -> bool:
++    try:
++        path.resolve().relative_to(parent.resolve())
++        return True
++    except (OSError, ValueError):
++        return False
++
++
++# ---------------------------------------------------------------------------
++# main
++# ---------------------------------------------------------------------------
++
++def finalize(args: argparse.Namespace) -> Path:
++    source_train = Path(args.source_train)
++    source_eval = Path(args.source_eval)
++    out_root = Path(args.out_root)
++    run_root = _run_root(args.method, args.variant, int(args.seed),
++                         root=out_root)
++    eval_root = run_root / 'eval'
++    tables = eval_root / 'tables'
++    run_root.mkdir(parents=True, exist_ok=True)
++    eval_root.mkdir(parents=True, exist_ok=True)
++    tables.mkdir(parents=True, exist_ok=True)
++
++    checkpoint = _resolve_checkpoint(
++        source_train, args.variant, args.checkpoint)
++    canonical_checkpoint = _promote_checkpoint(checkpoint, run_root)
++    source_info, source_info_path = _read_source_run_info(
++        source_train, args.variant, checkpoint)
++    protocol_path = _resolve_protocol(args, source_info, source_train)
++
++    history_source = _find_file(
++        checkpoint.native.parent / 'metrics_history.json',
++        source_train / args.variant / 'metrics_history.json',
++        source_train / 'metrics_history.json',
++    )
++    _copy_file(history_source, run_root / 'metrics_history.json')
++    history = _read_json(run_root / 'metrics_history.json')
++
++    _promote_train_log(source_train, args.variant, checkpoint, run_root)
++    _promote_eval_log(source_eval, source_train, args.variant, eval_root,
++                      cleanup=bool(args.cleanup))
++
++    dataset_dirs = _dataset_dirs(source_eval, args.method, args.variant)
++    roles = _role_from_protocol(protocol_path)
++    aggregate_source = _aggregate_source(source_eval)
++    aggregate_rows, aggregate_fields = _aggregate_rows(
++        aggregate_source, args.variant)
++    all_rows, all_fields = _canonical_all_rows(
++        aggregate_rows, aggregate_fields, dataset_dirs, roles,
++        args.family, args.method, args.variant, int(args.seed))
++    _write_csv(tables / 'all_metrics.csv', all_fields, all_rows)
++
++    macro_rows = _macro_rows(all_rows, all_fields, args.family, args.method,
++                             args.variant, int(args.seed))
++    _write_csv(
++        tables / 'macro_metrics.csv',
++        ['family', 'method', 'variant', 'seed', 'role', 'metric',
++         'n_datasets', 'mean', 'std'],
++        macro_rows)
++
++    all_by_dataset = {row.get('dataset'): row for row in all_rows}
++    for dataset_dir in dataset_dirs:
++        dataset = dataset_dir.name
++        target = eval_root / dataset
++        _merge_or_move(dataset_dir, target, cleanup=bool(args.cleanup))
++        row = all_by_dataset.get(dataset, {})
++        _normalise_dataset_metrics(
++            target, target, dataset, str(row.get('role', '')))
++        if row:
++            _write_csv(target / 'summary.csv', all_fields, [row])
++        for sidecar in ('results_summary.txt', 'metrics_meta.json',
++                        'head_audit.csv', 'threshold_audit.csv',
++                        'head_full_audit.csv', 'head_threshold_audit.csv'):
++            _copy_file(dataset_dir / sidecar, target / sidecar)
++        candidates = dataset_dir / 'candidates'
++        if candidates.is_dir() and not (target / 'candidates').exists():
++            try:
++                os.symlink(candidates.resolve(), target / 'candidates',
++                           target_is_directory=True)
++            except OSError:
++                pass
++
++    report_source = _find_file(
++        source_eval / 'tables' / 'final_report.md',
++        source_eval / 'paper_tables.md',
++        source_eval / 'tables' / 'report.md',
++    )
++    if report_source is not None and not _same_path(
++            report_source, tables / 'final_report.md'):
++        _copy_file(report_source, tables / 'source_report.md')
++    _write_report(tables / 'final_report.md', all_rows, macro_rows,
++                  args.family, args.method, args.variant, int(args.seed))
++    _write_report_csv(tables / 'final_report.csv', all_rows)
++
++    _canonical_jobs(source_train, source_eval, args.variant,
++                    [row.get('dataset') for row in all_rows],
++                    args.status or ('done' if all_rows else 'train_only'),
++                    eval_root)
++
++    best_epoch = source_info.get('best_epoch')
++    last_epoch = source_info.get('last_epoch')
++    if last_epoch is None:
++        entries = history.get('history') or []
++        last_epoch = entries[-1].get('epoch') if entries else None
++    if best_epoch is None:
++        best_epoch = history.get('best_epoch')
++
++    run_info = dict(source_info)
++    run_info.update({
++        'family': args.family,
++        'method': args.method,
++        'variant': args.variant,
++        'seed': int(args.seed),
++        'checkpoint': str(canonical_checkpoint.resolve()),
++        'checkpoint_kind': checkpoint.kind,
++        'native_checkpoint': str(checkpoint.native.resolve()),
++        'run_root': str(run_root.resolve()),
++        'eval_root': str(eval_root.resolve()),
++        'best_epoch': best_epoch,
++        'last_epoch': last_epoch,
++        'source_train': str(source_train.resolve()),
++        'source_eval': str(source_eval.resolve()),
++        'source_run_info': (str(source_info_path.resolve())
++                            if source_info_path else None),
++        'protocol': (str(protocol_path) if protocol_path else None),
++        'status': args.status or ('done' if all_rows else 'train_only'),
++        'generated_at': datetime.now().isoformat(timespec='seconds'),
++    })
++    (run_root / 'run_info.json').write_text(
++        json.dumps(run_info, indent=2, default=str) + '\n')
++
++    manifest = {
++        'family': args.family,
++        'method': args.method,
++        'variant': args.variant,
++        'seed': int(args.seed),
++        'status': run_info['status'],
++        'run_root': str(run_root.resolve()),
++        'checkpoint': str(canonical_checkpoint.resolve()),
++        'checkpoint_kind': checkpoint.kind,
++        'native_checkpoint': str(checkpoint.native.resolve()),
++        'run_info': str((run_root / 'run_info.json').resolve()),
++        'eval_root': str(eval_root.resolve()),
++        'metrics_csv': str((tables / 'all_metrics.csv').resolve()),
++        'macro_csv': str((tables / 'macro_metrics.csv').resolve()),
++        'final_report': str((tables / 'final_report.md').resolve()),
++        'datasets': [row.get('dataset') for row in all_rows],
++        'protocol': (str(protocol_path) if protocol_path else None),
++        'pred_root': args.pred_root,
++        'source_train': str(source_train.resolve()),
++        'source_eval': str(source_eval.resolve()),
++        'generated_at': datetime.now().isoformat(timespec='seconds'),
++    }
++    (eval_root / 'run_manifest.json').write_text(
++        json.dumps(manifest, indent=2, default=str) + '\n')
++
++    if args.cleanup:
++        _cleanup(source_train, source_eval, run_root, eval_root,
++                 args.variant, args.method, checkpoint)
++    return run_root
++
++
++def main() -> int:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument('--family', required=True,
++                        choices=['baseline', 'sacm_x'])
++    parser.add_argument('--method', required=True)
++    parser.add_argument('--variant', default='default')
++    parser.add_argument('--seed', type=int, required=True)
++    parser.add_argument('--source-train', type=Path, required=True)
++    parser.add_argument('--source-eval', type=Path, required=True)
++    parser.add_argument('--checkpoint', type=Path, default=None)
++    parser.add_argument('--out-root', type=Path, default=RUNS_ROOT)
++    parser.add_argument('--cleanup', action='store_true',
++                        help='remove pipeline-specific intermediates after '
++                             'the canonical tree is complete')
++    parser.add_argument('--protocol', default=None)
++    parser.add_argument('--pred-root', default=None)
++    parser.add_argument('--status', default=None)
++    args = parser.parse_args()
++    run_root = finalize(args)
++    print(f'unified run: {run_root}')
++    return 0
++
++
++if __name__ == '__main__':
++    raise SystemExit(main())
+diff --git a/scripts/pipeline/index_runs.py b/scripts/pipeline/index_runs.py
+index 02fbba5..c6115b8 100644
+--- a/scripts/pipeline/index_runs.py
++++ b/scripts/pipeline/index_runs.py
+@@ -1,15 +1,14 @@
+ #!/usr/bin/env python3
+-"""Build one seed-aware index over SACM-X and baseline run manifests.
++"""Build one seed-aware index over canonical baseline/SACM-X run manifests.
+ 
+-The two pipelines keep their original storage layouts (baseline predictions
+-and paper tables vs SACM-X per-dataset metrics).  This script does not move
+-or rewrite either layout; it reads ``run_manifest.json`` and emits one CSV so
+-a user can locate every method/seed/checkpoint/metrics file in one place.
++Every current run lives at ``results/runs/<method>/<variant>/seed_<seed>``.
++This script reads each ``eval/run_manifest.json`` (and legacy manifests when
++explicitly requested) and emits one CSV so a user can locate every
++method/variant/seed checkpoint and metrics table in one place.
+ 
+ Usage:
+-    python scripts/pipeline/index_runs.py \
+-        --roots results/paper results/sacm_x \
+-        --out results/runs_index.csv
++    python scripts/pipeline/index_runs.py
++    # legacy migration: --roots results/runs results/paper results/sacm_x
+ """
+ 
+ from __future__ import annotations
+@@ -21,8 +20,8 @@ from pathlib import Path
+ 
+ 
+ FIELDS = [
+-    'family', 'method', 'seed', 'status', 'checkpoint', 'best_epoch',
+-    'eval_root', 'metrics_csv', 'macro_csv', 'manifest',
++    'family', 'method', 'variant', 'seed', 'status', 'checkpoint',
++    'best_epoch', 'eval_root', 'metrics_csv', 'macro_csv', 'manifest',
+ ]
+ 
+ 
+@@ -50,6 +49,7 @@ def _baseline_row(manifest: dict, path: Path) -> dict:
+     return {
+         'family': 'baseline',
+         'method': manifest.get('method', path.parent.name),
++        'variant': manifest.get('variant', 'default'),
+         'seed': manifest.get('seed'),
+         'status': manifest.get('status', 'unknown'),
+         'checkpoint': checkpoint,
+@@ -61,6 +61,23 @@ def _baseline_row(manifest: dict, path: Path) -> dict:
+     }
+ 
+ 
++def _canonical_row(manifest: dict, path: Path) -> dict:
++    status = str(manifest.get('status', 'done'))
++    return {
++        'family': manifest.get('family', ''),
++        'method': manifest.get('method', ''),
++        'variant': manifest.get('variant', 'default'),
++        'seed': manifest.get('seed'),
++        'status': status,
++        'checkpoint': manifest.get('checkpoint'),
++        'best_epoch': _best_epoch(manifest.get('checkpoint')),
++        'eval_root': manifest.get('eval_root', str(path.parent)),
++        'metrics_csv': manifest.get('metrics_csv'),
++        'macro_csv': manifest.get('macro_csv'),
++        'manifest': str(path),
++    }
++
++
+ def _sacm_x_row(manifest: dict, path: Path) -> dict:
+     eval_root = manifest.get('output_root', str(path.parent))
+     checkpoints = manifest.get('checkpoints') or {}
+@@ -68,26 +85,70 @@ def _sacm_x_row(manifest: dict, path: Path) -> dict:
+         next(iter(checkpoints.values())) if len(checkpoints) == 1 else None)
+     jobs = manifest.get('jobs') or []
+     statuses = {str(row.get('status', '')) for row in jobs}
+-    if statuses and statuses <= {'done', 'train_only'}:
++    if statuses and statuses == {'done'}:
+         status = 'done'
++    elif statuses and statuses <= {'done', 'train_only'}:
++        status = 'train_only'
++    elif 'missing_checkpoint' in statuses:
++        status = 'missing_checkpoint'
+     elif 'failed' in ' '.join(statuses).lower():
+         status = 'failed'
+     else:
+         status = 'unknown'
++    metrics = Path(eval_root) / 'tables' / 'all_metrics.csv'
++    macro = Path(eval_root) / 'tables' / 'macro_metrics.csv'
++    presets = manifest.get('presets') or [manifest.get('variant', 'default')]
+     return {
+         'family': 'sacm_x',
+         'method': 'sacm_x',
++        'variant': presets[0] if len(presets) == 1 else 'default',
+         'seed': manifest.get('seed'),
+         'status': status,
+         'checkpoint': checkpoint,
+         'best_epoch': _best_epoch(checkpoint),
+         'eval_root': eval_root,
+-        'metrics_csv': str(Path(eval_root) / 'tables' / 'all_metrics.csv'),
+-        'macro_csv': str(Path(eval_root) / 'tables' / 'macro_metrics.csv'),
++        'metrics_csv': str(metrics) if metrics.is_file() else None,
++        'macro_csv': str(macro) if macro.is_file() else None,
+         'manifest': str(path),
+     }
+ 
+ 
++def _train_only_rows(root: Path) -> list[dict]:
++    """Index canonical runs that have a checkpoint but no eval manifest yet."""
++    rows: list[dict] = []
++    for info_path in sorted(root.glob('*/*/seed_*/run_info.json')):
++        run_dir = info_path.parent
++        if (run_dir / 'eval' / 'run_manifest.json').is_file():
++            continue
++        payload = _load(info_path)
++        if payload is None:
++            continue
++        checkpoint = run_dir / 'best_model.pth'
++        if not checkpoint.exists():
++            checkpoint = run_dir / 'best_model'
++        if not checkpoint.exists():
++            value = payload.get('checkpoint')
++            if value:
++                checkpoint = Path(str(value))
++        if not checkpoint.exists():
++            continue
++        failed = (run_dir / 'eval' / 'run_manifest.failed.json').is_file()
++        rows.append({
++            'family': payload.get('family', ''),
++            'method': payload.get('method', run_dir.parent.parent.name),
++            'variant': payload.get('variant', run_dir.parent.name),
++            'seed': payload.get('seed'),
++            'status': 'failed' if failed else 'train_only',
++            'checkpoint': str(checkpoint),
++            'best_epoch': _best_epoch(str(checkpoint)),
++            'eval_root': '',
++            'metrics_csv': None,
++            'macro_csv': None,
++            'manifest': '',
++        })
++    return rows
++
++
+ def _legacy_baseline_rows(root: Path) -> list[dict]:
+     """Index pre-manifest baseline runs: <method>/seed_<seed>/best_model.pth."""
+     rows: list[dict] = []
+@@ -101,6 +162,7 @@ def _legacy_baseline_rows(root: Path) -> list[dict]:
+         rows.append({
+             'family': 'baseline',
+             'method': method_dir.name,
++            'variant': 'default',
+             'seed': seed,
+             'status': 'legacy',
+             'checkpoint': str(checkpoint),
+@@ -125,26 +187,53 @@ def collect(roots: list[Path]) -> list[dict]:
+                 print(f'[warn] unreadable manifest: {path}')
+                 continue
+             family = str(manifest.get('family', '')).lower()
+-            if family == 'baseline':
++            if manifest.get('metrics_csv') and manifest.get('variant'):
++                rows.append(_canonical_row(manifest, path))
++            elif family == 'baseline':
+                 rows.append(_baseline_row(manifest, path))
+             elif family in ('sacm_x', 'sacmx') or 'presets' in manifest:
+                 rows.append(_sacm_x_row(manifest, path))
+             else:
+                 print(f'[warn] unknown manifest family in {path}')
++        rows.extend(_train_only_rows(root))
+         rows.extend(_legacy_baseline_rows(root))
+ 
++    def _norm(value) -> str:
++        if not value:
++            return ''
++        return str(Path(str(value)).resolve())
++
+     seen: set[str] = set()
+     unique: list[dict] = []
+     for row in rows:
+-        key = str(row.get('checkpoint') or '') + '|' + str(
+-            row.get('metrics_csv') or '')
++        key = _norm(row.get('checkpoint')) + '|' + _norm(
++            row.get('metrics_csv'))
+         if key in seen:
+             continue
+         seen.add(key)
+         unique.append(row)
++    # A canonical results/runs row supersedes its raw-cache legacy row for
++    # the same method+seed.  Keep the canonical row only.
++    def _is_canonical(row: dict) -> bool:
++        value = str(row.get('manifest', '')).replace('\\', '/')
++        return value.startswith('results/runs/') or '/results/runs/' in value
++
++    canonical_keys = {
++        (str(row.get('method')), str(row.get('variant', 'default')),
++         row.get('seed'))
++        for row in unique if _is_canonical(row)
++    }
++    if canonical_keys:
++        unique = [
++            row for row in unique
++            if (str(row.get('method')), str(row.get('variant', 'default')),
++                row.get('seed')) not in canonical_keys
++            or _is_canonical(row)
++        ]
+     unique.sort(key=lambda row: (
+         str(row.get('family', '')),
+         str(row.get('method', '')),
++        str(row.get('variant', '')),
+         -1 if row.get('seed') is None else int(row['seed']),
+         str(row.get('eval_root', '')),
+     ))
+@@ -154,8 +243,9 @@ def collect(roots: list[Path]) -> list[dict]:
+ def main() -> int:
+     parser = argparse.ArgumentParser(description=__doc__)
+     parser.add_argument('--roots', nargs='+', type=Path,
+-                        default=[Path('results/paper'),
+-                                 Path('results/sacm_x')])
++                        default=[Path('results/runs')],
++                        help='canonical results root(s); pass legacy roots '
++                             'explicitly when migrating old runs')
+     parser.add_argument('--out', type=Path,
+                         default=Path('results/runs_index.csv'))
+     args = parser.parse_args()
+diff --git a/scripts/pipeline/run_baseline_test.py b/scripts/pipeline/run_baseline_test.py
+index 9a5db3f..e8c180d 100644
+--- a/scripts/pipeline/run_baseline_test.py
++++ b/scripts/pipeline/run_baseline_test.py
+@@ -18,6 +18,7 @@ import hashlib
+ import json
+ import math
+ import os
++import re
+ import subprocess
+ import sys
+ import time
+@@ -33,6 +34,7 @@ from protocol_specs import dataset_specs  # noqa: E402
+ # Self-contained adapters.  A method without an entry is assumed to have
+ # predictions already on disk (reference-only or externally produced).
+ from baseline_zoo.adapters.registry import available_adapters  # noqa: E402
++from core.run_layout import RUNS_ROOT, run_root  # noqa: E402
+ from core.run_status import RunStatus  # noqa: E402
+ from core.wandb_utils import (  # noqa: E402
+     finish_run,
+@@ -80,6 +82,12 @@ def repo_env():
+     src = str(REPO_ROOT / 'src')
+     existing = env.get('PYTHONPATH', '')
+     env['PYTHONPATH'] = src + (os.pathsep + existing if existing else '')
++    # Deterministic child inference; these must be present before Python
++    # starts in the prediction subprocess.
++    env.setdefault('PYTHONHASHSEED', '0')
++    env.setdefault('CUBLAS_WORKSPACE_CONFIG', ':4096:8')
++    env.setdefault('OMP_NUM_THREADS', '1')
++    env.setdefault('MKL_NUM_THREADS', '1')
+     return env
+ 
+ 
+@@ -113,23 +121,26 @@ def _float_or_none(value):
+     return None if math.isnan(number) else number
+ 
+ 
+-def log_paper_metrics(args, paper_root: Path):
++def log_paper_metrics(args, eval_root: Path):
+     """Log the 20-dataset per-dataset and macro metrics to W&B.
+ 
+     Non-fatal: a missing CSV, missing package, or unreachable server must not
+     turn a successful evaluation into a failed run.
+     """
+-    metrics_path = paper_root / 'paper_metrics.csv'
+-    macro_path = paper_root / 'paper_macro.csv'
++    metrics_path = eval_root / 'tables' / 'all_metrics.csv'
++    macro_path = eval_root / 'tables' / 'macro_metrics.csv'
+     if not metrics_path.is_file():
+         print(f'[warn] W&B: missing {metrics_path}; skip paper-metric logging')
+         return
+ 
+     run = setup_wandb(
+         args,
+-        name=f'paper_metrics-{args.method}',
++        name=(f'paper_metrics-{args.method}-'
++              f'{getattr(args, "variant", "default")}-seed{args.seed}'),
+         config={
+             'method': args.method,
++            'variant': getattr(args, 'variant', 'default'),
++            'seed': int(args.seed),
+             'protocol': str(args.protocol),
+             'checkpoint': str(args.checkpoint),
+             'pred_root': str(args.pred_root),
+@@ -144,7 +155,7 @@ def log_paper_metrics(args, paper_root: Path):
+ 
+         with open(metrics_path, newline='') as f:
+             rows = [row for row in csv.DictReader(f)
+-                    if row.get('method') == args.method]
++                    if row.get('method') in (None, args.method)]
+         if not rows:
+             print(f'[warn] W&B: no rows for method={args.method} in '
+                   f'{metrics_path}; skip paper-metric logging')
+@@ -156,7 +167,7 @@ def log_paper_metrics(args, paper_root: Path):
+         ])
+         for row in rows:
+             table.add_data(
+-                row['method'], row['dataset'], row['role'],
++                args.method, row['dataset'], row['role'],
+                 _float_or_none(row.get('dice_mean')),
+                 _float_or_none(row.get('iou_mean')),
+                 _float_or_none(row.get('cldice_mean')),
+@@ -169,24 +180,28 @@ def log_paper_metrics(args, paper_root: Path):
+         if macro_path.is_file():
+             with open(macro_path, newline='') as f:
+                 macro_rows = [row for row in csv.DictReader(f)
+-                              if row.get('method') == args.method]
++                              if row.get('method') in (None, args.method)]
+             for row in macro_rows:
+                 role = row.get('role', '').strip().lower()
+-                for metric in ('dice', 'iou', 'cldice', 'hd95'):
+-                    value = _float_or_none(row.get(f'{metric}_mean'))
+-                    if value is not None:
+-                        scalars[f'macro/{args.method}/{role}/{metric}'] = value
++                metric = row.get('metric', '').strip().lower()
++                if metric not in ('dice', 'iou', 'cldice', 'hd95'):
++                    continue
++                value = _float_or_none(row.get('mean'))
++                if value is not None:
++                    scalars[f'macro/{args.method}/{role}/{metric}'] = value
+         if scalars:
+             log_scalars(run, scalars)
+ 
+         for path, artifact_name in (
+-            (metrics_path, 'paper_metrics'),
+-            (macro_path, 'paper_macro'),
++            (metrics_path, 'all_metrics'),
++            (macro_path, 'macro_metrics'),
+         ):
+             if path.is_file():
+-                log_artifact(run, path,
+-                             name=f'{artifact_name}-{args.method}',
+-                             artifact_type='metrics')
++                log_artifact(
++                    run, path,
++                    name=(f'{artifact_name}-{args.method}-'
++                          f'seed{args.seed}'),
++                    artifact_type='metrics')
+         print(f'W&B: logged paper metrics for {args.method} '
+               f'({len(rows)} dataset rows)')
+     except Exception as exc:
+@@ -198,38 +213,43 @@ def log_paper_metrics(args, paper_root: Path):
+ def main():
+     parser = argparse.ArgumentParser(description=__doc__)
+     parser.add_argument('--method', default='unet')
+-    parser.add_argument('--protocol', type=Path,
+-                        default=REPO_ROOT / 'data' / 'sacm_3shot' /
+-                        'protocol_manifest.csv')
++    parser.add_argument('--protocol', type=Path, default=None,
++                        help='seed-specific protocol_manifest.csv (default: '
++                             'data/sacm_3shot_seed0/protocol_manifest.csv)')
+     parser.add_argument('--checkpoint', type=Path, default=None,
+                         help='trained baseline checkpoint (default: '
+-                             'results/workdirs/baselines/<method>/best_model.pth)')
++                             'results/runs/<method>/default/seed_<seed>/'
++                             'best_model.pth or the native checkpoint name)')
+     parser.add_argument('--sam-checkpoint', type=Path,
+                         default=REPO_ROOT / 'checkpoints' /
+                         'sam_vit_l_0b3195.pth',
+                         help='frozen SAM ViT-L checkpoint for '
+                              'sam_vit_l_unet')
+-    default_data_root = REPO_ROOT / 'data' / 'sacm_3shot'
+-    parser.add_argument('--data-root', type=Path,
+-                        default=default_data_root,
+-                        help='training split used for support images')
++    parser.add_argument('--data-root', type=Path, default=None,
++                        help='training split used for support images '
++                             '(default: the protocol manifest directory)')
+     parser.add_argument('--sam2-checkpoint', type=Path,
+                         default=REPO_ROOT / 'checkpoints' /
+                         'sam2_hiera_large.pt',
+                         help='frozen SAM2 Hiera checkpoint for sam2_unet')
+-    parser.add_argument('--pred-root', type=Path,
+-                        default=REPO_ROOT / 'results' / 'predictions')
+-    parser.add_argument('--paper-root', type=Path,
+-                        default=REPO_ROOT / 'results' / 'paper')
+-    parser.add_argument('--vis-root', type=Path,
+-                        default=REPO_ROOT / 'results' / 'visualizations')
++    parser.add_argument('--pred-root', type=Path, default=None,
++                        help='prediction root (default: '
++                             '<run-root>/predictions)')
++    parser.add_argument('--paper-root', type=Path, default=None,
++                        help='canonical eval root (default: <run-root>/eval); '
++                             'passing the run root is accepted for backward '
++                             'compatibility')
++    parser.add_argument('--vis-root', type=Path, default=None,
++                        help='visualization root (default: '
++                             '<run-root>/visualizations)')
+     parser.add_argument('--datasets', nargs='+', default=None)
+     parser.add_argument('--num-samples', type=int, default=8)
+     parser.add_argument('--metrics', default='dice,iou,cldice,hd95')
+     parser.add_argument('--device', default=None)
+     parser.add_argument(
+-        '--seed', type=int, default=42,
+-        help='protocol seed forwarded to prediction adapter')
++        '--seed', type=int, default=None,
++        help='protocol seed forwarded to prediction adapter (default: '
++             'parsed from the protocol path, else 0)')
+     parser.add_argument('--skip-predict', action='store_true')
+     parser.add_argument('--skip-paper', action='store_true')
+     parser.add_argument('--skip-visualize', action='store_true')
+@@ -265,13 +285,66 @@ def main():
+     parser.add_argument('--wandb_group', default=None)
+     parser.add_argument('--wandb_job_type', default='evaluation')
+     args = parser.parse_args()
++    if args.protocol is None:
++        legacy_protocol = (REPO_ROOT / 'data' / 'sacm_3shot' /
++                           'protocol_manifest.csv')
++        if args.seed is not None:
++            candidate = (REPO_ROOT / 'data' /
++                         f'sacm_3shot_seed{int(args.seed)}' /
++                         'protocol_manifest.csv')
++            if candidate.is_file():
++                args.protocol = candidate
++            elif int(args.seed) == 42 and legacy_protocol.is_file():
++                args.protocol = legacy_protocol
++            else:
++                raise SystemExit(
++                    f'missing seed-specific protocol for seed {args.seed}: '
++                    f'{candidate}; pass --protocol explicitly')
++        else:
++            seed0 = (REPO_ROOT / 'data' / 'sacm_3shot_seed0' /
++                     'protocol_manifest.csv')
++            args.protocol = (seed0 if seed0.is_file() else legacy_protocol)
++    if args.seed is None:
++        seed = None
++        summary_path = args.protocol.parent / 'protocol_summary.json'
++        if summary_path.is_file():
++            try:
++                seed = json.loads(summary_path.read_text()).get('seed')
++            except (OSError, json.JSONDecodeError):
++                seed = None
++        if seed is None:
++            match = re.search(r'seed[_-]?(\d+)', str(args.protocol.parent))
++            seed = int(match.group(1)) if match else 0
++        args.seed = int(seed)
++    if args.data_root is None:
++        # The protocol and its support images live in the same seed split.
++        args.data_root = args.protocol.parent
++    args.variant = 'default'
++    canonical_run = run_root(args.method, args.variant, args.seed)
+     if args.checkpoint is None:
+         custom = {
++            'nnunet2d': 'nnunet_model_dir.txt',
+             'nnwnet': 'nnunet_model_dir.txt',
+             'knowsam': 'SGDL_best_model.pth',
+         }.get(args.method, 'best_model.pth')
+-        args.checkpoint = (REPO_ROOT / 'results' / 'workdirs' /
+-                           'baselines' / args.method / custom)
++        args.checkpoint = canonical_run / custom
++    args.checkpoint = Path(args.checkpoint)
++    train_root = args.checkpoint.parent
++    if args.pred_root is None:
++        args.pred_root = canonical_run / 'predictions'
++    args.pred_root = Path(args.pred_root)
++    if (args.paper_root is None
++            or Path(args.paper_root).resolve() == train_root.resolve()
++            or Path(args.paper_root).resolve() == canonical_run.resolve()):
++        eval_root = canonical_run / 'eval'
++    else:
++        eval_root = Path(args.paper_root)
++    args.paper_root = eval_root
++    if args.vis_root is None:
++        args.vis_root = canonical_run / 'visualizations'
++    args.vis_root = Path(args.vis_root)
++    args.run_root = canonical_run
++    args.train_root = train_root
+     dataset_filter = set(args.datasets) if args.datasets else None
+     specs = read_specs(args.protocol, dataset_filter)
+     counts = read_test_counts(args.protocol, dataset_filter)
+@@ -410,7 +483,11 @@ def main():
+                    '--pred-root', args.pred_root,
+                    '--out-root', args.paper_root,
+                    '--metrics', args.metrics,
+-                   '--protocol', args.protocol]
++                   '--protocol', args.protocol,
++                   '--layout', 'canonical',
++                   '--family', 'baseline',
++                   '--variant', args.variant,
++                   '--seed', str(args.seed)]
+             if args.datasets:
+                 cmd += ['--datasets'] + list(args.datasets)
+             if args.allow_partial_overwrite:
+@@ -442,18 +519,24 @@ def main():
+         manifest = {
+             'family': 'baseline',
+             'method': args.method,
++            'variant': args.variant,
+             'seed': int(args.seed),
++            'run_root': str(args.run_root),
+             'checkpoint': str(args.checkpoint.resolve()),
+             'protocol': str(args.protocol),
+             'datasets': [name for name, _ in specs],
+             'pred_root': str(method_pred_root),
+-            'paper_root': str(args.paper_root),
+-            'paper_metrics': str(args.paper_root / 'paper_metrics.csv'),
+-            'paper_macro': str(args.paper_root / 'paper_macro.csv'),
++            'eval_root': str(args.paper_root),
++            'metrics_csv': str(
++                args.paper_root / 'tables' / 'all_metrics.csv'),
++            'macro_csv': str(
++                args.paper_root / 'tables' / 'macro_metrics.csv'),
++            'final_report': str(
++                args.paper_root / 'tables' / 'final_report.md'),
+             'per_dataset_metrics': str(
+-                args.paper_root / args.method / '<DATASET>' / 'metrics.csv'),
++                args.paper_root / '<DATASET>' / 'metrics.csv'),
+             'stages': stage_names,
+-            'status': 'done',
++            'status': 'done' if not args.skip_paper else 'train_only',
+             'skip_predict': bool(args.skip_predict),
+             'skip_paper': bool(args.skip_paper),
+             'generated_at': time.strftime('%Y-%m-%dT%H:%M:%S'),
+@@ -462,14 +545,42 @@ def main():
+             args.paper_root.mkdir(parents=True, exist_ok=True)
+             (args.paper_root / 'run_manifest.json').write_text(
+                 json.dumps(manifest, indent=2) + '\n')
++            stale_failure = args.paper_root / 'run_manifest.failed.json'
++            if stale_failure.is_file():
++                stale_failure.unlink()
+         except OSError as exc:
+             print(f'[warn] could not write run_manifest.json: {exc}')
++        # One user-facing layout for both baselines and SACM-X.  The
++        # collector already writes canonical eval tables; the finalizer
++        # promotes the checkpoint/metadata and writes the canonical manifest.
++        finalize = REPO_ROOT / 'scripts' / 'pipeline' / 'finalize_run.py'
++        if finalize.is_file():
++            finalize_cmd = [
++                sys.executable, str(finalize),
++                '--family', 'baseline', '--method', args.method,
++                '--variant', args.variant, '--seed', str(args.seed),
++                '--source-train', str(train_root),
++                '--source-eval', str(args.paper_root),
++                '--out-root', str(RUNS_ROOT),
++                '--protocol', str(args.protocol),
++                '--pred-root', str(method_pred_root),
++                '--status', manifest['status']]
++            if Path(args.paper_root).resolve() == (canonical_run / 'eval').resolve():
++                finalize_cmd.append('--cleanup')
++            finalized = subprocess.run(finalize_cmd, cwd=REPO_ROOT,
++                                       check=False)
++            if finalized.returncode != 0:
++                raise RuntimeError(
++                    'finalize_run failed; the canonical results/runs tree '
++                    'is incomplete')
+     except BaseException as exc:
+         status.refresh()
+         status.fail(exc)
+         try:
+             args.paper_root.mkdir(parents=True, exist_ok=True)
+-            (args.paper_root / 'run_manifest.json').write_text(
++            # Keep a failed re-run from destroying the metadata of a prior
++            # successful evaluation; the success manifest remains canonical.
++            (args.paper_root / 'run_manifest.failed.json').write_text(
+                 json.dumps({
+                     'family': 'baseline',
+                     'method': args.method,
+diff --git a/scripts/pipeline/visualize_predictions.py b/scripts/pipeline/visualize_predictions.py
+index b06f67d..d37ab54 100644
+--- a/scripts/pipeline/visualize_predictions.py
++++ b/scripts/pipeline/visualize_predictions.py
+@@ -7,8 +7,12 @@ Individual panels and a contact sheet are written, plus a CSV of per-image
+ metrics.
+ 
+ Examples:
+-    python scripts/pipeline/visualize_predictions.py --methods unet --num-samples 8
+-    python scripts/pipeline/visualize_predictions.py --methods unet --datasets DRIVE
++    SEED=0
++    RUN_ROOT=results/runs/unet/default/seed${SEED}
++    python scripts/pipeline/visualize_predictions.py --methods unet \
++        --pred-root "$RUN_ROOT/predictions" --num-samples 8
++    python scripts/pipeline/visualize_predictions.py --methods unet \
++        --pred-root "$RUN_ROOT/predictions" --datasets DRIVE
+ """
+ 
+ from __future__ import annotations
+@@ -16,6 +20,7 @@ from __future__ import annotations
+ import argparse
+ import csv
+ import random
++import re
+ import sys
+ from pathlib import Path
+ 
+@@ -192,13 +197,16 @@ def make_grid(panels, title):
+ 
+ def main():
+     parser = argparse.ArgumentParser(description=__doc__)
+-    parser.add_argument('--protocol', type=Path,
+-                        default=REPO_ROOT / 'data' / 'sacm_3shot' /
+-                        'protocol_manifest.csv')
+-    parser.add_argument('--pred-root', type=Path,
+-                        default=REPO_ROOT / 'results' / 'predictions')
+-    parser.add_argument('--out-root', type=Path,
+-                        default=REPO_ROOT / 'results' / 'visualizations')
++    parser.add_argument('--protocol', type=Path, default=None,
++                        help='protocol manifest (default: seed0 when '
++                             'present, else data/sacm_3shot)')
++    parser.add_argument('--pred-root', type=Path, default=None,
++                        help='prediction root (required; canonical: '
++                             'results/runs/<method>/<variant>/seed_<seed>/'
++                             'predictions)')
++    parser.add_argument('--out-root', type=Path, default=None,
++                        help='output root (default: <pred-root>/../'
++                             'visualizations)')
+     parser.add_argument('--methods', nargs='+', required=True)
+     parser.add_argument('--datasets', nargs='+', default=None)
+     parser.add_argument('--num-samples', type=int, default=8,
+@@ -207,6 +215,20 @@ def main():
+     parser.add_argument('--seed', type=int, default=42)
+     parser.add_argument('--allow-missing', action='store_true')
+     args = parser.parse_args()
++    if args.protocol is None:
++        match = re.search(r'seed[_-]?(\d+)', str(args.pred_root or ''))
++        seed = int(match.group(1)) if match else 0
++        candidate = (REPO_ROOT / 'data' / f'sacm_3shot_seed{seed}' /
++                     'protocol_manifest.csv')
++        args.protocol = (candidate if candidate.is_file() else
++                         REPO_ROOT / 'data' / 'sacm_3shot' /
++                         'protocol_manifest.csv')
++    if args.pred_root is None:
++        parser.error('--pred-root is required; use the canonical '
++                     'results/runs/<method>/<variant>/seed_<seed>/'
++                     'predictions root')
++    if args.out_root is None:
++        args.out_root = args.pred_root.parent / 'visualizations'
+ 
+     rows = read_test_rows(
+         args.protocol, set(args.datasets) if args.datasets else None)
+diff --git a/scripts/run_eval.sh b/scripts/run_eval.sh
+index 6081f30..df4e1a2 100755
+--- a/scripts/run_eval.sh
++++ b/scripts/run_eval.sh
+@@ -10,6 +10,12 @@
+ set -euo pipefail
+ cd "$(dirname "$0")/.." || exit 1
+ 
++# Reproducibility: must be set before Python starts.
++export PYTHONHASHSEED="${PYTHONHASHSEED:-0}"
++export CUBLAS_WORKSPACE_CONFIG="${CUBLAS_WORKSPACE_CONFIG:-:4096:8}"
++export OMP_NUM_THREADS="${OMP_NUM_THREADS:-1}"
++export MKL_NUM_THREADS="${MKL_NUM_THREADS:-1}"
++
+ if [ -z "${PYTHON:-}" ]; then
+   if [ -x /home/dev/anaconda3/envs/tsai/bin/python ]; then
+     PYTHON=/home/dev/anaconda3/envs/tsai/bin/python
+diff --git a/scripts/run_figures.sh b/scripts/run_figures.sh
+index 8d14772..98907a1 100755
+--- a/scripts/run_figures.sh
++++ b/scripts/run_figures.sh
+@@ -1,10 +1,10 @@
+ #!/usr/bin/env bash
+-# Generate paper figures from results/paper/tables/*.csv.
++# Generate paper figures from results/tables/*.csv.
+ #
+ # Usage:
+ #   bash scripts/run_figures.sh
+-#   bash scripts/run_figures.sh --tables-dir results/paper/tables \
+-#       --out-dir results/paper/figures --formats png,pdf
++#   bash scripts/run_figures.sh --tables-dir results/tables \
++#       --out-dir results/figures --formats png,pdf
+ set -euo pipefail
+ cd "$(dirname "$0")/.." || exit 1
+ 
+diff --git a/scripts/run_paper.sh b/scripts/run_paper.sh
+index c78e246..1fdcbf6 100755
+--- a/scripts/run_paper.sh
++++ b/scripts/run_paper.sh
+@@ -125,6 +125,6 @@ else
+ fi
+ 
+ bash scripts/run_report.sh ${ARGS[@]+"${ARGS[@]}"}
+-if [ "$DRY_RUN" -eq 0 ] && [ -f results/paper/tables/all_metrics.csv ]; then
++if [ "$DRY_RUN" -eq 0 ] && [ -f results/tables/all_metrics.csv ]; then
+   bash scripts/run_figures.sh
+ fi
+diff --git a/scripts/run_train.sh b/scripts/run_train.sh
+index 35cbaff..16c918c 100755
+--- a/scripts/run_train.sh
++++ b/scripts/run_train.sh
+@@ -9,6 +9,12 @@
+ set -euo pipefail
+ cd "$(dirname "$0")/.." || exit 1
+ 
++# Reproducibility: must be set before Python starts.
++export PYTHONHASHSEED="${PYTHONHASHSEED:-0}"
++export CUBLAS_WORKSPACE_CONFIG="${CUBLAS_WORKSPACE_CONFIG:-:4096:8}"
++export OMP_NUM_THREADS="${OMP_NUM_THREADS:-1}"
++export MKL_NUM_THREADS="${MKL_NUM_THREADS:-1}"
++
+ if [ -z "${PYTHON:-}" ]; then
+   if [ -x /home/dev/anaconda3/envs/tsai/bin/python ]; then
+     PYTHON=/home/dev/anaconda3/envs/tsai/bin/python
+diff --git a/scripts/sacm_x/README.md b/scripts/sacm_x/README.md
+index cf3eee2..5f02937 100644
+--- a/scripts/sacm_x/README.md
++++ b/scripts/sacm_x/README.md
+@@ -1,182 +1,129 @@
+-# SACM-X run layout
++# Unified runs: baselines and SACM-X
+ 
+-Use one run directory per experiment.  Training and evaluation are separate
+-subdirectories so a 20-dataset evaluation never overwrites the training log
+-or the checkpoint.  The `seed_<seed>` level is mandatory: it keeps every
+-seed's checkpoint, logs, and 20-dataset tables separate.
++Every run, baseline or SACM-X, lives in exactly one directory:
+ 
+ ```text
+-results/sacm_x/<run>/seed_<seed>/
+-  train/<preset>/
+-    best_model.pth          # val-selection best (not necessarily the last epoch)
+-    metrics_history.json    # per-epoch metrics + best_epoch
+-    run_info.json           # checkpoint, best_epoch, last_epoch, selection
+-    run.log
+-  eval/<tag>/
+-    <preset>/<DATASET>/
+-      metrics.csv
+-      results_summary.txt
+-      head_audit.csv ...    # when audit flags are enabled
++results/runs/<method>/<variant>/seed_<seed>/
++  best_model.pth            # file checkpoints
++  best_model                # directory checkpoints (symlink)
++  checkpoint.json           # kind + native checkpoint path
++  run_info.json
++  metrics_history.json
++  train.log
++  predictions/              # baselines, when present
++  eval/
++    <DATASET>/
++      metrics.csv           # per-image metrics
++      summary.csv           # one canonical dataset row
++      results_summary.txt ...
+     tables/
+-      all_metrics.csv
+-      macro_metrics.csv
++      all_metrics.csv       # unified schema
++      macro_metrics.csv     # unified long schema
+       final_report.md
+       final_report.csv
+-      table_*.tex
+-    run_eval.log
+-    jobs_eval.csv
+     run_manifest.json
++    eval.log
++    jobs.csv
+ ```
+ 
+-## Train
++- `method` = baseline id or `sacm_x`
++- `variant` = `default` for baselines, preset for SACM-X
++- `seed` is always part of the path
++
++There is no second user-facing layout.  ``results/paper`` and
++``results/sacm_x`` are not written by the current pipeline.
++
++## Baselines: train and evaluate 20 test sets
+ 
+ ```bash
+-SEED=0
+-RUN_NAME=typed_800
++# Train one or more seeds through the unified registry.
++bash scripts/run_train.sh --model unet --seeds 0 1 --gpus 0,1
+ 
+-OUTPUT_ROOT="results/sacm_x/${RUN_NAME}_seed${SEED}/train" \
+-GPU=7 SEED="$SEED" RUN_NAME="$RUN_NAME" PRESET=full_typed \
+-EPOCHS=400 VAL_INTERVAL=1 SKIP_TEST=true \
+-TRAIN_ROOT="data/sacm_3shot_seed${SEED}" \
+-bash scripts/sacm_x/run_sacm_x_quick.sh
++# Evaluate the saved best checkpoint on the 20 test sets.
++bash scripts/run_eval.sh --model unet --seeds 0 1 --gpus 0,1
+ ```
+ 
+-The single best checkpoint is:
++Each job writes (for example, seed 1):
+ 
+ ```text
+-$OUTPUT_ROOT/full_typed/best_model.pth
++results/runs/unet/default/seed_1/
+ ```
+ 
+-`run_info.json` records `best_epoch`, `last_epoch`, `selection_metric`, and the
+-absolute checkpoint path.  Only the val-selection best is saved; the last
+-epoch is not a separate file.
++The eval stage calls `collect_paper_metrics.py --layout canonical` and then
++`finalize_run.py`, so the checkpoint and the 20-dataset tables share one run
++root.
+ 
+-## Evaluate all 20 test sets
++## SACM-X: train, then evaluate 20 test sets
+ 
+ ```bash
+ SEED=0
+-RUN_NAME=typed_800
+-RUN_ROOT="results/sacm_x/${RUN_NAME}_seed${SEED}"
+-TRAIN_OUT="$RUN_ROOT/train"
+-OUTPUT_ROOT="$RUN_ROOT/eval/main"
++PRESET=full_typed
++RUN_ROOT="results/runs/sacm_x/${PRESET}/seed${SEED}"
+ 
+-TRAIN_OUT="$TRAIN_OUT" \
+-GPU=7 SEED="$SEED" PRESET=full_typed \
++GPU=7 SEED="$SEED" PRESET="$PRESET" \
+ TRAIN_ROOT="data/sacm_3shot_seed${SEED}" \
+-OUTPUT_ROOT="$OUTPUT_ROOT" \
+-EVAL_INPUT_MODE=aspect_pad \
+-USE_WANDB=true EMPTY_GUARD=true \
+-COMPONENT_METRICS=true AUDIT_HEADS_FULL=true \
+-bash scripts/sacm_x/eval_sacm_x_20.sh
++OUTPUT_ROOT="$RUN_ROOT" EPOCHS=800 VAL_INTERVAL=1 SKIP_TEST=true \
++bash scripts/sacm_x/run_sacm_x_quick.sh
+ ```
+ 
+-No checkpoint copy is needed: the eval script uses
+-`$TRAIN_OUT/$PRESET/best_model.pth` by default.  `OUTPUT_ROOT` is the eval
+-root; if omitted and `TRAIN_OUT` ends in `/train`, it defaults to the sibling
+-`eval/` directory.
+-
+-Results:
++Training promotes the best checkpoint to:
+ 
+ ```text
+-$OUTPUT_ROOT/$PRESET/<DATASET>/metrics.csv
+-$OUTPUT_ROOT/tables/all_metrics.csv
+-$OUTPUT_ROOT/tables/macro_metrics.csv
+-$OUTPUT_ROOT/tables/final_report.md
+-$OUTPUT_ROOT/jobs_eval.csv
+-$OUTPUT_ROOT/run_manifest.json
+-```
+-
+-## Evaluate a subset
+-
+-```bash
+-SEED=0
+-RUN_NAME=typed_800
+-RUN_ROOT="results/sacm_x/${RUN_NAME}_seed${SEED}"
+-TRAIN_OUT="$RUN_ROOT/train"
+-OUTPUT_ROOT="$RUN_ROOT/eval/audit6"
+-
+-TRAIN_OUT="$TRAIN_OUT" \
+-GPU=7 SEED="$SEED" PRESET=full_typed \
+-TRAIN_ROOT="data/sacm_3shot_seed${SEED}" \
+-OUTPUT_ROOT="$OUTPUT_ROOT" \
+-DATASETS="CREMI TYRE WIRE LEAF TopoMortar OCTA-500" \
+-AUDIT_HEADS=true COMPONENT_METRICS=true \
+-AUDIT_THRESHOLDS="-2 -1 0 1 2" \
+-bash scripts/sacm_x/eval_sacm_x_20.sh
++"$RUN_ROOT/best_model.pth"
+ ```
+ 
+-The launcher passes `--datasets` and `--preset` to the aggregator, so stale
+-results from another dataset set cannot leak into the macro table.
++`run_info.json` records `best_epoch`, `last_epoch`, `selection`, `seed`, and
++the checkpoint kind/path.  Only the validation-selected best checkpoint is
++saved.
+ 
+-## Explicit checkpoint
++Evaluate the saved checkpoint:
+ 
+ ```bash
+-SEED=0
+-RUN_NAME=typed_800
+-RUN_ROOT="results/sacm_x/${RUN_NAME}_seed${SEED}"
+-TRAIN_OUT="$RUN_ROOT/train"
+-OUTPUT_ROOT="$RUN_ROOT/eval/other"
+-CKPT=/absolute/path/to/best_model.pth
+-
+-CKPT="$CKPT" TRAIN_OUT="$TRAIN_OUT" OUTPUT_ROOT="$OUTPUT_ROOT" \
+-SEED="$SEED" PRESET=full_typed \
++GPU=7 SEED="$SEED" PRESET="$PRESET" \
++TRAIN_ROOT="data/sacm_3shot_seed${SEED}" \
++TRAIN_OUT="$RUN_ROOT" OUTPUT_ROOT="$RUN_ROOT/eval" \
++EVAL_INPUT_MODE=aspect_pad USE_WANDB=true EMPTY_GUARD=true \
++COMPONENT_METRICS=true AUDIT_HEADS_FULL=true \
+ bash scripts/sacm_x/eval_sacm_x_20.sh
+ ```
+ 
+-`CKPT` overrides the default checkpoint path.
++Or run train + eval in one command by setting `SKIP_TEST=false`; the quick
++script trains, finalizes the checkpoint, then invokes the 20-dataset eval.
+ 
+-## Selection variants
++Do not pass a hard-coded seed path.  Derive it from `SEED`, as above, so each
++seed writes to a different directory.
+ 
+-Use a separate eval root for every decision rule:
++## Latest run index
+ 
+ ```bash
+-SEED=0
+-RUN_NAME=typed_800
+-RUN_ROOT="results/sacm_x/${RUN_NAME}_seed${SEED}"
+-TRAIN_OUT="$RUN_ROOT/train"
+-
+-TRAIN_OUT="$TRAIN_OUT" SEED="$SEED" PRESET=full_typed \
+-OUTPUT_ROOT="$RUN_ROOT/eval/quality" SELECTION=quality \
+-bash scripts/sacm_x/eval_sacm_x_20.sh
+-
+-TRAIN_OUT="$TRAIN_OUT" SEED="$SEED" PRESET=full_typed \
+-OUTPUT_ROOT="$RUN_ROOT/eval/head3" FIXED_HEAD=3 \
+-bash scripts/sacm_x/eval_sacm_x_20.sh
++python scripts/pipeline/index_runs.py
++# results/runs_index.csv
+ ```
+ 
+-Do not reuse an eval root for a different selection rule: per-dataset files
+-would be overwritten.
+-
+-## Auto-eval after training
+-
+-`run_sacm_x_quick.sh` defaults to `SKIP_TEST=false`, so after training it
+-evaluates all datasets from the protocol and writes `tables/` under the
+-training root.  With `SKIP_TEST=true` (used for the current 800-epoch run),
+-run the evaluation command above separately.
++Columns: `family,method,variant,seed,status,checkpoint,best_epoch,eval_root,
++metrics_csv,macro_csv,manifest`.
+ 
+-## Baseline runs
++## Reproducibility
+ 
+-Baselines keep their original layout:
+-
+-```text
+-results/paper/<method>/seed_<seed>/
+-  best_model.pth
+-  run_info.json
+-  paper_metrics.csv
+-  paper_macro.csv
+-```
++Use the shell wrappers (`run_train.sh`, `run_eval.sh`,
++`run_sacm_x_quick.sh`, `eval_sacm_x_20.sh`) so `PYTHONHASHSEED`,
++`CUBLAS_WORKSPACE_CONFIG`, OMP/MKL are fixed before Python starts.  Both
++pipelines configure deterministic kernels; SACM-X uses strict mode by
++default, baselines use best-effort strict mode (`--deterministic-strict true`
++enables strict).
+ 
+-New baseline trainings also write `run_info.json` (method, seed, checkpoint,
+-best_epoch); new baseline evaluations write `run_manifest.json` next to
+-`paper_metrics.csv`.
++## Legacy results
+ 
+-## One seed-aware index for both families
++Old runs under `results/paper` or `results/sacm_x` are not consumed by the
++current scripts.  To migrate one manually:
+ 
+ ```bash
+-python scripts/pipeline/index_runs.py \
+-  --roots results/paper results/sacm_x \
+-  --out results/runs_index.csv
++python scripts/pipeline/finalize_run.py \
++  --family sacm_x --method sacm_x --variant "$PRESET" --seed "$SEED" \
++  --source-train <legacy-train-root> \
++  --source-eval  <legacy-eval-root> \
++  --out-root results/runs
+ ```
+ 
+-The index contains `family, method, seed, checkpoint, best_epoch, eval_root,
+-metrics_csv, macro_csv, manifest`, so different seeds are separate rows.
++For baselines use `--family baseline --method <id> --variant default` and the
++legacy seed directory as both source roots.
+diff --git a/scripts/sacm_x/aggregate_results.py b/scripts/sacm_x/aggregate_results.py
+index 44e7f12..91801b4 100644
+--- a/scripts/sacm_x/aggregate_results.py
++++ b/scripts/sacm_x/aggregate_results.py
+@@ -48,7 +48,9 @@ ROLE_BY_DATASET = {
+ ROLE_ORDER = ['Seen', 'Unseen', 'Novel', 'Other']
+ 
+ 
+-def dataset_role(name):
++def dataset_role(name, roles=None):
++    if roles and name in roles:
++        return roles[name]
+     return ROLE_BY_DATASET.get(name, 'Other')
+ 
+ 
+@@ -76,23 +78,37 @@ def parse_num_samples(path):
+     return None
+ 
+ 
+-def load_expected_counts(path):
+-    """Return {dataset: test_count} from the frozen protocol summary."""
++def load_protocol_info(path):
++    """Return ({dataset: test_count}, {dataset: role}) from the protocol.
++
++    The summary is the single source of truth for both counts and roles, so
++    SACM-X and the baseline collector cannot disagree about Seen/Unseen/
++    Novel membership.
++    """
+     if not path or not os.path.exists(path):
+         print(f"[warn] protocol summary not found: {path}")
+-        return None
++        return None, {}
+     with open(path) as f:
+         summary = json.load(f)
+     expected = {}
++    roles = {}
+     for role in ('seen', 'unseen', 'novel'):
+         for split, datasets in summary.get('counts', {}).get(role, {}).items():
+             if split.endswith('_test'):
+                 expected.update(datasets)
++                for name in datasets:
++                    roles[name] = role.capitalize()
++    return expected, roles
++
++
++def load_expected_counts(path):
++    """Backward-compatible count loader."""
++    expected, _ = load_protocol_info(path)
+     return expected
+ 
+ 
+ def collect(root, expected_counts=None, strict=False,
+-            datasets=None, presets=None):
++            datasets=None, presets=None, roles=None):
+     """Scan for (preset, dataset) -> metrics. Skips missing summaries.
+ 
+     ``datasets``/``presets`` are optional allow-lists used by the SACM-X
+@@ -105,7 +121,7 @@ def collect(root, expected_counts=None, strict=False,
+     dataset_filter = set(datasets) if datasets else None
+     preset_filter = set(presets) if presets else None
+     skip_dirs = {'predictions', 'paper', 'visualizations', 'tables',
+-                 'torchrun_logs', 'logs'}
++                 'torchrun_logs', 'logs', 'eval'}
+     for preset in sorted(os.listdir(root)):
+         if preset in skip_dirs:
+             continue
+@@ -154,17 +170,20 @@ def collect(root, expected_counts=None, strict=False,
+             row = {
+                 'preset': preset,
+                 'dataset': dataset,
+-                'role': dataset_role(dataset),
++                'role': dataset_role(dataset, roles),
+             }
+             for name in ALL_METRICS:
+                 if name in metrics:
+                     row[name + '_mean'], row[name + '_std'] = metrics[name]
+             rows.append(row)
+     if strict and expected_counts:
++        expected_scope = set(expected_counts)
++        if dataset_filter is not None:
++            expected_scope &= dataset_filter
+         for preset in sorted({row['preset'] for row in rows}):
+             present = {row['dataset'] for row in rows
+                        if row['preset'] == preset}
+-            missing = sorted(set(expected_counts) - present)
++            missing = sorted(expected_scope - present)
+             if missing:
+                 raise SystemExit(
+                     f'{preset}: missing expected datasets: {missing}')
+@@ -320,13 +339,14 @@ def main():
+     args = parser.parse_args()
+     out_dir = args.out or os.path.join(args.root, 'tables')
+ 
+-    expected = load_expected_counts(args.protocol_summary)
++    expected, roles = load_protocol_info(args.protocol_summary)
+     if args.strict_protocol and expected is None:
+         raise SystemExit(
+             f'--strict-protocol requires {args.protocol_summary}')
+     rows = collect(args.root, expected_counts=expected,
+                    strict=args.strict_protocol,
+-                   datasets=args.datasets, presets=args.presets)
++                   datasets=args.datasets, presets=args.presets,
++                   roles=roles)
+     if args.datasets:
+         present = {row['dataset'] for row in rows}
+         missing = sorted(set(args.datasets) - present)
+diff --git a/scripts/sacm_x/audit_heads_full_val.sh b/scripts/sacm_x/audit_heads_full_val.sh
+index cf8674f..0bc70c9 100644
+--- a/scripts/sacm_x/audit_heads_full_val.sh
++++ b/scripts/sacm_x/audit_heads_full_val.sh
+@@ -38,19 +38,23 @@ fi
+ 
+ GPU="${GPU:-0}"
+ PRESET="${PRESET:-full}"
+-OUTPUT_ROOT="${OUTPUT_ROOT:-results/paper/sacm_x/seed_0}"
+-CKPT="${CKPT:-$OUTPUT_ROOT/$PRESET/best_model.pth}"
++SEED="${SEED:-0}"
++OUTPUT_ROOT="${OUTPUT_ROOT:-results/runs/sacm_x/$PRESET/seed$SEED}"
++CKPT="${CKPT:-$OUTPUT_ROOT/best_model.pth}"
++if [ ! -f "$CKPT" ] && [ -f "$OUTPUT_ROOT/$PRESET/best_model.pth" ]; then
++  CKPT="$OUTPUT_ROOT/$PRESET/best_model.pth"
++fi
+ if [ -z "${TRAIN_ROOT:-}" ]; then
+-  for candidate in data/sacm_3shot_seed0 data/sacm_3shot; do
++  for candidate in "data/sacm_3shot_seed$SEED" data/sacm_3shot; do
+     if [ -f "$candidate/protocol_manifest.csv" ]; then
+       TRAIN_ROOT="$candidate"
+       break
+     fi
+   done
+ fi
+-TRAIN_ROOT="${TRAIN_ROOT:-data/sacm_3shot_seed0}"
++TRAIN_ROOT="${TRAIN_ROOT:-data/sacm_3shot_seed$SEED}"
+ SPLITS="${SPLITS:-val}"
+-AUDIT_ROOT="${AUDIT_ROOT:-$OUTPUT_ROOT/head_full_audit}"
++AUDIT_ROOT="${AUDIT_ROOT:-$OUTPUT_ROOT/eval/head_full_audit}"
+ EVAL_INPUT_MODE="${EVAL_INPUT_MODE:-resize}"
+ SELECTION="${SELECTION:-iou}"
+ USE_WANDB="${USE_WANDB:-false}"
+diff --git a/scripts/sacm_x/calibrate_heads_val.sh b/scripts/sacm_x/calibrate_heads_val.sh
+index 96601f9..5f4a002 100644
+--- a/scripts/sacm_x/calibrate_heads_val.sh
++++ b/scripts/sacm_x/calibrate_heads_val.sh
+@@ -14,7 +14,7 @@
+ #
+ # Usage:
+ #   GPU=7 bash scripts/sacm_x/calibrate_heads_val.sh
+-#   GPU=7 PRESET=full OUTPUT_ROOT=results/paper/sacm_x/seed_0 \
++#   GPU=7 PRESET=full_typed SEED=0 \
+ #     bash scripts/sacm_x/calibrate_heads_val.sh
+ #   GPU=7 SPLITS="val train" bash scripts/sacm_x/calibrate_heads_val.sh
+ #
+@@ -43,19 +43,23 @@ fi
+ 
+ GPU="${GPU:-0}"
+ PRESET="${PRESET:-full}"
+-OUTPUT_ROOT="${OUTPUT_ROOT:-results/paper/sacm_x/seed_0}"
+-CKPT="${CKPT:-$OUTPUT_ROOT/$PRESET/best_model.pth}"
++SEED="${SEED:-0}"
++OUTPUT_ROOT="${OUTPUT_ROOT:-results/runs/sacm_x/$PRESET/seed$SEED}"
++CKPT="${CKPT:-$OUTPUT_ROOT/best_model.pth}"
++if [ ! -f "$CKPT" ] && [ -f "$OUTPUT_ROOT/$PRESET/best_model.pth" ]; then
++  CKPT="$OUTPUT_ROOT/$PRESET/best_model.pth"
++fi
+ if [ -z "${TRAIN_ROOT:-}" ]; then
+-  for candidate in data/sacm_3shot_seed0 data/sacm_3shot; do
++  for candidate in "data/sacm_3shot_seed$SEED" data/sacm_3shot; do
+     if [ -f "$candidate/protocol_manifest.csv" ]; then
+       TRAIN_ROOT="$candidate"
+       break
+     fi
+   done
+ fi
+-TRAIN_ROOT="${TRAIN_ROOT:-data/sacm_3shot_seed0}"
++TRAIN_ROOT="${TRAIN_ROOT:-data/sacm_3shot_seed$SEED}"
+ SPLITS="${SPLITS:-val}"
+-CALIB_ROOT="${CALIB_ROOT:-$OUTPUT_ROOT/calibration}"
++CALIB_ROOT="${CALIB_ROOT:-$OUTPUT_ROOT/eval/calibration}"
+ EVAL_INPUT_MODE="${EVAL_INPUT_MODE:-resize}"
+ SELECTION="${SELECTION:-iou}"
+ EMPTY_GUARD="${EMPTY_GUARD:-true}"
+diff --git a/scripts/sacm_x/compare_selectors_val.sh b/scripts/sacm_x/compare_selectors_val.sh
+index ebeaa79..2bf667e 100644
+--- a/scripts/sacm_x/compare_selectors_val.sh
++++ b/scripts/sacm_x/compare_selectors_val.sh
+@@ -31,19 +31,23 @@ fi
+ 
+ GPU="${GPU:-0}"
+ PRESET="${PRESET:-full}"
+-OUTPUT_ROOT="${OUTPUT_ROOT:-results/paper/sacm_x/seed_0}"
+-CKPT="${CKPT:-$OUTPUT_ROOT/$PRESET/best_model.pth}"
++SEED="${SEED:-0}"
++OUTPUT_ROOT="${OUTPUT_ROOT:-results/runs/sacm_x/$PRESET/seed$SEED}"
++CKPT="${CKPT:-$OUTPUT_ROOT/best_model.pth}"
++if [ ! -f "$CKPT" ] && [ -f "$OUTPUT_ROOT/$PRESET/best_model.pth" ]; then
++  CKPT="$OUTPUT_ROOT/$PRESET/best_model.pth"
++fi
+ if [ -z "${TRAIN_ROOT:-}" ]; then
+-  for candidate in data/sacm_3shot_seed0 data/sacm_3shot; do
++  for candidate in "data/sacm_3shot_seed$SEED" data/sacm_3shot; do
+     if [ -f "$candidate/protocol_manifest.csv" ]; then
+       TRAIN_ROOT="$candidate"
+       break
+     fi
+   done
+ fi
+-TRAIN_ROOT="${TRAIN_ROOT:-data/sacm_3shot_seed0}"
++TRAIN_ROOT="${TRAIN_ROOT:-data/sacm_3shot_seed$SEED}"
+ SPLITS="${SPLITS:-val}"
+-AUDIT_ROOT="${AUDIT_ROOT:-$OUTPUT_ROOT/selector_audit}"
++AUDIT_ROOT="${AUDIT_ROOT:-$OUTPUT_ROOT/eval/selector_audit}"
+ EVAL_INPUT_MODE="${EVAL_INPUT_MODE:-resize}"
+ EMPTY_GUARD="${EMPTY_GUARD:-false}"
+ USE_WANDB="${USE_WANDB:-false}"
+diff --git a/scripts/sacm_x/eval_sacm_x_20.sh b/scripts/sacm_x/eval_sacm_x_20.sh
+index 7f8afe9..e2a9581 100755
+--- a/scripts/sacm_x/eval_sacm_x_20.sh
++++ b/scripts/sacm_x/eval_sacm_x_20.sh
+@@ -3,22 +3,22 @@
+ # No retraining.
+ #
+ # Usage:
+-#   bash scripts/sacm_x/eval_sacm_x_20.sh
+-#   GPU=2 bash scripts/sacm_x/eval_sacm_x_20.sh
++#   SEED=0 PRESET=full_typed bash scripts/sacm_x/eval_sacm_x_20.sh
++#   GPU=2 SEED=0 PRESET=full_typed bash scripts/sacm_x/eval_sacm_x_20.sh
+ #   DATASETS="DRIVE WIRE" bash scripts/sacm_x/eval_sacm_x_20.sh
+ #
+ # Environment:
+-#   GPU (default 3), TRAIN_OUT, CKPT, OUTPUT_ROOT, PRESET (default full),
+-#   SAM_CKPT, DATASETS, USE_WANDB, WANDB_MODE,
+-#   SAVE_CANDIDATE_MASKS, SAVE_CANDIDATE_PROBS,
+-#   SKIP_EVAL=1 (only aggregate + report existing results)
++#   GPU (default 3), TRAIN_OUT, CKPT, OUTPUT_ROOT, CANONICAL_ROOT,
++#   PRESET (default full), SEED, SAM_CKPT, DATASETS, USE_WANDB, WANDB_MODE,
++#   SAVE_CANDIDATE_MASKS, SAVE_CANDIDATE_PROBS.
+ #
+-# Recommended layout:
+-#   TRAIN_OUT=results/sacm_x/<run>/train
+-#   OUTPUT_ROOT=results/sacm_x/<run>/eval/<tag>   (or auto: ${TRAIN_OUT}_eval)
+-#   CKPT defaults to $TRAIN_OUT/$PRESET/best_model.pth
+-# so evaluation never copies the 1.4 GiB checkpoint and never overwrites
+-# the training run.log.
++# Canonical layout:
++#   TRAIN_OUT=results/runs/sacm_x/<preset>/seed<seed>
++#   OUTPUT_ROOT=$TRAIN_OUT/eval
++#   CKPT=$TRAIN_OUT/best_model.pth
++# The raw <eval>/<preset>/<DATASET> tree is flattened into
++# <eval>/<DATASET> and the training checkpoint is promoted by
++# finalize_run.py; no 1.4 GiB copy is made.
+ set -uo pipefail
+ cd "$(dirname "$0")/../.." || exit 1
+ 
+@@ -41,28 +41,30 @@ fi
+ GPU="${GPU:-3}"
+ PRESET="${PRESET:-full}"
+ SEED="${SEED:-0}"
+-TRAIN_OUT="${TRAIN_OUT:-}"
+-if [ -z "${OUTPUT_ROOT:-}" ] && [ -n "$TRAIN_OUT" ]; then
+-  if [[ "$TRAIN_OUT" == */train ]]; then
+-    OUTPUT_ROOT="${TRAIN_OUT%/train}/eval"
+-  else
+-    OUTPUT_ROOT="${TRAIN_OUT}_eval"
+-  fi
++CANONICAL_ROOT="${CANONICAL_ROOT:-results/runs}"
++TRAIN_OUT="${TRAIN_OUT:-$CANONICAL_ROOT/sacm_x/$PRESET/seed$SEED}"
++# Backward compatibility: <run>/train was the old training subdirectory.
++if [[ "$TRAIN_OUT" == */train ]]; then
++  TRAIN_OUT="${TRAIN_OUT%/train}"
++fi
++OUTPUT_ROOT="${OUTPUT_ROOT:-$TRAIN_OUT/eval}"
++CKPT="${CKPT:-$TRAIN_OUT/best_model.pth}"
++if [ ! -f "$CKPT" ] && [ -f "$TRAIN_OUT/$PRESET/best_model.pth" ]; then
++  CKPT="$TRAIN_OUT/$PRESET/best_model.pth"
+ fi
+-OUTPUT_ROOT="${OUTPUT_ROOT:-results/sacm_x/${PRESET}_seed${SEED}/eval}"
+-CKPT="${CKPT:-${TRAIN_OUT:-$OUTPUT_ROOT}/$PRESET/best_model.pth}"
+ if [ -n "$TRAIN_OUT" ] && [ "$OUTPUT_ROOT" = "$TRAIN_OUT" ]; then
+   echo "ERROR: OUTPUT_ROOT must differ from TRAIN_OUT" >&2
+-  echo "Use TRAIN_OUT=<run>/train and OUTPUT_ROOT=<run>/eval/<tag>." >&2
++  echo "Use TRAIN_OUT=<run-root> and OUTPUT_ROOT=<run-root>/eval." >&2
+   exit 2
+ fi
+-if [[ "$OUTPUT_ROOT" != *"seed_${SEED}"* ]]; then
+-  echo "WARNING: OUTPUT_ROOT does not contain seed_${SEED}; different seeds can collide." >&2
++if ! printf '%s\n' "$OUTPUT_ROOT" | grep -qE "seed[_-]?${SEED}([^0-9]|$)"; then
++  echo "WARNING: OUTPUT_ROOT does not contain seed_${SEED} or seed${SEED}; different seeds can collide." >&2
+ fi
+-ckpt_seed=$(printf '%s\n' "$CKPT" | grep -o 'seed_[0-9]\+' | tail -n 1 || true)
+-if [ -n "$ckpt_seed" ] && [ "$ckpt_seed" != "seed_${SEED}" ]; then
+-  echo "ERROR: CKPT seed ($ckpt_seed) != SEED ($SEED)" >&2
+-  echo "Use SEED=${ckpt_seed#seed_} or a checkpoint from seed_${SEED}." >&2
++ckpt_seed_num=$(printf '%s\n' "$CKPT" \
++  | grep -oE 'seed[_-]?[0-9]+' | tail -n 1 | sed -E 's/seed[_-]?//' || true)
++if [ -n "$ckpt_seed_num" ] && [ "$ckpt_seed_num" != "$SEED" ]; then
++  echo "ERROR: CKPT seed (${ckpt_seed_num}) != SEED (${SEED})" >&2
++  echo "Use SEED=${ckpt_seed_num} or a checkpoint from seed_${SEED}." >&2
+   exit 2
+ fi
+ SAM_CKPT="${SAM_CKPT:-checkpoints/sam_vit_l_0b3195.pth}"
+@@ -220,14 +222,36 @@ fi
+ echo
+ echo "== aggregate (partial results are kept if any dataset failed) =="
+ agg_rc=0
+-AGG_ARGS=(--root "$OUTPUT_ROOT" --out "$OUTPUT_ROOT/tables"
+-  --preset "$PRESET")
+-if [ -n "$DATASETS" ]; then
+-  # shellcheck disable=SC2206
+-  AGG_ARGS+=(--datasets $DATASETS)
++if [ "$SKIP_EVAL" = "true" ] || [ "$SKIP_EVAL" = "1" ]; then
++  if [ -f "$OUTPUT_ROOT/tables/all_metrics.csv" ] \
++      && [ ! -d "$OUTPUT_ROOT/$PRESET" ]; then
++    echo "using existing canonical tables (raw $PRESET/ already finalized)"
++  else
++    AGG_ARGS=(--root "$OUTPUT_ROOT" --out "$OUTPUT_ROOT/tables"
++      --preset "$PRESET")
++    if [ -f "$TRAIN_ROOT/protocol_summary.json" ]; then
++      AGG_ARGS+=(--protocol-summary "$TRAIN_ROOT/protocol_summary.json")
++    fi
++    if [ -n "$DATASETS" ]; then
++      # shellcheck disable=SC2206
++      AGG_ARGS+=(--datasets $DATASETS)
++    fi
++    "$PYTHON" scripts/sacm_x/aggregate_results.py \
++      "${AGG_ARGS[@]}" || agg_rc=$?
++  fi
++else
++  AGG_ARGS=(--root "$OUTPUT_ROOT" --out "$OUTPUT_ROOT/tables"
++    --preset "$PRESET")
++  if [ -f "$TRAIN_ROOT/protocol_summary.json" ]; then
++    AGG_ARGS+=(--protocol-summary "$TRAIN_ROOT/protocol_summary.json")
++  fi
++  if [ -n "$DATASETS" ]; then
++    # shellcheck disable=SC2206
++    AGG_ARGS+=(--datasets $DATASETS)
++  fi
++  "$PYTHON" scripts/sacm_x/aggregate_results.py \
++    "${AGG_ARGS[@]}" || agg_rc=$?
+ fi
+-"$PYTHON" scripts/sacm_x/aggregate_results.py \
+-  "${AGG_ARGS[@]}" || agg_rc=$?
+ 
+ echo
+ echo "== final report =="
+@@ -242,13 +266,25 @@ if [ "$rc" -ne 0 ] || [ "$agg_rc" -ne 0 ] || [ "$report_rc" -ne 0 ]; then
+   exit 1
+ fi
+ 
++echo
++echo "== unified run =="
++FINAL_RUN_ROOT="$CANONICAL_ROOT/sacm_x/$PRESET/seed$SEED"
++"$PYTHON" scripts/pipeline/finalize_run.py \
++  --family sacm_x --method sacm_x --variant "$PRESET" --seed "$SEED" \
++  --source-train "$TRAIN_OUT" --source-eval "$OUTPUT_ROOT" \
++  --out-root "$CANONICAL_ROOT" --cleanup \
++  --protocol "$TRAIN_ROOT/protocol_manifest.csv" \
++  || { echo "ERROR: finalize_run failed" >&2; exit 1; }
++
+ echo
+ echo "== results =="
+-echo "eval log:   $OUTPUT_ROOT/$PRESET/run_eval.log"
+-echo "jobs:       $OUTPUT_ROOT/jobs_eval.csv"
+-echo "manifest:   $OUTPUT_ROOT/run_manifest.json"
+-echo "per-dataset:$OUTPUT_ROOT/$PRESET/<DATASET>/metrics.csv"
+-echo "csv:        $OUTPUT_ROOT/tables/all_metrics.csv"
+-echo "macro:      $OUTPUT_ROOT/tables/macro_metrics.csv"
+-echo "report:     $OUTPUT_ROOT/tables/final_report.md"
++echo "run root:    $FINAL_RUN_ROOT"
++echo "checkpoint:  $FINAL_RUN_ROOT/best_model.pth (or best_model/)"
++echo "eval log:    $FINAL_RUN_ROOT/eval/eval.log"
++echo "jobs:        $FINAL_RUN_ROOT/eval/jobs.csv"
++echo "manifest:    $FINAL_RUN_ROOT/eval/run_manifest.json"
++echo "per-dataset: $FINAL_RUN_ROOT/eval/<DATASET>/metrics.csv"
++echo "csv:         $FINAL_RUN_ROOT/eval/tables/all_metrics.csv"
++echo "macro:       $FINAL_RUN_ROOT/eval/tables/macro_metrics.csv"
++echo "report:      $FINAL_RUN_ROOT/eval/tables/final_report.md"
+ exit 0
+diff --git a/scripts/sacm_x/run_ablation.sh b/scripts/sacm_x/run_ablation.sh
+index 97ae501..e8a0ea1 100755
+--- a/scripts/sacm_x/run_ablation.sh
++++ b/scripts/sacm_x/run_ablation.sh
+@@ -28,7 +28,7 @@ PRESETS="${PRESETS:-sacm stage1 stage2 full full_wta full_allhead no_geo_i no_ge
+ EPOCHS="${EPOCHS:-50}"
+ VAL_INTERVAL="${VAL_INTERVAL:-5}"
+ SEED="${SEED:-42}"
+-RESULTS_ROOT="${RESULTS_ROOT:-results}"
++RESULTS_ROOT="${RESULTS_ROOT:-results/ablation}"
+ TTA="${TTA:-}"
+ DDP="${DDP:-true}"   # true = 每个预设用全部 GPU 做 DDP 顺序跑(全量数据推荐);
+                     # false = run_experiments 任务级并行(每卡一个 job,3-shot 协议用)
+diff --git a/scripts/sacm_x/run_experiments.py b/scripts/sacm_x/run_experiments.py
+index c1d5f61..2ec0cbd 100644
+--- a/scripts/sacm_x/run_experiments.py
++++ b/scripts/sacm_x/run_experiments.py
+@@ -16,7 +16,7 @@ Usage:
+         --test_datasets DRIVE:data/sacm_3shot/test/DRIVE \
+                         CHASEDB1:data/sacm_3shot/test/CHASEDB1 \
+         --presets sacm stage1 stage2 full \
+-        --output_root results --epochs 400 --tta
++        --output_root results --epochs 800 --tta
+ 
+ Options:
+     --skip_train   only run evaluation; checkpoints must already exist
+@@ -29,6 +29,7 @@ import argparse
+ import csv
+ import json
+ import os
++import shlex
+ import subprocess
+ import sys
+ import threading
+@@ -73,7 +74,7 @@ def train_command(args, preset, ckpt_path, selection):
+         '--deterministic_strict', str(bool(args.deterministic_strict)).lower(),
+     ]
+     if args.extra_train_args:
+-        cmd += args.extra_train_args.split()
++        cmd += shlex.split(args.extra_train_args)
+     return cmd
+ 
+ 
+@@ -100,7 +101,7 @@ def test_command(args, preset, dataset, test_dir, ckpt_path, selection):
+     if args.tta:
+         cmd.append('--tta')
+     if getattr(args, 'extra_eval_args', ''):
+-        cmd += args.extra_eval_args.split()
++        cmd += shlex.split(args.extra_eval_args)
+     return cmd
+ 
+ 
+@@ -299,9 +300,9 @@ def main():
+                         default=['sacm', 'stage1', 'stage2', 'full'],
+                         choices=[p for p in PRESETS if p != 'none'])
+     parser.add_argument('--output_root', type=str, default='outputs')
+-    parser.add_argument('--epochs', type=int, default=400)
++    parser.add_argument('--epochs', type=int, default=800)
+     parser.add_argument('--val_interval', type=int, default=10)
+-    parser.add_argument('--seed', type=int, default=42)
++    parser.add_argument('--seed', type=int, default=0)
+     parser.add_argument('--selection', type=str, default=None,
+                         help="Override mask selection ('iou' or 'gating'); "
+                              "default: iou iff preset trains the IoU head")
+@@ -340,7 +341,8 @@ def main():
+     parser.add_argument('--skip_train', action='store_true')
+     parser.add_argument('--trained_weights', type=str, default=None,
+                         help='Explicit trained checkpoint for --skip_train; '
+-                             'omit to use <output_root>/<preset>/best_model.pth')
++                             'omit to use <output_root>/<preset>/best_model.pth '
++                             '(legacy) or the canonical run-root checkpoint')
+     parser.add_argument('--skip_test', action='store_true')
+     parser.add_argument('--extra_eval_args', type=str, default='',
+                         help='extra args appended to every evaluate.py command')
+diff --git a/scripts/sacm_x/run_sacm_x_deep_closing.sh b/scripts/sacm_x/run_sacm_x_deep_closing.sh
+index c1117de..64d9a37 100755
+--- a/scripts/sacm_x/run_sacm_x_deep_closing.sh
++++ b/scripts/sacm_x/run_sacm_x_deep_closing.sh
+@@ -4,8 +4,8 @@
+ #
+ # Usage:
+ #   GPU=0 bash scripts/sacm_x/run_sacm_x_deep_closing.sh
+-#   GPU=0 PRESET=full TRAIN_ROOT=data/sacm_3shot_seed1 \
+-#       OUTPUT_ROOT=results/sacm_x_dc_seed1 \
++#   GPU=0 PRESET=full_typed SEED=1 \
++#       TRAIN_ROOT=data/sacm_3shot_seed1 \
+ #       bash scripts/sacm_x/run_sacm_x_deep_closing.sh
+ #
+ # Environment:
+@@ -17,11 +17,12 @@ set -euo pipefail
+ cd "$(dirname "$0")/../.." || exit 1
+ 
+ GPU="${GPU:-0}"
+-TRAIN_ROOT="${TRAIN_ROOT:-data/sacm_3shot_seed0}"
+ PRESET="${PRESET:-full}"
+-OUTPUT_ROOT="${OUTPUT_ROOT:-results/sacm_x_deep_closing}"
+-EPOCHS="${EPOCHS:-200}"
+-SEED="${SEED:-42}"
++SEED="${SEED:-0}"
++TRAIN_ROOT="${TRAIN_ROOT:-data/sacm_3shot_seed$SEED}"
++CANONICAL_ROOT="${CANONICAL_ROOT:-results/runs}"
++OUTPUT_ROOT="${OUTPUT_ROOT:-$CANONICAL_ROOT/sacm_x/$PRESET/seed$SEED}"
++EPOCHS="${EPOCHS:-800}"
+ DEEP_CLOSING_CKPT="${DEEP_CLOSING_CKPT:-$OUTPUT_ROOT/deep_closing/shape_prior.pth}"
+ DEEP_EPOCHS="${DEEP_EPOCHS:-300}"
+ DEEP_RESOLUTION="${DEEP_RESOLUTION:-512}"
+diff --git a/scripts/sacm_x/run_sacm_x_quick.sh b/scripts/sacm_x/run_sacm_x_quick.sh
+index a95f570..a325ec9 100755
+--- a/scripts/sacm_x/run_sacm_x_quick.sh
++++ b/scripts/sacm_x/run_sacm_x_quick.sh
+@@ -1,20 +1,25 @@
+ #!/usr/bin/env bash
+-# Quick same-protocol test for SACM-X's own model.
++# Train one SACM-X preset into the canonical results/runs layout.
+ #
+-# 18-image train_root, all 20 frozen-protocol test sets, ONE preset,
+-# no TTA, W&B on, baseline-compatible validation, then aggregate the 4
+-# paper metrics.
++# The default run root is:
++#   results/runs/sacm_x/<preset>/seed<seed>/
++# Training writes a raw <preset>/ intermediate, then finalize_run.py promotes
++# best_model.pth, run_info.json, metrics_history.json and train.log to the run
++# root.  With SKIP_TEST=false the 20-dataset eval runs as a second stage and
++# writes the canonical eval/ tree.
+ #
+ # Usage:
+-#   GPU=1 PRESET=full EPOCHS=400 bash scripts/sacm_x/run_sacm_x_quick.sh
+-#   GPU=1 PRESET=sacm EPOCHS=20 MONITOR=official bash scripts/sacm_x/run_sacm_x_quick.sh
+-#   GPU=1 PRESET=full EPOCHS=5 DATASETS="CHASEDB1 WIRE" \
++#   GPU=1 PRESET=full EPOCHS=800 SKIP_TEST=true \
++#     bash scripts/sacm_x/run_sacm_x_quick.sh
++#   GPU=1 PRESET=full EPOCHS=800 SKIP_TEST=false SEED=0 \
++#     bash scripts/sacm_x/run_sacm_x_quick.sh
++#   GPU=1 PRESET=sacm EPOCHS=20 MONITOR=official \
+ #     bash scripts/sacm_x/run_sacm_x_quick.sh
+ #
+ # Environment:
+ #   PYTHON, GPU, PRESET, RUN_NAME, EPOCHS, VAL_INTERVAL, SEED, DATASETS, CKPT,
+-#   TRAIN_ROOT, OUTPUT_ROOT, MONITOR, USE_WANDB, WANDB_MODE, WANDB_NAME,
+-#   INIT_STAGE2_FROM_STAGE1, SKIP_TEST, SCNP, SCNP_WINDOW,
++#   TRAIN_ROOT, OUTPUT_ROOT, CANONICAL_ROOT, MONITOR, USE_WANDB, WANDB_MODE,
++#   WANDB_NAME, INIT_STAGE2_FROM_STAGE1, SKIP_TEST, SCNP, SCNP_WINDOW,
+ #   SCNP_ORIGINAL_WEIGHT
+ #
+ # MONITOR=baseline (default): every-epoch macro Dice/IoU/clDice/HD95 and
+@@ -48,27 +53,46 @@ GPU="${GPU:-0}"
+ PRESET="${PRESET:-full}"
+ RUN_NAME="${RUN_NAME:-${PRESET}}"
+ source scripts/sacm_x/wandb_env.sh
+-EPOCHS="${EPOCHS:-400}"
++EPOCHS="${EPOCHS:-800}"
+ VAL_INTERVAL="${VAL_INTERVAL:-}"
+ SEED="${SEED:-0}"
+ DATASETS="${DATASETS:-}"
+ CKPT="${CKPT:-checkpoints/sam_vit_l_0b3195.pth}"
+ TRAIN_ROOT="${TRAIN_ROOT:-data/sacm_3shot_seed${SEED}}"
+-OUTPUT_ROOT="${OUTPUT_ROOT:-results/sacm_x/${RUN_NAME}_seed${SEED}/train}"
+-if [[ "$OUTPUT_ROOT" != *"seed_${SEED}"* ]]; then
+-  echo "WARNING: OUTPUT_ROOT does not contain seed_${SEED}; different seeds can collide." >&2
++CANONICAL_ROOT="${CANONICAL_ROOT:-results/runs}"
++FINAL_RUN_ROOT="${CANONICAL_ROOT}/sacm_x/${PRESET}/seed${SEED}"
++OUTPUT_ROOT="${OUTPUT_ROOT:-$FINAL_RUN_ROOT}"
++if ! printf '%s\n' "$OUTPUT_ROOT" | grep -qE "seed[_-]?${SEED}([^0-9]|$)"; then
++  echo "WARNING: OUTPUT_ROOT does not contain seed_${SEED} or seed${SEED}; different seeds can collide." >&2
+ fi
+ MONITOR="${MONITOR:-baseline}"
+ INIT_STAGE2_FROM_STAGE1="${INIT_STAGE2_FROM_STAGE1:-true}"
+ INPUT_MODE="${INPUT_MODE:-aspect_pad}"
+ EVAL_INPUT_MODE="${EVAL_INPUT_MODE:-aspect_pad}"
+ FG_CROP_PROB="${FG_CROP_PROB:-0.5}"
+-BOUNDARY_LOSS_WEIGHT="${BOUNDARY_LOSS_WEIGHT:-0.05}"
++BOUNDARY_LOSS_WEIGHT="${BOUNDARY_LOSS_WEIGHT:-0.0}"
+ BOUNDARY_LOSS_RESOLUTION="${BOUNDARY_LOSS_RESOLUTION:-512}"
+ BOUNDARY_LOSS_WARMUP="${BOUNDARY_LOSS_WARMUP:-10}"
+ BOUNDARY_LOSS_RAMP="${BOUNDARY_LOSS_RAMP:-5}"
+ USE_TTA="${USE_TTA:-false}"
+ EMPTY_GUARD="${EMPTY_GUARD:-true}"
++SELECTION="${SELECTION:-}"
++FIXED_HEAD="${FIXED_HEAD:-}"
++QUALITY_SMALL_COMPONENT_WEIGHT="${QUALITY_SMALL_COMPONENT_WEIGHT:-0.5}"
++QUALITY_COMPONENT_WEIGHT="${QUALITY_COMPONENT_WEIGHT:-0.05}"
++COMPONENT_METRICS="${COMPONENT_METRICS:-false}"
++COMPONENT_PRUNE_MODE="${COMPONENT_PRUNE_MODE:-off}"
++COMPONENT_PRUNE_MIN_AREA="${COMPONENT_PRUNE_MIN_AREA:-0}"
++COMPONENT_PRUNE_MIN_SKELETON="${COMPONENT_PRUNE_MIN_SKELETON:-0}"
++COMPONENT_PRUNE_REL_AREA="${COMPONENT_PRUNE_REL_AREA:-0.0}"
++COMPONENT_PRUNE_REL_SKELETON="${COMPONENT_PRUNE_REL_SKELETON:-0.0}"
++COMPONENT_PRUNE_KEEP_LARGEST="${COMPONENT_PRUNE_KEEP_LARGEST:-1}"
++AUDIT_HEADS="${AUDIT_HEADS:-false}"
++AUDIT_HEADS_FULL="${AUDIT_HEADS_FULL:-false}"
++SAVE_CANDIDATE_MASKS="${SAVE_CANDIDATE_MASKS:-false}"
++SAVE_CANDIDATE_PROBS="${SAVE_CANDIDATE_PROBS:-false}"
++AUDIT_THRESHOLDS="${AUDIT_THRESHOLDS:-}"
++AUDIT_HEAD_THRESHOLDS="${AUDIT_HEAD_THRESHOLDS:-}"
+ SCNP="${SCNP:-false}"
+ SCNP_WINDOW="${SCNP_WINDOW:-3}"
+ SCNP_ORIGINAL_WEIGHT="${SCNP_ORIGINAL_WEIGHT:-0.0}"
+@@ -109,7 +133,7 @@ case "$MONITOR" in
+   *) echo "ERROR: MONITOR must be 'baseline', 'official', 'sacm', or 'full', got '$MONITOR'" >&2
+      exit 2 ;;
+ esac
+-TRAIN_EXTRA+=(--wandb_name "${WANDB_NAME:-sacm_x_${RUN_NAME}_seed${SEED}}")
++TRAIN_EXTRA+=(--wandb_name "${WANDB_NAME:-sacm_x_seed${SEED}_${PRESET}}")
+ 
+ TRAIN_EXTRA+=(--scnp "$SCNP" --scnp_window "$SCNP_WINDOW" \
+               --scnp_original_weight "$SCNP_ORIGINAL_WEIGHT")
+@@ -125,9 +149,7 @@ if [ -n "$DEEP_CLOSING_CKPT" ]; then
+   fi
+ fi
+ 
+-if [ "$INIT_STAGE2_FROM_STAGE1" = "true" ]; then
+-  TRAIN_EXTRA+=(--init_stage2_from_stage1 true)
+-fi
++TRAIN_EXTRA+=(--init_stage2_from_stage1 "$INIT_STAGE2_FROM_STAGE1")
+ 
+ if [ ! -f "$CKPT" ]; then
+   echo "ERROR: missing SAM ViT-L checkpoint: $CKPT" >&2
+@@ -147,16 +169,8 @@ read -r -a spec_array <<< "$SPECS"
+ 
+ echo "seed=$SEED preset=$PRESET epochs=$EPOCHS gpu=$GPU monitor=$MONITOR val_interval=$VAL_INTERVAL init_stage2_from_stage1=$INIT_STAGE2_FROM_STAGE1 input_mode=$INPUT_MODE eval_input_mode=$EVAL_INPUT_MODE fg_crop_prob=$FG_CROP_PROB boundary_weight=$BOUNDARY_LOSS_WEIGHT tta=$USE_TTA empty_guard=$EMPTY_GUARD scnp=$SCNP($SCNP_WINDOW) deep_closing=${DEEP_CLOSING_CKPT:-none} skip_test=$SKIP_TEST"
+ echo "datasets=${#spec_array[@]}  output=$OUTPUT_ROOT"
+-RUN_EXTRA=()
+-if [ "$SKIP_TEST" = "true" ]; then
+-  RUN_EXTRA+=(--skip_test)
+-fi
+-if [ "$EMPTY_GUARD" = "true" ] || [ "$EMPTY_GUARD" = "1" ]; then
+-  RUN_EXTRA+=(--empty_guard)
+-fi
+-if [ "$USE_TTA" = "true" ] || [ "$USE_TTA" = "1" ]; then
+-  RUN_EXTRA+=(--tta)
+-fi
++# Training only.  Evaluation is a separate stage so every seed has one
++# canonical checkpoint and one canonical eval tree.
+ "$PYTHON" scripts/sacm_x/run_experiments.py \
+   --gpus "$GPU" \
+   --checkpoint "$CKPT" \
+@@ -174,40 +188,65 @@ fi
+   --boundary_loss_resolution "$BOUNDARY_LOSS_RESOLUTION" \
+   --boundary_loss_warmup "$BOUNDARY_LOSS_WARMUP" \
+   --boundary_loss_ramp "$BOUNDARY_LOSS_RAMP" \
++  --skip_test \
+   --extra_train_args "${TRAIN_EXTRA[*]}" \
+-  --extra_eval_args "$EVAL_EXTRA" \
+-  ${RUN_EXTRA[@]+"${RUN_EXTRA[@]}"}
++  --extra_eval_args "$EVAL_EXTRA"
+ 
+ echo
++echo "== unified run (checkpoint promotion) =="
++# This stage never evaluates; the eval stage promotes status to done.
++FINALIZE_STATUS="train_only"
++"$PYTHON" scripts/pipeline/finalize_run.py \
++  --family sacm_x --method sacm_x --variant "$PRESET" --seed "$SEED" \
++  --source-train "$OUTPUT_ROOT" --source-eval "$OUTPUT_ROOT/eval" \
++  --out-root "$CANONICAL_ROOT" --cleanup --status "$FINALIZE_STATUS" \
++  --protocol "$TRAIN_ROOT/protocol_manifest.csv" \
++  || { echo "ERROR: finalize_run failed" >&2; exit 1; }
++
++if [ ! -f "$FINAL_RUN_ROOT/best_model.pth" ] \
++    && [ ! -e "$FINAL_RUN_ROOT/best_model" ]; then
++  echo "ERROR: canonical checkpoint missing under $FINAL_RUN_ROOT" >&2
++  exit 1
++fi
++
+ echo "== artifacts =="
+-echo "best checkpoint: $OUTPUT_ROOT/$PRESET/best_model.pth"
+-echo "training log:    $OUTPUT_ROOT/$PRESET/run.log"
+-echo "run info:        $OUTPUT_ROOT/$PRESET/run_info.json"
+-echo "metrics history: $OUTPUT_ROOT/$PRESET/metrics_history.json"
+-echo "manifest:        $OUTPUT_ROOT/run_manifest.json"
+-echo "jobs:            $OUTPUT_ROOT/jobs.csv"
++echo "run root:        $FINAL_RUN_ROOT"
++echo "best checkpoint: $FINAL_RUN_ROOT/best_model.pth (or best_model/)"
++echo "training log:    $FINAL_RUN_ROOT/train.log"
++echo "run info:        $FINAL_RUN_ROOT/run_info.json"
++echo "metrics history: $FINAL_RUN_ROOT/metrics_history.json"
++echo "manifest:        $FINAL_RUN_ROOT/eval/run_manifest.json"
+ 
+ if [ "$SKIP_TEST" = "true" ]; then
+   echo "== test/eval skipped (SKIP_TEST=true) =="
+   exit 0
+ fi
+ 
+-echo "eval tables:     $OUTPUT_ROOT/tables"
+-
+-echo "== aggregate =="
+-AGG_ARGS=(--root "$OUTPUT_ROOT" --out "$OUTPUT_ROOT/tables"
+-  --preset "$PRESET")
+-if [ -n "$DATASETS" ]; then
+-  # shellcheck disable=SC2206
+-  AGG_ARGS+=(--datasets $DATASETS)
+-fi
+-"$PYTHON" scripts/sacm_x/aggregate_results.py "${AGG_ARGS[@]}"
+-
+-echo "== macro =="
+-cat "$OUTPUT_ROOT/tables/macro_metrics.csv"
+-
+-echo "== final report =="
+-"$PYTHON" scripts/sacm_x/make_final_report.py \
+-  --tables-dir "$OUTPUT_ROOT/tables" \
+-  --preset "$PRESET" \
+-  --checkpoint "$OUTPUT_ROOT/$PRESET/best_model.pth"
++echo "== evaluate 20 test sets =="
++TRAIN_OUT="$FINAL_RUN_ROOT" \
++OUTPUT_ROOT="$FINAL_RUN_ROOT/eval" \
++CANONICAL_ROOT="$CANONICAL_ROOT" \
++GPU="$GPU" SEED="$SEED" PRESET="$PRESET" TRAIN_ROOT="$TRAIN_ROOT" \
++DATASETS="$DATASETS" SAM_CKPT="$CKPT" \
++USE_WANDB="$USE_WANDB" WANDB_MODE="$WANDB_MODE" \
++EVAL_INPUT_MODE="$EVAL_INPUT_MODE" USE_TTA="$USE_TTA" \
++EMPTY_GUARD="$EMPTY_GUARD" SELECTION="$SELECTION" FIXED_HEAD="$FIXED_HEAD" \
++QUALITY_SMALL_COMPONENT_WEIGHT="$QUALITY_SMALL_COMPONENT_WEIGHT" \
++QUALITY_COMPONENT_WEIGHT="$QUALITY_COMPONENT_WEIGHT" \
++COMPONENT_METRICS="$COMPONENT_METRICS" \
++COMPONENT_PRUNE_MODE="$COMPONENT_PRUNE_MODE" \
++COMPONENT_PRUNE_MIN_AREA="$COMPONENT_PRUNE_MIN_AREA" \
++COMPONENT_PRUNE_MIN_SKELETON="$COMPONENT_PRUNE_MIN_SKELETON" \
++COMPONENT_PRUNE_REL_AREA="$COMPONENT_PRUNE_REL_AREA" \
++COMPONENT_PRUNE_REL_SKELETON="$COMPONENT_PRUNE_REL_SKELETON" \
++COMPONENT_PRUNE_KEEP_LARGEST="$COMPONENT_PRUNE_KEEP_LARGEST" \
++AUDIT_HEADS="$AUDIT_HEADS" AUDIT_HEADS_FULL="$AUDIT_HEADS_FULL" \
++SAVE_CANDIDATE_MASKS="$SAVE_CANDIDATE_MASKS" \
++SAVE_CANDIDATE_PROBS="$SAVE_CANDIDATE_PROBS" \
++AUDIT_THRESHOLDS="$AUDIT_THRESHOLDS" \
++AUDIT_HEAD_THRESHOLDS="$AUDIT_HEAD_THRESHOLDS" \
++DEEP_CLOSING_CKPT="$DEEP_CLOSING_CKPT" \
++DEEP_CLOSING_THRESHOLD="$DEEP_CLOSING_THRESHOLD" \
++DETERMINISTIC="$DETERMINISTIC" DETERMINISTIC_STRICT="$DETERMINISTIC_STRICT" \
++NUM_WORKERS="$NUM_WORKERS" \
++bash scripts/sacm_x/eval_sacm_x_20.sh
+diff --git a/scripts/tools/apply_deep_closing.py b/scripts/tools/apply_deep_closing.py
+index 3a61054..54fbbc3 100755
+--- a/scripts/tools/apply_deep_closing.py
++++ b/scripts/tools/apply_deep_closing.py
+@@ -6,9 +6,11 @@ predictions of any baseline or at SACM-X's prediction directory, and it
+ writes refined masks with the same relative layout.
+ 
+ Example:
++    SEED=0
++    RUN_ROOT=results/runs/samed/default/seed${SEED}
+     PYTHONPATH=src python scripts/tools/apply_deep_closing.py \
+-        --input results/paper/samed/seed_0/predictions \
+-        --output results/paper/samed/seed_0/predictions_deep_closing \
++        --input "$RUN_ROOT/predictions/samed" \
++        --output "$RUN_ROOT/predictions/samed_deep_closing" \
+         --checkpoint results/deep_closing/seed0_shape_prior.pth
+ """
+ 
+diff --git a/scripts/tools/apply_sam_refiner.py b/scripts/tools/apply_sam_refiner.py
+index 55c26a9..e417755 100644
+--- a/scripts/tools/apply_sam_refiner.py
++++ b/scripts/tools/apply_sam_refiner.py
+@@ -6,10 +6,12 @@ prediction tree (``<dataset>/<stem>.png``), pass the protocol manifest so
+ the original image can be resolved by ``(dataset, stem)``.
+ 
+ Example:
++    SEED=0
++    RUN_ROOT=results/runs/unet/default/seed${SEED}
+     PYTHONPATH=src python scripts/tools/apply_sam_refiner.py \
+-        --input results/paper/unet/seed_0/predictions \
+-        --output results/paper/unet/seed_0/predictions_samrefiner \
+-        --manifest data/sacm_3shot_seed0/protocol_manifest.csv \
++        --input "$RUN_ROOT/predictions/unet" \
++        --output "$RUN_ROOT/predictions/unet_samrefiner" \
++        --manifest "data/sacm_3shot_seed${SEED}/protocol_manifest.csv" \
+         --checkpoint checkpoints/sam_vit_h_4b8939.pth --device cuda:0
+ """
+ 
+diff --git a/scripts/tools/run_a2sam_triage.sh b/scripts/tools/run_a2sam_triage.sh
+index 29649b9..3ba7d72 100755
+--- a/scripts/tools/run_a2sam_triage.sh
++++ b/scripts/tools/run_a2sam_triage.sh
+@@ -12,9 +12,10 @@ set -euo pipefail
+ cd "$(dirname "$0")/../.." || exit 1
+ 
+ GPU_SPEC="${GPU:-0}"
+-CHECKPOINT="${CHECKPOINT:-results/paper/a2sam/seed_0/best_model.pth}"
+-DATA_ROOT="${DATA_ROOT:-data/sacm_3shot_seed0}"
+-OUTPUT="${OUTPUT:-results/diagnostics/a2sam_seed_0}"
++SEED="${SEED:-0}"
++CHECKPOINT="${CHECKPOINT:-results/runs/a2sam/default/seed${SEED}/best_model.pth}"
++DATA_ROOT="${DATA_ROOT:-data/sacm_3shot_seed${SEED}}"
++OUTPUT="${OUTPUT:-results/diagnostics/a2sam_seed${SEED}}"
+ PYTHON="${PYTHON:-python}"
+ 
+ if [ ! -f "$CHECKPOINT" ]; then
+diff --git a/scripts/tools/run_paper_cue.sh b/scripts/tools/run_paper_cue.sh
+index 76f0239..50dfe4c 100755
+--- a/scripts/tools/run_paper_cue.sh
++++ b/scripts/tools/run_paper_cue.sh
+@@ -146,7 +146,7 @@ fi
+ if [ "$DRY_RUN" -eq 0 ]; then
+   bash "$ROOT/scripts/run_report.sh" \
+     --model "$MODELS" --seeds $SEEDS --protocol "$PROTOCOL"
+-  if [ -f "$ROOT/results/paper/tables/all_metrics.csv" ]; then
++  if [ -f "$ROOT/results/tables/all_metrics.csv" ]; then
+     bash "$ROOT/scripts/run_figures.sh"
+   fi
+ fi
+diff --git a/src/baseline_zoo/__main__.py b/src/baseline_zoo/__main__.py
+index 9ce1bd3..7447860 100644
+--- a/src/baseline_zoo/__main__.py
++++ b/src/baseline_zoo/__main__.py
+@@ -18,6 +18,8 @@ from collections import defaultdict
+ from concurrent.futures import ThreadPoolExecutor, as_completed
+ from pathlib import Path
+ 
++from core.run_layout import RUNS_ROOT, default_variant, run_root
++
+ from .protocols import ProtocolConfig, load_protocol, load_protocols
+ from .registry import (
+     REPO_ROOT,
+@@ -32,10 +34,9 @@ from .report import (
+     write_report,
+ )
+ 
+-# Every baseline eval entrypoint writes <output_root>/paper_metrics.csv.
+-# SACM-X aggregates into <output_root>/tables/all_metrics.csv instead.
+-EVAL_ARTIFACTS = {'sacm_x': Path('tables') / 'all_metrics.csv'}
+-DEFAULT_EVAL_ARTIFACT = Path('paper_metrics.csv')
++# Both families write the same canonical evaluation table.
++EVAL_ARTIFACTS = {'sacm_x': Path('eval') / 'tables' / 'all_metrics.csv'}
++DEFAULT_EVAL_ARTIFACT = Path('eval') / 'tables' / 'all_metrics.csv'
+ 
+ 
+ def _eval_artifact(model: ModelConfig, output_root: Path) -> Path:
+@@ -144,18 +145,26 @@ def _eval_command(model: ModelConfig, protocol: ProtocolConfig,
+ 
+ 
+ def _output_root(model: ModelConfig, seed: int) -> Path:
+-    return REPO_ROOT / 'results' / 'paper' / model.id / f'seed_{seed}'
++    """One canonical run root per (method, variant, seed)."""
++    return run_root(model.id, default_variant(model.defaults), seed,
++                    root=RUNS_ROOT)
+ 
+ 
+ def _run(command: str, log_path: Path, prefix: str) -> bool:
+     print(f'{prefix}+ {command}', flush=True)
+     log_path.parent.mkdir(parents=True, exist_ok=True)
++    env = os.environ.copy()
++    # Determinism must be fixed before the child interpreter starts.
++    env.setdefault('PYTHONHASHSEED', '0')
++    env.setdefault('CUBLAS_WORKSPACE_CONFIG', ':4096:8')
++    env.setdefault('OMP_NUM_THREADS', '1')
++    env.setdefault('MKL_NUM_THREADS', '1')
+     try:
+         with open(log_path, 'w') as log:
+             proc = subprocess.Popen(
+                 command, shell=True, cwd=REPO_ROOT,
+                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+-                text=True, bufsize=1, env=os.environ.copy())
++                text=True, bufsize=1, env=env)
+             assert proc.stdout is not None
+             for line in proc.stdout:
+                 log.write(line)
+@@ -259,6 +268,8 @@ def _run_job(job: dict, stage: str, resume: bool, dry_run: bool) -> bool:
+         print(f"dry-run: {job['command']}", flush=True)
+         return True
+     output_root.mkdir(parents=True, exist_ok=True)
++    # The pipeline finalizer moves this root-level log to eval/eval.log.
++    # Writing directly to eval/eval.log would race with the finalizer.
+     log_path = output_root / f'{stage}.log'
+     prefix = f'[{model.id} seed={seed} gpu={gpu}] '
+     print(f"{prefix}start (log: {log_path})", flush=True)
+@@ -489,7 +500,8 @@ def cmd_plan(args: argparse.Namespace) -> int:
+         for seed in seeds:
+             split = protocol.split_for(seed)
+             gpu = gpus[job_index % len(gpus)]
+-            output_root = f'results/paper/{model.id}/seed_{seed}'
++            output_root = _repo_path(
++                _output_root(model, seed))
+             print()
+             print(f'[{model.id}] seed={seed} gpu={gpu}')
+             print(f'  split_root:   {_repo_path(split.split_root)}')
+@@ -605,10 +617,11 @@ def build_parser() -> argparse.ArgumentParser:
+                         help='model id, comma-separated list, or all')
+     report.add_argument('--seeds', nargs='*', default=None,
+                         help='seed integers or all (default: all)')
+-    report.add_argument('--result-root', default='results/paper')
+-    report.add_argument('--out-dir', default='results/paper/tables')
+-    report.add_argument('--preset', default='full',
+-                        help='SACM-X preset table to read')
++    report.add_argument('--result-root', default='results/runs')
++    report.add_argument('--out-dir', default='results/tables')
++    report.add_argument('--preset', default=None,
++                        help='SACM-X preset table to read (default: every '
++                             'variant under results/runs)')
+     report.add_argument('--allow-missing', action='store_true',
+                         help='write a report even when some model/seed '
+                              'runs are missing')
+diff --git a/src/baseline_zoo/figures.py b/src/baseline_zoo/figures.py
+index 27f554f..49fc5f6 100644
+--- a/src/baseline_zoo/figures.py
++++ b/src/baseline_zoo/figures.py
+@@ -134,9 +134,9 @@ def generate_figures(tables_dir: Path, out_dir: Path,
+ def main(argv: list[str] | None = None) -> int:
+     parser = argparse.ArgumentParser(description=__doc__)
+     parser.add_argument('--tables-dir', type=Path,
+-                        default=REPO_ROOT / 'results' / 'paper' / 'tables')
++                        default=REPO_ROOT / 'results' / 'tables')
+     parser.add_argument('--out-dir', type=Path,
+-                        default=REPO_ROOT / 'results' / 'paper' / 'figures')
++                        default=REPO_ROOT / 'results' / 'figures')
+     parser.add_argument('--formats', default='png,pdf')
+     args = parser.parse_args(argv)
+     formats = tuple(item.strip() for item in args.formats.split(',')
+diff --git a/src/baseline_zoo/report.py b/src/baseline_zoo/report.py
+index 70e23e2..bae7aca 100644
+--- a/src/baseline_zoo/report.py
++++ b/src/baseline_zoo/report.py
+@@ -1,9 +1,8 @@
+ """Cross-model / cross-seed metric tables.
+ 
+-Two existing result schemas are normalized here:
+-
+-* SACM-X: ``<run>/tables/all_metrics.csv`` with ``<metric>_mean/_std``.
+-* baselines: ``<run>/paper_metrics.csv`` with ``<metric>_mean/_std``.
++Canonical runs expose ``<run>/eval/tables/all_metrics.csv`` for both
++families.  Legacy ``<run>/tables/all_metrics.csv`` and
++``<run>/paper_metrics.csv`` remain readable during migration.
+ 
+ The report writes a tidy CSV, macro CSV, seed-variance CSV and a Markdown
+ summary.  Values are kept as fractions for Dice/IoU/clDice (the Markdown
+@@ -55,18 +54,17 @@ def _role(value: str) -> str:
+ 
+ def load_run(run_root: Path, model: str, seed: int,
+              preset: str | None = None) -> list[MetricRow]:
+-    """Read one (model, seed) result directory.
++    """Read one (model, variant, seed) canonical result directory.
+ 
+-    SACM-X result roots may contain several preset tables in the same
+-    ``all_metrics.csv``; ``preset`` selects one.  Baselines use
+-    ``paper_metrics.csv`` directly.
++    Canonical rows live at ``<run>/eval/tables/all_metrics.csv``.  The
++    legacy fallbacks remain readable so a partially migrated tree can still
++    be reported.
+     """
+-    sacm_x = run_root / 'tables' / 'all_metrics.csv'
+-    baseline = run_root / 'paper_metrics.csv'
+-    if model == 'sacm_x':
+-        path = sacm_x
+-    else:
+-        path = baseline if baseline.is_file() else sacm_x
++    path = run_root / 'eval' / 'tables' / 'all_metrics.csv'
++    if not path.is_file():
++        path = run_root / 'tables' / 'all_metrics.csv'
++    if not path.is_file():
++        path = run_root / 'paper_metrics.csv'
+     if not path.is_file():
+         return []
+ 
+@@ -79,6 +77,11 @@ def load_run(run_root: Path, model: str, seed: int,
+             role = _role(raw.get('role', ''))
+             if not dataset or not role:
+                 continue
++            # Canonical rows already carry the variant; a legacy table may
++            # contain several presets in one file.
++            if (preset is not None
++                    and raw.get('variant') not in (None, preset)):
++                continue
+             for metric in METRICS:
+                 mean = _float(raw.get(f'{metric}_mean'))
+                 if math.isnan(mean):
+@@ -95,14 +98,40 @@ def load_run(run_root: Path, model: str, seed: int,
+     return rows
+ 
+ 
++def _run_variant(model: str, preset: str | None) -> str:
++    if preset:
++        return preset
++    # Use the model config's default variant so a bare report does not mix
++    # several SACM-X presets or several baseline ablations.
++    try:
++        from .registry import load_models
++        config = load_models().get(model)
++        defaults = config.defaults if config is not None else {}
++        return str(defaults.get('preset') or 'default')
++    except Exception:
++        return 'default'
++
++
+ def load_runs(models: Iterable[str], seeds: Iterable[int],
+               result_root: Path,
+               preset: str | None = None) -> tuple[list[MetricRow], list[str]]:
+     rows: list[MetricRow] = []
+     missing: list[str] = []
+     for model in models:
++        variant = _run_variant(model, preset)
+         for seed in seeds:
+-            run_root = result_root / model / f'seed_{seed}'
++            run_root = result_root / model / variant / f'seed_{seed}'
++            if not run_root.is_dir():
++                # A run may use a non-default preset (e.g. SACM-X
++                # full_typed).  With no explicit --preset, accept the only
++                # available variant instead of silently reporting it missing.
++                matches = sorted((result_root / model).glob(
++                    f'*/seed_{seed}'))
++                if len(matches) == 1:
++                    run_root = matches[0]
++            legacy = result_root / model / f'seed_{seed}'
++            if not run_root.is_dir() and legacy.is_dir():
++                run_root = legacy
+             current = load_run(run_root, model, seed, preset=preset)
+             if not current:
+                 missing.append(str(run_root))
+@@ -247,7 +276,7 @@ def write_report(rows: list[MetricRow], out_dir: Path) -> dict[str, Path]:
+ 
+ def resolve_result_root(path: str | Path | None) -> Path:
+     if path is None:
+-        return REPO_ROOT / 'results' / 'paper'
++        return REPO_ROOT / 'results' / 'runs'
+     path = Path(path)
+     return path if path.is_absolute() else REPO_ROOT / path
+ 
+diff --git a/src/baseline_zoo/runtime.py b/src/baseline_zoo/runtime.py
+index a409706..d744c08 100644
+--- a/src/baseline_zoo/runtime.py
++++ b/src/baseline_zoo/runtime.py
+@@ -35,6 +35,7 @@ from torch import nn
+ from torch.utils.data import DataLoader
+ 
+ from core.console import console
++from core.reproducibility import configure_determinism, seed_worker
+ from core.metrics import (
+     cldice_score,
+     dice_score,
+@@ -433,7 +434,8 @@ def write_history(path: Path, config, history, best_epoch, best_score):
+ 
+ def write_run_info(path: Path, *, method: str, seed: int, checkpoint: Path,
+                    best_epoch: int, last_epoch: int, selection: str,
+-                   epochs: int):
++                   epochs: int, data_root: str | None = None,
++                   reproducibility_info: dict | None = None):
+     """Write seed-aware checkpoint metadata next to metrics_history.json.
+ 
+     This is additive: it does not change the checkpoint format or the
+@@ -443,6 +445,7 @@ def write_run_info(path: Path, *, method: str, seed: int, checkpoint: Path,
+     payload = {
+         'family': 'baseline',
+         'method': str(method),
++        'variant': 'default',
+         'seed': int(seed),
+         'checkpoint': str(Path(checkpoint).resolve()),
+         'best_epoch': int(best_epoch),
+@@ -450,6 +453,10 @@ def write_run_info(path: Path, *, method: str, seed: int, checkpoint: Path,
+         'selection': str(selection),
+         'epochs': int(epochs),
+     }
++    if data_root is not None:
++        payload['data_root'] = str(data_root)
++    if reproducibility_info:
++        payload['reproducibility_info'] = reproducibility_info
+     tmp = path.with_name(path.name + '.tmp')
+     try:
+         with tmp.open('w') as f:
+@@ -468,6 +475,28 @@ def seed_everything(seed: int):
+         torch.cuda.manual_seed_all(seed)
+ 
+ 
++def configure_baseline_determinism(args: argparse.Namespace) -> dict:
++    """Apply the same deterministic execution contract as SACM-X.
++
++    Baseline adapters remain responsible for their official recipes; this
++    only fixes RNGs, deterministic kernels, TF32 and DataLoader workers.
++    ``strict=False`` is the safe baseline default because a few third-party
++    CUDA operators lack deterministic kernels; pass
++    ``--deterministic-strict true`` when a model supports strict mode.
++    """
++    info = configure_determinism(
++        int(getattr(args, 'seed', 42)),
++        deterministic=bool(getattr(args, 'deterministic', True)),
++        strict=bool(getattr(args, 'deterministic_strict', False)),
++        num_threads=int(getattr(args, 'deterministic_threads', 1)),
++        cuda_seed_all=True,
++    )
++    args.reproducibility_info = info
++    print(f"{getattr(args, 'method', 'baseline')}: reproducibility={info}",
++          flush=True)
++    return info
++
++
+ def make_training_scheduler(adapter: BaselineAdapter,
+                             optimizer: torch.optim.Optimizer,
+                             args: argparse.Namespace):
+@@ -571,7 +600,7 @@ def run_training_free(adapter: BaselineAdapter,
+     The checkpoint carries the split hash and adapter config so the normal
+     evaluation pipeline can validate and restore it.
+     """
+-    seed_everything(args.seed)
++    configure_baseline_determinism(args)
+     device = torch.device(args.device)
+     _select_cuda_device(device)
+     adapter.args = args
+@@ -645,6 +674,8 @@ def run_training_free(adapter: BaselineAdapter,
+         last_epoch=0,
+         selection=args.selection,
+         epochs=0,
++        data_root=str(args.data_root),
++        reproducibility_info=getattr(args, 'reproducibility_info', None),
+     )
+ 
+     console.print(
+@@ -658,7 +689,7 @@ def run_training_free(adapter: BaselineAdapter,
+ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
+     if getattr(adapter, 'training_free', False):
+         return run_training_free(adapter, args)
+-    seed_everything(args.seed)
++    configure_baseline_determinism(args)
+     device = torch.device(args.device)
+     _select_cuda_device(device)
+     adapter.args = args
+@@ -675,10 +706,14 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
+     train_dataset = adapter.make_train_dataset(train_samples, args)
+     if train_dataset is None:
+         train_dataset = SampleListDataset(train_samples)
++    train_generator = torch.Generator()
++    train_generator.manual_seed(int(args.seed))
+     loader = DataLoader(
+         train_dataset, batch_size=args.batch_size,
+         shuffle=sampler is None, sampler=sampler,
+         num_workers=args.num_workers,
++        worker_init_fn=seed_worker,
++        generator=train_generator,
+         drop_last=getattr(adapter, 'drop_last', False),
+         collate_fn=lambda batch: batch)
+ 
+@@ -910,6 +945,8 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
+         last_epoch=args.epochs,
+         selection=args.selection,
+         epochs=args.epochs,
++        data_root=str(args.data_root),
++        reproducibility_info=getattr(args, 'reproducibility_info', None),
+     )
+     if run is not None:
+         if args.wandb_log_artifact:
+@@ -928,6 +965,7 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
+ 
+ def run_prediction(adapter: BaselineAdapter, args: argparse.Namespace,
+                    ckpt_path: Path) -> None:
++    configure_baseline_determinism(args)
+     device = torch.device(args.device)
+     _select_cuda_device(device)
+     adapter.args = args
+@@ -1065,15 +1103,16 @@ def build_parser(adapter: BaselineAdapter) -> argparse.ArgumentParser:
+                     f'({adapter.official_source})')
+     parser.add_argument('--stage', choices=['train', 'predict', 'all'],
+                         default='all')
+-    parser.add_argument('--data-root', type=Path,
+-                        default=REPO_ROOT / 'data' / 'sacm_3shot')
+-    parser.add_argument('--workdir', type=Path,
+-                        default=REPO_ROOT / 'results' / 'workdirs' /
+-                        'baselines' / adapter.id)
++    parser.add_argument('--data-root', type=Path, default=None,
++                        help='split root (default: '
++                             'data/sacm_3shot_seed<seed> when present)')
++    parser.add_argument('--workdir', type=Path, default=None,
++                        help='canonical run root (default: '
++                             'results/runs/<model>/default/seed_<seed>)')
+     parser.add_argument('--checkpoint', type=Path, default=None)
+-    parser.add_argument('--pred-root', type=Path,
+-                        default=REPO_ROOT / 'results' / 'predictions' /
+-                        adapter.id)
++    parser.add_argument('--pred-root', type=Path, default=None,
++                        help='prediction output root (default: '
++                             '<workdir>/predictions)')
+     parser.add_argument('--test-datasets', nargs='+', default=[])
+     parser.add_argument('--epochs', type=int,
+                         default=_configured_epochs(adapter))
+@@ -1099,7 +1138,19 @@ def build_parser(adapter: BaselineAdapter) -> argparse.ArgumentParser:
+     parser.add_argument('--selection', default=adapter.selection,
+                         choices=['dice', 'iou', 'cldice', 'hd95'],
+                         help='validation metric for checkpoint selection')
+-    parser.add_argument('--seed', type=int, default=42)
++    parser.add_argument('--seed', type=int, default=0)
++    parser.add_argument(
++        '--deterministic', type=lambda value: str(value).lower()
++        in ('1', 'true', 'yes', 'on'), default=True,
++        help='enable deterministic kernels/TF32-off (default true)')
++    parser.add_argument(
++        '--deterministic-strict', type=lambda value: str(value).lower()
++        in ('1', 'true', 'yes', 'on'), default=False,
++        help='raise on ops without a deterministic CUDA kernel '
++             '(default false for third-party baselines)')
++    parser.add_argument(
++        '--deterministic-threads', type=int, default=1,
++        help='torch CPU threads when deterministic (default 1)')
+     parser.add_argument('--num-workers', type=int, default=0)
+     parser.add_argument(
+         '--resume', action='store_true',
+@@ -1147,6 +1198,16 @@ def build_parser(adapter: BaselineAdapter) -> argparse.ArgumentParser:
+ def main_for(adapter: BaselineAdapter, argv: list[str] | None = None) -> int:
+     parser = build_parser(adapter)
+     args = parser.parse_args(argv)
++    if args.data_root is None:
++        seed_root = (REPO_ROOT / 'data' /
++                     f'sacm_3shot_seed{int(args.seed)}')
++        args.data_root = (seed_root if seed_root.is_dir()
++                          else REPO_ROOT / 'data' / 'sacm_3shot')
++    if args.workdir is None:
++        from core.run_layout import run_root
++        args.workdir = run_root(adapter.id, 'default', int(args.seed))
++    if args.pred_root is None:
++        args.pred_root = Path(args.workdir) / 'predictions'
+     if args.stage == 'predict' and not args.test_datasets:
+         raise SystemExit('--test-datasets is required for --stage predict')
+     ckpt_path = args.checkpoint or (args.workdir / 'best_model.pth')
+diff --git a/src/core/run_layout.py b/src/core/run_layout.py
+new file mode 100644
+index 0000000..7a22efb
+--- /dev/null
++++ b/src/core/run_layout.py
+@@ -0,0 +1,76 @@
++"""Canonical results layout shared by baselines and SACM-X.
++
++Every completed run has exactly one user-facing directory::
++
++    results/runs/<method>/<variant>/seed_<seed>/
++
++``method`` is the baseline id or ``sacm_x``.  ``variant`` is ``default`` for
++baselines and the SACM-X preset (for example ``full_typed``).  The seed is
++always part of the path so two seeds can never overwrite each other.
++
++The layout is intentionally free of pipeline-specific details.  Training and
++evaluation code should derive every output path from these helpers instead of
++hard-coding ``results/paper`` or ``results/sacm_x``.
++"""
++
++from __future__ import annotations
++
++from pathlib import Path
++
++REPO_ROOT = Path(__file__).resolve().parents[2]
++RUNS_ROOT = REPO_ROOT / 'results' / 'runs'
++DEFAULT_VARIANT = 'default'
++
++
++def normalize_variant(variant: str | None) -> str:
++    """Return a filesystem-safe variant name (never empty)."""
++    value = str(variant or '').strip()
++    return value or DEFAULT_VARIANT
++
++
++def default_variant(defaults: dict | None) -> str:
++    """Baseline configs use ``default``; SACM-X uses its configured preset."""
++    return normalize_variant((defaults or {}).get('preset'))
++
++
++def run_root(method: str, variant: str | None, seed: int,
++             root: Path | str | None = None) -> Path:
++    """Return ``<root>/<method>/<variant>/seed_<seed>``."""
++    if not method:
++        raise ValueError('method must be a non-empty string')
++    base = Path(root) if root is not None else RUNS_ROOT
++    return base / str(method) / normalize_variant(variant) / f'seed_{int(seed)}'
++
++
++def eval_root(method: str, variant: str | None, seed: int,
++              root: Path | str | None = None) -> Path:
++    return run_root(method, variant, seed, root) / 'eval'
++
++
++def canonical_paths(method: str, variant: str | None, seed: int,
++                    root: Path | str | None = None) -> dict[str, Path]:
++    """Return the paths every run must expose."""
++    run = run_root(method, variant, seed, root)
++    evaluation = run / 'eval'
++    return {
++        'run_root': run,
++        'checkpoint': run / 'best_model.pth',
++        'run_info': run / 'run_info.json',
++        'metrics_history': run / 'metrics_history.json',
++        'train_log': run / 'train.log',
++        'predictions': run / 'predictions',
++        'eval_root': evaluation,
++        'eval_log': evaluation / 'eval.log',
++        'jobs': evaluation / 'jobs.csv',
++        'manifest': evaluation / 'run_manifest.json',
++        'tables': evaluation / 'tables',
++        'all_metrics': evaluation / 'tables' / 'all_metrics.csv',
++        'macro_metrics': evaluation / 'tables' / 'macro_metrics.csv',
++        'final_report': evaluation / 'tables' / 'final_report.md',
++    }
++
++
++__all__ = [
++    'DEFAULT_VARIANT', 'REPO_ROOT', 'RUNS_ROOT', 'canonical_paths',
++    'default_variant', 'eval_root', 'normalize_variant', 'run_root',
++]
+diff --git a/src/core/trainer.py b/src/core/trainer.py
+index d78607c..aea634f 100644
+--- a/src/core/trainer.py
++++ b/src/core/trainer.py
+@@ -652,6 +652,7 @@ class Trainer:
+                 state_dict = inner.state_dict()
+             else:
+                 state_dict = self.model.state_dict()
++            tmp_path = self.args.save_path + '.tmp'
+             torch.save({
+                 'epoch': epoch,
+                 'model_state_dict': state_dict,
+@@ -715,7 +716,8 @@ class Trainer:
+                     'tversky_beta': getattr(
+                         self.args, 'tversky_beta', 0.7),
+                 },
+-            }, self.args.save_path)
++            }, tmp_path)
++            os.replace(tmp_path, self.args.save_path)
+             logging.info(
+                 f'👍New best model saved with {self.selection_metric}='
+                 f'{selection_score:.4f} (F1={f1:.4f})')
+@@ -860,6 +862,8 @@ class Trainer:
+             'preset': getattr(self.args, 'preset', None),
+             'seed': int(getattr(self.args, 'seed', 0)),
+             'data_root': str(getattr(self.args, 'data_root', '')),
++            'reproducibility_info': getattr(
++                self.args, 'reproducibility_info', {}),
+         }
+         info_path = os.path.join(out_dir, 'run_info.json')
+         try:
+diff --git a/src/train/trainer.py b/src/train/trainer.py
+index c3e791b..5de0bb0 100644
+--- a/src/train/trainer.py
++++ b/src/train/trainer.py
+@@ -349,7 +349,7 @@ if __name__ == '__main__':
+     parser.add_argument('--new_module_lr', type=float, default=1e-4, help='Learning rate for newly added decoder modules')
+     parser.add_argument('--decoder_lr', type=float, default=1e-5, help='Learning rate for original mask decoder parameters (lowered to curb few-shot overfitting)')
+     parser.add_argument('--weight_decay', type=float, default=0.01, help='Weight decay for optimizer')
+-    parser.add_argument('--epochs', type=int, default=400, help='Number of training epochs (SACM-X default budget; explicit value overrides)')
++    parser.add_argument('--epochs', type=int, default=800, help='Number of training epochs (SACM-X default budget; explicit value overrides)')
+     parser.add_argument('--val_interval', type=int, default=None,
+                         help='Validation interval (epochs); default 1 for '
+                              'log_style=baseline, 10 otherwise')
+diff --git a/tests/test_baseline_zoo.py b/tests/test_baseline_zoo.py
+index 2ab6edd..861abed 100644
+--- a/tests/test_baseline_zoo.py
++++ b/tests/test_baseline_zoo.py
+@@ -60,7 +60,7 @@ def test_plan_expands_sam_octa_command(capsys):
+     assert rc == 0
+     assert '--model sam_octa' in output
+     assert 'run_one' in output
+-    assert 'results/paper/sam_octa/seed_0' in output
++    assert 'results/runs/sam_octa/default/seed_0' in output
+ 
+ 
+ def test_report_dry_run_tolerates_missing_runs(tmp_path, capsys):
+@@ -90,7 +90,7 @@ def test_eval_resume_requires_eval_artifact(tmp_path, monkeypatch):
+         'marker': tmp_path / '.eval_done',
+         'command': 'evaluate',
+         'checkpoint': checkpoint,
+-        'eval_artifact': tmp_path / 'paper_metrics.csv',
++        'eval_artifact': tmp_path / 'eval' / 'tables' / 'all_metrics.csv',
+     }
+     _write_marker(job)
+ 
+@@ -104,12 +104,14 @@ def test_eval_resume_requires_eval_artifact(tmp_path, monkeypatch):
+     assert len(calls) == 1
+ 
+     # Marker + a non-empty table is a valid eval result.
+-    (tmp_path / 'paper_metrics.csv').write_text('metric\n')
++    artifact = tmp_path / 'eval' / 'tables' / 'all_metrics.csv'
++    artifact.parent.mkdir(parents=True)
++    artifact.write_text('metric\n')
+     assert _run_job(job, 'eval', resume=True, dry_run=False)
+     assert len(calls) == 1
+ 
+     # Deleting the table invalidates the marker again.
+-    (tmp_path / 'paper_metrics.csv').unlink()
++    artifact.unlink()
+     assert _run_job(job, 'eval', resume=True, dry_run=False)
+     assert len(calls) == 2
+ 
+@@ -118,9 +120,9 @@ def test_eval_artifact_paths(tmp_path):
+     from types import SimpleNamespace
+ 
+     assert _eval_artifact(SimpleNamespace(id='unet'), tmp_path) == \
+-        tmp_path / 'paper_metrics.csv'
++        tmp_path / 'eval' / 'tables' / 'all_metrics.csv'
+     assert _eval_artifact(SimpleNamespace(id='sacm_x'), tmp_path) == \
+-        tmp_path / 'tables' / 'all_metrics.csv'
++        tmp_path / 'eval' / 'tables' / 'all_metrics.csv'
+ 
+ 
+ def test_resolve_models_all_returns_only_available():
+@@ -145,8 +147,8 @@ def test_plan_uses_seed_specific_train_and_test_roots(capsys):
+     assert rc == 0
+     assert 'data/sacm_3shot_seed0' in output
+     assert 'data/sacm_3shot_seed1' in output
+-    assert 'results/paper/sacm_x/seed_0' in output
+-    assert 'results/paper/sacm_x/seed_1' in output
++    assert 'results/runs/sacm_x/full/seed_0' in output
++    assert 'results/runs/sacm_x/full/seed_1' in output
+     assert 'TRAIN_ROOT=data/sacm_3shot_seed0' in output
+     assert 'TRAIN_ROOT=data/sacm_3shot_seed1' in output
+ 
+@@ -157,7 +159,7 @@ def test_plan_expands_unet_seed_paths(capsys):
+     assert rc == 0
+     assert '--data-root data/sacm_3shot_seed0' in output
+     assert '--protocol data/sacm_3shot_seed0/protocol_manifest.csv' in output
+-    assert 'results/paper/unet/seed_0' in output
++    assert 'results/runs/unet/default/seed_0' in output
+ 
+ 
+ def test_train_dry_run_does_not_create_marker(capsys):
+diff --git a/tests/test_baseline_zoo_report.py b/tests/test_baseline_zoo_report.py
+index 74eba77..9278965 100644
+--- a/tests/test_baseline_zoo_report.py
++++ b/tests/test_baseline_zoo_report.py
+@@ -20,7 +20,8 @@ FIELDS = ['dice_mean', 'dice_std', 'iou_mean', 'iou_std',
+ 
+ 
+ def _write_sacm_x(root, seed):
+-    path = root / 'sacm_x' / f'seed_{seed}' / 'tables'
++    path = (root / 'sacm_x' / 'full' / f'seed_{seed}' /
++            'eval' / 'tables')
+     path.mkdir(parents=True)
+     rows = [
+         {'dataset': 'DRIVE', 'role': 'Seen',
+@@ -41,7 +42,8 @@ def _write_sacm_x(root, seed):
+ 
+ 
+ def _write_baseline(root, seed):
+-    path = root / 'unet' / f'seed_{seed}'
++    path = (root / 'unet' / 'default' / f'seed_{seed}' /
++            'eval' / 'tables')
+     path.mkdir(parents=True)
+     rows = [
+         {'method': 'unet', 'dataset': 'DRIVE', 'role': 'Seen',
+@@ -50,7 +52,7 @@ def _write_baseline(root, seed):
+          'cldice_mean': 0.80, 'cldice_std': 0.01,
+          'hd95_mean': 8.0, 'hd95_std': 1.0},
+     ]
+-    with open(path / 'paper_metrics.csv', 'w', newline='') as f:
++    with open(path / 'all_metrics.csv', 'w', newline='') as f:
+         writer = csv.DictWriter(f, fieldnames=['method', 'dataset', 'role'] + FIELDS)
+         writer.writeheader()
+         writer.writerows(rows)
+diff --git a/tests/test_finalize_run.py b/tests/test_finalize_run.py
+new file mode 100644
+index 0000000..3e65666
+--- /dev/null
++++ b/tests/test_finalize_run.py
+@@ -0,0 +1,191 @@
++"""Canonical results-layout tests for finalize_run.py."""
++
++from __future__ import annotations
++
++import csv
++import json
++import sys
++from pathlib import Path
++
++REPO_ROOT = Path(__file__).resolve().parents[1]
++sys.path.insert(0, str(REPO_ROOT / 'src'))
++sys.path.insert(0, str(REPO_ROOT / 'scripts' / 'pipeline'))
++
++import finalize_run  # noqa: E402
++
++
++def _write_csv(path: Path, fields: list[str], rows: list[dict]) -> None:
++    path.parent.mkdir(parents=True, exist_ok=True)
++    with path.open('w', newline='') as handle:
++        writer = csv.DictWriter(handle, fieldnames=fields)
++        writer.writeheader()
++        writer.writerows(rows)
++
++
++def _write_run_info(path: Path, **extra) -> None:
++    payload = {
++        'family': 'baseline',
++        'method': 'unet',
++        'seed': 0,
++        'best_epoch': 7,
++        'last_epoch': 10,
++        'selection': 'dice',
++        'epochs': 10,
++    }
++    payload.update(extra)
++    path.parent.mkdir(parents=True, exist_ok=True)
++    path.write_text(json.dumps(payload) + '\n')
++
++
++def _default_args(**overrides):
++    values = {
++        'family': 'baseline',
++        'method': 'unet',
++        'variant': 'default',
++        'seed': 0,
++        'source_train': None,
++        'source_eval': None,
++        'checkpoint': None,
++        'out_root': None,
++        'cleanup': True,
++        'protocol': None,
++        'pred_root': None,
++        'status': None,
++    }
++    values.update(overrides)
++    return finalize_run.argparse.Namespace(**values)
++
++
++def _write_baseline_source(root: Path) -> tuple[Path, Path]:
++    run_root = root / 'unet' / 'default' / 'seed_0'
++    run_root.mkdir(parents=True)
++    (run_root / 'best_model.pth').write_bytes(b'checkpoint')
++    _write_run_info(run_root / 'run_info.json')
++    (run_root / 'metrics_history.json').write_text('{"history": []}\n')
++    (run_root / 'train.log').write_text('train\n')
++    (run_root / 'eval.log').write_text('eval\n')
++    eval_root = run_root / 'eval'
++    _write_csv(
++        eval_root / 'tables' / 'all_metrics.csv',
++        ['family', 'method', 'variant', 'seed', 'dataset', 'role',
++         'dice_mean', 'dice_std', 'dice_n',
++         'iou_mean', 'iou_std', 'iou_n',
++         'cldice_mean', 'cldice_std', 'cldice_n',
++         'hd95_mean', 'hd95_std', 'hd95_n'],
++        [
++            {'family': 'baseline', 'method': 'unet', 'variant': 'default',
++             'seed': 0, 'dataset': 'DRIVE', 'role': 'Seen',
++             'dice_mean': 0.8, 'dice_std': 0.01, 'dice_n': 2,
++             'iou_mean': 0.7, 'iou_std': 0.01, 'iou_n': 2,
++             'cldice_mean': 0.82, 'cldice_std': 0.01, 'cldice_n': 2,
++             'hd95_mean': 5.0, 'hd95_std': 0.5, 'hd95_n': 2},
++            {'family': 'baseline', 'method': 'unet', 'variant': 'default',
++             'seed': 0, 'dataset': 'WIRE', 'role': 'Novel',
++             'dice_mean': 0.5, 'dice_std': 0.02, 'dice_n': 2,
++             'iou_mean': 0.4, 'iou_std': 0.02, 'iou_n': 2,
++             'cldice_mean': 0.6, 'cldice_std': 0.02, 'cldice_n': 2,
++             'hd95_mean': 60.0, 'hd95_std': 1.0, 'hd95_n': 2},
++        ])
++    for dataset in ('DRIVE', 'WIRE'):
++        role = 'Seen' if dataset == 'DRIVE' else 'Novel'
++        _write_csv(
++            eval_root / dataset / 'metrics.csv',
++            ['dataset', 'image', 'role', 'dice', 'iou', 'cldice', 'hd95'],
++            [
++                {'dataset': dataset, 'image': 'a', 'role': role,
++                 'dice': 0.8, 'iou': 0.7, 'cldice': 0.82, 'hd95': 5.0},
++                {'dataset': dataset, 'image': 'b', 'role': role,
++                 'dice': 0.8, 'iou': 0.7, 'cldice': 0.82, 'hd95': 5.0},
++            ])
++        (eval_root / dataset / 'results_summary.txt').write_text(
++            'Num Samples: 2\n')
++    return run_root, eval_root
++
++
++def test_finalize_baseline_in_place(tmp_path):
++    run_root, eval_root = _write_baseline_source(tmp_path / 'runs')
++    args = _default_args(source_train=run_root, source_eval=eval_root,
++                         out_root=tmp_path / 'runs')
++    target = finalize_run.finalize(args)
++
++    assert target == run_root
++    assert (target / 'best_model.pth').is_file()
++    assert (target / 'run_info.json').is_file()
++    assert (target / 'metrics_history.json').is_file()
++    assert (target / 'train.log').is_file()
++    assert (target / 'eval' / 'eval.log').is_file()
++    assert (target / 'eval' / 'jobs.csv').is_file()
++    assert (target / 'eval' / 'run_manifest.json').is_file()
++    assert (target / 'eval' / 'DRIVE' / 'metrics.csv').is_file()
++    assert (target / 'eval' / 'DRIVE' / 'summary.csv').is_file()
++
++    with open(target / 'eval' / 'tables' / 'all_metrics.csv', newline='') as f:
++        rows = list(csv.DictReader(f))
++    assert {row['dataset'] for row in rows} == {'DRIVE', 'WIRE'}
++    assert {row['variant'] for row in rows} == {'default'}
++    assert {row['seed'] for row in rows} == {'0'}
++
++    with open(target / 'eval' / 'tables' / 'macro_metrics.csv',
++              newline='') as f:
++        macro = list(csv.DictReader(f))
++    assert 'All' in {row['role'] for row in macro}
++
++    manifest = json.loads(
++        (target / 'eval' / 'run_manifest.json').read_text())
++    assert manifest['status'] == 'done'
++    assert manifest['checkpoint_kind'] == 'file'
++    assert not (run_root / 'eval.log').exists()
++
++
++def test_finalize_sacm_x_promotes_and_flattens(tmp_path):
++    out_root = tmp_path / 'runs'
++    run_root = out_root / 'sacm_x' / 'full_typed' / 'seed_0'
++    raw = run_root / 'full_typed'
++    raw.mkdir(parents=True)
++    (raw / 'best_model.pth').write_bytes(b'checkpoint')
++    _write_run_info(raw / 'run_info.json', family='sacm_x',
++                    method='sacm_x', preset='full_typed')
++    (raw / 'metrics_history.json').write_text('{"history": []}\n')
++    (raw / 'run.log').write_text('train\n')
++    eval_root = run_root / 'eval'
++    (eval_root / 'full_typed' / 'DRIVE').mkdir(parents=True)
++    (eval_root / 'full_typed' / 'DRIVE' / 'metrics.csv').write_text(
++        'image,dice,iou,cldice,hd95\na,0.8,0.7,0.82,5.0\n')
++    (eval_root / 'full_typed' / 'DRIVE' / 'results_summary.txt').write_text(
++        'Num Samples: 1\n')
++    (eval_root / 'full_typed' / 'run_eval.log').write_text('eval\n')
++    _write_csv(
++        eval_root / 'tables' / 'all_metrics.csv',
++        ['preset', 'dataset', 'role', 'dice_mean', 'dice_std',
++         'iou_mean', 'iou_std', 'cldice_mean', 'cldice_std',
++         'hd95_mean', 'hd95_std'],
++        [{'preset': 'full_typed', 'dataset': 'DRIVE', 'role': 'Seen',
++          'dice_mean': 0.8, 'dice_std': 0.0,
++          'iou_mean': 0.7, 'iou_std': 0.0,
++          'cldice_mean': 0.82, 'cldice_std': 0.0,
++          'hd95_mean': 5.0, 'hd95_std': 0.0}])
++    _write_csv(eval_root / 'jobs_eval.csv',
++               ['preset', 'dataset', 'gpu', 'status'],
++               [{'preset': 'full_typed', 'dataset': 'DRIVE', 'gpu': '0',
++                 'status': 'done'}])
++
++    args = _default_args(family='sacm_x', method='sacm_x',
++                         variant='full_typed', source_train=run_root,
++                         source_eval=eval_root, out_root=out_root)
++    target = finalize_run.finalize(args)
++
++    assert target == run_root
++    assert (target / 'best_model.pth').is_file()
++    assert (target / 'train.log').is_file()
++    assert (target / 'eval' / 'DRIVE' / 'metrics.csv').is_file()
++    assert (target / 'eval' / 'DRIVE' / 'summary.csv').is_file()
++    assert (target / 'eval' / 'eval.log').is_file()
++    assert (target / 'eval' / 'jobs.csv').is_file()
++    assert not raw.exists()
++    assert not (eval_root / 'full_typed').exists()
++    assert not (eval_root / 'jobs_eval.csv').exists()
++
++    with open(target / 'eval' / 'DRIVE' / 'metrics.csv', newline='') as f:
++        row = next(csv.DictReader(f))
++    assert row['dataset'] == 'DRIVE'
++    assert row['role'] == 'Seen'
