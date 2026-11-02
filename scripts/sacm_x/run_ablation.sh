@@ -28,7 +28,7 @@ PRESETS="${PRESETS:-sacm stage1 stage2 full full_wta full_allhead no_geo_i no_ge
 EPOCHS="${EPOCHS:-50}"
 VAL_INTERVAL="${VAL_INTERVAL:-5}"
 SEED="${SEED:-42}"
-RESULTS_ROOT="${RESULTS_ROOT:-results}"
+RESULTS_ROOT="${RESULTS_ROOT:-results/ablation}"
 TTA="${TTA:-}"
 DDP="${DDP:-true}"   # true = 每个预设用全部 GPU 做 DDP 顺序跑(全量数据推荐);
                     # false = run_experiments 任务级并行(每卡一个 job,3-shot 协议用)

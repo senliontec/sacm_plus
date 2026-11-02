@@ -1,9 +1,8 @@
 """Cross-model / cross-seed metric tables.
 
-Two existing result schemas are normalized here:
-
-* SACM-X: ``<run>/tables/all_metrics.csv`` with ``<metric>_mean/_std``.
-* baselines: ``<run>/paper_metrics.csv`` with ``<metric>_mean/_std``.
+Canonical runs expose ``<run>/eval/tables/all_metrics.csv`` for both
+families.  Legacy ``<run>/tables/all_metrics.csv`` and
+``<run>/paper_metrics.csv`` remain readable during migration.
 
 The report writes a tidy CSV, macro CSV, seed-variance CSV and a Markdown
 summary.  Values are kept as fractions for Dice/IoU/clDice (the Markdown
@@ -55,18 +54,17 @@ def _role(value: str) -> str:
 
 def load_run(run_root: Path, model: str, seed: int,
              preset: str | None = None) -> list[MetricRow]:
-    """Read one (model, seed) result directory.
+    """Read one (model, variant, seed) canonical result directory.
 
-    SACM-X result roots may contain several preset tables in the same
-    ``all_metrics.csv``; ``preset`` selects one.  Baselines use
-    ``paper_metrics.csv`` directly.
+    Canonical rows live at ``<run>/eval/tables/all_metrics.csv``.  The
+    legacy fallbacks remain readable so a partially migrated tree can still
+    be reported.
     """
-    sacm_x = run_root / 'tables' / 'all_metrics.csv'
-    baseline = run_root / 'paper_metrics.csv'
-    if model == 'sacm_x':
-        path = sacm_x
-    else:
-        path = baseline if baseline.is_file() else sacm_x
+    path = run_root / 'eval' / 'tables' / 'all_metrics.csv'
+    if not path.is_file():
+        path = run_root / 'tables' / 'all_metrics.csv'
+    if not path.is_file():
+        path = run_root / 'paper_metrics.csv'
     if not path.is_file():
         return []
 
@@ -78,6 +76,11 @@ def load_run(run_root: Path, model: str, seed: int,
             dataset = raw.get('dataset', '').strip()
             role = _role(raw.get('role', ''))
             if not dataset or not role:
+                continue
+            # Canonical rows already carry the variant; a legacy table may
+            # contain several presets in one file.
+            if (preset is not None
+                    and raw.get('variant') not in (None, preset)):
                 continue
             for metric in METRICS:
                 mean = _float(raw.get(f'{metric}_mean'))
@@ -95,14 +98,40 @@ def load_run(run_root: Path, model: str, seed: int,
     return rows
 
 
+def _run_variant(model: str, preset: str | None) -> str:
+    if preset:
+        return preset
+    # Use the model config's default variant so a bare report does not mix
+    # several SACM-X presets or several baseline ablations.
+    try:
+        from .registry import load_models
+        config = load_models().get(model)
+        defaults = config.defaults if config is not None else {}
+        return str(defaults.get('preset') or 'default')
+    except Exception:
+        return 'default'
+
+
 def load_runs(models: Iterable[str], seeds: Iterable[int],
               result_root: Path,
               preset: str | None = None) -> tuple[list[MetricRow], list[str]]:
     rows: list[MetricRow] = []
     missing: list[str] = []
     for model in models:
+        variant = _run_variant(model, preset)
         for seed in seeds:
-            run_root = result_root / model / f'seed_{seed}'
+            run_root = result_root / model / variant / f'seed_{seed}'
+            if not run_root.is_dir():
+                # A run may use a non-default preset (e.g. SACM-X
+                # full_typed).  With no explicit --preset, accept the only
+                # available variant instead of silently reporting it missing.
+                matches = sorted((result_root / model).glob(
+                    f'*/seed_{seed}'))
+                if len(matches) == 1:
+                    run_root = matches[0]
+            legacy = result_root / model / f'seed_{seed}'
+            if not run_root.is_dir() and legacy.is_dir():
+                run_root = legacy
             current = load_run(run_root, model, seed, preset=preset)
             if not current:
                 missing.append(str(run_root))
@@ -247,7 +276,7 @@ def write_report(rows: list[MetricRow], out_dir: Path) -> dict[str, Path]:
 
 def resolve_result_root(path: str | Path | None) -> Path:
     if path is None:
-        return REPO_ROOT / 'results' / 'paper'
+        return REPO_ROOT / 'results' / 'runs'
     path = Path(path)
     return path if path.is_absolute() else REPO_ROOT / path
 

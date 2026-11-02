@@ -652,6 +652,7 @@ class Trainer:
                 state_dict = inner.state_dict()
             else:
                 state_dict = self.model.state_dict()
+            tmp_path = self.args.save_path + '.tmp'
             torch.save({
                 'epoch': epoch,
                 'model_state_dict': state_dict,
@@ -715,7 +716,8 @@ class Trainer:
                     'tversky_beta': getattr(
                         self.args, 'tversky_beta', 0.7),
                 },
-            }, self.args.save_path)
+            }, tmp_path)
+            os.replace(tmp_path, self.args.save_path)
             logging.info(
                 f'👍New best model saved with {self.selection_metric}='
                 f'{selection_score:.4f} (F1={f1:.4f})')
@@ -860,6 +862,8 @@ class Trainer:
             'preset': getattr(self.args, 'preset', None),
             'seed': int(getattr(self.args, 'seed', 0)),
             'data_root': str(getattr(self.args, 'data_root', '')),
+            'reproducibility_info': getattr(
+                self.args, 'reproducibility_info', {}),
         }
         info_path = os.path.join(out_dir, 'run_info.json')
         try:

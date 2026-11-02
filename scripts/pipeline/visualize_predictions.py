@@ -7,8 +7,12 @@ Individual panels and a contact sheet are written, plus a CSV of per-image
 metrics.
 
 Examples:
-    python scripts/pipeline/visualize_predictions.py --methods unet --num-samples 8
-    python scripts/pipeline/visualize_predictions.py --methods unet --datasets DRIVE
+    SEED=0
+    RUN_ROOT=results/runs/unet/default/seed${SEED}
+    python scripts/pipeline/visualize_predictions.py --methods unet \
+        --pred-root "$RUN_ROOT/predictions" --num-samples 8
+    python scripts/pipeline/visualize_predictions.py --methods unet \
+        --pred-root "$RUN_ROOT/predictions" --datasets DRIVE
 """
 
 from __future__ import annotations
@@ -16,6 +20,7 @@ from __future__ import annotations
 import argparse
 import csv
 import random
+import re
 import sys
 from pathlib import Path
 
@@ -192,13 +197,16 @@ def make_grid(panels, title):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--protocol', type=Path,
-                        default=REPO_ROOT / 'data' / 'sacm_3shot' /
-                        'protocol_manifest.csv')
-    parser.add_argument('--pred-root', type=Path,
-                        default=REPO_ROOT / 'results' / 'predictions')
-    parser.add_argument('--out-root', type=Path,
-                        default=REPO_ROOT / 'results' / 'visualizations')
+    parser.add_argument('--protocol', type=Path, default=None,
+                        help='protocol manifest (default: seed0 when '
+                             'present, else data/sacm_3shot)')
+    parser.add_argument('--pred-root', type=Path, default=None,
+                        help='prediction root (required; canonical: '
+                             'results/runs/<method>/<variant>/seed_<seed>/'
+                             'predictions)')
+    parser.add_argument('--out-root', type=Path, default=None,
+                        help='output root (default: <pred-root>/../'
+                             'visualizations)')
     parser.add_argument('--methods', nargs='+', required=True)
     parser.add_argument('--datasets', nargs='+', default=None)
     parser.add_argument('--num-samples', type=int, default=8,
@@ -207,6 +215,20 @@ def main():
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--allow-missing', action='store_true')
     args = parser.parse_args()
+    if args.protocol is None:
+        match = re.search(r'seed[_-]?(\d+)', str(args.pred_root or ''))
+        seed = int(match.group(1)) if match else 0
+        candidate = (REPO_ROOT / 'data' / f'sacm_3shot_seed{seed}' /
+                     'protocol_manifest.csv')
+        args.protocol = (candidate if candidate.is_file() else
+                         REPO_ROOT / 'data' / 'sacm_3shot' /
+                         'protocol_manifest.csv')
+    if args.pred_root is None:
+        parser.error('--pred-root is required; use the canonical '
+                     'results/runs/<method>/<variant>/seed_<seed>/'
+                     'predictions root')
+    if args.out_root is None:
+        args.out_root = args.pred_root.parent / 'visualizations'
 
     rows = read_test_rows(
         args.protocol, set(args.datasets) if args.datasets else None)

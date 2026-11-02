@@ -77,7 +77,8 @@ GPU=0 PRESET=full \
 Fully one-click (train the shape prior if it is missing, then run SACM-X):
 
 ```bash
-GPU=0 PRESET=full OUTPUT_ROOT=results/sacm_x_dc_seed0 \
+SEED=0
+GPU=0 PRESET=full_typed SEED="$SEED" \
   bash scripts/sacm_x/run_sacm_x_deep_closing.sh
 ```
 
@@ -90,9 +91,11 @@ This works for baseline predictions and for SACM-X predictions after the
 fact:
 
 ```bash
+SEED=0
+RUN_ROOT="results/runs/samed/default/seed${SEED}"
 PYTHONPATH=src python scripts/tools/apply_deep_closing.py \
-  --input results/paper/samed/seed_0/predictions \
-  --output results/paper/samed/seed_0/predictions_deep_closing \
+  --input "$RUN_ROOT/predictions/samed" \
+  --output "$RUN_ROOT/predictions/samed_deep_closing" \
   --checkpoint results/deep_closing/seed0_shape_prior.pth
 ```
 

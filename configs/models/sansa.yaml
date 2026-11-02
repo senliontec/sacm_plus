@@ -14,6 +14,7 @@ train_entrypoint: >-
 eval_entrypoint: >-
   python scripts/pipeline/run_baseline_test.py --method sansa
   --protocol {test_manifest}
+  --data-root {split_root}
   --seed {seed}
   --checkpoint {output_root}/best_model.pth
   --pred-root {output_root}/predictions

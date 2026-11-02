@@ -6,9 +6,11 @@ predictions of any baseline or at SACM-X's prediction directory, and it
 writes refined masks with the same relative layout.
 
 Example:
+    SEED=0
+    RUN_ROOT=results/runs/samed/default/seed${SEED}
     PYTHONPATH=src python scripts/tools/apply_deep_closing.py \
-        --input results/paper/samed/seed_0/predictions \
-        --output results/paper/samed/seed_0/predictions_deep_closing \
+        --input "$RUN_ROOT/predictions/samed" \
+        --output "$RUN_ROOT/predictions/samed_deep_closing" \
         --checkpoint results/deep_closing/seed0_shape_prior.pth
 """
 

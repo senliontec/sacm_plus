@@ -33,10 +33,10 @@ SACM/                              # 项目 = 分割算法平台（框架 + 算�
 ├── datasets/                      # 协议数据: seen/unseen/novel（gitignored）
 ├── data/sacm_3shot/               # 6 域 x 3-shot = 18 图（主协议；.gitignore 已放行）
 ├── results/                       # 统一运行产物（gitignored）
-│   ├── predictions/               #   预测 PNG
-│   ├── paper/                     #   每模型/种子结果 + tables/figures
-│   ├── logs/  wandb/  workdirs/   #   日志、W&B 本地缓存、临时训练目录
-│   └── visualizations/
+│   ├── runs/<method>/<variant>/seed_<seed>/  # 唯一用户入口
+│   ├── tables/  figures/          #   report/figures 产物
+│   ├── logs/  wandb/              #   日志、W&B 本地缓存
+│   └── diagnostics/               #   可选诊断
 ├── tests/                         # pytest（指标手算值、损失冒烟、增强、预设、慢速训练一步）
 ├── docs/                          # 本手册 + 模型管理指南 + 设计书
 ├── pyproject.toml / Makefile / README.md / .gitignore

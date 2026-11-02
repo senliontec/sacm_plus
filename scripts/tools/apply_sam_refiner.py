@@ -6,10 +6,12 @@ prediction tree (``<dataset>/<stem>.png``), pass the protocol manifest so
 the original image can be resolved by ``(dataset, stem)``.
 
 Example:
+    SEED=0
+    RUN_ROOT=results/runs/unet/default/seed${SEED}
     PYTHONPATH=src python scripts/tools/apply_sam_refiner.py \
-        --input results/paper/unet/seed_0/predictions \
-        --output results/paper/unet/seed_0/predictions_samrefiner \
-        --manifest data/sacm_3shot_seed0/protocol_manifest.csv \
+        --input "$RUN_ROOT/predictions/unet" \
+        --output "$RUN_ROOT/predictions/unet_samrefiner" \
+        --manifest "data/sacm_3shot_seed${SEED}/protocol_manifest.csv" \
         --checkpoint checkpoints/sam_vit_h_4b8939.pth --device cuda:0
 """
 

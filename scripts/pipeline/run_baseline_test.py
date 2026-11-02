@@ -18,6 +18,7 @@ import hashlib
 import json
 import math
 import os
+import re
 import subprocess
 import sys
 import time
@@ -33,6 +34,7 @@ from protocol_specs import dataset_specs  # noqa: E402
 # Self-contained adapters.  A method without an entry is assumed to have
 # predictions already on disk (reference-only or externally produced).
 from baseline_zoo.adapters.registry import available_adapters  # noqa: E402
+from core.run_layout import RUNS_ROOT, run_root  # noqa: E402
 from core.run_status import RunStatus  # noqa: E402
 from core.wandb_utils import (  # noqa: E402
     finish_run,
@@ -80,6 +82,12 @@ def repo_env():
     src = str(REPO_ROOT / 'src')
     existing = env.get('PYTHONPATH', '')
     env['PYTHONPATH'] = src + (os.pathsep + existing if existing else '')
+    # Deterministic child inference; these must be present before Python
+    # starts in the prediction subprocess.
+    env.setdefault('PYTHONHASHSEED', '0')
+    env.setdefault('CUBLAS_WORKSPACE_CONFIG', ':4096:8')
+    env.setdefault('OMP_NUM_THREADS', '1')
+    env.setdefault('MKL_NUM_THREADS', '1')
     return env
 
 
@@ -113,23 +121,26 @@ def _float_or_none(value):
     return None if math.isnan(number) else number
 
 
-def log_paper_metrics(args, paper_root: Path):
+def log_paper_metrics(args, eval_root: Path):
     """Log the 20-dataset per-dataset and macro metrics to W&B.
 
     Non-fatal: a missing CSV, missing package, or unreachable server must not
     turn a successful evaluation into a failed run.
     """
-    metrics_path = paper_root / 'paper_metrics.csv'
-    macro_path = paper_root / 'paper_macro.csv'
+    metrics_path = eval_root / 'tables' / 'all_metrics.csv'
+    macro_path = eval_root / 'tables' / 'macro_metrics.csv'
     if not metrics_path.is_file():
         print(f'[warn] W&B: missing {metrics_path}; skip paper-metric logging')
         return
 
     run = setup_wandb(
         args,
-        name=f'paper_metrics-{args.method}',
+        name=(f'paper_metrics-{args.method}-'
+              f'{getattr(args, "variant", "default")}-seed{args.seed}'),
         config={
             'method': args.method,
+            'variant': getattr(args, 'variant', 'default'),
+            'seed': int(args.seed),
             'protocol': str(args.protocol),
             'checkpoint': str(args.checkpoint),
             'pred_root': str(args.pred_root),
@@ -144,7 +155,7 @@ def log_paper_metrics(args, paper_root: Path):
 
         with open(metrics_path, newline='') as f:
             rows = [row for row in csv.DictReader(f)
-                    if row.get('method') == args.method]
+                    if row.get('method') in (None, args.method)]
         if not rows:
             print(f'[warn] W&B: no rows for method={args.method} in '
                   f'{metrics_path}; skip paper-metric logging')
@@ -156,7 +167,7 @@ def log_paper_metrics(args, paper_root: Path):
         ])
         for row in rows:
             table.add_data(
-                row['method'], row['dataset'], row['role'],
+                args.method, row['dataset'], row['role'],
                 _float_or_none(row.get('dice_mean')),
                 _float_or_none(row.get('iou_mean')),
                 _float_or_none(row.get('cldice_mean')),
@@ -169,24 +180,28 @@ def log_paper_metrics(args, paper_root: Path):
         if macro_path.is_file():
             with open(macro_path, newline='') as f:
                 macro_rows = [row for row in csv.DictReader(f)
-                              if row.get('method') == args.method]
+                              if row.get('method') in (None, args.method)]
             for row in macro_rows:
                 role = row.get('role', '').strip().lower()
-                for metric in ('dice', 'iou', 'cldice', 'hd95'):
-                    value = _float_or_none(row.get(f'{metric}_mean'))
-                    if value is not None:
-                        scalars[f'macro/{args.method}/{role}/{metric}'] = value
+                metric = row.get('metric', '').strip().lower()
+                if metric not in ('dice', 'iou', 'cldice', 'hd95'):
+                    continue
+                value = _float_or_none(row.get('mean'))
+                if value is not None:
+                    scalars[f'macro/{args.method}/{role}/{metric}'] = value
         if scalars:
             log_scalars(run, scalars)
 
         for path, artifact_name in (
-            (metrics_path, 'paper_metrics'),
-            (macro_path, 'paper_macro'),
+            (metrics_path, 'all_metrics'),
+            (macro_path, 'macro_metrics'),
         ):
             if path.is_file():
-                log_artifact(run, path,
-                             name=f'{artifact_name}-{args.method}',
-                             artifact_type='metrics')
+                log_artifact(
+                    run, path,
+                    name=(f'{artifact_name}-{args.method}-'
+                          f'seed{args.seed}'),
+                    artifact_type='metrics')
         print(f'W&B: logged paper metrics for {args.method} '
               f'({len(rows)} dataset rows)')
     except Exception as exc:
@@ -198,38 +213,43 @@ def log_paper_metrics(args, paper_root: Path):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--method', default='unet')
-    parser.add_argument('--protocol', type=Path,
-                        default=REPO_ROOT / 'data' / 'sacm_3shot' /
-                        'protocol_manifest.csv')
+    parser.add_argument('--protocol', type=Path, default=None,
+                        help='seed-specific protocol_manifest.csv (default: '
+                             'data/sacm_3shot_seed0/protocol_manifest.csv)')
     parser.add_argument('--checkpoint', type=Path, default=None,
                         help='trained baseline checkpoint (default: '
-                             'results/workdirs/baselines/<method>/best_model.pth)')
+                             'results/runs/<method>/default/seed_<seed>/'
+                             'best_model.pth or the native checkpoint name)')
     parser.add_argument('--sam-checkpoint', type=Path,
                         default=REPO_ROOT / 'checkpoints' /
                         'sam_vit_l_0b3195.pth',
                         help='frozen SAM ViT-L checkpoint for '
                              'sam_vit_l_unet')
-    default_data_root = REPO_ROOT / 'data' / 'sacm_3shot'
-    parser.add_argument('--data-root', type=Path,
-                        default=default_data_root,
-                        help='training split used for support images')
+    parser.add_argument('--data-root', type=Path, default=None,
+                        help='training split used for support images '
+                             '(default: the protocol manifest directory)')
     parser.add_argument('--sam2-checkpoint', type=Path,
                         default=REPO_ROOT / 'checkpoints' /
                         'sam2_hiera_large.pt',
                         help='frozen SAM2 Hiera checkpoint for sam2_unet')
-    parser.add_argument('--pred-root', type=Path,
-                        default=REPO_ROOT / 'results' / 'predictions')
-    parser.add_argument('--paper-root', type=Path,
-                        default=REPO_ROOT / 'results' / 'paper')
-    parser.add_argument('--vis-root', type=Path,
-                        default=REPO_ROOT / 'results' / 'visualizations')
+    parser.add_argument('--pred-root', type=Path, default=None,
+                        help='prediction root (default: '
+                             '<run-root>/predictions)')
+    parser.add_argument('--paper-root', type=Path, default=None,
+                        help='canonical eval root (default: <run-root>/eval); '
+                             'passing the run root is accepted for backward '
+                             'compatibility')
+    parser.add_argument('--vis-root', type=Path, default=None,
+                        help='visualization root (default: '
+                             '<run-root>/visualizations)')
     parser.add_argument('--datasets', nargs='+', default=None)
     parser.add_argument('--num-samples', type=int, default=8)
     parser.add_argument('--metrics', default='dice,iou,cldice,hd95')
     parser.add_argument('--device', default=None)
     parser.add_argument(
-        '--seed', type=int, default=42,
-        help='protocol seed forwarded to prediction adapter')
+        '--seed', type=int, default=None,
+        help='protocol seed forwarded to prediction adapter (default: '
+             'parsed from the protocol path, else 0)')
     parser.add_argument('--skip-predict', action='store_true')
     parser.add_argument('--skip-paper', action='store_true')
     parser.add_argument('--skip-visualize', action='store_true')
@@ -265,13 +285,66 @@ def main():
     parser.add_argument('--wandb_group', default=None)
     parser.add_argument('--wandb_job_type', default='evaluation')
     args = parser.parse_args()
+    if args.protocol is None:
+        legacy_protocol = (REPO_ROOT / 'data' / 'sacm_3shot' /
+                           'protocol_manifest.csv')
+        if args.seed is not None:
+            candidate = (REPO_ROOT / 'data' /
+                         f'sacm_3shot_seed{int(args.seed)}' /
+                         'protocol_manifest.csv')
+            if candidate.is_file():
+                args.protocol = candidate
+            elif int(args.seed) == 42 and legacy_protocol.is_file():
+                args.protocol = legacy_protocol
+            else:
+                raise SystemExit(
+                    f'missing seed-specific protocol for seed {args.seed}: '
+                    f'{candidate}; pass --protocol explicitly')
+        else:
+            seed0 = (REPO_ROOT / 'data' / 'sacm_3shot_seed0' /
+                     'protocol_manifest.csv')
+            args.protocol = (seed0 if seed0.is_file() else legacy_protocol)
+    if args.seed is None:
+        seed = None
+        summary_path = args.protocol.parent / 'protocol_summary.json'
+        if summary_path.is_file():
+            try:
+                seed = json.loads(summary_path.read_text()).get('seed')
+            except (OSError, json.JSONDecodeError):
+                seed = None
+        if seed is None:
+            match = re.search(r'seed[_-]?(\d+)', str(args.protocol.parent))
+            seed = int(match.group(1)) if match else 0
+        args.seed = int(seed)
+    if args.data_root is None:
+        # The protocol and its support images live in the same seed split.
+        args.data_root = args.protocol.parent
+    args.variant = 'default'
+    canonical_run = run_root(args.method, args.variant, args.seed)
     if args.checkpoint is None:
         custom = {
+            'nnunet2d': 'nnunet_model_dir.txt',
             'nnwnet': 'nnunet_model_dir.txt',
             'knowsam': 'SGDL_best_model.pth',
         }.get(args.method, 'best_model.pth')
-        args.checkpoint = (REPO_ROOT / 'results' / 'workdirs' /
-                           'baselines' / args.method / custom)
+        args.checkpoint = canonical_run / custom
+    args.checkpoint = Path(args.checkpoint)
+    train_root = args.checkpoint.parent
+    if args.pred_root is None:
+        args.pred_root = canonical_run / 'predictions'
+    args.pred_root = Path(args.pred_root)
+    if (args.paper_root is None
+            or Path(args.paper_root).resolve() == train_root.resolve()
+            or Path(args.paper_root).resolve() == canonical_run.resolve()):
+        eval_root = canonical_run / 'eval'
+    else:
+        eval_root = Path(args.paper_root)
+    args.paper_root = eval_root
+    if args.vis_root is None:
+        args.vis_root = canonical_run / 'visualizations'
+    args.vis_root = Path(args.vis_root)
+    args.run_root = canonical_run
+    args.train_root = train_root
     dataset_filter = set(args.datasets) if args.datasets else None
     specs = read_specs(args.protocol, dataset_filter)
     counts = read_test_counts(args.protocol, dataset_filter)
@@ -410,7 +483,11 @@ def main():
                    '--pred-root', args.pred_root,
                    '--out-root', args.paper_root,
                    '--metrics', args.metrics,
-                   '--protocol', args.protocol]
+                   '--protocol', args.protocol,
+                   '--layout', 'canonical',
+                   '--family', 'baseline',
+                   '--variant', args.variant,
+                   '--seed', str(args.seed)]
             if args.datasets:
                 cmd += ['--datasets'] + list(args.datasets)
             if args.allow_partial_overwrite:
@@ -442,18 +519,24 @@ def main():
         manifest = {
             'family': 'baseline',
             'method': args.method,
+            'variant': args.variant,
             'seed': int(args.seed),
+            'run_root': str(args.run_root),
             'checkpoint': str(args.checkpoint.resolve()),
             'protocol': str(args.protocol),
             'datasets': [name for name, _ in specs],
             'pred_root': str(method_pred_root),
-            'paper_root': str(args.paper_root),
-            'paper_metrics': str(args.paper_root / 'paper_metrics.csv'),
-            'paper_macro': str(args.paper_root / 'paper_macro.csv'),
+            'eval_root': str(args.paper_root),
+            'metrics_csv': str(
+                args.paper_root / 'tables' / 'all_metrics.csv'),
+            'macro_csv': str(
+                args.paper_root / 'tables' / 'macro_metrics.csv'),
+            'final_report': str(
+                args.paper_root / 'tables' / 'final_report.md'),
             'per_dataset_metrics': str(
-                args.paper_root / args.method / '<DATASET>' / 'metrics.csv'),
+                args.paper_root / '<DATASET>' / 'metrics.csv'),
             'stages': stage_names,
-            'status': 'done',
+            'status': 'done' if not args.skip_paper else 'train_only',
             'skip_predict': bool(args.skip_predict),
             'skip_paper': bool(args.skip_paper),
             'generated_at': time.strftime('%Y-%m-%dT%H:%M:%S'),
@@ -462,14 +545,42 @@ def main():
             args.paper_root.mkdir(parents=True, exist_ok=True)
             (args.paper_root / 'run_manifest.json').write_text(
                 json.dumps(manifest, indent=2) + '\n')
+            stale_failure = args.paper_root / 'run_manifest.failed.json'
+            if stale_failure.is_file():
+                stale_failure.unlink()
         except OSError as exc:
             print(f'[warn] could not write run_manifest.json: {exc}')
+        # One user-facing layout for both baselines and SACM-X.  The
+        # collector already writes canonical eval tables; the finalizer
+        # promotes the checkpoint/metadata and writes the canonical manifest.
+        finalize = REPO_ROOT / 'scripts' / 'pipeline' / 'finalize_run.py'
+        if finalize.is_file():
+            finalize_cmd = [
+                sys.executable, str(finalize),
+                '--family', 'baseline', '--method', args.method,
+                '--variant', args.variant, '--seed', str(args.seed),
+                '--source-train', str(train_root),
+                '--source-eval', str(args.paper_root),
+                '--out-root', str(RUNS_ROOT),
+                '--protocol', str(args.protocol),
+                '--pred-root', str(method_pred_root),
+                '--status', manifest['status']]
+            if Path(args.paper_root).resolve() == (canonical_run / 'eval').resolve():
+                finalize_cmd.append('--cleanup')
+            finalized = subprocess.run(finalize_cmd, cwd=REPO_ROOT,
+                                       check=False)
+            if finalized.returncode != 0:
+                raise RuntimeError(
+                    'finalize_run failed; the canonical results/runs tree '
+                    'is incomplete')
     except BaseException as exc:
         status.refresh()
         status.fail(exc)
         try:
             args.paper_root.mkdir(parents=True, exist_ok=True)
-            (args.paper_root / 'run_manifest.json').write_text(
+            # Keep a failed re-run from destroying the metadata of a prior
+            # successful evaluation; the success manifest remains canonical.
+            (args.paper_root / 'run_manifest.failed.json').write_text(
                 json.dumps({
                     'family': 'baseline',
                     'method': args.method,

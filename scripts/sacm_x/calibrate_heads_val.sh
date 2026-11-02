@@ -14,7 +14,7 @@
 #
 # Usage:
 #   GPU=7 bash scripts/sacm_x/calibrate_heads_val.sh
-#   GPU=7 PRESET=full OUTPUT_ROOT=results/paper/sacm_x/seed_0 \
+#   GPU=7 PRESET=full_typed SEED=0 \
 #     bash scripts/sacm_x/calibrate_heads_val.sh
 #   GPU=7 SPLITS="val train" bash scripts/sacm_x/calibrate_heads_val.sh
 #
@@ -43,19 +43,23 @@ fi
 
 GPU="${GPU:-0}"
 PRESET="${PRESET:-full}"
-OUTPUT_ROOT="${OUTPUT_ROOT:-results/paper/sacm_x/seed_0}"
-CKPT="${CKPT:-$OUTPUT_ROOT/$PRESET/best_model.pth}"
+SEED="${SEED:-0}"
+OUTPUT_ROOT="${OUTPUT_ROOT:-results/runs/sacm_x/$PRESET/seed$SEED}"
+CKPT="${CKPT:-$OUTPUT_ROOT/best_model.pth}"
+if [ ! -f "$CKPT" ] && [ -f "$OUTPUT_ROOT/$PRESET/best_model.pth" ]; then
+  CKPT="$OUTPUT_ROOT/$PRESET/best_model.pth"
+fi
 if [ -z "${TRAIN_ROOT:-}" ]; then
-  for candidate in data/sacm_3shot_seed0 data/sacm_3shot; do
+  for candidate in "data/sacm_3shot_seed$SEED" data/sacm_3shot; do
     if [ -f "$candidate/protocol_manifest.csv" ]; then
       TRAIN_ROOT="$candidate"
       break
     fi
   done
 fi
-TRAIN_ROOT="${TRAIN_ROOT:-data/sacm_3shot_seed0}"
+TRAIN_ROOT="${TRAIN_ROOT:-data/sacm_3shot_seed$SEED}"
 SPLITS="${SPLITS:-val}"
-CALIB_ROOT="${CALIB_ROOT:-$OUTPUT_ROOT/calibration}"
+CALIB_ROOT="${CALIB_ROOT:-$OUTPUT_ROOT/eval/calibration}"
 EVAL_INPUT_MODE="${EVAL_INPUT_MODE:-resize}"
 SELECTION="${SELECTION:-iou}"
 EMPTY_GUARD="${EMPTY_GUARD:-true}"

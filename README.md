@@ -135,6 +135,42 @@ deterministic kernels, DataLoader workers, and environment manifests:
    `--selection gating` replicates the original SACM head-0 selection;
    `--selection iou` uses the trained IoU head.
 
+## Unified results (baselines + SACM-X)
+
+Use the wrappers for paper runs.  Every run, baseline or SACM-X, writes one
+canonical directory:
+
+```text
+results/runs/<method>/<variant>/seed_<seed>/
+  best_model.pth            # file checkpoints (best_model/ for dirs)
+  checkpoint.json
+  run_info.json
+  metrics_history.json
+  train.log
+  predictions/              # baselines
+  eval/
+    <DATASET>/metrics.csv
+    <DATASET>/summary.csv
+    tables/all_metrics.csv
+    tables/macro_metrics.csv
+    tables/final_report.md
+    run_manifest.json
+    eval.log
+    jobs.csv
+```
+
+- baselines: `bash scripts/run_train.sh --model unet --seeds 0` then
+  `bash scripts/run_eval.sh --model unet --seeds 0`
+- SACM-X: `SEED=0 PRESET=full_typed SKIP_TEST=true bash scripts/sacm_x/run_sacm_x_quick.sh`
+  trains and promotes the best checkpoint; run
+  `bash scripts/sacm_x/eval_sacm_x_20.sh` for the 20-dataset eval.
+- index every run: `python scripts/pipeline/index_runs.py` →
+  `results/runs_index.csv`
+
+See `scripts/sacm_x/README.md` for the complete commands.  The low-level
+`src/train/trainer.py` / `src/eval/evaluate.py` examples below are direct
+architecture entrypoints; they do not promote results into the canonical tree.
+
 ## New files
 
 - `core/metrics/` — evaluation metrics (pixel/distance/surface/
@@ -249,12 +285,14 @@ Relevant flags: `--use_typed_heads {true,false}`,
 Minimal validation-first loop (no test tuning):
 
 ```bash
-GPU=7 PRESET=full_typed EPOCHS=100 \
-OUTPUT_ROOT=results/sacm_x_typed_proto SKIP_TEST=true \
+SEED=0
+RUN_ROOT="results/runs/sacm_x/full_typed/seed${SEED}"
+
+GPU=7 PRESET=full_typed EPOCHS=100 SEED="$SEED" \
+OUTPUT_ROOT="$RUN_ROOT" SKIP_TEST=true \
 bash scripts/sacm_x/run_sacm_x_quick.sh
 
-GPU=7 PRESET=full_typed \
-OUTPUT_ROOT=results/sacm_x_typed_proto \
+GPU=7 PRESET=full_typed SEED="$SEED" OUTPUT_ROOT="$RUN_ROOT" \
 bash scripts/sacm_x/audit_heads_full_val.sh
 ```
 
@@ -296,10 +334,13 @@ The one-click evaluation script forwards these through environment
 variables, e.g.:
 
 ```bash
+SEED=0
+RUN_ROOT="results/runs/sacm_x/full_typed/seed${SEED}"
 DATASETS="CREMI ROAD DeepGlobe TopoMortar OCTA-500 TYRE WIRE" \
 AUDIT_HEADS=true COMPONENT_METRICS=true SAVE_CANDIDATE_MASKS=true \
 AUDIT_THRESHOLDS="-2 -1 0 1 2" \
-OUTPUT_ROOT=results/paper/sacm_x_audit PRESET=full GPU=7 \
+TRAIN_OUT="$RUN_ROOT" OUTPUT_ROOT="$RUN_ROOT/eval" \
+PRESET=full_typed SEED="$SEED" GPU=7 \
 bash scripts/sacm_x/eval_sacm_x_20.sh
 ```
 
@@ -307,10 +348,12 @@ For **validation calibration only**, the one-click script runs the full
 head × threshold grid and writes a per-dataset report:
 
 ```bash
-GPU=7 OUTPUT_ROOT=results/paper/sacm_x/seed_0 PRESET=full \
+SEED=0
+GPU=7 SEED="$SEED" PRESET=full \
 bash scripts/sacm_x/calibrate_heads_val.sh
 # val = 6 seen images (1 per seen dataset); train/support = 18 seen images
-SPLITS="val train" GPU=7 bash scripts/sacm_x/calibrate_heads_val.sh
+SPLITS="val train" GPU=7 SEED="$SEED" \
+bash scripts/sacm_x/calibrate_heads_val.sh
 ```
 
 The val split has only one image per seen dataset, so its per-dataset
@@ -321,9 +364,10 @@ For the topology question (does a less-fragmented head win clDice/HD95?),
 run the full per-head audit instead of the quick grid:
 
 ```bash
-GPU=7 OUTPUT_ROOT=results/paper/sacm_x/seed_0 PRESET=full \
+SEED=0
+GPU=7 SEED="$SEED" PRESET=full \
 bash scripts/sacm_x/audit_heads_full_val.sh
-# report: results/paper/sacm_x/seed_0/head_full_audit/val/head_full_report.txt
+# report: results/runs/sacm_x/full/seed${SEED}/eval/head_full_audit/val/head_full_report.txt
 ```
 
 It writes `head_full_audit.csv` with the full metric suite for each head
@@ -337,9 +381,10 @@ topology-friendly head without losing Dice, compare all selectors on the
 same split:
 
 ```bash
-GPU=7 OUTPUT_ROOT=results/paper/sacm_x/seed_0 PRESET=full \
+SEED=0
+GPU=7 SEED="$SEED" PRESET=full \
 bash scripts/sacm_x/compare_selectors_val.sh
-# report: results/paper/sacm_x/seed_0/selector_audit/val/selector_report.txt
+# report: results/runs/sacm_x/full/seed${SEED}/eval/selector_audit/val/selector_report.txt
 ```
 
 It runs `iou`, `gating`, three `quality` weight settings, fixed head2 and
@@ -360,23 +405,22 @@ python scripts/data/prepare_data.py \
     --shots 3 --val_shots 1 --make_test \
     --out_dir data/sacm_3shot --seed 42
 
-# 2. Run the whole ablation matrix on multiple GPUs (train + test per job)
+# 2. Legacy multi-preset ablation matrix (not the canonical paper pipeline).
+#    It writes results/ablation/<preset>/; use the one-click wrappers above
+#    for canonical runs.
 python scripts/sacm_x/run_experiments.py --gpus 0 1 2 3 4 5 6 7 \
     --checkpoint /path/sam_vit_l_0b3195.pth --train_root data/sacm_3shot \
     --test_datasets DRIVE:/data/DRIVE CHASEDB1:/data/CHASEDB1 \
-    --presets sacm stage1 stage2 full --output_root results --epochs 50 --tta
+    --presets sacm stage1 stage2 full --output_root results/ablation \
+    --epochs 50 --tta
 
 # 3. Aggregate per-job summaries into CSV + LaTeX tables
-python scripts/sacm_x/aggregate_results.py --root results --out results/tables
-
-# 4. AI-improvement-loop diagnostics: weakest metric -> suspect component
-#    -> suggested change (reads metrics_history.json written during training)
-python scripts/sacm_x/metrics_report.py --history results/full/DRIVE/metrics_history.json
-python scripts/sacm_x/metrics_report.py --root results --out results/tables/report.md
+python scripts/sacm_x/aggregate_results.py \
+    --root results/ablation --out results/ablation/tables
 
 # 4. Motivation diagnostics (head supervision + gating quality evidence)
 python -m models.sacm_x.diagnose --preset sacm --data_root /data/DRIVE \
-    --trained_weights results/sacm/DRIVE/best_model.pth \
+    --trained_weights results/ablation/sacm/best_model.pth \
     --output_dir diagnosis/sacm_drive
 ```
 
@@ -386,7 +430,7 @@ Every baseline adapter uses the shared W&B helper in
 `src/core/wandb_utils.py` and writes the same prediction contract:
 
 ```text
-results/predictions/<method>/<dataset>/<stem>.png
+results/runs/<method>/default/seed_<seed>/predictions/<method>/<dataset>/<stem>.png
 ```
 
 Example for the U-Net adapter:
@@ -416,30 +460,36 @@ PYTHONPATH=src python -m baseline_zoo.run_one --model unet --stage train \
 
 # Predict on a subset (for a full run use scripts/pipeline/run_baseline_test.py)
 PYTHONPATH=src python -m baseline_zoo.run_one --model unet --stage predict \
-    --test-datasets DRIVE:data/sacm_3shot/test/DRIVE \
+    --test-datasets DRIVE:data/sacm_3shot_seed0/test/DRIVE \
                    WIRE:datasets/novel/WIRE
 
-# Collect paper tables for the same subset
+# Collect paper tables for the same subset (canonical eval root)
+SEED=0
+RUN_ROOT="results/runs/unet/default/seed${SEED}"
 python scripts/pipeline/collect_paper_metrics.py --methods unet \
-    --datasets DRIVE WIRE --out-root results/paper
+    --datasets DRIVE WIRE --pred-root "$RUN_ROOT/predictions" \
+    --out-root "$RUN_ROOT/eval" --layout canonical --family baseline \
+    --variant default --seed "$SEED"
 
 # Save qualitative panels for the same subset
 python scripts/pipeline/visualize_predictions.py --methods unet \
-    --datasets DRIVE WIRE --num-samples 8
+    --datasets DRIVE WIRE --pred-root "$RUN_ROOT/predictions" \
+    --out-root "$RUN_ROOT/visualizations" --num-samples 8
 
-# One command: predict on all protocol test sets, collect paper tables,
-# and save visualizations.  Requires the trained checkpoint.
-python scripts/pipeline/run_baseline_test.py
+# One command: predict on all protocol test sets, collect canonical tables,
+# and finalize the run.  Requires the trained checkpoint.
+python scripts/pipeline/run_baseline_test.py --method unet --seed "$SEED"
 ```
 
-Long test/evaluation runs print stage progress and keep a state file at
-`results/.run_status/<method>.json`.
+Long test/evaluation runs print stage progress and keep a state file under
+the run root at `.run_status/<method>.json`.
 
 Prediction prints every 50 images; metric collection prints per dataset and
 every 100 images.  Per-dataset metric results are cached
-(`results/paper/<method>/<dataset>/metrics.csv` + `metrics_meta.json`), so an
-interrupted run resumes completed datasets automatically.  Metric collection
-is parallel across datasets (`--workers`, default `min(8, CPU count)`):
+(`results/runs/<method>/default/seed_<seed>/eval/<dataset>/metrics.csv` +
+`metrics_meta.json`), so an interrupted run resumes completed datasets
+automatically.  Metric collection is parallel across datasets (`--workers`,
+default `min(8, CPU count)`):
 
 ```bash
 # Resume a run that stopped during prediction or metrics
@@ -451,16 +501,17 @@ python scripts/pipeline/collect_paper_metrics.py --methods unet --no-resume
 ```
 
 The collector finishes by printing a per-dataset summary table plus
-Seen/Unseen/Novel/All macro rows; the same values are in `paper_metrics.csv`
-and `paper_macro.csv`.
+Seen/Unseen/Novel/All macro rows; the same values are in
+`eval/tables/all_metrics.csv` and `eval/tables/macro_metrics.csv` after
+`finalize_run.py` promotes the run.
 
 U-Net training prints a rich one-line table (header + one row per epoch)
 and persists the same values next to its checkpoint:
 
 ```text
-results/paper/unet/seed_<N>/metrics_history.json
+results/runs/unet/default/seed_<N>/metrics_history.json
     config + per-epoch overall and per-dataset metrics (AI-readable)
-results/paper/unet/seed_<N>/val_metrics_by_dataset.csv
+results/runs/unet/default/seed_<N>/val_metrics_by_dataset.csv
     one row per epoch; 6 datasets x Dice/IoU/clDice/HD95 = 24 metric columns
 ```
 
@@ -471,12 +522,13 @@ because large artifacts can stall the end of a run on the self-hosted server;
 enable it with `WANDB_LOG_ARTIFACT=true`.  Shutdown waits at most
 `WANDB_FINISH_TIMEOUT` seconds (default 60) before returning.
 
-`collect_paper_metrics.py` reads the frozen protocol manifest and emits
-`paper_metrics.csv`, `paper_macro.csv`, `paper_stats.json`, per-metric
-LaTeX tables, and `paper_tables.md`. It also writes one `metrics.csv` per
-`<method>/<dataset>` (per-image rows) and a `metrics_meta.json` cache marker.
-`visualize_predictions.py` writes
-`results/visualizations/<method>/<dataset>/<stem>.png` and `grid.png`
+`collect_paper_metrics.py --layout canonical` reads the frozen protocol
+manifest and writes per-image `eval/<dataset>/metrics.csv`, per-dataset
+`summary.csv`, `eval/tables/all_metrics.csv`, `eval/tables/macro_metrics.csv`,
+`eval/tables/final_report.md`, and `collect_stats.json`.
+`finalize_run.py` then writes `eval/run_manifest.json`, `eval/eval.log`, and
+`eval/jobs.csv`. `visualize_predictions.py` writes
+`<run-root>/visualizations/<method>/<dataset>/<stem>.png` and `grid.png`
 with input, GT, prediction, and TP/FP/FN error panels.
 
 `src/models/sacm_x/diagnose.py` produces the paper's motivation evidence:

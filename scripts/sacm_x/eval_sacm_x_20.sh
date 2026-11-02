@@ -3,22 +3,22 @@
 # No retraining.
 #
 # Usage:
-#   bash scripts/sacm_x/eval_sacm_x_20.sh
-#   GPU=2 bash scripts/sacm_x/eval_sacm_x_20.sh
+#   SEED=0 PRESET=full_typed bash scripts/sacm_x/eval_sacm_x_20.sh
+#   GPU=2 SEED=0 PRESET=full_typed bash scripts/sacm_x/eval_sacm_x_20.sh
 #   DATASETS="DRIVE WIRE" bash scripts/sacm_x/eval_sacm_x_20.sh
 #
 # Environment:
-#   GPU (default 3), TRAIN_OUT, CKPT, OUTPUT_ROOT, PRESET (default full),
-#   SAM_CKPT, DATASETS, USE_WANDB, WANDB_MODE,
-#   SAVE_CANDIDATE_MASKS, SAVE_CANDIDATE_PROBS,
-#   SKIP_EVAL=1 (only aggregate + report existing results)
+#   GPU (default 3), TRAIN_OUT, CKPT, OUTPUT_ROOT, CANONICAL_ROOT,
+#   PRESET (default full), SEED, SAM_CKPT, DATASETS, USE_WANDB, WANDB_MODE,
+#   SAVE_CANDIDATE_MASKS, SAVE_CANDIDATE_PROBS.
 #
-# Recommended layout:
-#   TRAIN_OUT=results/sacm_x/<run>/train
-#   OUTPUT_ROOT=results/sacm_x/<run>/eval/<tag>   (or auto: ${TRAIN_OUT}_eval)
-#   CKPT defaults to $TRAIN_OUT/$PRESET/best_model.pth
-# so evaluation never copies the 1.4 GiB checkpoint and never overwrites
-# the training run.log.
+# Canonical layout:
+#   TRAIN_OUT=results/runs/sacm_x/<preset>/seed<seed>
+#   OUTPUT_ROOT=$TRAIN_OUT/eval
+#   CKPT=$TRAIN_OUT/best_model.pth
+# The raw <eval>/<preset>/<DATASET> tree is flattened into
+# <eval>/<DATASET> and the training checkpoint is promoted by
+# finalize_run.py; no 1.4 GiB copy is made.
 set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 1
 
@@ -41,28 +41,30 @@ fi
 GPU="${GPU:-3}"
 PRESET="${PRESET:-full}"
 SEED="${SEED:-0}"
-TRAIN_OUT="${TRAIN_OUT:-}"
-if [ -z "${OUTPUT_ROOT:-}" ] && [ -n "$TRAIN_OUT" ]; then
-  if [[ "$TRAIN_OUT" == */train ]]; then
-    OUTPUT_ROOT="${TRAIN_OUT%/train}/eval"
-  else
-    OUTPUT_ROOT="${TRAIN_OUT}_eval"
-  fi
+CANONICAL_ROOT="${CANONICAL_ROOT:-results/runs}"
+TRAIN_OUT="${TRAIN_OUT:-$CANONICAL_ROOT/sacm_x/$PRESET/seed$SEED}"
+# Backward compatibility: <run>/train was the old training subdirectory.
+if [[ "$TRAIN_OUT" == */train ]]; then
+  TRAIN_OUT="${TRAIN_OUT%/train}"
 fi
-OUTPUT_ROOT="${OUTPUT_ROOT:-results/sacm_x/${PRESET}_seed${SEED}/eval}"
-CKPT="${CKPT:-${TRAIN_OUT:-$OUTPUT_ROOT}/$PRESET/best_model.pth}"
+OUTPUT_ROOT="${OUTPUT_ROOT:-$TRAIN_OUT/eval}"
+CKPT="${CKPT:-$TRAIN_OUT/best_model.pth}"
+if [ ! -f "$CKPT" ] && [ -f "$TRAIN_OUT/$PRESET/best_model.pth" ]; then
+  CKPT="$TRAIN_OUT/$PRESET/best_model.pth"
+fi
 if [ -n "$TRAIN_OUT" ] && [ "$OUTPUT_ROOT" = "$TRAIN_OUT" ]; then
   echo "ERROR: OUTPUT_ROOT must differ from TRAIN_OUT" >&2
-  echo "Use TRAIN_OUT=<run>/train and OUTPUT_ROOT=<run>/eval/<tag>." >&2
+  echo "Use TRAIN_OUT=<run-root> and OUTPUT_ROOT=<run-root>/eval." >&2
   exit 2
 fi
-if [[ "$OUTPUT_ROOT" != *"seed_${SEED}"* ]]; then
-  echo "WARNING: OUTPUT_ROOT does not contain seed_${SEED}; different seeds can collide." >&2
+if ! printf '%s\n' "$OUTPUT_ROOT" | grep -qE "seed[_-]?${SEED}([^0-9]|$)"; then
+  echo "WARNING: OUTPUT_ROOT does not contain seed_${SEED} or seed${SEED}; different seeds can collide." >&2
 fi
-ckpt_seed=$(printf '%s\n' "$CKPT" | grep -o 'seed_[0-9]\+' | tail -n 1 || true)
-if [ -n "$ckpt_seed" ] && [ "$ckpt_seed" != "seed_${SEED}" ]; then
-  echo "ERROR: CKPT seed ($ckpt_seed) != SEED ($SEED)" >&2
-  echo "Use SEED=${ckpt_seed#seed_} or a checkpoint from seed_${SEED}." >&2
+ckpt_seed_num=$(printf '%s\n' "$CKPT" \
+  | grep -oE 'seed[_-]?[0-9]+' | tail -n 1 | sed -E 's/seed[_-]?//' || true)
+if [ -n "$ckpt_seed_num" ] && [ "$ckpt_seed_num" != "$SEED" ]; then
+  echo "ERROR: CKPT seed (${ckpt_seed_num}) != SEED (${SEED})" >&2
+  echo "Use SEED=${ckpt_seed_num} or a checkpoint from seed_${SEED}." >&2
   exit 2
 fi
 SAM_CKPT="${SAM_CKPT:-checkpoints/sam_vit_l_0b3195.pth}"
@@ -220,14 +222,36 @@ fi
 echo
 echo "== aggregate (partial results are kept if any dataset failed) =="
 agg_rc=0
-AGG_ARGS=(--root "$OUTPUT_ROOT" --out "$OUTPUT_ROOT/tables"
-  --preset "$PRESET")
-if [ -n "$DATASETS" ]; then
-  # shellcheck disable=SC2206
-  AGG_ARGS+=(--datasets $DATASETS)
+if [ "$SKIP_EVAL" = "true" ] || [ "$SKIP_EVAL" = "1" ]; then
+  if [ -f "$OUTPUT_ROOT/tables/all_metrics.csv" ] \
+      && [ ! -d "$OUTPUT_ROOT/$PRESET" ]; then
+    echo "using existing canonical tables (raw $PRESET/ already finalized)"
+  else
+    AGG_ARGS=(--root "$OUTPUT_ROOT" --out "$OUTPUT_ROOT/tables"
+      --preset "$PRESET")
+    if [ -f "$TRAIN_ROOT/protocol_summary.json" ]; then
+      AGG_ARGS+=(--protocol-summary "$TRAIN_ROOT/protocol_summary.json")
+    fi
+    if [ -n "$DATASETS" ]; then
+      # shellcheck disable=SC2206
+      AGG_ARGS+=(--datasets $DATASETS)
+    fi
+    "$PYTHON" scripts/sacm_x/aggregate_results.py \
+      "${AGG_ARGS[@]}" || agg_rc=$?
+  fi
+else
+  AGG_ARGS=(--root "$OUTPUT_ROOT" --out "$OUTPUT_ROOT/tables"
+    --preset "$PRESET")
+  if [ -f "$TRAIN_ROOT/protocol_summary.json" ]; then
+    AGG_ARGS+=(--protocol-summary "$TRAIN_ROOT/protocol_summary.json")
+  fi
+  if [ -n "$DATASETS" ]; then
+    # shellcheck disable=SC2206
+    AGG_ARGS+=(--datasets $DATASETS)
+  fi
+  "$PYTHON" scripts/sacm_x/aggregate_results.py \
+    "${AGG_ARGS[@]}" || agg_rc=$?
 fi
-"$PYTHON" scripts/sacm_x/aggregate_results.py \
-  "${AGG_ARGS[@]}" || agg_rc=$?
 
 echo
 echo "== final report =="
@@ -243,12 +267,24 @@ if [ "$rc" -ne 0 ] || [ "$agg_rc" -ne 0 ] || [ "$report_rc" -ne 0 ]; then
 fi
 
 echo
+echo "== unified run =="
+FINAL_RUN_ROOT="$CANONICAL_ROOT/sacm_x/$PRESET/seed$SEED"
+"$PYTHON" scripts/pipeline/finalize_run.py \
+  --family sacm_x --method sacm_x --variant "$PRESET" --seed "$SEED" \
+  --source-train "$TRAIN_OUT" --source-eval "$OUTPUT_ROOT" \
+  --out-root "$CANONICAL_ROOT" --cleanup \
+  --protocol "$TRAIN_ROOT/protocol_manifest.csv" \
+  || { echo "ERROR: finalize_run failed" >&2; exit 1; }
+
+echo
 echo "== results =="
-echo "eval log:   $OUTPUT_ROOT/$PRESET/run_eval.log"
-echo "jobs:       $OUTPUT_ROOT/jobs_eval.csv"
-echo "manifest:   $OUTPUT_ROOT/run_manifest.json"
-echo "per-dataset:$OUTPUT_ROOT/$PRESET/<DATASET>/metrics.csv"
-echo "csv:        $OUTPUT_ROOT/tables/all_metrics.csv"
-echo "macro:      $OUTPUT_ROOT/tables/macro_metrics.csv"
-echo "report:     $OUTPUT_ROOT/tables/final_report.md"
+echo "run root:    $FINAL_RUN_ROOT"
+echo "checkpoint:  $FINAL_RUN_ROOT/best_model.pth (or best_model/)"
+echo "eval log:    $FINAL_RUN_ROOT/eval/eval.log"
+echo "jobs:        $FINAL_RUN_ROOT/eval/jobs.csv"
+echo "manifest:    $FINAL_RUN_ROOT/eval/run_manifest.json"
+echo "per-dataset: $FINAL_RUN_ROOT/eval/<DATASET>/metrics.csv"
+echo "csv:         $FINAL_RUN_ROOT/eval/tables/all_metrics.csv"
+echo "macro:       $FINAL_RUN_ROOT/eval/tables/macro_metrics.csv"
+echo "report:      $FINAL_RUN_ROOT/eval/tables/final_report.md"
 exit 0

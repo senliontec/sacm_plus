@@ -18,6 +18,8 @@ from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
+from core.run_layout import RUNS_ROOT, default_variant, run_root
+
 from .protocols import ProtocolConfig, load_protocol, load_protocols
 from .registry import (
     REPO_ROOT,
@@ -32,10 +34,9 @@ from .report import (
     write_report,
 )
 
-# Every baseline eval entrypoint writes <output_root>/paper_metrics.csv.
-# SACM-X aggregates into <output_root>/tables/all_metrics.csv instead.
-EVAL_ARTIFACTS = {'sacm_x': Path('tables') / 'all_metrics.csv'}
-DEFAULT_EVAL_ARTIFACT = Path('paper_metrics.csv')
+# Both families write the same canonical evaluation table.
+EVAL_ARTIFACTS = {'sacm_x': Path('eval') / 'tables' / 'all_metrics.csv'}
+DEFAULT_EVAL_ARTIFACT = Path('eval') / 'tables' / 'all_metrics.csv'
 
 
 def _eval_artifact(model: ModelConfig, output_root: Path) -> Path:
@@ -144,18 +145,26 @@ def _eval_command(model: ModelConfig, protocol: ProtocolConfig,
 
 
 def _output_root(model: ModelConfig, seed: int) -> Path:
-    return REPO_ROOT / 'results' / 'paper' / model.id / f'seed_{seed}'
+    """One canonical run root per (method, variant, seed)."""
+    return run_root(model.id, default_variant(model.defaults), seed,
+                    root=RUNS_ROOT)
 
 
 def _run(command: str, log_path: Path, prefix: str) -> bool:
     print(f'{prefix}+ {command}', flush=True)
     log_path.parent.mkdir(parents=True, exist_ok=True)
+    env = os.environ.copy()
+    # Determinism must be fixed before the child interpreter starts.
+    env.setdefault('PYTHONHASHSEED', '0')
+    env.setdefault('CUBLAS_WORKSPACE_CONFIG', ':4096:8')
+    env.setdefault('OMP_NUM_THREADS', '1')
+    env.setdefault('MKL_NUM_THREADS', '1')
     try:
         with open(log_path, 'w') as log:
             proc = subprocess.Popen(
                 command, shell=True, cwd=REPO_ROOT,
                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                text=True, bufsize=1, env=os.environ.copy())
+                text=True, bufsize=1, env=env)
             assert proc.stdout is not None
             for line in proc.stdout:
                 log.write(line)
@@ -259,6 +268,8 @@ def _run_job(job: dict, stage: str, resume: bool, dry_run: bool) -> bool:
         print(f"dry-run: {job['command']}", flush=True)
         return True
     output_root.mkdir(parents=True, exist_ok=True)
+    # The pipeline finalizer moves this root-level log to eval/eval.log.
+    # Writing directly to eval/eval.log would race with the finalizer.
     log_path = output_root / f'{stage}.log'
     prefix = f'[{model.id} seed={seed} gpu={gpu}] '
     print(f"{prefix}start (log: {log_path})", flush=True)
@@ -489,7 +500,8 @@ def cmd_plan(args: argparse.Namespace) -> int:
         for seed in seeds:
             split = protocol.split_for(seed)
             gpu = gpus[job_index % len(gpus)]
-            output_root = f'results/paper/{model.id}/seed_{seed}'
+            output_root = _repo_path(
+                _output_root(model, seed))
             print()
             print(f'[{model.id}] seed={seed} gpu={gpu}')
             print(f'  split_root:   {_repo_path(split.split_root)}')
@@ -605,10 +617,11 @@ def build_parser() -> argparse.ArgumentParser:
                         help='model id, comma-separated list, or all')
     report.add_argument('--seeds', nargs='*', default=None,
                         help='seed integers or all (default: all)')
-    report.add_argument('--result-root', default='results/paper')
-    report.add_argument('--out-dir', default='results/paper/tables')
-    report.add_argument('--preset', default='full',
-                        help='SACM-X preset table to read')
+    report.add_argument('--result-root', default='results/runs')
+    report.add_argument('--out-dir', default='results/tables')
+    report.add_argument('--preset', default=None,
+                        help='SACM-X preset table to read (default: every '
+                             'variant under results/runs)')
     report.add_argument('--allow-missing', action='store_true',
                         help='write a report even when some model/seed '
                              'runs are missing')

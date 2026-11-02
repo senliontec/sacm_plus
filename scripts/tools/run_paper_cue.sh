@@ -146,7 +146,7 @@ fi
 if [ "$DRY_RUN" -eq 0 ]; then
   bash "$ROOT/scripts/run_report.sh" \
     --model "$MODELS" --seeds $SEEDS --protocol "$PROTOCOL"
-  if [ -f "$ROOT/results/paper/tables/all_metrics.csv" ]; then
+  if [ -f "$ROOT/results/tables/all_metrics.csv" ]; then
     bash "$ROOT/scripts/run_figures.sh"
   fi
 fi

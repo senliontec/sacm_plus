@@ -4,8 +4,8 @@
 #
 # Usage:
 #   GPU=0 bash scripts/sacm_x/run_sacm_x_deep_closing.sh
-#   GPU=0 PRESET=full TRAIN_ROOT=data/sacm_3shot_seed1 \
-#       OUTPUT_ROOT=results/sacm_x_dc_seed1 \
+#   GPU=0 PRESET=full_typed SEED=1 \
+#       TRAIN_ROOT=data/sacm_3shot_seed1 \
 #       bash scripts/sacm_x/run_sacm_x_deep_closing.sh
 #
 # Environment:
@@ -17,11 +17,12 @@ set -euo pipefail
 cd "$(dirname "$0")/../.." || exit 1
 
 GPU="${GPU:-0}"
-TRAIN_ROOT="${TRAIN_ROOT:-data/sacm_3shot_seed0}"
 PRESET="${PRESET:-full}"
-OUTPUT_ROOT="${OUTPUT_ROOT:-results/sacm_x_deep_closing}"
-EPOCHS="${EPOCHS:-200}"
-SEED="${SEED:-42}"
+SEED="${SEED:-0}"
+TRAIN_ROOT="${TRAIN_ROOT:-data/sacm_3shot_seed$SEED}"
+CANONICAL_ROOT="${CANONICAL_ROOT:-results/runs}"
+OUTPUT_ROOT="${OUTPUT_ROOT:-$CANONICAL_ROOT/sacm_x/$PRESET/seed$SEED}"
+EPOCHS="${EPOCHS:-800}"
 DEEP_CLOSING_CKPT="${DEEP_CLOSING_CKPT:-$OUTPUT_ROOT/deep_closing/shape_prior.pth}"
 DEEP_EPOCHS="${DEEP_EPOCHS:-300}"
 DEEP_RESOLUTION="${DEEP_RESOLUTION:-512}"

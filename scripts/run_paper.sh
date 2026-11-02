@@ -125,6 +125,6 @@ else
 fi
 
 bash scripts/run_report.sh ${ARGS[@]+"${ARGS[@]}"}
-if [ "$DRY_RUN" -eq 0 ] && [ -f results/paper/tables/all_metrics.csv ]; then
+if [ "$DRY_RUN" -eq 0 ] && [ -f results/tables/all_metrics.csv ]; then
   bash scripts/run_figures.sh
 fi

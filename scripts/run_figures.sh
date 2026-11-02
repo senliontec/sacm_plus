@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Generate paper figures from results/paper/tables/*.csv.
+# Generate paper figures from results/tables/*.csv.
 #
 # Usage:
 #   bash scripts/run_figures.sh
-#   bash scripts/run_figures.sh --tables-dir results/paper/tables \
-#       --out-dir results/paper/figures --formats png,pdf
+#   bash scripts/run_figures.sh --tables-dir results/tables \
+#       --out-dir results/figures --formats png,pdf
 set -euo pipefail
 cd "$(dirname "$0")/.." || exit 1
 

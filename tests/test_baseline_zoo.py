@@ -60,7 +60,7 @@ def test_plan_expands_sam_octa_command(capsys):
     assert rc == 0
     assert '--model sam_octa' in output
     assert 'run_one' in output
-    assert 'results/paper/sam_octa/seed_0' in output
+    assert 'results/runs/sam_octa/default/seed_0' in output
 
 
 def test_report_dry_run_tolerates_missing_runs(tmp_path, capsys):
@@ -90,7 +90,7 @@ def test_eval_resume_requires_eval_artifact(tmp_path, monkeypatch):
         'marker': tmp_path / '.eval_done',
         'command': 'evaluate',
         'checkpoint': checkpoint,
-        'eval_artifact': tmp_path / 'paper_metrics.csv',
+        'eval_artifact': tmp_path / 'eval' / 'tables' / 'all_metrics.csv',
     }
     _write_marker(job)
 
@@ -104,12 +104,14 @@ def test_eval_resume_requires_eval_artifact(tmp_path, monkeypatch):
     assert len(calls) == 1
 
     # Marker + a non-empty table is a valid eval result.
-    (tmp_path / 'paper_metrics.csv').write_text('metric\n')
+    artifact = tmp_path / 'eval' / 'tables' / 'all_metrics.csv'
+    artifact.parent.mkdir(parents=True)
+    artifact.write_text('metric\n')
     assert _run_job(job, 'eval', resume=True, dry_run=False)
     assert len(calls) == 1
 
     # Deleting the table invalidates the marker again.
-    (tmp_path / 'paper_metrics.csv').unlink()
+    artifact.unlink()
     assert _run_job(job, 'eval', resume=True, dry_run=False)
     assert len(calls) == 2
 
@@ -118,9 +120,9 @@ def test_eval_artifact_paths(tmp_path):
     from types import SimpleNamespace
 
     assert _eval_artifact(SimpleNamespace(id='unet'), tmp_path) == \
-        tmp_path / 'paper_metrics.csv'
+        tmp_path / 'eval' / 'tables' / 'all_metrics.csv'
     assert _eval_artifact(SimpleNamespace(id='sacm_x'), tmp_path) == \
-        tmp_path / 'tables' / 'all_metrics.csv'
+        tmp_path / 'eval' / 'tables' / 'all_metrics.csv'
 
 
 def test_resolve_models_all_returns_only_available():
@@ -145,8 +147,8 @@ def test_plan_uses_seed_specific_train_and_test_roots(capsys):
     assert rc == 0
     assert 'data/sacm_3shot_seed0' in output
     assert 'data/sacm_3shot_seed1' in output
-    assert 'results/paper/sacm_x/seed_0' in output
-    assert 'results/paper/sacm_x/seed_1' in output
+    assert 'results/runs/sacm_x/full/seed_0' in output
+    assert 'results/runs/sacm_x/full/seed_1' in output
     assert 'TRAIN_ROOT=data/sacm_3shot_seed0' in output
     assert 'TRAIN_ROOT=data/sacm_3shot_seed1' in output
 
@@ -157,7 +159,7 @@ def test_plan_expands_unet_seed_paths(capsys):
     assert rc == 0
     assert '--data-root data/sacm_3shot_seed0' in output
     assert '--protocol data/sacm_3shot_seed0/protocol_manifest.csv' in output
-    assert 'results/paper/unet/seed_0' in output
+    assert 'results/runs/unet/default/seed_0' in output
 
 
 def test_train_dry_run_does_not_create_marker(capsys):

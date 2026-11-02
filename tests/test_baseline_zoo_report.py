@@ -20,7 +20,8 @@ FIELDS = ['dice_mean', 'dice_std', 'iou_mean', 'iou_std',
 
 
 def _write_sacm_x(root, seed):
-    path = root / 'sacm_x' / f'seed_{seed}' / 'tables'
+    path = (root / 'sacm_x' / 'full' / f'seed_{seed}' /
+            'eval' / 'tables')
     path.mkdir(parents=True)
     rows = [
         {'dataset': 'DRIVE', 'role': 'Seen',
@@ -41,7 +42,8 @@ def _write_sacm_x(root, seed):
 
 
 def _write_baseline(root, seed):
-    path = root / 'unet' / f'seed_{seed}'
+    path = (root / 'unet' / 'default' / f'seed_{seed}' /
+            'eval' / 'tables')
     path.mkdir(parents=True)
     rows = [
         {'method': 'unet', 'dataset': 'DRIVE', 'role': 'Seen',
@@ -50,7 +52,7 @@ def _write_baseline(root, seed):
          'cldice_mean': 0.80, 'cldice_std': 0.01,
          'hd95_mean': 8.0, 'hd95_std': 1.0},
     ]
-    with open(path / 'paper_metrics.csv', 'w', newline='') as f:
+    with open(path / 'all_metrics.csv', 'w', newline='') as f:
         writer = csv.DictWriter(f, fieldnames=['method', 'dataset', 'role'] + FIELDS)
         writer.writeheader()
         writer.writerows(rows)

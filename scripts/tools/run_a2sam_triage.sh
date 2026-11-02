@@ -12,9 +12,10 @@ set -euo pipefail
 cd "$(dirname "$0")/../.." || exit 1
 
 GPU_SPEC="${GPU:-0}"
-CHECKPOINT="${CHECKPOINT:-results/paper/a2sam/seed_0/best_model.pth}"
-DATA_ROOT="${DATA_ROOT:-data/sacm_3shot_seed0}"
-OUTPUT="${OUTPUT:-results/diagnostics/a2sam_seed_0}"
+SEED="${SEED:-0}"
+CHECKPOINT="${CHECKPOINT:-results/runs/a2sam/default/seed${SEED}/best_model.pth}"
+DATA_ROOT="${DATA_ROOT:-data/sacm_3shot_seed${SEED}}"
+OUTPUT="${OUTPUT:-results/diagnostics/a2sam_seed${SEED}}"
 PYTHON="${PYTHON:-python}"
 
 if [ ! -f "$CHECKPOINT" ]; then

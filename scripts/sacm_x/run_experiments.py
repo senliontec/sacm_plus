@@ -16,7 +16,7 @@ Usage:
         --test_datasets DRIVE:data/sacm_3shot/test/DRIVE \
                         CHASEDB1:data/sacm_3shot/test/CHASEDB1 \
         --presets sacm stage1 stage2 full \
-        --output_root results --epochs 400 --tta
+        --output_root results --epochs 800 --tta
 
 Options:
     --skip_train   only run evaluation; checkpoints must already exist
@@ -29,6 +29,7 @@ import argparse
 import csv
 import json
 import os
+import shlex
 import subprocess
 import sys
 import threading
@@ -73,7 +74,7 @@ def train_command(args, preset, ckpt_path, selection):
         '--deterministic_strict', str(bool(args.deterministic_strict)).lower(),
     ]
     if args.extra_train_args:
-        cmd += args.extra_train_args.split()
+        cmd += shlex.split(args.extra_train_args)
     return cmd
 
 
@@ -100,7 +101,7 @@ def test_command(args, preset, dataset, test_dir, ckpt_path, selection):
     if args.tta:
         cmd.append('--tta')
     if getattr(args, 'extra_eval_args', ''):
-        cmd += args.extra_eval_args.split()
+        cmd += shlex.split(args.extra_eval_args)
     return cmd
 
 
@@ -299,9 +300,9 @@ def main():
                         default=['sacm', 'stage1', 'stage2', 'full'],
                         choices=[p for p in PRESETS if p != 'none'])
     parser.add_argument('--output_root', type=str, default='outputs')
-    parser.add_argument('--epochs', type=int, default=400)
+    parser.add_argument('--epochs', type=int, default=800)
     parser.add_argument('--val_interval', type=int, default=10)
-    parser.add_argument('--seed', type=int, default=42)
+    parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--selection', type=str, default=None,
                         help="Override mask selection ('iou' or 'gating'); "
                              "default: iou iff preset trains the IoU head")
@@ -340,7 +341,8 @@ def main():
     parser.add_argument('--skip_train', action='store_true')
     parser.add_argument('--trained_weights', type=str, default=None,
                         help='Explicit trained checkpoint for --skip_train; '
-                             'omit to use <output_root>/<preset>/best_model.pth')
+                             'omit to use <output_root>/<preset>/best_model.pth '
+                             '(legacy) or the canonical run-root checkpoint')
     parser.add_argument('--skip_test', action='store_true')
     parser.add_argument('--extra_eval_args', type=str, default='',
                         help='extra args appended to every evaluate.py command')

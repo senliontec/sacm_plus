@@ -1,20 +1,25 @@
 #!/usr/bin/env bash
-# Quick same-protocol test for SACM-X's own model.
+# Train one SACM-X preset into the canonical results/runs layout.
 #
-# 18-image train_root, all 20 frozen-protocol test sets, ONE preset,
-# no TTA, W&B on, baseline-compatible validation, then aggregate the 4
-# paper metrics.
+# The default run root is:
+#   results/runs/sacm_x/<preset>/seed<seed>/
+# Training writes a raw <preset>/ intermediate, then finalize_run.py promotes
+# best_model.pth, run_info.json, metrics_history.json and train.log to the run
+# root.  With SKIP_TEST=false the 20-dataset eval runs as a second stage and
+# writes the canonical eval/ tree.
 #
 # Usage:
-#   GPU=1 PRESET=full EPOCHS=400 bash scripts/sacm_x/run_sacm_x_quick.sh
-#   GPU=1 PRESET=sacm EPOCHS=20 MONITOR=official bash scripts/sacm_x/run_sacm_x_quick.sh
-#   GPU=1 PRESET=full EPOCHS=5 DATASETS="CHASEDB1 WIRE" \
+#   GPU=1 PRESET=full EPOCHS=800 SKIP_TEST=true \
+#     bash scripts/sacm_x/run_sacm_x_quick.sh
+#   GPU=1 PRESET=full EPOCHS=800 SKIP_TEST=false SEED=0 \
+#     bash scripts/sacm_x/run_sacm_x_quick.sh
+#   GPU=1 PRESET=sacm EPOCHS=20 MONITOR=official \
 #     bash scripts/sacm_x/run_sacm_x_quick.sh
 #
 # Environment:
 #   PYTHON, GPU, PRESET, RUN_NAME, EPOCHS, VAL_INTERVAL, SEED, DATASETS, CKPT,
-#   TRAIN_ROOT, OUTPUT_ROOT, MONITOR, USE_WANDB, WANDB_MODE, WANDB_NAME,
-#   INIT_STAGE2_FROM_STAGE1, SKIP_TEST, SCNP, SCNP_WINDOW,
+#   TRAIN_ROOT, OUTPUT_ROOT, CANONICAL_ROOT, MONITOR, USE_WANDB, WANDB_MODE,
+#   WANDB_NAME, INIT_STAGE2_FROM_STAGE1, SKIP_TEST, SCNP, SCNP_WINDOW,
 #   SCNP_ORIGINAL_WEIGHT
 #
 # MONITOR=baseline (default): every-epoch macro Dice/IoU/clDice/HD95 and
@@ -48,27 +53,46 @@ GPU="${GPU:-0}"
 PRESET="${PRESET:-full}"
 RUN_NAME="${RUN_NAME:-${PRESET}}"
 source scripts/sacm_x/wandb_env.sh
-EPOCHS="${EPOCHS:-400}"
+EPOCHS="${EPOCHS:-800}"
 VAL_INTERVAL="${VAL_INTERVAL:-}"
 SEED="${SEED:-0}"
 DATASETS="${DATASETS:-}"
 CKPT="${CKPT:-checkpoints/sam_vit_l_0b3195.pth}"
 TRAIN_ROOT="${TRAIN_ROOT:-data/sacm_3shot_seed${SEED}}"
-OUTPUT_ROOT="${OUTPUT_ROOT:-results/sacm_x/${RUN_NAME}_seed${SEED}/train}"
-if [[ "$OUTPUT_ROOT" != *"seed_${SEED}"* ]]; then
-  echo "WARNING: OUTPUT_ROOT does not contain seed_${SEED}; different seeds can collide." >&2
+CANONICAL_ROOT="${CANONICAL_ROOT:-results/runs}"
+FINAL_RUN_ROOT="${CANONICAL_ROOT}/sacm_x/${PRESET}/seed${SEED}"
+OUTPUT_ROOT="${OUTPUT_ROOT:-$FINAL_RUN_ROOT}"
+if ! printf '%s\n' "$OUTPUT_ROOT" | grep -qE "seed[_-]?${SEED}([^0-9]|$)"; then
+  echo "WARNING: OUTPUT_ROOT does not contain seed_${SEED} or seed${SEED}; different seeds can collide." >&2
 fi
 MONITOR="${MONITOR:-baseline}"
 INIT_STAGE2_FROM_STAGE1="${INIT_STAGE2_FROM_STAGE1:-true}"
 INPUT_MODE="${INPUT_MODE:-aspect_pad}"
 EVAL_INPUT_MODE="${EVAL_INPUT_MODE:-aspect_pad}"
 FG_CROP_PROB="${FG_CROP_PROB:-0.5}"
-BOUNDARY_LOSS_WEIGHT="${BOUNDARY_LOSS_WEIGHT:-0.05}"
+BOUNDARY_LOSS_WEIGHT="${BOUNDARY_LOSS_WEIGHT:-0.0}"
 BOUNDARY_LOSS_RESOLUTION="${BOUNDARY_LOSS_RESOLUTION:-512}"
 BOUNDARY_LOSS_WARMUP="${BOUNDARY_LOSS_WARMUP:-10}"
 BOUNDARY_LOSS_RAMP="${BOUNDARY_LOSS_RAMP:-5}"
 USE_TTA="${USE_TTA:-false}"
 EMPTY_GUARD="${EMPTY_GUARD:-true}"
+SELECTION="${SELECTION:-}"
+FIXED_HEAD="${FIXED_HEAD:-}"
+QUALITY_SMALL_COMPONENT_WEIGHT="${QUALITY_SMALL_COMPONENT_WEIGHT:-0.5}"
+QUALITY_COMPONENT_WEIGHT="${QUALITY_COMPONENT_WEIGHT:-0.05}"
+COMPONENT_METRICS="${COMPONENT_METRICS:-false}"
+COMPONENT_PRUNE_MODE="${COMPONENT_PRUNE_MODE:-off}"
+COMPONENT_PRUNE_MIN_AREA="${COMPONENT_PRUNE_MIN_AREA:-0}"
+COMPONENT_PRUNE_MIN_SKELETON="${COMPONENT_PRUNE_MIN_SKELETON:-0}"
+COMPONENT_PRUNE_REL_AREA="${COMPONENT_PRUNE_REL_AREA:-0.0}"
+COMPONENT_PRUNE_REL_SKELETON="${COMPONENT_PRUNE_REL_SKELETON:-0.0}"
+COMPONENT_PRUNE_KEEP_LARGEST="${COMPONENT_PRUNE_KEEP_LARGEST:-1}"
+AUDIT_HEADS="${AUDIT_HEADS:-false}"
+AUDIT_HEADS_FULL="${AUDIT_HEADS_FULL:-false}"
+SAVE_CANDIDATE_MASKS="${SAVE_CANDIDATE_MASKS:-false}"
+SAVE_CANDIDATE_PROBS="${SAVE_CANDIDATE_PROBS:-false}"
+AUDIT_THRESHOLDS="${AUDIT_THRESHOLDS:-}"
+AUDIT_HEAD_THRESHOLDS="${AUDIT_HEAD_THRESHOLDS:-}"
 SCNP="${SCNP:-false}"
 SCNP_WINDOW="${SCNP_WINDOW:-3}"
 SCNP_ORIGINAL_WEIGHT="${SCNP_ORIGINAL_WEIGHT:-0.0}"
@@ -109,7 +133,7 @@ case "$MONITOR" in
   *) echo "ERROR: MONITOR must be 'baseline', 'official', 'sacm', or 'full', got '$MONITOR'" >&2
      exit 2 ;;
 esac
-TRAIN_EXTRA+=(--wandb_name "${WANDB_NAME:-sacm_x_${RUN_NAME}_seed${SEED}}")
+TRAIN_EXTRA+=(--wandb_name "${WANDB_NAME:-sacm_x_seed${SEED}_${PRESET}}")
 
 TRAIN_EXTRA+=(--scnp "$SCNP" --scnp_window "$SCNP_WINDOW" \
               --scnp_original_weight "$SCNP_ORIGINAL_WEIGHT")
@@ -125,9 +149,7 @@ if [ -n "$DEEP_CLOSING_CKPT" ]; then
   fi
 fi
 
-if [ "$INIT_STAGE2_FROM_STAGE1" = "true" ]; then
-  TRAIN_EXTRA+=(--init_stage2_from_stage1 true)
-fi
+TRAIN_EXTRA+=(--init_stage2_from_stage1 "$INIT_STAGE2_FROM_STAGE1")
 
 if [ ! -f "$CKPT" ]; then
   echo "ERROR: missing SAM ViT-L checkpoint: $CKPT" >&2
@@ -147,16 +169,8 @@ read -r -a spec_array <<< "$SPECS"
 
 echo "seed=$SEED preset=$PRESET epochs=$EPOCHS gpu=$GPU monitor=$MONITOR val_interval=$VAL_INTERVAL init_stage2_from_stage1=$INIT_STAGE2_FROM_STAGE1 input_mode=$INPUT_MODE eval_input_mode=$EVAL_INPUT_MODE fg_crop_prob=$FG_CROP_PROB boundary_weight=$BOUNDARY_LOSS_WEIGHT tta=$USE_TTA empty_guard=$EMPTY_GUARD scnp=$SCNP($SCNP_WINDOW) deep_closing=${DEEP_CLOSING_CKPT:-none} skip_test=$SKIP_TEST"
 echo "datasets=${#spec_array[@]}  output=$OUTPUT_ROOT"
-RUN_EXTRA=()
-if [ "$SKIP_TEST" = "true" ]; then
-  RUN_EXTRA+=(--skip_test)
-fi
-if [ "$EMPTY_GUARD" = "true" ] || [ "$EMPTY_GUARD" = "1" ]; then
-  RUN_EXTRA+=(--empty_guard)
-fi
-if [ "$USE_TTA" = "true" ] || [ "$USE_TTA" = "1" ]; then
-  RUN_EXTRA+=(--tta)
-fi
+# Training only.  Evaluation is a separate stage so every seed has one
+# canonical checkpoint and one canonical eval tree.
 "$PYTHON" scripts/sacm_x/run_experiments.py \
   --gpus "$GPU" \
   --checkpoint "$CKPT" \
@@ -174,40 +188,65 @@ fi
   --boundary_loss_resolution "$BOUNDARY_LOSS_RESOLUTION" \
   --boundary_loss_warmup "$BOUNDARY_LOSS_WARMUP" \
   --boundary_loss_ramp "$BOUNDARY_LOSS_RAMP" \
+  --skip_test \
   --extra_train_args "${TRAIN_EXTRA[*]}" \
-  --extra_eval_args "$EVAL_EXTRA" \
-  ${RUN_EXTRA[@]+"${RUN_EXTRA[@]}"}
+  --extra_eval_args "$EVAL_EXTRA"
 
 echo
+echo "== unified run (checkpoint promotion) =="
+# This stage never evaluates; the eval stage promotes status to done.
+FINALIZE_STATUS="train_only"
+"$PYTHON" scripts/pipeline/finalize_run.py \
+  --family sacm_x --method sacm_x --variant "$PRESET" --seed "$SEED" \
+  --source-train "$OUTPUT_ROOT" --source-eval "$OUTPUT_ROOT/eval" \
+  --out-root "$CANONICAL_ROOT" --cleanup --status "$FINALIZE_STATUS" \
+  --protocol "$TRAIN_ROOT/protocol_manifest.csv" \
+  || { echo "ERROR: finalize_run failed" >&2; exit 1; }
+
+if [ ! -f "$FINAL_RUN_ROOT/best_model.pth" ] \
+    && [ ! -e "$FINAL_RUN_ROOT/best_model" ]; then
+  echo "ERROR: canonical checkpoint missing under $FINAL_RUN_ROOT" >&2
+  exit 1
+fi
+
 echo "== artifacts =="
-echo "best checkpoint: $OUTPUT_ROOT/$PRESET/best_model.pth"
-echo "training log:    $OUTPUT_ROOT/$PRESET/run.log"
-echo "run info:        $OUTPUT_ROOT/$PRESET/run_info.json"
-echo "metrics history: $OUTPUT_ROOT/$PRESET/metrics_history.json"
-echo "manifest:        $OUTPUT_ROOT/run_manifest.json"
-echo "jobs:            $OUTPUT_ROOT/jobs.csv"
+echo "run root:        $FINAL_RUN_ROOT"
+echo "best checkpoint: $FINAL_RUN_ROOT/best_model.pth (or best_model/)"
+echo "training log:    $FINAL_RUN_ROOT/train.log"
+echo "run info:        $FINAL_RUN_ROOT/run_info.json"
+echo "metrics history: $FINAL_RUN_ROOT/metrics_history.json"
+echo "manifest:        $FINAL_RUN_ROOT/eval/run_manifest.json"
 
 if [ "$SKIP_TEST" = "true" ]; then
   echo "== test/eval skipped (SKIP_TEST=true) =="
   exit 0
 fi
 
-echo "eval tables:     $OUTPUT_ROOT/tables"
-
-echo "== aggregate =="
-AGG_ARGS=(--root "$OUTPUT_ROOT" --out "$OUTPUT_ROOT/tables"
-  --preset "$PRESET")
-if [ -n "$DATASETS" ]; then
-  # shellcheck disable=SC2206
-  AGG_ARGS+=(--datasets $DATASETS)
-fi
-"$PYTHON" scripts/sacm_x/aggregate_results.py "${AGG_ARGS[@]}"
-
-echo "== macro =="
-cat "$OUTPUT_ROOT/tables/macro_metrics.csv"
-
-echo "== final report =="
-"$PYTHON" scripts/sacm_x/make_final_report.py \
-  --tables-dir "$OUTPUT_ROOT/tables" \
-  --preset "$PRESET" \
-  --checkpoint "$OUTPUT_ROOT/$PRESET/best_model.pth"
+echo "== evaluate 20 test sets =="
+TRAIN_OUT="$FINAL_RUN_ROOT" \
+OUTPUT_ROOT="$FINAL_RUN_ROOT/eval" \
+CANONICAL_ROOT="$CANONICAL_ROOT" \
+GPU="$GPU" SEED="$SEED" PRESET="$PRESET" TRAIN_ROOT="$TRAIN_ROOT" \
+DATASETS="$DATASETS" SAM_CKPT="$CKPT" \
+USE_WANDB="$USE_WANDB" WANDB_MODE="$WANDB_MODE" \
+EVAL_INPUT_MODE="$EVAL_INPUT_MODE" USE_TTA="$USE_TTA" \
+EMPTY_GUARD="$EMPTY_GUARD" SELECTION="$SELECTION" FIXED_HEAD="$FIXED_HEAD" \
+QUALITY_SMALL_COMPONENT_WEIGHT="$QUALITY_SMALL_COMPONENT_WEIGHT" \
+QUALITY_COMPONENT_WEIGHT="$QUALITY_COMPONENT_WEIGHT" \
+COMPONENT_METRICS="$COMPONENT_METRICS" \
+COMPONENT_PRUNE_MODE="$COMPONENT_PRUNE_MODE" \
+COMPONENT_PRUNE_MIN_AREA="$COMPONENT_PRUNE_MIN_AREA" \
+COMPONENT_PRUNE_MIN_SKELETON="$COMPONENT_PRUNE_MIN_SKELETON" \
+COMPONENT_PRUNE_REL_AREA="$COMPONENT_PRUNE_REL_AREA" \
+COMPONENT_PRUNE_REL_SKELETON="$COMPONENT_PRUNE_REL_SKELETON" \
+COMPONENT_PRUNE_KEEP_LARGEST="$COMPONENT_PRUNE_KEEP_LARGEST" \
+AUDIT_HEADS="$AUDIT_HEADS" AUDIT_HEADS_FULL="$AUDIT_HEADS_FULL" \
+SAVE_CANDIDATE_MASKS="$SAVE_CANDIDATE_MASKS" \
+SAVE_CANDIDATE_PROBS="$SAVE_CANDIDATE_PROBS" \
+AUDIT_THRESHOLDS="$AUDIT_THRESHOLDS" \
+AUDIT_HEAD_THRESHOLDS="$AUDIT_HEAD_THRESHOLDS" \
+DEEP_CLOSING_CKPT="$DEEP_CLOSING_CKPT" \
+DEEP_CLOSING_THRESHOLD="$DEEP_CLOSING_THRESHOLD" \
+DETERMINISTIC="$DETERMINISTIC" DETERMINISTIC_STRICT="$DETERMINISTIC_STRICT" \
+NUM_WORKERS="$NUM_WORKERS" \
+bash scripts/sacm_x/eval_sacm_x_20.sh

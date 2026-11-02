@@ -35,6 +35,7 @@ from torch import nn
 from torch.utils.data import DataLoader
 
 from core.console import console
+from core.reproducibility import configure_determinism, seed_worker
 from core.metrics import (
     cldice_score,
     dice_score,
@@ -433,7 +434,8 @@ def write_history(path: Path, config, history, best_epoch, best_score):
 
 def write_run_info(path: Path, *, method: str, seed: int, checkpoint: Path,
                    best_epoch: int, last_epoch: int, selection: str,
-                   epochs: int):
+                   epochs: int, data_root: str | None = None,
+                   reproducibility_info: dict | None = None):
     """Write seed-aware checkpoint metadata next to metrics_history.json.
 
     This is additive: it does not change the checkpoint format or the
@@ -443,6 +445,7 @@ def write_run_info(path: Path, *, method: str, seed: int, checkpoint: Path,
     payload = {
         'family': 'baseline',
         'method': str(method),
+        'variant': 'default',
         'seed': int(seed),
         'checkpoint': str(Path(checkpoint).resolve()),
         'best_epoch': int(best_epoch),
@@ -450,6 +453,10 @@ def write_run_info(path: Path, *, method: str, seed: int, checkpoint: Path,
         'selection': str(selection),
         'epochs': int(epochs),
     }
+    if data_root is not None:
+        payload['data_root'] = str(data_root)
+    if reproducibility_info:
+        payload['reproducibility_info'] = reproducibility_info
     tmp = path.with_name(path.name + '.tmp')
     try:
         with tmp.open('w') as f:
@@ -466,6 +473,28 @@ def seed_everything(seed: int):
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
+
+
+def configure_baseline_determinism(args: argparse.Namespace) -> dict:
+    """Apply the same deterministic execution contract as SACM-X.
+
+    Baseline adapters remain responsible for their official recipes; this
+    only fixes RNGs, deterministic kernels, TF32 and DataLoader workers.
+    ``strict=False`` is the safe baseline default because a few third-party
+    CUDA operators lack deterministic kernels; pass
+    ``--deterministic-strict true`` when a model supports strict mode.
+    """
+    info = configure_determinism(
+        int(getattr(args, 'seed', 42)),
+        deterministic=bool(getattr(args, 'deterministic', True)),
+        strict=bool(getattr(args, 'deterministic_strict', False)),
+        num_threads=int(getattr(args, 'deterministic_threads', 1)),
+        cuda_seed_all=True,
+    )
+    args.reproducibility_info = info
+    print(f"{getattr(args, 'method', 'baseline')}: reproducibility={info}",
+          flush=True)
+    return info
 
 
 def make_training_scheduler(adapter: BaselineAdapter,
@@ -571,7 +600,7 @@ def run_training_free(adapter: BaselineAdapter,
     The checkpoint carries the split hash and adapter config so the normal
     evaluation pipeline can validate and restore it.
     """
-    seed_everything(args.seed)
+    configure_baseline_determinism(args)
     device = torch.device(args.device)
     _select_cuda_device(device)
     adapter.args = args
@@ -645,6 +674,8 @@ def run_training_free(adapter: BaselineAdapter,
         last_epoch=0,
         selection=args.selection,
         epochs=0,
+        data_root=str(args.data_root),
+        reproducibility_info=getattr(args, 'reproducibility_info', None),
     )
 
     console.print(
@@ -658,7 +689,7 @@ def run_training_free(adapter: BaselineAdapter,
 def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
     if getattr(adapter, 'training_free', False):
         return run_training_free(adapter, args)
-    seed_everything(args.seed)
+    configure_baseline_determinism(args)
     device = torch.device(args.device)
     _select_cuda_device(device)
     adapter.args = args
@@ -675,10 +706,14 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
     train_dataset = adapter.make_train_dataset(train_samples, args)
     if train_dataset is None:
         train_dataset = SampleListDataset(train_samples)
+    train_generator = torch.Generator()
+    train_generator.manual_seed(int(args.seed))
     loader = DataLoader(
         train_dataset, batch_size=args.batch_size,
         shuffle=sampler is None, sampler=sampler,
         num_workers=args.num_workers,
+        worker_init_fn=seed_worker,
+        generator=train_generator,
         drop_last=getattr(adapter, 'drop_last', False),
         collate_fn=lambda batch: batch)
 
@@ -910,6 +945,8 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
         last_epoch=args.epochs,
         selection=args.selection,
         epochs=args.epochs,
+        data_root=str(args.data_root),
+        reproducibility_info=getattr(args, 'reproducibility_info', None),
     )
     if run is not None:
         if args.wandb_log_artifact:
@@ -928,6 +965,7 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
 
 def run_prediction(adapter: BaselineAdapter, args: argparse.Namespace,
                    ckpt_path: Path) -> None:
+    configure_baseline_determinism(args)
     device = torch.device(args.device)
     _select_cuda_device(device)
     adapter.args = args
@@ -1065,15 +1103,16 @@ def build_parser(adapter: BaselineAdapter) -> argparse.ArgumentParser:
                     f'({adapter.official_source})')
     parser.add_argument('--stage', choices=['train', 'predict', 'all'],
                         default='all')
-    parser.add_argument('--data-root', type=Path,
-                        default=REPO_ROOT / 'data' / 'sacm_3shot')
-    parser.add_argument('--workdir', type=Path,
-                        default=REPO_ROOT / 'results' / 'workdirs' /
-                        'baselines' / adapter.id)
+    parser.add_argument('--data-root', type=Path, default=None,
+                        help='split root (default: '
+                             'data/sacm_3shot_seed<seed> when present)')
+    parser.add_argument('--workdir', type=Path, default=None,
+                        help='canonical run root (default: '
+                             'results/runs/<model>/default/seed_<seed>)')
     parser.add_argument('--checkpoint', type=Path, default=None)
-    parser.add_argument('--pred-root', type=Path,
-                        default=REPO_ROOT / 'results' / 'predictions' /
-                        adapter.id)
+    parser.add_argument('--pred-root', type=Path, default=None,
+                        help='prediction output root (default: '
+                             '<workdir>/predictions)')
     parser.add_argument('--test-datasets', nargs='+', default=[])
     parser.add_argument('--epochs', type=int,
                         default=_configured_epochs(adapter))
@@ -1099,7 +1138,19 @@ def build_parser(adapter: BaselineAdapter) -> argparse.ArgumentParser:
     parser.add_argument('--selection', default=adapter.selection,
                         choices=['dice', 'iou', 'cldice', 'hd95'],
                         help='validation metric for checkpoint selection')
-    parser.add_argument('--seed', type=int, default=42)
+    parser.add_argument('--seed', type=int, default=0)
+    parser.add_argument(
+        '--deterministic', type=lambda value: str(value).lower()
+        in ('1', 'true', 'yes', 'on'), default=True,
+        help='enable deterministic kernels/TF32-off (default true)')
+    parser.add_argument(
+        '--deterministic-strict', type=lambda value: str(value).lower()
+        in ('1', 'true', 'yes', 'on'), default=False,
+        help='raise on ops without a deterministic CUDA kernel '
+             '(default false for third-party baselines)')
+    parser.add_argument(
+        '--deterministic-threads', type=int, default=1,
+        help='torch CPU threads when deterministic (default 1)')
     parser.add_argument('--num-workers', type=int, default=0)
     parser.add_argument(
         '--resume', action='store_true',
@@ -1147,6 +1198,16 @@ def build_parser(adapter: BaselineAdapter) -> argparse.ArgumentParser:
 def main_for(adapter: BaselineAdapter, argv: list[str] | None = None) -> int:
     parser = build_parser(adapter)
     args = parser.parse_args(argv)
+    if args.data_root is None:
+        seed_root = (REPO_ROOT / 'data' /
+                     f'sacm_3shot_seed{int(args.seed)}')
+        args.data_root = (seed_root if seed_root.is_dir()
+                          else REPO_ROOT / 'data' / 'sacm_3shot')
+    if args.workdir is None:
+        from core.run_layout import run_root
+        args.workdir = run_root(adapter.id, 'default', int(args.seed))
+    if args.pred_root is None:
+        args.pred_root = Path(args.workdir) / 'predictions'
     if args.stage == 'predict' and not args.test_datasets:
         raise SystemExit('--test-datasets is required for --stage predict')
     ckpt_path = args.checkpoint or (args.workdir / 'best_model.pth')

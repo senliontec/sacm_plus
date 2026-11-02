@@ -48,7 +48,9 @@ ROLE_BY_DATASET = {
 ROLE_ORDER = ['Seen', 'Unseen', 'Novel', 'Other']
 
 
-def dataset_role(name):
+def dataset_role(name, roles=None):
+    if roles and name in roles:
+        return roles[name]
     return ROLE_BY_DATASET.get(name, 'Other')
 
 
@@ -76,23 +78,37 @@ def parse_num_samples(path):
     return None
 
 
-def load_expected_counts(path):
-    """Return {dataset: test_count} from the frozen protocol summary."""
+def load_protocol_info(path):
+    """Return ({dataset: test_count}, {dataset: role}) from the protocol.
+
+    The summary is the single source of truth for both counts and roles, so
+    SACM-X and the baseline collector cannot disagree about Seen/Unseen/
+    Novel membership.
+    """
     if not path or not os.path.exists(path):
         print(f"[warn] protocol summary not found: {path}")
-        return None
+        return None, {}
     with open(path) as f:
         summary = json.load(f)
     expected = {}
+    roles = {}
     for role in ('seen', 'unseen', 'novel'):
         for split, datasets in summary.get('counts', {}).get(role, {}).items():
             if split.endswith('_test'):
                 expected.update(datasets)
+                for name in datasets:
+                    roles[name] = role.capitalize()
+    return expected, roles
+
+
+def load_expected_counts(path):
+    """Backward-compatible count loader."""
+    expected, _ = load_protocol_info(path)
     return expected
 
 
 def collect(root, expected_counts=None, strict=False,
-            datasets=None, presets=None):
+            datasets=None, presets=None, roles=None):
     """Scan for (preset, dataset) -> metrics. Skips missing summaries.
 
     ``datasets``/``presets`` are optional allow-lists used by the SACM-X
@@ -105,7 +121,7 @@ def collect(root, expected_counts=None, strict=False,
     dataset_filter = set(datasets) if datasets else None
     preset_filter = set(presets) if presets else None
     skip_dirs = {'predictions', 'paper', 'visualizations', 'tables',
-                 'torchrun_logs', 'logs'}
+                 'torchrun_logs', 'logs', 'eval'}
     for preset in sorted(os.listdir(root)):
         if preset in skip_dirs:
             continue
@@ -154,17 +170,20 @@ def collect(root, expected_counts=None, strict=False,
             row = {
                 'preset': preset,
                 'dataset': dataset,
-                'role': dataset_role(dataset),
+                'role': dataset_role(dataset, roles),
             }
             for name in ALL_METRICS:
                 if name in metrics:
                     row[name + '_mean'], row[name + '_std'] = metrics[name]
             rows.append(row)
     if strict and expected_counts:
+        expected_scope = set(expected_counts)
+        if dataset_filter is not None:
+            expected_scope &= dataset_filter
         for preset in sorted({row['preset'] for row in rows}):
             present = {row['dataset'] for row in rows
                        if row['preset'] == preset}
-            missing = sorted(set(expected_counts) - present)
+            missing = sorted(expected_scope - present)
             if missing:
                 raise SystemExit(
                     f'{preset}: missing expected datasets: {missing}')
@@ -320,13 +339,14 @@ def main():
     args = parser.parse_args()
     out_dir = args.out or os.path.join(args.root, 'tables')
 
-    expected = load_expected_counts(args.protocol_summary)
+    expected, roles = load_protocol_info(args.protocol_summary)
     if args.strict_protocol and expected is None:
         raise SystemExit(
             f'--strict-protocol requires {args.protocol_summary}')
     rows = collect(args.root, expected_counts=expected,
                    strict=args.strict_protocol,
-                   datasets=args.datasets, presets=args.presets)
+                   datasets=args.datasets, presets=args.presets,
+                   roles=roles)
     if args.datasets:
         present = {row['dataset'] for row in rows}
         missing = sorted(set(args.datasets) - present)

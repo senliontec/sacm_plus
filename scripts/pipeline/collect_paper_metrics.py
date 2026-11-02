@@ -1,20 +1,28 @@
 #!/usr/bin/env python3
-"""Collect paper metrics for every baseline from the prediction contract.
+"""Collect paper metrics for a baseline from the prediction contract.
 
-Reads ``data/sacm_3shot/protocol_manifest.csv`` and expects
-``results/predictions/<method>/<dataset>/<stem>.png`` for every test image.
-Writes per-image metrics, per-dataset mean/std, role macro averages, and
-LaTeX/Markdown tables.
+Canonical mode (default) reads
+``results/runs/<method>/<variant>/seed_<seed>/predictions/<method>/<dataset>/
+<stem>.png`` and writes the unified eval tree under the same run root:
+``eval/<dataset>/metrics.csv``, ``eval/<dataset>/summary.csv``, and
+``eval/tables/{all_metrics,macro_metrics}.csv``.
+
+Legacy mode (``--layout legacy``) keeps the old
+``results/predictions -> results/paper`` contract for manual comparison.
 
 Examples:
-    # One method, four main metrics
-    python scripts/pipeline/collect_paper_metrics.py --methods unet
-
-    # All methods found under results/predictions
-    python scripts/pipeline/collect_paper_metrics.py --metrics dice,iou,cldice,hd95
+    # Canonical, one method/seed
+    python scripts/pipeline/collect_paper_metrics.py \
+        --methods unet --seed 0
 
     # Fast smoke test
-    python scripts/pipeline/collect_paper_metrics.py --methods unet --datasets DRIVE
+    python scripts/pipeline/collect_paper_metrics.py \
+        --methods unet --datasets DRIVE --seed 0
+
+    # Legacy collector
+    python scripts/pipeline/collect_paper_metrics.py --layout legacy \
+        --methods unet --pred-root results/predictions \
+        --out-root results/paper
 """
 
 from __future__ import annotations
@@ -161,8 +169,11 @@ def pred_signature(method, dataset, rows_ds, pred_root):
     return digest.hexdigest()
 
 
-def cache_paths(out_root, method, dataset):
-    base = out_root / method / dataset
+def cache_paths(out_root, method, dataset, layout='legacy'):
+    if layout == 'canonical':
+        base = out_root / dataset
+    else:
+        base = out_root / method / dataset
     return base / 'metrics.csv', base / 'metrics_meta.json'
 
 
@@ -200,8 +211,8 @@ def load_cached(metrics_path, meta_path, metric_names, n_expected,
     return rows
 
 
-def save_meta(out_root, method, dataset, meta):
-    _, meta_path = cache_paths(out_root, method, dataset)
+def save_meta(out_root, method, dataset, meta, layout='legacy'):
+    _, meta_path = cache_paths(out_root, method, dataset, layout)
     tmp = meta_path.with_name(meta_path.name + '.tmp')
     try:
         with open(tmp, 'w') as f:
@@ -248,7 +259,7 @@ def collect_chunk(method, dataset, chunk_index, rows_chunk, pred_root,
 
 def collect_method(method, rows, pred_root, out_root, metric_names,
                    max_images=None, workers=DEFAULT_WORKERS, resume=True,
-                   status=None, chunk_size=100):
+                   status=None, chunk_size=100, layout='legacy'):
     cache_enabled = metric_names != 'all'
     grouped = group_rows(rows, max_images)
     order = list(grouped)
@@ -268,7 +279,8 @@ def collect_method(method, rows, pred_root, out_root, metric_names,
     for dataset in order:
         rows_ds = grouped[dataset]
         signature = pred_signature(method, dataset, rows_ds, pred_root)
-        metrics_path, meta_path = cache_paths(out_root, method, dataset)
+        metrics_path, meta_path = cache_paths(
+            out_root, method, dataset, layout)
         cached = None
         if resume and cache_enabled:
             cached = load_cached(
@@ -350,11 +362,20 @@ def collect_method(method, rows, pred_root, out_root, metric_names,
                 missing.extend(dataset_missing_map[dataset])
                 completed += 1
                 active.discard(dataset)
-                metrics_path, _ = cache_paths(out_root, method, dataset)
-                fields = ['image', 'role']
-                if per_rows_all:
-                    fields += [k for k in per_rows_all[0]
-                               if k not in ('image', 'role')]
+                metrics_path, _ = cache_paths(
+                    out_root, method, dataset, layout)
+                if layout == 'canonical':
+                    fields = ['dataset', 'image', 'role']
+                    if per_rows_all:
+                        fields += [k for k in per_rows_all[0]
+                                   if k not in ('dataset', 'image', 'role')]
+                    per_rows_all = [
+                        {'dataset': dataset, **row} for row in per_rows_all]
+                else:
+                    fields = ['image', 'role']
+                    if per_rows_all:
+                        fields += [k for k in per_rows_all[0]
+                                   if k not in ('image', 'role')]
                 write_csv(metrics_path, fields, per_rows_all)
                 if cache_enabled:
                     meta = {
@@ -368,7 +389,7 @@ def collect_method(method, rows, pred_root, out_root, metric_names,
                         'generated_at_utc':
                             datetime.now(timezone.utc).isoformat(),
                     }
-                    save_meta(out_root, method, dataset, meta)
+                    save_meta(out_root, method, dataset, meta, layout)
                 print(f'{method}/{dataset}: {len(per_rows_all)} images '
                       f'({len(dataset_missing_map[dataset])} missing)',
                       flush=True)
@@ -567,13 +588,15 @@ def print_summary(methods, summaries, macros, roles, metric_names):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--protocol', type=Path,
-                        default=REPO_ROOT / 'data' / 'sacm_3shot' /
-                        'protocol_manifest.csv')
-    parser.add_argument('--pred-root', type=Path,
-                        default=REPO_ROOT / 'results' / 'predictions')
-    parser.add_argument('--out-root', type=Path,
-                        default=REPO_ROOT / 'results' / 'paper')
+    parser.add_argument('--protocol', type=Path, default=None,
+                        help='protocol manifest (default: '
+                             'data/sacm_3shot_seed<seed> when present)')
+    parser.add_argument('--pred-root', type=Path, default=None,
+                        help='prediction root (canonical default: '
+                             'results/runs/<method>/<variant>/seed_<seed>/'
+                             'predictions)')
+    parser.add_argument('--out-root', type=Path, default=None,
+                        help='canonical eval root (default: .../eval)')
     parser.add_argument('--methods', nargs='+', default=None,
                         help='method directory names (default: discover all)')
     parser.add_argument('--datasets', nargs='+', default=None,
@@ -587,7 +610,7 @@ def main():
     parser.add_argument(
         '--allow-partial-overwrite', action='store_true',
         help='allow a dataset/metric/max-images subset to overwrite an '
-             'existing complete paper_metrics.csv')
+             'existing complete canonical table')
     parser.add_argument('--workers', type=int, default=DEFAULT_WORKERS,
                         help=f'parallel dataset workers (default: '
                              f'{DEFAULT_WORKERS})')
@@ -595,8 +618,42 @@ def main():
                         help='images per worker task (default: 100)')
     parser.add_argument('--no-resume', dest='resume', action='store_false',
                         help='ignore per-dataset metric caches')
+    parser.add_argument(
+        '--layout', choices=['legacy', 'canonical'], default='canonical',
+        help='canonical writes <out-root>/{<DATASET>/metrics.csv,tables/*}')
+    parser.add_argument('--family', default='baseline',
+                        help='metadata written in canonical tables')
+    parser.add_argument('--variant', default='default',
+                        help='metadata written in canonical tables')
+    parser.add_argument('--seed', type=int, default=0,
+                        help='metadata written in canonical tables')
     parser.set_defaults(resume=True)
     args = parser.parse_args()
+    if args.layout == 'canonical' and (not args.methods
+                                       or len(args.methods) != 1):
+        raise SystemExit(
+            '--layout canonical requires exactly one --methods entry')
+    if args.protocol is None:
+        seed_protocol = (REPO_ROOT / 'data' /
+                         f'sacm_3shot_seed{args.seed}' /
+                         'protocol_manifest.csv')
+        args.protocol = (seed_protocol if seed_protocol.is_file() else
+                         REPO_ROOT / 'data' / 'sacm_3shot' /
+                         'protocol_manifest.csv')
+    if args.pred_root is None:
+        if args.layout == 'canonical':
+            run_root = (REPO_ROOT / 'results' / 'runs' / args.methods[0] /
+                        args.variant / f'seed_{args.seed}')
+            args.pred_root = run_root / 'predictions'
+        else:
+            args.pred_root = REPO_ROOT / 'results' / 'predictions'
+    if args.out_root is None:
+        if args.layout == 'canonical':
+            run_root = (REPO_ROOT / 'results' / 'runs' / args.methods[0] /
+                        args.variant / f'seed_{args.seed}')
+            args.out_root = run_root / 'eval'
+        else:
+            args.out_root = REPO_ROOT / 'results' / 'paper'
     if args.max_images is not None and args.max_images <= 0:
         raise SystemExit('--max-images must be positive (omit it to use all)')
     if args.workers < 1:
@@ -646,7 +703,7 @@ def main():
             per_dataset, missing = collect_method(
                 method, rows, args.pred_root, args.out_root,
                 worker_metrics, args.max_images, args.workers,
-                use_cache, status, args.chunk_size)
+                use_cache, status, args.chunk_size, args.layout)
             if missing and not args.allow_missing:
                 raise SystemExit(
                     f'{method}: {len(missing)} missing predictions; '
@@ -693,51 +750,117 @@ def main():
                          and set(collect_metrics) != set(MAIN_METRICS))
         partial_run = (bool(args.datasets) or args.max_images is not None
                        or metric_subset)
-        canonical_metrics = args.out_root / 'paper_metrics.csv'
-        if (partial_run and canonical_metrics.is_file()
-                and not args.allow_partial_overwrite):
-            raise SystemExit(
-                f'refusing to overwrite complete {canonical_metrics} with a '
-                'partial run (--datasets/--metrics/--max-images); rerun the '
-                'full protocol or pass --allow-partial-overwrite')
-        dataset_rows = []
-        for method in methods:
-            for dataset, vals in sorted(all_summaries[method].items()):
-                row = {'method': method, 'dataset': dataset,
-                       'role': role_of(dataset, rows)}
-                for m in metric_names:
-                    item = vals.get(m, {})
-                    row[f'{m}_mean'] = item.get('mean')
-                    row[f'{m}_std'] = item.get('std')
-                    row[f'{m}_n'] = item.get('n', 0)
-                dataset_rows.append(row)
-        write_csv(args.out_root / 'paper_metrics.csv',
-                  ['method', 'dataset', 'role'] + metric_fields, dataset_rows)
 
-        macro_rows = []
-        for method in methods:
-            for role in ROLE_ORDER + ['All']:
-                row = {'method': method, 'role': role}
-                for m in metric_names:
-                    item = all_macros[method][m][role]
-                    row[f'{m}_mean'] = item['mean']
-                    row[f'{m}_std'] = item['std']
-                    row[f'{m}_n_datasets'] = item['n']
-                macro_rows.append(row)
-        macro_fields = []
-        for m in metric_names:
-            macro_fields += [f'{m}_mean', f'{m}_std', f'{m}_n_datasets']
-        write_csv(args.out_root / 'paper_macro.csv',
-                  ['method', 'role'] + macro_fields, macro_rows)
+        if args.layout == 'canonical':
+            tables = args.out_root / 'tables'
+            tables.mkdir(parents=True, exist_ok=True)
+            all_path = tables / 'all_metrics.csv'
+            if (partial_run and all_path.is_file()
+                    and not args.allow_partial_overwrite):
+                raise SystemExit(
+                    f'refusing to overwrite complete {all_path} with a '
+                    'partial run (--datasets/--metrics/--max-images); rerun '
+                    'the full protocol or pass --allow-partial-overwrite')
+            dataset_rows = []
+            for method in methods:
+                for dataset, vals in sorted(all_summaries[method].items()):
+                    row = {
+                        'family': args.family,
+                        'method': method,
+                        'variant': args.variant,
+                        'seed': args.seed,
+                        'dataset': dataset,
+                        'role': role_of(dataset, rows),
+                    }
+                    for m in metric_names:
+                        item = vals.get(m, {})
+                        row[f'{m}_mean'] = item.get('mean')
+                        row[f'{m}_std'] = item.get('std')
+                        row[f'{m}_n'] = item.get('n', 0)
+                    dataset_rows.append(row)
+            all_fields = (['family', 'method', 'variant', 'seed', 'dataset',
+                           'role'] + metric_fields)
+            write_csv(all_path, all_fields, dataset_rows)
+            for row in dataset_rows:
+                write_csv(args.out_root / row['dataset'] / 'summary.csv',
+                          all_fields, [row])
 
-        write_markdown(args.out_root / 'paper_tables.md',
-                       methods, all_summaries, all_macros, metric_names)
-        write_latex(args.out_root, methods, all_summaries, all_macros,
-                    metric_names)
+            macro_rows = []
+            for method in methods:
+                for role in ROLE_ORDER + ['All']:
+                    for m in metric_names:
+                        item = all_macros[method][m][role]
+                        macro_rows.append({
+                            'family': args.family,
+                            'method': method,
+                            'variant': args.variant,
+                            'seed': args.seed,
+                            'role': role,
+                            'metric': m,
+                            'n_datasets': item['n'],
+                            'mean': item['mean'],
+                            'std': item['std'],
+                        })
+            write_csv(
+                tables / 'macro_metrics.csv',
+                ['family', 'method', 'variant', 'seed', 'role', 'metric',
+                 'n_datasets', 'mean', 'std'],
+                macro_rows)
+            write_markdown(tables / 'final_report.md', methods, all_summaries,
+                           all_macros, metric_names)
+            write_latex(tables, methods, all_summaries, all_macros,
+                        metric_names)
+            stats_path = tables / 'collect_stats.json'
+        else:
+            canonical_metrics = args.out_root / 'paper_metrics.csv'
+            if (partial_run and canonical_metrics.is_file()
+                    and not args.allow_partial_overwrite):
+                raise SystemExit(
+                    f'refusing to overwrite complete {canonical_metrics} with '
+                    'a partial run (--datasets/--metrics/--max-images); rerun '
+                    'the full protocol or pass --allow-partial-overwrite')
+            dataset_rows = []
+            for method in methods:
+                for dataset, vals in sorted(all_summaries[method].items()):
+                    row = {'method': method, 'dataset': dataset,
+                           'role': role_of(dataset, rows)}
+                    for m in metric_names:
+                        item = vals.get(m, {})
+                        row[f'{m}_mean'] = item.get('mean')
+                        row[f'{m}_std'] = item.get('std')
+                        row[f'{m}_n'] = item.get('n', 0)
+                    dataset_rows.append(row)
+            write_csv(args.out_root / 'paper_metrics.csv',
+                      ['method', 'dataset', 'role'] + metric_fields,
+                      dataset_rows)
+
+            macro_rows = []
+            for method in methods:
+                for role in ROLE_ORDER + ['All']:
+                    row = {'method': method, 'role': role}
+                    for m in metric_names:
+                        item = all_macros[method][m][role]
+                        row[f'{m}_mean'] = item['mean']
+                        row[f'{m}_std'] = item['std']
+                        row[f'{m}_n_datasets'] = item['n']
+                    macro_rows.append(row)
+            macro_fields = []
+            for m in metric_names:
+                macro_fields += [f'{m}_mean', f'{m}_std', f'{m}_n_datasets']
+            write_csv(args.out_root / 'paper_macro.csv',
+                      ['method', 'role'] + macro_fields, macro_rows)
+
+            write_markdown(args.out_root / 'paper_tables.md',
+                           methods, all_summaries, all_macros, metric_names)
+            write_latex(args.out_root, methods, all_summaries, all_macros,
+                        metric_names)
+            stats_path = args.out_root / 'paper_stats.json'
+
         stats.update({
             'protocol': str(args.protocol),
             'pred_root': str(args.pred_root),
             'metrics': metric_names,
+            'layout': args.layout,
             'generated_at_utc': datetime.now(timezone.utc).isoformat(),
             'test_rows': len(rows),
             'macro': {
@@ -749,7 +872,7 @@ def main():
                 for method in methods
             },
         })
-        with open(args.out_root / 'paper_stats.json', 'w') as f:
+        with open(stats_path, 'w') as f:
             json.dump(stats, f, indent=2)
             f.write('\n')
         print_summary(methods, all_summaries, all_macros, all_roles,

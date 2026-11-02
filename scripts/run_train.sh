@@ -9,6 +9,12 @@
 set -euo pipefail
 cd "$(dirname "$0")/.." || exit 1
 
+# Reproducibility: must be set before Python starts.
+export PYTHONHASHSEED="${PYTHONHASHSEED:-0}"
+export CUBLAS_WORKSPACE_CONFIG="${CUBLAS_WORKSPACE_CONFIG:-:4096:8}"
+export OMP_NUM_THREADS="${OMP_NUM_THREADS:-1}"
+export MKL_NUM_THREADS="${MKL_NUM_THREADS:-1}"
+
 if [ -z "${PYTHON:-}" ]; then
   if [ -x /home/dev/anaconda3/envs/tsai/bin/python ]; then
     PYTHON=/home/dev/anaconda3/envs/tsai/bin/python

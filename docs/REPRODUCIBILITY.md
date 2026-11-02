@@ -52,10 +52,12 @@ mean ± std; do not treat a single-seed sub-point difference as evidence.
 ## Reproducible comparison protocol
 
 ```bash
+SEED=0
+RUN_ROOT="results/runs/sacm_x/full_typed/seed${SEED}"
 PYTHONHASHSEED=0 CUBLAS_WORKSPACE_CONFIG=:4096:8 \
 GPU=7 PRESET=full_typed EPOCHS=800 VAL_INTERVAL=1 SKIP_TEST=true \
-OUTPUT_ROOT=results/sacm_x_typed_800 \
-TRAIN_ROOT=data/sacm_3shot_seed0 \
+OUTPUT_ROOT="$RUN_ROOT" \
+TRAIN_ROOT="data/sacm_3shot_seed${SEED}" \
 bash scripts/sacm_x/run_sacm_x_quick.sh
 ```
 

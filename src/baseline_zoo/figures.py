@@ -134,9 +134,9 @@ def generate_figures(tables_dir: Path, out_dir: Path,
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--tables-dir', type=Path,
-                        default=REPO_ROOT / 'results' / 'paper' / 'tables')
+                        default=REPO_ROOT / 'results' / 'tables')
     parser.add_argument('--out-dir', type=Path,
-                        default=REPO_ROOT / 'results' / 'paper' / 'figures')
+                        default=REPO_ROOT / 'results' / 'figures')
     parser.add_argument('--formats', default='png,pdf')
     args = parser.parse_args(argv)
     formats = tuple(item.strip() for item in args.formats.split(',')
