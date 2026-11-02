@@ -93,7 +93,9 @@ class UNetAdapter(BaselineAdapter):
     scheduler_after_validation = True
     deviations = (
         'Official milesial architecture, BCE+Dice loss, per-image scale '
-        'preprocessing and logit-space bilinear upsampling are preserved.',
+        'preprocessing machinery and logit-space bilinear upsampling are '
+        'preserved; the effective scale is 1.0 (upstream default 0.5), '
+        'which is a disclosed adaptation.',
         'The literal official 5-epoch RMSprop lr=1e-5/ReduceLROnPlateau '
         'recipe collapsed the LR to 1e-8 by epoch 19 on the 18-image split '
         '(three groups of five non-improving epochs; PyTorch eps=1e-8 then '
@@ -117,10 +119,12 @@ class UNetAdapter(BaselineAdapter):
         'Grayscale protocol images are converted to RGB because the '
         'vendored model expects three input channels; upstream keeps 2-D '
         'images single-channel and would assert.',
-        'Validation and prediction use the official native-resolution '
-        'preprocessing (the model is fully convolutional); checkpoint '
-        'selection is the 6-image val Dice.  Upstream saves every epoch '
-        'and evaluates a random 10% split.',
+        'Validation and prediction use scale=1.0 (native resolution) so '
+        'thin structures are preserved; upstream train.py/predict.py '
+        'default to scale=0.5, so this is an adapted inference setting, '
+        'not the official default.  Checkpoint selection is the 6-image '
+        'val Dice; upstream saves every epoch and evaluates a random 10% '
+        'split.',
         'Official DataLoader workers=os.cpu_count(), shuffle=True and a '
         'global RNG; this port uses workers=0 and a per-epoch seeded RNG, '
         'so data order and floating-point accumulation are not bitwise '
@@ -154,6 +158,9 @@ class UNetAdapter(BaselineAdapter):
 
     def build_model(self, args) -> nn.Module:
         self.scale = float(getattr(args, 'scale', self.scale))
+        if self.scale <= 0:
+            raise ValueError(
+                f'{self.id}: --scale must be > 0, got {self.scale}')
         self.patch_size = max(
             64, int(getattr(args, 'unet_patch_size', self.patch_size)))
         self.crops_per_image = max(
@@ -243,16 +250,33 @@ class UNetAdapter(BaselineAdapter):
         return entry
 
     def _pad_to_patch(self, image: np.ndarray, mask: np.ndarray):
-        """Reflect-pad (edge fallback) so both spatial sides reach patch."""
+        """Pad small images with a crop margin, then reflect/edge-pad.
+
+        Padding only up to ``patch`` makes ``_crop_origin`` return (0, 0)
+        for every crop when both sides are <= patch (DCA1 300x300 and CORN
+        384x384), so the documented 50% foreground-centred random-patch
+        recipe never runs for those domains.  Keep one extra margin on a
+        side that is smaller than the patch so a real random crop exists.
+        """
         patch = self.patch_size
         height, width = mask.shape
-        pad_h = max(0, patch - height)
-        pad_w = max(0, patch - width)
+        # 32 px keeps reflect-padding valid for a 300x300 image
+        # (pad=276 < 300) while giving 64 px of crop freedom.
+        margin = max(16, patch // 16)
+        target_h = patch + 2 * margin if height < patch else height
+        target_w = patch + 2 * margin if width < patch else width
+        pad_h = target_h - height
+        pad_w = target_w - width
         if not pad_h and not pad_w:
             return image, mask
         mode = 'reflect' if (pad_h < height and pad_w < width) else 'edge'
-        image = np.pad(image, ((0, pad_h), (0, pad_w), (0, 0)), mode=mode)
-        mask = np.pad(mask, ((0, pad_h), (0, pad_w)), mode=mode)
+        top = pad_h // 2
+        bottom = pad_h - top
+        left = pad_w // 2
+        right = pad_w - left
+        image = np.pad(
+            image, ((top, bottom), (left, right), (0, 0)), mode=mode)
+        mask = np.pad(mask, ((top, bottom), (left, right)), mode=mode)
         return image, mask
 
     def _crop_origin(self, mask: np.ndarray,

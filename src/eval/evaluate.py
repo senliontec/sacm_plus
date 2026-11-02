@@ -316,6 +316,10 @@ if __name__ == '__main__':
     parser.add_argument('--save_candidate_masks', action='store_true',
                         help='Save per-head binary candidate PNGs under '
                              'output_dir/candidates/.')
+    parser.add_argument('--save_candidate_probs', action='store_true',
+                        help='Save per-head probability maps as float16 '
+                             'NPYs under output_dir/candidates/ (for the '
+                             'offline topology ranker).')
     parser.add_argument('--nsd_tolerance', type=float, default=1.0,
                         help='Tolerance (pixels) for the surface Dice / NSD metric')
     parser.add_argument('--tta', action='store_true', help='Enable four-way flip test-time augmentation')

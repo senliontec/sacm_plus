@@ -13,8 +13,10 @@
 ## Adapter recipe
 
 `UNetAdapter` keeps the official milesial architecture, BCE + official
-global Dice, per-image scale preprocessing and logit-space bilinear
-upsampling.  The 3-shot recipe follows the standard 2D supervised U-Net
+global Dice, per-image scale preprocessing (this port uses scale=1.0;
+upstream `train.py`/`predict.py` default to 0.5, so the native-resolution
+setting is a disclosed adaptation) and logit-space bilinear upsampling.
+The 3-shot recipe follows the standard 2D supervised U-Net
 trainer in Mamba-UNet/SSL4MIS (fixed-size inputs, large batch, long
 schedule, flips/rotation, Dice+CE), adapted to native-resolution
 curvilinear data: 512x512 random patches, half centred on a foreground

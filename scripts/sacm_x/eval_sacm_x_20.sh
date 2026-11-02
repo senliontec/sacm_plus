@@ -10,6 +10,7 @@
 # Environment:
 #   GPU (default 3), OUTPUT_ROOT, PRESET (default full),
 #   SAM_CKPT, DATASETS, USE_WANDB, WANDB_MODE,
+#   SAVE_CANDIDATE_MASKS, SAVE_CANDIDATE_PROBS,
 #   SKIP_EVAL=1 (only aggregate + report existing results)
 set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 1
@@ -52,6 +53,7 @@ QUALITY_COMPONENT_WEIGHT="${QUALITY_COMPONENT_WEIGHT:-0.05}"
 AUDIT_HEADS="${AUDIT_HEADS:-false}"
 AUDIT_HEADS_FULL="${AUDIT_HEADS_FULL:-false}"
 SAVE_CANDIDATE_MASKS="${SAVE_CANDIDATE_MASKS:-false}"
+SAVE_CANDIDATE_PROBS="${SAVE_CANDIDATE_PROBS:-false}"
 COMPONENT_METRICS="${COMPONENT_METRICS:-false}"
 COMPONENT_PRUNE_MODE="${COMPONENT_PRUNE_MODE:-off}"
 COMPONENT_PRUNE_MIN_AREA="${COMPONENT_PRUNE_MIN_AREA:-0}"
@@ -141,6 +143,9 @@ else
   fi
   if [ "$SAVE_CANDIDATE_MASKS" = "true" ] || [ "$SAVE_CANDIDATE_MASKS" = "1" ]; then
     EXTRA_EVAL+=" --save_candidate_masks"
+  fi
+  if [ "$SAVE_CANDIDATE_PROBS" = "true" ] || [ "$SAVE_CANDIDATE_PROBS" = "1" ]; then
+    EXTRA_EVAL+=" --save_candidate_probs"
   fi
   if [ -n "$AUDIT_THRESHOLDS" ]; then
     EXTRA_EVAL+=" --audit_thresholds $AUDIT_THRESHOLDS"

@@ -25,7 +25,7 @@ Legend:
 
 | model | architecture | recipe | inference | weights | proposed placement | note |
 |---|---|---|---|---|---|---|
-| `unet` | exact code, binary head | adapted | official | retrained | **main-adapted** | official architecture/loss/scale preprocessing/logit upsample; 3-shot recipe adapted (scale=1.0, batch 1, AdamW 1e-3/cosine, flips/rot90) because the literal official RMSprop/ReduceLROnPlateau recipe collapsed LR on 18 images; disclose as "3-shot U-Net" |
+| `unet` | exact code, binary head | adapted | adapted | retrained | **main-adapted** | official architecture/loss/logit upsample; 3-shot recipe adapted: native 512x512 patches, batch 8, 8 crops/image, 50% foreground-centred crops, AdamW 1e-3/wd 1e-4, cosine 800, flips/rot90 + photometric jitter, grad clip 1.0; scale=1.0 vs upstream 0.5 is a disclosed deviation, so inference is `adapted`; small-image crop fix means DCA1/CORN must be rerun before using their U-Net numbers; label "3-shot U-Net (official architecture; adapted recipe)" |
 | `cs2net` | exact | official | adapted | retrained | **main-adapted** | official train recipe; official predict.py is unrunnable, port rewrites center-crop/Otsu/GT placement |
 | `bcunet` | repaired | approximate | adapted | retrained | **appendix** | official code has SyntaxError/undefined upconv2x2; loss/fused semantics changed; not an official reproduction |
 | `maskvsc` | exact | official | adapted | retrained | **main-adapted** | protocol/seed and GT export adapted; architecture and loss preserved |

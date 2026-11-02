@@ -3,6 +3,8 @@
 import sys
 from pathlib import Path
 
+import numpy as np
+import pytest
 import torch
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -191,3 +193,31 @@ def test_plan_rejects_unknown_seed(capsys):
     rc = main(['plan', '--model', 'sacm_x', '--seeds', '9'])
     assert rc == 2
     assert 'unknown' in capsys.readouterr().err
+
+
+def test_unet_small_image_padding_keeps_random_crop_margin():
+    from baseline_zoo.adapters.unet import UNetAdapter
+
+    adapter = UNetAdapter()
+    adapter.patch_size = 512
+    image = np.zeros((300, 300, 3), dtype=np.uint8)
+    mask = np.zeros((300, 300), dtype=bool)
+    padded_image, padded_mask = adapter._pad_to_patch(image, mask)
+    margin = max(16, adapter.patch_size // 16)
+    expected = adapter.patch_size + 2 * margin
+    assert padded_image.shape == (expected, expected, 3)
+    assert padded_mask.shape == (expected, expected)
+    # The padded canvas must be larger than one patch, otherwise
+    # _crop_origin still has nowhere to move.
+    assert padded_image.shape[0] > adapter.patch_size
+    assert padded_image.shape[1] > adapter.patch_size
+
+
+def test_unet_rejects_nonpositive_scale():
+    from types import SimpleNamespace
+    from baseline_zoo.adapters.unet import UNetAdapter
+
+    adapter = UNetAdapter()
+    with pytest.raises(ValueError):
+        adapter.build_model(SimpleNamespace(scale=0.0))
+

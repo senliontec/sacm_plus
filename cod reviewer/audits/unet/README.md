@@ -74,9 +74,9 @@ return 1.0 - dice.mean()
 | D-unet-02 | `equivalent` | `wrapper_change` | G1/G2 | 官方 state_dict | key/shape/buffer/参数相同，forward diff=0 | 无 | 探针 | 02,03 |
 | D-unet-03 | **`differ`** | `bug` | **G2** | Dice 对 B,H,W 一次全局归约 | 逐图 Dice 后 `mean()` | 非均匀 batch 的 loss/grad 不同；见 03 | **未写，docstring 反而写错** | 04 |
 | D-unet-04 | `intentional_deviation` | `protocol_adaptation` | G1/G4 | 默认 2 类 CE+multiclass Dice | 1 类 BCE+前景 Dice | 任务头不同但不影响二值推理 | deviations #4 | 05 |
-| D-unet-05 | `intentional_deviation` | `official_recipe` | G3 | RMSprop 1e-5/5 epoch/batch1 | AdamW 1e-3/wd1e-4/batch4/cosine/200 | 训练轨迹完全不同，按项目预算解释 | deviations #3 | 06,07 |
-| D-unet-06 | `intentional_deviation` | `protocol_adaptation` | G3/G4 | 0.5 动态缩放、单通道 | 固定 512、RGB | 输入分布/分辨率不同；单类头已披露 | deviations #2,#5 | 08,09 |
-| D-unet-07 | `intentional_deviation` | `official_recipe` | G3 | 无增强 | flips+rot90 | 数据随机流不同 | deviations #6 | 10 |
+| D-unet-05 | `intentional_deviation` | `official_recipe` | G3 | RMSprop 1e-5/5 epoch/batch1 | AdamW 1e-3/wd1e-4/batch8/cosine/800 + 512 native patches, 8 crops/image | 训练轨迹完全不同，按项目预算解释 | deviations #3 | 06,07 |
+| D-unet-06 | `intentional_deviation` | `protocol_adaptation` | G3/G4 | 0.5 动态缩放、单通道 | `scale=1.0` 原生分辨率、RGB；小图 pad 到 patch+margin 以保留 random crop | 输入分布/分辨率不同；scale=1.0 已写入 deviations | deviations #2,#5 | 08,09 |
+| D-unet-07 | `intentional_deviation` | `official_recipe` | G3 | 无增强 | flips+rot90 + mild photometric jitter | 数据随机流不同 | deviations #6 | 10 |
 | D-unet-08 | `intentional_deviation` | `protocol_adaptation` | G3/G5 | 随机 10% val、每 epoch 存盘 | 18/6 val、val-Dice best | split/选择语义不同 | deviations #7 | 11,13 |
 | D-unet-09 | `differ` | `wrapper_change` | G3 | `workers=cpu_count()`，`shuffle=True`，全局 RNG | `workers=0`，`Random(seed+epoch)` | 数据顺序与浮点累加不同 | **未写** | 11 |
 | D-unet-10 | `intentional_deviation` | `protocol_adaptation` | G4/G5 | val 每若干 step，逐图 Dice | 每 epoch val Dice + 项目指标 | 选择点/评测频率不同 | deviations #7 | 12 |
@@ -150,11 +150,11 @@ repeat runs:                        两次完全一致（确定性 CPU）
 
 | 项 | 官方 | 移植 | 判定 |
 |---|---|---|---|
-| epochs | 5（`train.py:30`） | 200 元数据 | 不同，已披露 |
-| batch | 1（`train.py:31`） | 4 | 不同，已披露 |
-| input | `img_scale=0.5` 动态（`train.py:35`） | 固定 512 | 不同，已披露 |
+| epochs | 5（`train.py:30`） | 800 | 不同，已披露 |
+| batch | 1（`train.py:31`） | 8（每图 8 crops/epoch） | 不同，已披露 |
+| input | `img_scale=0.5` 动态（`train.py:35`） | `scale=1.0` native 512 patches；小图 pad 到 patch+margin | 不同，已披露 |
 | optimizer | RMSprop 1e-5/wd1e-8/mom .999（`:77-79`） | AdamW 1e-3/wd1e-4 | 不同，已披露 |
-| scheduler | ReduceLROnPlateau（`:79,143`） | cosine/epoch | 不同，已披露 |
+| scheduler | ReduceLROnPlateau（`:79,143`） | cosine / 800 epochs | 不同，已披露 |
 | grad clip | 1.0（`:114-118`） | 共享 runtime 默认值 | 需按 runtime 配置核对 |
 | loss | BCE + 全局 Dice（`:98-105`） | BCE + 逐图 Dice | **bug，未披露** |
 | train data | 官方数据目录，随机 10% val（`:47-55`） | 18/6 3-shot | 协议适配 |
@@ -165,13 +165,17 @@ repeat runs:                        两次完全一致（确定性 CPU）
 结论：G3 不能 pass。优化器/预算差异本身是已披露的项目选择，但 loss 归约与 worker/RNG
 差异会改变训练动力学，且前者未披露。
 
+补充（2026-11）：小图（DCA1 300×300、CORN 384×384）此前 pad 到正好 512 导致
+`_crop_origin` 恒返回 (0,0)，已改为 pad 到 `patch + 2*margin` 以保留 random /
+foreground-centred crop；修复后这两个域的 U-Net 结果必须重跑，不能与旧 checkpoint 混用。
+
 ---
 
 ## 05. 评测/推理审计
 
 | 项 | 官方 | 移植 | 判定 |
 |---|---|---|---|
-| eval transform | scale=1 的 BICUBIC/NEAREST、`/255`（`evaluate.py:13-30`） | 512 BICUBIC、mask NEAREST、`/255` | 分辨率不同，已披露 |
+| eval transform | scale=0.5 的 BICUBIC/NEAREST、`/255`（`evaluate.py:13-30`/`predict.py:47`） | scale=1.0 原生分辨率 BICUBIC、mask NEAREST、`/255` | 分辨率不同，已披露 |
 | checkpoint | 官方每 epoch 权重 | port val-Dice best | 协议适配 |
 | 输出 | logits→bilinear→原图→sigmoid>0.5（`predict.py:26-33`） | 同顺序（`adapters/unet.py:118-134`） | preserved |
 | threshold | 0.5 | 0.5 | same |

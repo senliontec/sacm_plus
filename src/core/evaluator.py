@@ -188,8 +188,10 @@ class Evaluator:
         # caused UnboundLocalError when audit flags were enabled.
         save_candidates = bool(getattr(
             self.args, 'save_candidate_masks', False))
+        save_probs = bool(getattr(
+            self.args, 'save_candidate_probs', False))
         audit_heads = bool(getattr(self.args, 'audit_heads', False)
-                           or save_candidates)
+                           or save_candidates or save_probs)
         audit_thresholds = getattr(
             self.args, 'audit_thresholds', None) or []
         audit_head_thresholds = getattr(
@@ -227,6 +229,7 @@ class Evaluator:
                 'audit_thresholds': list(audit_thresholds),
                 'audit_head_thresholds': list(audit_head_thresholds),
                 'save_candidate_masks': save_candidates,
+                'save_candidate_probs': save_probs,
                 'nsd_tolerance': self.args.nsd_tolerance,
                 'deep_closing': self.deep_closing is not None,
                 'deep_closing_checkpoint': getattr(
@@ -246,7 +249,7 @@ class Evaluator:
         head_threshold_rows = []
         head_full_rows = []
         candidates_dir = os.path.join(output_dir, 'candidates')
-        if save_candidates:
+        if save_candidates or save_probs:
             os.makedirs(candidates_dir, exist_ok=True)
 
         flips = [
@@ -439,13 +442,27 @@ class Evaluator:
                             'iou_head_score': float(iou_all[0, k].item()),
                             **q, **c,
                         })
-                        if save_candidates:
+                        if save_candidates or save_probs:
                             stem = os.path.splitext(os.path.basename(
                                 str(img_name[0])))[0]
-                            Image.fromarray(
-                                cand_bin.astype(np.uint8) * 255).save(
-                                os.path.join(
-                                    candidates_dir, f'{stem}_head{k}.png'))
+                            if save_candidates:
+                                Image.fromarray(
+                                    cand_bin.astype(np.uint8) * 255).save(
+                                    os.path.join(
+                                        candidates_dir,
+                                        f'{stem}_head{k}.png'))
+                            if save_probs:
+                                # Save probability maps (not logits) so the
+                                # offline ranker can sweep thresholds without
+                                # having to know this evaluation's logit
+                                # convention.  float16 keeps storage small.
+                                prob = torch.sigmoid(
+                                    cand[0, 0]).detach().cpu().numpy()
+                                np.save(
+                                    os.path.join(
+                                        candidates_dir,
+                                        f'{stem}_head{k}.npy'),
+                                    prob.astype(np.float16))
 
                 # Head x threshold grid: unlike head_audit (one threshold)
                 # and threshold_audit (one selected head), this measures
