@@ -163,6 +163,16 @@ class Evaluator:
         matplotlib.use('Agg')
         import matplotlib.pyplot as plt
 
+        # Resolve audit switches before setup_wandb (the config below logs
+        # them).  Previously these were assigned after the W&B config, which
+        # caused UnboundLocalError when audit flags were enabled.
+        save_candidates = bool(getattr(
+            self.args, 'save_candidate_masks', False))
+        audit_heads = bool(getattr(self.args, 'audit_heads', False)
+                           or save_candidates)
+        audit_thresholds = getattr(
+            self.args, 'audit_thresholds', None) or []
+
         run = setup_wandb(
             self.args,
             name=f"eval_{os.path.basename(self.args.data_root.rstrip('/'))}",
@@ -200,10 +210,6 @@ class Evaluator:
         csv_rows = []
         head_rows = []
         threshold_rows = []
-        save_candidates = bool(getattr(self.args, 'save_candidate_masks', False))
-        audit_heads = bool(getattr(self.args, 'audit_heads', False)
-                           or save_candidates)
-        audit_thresholds = getattr(self.args, 'audit_thresholds', None) or []
         candidates_dir = os.path.join(output_dir, 'candidates')
         if save_candidates:
             os.makedirs(candidates_dir, exist_ok=True)
