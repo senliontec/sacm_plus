@@ -17,6 +17,11 @@ from torch.nn import functional as F
 from typing import List, Tuple, Type
 
 from .common import LayerNorm2d
+from .pepa import (
+    CandidateRanker,
+    SnakeUpsample2d,
+    TargetAdaptiveThreshold,
+)
 
 
 class MaskDecoder(nn.Module):
@@ -42,6 +47,24 @@ class MaskDecoder(nn.Module):
         num_multidepth_levels: int = 4,
         init_stage2_from_stage1: bool = False,
         use_typed_heads: bool = False,
+        use_tcsu: bool = False,
+        tcsu_scale: int = 4,
+        tcsu_mid_channels: int = 32,
+        tcsu_max_length: int = 5,
+        use_tadt: bool = False,
+        tadt_hidden: int = 128,
+        tadt_t_min: float = -4.0,
+        tadt_t_max: float = 4.0,
+        use_ranker: bool = False,
+        ranker_hidden: int = 128,
+        ranker_pair_hidden: int = 128,
+        use_detail_stem: bool = False,
+        detail_channels: int = 32,
+        high_res_output: bool = False,
+        high_res_size: int = 512,
+        high_res_refine: bool = False,
+        high_res_refine_size: int = 1024,
+        single_head: bool = False,
     ) -> None:
         """
         Predicts masks given an image and prompt embeddings, using a
@@ -86,11 +109,25 @@ class MaskDecoder(nn.Module):
         self.use_multi_depth = use_multi_depth
         self.use_coarse_to_fine = use_coarse_to_fine
         self.use_typed_heads = bool(use_typed_heads)
+        self.use_tcsu = bool(use_tcsu)
+        self.use_tadt = bool(use_tadt)
+        self.use_ranker = bool(use_ranker)
+        self.use_detail_stem = bool(use_detail_stem)
+        self.high_res_output = bool(high_res_output)
+        self.high_res_size = int(high_res_size)
+        self.high_res_refine = bool(high_res_refine)
+        self.high_res_refine_size = int(high_res_refine_size)
+        # Filled by predict_masks when TADT / the ranker is enabled.
+        self.last_tadt_threshold = None
+        self.last_rank_scores = None
 
-        self.num_multimask_outputs = num_multimask_outputs
+        self.single_head = bool(single_head)
+        if self.single_head and self.use_typed_heads:
+            raise ValueError('single_head and use_typed_heads are incompatible')
+        self.num_multimask_outputs = 1 if self.single_head else num_multimask_outputs
 
         self.iou_token = nn.Embedding(1, transformer_dim)
-        self.num_mask_tokens = num_multimask_outputs + 1
+        self.num_mask_tokens = 1 if self.single_head else num_multimask_outputs + 1
         self.mask_tokens = nn.Embedding(self.num_mask_tokens, transformer_dim)
         if self.use_typed_heads:
             # Each Stage-2 slot is a structural type.  Zero-initialized so
@@ -131,6 +168,52 @@ class MaskDecoder(nn.Module):
         self.iou_prediction_head = MLP(
             transformer_dim, iou_head_hidden_dim, self.num_mask_tokens, iou_head_depth
         )
+
+        # Optional PEPA-style post-encoder adapters.  Both are opt-in so the
+        # default SACM-X graph and all existing checkpoints are unchanged.
+        self.tcsu = None
+        if self.use_tcsu:
+            self.tcsu = SnakeUpsample2d(
+                in_channels=transformer_dim,
+                out_channels=transformer_dim // 8,
+                scale=int(tcsu_scale),
+                mid_channels=int(tcsu_mid_channels),
+                max_length=int(tcsu_max_length),
+                target_dim=transformer_dim,
+            )
+        self.tadt = None
+        if self.use_tadt:
+            self.tadt = TargetAdaptiveThreshold(
+                dim=transformer_dim,
+                hidden=int(tadt_hidden),
+                t_min=float(tadt_t_min),
+                t_max=float(tadt_t_max),
+            )
+        self.ranker = None
+        if self.use_ranker:
+            self.ranker = CandidateRanker(
+                dim=transformer_dim,
+                hidden=int(ranker_hidden),
+                pair_hidden=int(ranker_pair_hidden),
+            )
+        self.detail_fuse_256 = None
+        self.detail_fuse_512 = None
+        if self.use_detail_stem:
+            feature_dim = transformer_dim // 8
+            self.detail_fuse_256 = nn.Conv2d(
+                feature_dim + int(detail_channels), feature_dim, 1)
+            self.detail_fuse_512 = nn.Conv2d(
+                feature_dim + int(detail_channels), feature_dim, 1)
+            nn.init.zeros_(self.detail_fuse_256.weight)
+            nn.init.zeros_(self.detail_fuse_256.bias)
+            nn.init.zeros_(self.detail_fuse_512.weight)
+            nn.init.zeros_(self.detail_fuse_512.bias)
+        self.final_refine = None
+        if self.high_res_refine:
+            self.final_refine = nn.Conv2d(
+                self.num_mask_tokens + 3, self.num_mask_tokens, 3, padding=1)
+            nn.init.zeros_(self.final_refine.weight)
+            nn.init.zeros_(self.final_refine.bias)
 
         if self.use_adapter_skip:
             if use_fusion_v2:
@@ -263,6 +346,32 @@ class MaskDecoder(nn.Module):
             )
         return processed_adapter
 
+    def _refine_high_res(
+        self,
+        masks: torch.Tensor,
+        image: torch.Tensor = None,
+    ) -> torch.Tensor:
+        """Image-guided full-resolution logit refinement.
+
+        The 1/2-resolution candidates are upsampled and residual-refined
+        with the preprocessed input image.  The refinement conv is
+        zero-initialized, so at step 0 this is exactly an upsample.
+        """
+        if not self.high_res_refine or self.final_refine is None:
+            return masks
+        if image is None:
+            return masks
+        size = (self.high_res_refine_size, self.high_res_refine_size)
+        if masks.shape[-2:] != size:
+            masks = F.interpolate(
+                masks, size=size, mode='bilinear', align_corners=False)
+        if image.shape[-2:] != size:
+            image = F.interpolate(
+                image, size=size, mode='bilinear', align_corners=False)
+        if image.shape[1] != 3:
+            image = image[:, :3]
+        return masks + self.final_refine(torch.cat([masks, image], dim=1))
+
     def predict_masks(
         self,
         image_embeddings: torch.Tensor,
@@ -271,6 +380,8 @@ class MaskDecoder(nn.Module):
         dense_prompt_embeddings: torch.Tensor,
         adapter_features: List[torch.Tensor] = None,
         intermediate_features: List[torch.Tensor] = None,
+        detail_features: Tuple[torch.Tensor, torch.Tensor] = None,
+        image: torch.Tensor = None,
         return_stage1: bool = False,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Predicts masks. See 'forward' for more details.
@@ -321,6 +432,29 @@ class MaskDecoder(nn.Module):
         src = src.transpose(1, 2).view(b, c, h, w)
         upscaled_embedding = self.output_upscaling(src)
 
+        # Target-conditioned snake upsampling (PEPA TCSU).  The branch is a
+        # zero-initialized residual on the existing upsampling, so enabling it
+        # starts from the exact baseline behaviour.
+        if self.use_tcsu and self.tcsu is not None:
+            target = mask_tokens_out.mean(dim=1)
+            tcsu_out = self.tcsu(src, target)
+            if tcsu_out.shape[-2:] != upscaled_embedding.shape[-2:]:
+                tcsu_out = F.interpolate(
+                    tcsu_out, size=upscaled_embedding.shape[-2:],
+                    mode='bilinear', align_corners=False)
+            upscaled_embedding = upscaled_embedding + tcsu_out
+
+        # High-resolution detail fusion at the decoder grid (1/4 scale).
+        if (self.use_detail_stem and detail_features is not None
+                and self.detail_fuse_256 is not None):
+            detail_256 = detail_features[0]
+            if detail_256.shape[-2:] != upscaled_embedding.shape[-2:]:
+                detail_256 = F.interpolate(
+                    detail_256, size=upscaled_embedding.shape[-2:],
+                    mode='bilinear', align_corners=False)
+            upscaled_embedding = upscaled_embedding + self.detail_fuse_256(
+                torch.cat([upscaled_embedding, detail_256], dim=1))
+
         # ---------------- Adapter fusion injection ----------------
         if self.use_adapter_skip and adapter_features is not None:
             if self.use_fusion_v2:
@@ -362,6 +496,26 @@ class MaskDecoder(nn.Module):
         if self.use_coarse_to_fine:
             upscaled_embedding = self.coarse_refiner(upscaled_embedding, masks_stage1)
 
+        # Optional high-resolution mask substrate (1/2 scale).  Built AFTER
+        # the coarse-to-fine refiner so Stage-2 actually consumes U'.  Stage-1
+        # and the refiner stay at the decoder grid.
+        mask_features = upscaled_embedding
+        if self.high_res_output:
+            if (self.use_detail_stem and detail_features is not None
+                    and self.detail_fuse_512 is not None):
+                detail_512 = detail_features[1]
+                target_size = detail_512.shape[-2:]
+                mask_features = F.interpolate(
+                    upscaled_embedding, size=target_size,
+                    mode='bilinear', align_corners=False)
+                mask_features = mask_features + self.detail_fuse_512(
+                    torch.cat([mask_features, detail_512], dim=1))
+            else:
+                target_size = (self.high_res_size, self.high_res_size)
+                mask_features = F.interpolate(
+                    upscaled_embedding, size=target_size,
+                    mode='bilinear', align_corners=False)
+
         # --------------------- Stage 2: refined masks ---------------------
         # Typed variant: keep a stable slot -> structural-type binding.
         # Unlike the gating-ranked SACM-X path, slot i always receives
@@ -375,14 +529,27 @@ class MaskDecoder(nn.Module):
                     self.output_hypernetworks_mlps_stage2[i](
                         typed_tokens[:, i, :]))
             hyper_in_stage2 = torch.stack(hyper_in_list_stage2, dim=1)
+            b2, c2, h2, w2 = mask_features.shape
             masks_stage2 = (
-                hyper_in_stage2 @ upscaled_embedding.view(b, c, h * w)
-            ).view(b, -1, h, w)
+                hyper_in_stage2 @ mask_features.view(b2, c2, h2 * w2)
+            ).view(b2, -1, h2, w2)
             head_iou = [
                 self.iou_prediction_head(typed_tokens[:, i, :])[:, i]
                 for i in range(self.num_mask_tokens)
             ]
             iou_pred = torch.stack(head_iou, dim=1)
+            if self.use_ranker and self.ranker is not None:
+                iou_pred = self.ranker(typed_tokens)
+                self.last_rank_scores = iou_pred.detach()
+            else:
+                self.last_rank_scores = None
+            if self.high_res_refine:
+                masks_stage2 = self._refine_high_res(masks_stage2, image)
+            if self.use_tadt and self.tadt is not None:
+                masks_stage2, tadt_t = self.tadt(typed_tokens, masks_stage2)
+                self.last_tadt_threshold = tadt_t.detach()
+            else:
+                self.last_tadt_threshold = None
             if return_stage1:
                 # Stage-1 and Stage-2 are both in stable type order.
                 return masks_stage2, iou_pred, masks_stage1
@@ -401,9 +568,10 @@ class MaskDecoder(nn.Module):
                 self.output_hypernetworks_mlps_stage2[i](
                     sorted_tokens[:, i, :]))
         hyper_in_stage2 = torch.stack(hyper_in_list_stage2, dim=1)
+        b2, c2, h2, w2 = mask_features.shape
         masks_stage2_ordered = (
-            hyper_in_stage2 @ upscaled_embedding.view(b, c, h * w)
-        ).view(b, -1, h, w)
+            hyper_in_stage2 @ mask_features.view(b2, c2, h2 * w2)
+        ).view(b2, -1, h2, w2)
 
         # Per-head IoU prediction: output slot j scores Stage-2 head j on
         # its ranked descriptor, so the slot-to-head binding survives the
@@ -413,6 +581,23 @@ class MaskDecoder(nn.Module):
             for i in range(self.num_mask_tokens)
         ]
         iou_pred_ordered = torch.stack(head_iou, dim=1)
+
+        if self.use_ranker and self.ranker is not None:
+            iou_pred_ordered = self.ranker(sorted_tokens)
+            self.last_rank_scores = iou_pred_ordered.detach()
+        else:
+            self.last_rank_scores = None
+
+        if self.high_res_refine:
+            masks_stage2_ordered = self._refine_high_res(
+                masks_stage2_ordered, image)
+
+        if self.use_tadt and self.tadt is not None:
+            masks_stage2_ordered, tadt_t = self.tadt(
+                sorted_tokens, masks_stage2_ordered)
+            self.last_tadt_threshold = tadt_t.detach()
+        else:
+            self.last_tadt_threshold = None
 
         if return_stage1:
             gather_indices = sorted_indices.unsqueeze(-1).unsqueeze(

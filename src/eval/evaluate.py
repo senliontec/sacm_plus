@@ -126,6 +126,25 @@ def _prepare_evaluation(args):
         use_multi_depth=args.use_multi_depth,
         use_dynamic_strip=getattr(args, 'use_dynamic_strip', False),
         use_typed_heads=getattr(args, 'use_typed_heads', False),
+        use_tcsu=getattr(args, 'use_tcsu', False),
+        tcsu_scale=getattr(args, 'tcsu_scale', 4),
+        tcsu_mid_channels=getattr(args, 'tcsu_mid_channels', 32),
+        tcsu_max_length=getattr(args, 'tcsu_max_length', 5),
+        use_tadt=getattr(args, 'use_tadt', False),
+        tadt_hidden=getattr(args, 'tadt_hidden', 128),
+        tadt_t_min=getattr(args, 'tadt_t_min', -4.0),
+        tadt_t_max=getattr(args, 'tadt_t_max', 4.0),
+        use_ranker=getattr(args, 'use_ranker', False),
+        ranker_hidden=getattr(args, 'ranker_hidden', 128),
+        ranker_pair_hidden=getattr(args, 'ranker_pair_hidden', 128),
+        use_detail_stem=getattr(args, 'use_detail_stem', False),
+        detail_channels=getattr(args, 'detail_channels', 32),
+        detail_out_channels=getattr(args, 'detail_out_channels', 32),
+        high_res_output=getattr(args, 'high_res_output', False),
+        high_res_size=getattr(args, 'high_res_size', 512),
+        high_res_refine=getattr(args, 'high_res_refine', False),
+        high_res_refine_size=getattr(args, 'high_res_refine_size', 1024),
+        single_head=getattr(args, 'single_head', False),
     )
     sam.to(device)
 
@@ -505,6 +524,49 @@ if __name__ == '__main__':
     parser.add_argument('--use_typed_heads', type=str2bool, default=False,
                         help='Typed structural Stage-2 heads (must match the '
                              'checkpoint; full_typed preset enables it)')
+    parser.add_argument('--use_tcsu', type=str2bool, default=False,
+                        help='PEPA target-conditioned snake upsampling '
+                             '(must match the checkpoint; full_pepa enables it)')
+    parser.add_argument('--use_tadt', type=str2bool, default=False,
+                        help='PEPA target-adaptive threshold (must match the '
+                             'checkpoint; full_pepa enables it)')
+    parser.add_argument('--tcsu_scale', type=int, default=4,
+                        help='TCSU upsampling factor (must match checkpoint)')
+    parser.add_argument('--tcsu_mid_channels', type=int, default=32,
+                        help='TCSU snake branch width (must match checkpoint)')
+    parser.add_argument('--tcsu_max_length', type=int, default=5,
+                        help='TCSU maximum odd chain length (must match checkpoint)')
+    parser.add_argument('--tadt_hidden', type=int, default=128,
+                        help='TADT MLP hidden width (must match checkpoint)')
+    parser.add_argument('--tadt_t_min', type=float, default=-4.0,
+                        help='TADT minimum logit threshold')
+    parser.add_argument('--tadt_t_max', type=float, default=4.0,
+                        help='TADT maximum logit threshold')
+    parser.add_argument('--use_ranker', type=str2bool, default=False,
+                        help='PromptMoE-style candidate ranker (must match the '
+                             'checkpoint; full_pepa_rank enables it)')
+    parser.add_argument('--ranker_hidden', type=int, default=128,
+                        help='Candidate ranker utility MLP width')
+    parser.add_argument('--ranker_pair_hidden', type=int, default=128,
+                        help='Candidate ranker pairwise MLP width')
+    parser.add_argument('--use_detail_stem', type=str2bool, default=False,
+                        help='Parallel high-resolution detail stem (must '
+                             'match checkpoint; full_pepa_hr enables it)')
+    parser.add_argument('--detail_channels', type=int, default=32,
+                        help='Detail stem 1/2-resolution width')
+    parser.add_argument('--detail_out_channels', type=int, default=32,
+                        help='Detail stem output channels')
+    parser.add_argument('--high_res_output', type=str2bool, default=False,
+                        help='Produce high-resolution Stage-2 masks')
+    parser.add_argument('--high_res_size', type=int, default=512,
+                        help='High-resolution Stage-2 output size')
+    parser.add_argument('--high_res_refine', type=str2bool, default=False,
+                        help='Image-guided full-resolution logit refinement')
+    parser.add_argument('--high_res_refine_size', type=int, default=1024,
+                        help='Output size of the image-guided refinement')
+    parser.add_argument('--single_head', type=str2bool, default=False,
+                        help='Use one Stage-2 mask head (must match checkpoint; '
+                             'full_v2 enables it)')
 
     # Inference options
     parser.add_argument('--selection', type=str, default='auto',

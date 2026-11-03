@@ -108,6 +108,16 @@ PRESETS = {
     # Full model + Same-Class Neighbor Penalization (SCNP, CVPR 2026):
     # training-only logit transform in front of BCE/Dice, no inference cost.
     "full_scnp": {**FULL, "scnp": True},
+    # Full model + PEPA-style post-encoder adapters:
+    #   TCSU: target-conditioned snake upsampling residual.
+    #   TADT: per-candidate adaptive logit threshold.
+    # Opt-in only; the default path remains full.
+    "full_pepa": {
+        **FULL,
+        "use_tcsu": True,
+        "use_tadt": True,
+        "tadt_consistency_weight": 0.1,
+    },
     # Single-module ablations (full model minus one component).
     "no_geo_i": {**FULL, "use_geo_i": False},
     "no_geo_e": {**FULL, "use_geo_e": False},
@@ -135,6 +145,84 @@ PRESETS["full_typed_topo"] = {
     **PRESETS["full_typed"],
     "topology_loss": "betti",
     "topology_loss_weight": 0.05,
+    "topology_resolution": 256,
+}
+
+# P1 topology variants on top of PEPA.  Separate presets keep each
+# mechanism attributable; the combined variant is explicit.
+PRESETS["full_pepa_topo"] = {
+    **PRESETS["full_pepa"],
+    "topology_loss": "topograph",
+    "topology_loss_weight": 0.1,
+    "topology_resolution": 256,
+}
+PRESETS["full_pepa_cape"] = {
+    **PRESETS["full_pepa"],
+    "topology_loss": "cape",
+    "topology_loss_weight": 0.1,
+    "topology_resolution": 256,
+}
+PRESETS["full_pepa_skel"] = {
+    **PRESETS["full_pepa"],
+    "topology_loss": "skeleton_recall",
+    "topology_loss_weight": 0.1,
+    "topology_resolution": 256,
+}
+PRESETS["full_pepa_topo_cape"] = {
+    **PRESETS["full_pepa"],
+    "topology_loss": "topograph_cape",
+    "topology_loss_weight": 0.1,
+    "topology_resolution": 256,
+}
+# P2: PromptMoE-style utility + pairwise candidate ranker replacing the
+# IoU head for selection.  Selection stays `iou` (the ranker output).
+PRESETS["full_pepa_rank"] = {
+    **PRESETS["full_pepa"],
+    "use_ranker": True,
+    "rank_loss_weight": 0.1,
+}
+PRESETS["full_pepa_all"] = {
+    **PRESETS["full_pepa_topo_cape"],
+    "use_ranker": True,
+    "rank_loss_weight": 0.1,
+}
+# P3: high-resolution detail stem + 1/2-resolution Stage-2 output.
+PRESETS["full_pepa_hr"] = {
+    **PRESETS["full_pepa"],
+    "use_detail_stem": True,
+    "high_res_output": True,
+    "high_res_size": 512,
+    "high_res_refine": True,
+    "high_res_refine_size": 1024,
+}
+PRESETS["full_pepa_all_hr"] = {
+    **PRESETS["full_pepa_all"],
+    "use_detail_stem": True,
+    "high_res_output": True,
+    "high_res_size": 512,
+    "high_res_refine": True,
+    "high_res_refine_size": 1024,
+}
+# Recommended v2: global context from external adapters only, local detail
+# from DetailStem, one main head, TADT, and complementary component/skeleton
+# topology supervision.  Internal adapters, multi-depth, TCSU, typed heads
+# and the four-candidate selector are deliberately disabled.
+PRESETS["full_v2"] = {
+    **FULL,
+    "use_geo_i": False,
+    "use_geo_e": True,
+    "use_multi_depth": False,
+    "use_tcsu": False,
+    "use_tadt": True,
+    "tadt_consistency_weight": 0.1,
+    "use_detail_stem": True,
+    "high_res_output": True,
+    "high_res_size": 512,
+    "high_res_refine": True,
+    "high_res_refine_size": 1024,
+    "single_head": True,
+    "topology_loss": "topograph_skeleton",
+    "topology_loss_weight": 0.1,
     "topology_resolution": 256,
 }
 

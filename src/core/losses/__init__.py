@@ -22,6 +22,7 @@ from .registry import TOPOLOGY_LOSS_REGISTRY, build_topology_loss, register
 from . import decl, centerline_ce, betti_matching, satloss, topograph, warping, topo_losses  # noqa: F401
 from . import euler_refine  # noqa: F401
 from . import multiclass_betti  # noqa: F401
+from . import cape, skeleton_recall, topograph_cape, topograph_skeleton  # noqa: F401
 
 from .decl import EndpointDistanceLossAverage
 from .centerline_ce import (

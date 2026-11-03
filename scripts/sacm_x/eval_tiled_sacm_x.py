@@ -60,6 +60,25 @@ def _build_model(args, device):
         use_fusion_v2=args.use_fusion_v2,
         use_multi_depth=args.use_multi_depth,
         use_typed_heads=getattr(args, 'use_typed_heads', False),
+        use_tcsu=getattr(args, 'use_tcsu', False),
+        tcsu_scale=getattr(args, 'tcsu_scale', 4),
+        tcsu_mid_channels=getattr(args, 'tcsu_mid_channels', 32),
+        tcsu_max_length=getattr(args, 'tcsu_max_length', 5),
+        use_tadt=getattr(args, 'use_tadt', False),
+        tadt_hidden=getattr(args, 'tadt_hidden', 128),
+        tadt_t_min=getattr(args, 'tadt_t_min', -4.0),
+        tadt_t_max=getattr(args, 'tadt_t_max', 4.0),
+        use_ranker=getattr(args, 'use_ranker', False),
+        ranker_hidden=getattr(args, 'ranker_hidden', 128),
+        ranker_pair_hidden=getattr(args, 'ranker_pair_hidden', 128),
+        use_detail_stem=getattr(args, 'use_detail_stem', False),
+        detail_channels=getattr(args, 'detail_channels', 32),
+        detail_out_channels=getattr(args, 'detail_out_channels', 32),
+        high_res_output=getattr(args, 'high_res_output', False),
+        high_res_size=getattr(args, 'high_res_size', 512),
+        high_res_refine=getattr(args, 'high_res_refine', False),
+        high_res_refine_size=getattr(args, 'high_res_refine_size', 1024),
+        single_head=getattr(args, 'single_head', False),
     )
     # Keep this script runnable against checkouts that do not yet contain
     # the optional dynamic-strip model code.  For the default `full` preset
@@ -88,7 +107,11 @@ def predict_image(spec, sam, image_path: Path, device, args) -> np.ndarray:
     if orig_h < tile or orig_w < tile:
         pad_h = max(0, tile - orig_h)
         pad_w = max(0, tile - orig_w)
-        image = F.pad(image, (0, pad_w, 0, pad_h), mode='reflect')
+        # ``reflect`` requires padding < input size, which fails for small
+        # OCTA-like images.  Replicate is safe for any padding and does not
+        # invent new content; tiling a small image is still only a proximity
+        # check, not a resolution gain.
+        image = F.pad(image, (0, pad_w, 0, pad_h), mode='replicate')
     img_h, img_w = int(image.shape[-2]), int(image.shape[-1])
     ys = tile_positions(img_h, tile, stride)
     xs = tile_positions(img_w, tile, stride)
@@ -153,6 +176,13 @@ def main() -> int:
     parser.add_argument('--use-multi-depth', type=str2bool, default=True)
     parser.add_argument('--use-dynamic-strip', type=str2bool, default=False)
     parser.add_argument('--use-typed-heads', type=str2bool, default=False)
+    parser.add_argument('--use-tcsu', type=str2bool, default=False)
+    parser.add_argument('--use-tadt', type=str2bool, default=False)
+    parser.add_argument('--use-ranker', type=str2bool, default=False)
+    parser.add_argument('--use-detail-stem', type=str2bool, default=False)
+    parser.add_argument('--high-res-output', type=str2bool, default=False)
+    parser.add_argument('--high-res-refine', type=str2bool, default=False)
+    parser.add_argument('--single-head', type=str2bool, default=False)
     parser.add_argument('--fixed-head', type=int, default=2,
                         choices=[0, 1, 2, 3])
     parser.add_argument('--pred-threshold', type=float, default=0.0,

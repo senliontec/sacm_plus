@@ -19,6 +19,7 @@ import torch.nn.functional as F
 from typing import Optional, Tuple, Type
 
 from .common import LayerNorm2d, MLPBlock
+from .detail_stem import DetailStem
 from .dynamic_strip import DynamicStripBranch
 
 
@@ -48,6 +49,9 @@ class ImageEncoderViT(nn.Module):
         use_geo_e: bool = True,
         geo_e_indices: Tuple[int, ...] = None,
         use_dynamic_strip: bool = False,
+        use_detail_stem: bool = False,
+        detail_channels: int = 32,
+        detail_out_channels: int = 32,
     ) -> None:
         """
         Args:
@@ -85,6 +89,7 @@ class ImageEncoderViT(nn.Module):
         self.use_geo_i = use_geo_i
         self.use_geo_e = use_geo_e
         self.use_dynamic_strip = bool(use_dynamic_strip)
+        self.use_detail_stem = bool(use_detail_stem)
         self.geo_e_indices = set(geo_e_indices) if use_geo_e and geo_e_indices is not None else None
         self.patch_size = patch_size
         self.depth = depth
@@ -171,6 +176,17 @@ class ImageEncoderViT(nn.Module):
             # original code mixed statistics from different depths.
             self.adapter_norms = nn.ModuleList(
                 [norm_layer(embed_dim) for _ in range(depth)])
+
+        # Optional parallel high-resolution detail stem.  It is kept out of
+        # forward() so the existing SAM encoder contract is unchanged;
+        # core.io.predict_all calls it explicitly when enabled.
+        self.detail_stem = None
+        if self.use_detail_stem:
+            self.detail_stem = DetailStem(
+                in_channels=in_chans,
+                channels=int(detail_channels),
+                out_channels=int(detail_out_channels),
+            )
 
     def _load_from_state_dict(self, state_dict, prefix, local_metadata,
                               strict, missing_keys, unexpected_keys,

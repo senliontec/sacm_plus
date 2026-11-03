@@ -78,6 +78,48 @@ OUTPUT_ROOT="$RUN_ROOT" EPOCHS=800 VAL_INTERVAL=1 SKIP_TEST=true \
 bash scripts/sacm_x/run_sacm_x_quick.sh
 ```
 
+For the optional PEPA post-encoder adapter (TCSU + TADT), use the
+one-click wrapper; it keeps the current fixed-head/resize comparison policy:
+
+```bash
+# 800 epochs + 20-test eval
+bash scripts/sacm_x/run_full_pepa.sh
+
+# 1-epoch smoke, isolated output, no W&B
+bash scripts/sacm_x/run_full_pepa.sh smoke
+```
+
+Recommended optimized variant (`full_v2`: external geometric adapters only,
+DetailStem 512/1024, TADT, single main head, Topograph + Skeleton Recall):
+
+```bash
+bash scripts/sacm_x/run_full_v2.sh smoke
+bash scripts/sacm_x/run_full_v2.sh
+```
+
+P1-P4 variants are opt-in presets through one generic runner:
+
+```bash
+# P1 topology variants
+bash scripts/sacm_x/run_pepa_variant.sh full_pepa_topo
+bash scripts/sacm_x/run_pepa_variant.sh full_pepa_cape
+bash scripts/sacm_x/run_pepa_variant.sh full_pepa_skel
+bash scripts/sacm_x/run_pepa_variant.sh full_pepa_topo_cape
+
+# P2 learned candidate ranker
+bash scripts/sacm_x/run_pepa_variant.sh full_pepa_rank
+
+# P3 high-resolution detail stem
+bash scripts/sacm_x/run_pepa_variant.sh full_pepa_hr
+
+# all components, high-resolution
+bash scripts/sacm_x/run_pepa_variant.sh full_pepa_all_hr
+
+# P4 geometry / deployment
+bash scripts/sacm_x/run_full_pepa_hr_native.sh
+bash scripts/sacm_x/run_full_pepa_all_hr_tta.sh
+```
+
 Training promotes the best checkpoint to:
 
 ```text

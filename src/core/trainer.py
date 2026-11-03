@@ -288,6 +288,22 @@ class Trainer:
             m2 = F.interpolate(masks_stage2, size=(1024, 1024), mode='bilinear', align_corners=False)
             m1 = F.interpolate(masks_stage1, size=(1024, 1024), mode='bilinear', align_corners=False)
 
+            # TADT regularizer: the decision boundary should be stable under
+            # a small threshold perturbation.  This is a soft Dice agreement
+            # between the two perturbed surrogates; it is computed on the
+            # decoder-resolution logits to keep memory bounded.
+            loss_tadt = 0.0
+            tadt_weight = float(getattr(
+                self.args, 'tadt_consistency_weight', 0.0))
+            if tadt_weight > 0 and getattr(self.args, 'use_tadt', False):
+                delta = float(getattr(self.args, 'tadt_delta', 0.5))
+                b_plus = torch.sigmoid(masks_stage2 - delta)
+                b_minus = torch.sigmoid(masks_stage2 + delta)
+                inter_t = (b_plus * b_minus).sum(dim=(2, 3))
+                denom_t = b_plus.sum(dim=(2, 3)) + b_minus.sum(dim=(2, 3))
+                dice_t = (2.0 * inter_t + 1e-6) / (denom_t + 1e-6)
+                loss_tadt = (1.0 - dice_t).mean()
+
             # D8: Stage-2 supervision mode.
             # wta     : original SACM winner-take-all (only gating head 0)
             # allhead : all Stage-2 mask heads (diversity may collapse)
@@ -340,9 +356,15 @@ class Trainer:
                     loss_ds = loss_ds + self.criterion(m1[:, k:k + 1], masks)
                 loss_ds = loss_ds / m1.shape[1]
 
-            # IoU head supervision: ground-truth IoU per head (hard, detached)
+            # IoU head / candidate-ranker supervision.  The ground-truth
+            # per-head IoU is shared by the MSE term and the listwise
+            # ranking term.
             loss_iou = 0.0
-            if self.args.iou_loss_weight > 0:
+            loss_rank = 0.0
+            rank_weight = float(getattr(self.args, 'rank_loss_weight', 0.0))
+            iou_gt = None
+            if self.args.iou_loss_weight > 0 or (
+                    rank_weight > 0 and getattr(self.args, 'use_ranker', False)):
                 with torch.no_grad():
                     m2_bin = (m2 > 0).float()
                     gt_bin = (masks > 0.5).float()
@@ -354,7 +376,32 @@ class Trainer:
                         union > 0,
                         inter / union.clamp_min(1e-6),
                         torch.ones_like(inter))
-                loss_iou = F.mse_loss(iou_pred, iou_gt)
+                if self.args.iou_loss_weight > 0:
+                    loss_iou = F.mse_loss(iou_pred, iou_gt)
+                if rank_weight > 0 and getattr(self.args, 'use_ranker', False):
+                    target_rank = torch.softmax(iou_gt / 0.5, dim=1)
+                    log_prob = torch.log_softmax(iou_pred, dim=1)
+                    listwise = -(target_rank * log_prob).sum(dim=1).mean()
+                    # Pairwise regret: a higher-GT-IoU candidate should have
+                    # a higher score by at least a small margin.
+                    pair_loss = 0.0
+                    pair_count = 0
+                    for left in range(iou_gt.shape[1]):
+                        for right in range(left + 1, iou_gt.shape[1]):
+                            diff = iou_gt[:, left] - iou_gt[:, right]
+                            valid = diff.abs() > 1e-6
+                            if not bool(valid.any()):
+                                continue
+                            sign = torch.sign(diff)
+                            margin = 0.05
+                            hinge = torch.relu(
+                                margin - sign * (
+                                    iou_pred[:, left] - iou_pred[:, right]))
+                            pair_loss = pair_loss + hinge[valid].mean()
+                            pair_count += 1
+                    if pair_count:
+                        pair_loss = pair_loss / float(pair_count)
+                    loss_rank = listwise + 0.5 * pair_loss
 
             # Differentiable clDice / boundary / recall terms.  In typed
             # mode each structural term is attached to its own head; the
@@ -403,9 +450,11 @@ class Trainer:
                 loss_main
                 + self.args.deep_sup_weight * loss_ds
                 + self.args.iou_loss_weight * loss_iou
+                + rank_weight * loss_rank
                 + mu * loss_cl
                 + boundary_mu * loss_boundary
                 + tversky_mu * loss_tversky
+                + tadt_weight * loss_tadt
                 + self.args.topology_loss_weight * loss_topo
             )
 

@@ -280,6 +280,25 @@ def train(args):
         use_dynamic_strip=getattr(args, 'use_dynamic_strip', False),
         use_typed_heads=getattr(args, 'use_typed_heads', False),
         init_stage2_from_stage1=getattr(args, 'init_stage2_from_stage1', False),
+        use_tcsu=getattr(args, 'use_tcsu', False),
+        tcsu_scale=getattr(args, 'tcsu_scale', 4),
+        tcsu_mid_channels=getattr(args, 'tcsu_mid_channels', 32),
+        tcsu_max_length=getattr(args, 'tcsu_max_length', 5),
+        use_tadt=getattr(args, 'use_tadt', False),
+        tadt_hidden=getattr(args, 'tadt_hidden', 128),
+        tadt_t_min=getattr(args, 'tadt_t_min', -4.0),
+        tadt_t_max=getattr(args, 'tadt_t_max', 4.0),
+        use_ranker=getattr(args, 'use_ranker', False),
+        ranker_hidden=getattr(args, 'ranker_hidden', 128),
+        ranker_pair_hidden=getattr(args, 'ranker_pair_hidden', 128),
+        use_detail_stem=getattr(args, 'use_detail_stem', False),
+        detail_channels=getattr(args, 'detail_channels', 32),
+        detail_out_channels=getattr(args, 'detail_out_channels', 32),
+        high_res_output=getattr(args, 'high_res_output', False),
+        high_res_size=getattr(args, 'high_res_size', 512),
+        high_res_refine=getattr(args, 'high_res_refine', False),
+        high_res_refine_size=getattr(args, 'high_res_refine_size', 1024),
+        single_head=getattr(args, 'single_head', False),
     )
     sam.to(device)
     if hasattr(sam.image_encoder, 'grad_checkpointing'):
@@ -585,6 +604,56 @@ if __name__ == '__main__':
     parser.add_argument('--use_typed_heads', type=str2bool, default=False,
                         help='Typed structural Stage-2 heads (thin/blob/boundary/recall); '
                              'opt-in via preset full_typed or this flag')
+    parser.add_argument('--use_tcsu', type=str2bool, default=False,
+                        help='PEPA target-conditioned snake upsampling residual '
+                             '(opt-in through preset full_pepa)')
+    parser.add_argument('--tcsu_scale', type=int, default=4,
+                        help='TCSU upsampling factor (4 maps 64x64 to 256x256)')
+    parser.add_argument('--tcsu_mid_channels', type=int, default=32,
+                        help='TCSU snake branch width')
+    parser.add_argument('--tcsu_max_length', type=int, default=5,
+                        help='TCSU maximum odd snake chain length')
+    parser.add_argument('--use_tadt', type=str2bool, default=False,
+                        help='PEPA per-candidate adaptive logit threshold '
+                             '(opt-in through preset full_pepa)')
+    parser.add_argument('--tadt_consistency_weight', type=float, default=0.0,
+                        help='Weight of the threshold-perturbation consistency '
+                             'loss for TADT')
+    parser.add_argument('--tadt_delta', type=float, default=0.5,
+                        help='Logit perturbation margin for TADT consistency')
+    parser.add_argument('--tadt_hidden', type=int, default=128,
+                        help='TADT MLP hidden width')
+    parser.add_argument('--tadt_t_min', type=float, default=-4.0,
+                        help='TADT minimum logit threshold')
+    parser.add_argument('--tadt_t_max', type=float, default=4.0,
+                        help='TADT maximum logit threshold')
+    parser.add_argument('--use_ranker', type=str2bool, default=False,
+                        help='PromptMoE-style candidate ranker replacing the '
+                             'IoU head for selection (opt-in via full_pepa_rank)')
+    parser.add_argument('--ranker_hidden', type=int, default=128,
+                        help='Candidate ranker utility MLP width')
+    parser.add_argument('--ranker_pair_hidden', type=int, default=128,
+                        help='Candidate ranker pairwise MLP width')
+    parser.add_argument('--rank_loss_weight', type=float, default=0.0,
+                        help='Listwise candidate-ranking loss weight')
+    parser.add_argument('--use_detail_stem', type=str2bool, default=False,
+                        help='Parallel high-resolution detail stem '
+                             '(opt-in via full_pepa_hr)')
+    parser.add_argument('--detail_channels', type=int, default=32,
+                        help='Detail stem 1/2-resolution width')
+    parser.add_argument('--detail_out_channels', type=int, default=32,
+                        help='Detail stem output channels')
+    parser.add_argument('--high_res_output', type=str2bool, default=False,
+                        help='Produce Stage-2 masks at high_res_size')
+    parser.add_argument('--high_res_size', type=int, default=512,
+                        help='High-resolution Stage-2 output size')
+    parser.add_argument('--high_res_refine', type=str2bool, default=False,
+                        help='Image-guided full-resolution logit refinement')
+    parser.add_argument('--high_res_refine_size', type=int, default=1024,
+                        help='Output size of the image-guided refinement')
+    parser.add_argument('--single_head', type=str2bool, default=False,
+                        help='Use one Stage-2 mask head (no fixed2/selector); '
+                             'opt-in via full_v2')
     parser.add_argument('--init_stage2_from_stage1', type=str2bool, default=True,
                         help='Warm-start the new Stage-2 mask heads from the '
                              'loaded pretrained Stage-1 heads (applied after '

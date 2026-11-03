@@ -22,6 +22,12 @@ NEW_DECODER_PREFIXES = (
     'mask_decoder.output_hypernetworks_mlps_stage2',
     # Typed-head identity embeddings (full_typed only).
     'mask_decoder.type_embeddings',
+    # PEPA adapters (full_pepa only).
+    'mask_decoder.tcsu',
+    'mask_decoder.tadt',
+    'mask_decoder.ranker',
+    'mask_decoder.detail_fuse_',
+    'mask_decoder.final_refine',
 )
 
 # Architecture switches shared by the whole SAM family (defaults = the
@@ -39,6 +45,27 @@ SAM_DEFAULTS = dict(
     # Default OFF: the typed-head prototype is opt-in through the
     # `full_typed` preset; the stable SACM-X path is unchanged.
     use_typed_heads=False,
+    # PEPA-style post-encoder adapters (TCSU/TADT).  Opt-in through the
+    # `full_pepa` preset; default behaviour is unchanged.
+    use_tcsu=False,
+    tcsu_scale=4,
+    tcsu_mid_channels=32,
+    tcsu_max_length=5,
+    use_tadt=False,
+    tadt_hidden=128,
+    tadt_t_min=-4.0,
+    tadt_t_max=4.0,
+    use_ranker=False,
+    ranker_hidden=128,
+    ranker_pair_hidden=128,
+    use_detail_stem=False,
+    detail_channels=32,
+    detail_out_channels=32,
+    high_res_output=False,
+    high_res_size=512,
+    high_res_refine=False,
+    high_res_refine_size=1024,
+    single_head=False,
     # Default ON for SACM-X: the final masks come from the new Stage-2 heads,
     # so initialize them from SAM's pretrained Stage-1 heads instead of random.
     init_stage2_from_stage1=True,
@@ -54,8 +81,9 @@ def freeze_sam(sam):
     """SAM freezing protocol (verbatim from train_sam.py)."""
     # Freeze image encoder parameters except for adapters
     for name, param in sam.image_encoder.named_parameters():
-        # Only train adapters and leave everything else frozen
-        if 'adapter' not in name:
+        # Train adapters and the optional high-resolution detail stem; leave
+        # the pretrained ViT parameters frozen.
+        if 'adapter' not in name and 'detail_stem' not in name:
             param.requires_grad = False
 
     # Freeze prompt encoder parameters (no_mask_embed stays as pretrained anchor)

@@ -30,6 +30,11 @@ def predict_all(sam, images, sparse_embeddings, dense_embeddings, return_stage1=
         image_embeddings, intermediate_features = encoder_output
         adapter_features = None
 
+    detail_features = None
+    if (getattr(sam.image_encoder, 'use_detail_stem', False)
+            and getattr(sam.image_encoder, 'detail_stem', None) is not None):
+        detail_features = sam.image_encoder.detail_stem(images)
+
     return sam.mask_decoder.predict_masks(
         image_embeddings=image_embeddings,
         image_pe=sam.prompt_encoder.get_dense_pe(),
@@ -37,6 +42,8 @@ def predict_all(sam, images, sparse_embeddings, dense_embeddings, return_stage1=
         dense_prompt_embeddings=dense_embeddings,
         adapter_features=adapter_features,
         intermediate_features=intermediate_features,
+        detail_features=detail_features,
+        image=images,
         return_stage1=return_stage1,
     )
 
