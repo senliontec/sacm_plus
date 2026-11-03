@@ -1,0 +1,1952 @@
+[
+    {
+        "type": "text",
+        "text": "Masked Vascular Structure Segmentation and Completion in Retinal Images",
+        "text_level": 1,
+        "bbox": [
+            137,
+            79,
+            859,
+            147
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Yi Zhou®, Thiara Sana Ahmed, Meng Wang®, Eric A. Newman, Leopold Schmetterer® Huazhu Fu, Senior Member, IEEE, Jun Cheng®, Senior Member, IEEE, and Bingyao Tan",
+        "bbox": [
+            135,
+            161,
+            861,
+            198
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Abstract—Early retinal vascular changes in diseases such as diabetic retinopathy often occur at a microscopic level. Accurate evaluation of retinal vascular networks at a micro-level could significantly improve our understanding of angiopathology and potentially aid ophthalmologists in disease assessment and management. Multiple angiogram-related retinal imaging modalities, including fundus, optical coherence tomography angiography, and fluo-",
+        "bbox": [
+            73,
+            256,
+            493,
+            359
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Received 3 December 2024; revised 16 January 2025; accepted 25 January 2025. Date of publication 13 February 2025; date of current version 3 June 2025. This work was supported in part by the National Medical Research Council under Grant OFLCG/004c/2018-00, Grant MOH-000249-00, Grant MOH-000647-00, Grant MOH-001001-00, Grant MOH-001015-00, Grant MOH-000500-00, Grant MOH-000707-00, Grant MOH-001072-06, and Grant MOH-001286-00; in part by the National Research Foundation Singapore under Grant NRF2019- THE002-0006 and Grant NRF-CRP24-2020-0001; in part by the Agency for Science, Technology and Research under Grant A20H4b0141 and Grant C231118001; in part by Singapore Eye Research Institute and Nanyang Technological University (SERI-NTU Advanced Ocular Engineering (STANCE) Program); and in part by the SERI-Institute of High Performance Computing (IHPC) Joint Lab Seeding Funding Program. (Corresponding author: Bingyao Tan.)",
+        "bbox": [
+            73,
+            375,
+            493,
+            545
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "This work involved human subjects or animals in its research. Approval of all ethical and experimental procedures and protocols was granted by the Institutional Animal Care and Use Committee of the University of Minnesota.",
+        "bbox": [
+            75,
+            545,
+            493,
+            590
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Yi Zhou and Thiara Sana Ahmed are with Singapore Eye Research Institute, Singapore National Eye Centre, Singapore 168751.",
+        "bbox": [
+            75,
+            589,
+            491,
+            613
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Meng Wang is with the Beth Israel Deaconess Medical Center, Harvard Medical School, Boston, MA 02115 USA.",
+        "bbox": [
+            75,
+            613,
+            491,
+            636
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Eric A. Newman is with the Department of Neuroscience, University of Minnesota, Minneapolis, MN 55455 USA.",
+        "bbox": [
+            75,
+            636,
+            491,
+            659
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Leopold Schmetterer is with Singapore Eye Research Institute, Singapore National Eye Centre, Singapore 168751, also with the SERI-NTU Advanced Ocular Engineering (STANCE) Program, Singapore, also with the Ophthalmology and Visual Sciences Academic Clinical Program (Eye ACP), Duke-NUS Medical School, Singapore 169857, also with the Institute of Molecular and Clinical Ophthalmology, 4031 Basel, Switzerland, also with the School of Chemical and Biomedical Engineering, Nanyang Technological University (NTU), Singapore 639798, also with the Centre for Medical Physics and Biomedical Engineering and the Department of Clinical Pharmacology, Medical University of Vienna, 1090 Vienna, Austria, and also with the Rothschild Foundation Hospital, 75019 Paris, France.",
+        "bbox": [
+            73,
+            659,
+            493,
+            794
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Huazhu Fu is with the Institute of High Performance Computing, Agency for Science, Technology and Research, Singapore 138632.",
+        "bbox": [
+            75,
+            792,
+            491,
+            818
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Jun Cheng is with the Institute for Infocomm Research, Agency for Science, Technology and Research, Singapore 138632.",
+        "bbox": [
+            75,
+            816,
+            491,
+            840
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "rescence angiography, project continuous, inter-connected retinal microvascular networks into imaging domains. However, extracting the microvascular network, which includes arterioles, venules, and capillaries, is challenging due to the limited contrast and resolution. As a result, the vascular network often appears as fragmented segments. In this paper, we propose a backbone-agnostic Masked Vascular Structure Segmentation and Completion (MaskVSC) method to reconstruct the retinal vascular network. MaskVSC simulates missing sections of blood vessels and uses this simulation to train the model to predict the missing parts and their connections. This approach simulates highly heterogeneous forms of vessel breaks and mitigates the need for massive data labeling. Accordingly, we introduce a connectivity loss function that penalizes interruptions in the vascular network. Our findings show that masking 40% of the segments yields optimal performance in reconstructing the interconnected vascular network. We test our method on three different types of retinal images across five separate datasets. The results demonstrate that MaskVSC outperforms state-of-the-art methods in maintaining vascular network completeness and segmentation accuracy. Furthermore, MaskVSC has been introduced to different segmentation backbones and has successfully improved performance. The code and 2PFM data are available at: https://github.com/Zhouyi-Zura/MaskVSC.",
+        "bbox": [
+            503,
+            256,
+            923,
+            598
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Index Terms—Topology-aware mask, vessel structure segmentation and completion, retinal images.",
+        "bbox": [
+            503,
+            603,
+            923,
+            632
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "I. INTRODUCTION",
+        "text_level": 2,
+        "bbox": [
+            647,
+            643,
+            782,
+            659
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "RT m i e   yenter and exit the retina through the optic nerve head, forming a unique closed loop system. The structure of the vasculature is dense, planar, and plexus-based. There are 3 distinct plexuses: the superficial plexus which has a tree structure, the intermediate and the deep plexus both have a mesh structure. These plexuses are interconnected by vertical anastomoses. Parameters of the retinal angioarchitecture are indicators of retinal health, and are essential for understanding the intricate perfusion of the eye. These parameters include the vessel diameter, localized dilatation or constriction, stenosis, or occlusion, and the presence of neovascularization and/or leakage. Alterations in the angioarchitecture can be associated with various physiological disorders, including glaucoma [2], diabetic retinopathy (DR) [3], retinal vein occlusion [4], and age-related macular degeneration [5]. Additionally, the retinal vasculature is the only vascular structure that is optically visible through the ocular media, making it an optimal organ for investigating the organization of microvasculature.",
+        "bbox": [
+            501,
+            659,
+            924,
+            921
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "page_number",
+        "text": "2492",
+        "bbox": [
+            76,
+            39,
+            106,
+            50
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "header",
+        "text": "IEEE TRANSACTIONS ON MEDICAL IMAGING, VOL. 44, NO. 6, JUNE 2025",
+        "bbox": [
+            313,
+            37,
+            712,
+            50
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "header",
+        "text": "EMB BIEEE IEEE NPSS Pignalsinging UFFC SCIEMCES SOCHTY Society",
+        "bbox": [
+            722,
+            35,
+            918,
+            63
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "page_footnote",
+        "text": "Bingyao Tan is with Singapore Eye Research Institute, Singapore National Eye Centre, Singapore 168751, also with the SERI-NTU Advanced Ocular Engineering Program, Singapore 637553, and also with the Ophthalmology and Visual Sciences Academic Clinical Program (Eye ACP), Duke-NUS Medical School, Singapore 169857 (e-mail: tan.bingyao@seri.com.sg).",
+        "bbox": [
+            73,
+            839,
+            491,
+            906
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "page_footnote",
+        "text": "Digital Object Identifier 10.1109/TMI.2025.3538336",
+        "bbox": [
+            83,
+            906,
+            385,
+            920
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "footer",
+        "text": "© 2025 The Authors. This work is licensed under a Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 License. For more information, see https://creativecommons.org/licenses/by-nc-nd/4.0/",
+        "bbox": [
+            130,
+            931,
+            864,
+            957
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "image",
+        "img_path": "images/cb6d0fc65eb8f99defb9ccf54ff48bdc12ce3c63700034cbde0bf0b602e17922.jpg",
+        "image_caption": [
+            "Fig. 1. Retinal vasculature related images. Different in-vivo (a)-(d) and ex-vivo (e)-(f) imaging modalities capture heterogeneous contrasts of the retinal vasculature ((d) is used from [1]). Nevertheless, all the modalities map the continuous, interconnected retinal vascular network onto imaging domains. OCT: optical coherence tomography. Color in f) represents different depths"
+        ],
+        "image_footnote": [],
+        "bbox": [
+            80,
+            69,
+            486,
+            301
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            73,
+            398,
+            491,
+            443
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "Multiple imaging modalities map the continuous, interconnected retinal vascular network into the imaging domain, capturing heterogeneous aspects of the retinal vasculature, as illustrated in Fig. 1. For instance, snapshot fundus images primarily capture large vessels, and provide color information about the veins and arteries. Other methods, such as singleor two-photon fluorescence microscopy (2PFM) and optical coherence tomography angiography (OCTA) [6], can image volumetric angiographic images, with capillary detail. Several datasets have been released for fundus vessel segmentation [7], [8], [9], [10] and artery-vein segmentation [11], [12], [13], [14], [15], providing essential benchmarks for developing robust segmentation methods.",
+        "bbox": [
+            73,
+            443,
+            493,
+            631
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "Accurate segmentation of vascular structures is crucial for the quantitative analysis of vasculature-related diseases. Key characteristics of the vascular segmentation task include handling of multi-scale, multi-orientation tubular structures with crossings and branches. Traditional methods for vascular segmentation primarily involve designing filters that match the tubular structure of the vessels [16], [17], [18]. Morphological operations are also widely used [19], [20], [21]. However, the structural elements defined by morphological operations are assumed to be linear, which limits their effectiveness when dealing with twisted and blurred vessels. Vessel tracking methods [22], [23], [24] trace the segments between two selected seed points for a single vessel to discover the best-matched path, but they cannot detect vessels without seed points. Multiscale methods [25], [26], [27], [28], [29] detect blood vessels of different thicknesses by altering the image size or changing the filter size. Machine learning algorithms [30], [31], [32], [33], [34], [35], such as support vector machines and adaptive boosting, can automatically detect retinal vessels, but they are unlearnable.",
+        "bbox": [
+            73,
+            631,
+            493,
+            920
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "However, these traditional methods require handcrafted features, which limits their generalization and accuracy.",
+        "bbox": [
+            73,
+            920,
+            493,
+            949
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "Over the last decade, deep learning (DL)-based methods have emerged as powerful tools for vascular segmentation [36]. Convolutional neural networks (CNNs) have proven to be particularly useful for this task [37], [38], [39], [40], [41], capturing multi-scale vascular information [42] through a coarse-to-fine segmentation sequence [43] or by emphasizing fine spatial information [44]. Techniques such as boundary detection [45] and edge enhancement [46] have also been effective for fine vessel segmentation. The application of the attention mechanism [47], which captures global associations, has led to the development of various attention modules for retinal vessel segmentation with notable success [48], [49]. Additionally, Graph Neural Networks (GNNs) [50], [51], which construct vessels into a graph structure, are well-suited for processing curvilinear structure data like angiograms [52], [53], [54].",
+        "bbox": [
+            501,
+            71,
+            923,
+            303
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "Despite the good segmentation performance achieved by the methods mentioned above, there are still several challenges remaining:",
+        "bbox": [
+            503,
+            303,
+            923,
+            347
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "1) Manually labeling vessels in retinal images is a cumbersome and time-consuming task, particularly for ine and tiny vessels in images with a low signal-to-noise ratio (SNR). This limits the amount of labeled data available.",
+        "bbox": [
+            519,
+            347,
+            923,
+            420
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "2) The topological integrity of the angioarchitecure is impacted by disconnected and fragmented vascular structures, especially in small vessels or capillaries.",
+        "bbox": [
+            519,
+            420,
+            923,
+            464
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "To address the challenge of limited data, the use of masking or deletion is becoming increasingly popular. He et al. [55] proposed an efficient self-supervised learning method called Masked Autoencoder (MAE), which enhances the feature learning ability and generalization performance of models by randomly masking input images to generate diverse training samples. Inspired by the above aspects of the work, we propose a novel backbone-agnostic Masked Vascular Structure Segmentation and Completion (MaskVSC) method for predicting interconnected vascular structures with limited manually labeled data. Our main contributions are as following:",
+        "bbox": [
+            503,
+            464,
+            923,
+            638
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "• We propose a comprehensive topology-aware mask (TopoMask) strategy by masking random portions of vessel segments to simulate breakpoints or missing branches in angiograms.",
+        "bbox": [
+            519,
+            640,
+            923,
+            698
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "• We propose a new connectivity loss function that guides the model to predict the same number of connectivity components as the ground truth, thereby penalizing vessel fragmentation.",
+        "bbox": [
+            519,
+            698,
+            923,
+            756
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "• Our MaskVSC method outperforms other state-of-the-art topology-based methods in preserving a more complete vascular structure across five different datasets containing three retinal imaging modalities.",
+        "bbox": [
+            519,
+            756,
+            923,
+            814
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "II. RELATED WORKS",
+        "text_level": 2,
+        "bbox": [
+            633,
+            824,
+            792,
+            838
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "A. Curvilinear Structures Segmentation",
+        "text_level": 2,
+        "bbox": [
+            504,
+            842,
+            795,
+            858
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "Curvilinear structures, defined as elongated and line-like formations, encompass a variety of natural and manmade structures, including blood vessels. Given the similar challenges these structures face, even in varied contexts, solutions for their analysis often employ analogous methods [56].",
+        "bbox": [
+            503,
+            861,
+            923,
+            949
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "header",
+        "text": "ZHOU et al.: MASKED VASCULAR STRUCTURE SEGMENTATION AND COMPLETION IN RETINAL IMAGES",
+        "bbox": [
+            75,
+            23,
+            643,
+            35
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "page_number",
+        "text": "2493",
+        "bbox": [
+            890,
+            23,
+            921,
+            35
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "Methods for segmenting curvilinear structures can be broadly categorized according to their prediction approaches: 1) Pixel/voxel-based methods [57], [58], which utilize local or global information to compute a feature vector for each pixel/voxel, and then label each one based solely on its features. 2) Edge-based methods [59], which estimate the positions of the curve's borders and subsequently fill the interior region. 3) Shape-based methods [60], [61], which rely on predefined templates and make predictions based on the similarity between the input and these templates. 4) Region-based methods [62], which extract the entire region of interest and may involve post-processing steps to refine the segmentation. 5) User-assisted methods [63], which require varying levels of user involvement, from selecting seed points to providing ongoing feedback throughout the segmentation process. 6) DL-based methods, which leverage labeled data to predict segmentation on unseen samples through learning.",
+        "bbox": [
+            73,
+            70,
+            493,
+            318
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "DL-based methods can be further subdivided into: multiscale [64], multi-task [65], [66], and attention mechanismbased [67], [68]. The performance of these methods is often constrained by the quantity and quality of available annotations. To mitigate this limitation, several advanced learning methods based on weakly supervised [69], semisupervised [70], self-supervised [71], and unsupervised [72] learning have been proposed. While these methods reduce the dependence on large labeled datasets, they often require complex parameter selection tailored to different modalities. This adds an additional layer of complexity to their implementation.",
+        "bbox": [
+            71,
+            316,
+            493,
+            478
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "B. Topology-Based Segmentation",
+        "text_level": 2,
+        "bbox": [
+            75,
+            491,
+            326,
+            506
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "The curvilinear or tree-like structure of the vessels in the superficial plexus of the retinal vasculature serves as prior knowledge to design topology-aware loss functions. Improved performances have been achieved using an unsupervised vascular segmentation loss based on active contours [73] and a total variation regularization loss [74]. Shit et al. [75] introduced a loss termed centerline Dice (clDice) that computes the intersection of segmentation and its morphological skeleton. Hu et al. [76] designed a continuous-valued loss (TopoLoss) that enforces the segmentation to have the same Betti number as the ground truth, where the Betti number is a topological invariant for characterizing connectivity and number of disconnected components. Further, they proposed a loss based on discrete Morse Theory (DMT) [77] to identify global structures for better topological accuracy [78]. Later, they used DMT and persistent homology to construct a one-parameter family of structures as the topological representation space [79]. Stucki et al. [80] introduced a Betti Matching error as a topological metric and loss, utilizing induced matchings from persistent homology for spatial matching of topological features. Gupta et al. [81] proposed a topological interaction module to encode this constraint into end-to-end training. They further focused on uncertainty estimation for identifying highly uncertain and error-prone vessel structures [82].",
+        "bbox": [
+            71,
+            508,
+            493,
+            873
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "C. Post-Processing for Vessel Completion",
+        "text_level": 2,
+        "bbox": [
+            75,
+            886,
+            385,
+            901
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "To better preserve vessel continuity, several postprocessing techniques have been developed, including: fully-connected Conditional Random Field (CRF) [83], local gradient consistency extrapolation [84], [85], morphological operation [7], [86], or a probability regularized walk [87]. Additionally, CRF models [88] are often employed in postprocessing to enhance segmentation performance. Nevertheless, traditional post-processing modules are unlearnable and can be challenging to optimize. Some studies have attempted to integrate DL-based models [89], [90], [91], however, semantic segmentation models do not necessarily preserve the vascular topology. Several methods used synthetic disconnected vessel to train a reconnection model for enhancing vascular connectivity after segmentation [92], [93], whereas our MaskVSC integrates connectivity preservation directly into the segmentation model by simulating missing vessel segments and applying a connectivity loss.",
+        "bbox": [
+            73,
+            905,
+            493,
+            950
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            501,
+            70,
+            923,
+            275
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "III. METHOD",
+        "text_level": 2,
+        "bbox": [
+            663,
+            286,
+            764,
+            300
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "In this paper, we introduce MaskVSC - a backbone-agnostic method for retinal vascular structure segmentation and completion. It consists of three key components: a topology-aware mask strategy TopoMask, a novel connectivity loss, and a Vision GNN (ViG)-based [94] post-processing. TopoMask randomly masks vessel segments, enabling the model to learn how to reconstruct these masked segments. Segment masking simulates the vessel breakpoints that may appear in real retinal images. The ratio of masked breakpoints is adjusted during training, allowing the model to learn generalized representations of the vessels. The connectivity loss is proposed to enhance vascular continuity by penalizing fragmented segments. Subsequently, a ViG-based model post-processes the initial prediction, leveraging the topological information of retinal vessels by representing the image as a graph structure and processing the nodes and edges using graph convolution.",
+        "bbox": [
+            501,
+            305,
+            924,
+            537
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "The training process has two steps. First, we train a vessel segmentation and completion model using TopoMask. Second, we freeze its parameters and proceed to train a ViG-based model to refine the topology of the segmented vessels. During the testing phase, the raw retinal image is fed sequentially into the vessel segmentation and completion model and then the ViG-based model to produce the final predicted vessel map. The flowchart of MaskVSC is shown in Fig. 2, where (a) represents the first step of vessel segmentation and completion, and (b) represents the second step of post-processing.",
+        "bbox": [
+            501,
+            537,
+            923,
+            684
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "A. Topology-Aware Mask Strategy",
+        "text_level": 2,
+        "bbox": [
+            504,
+            696,
+            759,
+            713
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "Inspired by the masking concept of MAE [55], we initially experimented with using MAE directly as a pre-training step for our task. However, this approach resulted in unsatisfactory outcomes, particularly in maintaining vascular connectivity, which is crucial for accurate vessel segmentation. This discrepancy may stem from the difference between the target of MAE and our task. Natural images involve complex backgrounds and overlapping objects, emphasizing overall category consistency. In contrast, retinal blood vessels require continuity and topology preservation, necessitating the accurate capture of fine vessels amidst noise and artifacts to maintain network integrity and connectivity. Additionally, MAE is designed for large-scale natural image datasets, typically comprising tens of thousands of images. In the field of medical imaging, data scarcity is a common challenge, leading to potential overfitting and low generalization. To address these challenges and better leverage the characteristics of vascular structures, we propose a topology-aware masking strategy (TopoMask). TopoMask masks random portions of vessel branches to simulate the breakpoints or missing parts in angiograms without disrupting the continuity of other vascular segments, as shown in Fig. 3.",
+        "bbox": [
+            501,
+            715,
+            924,
+            950
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "page_number",
+        "text": "2494",
+        "bbox": [
+            76,
+            23,
+            107,
+            35
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "header",
+        "text": "IEEE TRANSACTIONS ON MEDICAL IMAGING, VOL. 44, NO. 6, JUNE 2025",
+        "bbox": [
+            522,
+            22,
+            921,
+            36
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "image",
+        "img_path": "images/17d58037e123a6412eae5a2cf432da87da6bcce814bbd830c1508517d0226c61.jpg",
+        "image_caption": [
+            "(a) Training with TopoMask",
+            "Fig. 2. Schematic overview of our proposed method. (a) Training the segmentation backbone with TopoMask and $\\pmb { \\mathcal { L } } _ { C } ,$ where the “Masked (Input)” and “Seg Prediction” are served as the input and output of the segmentation backbone, respectively. (b) Using ViG post-processing the first segmentation prediction. Colors in “components” represent individual isolated components."
+        ],
+        "image_footnote": [],
+        "bbox": [
+            81,
+            84,
+            916,
+            280
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "image",
+        "img_path": "images/7c2bc9fb44e30367addbf2e40e71715e3dbbfc8a9b361378449c852b2b17ca12.jpg",
+        "image_caption": [
+            "Fig. 3. Flowchart of the TopoMask. We randomly select parts of vessel branches and add Gaussian noise to them, then these noisy branches are masked on the raw image to serve as the input."
+        ],
+        "image_footnote": [],
+        "bbox": [
+            76,
+            349,
+            490,
+            608
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            73,
+            688,
+            493,
+            761
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "To achieve this, we perform a morphological thinning on the binary ground truth to create a single-pixel-wide skeleton image of the vessels, followed by isolating the skeleton of each vessel segment. Afterward, we randomly select portions of these segment skeletons, dilate the skeletons, with the number of pixels dilated varying according to the dataset, and generate a mask. These binary masks are converted into image backgrounds by filling the masked regions with zero-mean Gaussian noises with different standard deviations (SD), according to the noise characteristics of each imaging modality. This approach can prevent possible gradient explosion or collapse due to model biases. The original and masked images from different modalities are shown in Fig. 4.",
+        "bbox": [
+            73,
+            761,
+            493,
+            950
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "image",
+        "img_path": "images/9bd6bc69145ff629e90f40baa17668a838ba48c7a7081256e9ed201d1e2c7b4e.jpg",
+        "image_caption": [
+            "Fig. 4. Raw image, masked vessel segments, and masked input of three different modalities."
+        ],
+        "image_footnote": [],
+        "bbox": [
+            508,
+            348,
+            919,
+            662
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "The masked image serves as the training input and can greatly expand the dataset, thus preventing the model from overfitting on limited data.",
+        "bbox": [
+            503,
+            731,
+            923,
+            775
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "It is worth noting that the proportion of masked vessels to all vessels, i.e., the masking ratio, is automatically controlled during training. As the epochs gradually increase, the masking ratio follows a progressive increase from 0, peaking at half of the epochs and then decreasing back to 0, with the first and last 10% of epochs left unmasked for “warm-up\" and “cool-down\" periods, respectively. This procedure gradually increases the learning difficulty, allowing the model to learn foundational features with complete vessel information early on and gradually adapt to masked conditions. By increasing the mask ratio up to half of the epochs and then decreasing it, the model learns to handle incomplete data effectively which enhances its robustness and generalization ability. The initial and final unmasked phases stabilize training and consolidate learned features, respectively. This progressive trend of masking ratio is illustrated as \"Masking Ratio\" in Fig. 2 under “TopoMask\".",
+        "bbox": [
+            501,
+            775,
+            924,
+            950
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "header",
+        "text": "ZHOU et al.: MASKED VASCULAR STRUCTURE SEGMENTATION AND COMPLETION IN RETINAL IMAGES",
+        "bbox": [
+            75,
+            23,
+            643,
+            35
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "page_number",
+        "text": "2495",
+        "bbox": [
+            890,
+            23,
+            921,
+            35
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            71,
+            70,
+            493,
+            145
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "B. Connectivity Loss",
+        "text_level": 2,
+        "bbox": [
+            75,
+            162,
+            232,
+            178
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "The vascular network of the retina is a fully interconnected structure, making a fully-interconnected vascular representation essential. While several of the works introduced above have focused on vascular connectivity, these topology- or postprocessing-based methods typically emphasize either topology preservation or pixel-level connectivity. They often overlook the prior knowledge that an ideal prediction of vascular structure should contain as few isolated components as possible. Inspired by the connectivity metric in [95], we propose a connectivity loss $\\mathcal { L } _ { C }$ to guide the model in generating a more continuous vascular network. $\\mathcal { L } _ { C }$ evaluates the connectivity degree of the segmented retinal vessels in the prediction and penalizes vessel fragments by comparing the number of connected components between the prediction and the ground truth, which is denoted as:",
+        "bbox": [
+            71,
+            183,
+            493,
+            400
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "equation",
+        "img_path": "images/8c5e4a153a9a76460c3944fdc15715573fde71b029ba48a0db3380158a123586.jpg",
+        "text": "$$\n\\mathcal { L } _ { C } = \\frac { \\vert \\# _ { C } ( Y ) - \\# _ { C } ( Y _ { G } ) \\vert } { \\# ( Y _ { G } ) } ,\\tag{1}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            192,
+            404,
+            372,
+            435
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "where Y and $Y _ { G }$ represent the prediction and ground truth, respectively. $\\# _ { C } ( Y )$ and $\\# _ { C } ( Y _ { G } )$ denote the number of connected components in Y and $Y _ { G } ,$ respectively. $\\# ( Y _ { G } )$ stands for the number of pixels in $Y _ { G }$ . Specifically, we approximate the number of undifferentiated connected components using a smoothness penalty $S ( \\cdot )$ that measures pixel differences in spatial dimensions to capture connectivity:",
+        "bbox": [
+            73,
+            440,
+            491,
+            542
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "equation",
+        "img_path": "images/5b6372afd05168bf20203d345b4d1546d3f5aea7582810af2fceec370c833727.jpg",
+        "text": "$$\n\\begin{array} { l } { { \\displaystyle S ( Y ) = \\frac { 1 } { N } \\bigg ( \\sum _ { i , j } | Y ( i , j ) - Y ( i , j + 1 ) | } } \\\\ { { \\displaystyle \\qquad + \\sum _ { i , j } | Y ( i , j ) - Y ( i + 1 , j ) | \\bigg ) , } } \\end{array}\\tag{2}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            130,
+            547,
+            431,
+            627
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "where $Y ( i , j )$ represents the pixel value at position $( i , j )$ in $Y ,$ and N is the total number of pixels in the image, serving as a normalization factor to ensure the penalty is scale-invariant. The first and second terms measure differences between horizontally and vertically adjacent pixels. For $Y _ { G }$ $S ( Y _ { G } )$ is obtained by the same way.",
+        "bbox": [
+            73,
+            633,
+            491,
+            720
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "To avoid over-segmenting vessels, such as in an extreme case where all the pixels in the image are labeled to have only one component, the training loss of the vessel segmentation model also includes Binary Cross-entropy (BCE) loss $\\mathcal { L } _ { B C E } ~ \\mathrm { ~ - ~ }$ a pixel-wise objective function that directly evaluates the distance between the prediction and the ground truth. Since blood vessels occupy a small portion of the image, BCE loss penalizes the model if over-segmentation occurs and the background pixels are labeled as vessels. This pixel-wise penalty discourages the model from assigning all pixels to a single component and promotes balanced segmentation, effectively reducing over-segmentation tendencies [96]. It is a common loss for binary segmentation tasks so its formula is omitted. Thus, the total objective function $\\mathcal { L } _ { T }$ is expressed as:",
+        "bbox": [
+            71,
+            720,
+            493,
+            925
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "equation",
+        "img_path": "images/c5ecf5057dc2d48eb5ed29521d79dadfdb101a6835b145e609f7247cc8d71785.jpg",
+        "text": "$$\n\\mathcal { L } _ { T } = \\mathcal { L } _ { B C E } + \\lambda \\mathcal { L } _ { C } ,\\tag{3}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            210,
+            931,
+            354,
+            946
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "where λ is the trade-off parameter between objective functions and is experimentally set to 1 through trials and errors.",
+        "bbox": [
+            503,
+            70,
+            921,
+            102
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "C. ViG-Based Post-Processing",
+        "text_level": 2,
+        "bbox": [
+            504,
+            118,
+            735,
+            133
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "After the initial prediction from TopoMask, we utilize the ViG [94] to post-process for better topological feature preservation. ViG treats an image as a graph by dividing it into patches, each treated as a node, and constructs edges by linking nodes according to K-nearest neighbors based on the Euclidean distance. Retinal blood vessels have a sparse structure with an emphasis on connectivity, which is intuitively better modeled by a graph rather than a mesh or normal convolution. ViG considers a vascular image as a graph and processes it based on the connectivity between the nodes. This graph structure enables the model to capture spatial relationships between patches, which is especially useful for maintaining connectivity in vascular structures. We choose ViG due to its ability to encode spatial dependencies and continuity patterns, which are essential for our tasks.",
+        "bbox": [
+            501,
+            137,
+            923,
+            354
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "Specifically, ViG divides an image into N patches, which are transformed into feature vectors X. These features become nodes $\\mathcal { V } = \\{ v _ { 1 } , v _ { 2 } , \\cdot \\cdot \\cdot , v _ { N } \\}$ . For each node $v _ { i }$ , the K nearest neighbors are found, constructing a directed edge $e _ { j i }$ from $v _ { j }$ to $v _ { i } .$ , forming a graph $\\mathcal { G } = ( \\nu , \\mathcal { E } )$ , where $\\mathcal { E }$ denotes all edges. The graph convolution layer then exchanges information between nodes by aggregating neighboring features.",
+        "bbox": [
+            503,
+            354,
+            923,
+            457
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "To avoid excessive smoothing due to deep structure, ViG applies a linear layer before and after graph convolution for additional feature diversity and uses a nonlinear activation function to avoid layer collapse. The upgraded module is called the Grapher module. For feature X, the Grapher module can be represented as:",
+        "bbox": [
+            501,
+            457,
+            923,
+            544
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "equation",
+        "img_path": "images/936427a686944d9f6226cb9c33d6cd7a3f656ce931b25be7ef8947b1eb04ba0e.jpg",
+        "text": "$$\nY = \\sigma ( { \\mathrm { G r a p h C o n v } } ( X W _ { i n } ) ) W _ { o u t } + X ,\\tag{4}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            583,
+            550,
+            841,
+            566
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "where $W _ { i n }$ and $W _ { o u t }$ are the weights of fully connected layers, and σ is the activation function. Additionally, ViG uses a multi-layer perceptron with two fully-connected layers on each node to further enhance feature transformation capacity and mitigate over-smoothing, forming the feed-forward network (FFN) module:",
+        "bbox": [
+            501,
+            573,
+            923,
+            661
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "equation",
+        "img_path": "images/debb6dbf5d1f10dcd0202ac4357721d96411881d2d617079a23d7b920e488f5d.jpg",
+        "text": "$$\nZ = \\sigma ( Y W _ { 1 } ) W _ { 2 } + Y ,\\tag{5}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            637,
+            667,
+            787,
+            684
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "where $W _ { 1 }$ and $W _ { 2 }$ are the weights of fully connected layers. The Grapher and FFN modules are stacked to form a ViG block, maintaining feature diversity for more thorough learning of discriminative representations. This study chooses ViG-Ti for its lowest computational cost. BCE loss is used as its objective function.",
+        "bbox": [
+            501,
+            691,
+            923,
+            780
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "IV. EXPERIMENTS AND RESULTS",
+        "text_level": 2,
+        "bbox": [
+            589,
+            794,
+            834,
+            809
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "A. Datasets",
+        "text_level": 2,
+        "bbox": [
+            504,
+            814,
+            599,
+            828
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "We validate our method on seven datasets containing three different retinal vasculature-related modalities: Fundus (DRIVE [30] and STARE [16] for vessel segmentation, RITE [11] and LES-AV [14] for artery-vein segmentation), OCTA (ROSE [43] and OCTA-500 [97]), and 2PFM from our own collection, with details listed in Table I. The division of training and testing follows the original setup for DRIVE, RITE, LES-AV, ROSE, and OCTA-500. Specifically, DRIVE and RITE are both divided into 20 images for training and 20 images for testing, and LES-AV is divided into 11 images for training and 11 images for testing. For ROSE, we choose the $\\mathrm { S V C + D V C }$ pixel-level annotations of ROSE-1 for evaluation and split it into 90 images for training and 27 images for testing. For OCTA-500, we keep its training set (380 images) for training and combine its validation and test sets (120 images) for testing. For STARE, we use a k-fold (k = 4) cross-validation method, similar to [68], where 15 images are used for training and the remaining 5 images for testing.",
+        "bbox": [
+            501,
+            832,
+            923,
+            950
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "page_number",
+        "text": "2496",
+        "bbox": [
+            76,
+            23,
+            106,
+            35
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "header",
+        "text": "IEEE TRANSACTIONS ON MEDICAL IMAGING, VOL. 44, NO. 6, JUNE 2025",
+        "bbox": [
+            522,
+            22,
+            921,
+            36
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "table",
+        "img_path": "images/8fa5127faca920704e42ce196c2ed51431f0199406dd682413c2ba036ac7c0e3.jpg",
+        "table_caption": [
+            "TABLE I",
+            "DETAILS OF THE DATASETS USED FOR EVALUATION"
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Modality</td><td>Dataset Name</td><td>Number</td><td>FOV</td><td>Resolution</td></tr><tr><td rowspan=\"5\">Fundus</td><td>DRIVE [30]</td><td>40</td><td>45°</td><td> $\\overline { { 5 8 4 \\times 5 6 5 } }$ </td></tr><tr><td>STARE [16]</td><td>20</td><td>35°</td><td> $7 0 0 \\times 6 0 5$ </td></tr><tr><td>RITE [11]</td><td>40</td><td>45°</td><td> $\\overline { { 5 8 4 \\times 5 6 5 } }$ </td></tr><tr><td rowspan=\"2\">LES-AV [14]</td><td>21</td><td>30°</td><td>1444×1620</td></tr><tr><td>1</td><td>45°</td><td> $1 9 5 8 \\times 2 1 9 6$ </td></tr><tr><td rowspan=\"3\">OCTA</td><td>ROSE-1 [43]</td><td>117</td><td> $3 \\times 3 ~ \\mathrm { m m ^ { 2 } }$ </td><td> $3 0 4 \\times 3 0 4$ </td></tr><tr><td rowspan=\"2\">OCTA-500 [97]</td><td>300</td><td> $\\overline { { 6 \\times 6 \\ \\mathrm { m m } ^ { 2 } } }$ </td><td> $4 0 0 \\times 4 0 0$ </td></tr><tr><td>200</td><td> $\\overline { { 3 \\times 3 ~ \\mathrm { m m } ^ { 2 } } }$ </td><td> $\\overline { { 3 0 4 \\times 3 0 4 } }$ </td></tr><tr><td>2PFM</td><td>2PFM</td><td>405</td><td> $\\overline { { 1 \\times 1 ~ \\mathrm { m m } ^ { 2 } } }$ </td><td> $\\overline { { 1 0 2 4 \\times 1 0 2 4 } }$ </td></tr></table>",
+        "bbox": [
+            94,
+            99,
+            470,
+            215
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            73,
+            243,
+            493,
+            404
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "The 2PFM data was acquired from ex-vivo rat retinas, where the rat was perfused with fluorescein-conjugated albumin and gelatin, and the retina was harvested and imaged with a custom-built 2PFM using a 16×, 0.8 numerical aperture objective. The annotation of retinal blood vessels, manually traced by a professional ophthalmologist in the raw images, serves as the ground truth. All 2D images are divided into a training set of 270 images and a testing set of 135 images, with a pixel resolution of $1 0 2 4 \\times 1 0 2 4$ . All procedures in this study were conducted in accordance to the ARVO Statement for the Use of Animals in Ophthalmic and Vision Research. Part of the 2PFM dataset is publicly available at our GitHub repository.",
+        "bbox": [
+            73,
+            404,
+            493,
+            593
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "B. Implementation Details",
+        "text_level": 2,
+        "bbox": [
+            75,
+            611,
+            269,
+            626
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "The proposed framework is individually trained and tested on each dataset separately. We utilize the Adam optimizer with a learning rate of $2 . { \\overset { \\cdot } { 0 } } \\times 1 0 ^ { - 4 }$ and a momentum of 0.5. The batch size is set to 4, and the maximum number of epochs is set to 200 for each training step. Data augmentation, including random rotation (from $- 3 0 ^ { \\circ }$ to 30°), and random horizontal flipping, is used during training. No augmentation is performed during testing. The resolution of the image is resized to $5 1 2 \\times 5 1 2$ for DRIVE and RITE, 1024 × 1024 for LES-AV, 576 × 576 for STARE, and $3 8 4 \\times 3 8 4 / 3 0 4 \\times$ 304 for OCTA-500, respectively. The image resolution of the remaining ROSE and 2PFM is left unchanged. Zero-mean Gaussian noise added to the masks. The noise's standard deviation is 20 in all three RGB channels for fundus images, 100 for OCTA images, and 20 for 2PFM images, respectively. The proposed method is implemented using Pytorch and is trained on one NVIDIA GeForce RTX 4090 GPU with 24G of memory. Topomask is accompanied by training, hence, the training time is the same with and without it. Specifically, it takes about 1 hour for STARE, 2 hours for DRIVE RITE, and LES-AV, 4 hours for ROSE-1, and 6 hours for OCTA-500 and 2PFM.",
+        "bbox": [
+            71,
+            630,
+            493,
+            950
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "C. Evaluation Metrics",
+        "text_level": 2,
+        "bbox": [
+            504,
+            69,
+            666,
+            85
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "We utilize multiple performance metrics to evaluate different aspects of vascular topology preservation: Dice coefficient $( D i c e )$ , Jaccard index $( J a c ) ,$ centerline Dice (cl Dice)[75]. Also, we evaluate topological correctness using the following metrics: Connectivity (C), Area (A), Length (L) [95], Betti Number error $( \\beta ^ { e r r } ) ~ [ 7 6 ]$ , Betti Matching error $( \\mu ^ { e r r } ) ~ [ 8 0 ]$",
+        "bbox": [
+            503,
+            89,
+            923,
+            178
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "Dice and Jac are common metrics for evaluating similarity in medical image segmentation. cl $D i c e$ calculates the intersection of the segmentation masks and their morphological skeleton, maintaining topological invariance up to homotopy equivalence for binary segmentation. The $C , A .$ , and L metrics evaluate the degree of fragmentation, overlapping, and coincidence between the prediction and ground truth. They were specifically designed to assess the graphic characteristics of the vascular structure. These three features are combined into a global quality assessment metric, CAL, defined as $C A L = C \\times A \\times L$ . The C, A, and L are defined as:",
+        "bbox": [
+            501,
+            178,
+            923,
+            337
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "equation",
+        "img_path": "images/52d1cae3b6c98363657175e7283df7a1309fabfffa313ac8af1652a91f48d576.jpg",
+        "text": "$$\nC = 1 - m i n ( 1 , \\frac { | \\# _ { C } ( Y ) - \\# _ { C } ( Y _ { G } ) | } { \\# ( Y _ { G } ) } ) ,\\tag{6}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            557,
+            340,
+            812,
+            373
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "equation",
+        "img_path": "images/53de1ef95445be4c5ed67be08eeece3d519b632117b9848836cec5a5c2237965.jpg",
+        "text": "$$\nA = { \\frac { \\# ( ( \\delta _ { \\alpha } ( Y ) \\cap Y _ { G } ) \\cup ( \\delta _ { \\alpha } ( Y _ { G } ) \\cap Y ) ) } { \\# ( Y \\cup Y _ { G } ) } } ,\\tag{7}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            558,
+            373,
+            820,
+            405
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "equation",
+        "img_path": "images/27ae55eb33439b8f47061e0d42b37094d96910db0f0ba723a6cb5ceaa2b0b5bc.jpg",
+        "text": "$$\nL = \\frac { \\# ( ( \\delta _ { \\beta } ( Y ) \\cap \\varphi ( Y _ { G } ) ) \\cup ( \\delta _ { \\beta } ( Y _ { G } ) \\cap \\varphi ( Y ) ) ) } { \\# ( \\varphi ( Y ) \\cup \\varphi ( Y _ { G } ) ) } ,\\tag{8}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            558,
+            406,
+            866,
+            439
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "where $\\# _ { C } ( Y ) , \\# _ { C } ( Y _ { G } )$ , and $\\# ( Y _ { G } )$ are the same as the corresponding ones in $\\operatorname { E q . l . } \\delta _ { \\alpha }$ is a morphological dilation using a disc of α pixels in radius. φ is a skeletonization operation, and $\\delta _ { \\beta }$ is a morphological dilation with a disc of $\\beta$ pixels in radius to reduce the impact of slight differences in vessel tracing, where $\\beta$ controls sensitivity degree to these differences. For all experiments, α and $\\beta$ are both set to 2 following [95].",
+        "bbox": [
+            503,
+            444,
+            923,
+            546
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "The Betti Number is a fundamental metric in topological analysis, with 0- and 1-dimensional Betti Numbers representing the number of connected components and independent holes in a 2D vessel map, respectively. Betti Number error measures the difference between the Betti Numbers of the prediction and the ground truth, computed separately for 0-dimensional $( \\beta _ { 0 } ^ { e r r } )$ and 1-dimensional $( \\beta _ { 1 } ^ { e r r } )$ structures. Betti Matching error is similar to Betti Number error, however, it also considers the spatial location of the 0-dimension $( \\mu _ { 0 } ^ { e r r } )$ and 1-dimension $( \\mu _ { 1 } ^ { e r r } )$ components, making it a stricter metric.",
+        "bbox": [
+            501,
+            546,
+            923,
+            705
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "D. Results of Comparison Experiments",
+        "text_level": 2,
+        "bbox": [
+            504,
+            726,
+            794,
+            741
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "We compare our proposed MaskVSC method with two categories of state-of-the-art, backbone-agnostic baseline methods: 1) those based on topology-preserving loss, including clDice [75], TopoLoss [76], and BettiLoss [80], and 2) topology-aware methods, including DMT [78] and Gupta et al. [82]. The U-Net [98] is used as the backbone for all methods. For TopoMask, the masking ratio is set to 40%, as it yields the best performance in Section IV-E. An unpaired t-test is performed to determine whether the improvements over all methods are significant (labeled in bold) or not (labeled in italics).",
+        "bbox": [
+            503,
+            746,
+            923,
+            905
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "The comparison results, summarized in Table II, show that the MaskVSC significantly outperforms other methods on all five datasets, except for $\\beta _ { 0 } ^ { e r r }$ by Gupta et al. [82] on 2PFM.",
+        "bbox": [
+            503,
+            905,
+            923,
+            950
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "header",
+        "text": "ZHOU et al.: MASKED VASCULAR STRUCTURE SEGMENTATION AND COMPLETION IN RETINAL IMAGES",
+        "bbox": [
+            75,
+            23,
+            643,
+            35
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "page_number",
+        "text": "2497",
+        "bbox": [
+            890,
+            23,
+            921,
+            35
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "table",
+        "img_path": "images/961ac200a95bbb347ee3e3a655a78e3ea3ef44360818674f6179ab6ee559440b.jpg",
+        "table_caption": [
+            "TABLE II",
+            "RESULTS OF COMPARISON EXPERIMENTS ON SEVEN DIFFERENT RETINAL DATASETS. ALL METHODS USE U-Net [98]AS THE BACKBONE(MEAN ± STANDARD DEVIATION). ↑MEANS HIGHER VALUES ARE BETTER, AND ↓ VICE VERSA. BOLD INDICATES A SIGNIFICANTIMPROVEMENT IN t-TEST, italiCS INDICATES AT LEAST ONE NON-SIGNIFICANT IMPROVEMENT IN t-TEST"
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Dataset</td><td>Method</td><td>Dice (%)↑</td><td>Jac (%)↑</td><td>clDice (%)↑</td><td></td><td>CAL (%)↑</td><td>βeTT↓</td><td>βeT↓</td><td>µ07 ↓</td><td>µ∈ Y</td></tr><tr><td rowspan=\"5\">DRVVE</td><td>clDice [75]</td><td>77.55 ± 1.11</td><td>63.54 ± 3.17</td><td>81.35 ± 3.32</td><td></td><td>68.73 ± 5.11</td><td>3.08</td><td>0.279</td><td>3.83</td><td>0.434</td></tr><tr><td>TopoLoss [76]</td><td>77.63 ± 1.03</td><td>63.15 ± 2.72</td><td>80.08 ± 3.19</td><td></td><td>68.68 ± 8.47</td><td>2.80</td><td>0.285</td><td>3.75</td><td>0.405</td></tr><tr><td>BettiLoss [80]</td><td>76.93 ± 1.07</td><td>62.17 ± 2.08</td><td>79.06 ± 2.88</td><td></td><td>67.86 ± 4.11</td><td>8.25</td><td>0.306</td><td>9.83</td><td>0.409</td></tr><tr><td>DMT [78]]</td><td>78.44 ± 0.99</td><td>63.32 ± 3.44</td><td>82.69 ± 2.92</td><td></td><td>70.97 ± 6.70</td><td>2.74</td><td>0.288</td><td>3.88</td><td>0.375</td></tr><tr><td>Gupta et al. [82]</td><td>79.16 ± 1.32</td><td>66.27 ± 2.95</td><td>83.77 ± 3.64</td><td></td><td>71.94 ± 7.55</td><td>2.30</td><td>0.261</td><td>2.97</td><td>0.365</td></tr><tr><td rowspan=\"5\">STTRE</td><td>Proposed</td><td>80.30 ± 1.07</td><td>67.19 ± 3.00</td><td>84.57 ± 3.28</td><td></td><td>73.67 ± 5.16</td><td>1.99</td><td>0.254</td><td>2.63</td><td>0.348</td></tr><tr><td>clDice [75]</td><td>76.19 ± 1.43</td><td>61.72 ± 6.33</td><td>82.85 ± 5.83</td><td></td><td>69.16 ± 9.05</td><td>3.99</td><td>0.103</td><td>3.98</td><td>0.102</td></tr><tr><td>TopoLoss [76]</td><td>76.77 ± 1.88</td><td>62.25 ± 5.95</td><td>81.93 ± 5.49</td><td></td><td>70.37 ± 8.92</td><td>3.20</td><td>0.105</td><td>3.19</td><td>0.103</td></tr><tr><td>BettiLoss [80]</td><td>75.30 ± 1.34</td><td>60.22 ± 5.28</td><td>80.98 ± 4.80</td><td></td><td>67.10 ± 7.69</td><td>8.72</td><td>0.113</td><td>9.02</td><td>0.103</td></tr><tr><td>DMT [78]</td><td>77.08 ± 2.04</td><td>63.94 ± 5.89</td><td>82.52 ± 5.04</td><td></td><td>71.18 ± 9.22</td><td>2.91</td><td>0.100</td><td>2.88</td><td>0.109</td></tr><tr><td rowspan=\"6\">ROSE</td><td>Gupta et al. [82]</td><td>78.73 ± 2.47</td><td>64.82 ± 6.01</td><td>84.47 ± 5.55</td><td></td><td>73.02 ± 11.0</td><td>3.00</td><td>0.098</td><td>2.57</td><td>0.102</td></tr><tr><td>Proposed</td><td>79.95 ± 1.74</td><td>66.15 ± 5.79</td><td>85.01 ± 5.33</td><td></td><td>73.29 ± 8.63</td><td>2.04</td><td>0.094</td><td>2.33</td><td>0.100</td></tr><tr><td>clDice [75]</td><td>72.92 ± 0.95</td><td>57.46 ± 4.82</td><td>72.34 ± 4.19</td><td></td><td>56.19 ± 7.76</td><td>5.62</td><td>0.190</td><td>12.4</td><td>0.181</td></tr><tr><td>TopoLoss [76]</td><td>73.06 ± 1.01</td><td>58.52 ± 3.97</td><td>71.18 ± 4.11</td><td></td><td>54.75 ± 6.92</td><td>5.60</td><td>0.190</td><td>12.8</td><td>0.193</td></tr><tr><td>BettiLoss [80]</td><td>71.24 ± 0.76</td><td>55.90 ± 3.54</td><td>70.70 ± 3.32</td><td></td><td>50.43 ± 6.04</td><td>9.01</td><td>0.212</td><td>15.1</td><td>0.203</td></tr><tr><td>DMT [78]</td><td>74.38 ± 0.98</td><td>59.05 ± 4.77</td><td>73.26 ± 4.68</td><td></td><td>55.98 ± 7.50</td><td>4.65</td><td>0.171</td><td>11.0</td><td>0.195</td></tr><tr><td rowspan=\"6\">0C--50</td><td>Gupta et al. [82]</td><td>74.77 ± 1.52</td><td>59.66 ± 5.03</td><td>73.45 ± 5.77</td><td></td><td>56.52 ± 8.11</td><td>4.04</td><td>0.170</td><td>12.0</td><td>0.194</td></tr><tr><td>Proposed</td><td>75.25 ± 0.87</td><td>60.01 ± 4.39</td><td>73.74 ± 4.36</td><td></td><td>58.41 ± 6.17</td><td>3.67</td><td>0.169</td><td>9.20</td><td>0.178</td></tr><tr><td>clDice [75]</td><td>74.68 ± 0.84</td><td>61.96 ± 5.66</td><td>85.93 ± 5.19</td><td></td><td>72.95 ± 8.98</td><td>1.62</td><td>0.0788</td><td>2.12</td><td>0.0890</td></tr><tr><td>TopoLoss [76]</td><td>75.01 ± 1.02</td><td>62.38 ± 5.18</td><td>85.50 ± 5.34</td><td></td><td>72.01 ± 9.54</td><td>1.83</td><td>0.0790</td><td>2.02</td><td>0.0877</td></tr><tr><td>BettiLoss [80]</td><td>73.63 ± 0.77</td><td>60.81 ± 4.41</td><td>82.85 ± 4.76</td><td></td><td>69.44 ± 8.57</td><td>2.18</td><td>0.0801</td><td>2.63</td><td>0.0910</td></tr><tr><td>DMT [78]]</td><td>75.61 ± 0.85</td><td>62.54 ± 6.22</td><td>86.17 ± 5.05</td><td></td><td>73.26 ± 11.5</td><td>1.35</td><td>0.0787</td><td>1.74</td><td>0.0875</td></tr><tr><td rowspan=\"6\">2PM</td><td>Gupta et al. [82] Proposed</td><td>75.86 ± 0.74 76.73 ± 0.75</td><td>62.76 ± 6.45</td><td>86.67 ± 5.13</td><td></td><td>73.61 ± 12.3</td><td>1.23</td><td>0.0784</td><td>1.62</td><td>0.0867</td></tr><tr><td></td><td></td><td>63.36 ± 4.96</td><td>87.94 ± 5.04</td><td></td><td>74.59 ± 9.17</td><td>1.05</td><td>0.0781</td><td>1.38</td><td>0.0853</td></tr><tr><td>clDice [75]</td><td>82.06 ± 1.90</td><td>67.33 ± 4.91</td><td>82.97 ± 4.82</td><td></td><td>72.99 ± 9.67</td><td>2.86</td><td>0.130</td><td>3.13</td><td>0.151</td></tr><tr><td>TopoLoss [76]</td><td>82.43 ± 2.07</td><td>67.68 ± 3.66</td><td>82.54 ± 4.77</td><td></td><td>73.81 ± 8.95</td><td>2.57</td><td>0.130</td><td>2.92</td><td>0.150</td></tr><tr><td>BettiLoss [80]</td><td>81.52 ± 1.35</td><td>66.20 ± 3.25</td><td>80.66 ± 3.26</td><td></td><td>70.50 ± 6.25</td><td>8.20</td><td>0.133</td><td>6.19</td><td>0.159</td></tr><tr><td>DMT [78]</td><td>82.90 ± 1.44</td><td>68.11 ± 4.21</td><td>83.09 ± 4.62</td><td></td><td>73.93 ± 9.77</td><td>2.05</td><td>0.129</td><td>2.46</td><td>0.150</td></tr><tr><td rowspan=\"6\">RITE</td><td>Gupta et al. [82]</td><td>83.77 ± 1.88</td><td>68.95 ± 4.73</td><td>83.14 ± 5.80</td><td></td><td>75.17 ± 10.4</td><td>1.90</td><td>0.128</td><td>2.97</td><td>0.149</td></tr><tr><td>Proposed</td><td>85.80 ± 1.68</td><td>69.71 ± 3.95</td><td>85.21 ± 4.69</td><td></td><td>77.18 ± 8.90</td><td>1.63</td><td>0.127</td><td>2.25</td><td>0.135</td></tr><tr><td>clDice [75]</td><td>57.19 ± 0.87</td><td>38.71 ± 4.32</td><td>58.17 ± 2.87</td><td></td><td>31.14 ± 4.06</td><td>5.80</td><td>0.184</td><td>40.8</td><td>1.42</td></tr><tr><td>TopoLoss [76]</td><td>57.80 ± 0.79</td><td>38.80 ± 4.17</td><td>58.91 ± 3.22</td><td></td><td>31.05 ± 3.82</td><td>5.11</td><td>0.181</td><td>38.2</td><td>1.30</td></tr><tr><td>BettiLoss [80]</td><td>56.82 ± 0.85</td><td>37.49 ± 3.82</td><td>57.60 ± 2.92</td><td></td><td>30.78 ± 3.75</td><td>9.44</td><td>0.252</td><td>60.3</td><td>2.17</td></tr><tr><td>DMT [78] Gupta et al. [82]</td><td>58.04 ± 0.88</td><td>39.15 ± 3.96</td><td>59.37 ± 2.98</td><td></td><td>31.80 ± 3.20</td><td>4.19</td><td>0.162</td><td>32.2</td><td>1.08</td></tr><tr><td rowspan=\"6\">LES-AY</td><td></td><td>58.38 ± 0.84</td><td>39.94 ± 4.08</td><td>59.66 ± 3.20</td><td></td><td> $3 1 . 9 5 \\pm 3 . 0 8$ </td><td>4.49</td><td>0.144</td><td>31.8</td><td>0.994</td></tr><tr><td>Proposed</td><td>59.77 ± 0.82</td><td>41.78 ± 3.91</td><td>60.18 ± 2.80</td><td></td><td>32.68 ± 3.19</td><td>3.16</td><td>0.140</td><td>30.9</td><td>0.991</td></tr><tr><td>clDice [75]</td><td>59.45 ± 4.19</td><td>45.91 ± 7.28</td><td>64.08 ± 7.43</td><td></td><td>33.05 ± 8.28</td><td>2.28</td><td>0.0304</td><td>6.20</td><td>0.165</td></tr><tr><td>TopoLoss [76]</td><td>60.87 ± 3.22</td><td>45.48 ± 10.2</td><td>63.88 ± 8.64</td><td>60.50 ± 5.28  $3 0 . 0 2 \\pm 6 . 3 2$ </td><td>32.78 ± 11.4</td><td>2.60 9.14</td><td>0.0328 0.0523</td><td>6.82 17.2</td><td>0.164 0.328</td></tr><tr><td>BettiLoss [80] DMT [78]</td><td>59.18 ± 3.85</td><td>45.09 ± 9.01 46.40 ± 10.8</td></table>",
+        "bbox": [
+            120,
+            123,
+            875,
+            565
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "The superior performance of MaskVSC is demonstrated in its achievement of higher Dice and Jac scores. These scores are achieved because of TopoMask's ability to mimic the blurred vessels by randomly masking segments, which enhances the data topologically during the training to enable the backbone more accurately identify vessel structures in low SNR regions. Additionally, visual inspection of Fig. 5 confirms that the predictions of MaskVSC are more similar to the ground truth. Compared to Dice, clDice better captures interconnected vessels and graph similarity, and proposed MaskVSC outperformed cl Dice due to the connectivity loss $\\mathcal { L } _ { C }$ , which generates more interconnected predictions. These predictions contain fewer connected components and are closer to the ground truth in terms of graphic features, allowing MaskVSC to also achieve improved results in the CAL metric, which measures the degree of fragmentation between the predictions and the ground truth. The highlighted regions in Fig. 5 visually corroborate that microvasculature is more connected to the major vessels, resulting in a more continuous vascular structure.",
+        "bbox": [
+            73,
+            601,
+            493,
+            876
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "For topological correctness, higher $\\beta _ { 0 } ^ { e r r }$ and $\\beta _ { 1 } ^ { e r r }$ indicate more isolated vessel segments and undesirable hole structures, respectively. Betti Matching error $\\mu ^ { e r r }$ , which also considers spatial location, is more stringent than $\\beta ^ { e r r }$ MaskVSC significantly outperforms other methods on $\\beta _ { 0 } ^ { e r r }$ and $\\beta _ { 1 } ^ { e r r }$ , except when compared to $\\beta _ { 0 } ^ { e r r }$ of Gupta et al. [82]. Their method integrates inter-structural uncertainty by modeling topology as a sample of probability distributions and performing joint reasoning. The exception may be explained by the generation of multiple probability maps through perturbation and sampling, which contributed to topology retention but could also potentially result in false positives. While TopoMask also risks generating false positives, the proposed ViG post-processing better captures topological information by flexibly representing irregular retinal vessels as graph structures. Hence, the misclassification of background regions as vessel branches is reduced. In addition, MaskVSC is also significantly optimal for $\\mu _ { 0 } ^ { e r r }$ and $\\mu _ { 1 } ^ { e r r }$ , demonstrating its predicted vascular network contains fewer isolated segments and more desirable hole structures at spatial locations. This is also reflected in the artery-vein segmentation task, as can be seen in Fig. 5, where MaskVSC yields more contiguous results for both arteries and veins.",
+        "bbox": [
+            73,
+            876,
+            493,
+            950
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            501,
+            599,
+            923,
+            863
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "E. Masking Ratio Effect and Parametric Study",
+        "text_level": 2,
+        "bbox": [
+            504,
+            871,
+            844,
+            887
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "We explore which masking ratio yields the best training effect. U-Net [98] with a loss function $\\mathcal { L } _ { T }$ is chosen to perform the ablation experiments on the DRIVE dataset without using ViG for post-processing.",
+        "bbox": [
+            501,
+            890,
+            923,
+            950
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "page_number",
+        "text": "2498",
+        "bbox": [
+            76,
+            23,
+            107,
+            35
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "header",
+        "text": "IEEE TRANSACTIONS ON MEDICAL IMAGING, VOL. 44, NO. 6, JUNE 2025",
+        "bbox": [
+            522,
+            22,
+            921,
+            35
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "image",
+        "img_path": "images/8d1c9048fa3108adbe63dec04022f9d1f1028553032fe9e8bdb519c9fc6b0a83.jpg",
+        "image_caption": [
+            "Raw",
+            "Ground Truth",
+            "clDice",
+            "TopoLoss",
+            "Betti Loss",
+            "DMT",
+            "Gupta et al.",
+            "Proposed",
+            "Fig. 5. Visual inspection of comparing different methods on different types of images across DRIVE, OCTA-500, 2PFM, and RITE datasets."
+        ],
+        "image_footnote": [],
+        "bbox": [
+            98,
+            78,
+            898,
+            382
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "chart",
+        "img_path": "images/9727733b6ee5854c286e2be697dc5d4627710147731914589b0d8127535f7790.jpg",
+        "content": "",
+        "chart_caption": [
+            "Fig. 6. (a)-(b) Results of masking ratio effect study. (c) Parametric study of λ in $\\pmb { \\mathscr { L } } \\tau$ (d) Convergence curve for total loss $\\pmb { \\mathscr { L } } \\tau$ during training on DRIVE."
+        ],
+        "chart_footnote": [],
+        "bbox": [
+            76,
+            417,
+            488,
+            551
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "The results depicted in Fig. 6(a-b) start with a zero masking ratio, where $\\beta _ { 1 } ^ { e r r }$ and $\\mu _ { 1 } ^ { e r r }$ are omitted due to minimal changes. The inclusion of TopoMask improves all six metrics regardless of the masking ratio. A 40% masking ratio is identified as optimal, with performance increasing more abruptly from 0-20% and decreasing steadily from 40%-90%. Notably, TopoMask with a masking ratio of 90% still enhances the performance.",
+        "bbox": [
+            73,
+            616,
+            491,
+            717
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "The optimal masking ratio of 40% is in line with other computer vision research (10% to 50%) [99], [100], [101], however, it is lower than MAE's 75% [55]. This discrepancy may stem from differences between natural and biomedical images, as retinal vessels sparsely occupy image space. Additionally, the masking way varies: MAE masks random patches of the original image, whereas our TopoMask masks are based on the retinal vessel topology. Given the presence of breakpoints in the original image, masking a high portion of branches may result in fewer remaining vessel segments, which potentially lower performance.",
+        "bbox": [
+            73,
+            717,
+            493,
+            876
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "In addition, we conduct a parametric study on λ in $\\mathcal { L } _ { T }$ based on DRIVE dataset, U-Net backbone, and a 40% masking ratio (Fig. 6(c)). The optimal performance metrics are obtained when $\\lambda = 1$ . When λ increases from 0 to 1, performance metrics progressively increase, indicating the generation of more interconnected vascular networks. However, when $\\mathcal { L } _ { C } > \\mathcal { L } _ { B C E }$ , the metric values of segmentation performance decrease sharply. This trend is similar across other datasets. While Jac (not shown) is not optimal with $\\lambda = 1$ , our primary focus is on accurate segmentation and topology preservation. Therefore, we set $\\lambda = 1$ as a trade-off.",
+        "bbox": [
+            73,
+            876,
+            493,
+            950
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            503,
+            422,
+            921,
+            511
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "F. Performance Over Different Backbones",
+        "text_level": 2,
+        "bbox": [
+            504,
+            522,
+            812,
+            536
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "We assess the effectiveness of MaskVSC on different DL segmentation backbones, including the CNN-based U-Net [98] and $\\mathrm { C S } ^ { 2 } { \\mathrm { - N e t } }$ [68], and the Transformer-based Swin-Unet [102]. The masking ratio of TopoMask for all three backbones is chosen to be 40%.",
+        "bbox": [
+            503,
+            541,
+            923,
+            613
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "The results listed in Table III indicate that integrating MaskVSC with different backbones substantially enhances multiple evaluation metrics across all datasets. MaskVSC enables the primary backbones to perform more prominently in predicting the accuracy and topological integrity of the vascular structure. This notable improvement is not only evident through the segmentation similarity metrics such as Dice, Jac, and cl Dice but also through the metrics assessing topological correctness, including $C A L , \\beta ^ { e r r }$ , and $\\mu ^ { e r r }$ . These enhancements underscore the strong potential of MaskVSC for retinal vessel segmentation and completion, offering a robust adaptation for various DL backbones.",
+        "bbox": [
+            503,
+            613,
+            923,
+            789
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "G. Ablation Study",
+        "text_level": 2,
+        "bbox": [
+            504,
+            799,
+            642,
+            814
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "We conduct an ablation study to evaluate the contribution of the different components of MaskVSC, including the TopoMask, the connectivity loss $\\mathcal { L } _ { C } .$ , and the ViG-based postprocessing. The study is implemented on U-Net [98] and the masking ratio of TopoMask is 40%. Table IV shows the results of the ablation study on the DRIVE dataset. Both $\\beta _ { 0 } ^ { e r r }$ and $\\mu _ { 0 } ^ { e r r }$ are greatly optimized after the addition of $\\mathcal { L } _ { C }$ confirming that $\\mathcal { L } _ { C }$ effectively reduces the fragmented component in the prediction and enhances the connectivity of the masks help the model adapt to more vessel-absent scenarios on limited data, preventing it from fitting to a sub-optimal saddle point. The $\\beta _ { 1 } ^ { e r r }$ and $\\mu _ { 1 } ^ { e r r }$ with only TopoMask are slightly lower compared to those with only ${ \\mathcal { L } } _ { C } ,$ probably due to TopoMask causing an increase in false positives, leading to undesirable ring structures. This issue is corrected $\\mathcal { L } _ { C }$ and TopoMask are combined.",
+        "bbox": [
+            503,
+            818,
+            923,
+            950
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "header",
+        "text": "ZHOU et al.: MASKED VASCULAR STRUCTURE SEGMENTATION AND COMPLETION IN RETINAL IMAGES",
+        "bbox": [
+            75,
+            23,
+            643,
+            35
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "page_number",
+        "text": "2499",
+        "bbox": [
+            890,
+            23,
+            921,
+            35
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "table",
+        "img_path": "images/479165b2bb56fbbd9aa8b88f32f236221a89c4cfd89727fc887cbf34505200b7.jpg",
+        "table_caption": [
+            "TABLE III",
+            "RESULTS WITH THREE DIFFERENT BACKBONES ON SEVEN DIFFERENT RETINAL DATASETS",
+            "TABLE IV"
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Dataset</td><td>Method</td><td>Dice (%)↑</td><td>Jac (%)↑</td><td> $\\underline { { \\mathbf { c l D i c e } \\left( \\% \\right) \\uparrow } }$ </td><td></td><td> $\\overline { { \\mathbf { C A L } \\left( \\% \\right) \\uparrow } }$ </td><td> $\\overline { { \\beta _ { 0 } ^ { e r r } \\mathcal { \\downarrow } } }$ </td><td> $\\overline { { \\beta _ { 1 } ^ { e r r } \\mathcal { \\downarrow } } }$ </td><td> $\\underline { { \\mu _ { 0 } ^ { e r r } } } \\underline { { \\downarrow } }$ </td><td> $\\overline { { \\mu _ { 1 } ^ { e r r } \\downarrow } }$ </td></tr><tr><td rowspan=\"6\">DRRVE</td><td>U-Net [98]</td><td> $\\overline { { 7 5 . 9 3 \\pm 1 . 4 9 } }$ </td><td> $\\overline { { 6 0 . 1 7 \\pm 3 . 8 0 } }$ </td><td> $\\overline { { 7 8 . 0 6 \\pm 3 . 6 9 } }$ </td><td></td><td> $\\overline { { 6 6 . 9 5 \\pm 5 . 2 0 } }$ </td><td>10.3</td><td>0.306</td><td>10.8</td><td>0.409</td></tr><tr><td>U-Net [98] + Proposed</td><td> ${ \\bf 8 0 . 3 0 \\pm 1 . 0 7 }$ </td><td> ${ \\bf 6 7 . 1 9 } \\pm \\ : 3 . 0 0$ </td><td> $\\mathbf { 8 4 . 5 7 \\pm 3 . 2 8 }$ </td><td></td><td> $7 3 . 6 7 \\pm 5 . 1 6$ </td><td>1.99</td><td>0.254</td><td>2.63</td><td>0.347</td></tr><tr><td>CS2-Net [68]</td><td> $7 6 . 8 3 \\pm 1 . 2 0$ </td><td> $6 2 . 1 2 \\pm 3 . 0 9$ </td><td> $7 9 . 1 7 \\pm 3 . 6 9$ </td><td></td><td> $6 3 . 7 3 \\pm 5 . 6 1$ </td><td>2.90</td><td>0.281</td><td>3.68</td><td>0.331</td></tr><tr><td> $C S ^ { 2 } .$  Net [68] + Proposed</td><td> ${ \\bf 7 9 . 9 4 \\pm 1 . 0 8 }$ </td><td> ${ \\bf 6 6 . 6 3 \\pm 2 . 9 4 }$ </td><td> ${ \\bf 8 5 . 2 1 \\pm 3 . 3 3 }$ </td><td></td><td> $7 3 . 2 8 \\pm 5 . 4 9$ </td><td>1.72</td><td>0.254</td><td>2.31</td><td>0.311</td></tr><tr><td>Swin-Unet [102]</td><td>73.98 ± 1.89</td><td> $\\overline { { 5 8 . 7 9 \\pm 5 . 1 9 } }$ </td><td> $7 6 . 0 5 \\pm 4 . 8 2$ </td><td></td><td> $6 3 . 3 9 \\pm 6 . 9 4$ </td><td>6.53</td><td>0.297</td><td>7.36</td><td>0.417</td></tr><tr><td>Swin-Unet [102] + Proposed</td><td>77.08 ± 1.24</td><td>62.67 ± 3.60</td><td></td><td> ${ \\bf 8 0 . 3 8 \\pm 3 . 8 5 }$ </td><td> ${ \\bf 6 8 . 0 0 \\pm 6 . 0 1 }$ </td><td>3.36</td><td>0.277</td><td>4.18</td><td>0.377</td></tr><tr><td rowspan=\"6\">STTRE</td><td>U-Net [98]</td><td> $\\overline { { 7 7 . 8 3 \\pm 2 . 0 4 } }$ </td><td> $\\overline { { 6 3 . 7 7 \\pm 5 . 4 7 } }$ </td><td></td><td> $\\overline { { 8 2 . 4 2 \\pm 5 . 7 8 } }$ </td><td> $\\overline { { 7 0 . 4 8 \\pm 8 . 7 8 } }$ </td><td>3.65</td><td>0.111</td><td>4.04</td><td>0.103</td></tr><tr><td>U-Net [98] + Proposed</td><td>79.95 ± 1.74</td><td>66.15 ± 5.79</td><td> ${ \\bf 8 5 . 0 1 \\pm 5 . 3 3 }$ </td><td></td><td> ${ 7 3 . 2 9 \\pm 8 . 6 3 }$ </td><td>2.04</td><td>0.094</td><td>2.33</td><td>0.100</td></tr><tr><td> $\\overline { { \\mathrm { C S ^ { 2 } } } } .$  Net [68]</td><td> $\\overline { { 7 8 . 1 9 \\pm 1 . 4 8 } }$ </td><td> $6 2 . 8 1 \\pm 5 . 7 1$ </td><td> $\\overline { { 8 3 . 5 3 \\pm 4 . 1 0 } }$ </td><td></td><td> $\\overline { { 6 8 . 9 1 \\pm 6 . 6 5 } }$ </td><td>1.87</td><td>0.0906</td><td>2.24</td><td>0.0969</td></tr><tr><td>CS2-Net [68] + Proposed</td><td> ${ \\bf 7 9 . 3 5 \\pm 2 . 1 7 }$ </td><td> ${ \\bf 6 5 . 2 7 \\pm 6 . 7 6 }$ </td><td></td><td> $\\mathbf { 8 4 . 9 8 \\ : \\pm { \\ : 5 . 8 1 } }$ </td><td> ${ \\bf 7 1 . 2 7 \\pm 6 . 2 3 }$ </td><td>1.73</td><td>0.0844</td><td>2.05</td><td></td></tr><tr><td>Swin-Unet [102]</td><td> $7 6 . 3 7 \\pm 2 . 0 9$ </td><td> $\\overline { { 5 9 . 3 9 \\pm 8 . 9 0 } }$ </td><td></td><td> $7 9 . 5 3 \\pm 6 . 3 9$ </td><td> $6 6 . 3 8 \\pm 1 0 . 3$ </td><td>4.73</td><td>0.0875</td><td>5.09</td><td>0.0906</td></tr><tr><td>Swin-Unet [102] + Proposed</td><td> ${ \\bf 7 8 . 4 3 \\pm 1 . 7 1 }$ </td><td> ${ \\bf 6 2 . 6 7 \\pm 7 . 2 0 }$ </td><td> ${ \\bf 8 3 . 1 3 \\pm 4 . 6 4 }$ </td><td></td><td> ${ \\bf 7 0 . 7 3 \\pm 9 . 1 3 }$ </td><td>2.85</td><td>0.0813</td><td>3.32</td><td>0.119 0.100</td></tr><tr><td rowspan=\"6\">ROSE</td><td>U-Net [98]</td><td> $\\overline { { 7 2 . 9 1 \\pm 0 . 7 5 } }$ </td><td> $\\overline { { 5 7 . 3 5 \\pm 4 . 0 2 } }$ </td><td></td><td> $\\overline { { 7 1 . 0 4 \\pm 4 . 0 0 } }$ </td><td> $\\overline { { 5 6 . 2 6 \\pm 5 . 1 0 } }$ </td><td>6.36</td><td>0.204</td><td>13.4</td><td>0.204</td></tr><tr><td>U-Net [98] + Proposed</td><td> ${ \\bf 7 5 . 2 5 \\pm 0 . 8 7 }$ </td><td> ${ \\bf 6 0 . 0 1 \\pm 4 . 3 9 }$ </td><td></td><td> $7 3 . 7 4 \\pm 4 . 3 6$ </td><td> ${ \\bf 5 8 . 4 1 \\pm 6 . 1 7 }$ </td><td>3.67</td><td>0.169</td><td>9.20</td><td>0.178</td></tr><tr><td>CS2-Net [68]</td><td> $\\overline { { 7 4 . 2 6 \\pm 1 . 0 9 } }$ </td><td> $\\overline { { 5 8 . 9 1 \\pm 4 . 0 2 } }$ </td><td></td><td> $\\overline { { 7 4 . 8 9 \\pm 3 . 2 3 } }$ </td><td> $\\overline { { 5 8 . 3 6 \\pm 4 . 5 8 } }$ </td><td>4.49</td><td>0.169</td><td>10.2</td><td>0.178</td></tr><tr><td>CS2-Net [68] + Proposed</td><td> $\\mathbf { 7 5 . 6 5 \\ : \\pm { \\ : 0 . 8 1 } }$ </td><td>60.73 ± 4.00</td><td></td><td> ${ \\bf 7 5 . 6 9 } \\pm \\ : 3 . 6 5$ </td><td> ${ \\bf 5 9 . 1 8 \\pm 5 . 4 6 }$ </td><td>3.16</td><td>0.142</td><td></td><td></td></tr><tr><td>Swin-Unet [102]</td><td> $7 1 . 2 3 \\pm 1 . 0 1$ </td><td>55.10 ± 4.25</td><td></td><td> $7 4 . 2 8 \\pm 3 . 9 0$ </td><td> $6 0 . 2 0 \\pm 4 . 2 7$ </td><td>10.2</td><td>0.174</td><td>8.42</td><td>0.142</td></tr><tr><td>Swin-Unet [102] + Proposed</td><td> $\\mathbf { 7 2 . 1 7 \\ : \\pm { \\ : 0 . 8 1 } }$ </td><td>56.44 ± 3.88</td><td> ${ 7 5 . 6 2 \\pm 3 . 7 6 }$ </td><td></td><td> ${ \\bf 6 1 . 0 5 \\pm 4 . 5 7 }$ </td><td>6.44</td><td>0.146</td><td>13.0 9.38</td><td>0.194 0.188</td></tr><tr><td rowspan=\"5\">0CA-0</td><td>U-Net [98]</td><td> $\\overline { { 7 4 . 5 8 \\pm 0 . 7 4 } }$ </td><td>60.67 ± 4.87</td><td></td><td>85.69 ± 5.14</td><td> $\\overline { { 7 2 . 1 2 \\pm 9 . 3 2 } }$ </td><td>2.17</td><td>0.0791</td><td>2.52</td><td>0.0891</td></tr><tr><td>U-Net [98] + Proposed</td><td> ${ \\bf 7 6 . 7 3 \\pm 0 . 7 5 }$ </td><td>63.36 ± 4.96</td><td></td><td>87.94 ± 5.04</td><td>74.59 ± 9.17</td><td>1.05</td><td>0.0781</td><td>1.38</td><td>0.0853</td></tr><tr><td>CS2-Net [68]</td><td> $7 6 . 3 0 \\pm 0 . 7 7$ </td><td>63.04 ± 6.55</td><td></td><td>83.87 ± 5.85</td><td>66.02 ± 9.91</td><td>2.09</td><td>0.0992</td><td></td><td></td></tr><tr><td>CS2-Net [68] + Proposed</td><td> $7 7 . 0 9 \\pm 0 . 9 4$ </td><td>64.89 ± 6.77</td><td></td><td>84.56 ± 5.78</td><td></td><td></td><td></td><td>2.62</td><td>0.111</td></tr><tr><td>Swin-Unet [102]</td><td> $7 3 . 5 5 \\pm 1 . 0 4$ </td><td>60.90 ± 6.95</td><td>83.30 ± 6.77</td><td></td><td>69.15 ± 9.92</td><td>1.81</td><td>0.0911</td><td>2.30</td><td>0.096</td></tr><tr><td rowspan=\"6\">2PM</td><td>Swin-Unet [102] + Proposed</td><td>76.74 ± 0.93</td><td>64.49 ± 6.90</td><td></td><td></td><td>73.61 ± 10.3</td><td>7.18</td><td>0.298</td><td>9.14</td><td>0.374</td></tr><tr><td>U-Net [98]</td><td>84.94 ± 1.65</td><td>68.64 ± 4.38</td><td></td><td>84.12 ± 5.93 83.21 ± 5.61</td><td>73.78 ± 9.19</td><td>4.28 5.57</td><td>0.269 0.133</td><td>6.11</td><td>0.334</td></tr><tr><td>U-Net [98] + Proposed</td><td> ${ \\bf 8 5 . 8 0 \\pm 1 . 6 8 }$ </td><td>69.71 ± 3.95</td><td></td><td>85.21 ± 4.69</td><td>75.82 ± 9.67 77.82 ± 8.90</td><td>1.63</td><td>0.127</td><td>8.65</td><td>0.160</td></tr><tr><td>CS2-Net [68]</td><td> $\\overline { { 8 5 . 1 1 \\pm 1 . 7 4 } }$ </td><td>67.96 ± 7.01</td><td></td><td>83.39 ± 5.48</td><td></td><td></td><td>0.126</td><td>2.25</td><td>0.135</td></tr><tr><td>CS2-Net [68] + Proposed</td><td></td><td>68.71 ± 5.73</td><td></td><td></td><td> $\\overline { { 7 4 . 4 4 \\pm 9 . 7 0 } }$ </td><td>1.92</td><td></td><td>2.64</td><td>0.148</td></tr><tr><td>Swin-Unet [102]</td><td> $\\mathbf { 8 6 . 5 2 \\ : \\pm { \\ : 1 . 7 6 } }$   $\\overline { { 8 1 . 4 7 \\ : \\pm \\ : 1 . 9 3 } }$ </td><td>64.45 ± 6.27</td><td></td><td>84.40 ± 3.54</td><td> $7 5 . 8 2 \\pm 8 . 2 8$ </td><td>1.71</td><td>0.120</td><td>2.37</td><td>0.138</td></tr><tr><td rowspan=\"6\">RIITE</td><td></td><td> ${ \\bf 8 4 . 9 1 \\pm 1 . 7 3 }$ </td><td></td><td></td><td>81.82 ± 5.68</td><td> $7 8 . 2 6 \\pm 9 . 4 2$ </td><td>4.56</td><td>0.134</td><td>9.88</td><td>0.175</td></tr><tr><td>Swin-Unet [102] + Proposed</td><td></td><td> ${ \\bf 6 9 . 5 3 \\pm 4 . 4 4 }$ </td><td></td><td> $\\mathbf { 8 5 . 3 5 \\ : \\pm { \\ : 3 . 0 6 } }$ </td><td> ${ \\bf 8 3 . 3 9 \\pm 8 . 6 9 }$ </td><td>1.48</td><td>0.127</td><td>2.26</td><td>0.145</td></tr><tr><td>U-Net [98]</td><td> $\\overline { { 5 6 . 2 2 \\pm 1 . 0 8 } }$   ${ \\bf 5 9 . 7 7 \\pm 0 . 8 2 }$ </td><td> $\\overline { { 3 7 . 1 2 \\pm 3 . 9 9 } }$ </td><td></td><td> $\\overline { { 5 7 . 0 7 \\pm 3 . 9 7 } }$ </td><td> $\\overline { { 2 8 . 2 1 \\pm 4 . 0 2 } }$ </td><td>10.1</td><td>0.282</td><td>65.5</td><td>2.544</td></tr><tr><td>U-Net [98] + Proposed</td><td></td><td> $4 1 . 7 8 \\pm 3 . 9 1$ </td><td></td><td> $\\mathbf { 6 0 . 1 8 \\pm 2 . 8 0 }$ </td><td> $\\underline { { 3 2 . 6 8 \\pm 3 . 1 9 } }$ </td><td>3.16</td><td>0.140</td><td>30.9</td><td>0.991</td></tr><tr><td>CS2-Net [68]</td><td> $\\overline { { 5 6 . 8 0 \\pm 0 . 6 8 } }$ </td><td> $\\overline { { 3 8 . 8 2 \\pm 2 . 8 5 } }$ </td><td></td><td> $\\overline { { 5 8 . 0 6 \\pm 2 . 6 7 } }$ </td><td> $\\overline { { 2 9 . 4 0 \\pm 2 . 9 8 } }$ </td><td>4.70</td><td>0.320</td><td>67.6</td><td>2.43</td></tr><tr><td>CS2-Net [68] + Proposed</td><td> ${ \\bf 5 8 . 4 1 \\pm 0 . 6 6 }$ </td><td> ${ \\bf 4 1 . 1 0 \\pm 2 . 4 9 }$ </td><td></td><td> ${ \\bf 6 0 . 8 3 \\pm 3 . 3 2 }$ </td><td> ${ \\bf 3 3 . 7 2 \\pm 3 . 8 8 }$ </td><td>2.19</td><td>0.151</td><td>25.5</td><td>0.97</td></tr><tr><td rowspan=\"6\">LE-AY  $\\mathrm { C S ^ { 2 } } .$  Swin-Unet [102]</td><td>Swin-Unet [102]</td><td> $\\overline { { 5 8 . 0 9 \\pm 0 . 8 7 } }$   ${ \\bf 6 0 . 5 4 \\pm 0 . 9 2 }$ </td><td> $\\overline { { 4 0 . 4 0 \\pm 2 . 7 0 } }$ </td><td></td><td> $\\overline { { 5 8 . 2 2 \\pm 2 . 8 7 } }$ </td><td> $\\overline { { 3 1 . 3 4 \\pm 3 . 2 5 } }$ </td><td>6.58</td><td>0.245</td><td>85.3</td><td>2.52</td></tr><tr><td>Swin-Unet [102] + Proposed</td><td></td><td> $4 2 . 3 1 \\pm 3 . 0 8$ </td><td></td><td> ${ \\bf 6 1 . 0 1 } \\pm 2 . 1 8$ </td><td> ${ \\bf 3 5 . 2 7 \\pm 2 . 9 9 }$ </td><td>2.09</td><td>0.111</td><td>24.2</td><td>0.94</td></tr><tr><td>U-Net [98]</td><td> $\\overline { { 5 8 . 0 6 \\pm 1 . 4 5 } }$   ${ \\bf 6 3 . 3 2 \\pm 1 . 8 4 }$ </td><td> $\\overline { { 4 4 . 3 7 \\ : \\pm \\ : 6 . 1 2 } }$ </td><td> $\\overline { { 6 4 . 6 9 \\pm 6 . 0 7 } }$ </td><td> $\\mathbf { 6 6 . 1 7 \\pm 6 . 3 5 }$ </td><td> $\\overline { { 3 2 . 0 1 \\pm 7 . 4 2 } }$   ${ \\bf 3 5 . 1 9 \\pm 8 . 0 7 }$ </td><td>1.40 1.05</td><td>0.0333 0.0224</td><td>12.9 5.19</td><td>0.165 0.111</td></tr><tr><td>U-Net [98] + Proposed CS2-Net [68]</td><td> $\\overline { { 5 9 . 1 5 \\pm 3 . 3 5 } }$ </td><td> $4 7 . 1 9 \\pm 7 . 7 7$   $\\overline { { 4 4 . 8 1 \\pm 5 . 4 3 } }$ </td></table>",
+        "bbox": [
+            91,
+            98,
+            905,
+            564
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "table",
+        "img_path": "images/5e660fb9a80a5a8d84cc7fc2686e9a2da6b98008cb3016682270e6f546e45a44.jpg",
+        "table_caption": [
+            "RESULTS OF ABLATION STUDY ON THE DRIVE DATASET. ✓ STANDS FOR “INCLUDED”AND “T-M”MEANS TOPOMASK"
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>LC</td><td></td><td>T-M ViG</td><td>Dice (%)↑</td><td>clDice (%)↑</td><td>βeTT</td><td>↓</td><td>βe↓</td><td> $\\overline { { \\mu _ { 0 } ^ { e r r } \\downarrow \\mu _ { 1 } ^ { e r r } \\downarrow } }$ </td><td></td><td></td></tr><tr><td rowspan=\"3\">√</td><td></td><td></td><td>75.93</td><td>78.06</td><td>10.3</td><td></td><td>0.306</td><td>10.8</td><td></td><td>0.409</td></tr><tr><td></td><td></td><td>77.94</td><td>80.07</td><td>2.73</td><td></td><td>0.265</td><td>3.56</td><td></td><td>0.365</td></tr><tr><td>√</td><td></td><td>78.59</td><td>82.61</td><td>2.70</td><td>0.273</td><td></td><td>2.81</td><td></td><td>0.399</td></tr><tr><td>√</td><td>√</td><td></td><td>78.97</td><td>83.42</td><td>2.14</td><td></td><td>0.263</td><td>2.69</td><td></td><td>0.357</td></tr><tr><td>√</td><td>√</td><td>√</td><td>80.30</td><td>84.57</td><td>1.99</td><td></td><td>0.254</td><td>2.63</td><td></td><td>0.348</td></tr></table>",
+        "bbox": [
+            93,
+            627,
+            473,
+            694
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            501,
+            587,
+            923,
+            688
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "vascular network. This also results in increased Dice and cl $D i c e$ , indicating that fewer connectivity components brought by $\\mathcal { L } _ { C }$ help in classifying the foreground and background more accurately.",
+        "bbox": [
+            73,
+            717,
+            491,
+            775
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "Comparing $\\mathcal { L } _ { C }$ with the other topology-preserving losses (clDice [75], TopoLoss [76], BettiLoss [80]) from Table II, although $\\mathcal { L } _ { C }$ shows little difference in Dice and clDice, it gains a significant margin on both $\\beta ^ { e r r }$ and $\\mu ^ { e r r }$ . This demonstrates that $\\mathcal { L } _ { C }$ effectively preserves different topologies of the vasculature, bringing the prediction closer to the ground truth in terms of the 0- and 1-dimensional Betti Numbers.",
+        "bbox": [
+            73,
+            775,
+            493,
+            876
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "TopoMask further increases Dice and $c l D i c e .$ with cl Dice growing from 80.07% to 82.61%. The 0-d Betti Number also becomes more similar to the ground truth. TopoMask randomly masks the vascular skeleton branches to mimic the missing vessel. The increased metric values suggest these",
+        "bbox": [
+            73,
+            876,
+            493,
+            950
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "We utilize a ViG-based post-processing model to further address this issue. The retinal vascular structure's complexity benefits from ViG's non-uniform sampling, which is flexible to adapt to local variations. Additionally, ViG's capability to process nodes and edges in the graph structure allows a better understanding of the vascular network's topology, reducing the possibility of false positives. The visual inspection of Fig. 7 also supports these statements. Comparing Fig. 7(c) and Fig. 7(d), the introduction of $\\mathcal { L } _ { C }$ reduces the fragmented segmentation and enhances the continuity (highlighted in green boxes). When TopoMask is introduced (Fig. 7(e)), the model recognizes retinal vessels in low SNR regions (highlighted in green ellipse) but also leads to more false positives (highlighted in red box). This is effectively mitigated with the introduction of ViG (Fig. 7(f)).",
+        "bbox": [
+            501,
+            688,
+            923,
+            905
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "We additionally conduct an ablation study on the biphasic setting of the masking ratio, comparing the setting applied in this paper with either only increasing or only decreasing the",
+        "bbox": [
+            501,
+            905,
+            923,
+            950
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "page_number",
+        "text": "2500",
+        "bbox": [
+            76,
+            23,
+            107,
+            35
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "header",
+        "text": "IEEE TRANSACTIONS ON MEDICAL IMAGING, VOL. 44, NO. 6, JUNE 2025",
+        "bbox": [
+            522,
+            23,
+            921,
+            35
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "Healthy",
+        "bbox": [
+            558,
+            66,
+            596,
+            77
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "(c)",
+        "bbox": [
+            789,
+            65,
+            803,
+            77
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "image",
+        "img_path": "images/d61949ba9a513809ee097d2d8a39f1b3930328f08e3967dfa02408c49c0e32c4.jpg",
+        "image_caption": [
+            "Fig. 7. Visual inspection of ablation study. (a) Raw image, (b) Ground truth, (c) U-Net, (d) U-Net + LC, (e) U-Net + Lc + TopoMask, (f) U-Net + $\\pmb { \\mathscr { L } } _ { C } +$ TopoMask + ViG."
+        ],
+        "image_footnote": [],
+        "bbox": [
+            78,
+            65,
+            488,
+            275
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "table",
+        "img_path": "images/6ad162ddf44aa2d0802062d19e81a428cadf749ff86c9578ce52a2d402c03b76.jpg",
+        "table_caption": [
+            "TABLE V",
+            "RESULTS OF ABLATION STUDY FOR MASKING RATIO SETTING ON THE DRIVE DATASET"
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Setting</td><td></td><td>Dice (%)↑ clDice (%)↑</td><td>βerr</td><td>βerr</td><td>↓  $\\overline { { \\mu _ { 0 } ^ { e r r } } }$ </td><td>→  $\\overline { { \\mu _ { 1 } ^ { e r r } \\downarrow } }$ </td></tr><tr><td>Increase-only</td><td>79.12</td><td>83.80</td><td>2.12</td><td>0.266</td><td>2.72</td><td>0.352</td></tr><tr><td>Decrease-only</td><td>78.45</td><td>82.55</td><td>2.60</td><td>0.271</td><td>2.97</td><td>0.378</td></tr><tr><td>Proposed</td><td>80.30</td><td>84.57</td><td>1.99</td><td>0.254</td><td>2.63</td><td>0.348</td></tr></table>",
+        "bbox": [
+            84,
+            381,
+            480,
+            429
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "masking ratio. In the increase-only case, the masking ratio increases from 0 to a peak of 40%, while the decrease-only case does the opposite, with the masking ratio decreasing from 40% to 0 at the 90% of epochs. Both comparison settings leave unmasking for the first and last 10% of epochs as in this paper. The experimental results with U-Net backbone on the DRIVE dataset are listed in Table V. The proposed setting performs the best and the decrease-only case performs the worst. This may be because excessive masking at the start of training leads the model to learn the wrong vessel representation. The increase-only case has a steep drop in the masking ratio in the final “cool-down\" phase, which may make the model difficult to adapt from the masked image to the real image.",
+        "bbox": [
+            73,
+            460,
+            493,
+            650
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "H. Application in Diabetic Retinopathy Classification",
+        "text_level": 2,
+        "bbox": [
+            75,
+            669,
+            457,
+            684
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "To validate the significance of MaskVSC, we compare the retinal vascular tortuosity, a sensitive, vascular network-related vascular metric in ocular diseases, between healthy subjects and patients with DR. The retinal vasculature is segmented by a U-Net backbone with and without MaskVSC, and tortuosity is calculated as the ratio path length by straight-line distance between endpoints of a vessel segment. Experiments are performed on the OCTA-500 dataset $( 6 \\times 6 ~ \\mathrm { m m } ^ { 2 } ~ \\mathrm { F O V } )$ with 91 normal and 35 DR OCTA images. The receiver operating characteristic (ROC) curve and area under the curve (AUC) for both methods are displayed in Fig. 8(c), and the examples of healthy and DR OCTA images with overlaid segmentation with/without MaskVSC are in Fig. 8(a-b), respectively. MaskVSC predicts more interconnected vascular patterns that the small vessels are more connected to the main vascular branches. Moreover, MaskVSC helps to improve the discriminative power of vascular tortuosity in classifying DR (AUC: 0.81 vs. 0.71; $p \\ = \\ 0 . 0 2 8 7$ , Delong's test). It indicates that MaskVSC could provide insights into topological information on the retinal vasculature in DR and other related ocular diseases.",
+        "bbox": [
+            73,
+            688,
+            493,
+            950
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "image",
+        "img_path": "images/da66f05f90c42abd50b4289dd97379d5a1771962e3d3806c47305f04d296aa2d.jpg",
+        "image_caption": [
+            "(a)",
+            "(b) Diabetic Retinopathy"
+        ],
+        "image_footnote": [],
+        "bbox": [
+            508,
+            80,
+            781,
+            189
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "chart",
+        "img_path": "images/d23ad1426bdcf0f31a67d348f78480fe0d060c5deee54ce58611049b32bd5944.jpg",
+        "content": "",
+        "chart_caption": [
+            "Fig. 8. (a) Healthy OCTA image, (b) DR OCTA image, (c) ROC curve of DR Diagnose. Green represents the intersection of with and without MaskVSC. Red represents the difference set of with MaskVSC with respect to without MaskVSC."
+        ],
+        "chart_footnote": [],
+        "bbox": [
+            785,
+            80,
+            918,
+            195
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            503,
+            265,
+            921,
+            309
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "V. CONCLUSION",
+        "text_level": 2,
+        "bbox": [
+            650,
+            321,
+            776,
+            335
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "In this paper, we propose a backbone-agnostic vascular structure segmentation and completion method called MaskVSC. Our method includes a topology-aware mask strategy (TopoMask) that simulates vessel breakpoints in retinal images. Additionally, a connectivity loss $\\mathcal { L } _ { C }$ guides the generation of a more connected prediction, and ViG-based post-processing further reduces false positives from TopoMask by performing graphical structural analysis to refine the vascular structure. We conduct comparison experiments on five datasets containing three modalities, and MaskVSC achieves superior segmentation performance and topology preservation compared to other state-of-the-art methods. This method has potential applications in other domains for extracting more continuous and interconnected linear or curvilinear structures, facilitating further studies on microvascular topology.",
+        "bbox": [
+            503,
+            339,
+            923,
+            556
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Lastly, we also notice several aspects that need improvement. First, despite our comprehensive evaluation, the data tested in this study may not fully capture the diversity of diseases. Second, our approach is designed for 2D retinal vessels, but vascular structures are inherently 3D. Developing a framework capable of segmenting and complementing 3D vascular structures is an important direction for future work.",
+        "bbox": [
+            503,
+            556,
+            923,
+            659
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "REFERENCES",
+        "text_level": 2,
+        "bbox": [
+            676,
+            669,
+            779,
+            683
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "list",
+        "sub_type": "ref_text",
+        "list_items": [
+            "[1] L. Ding, M. H. Bawany, A. E. Kuriyan, R. S. Ramchandran, C. C. Wykoff, and G. Sharma, 2019, \"RECOVERY-FA19: Ultrawidefield fluorescein angiography vessel detection dataset,\" doi: 10.21227/m9yw-xs04.",
+            "[2] A. P. Cherecheanu, G. Garhofer, D. Schmidl, R. Werkmeister, and L. Schmetterer, “Ocular perfusion pressure and ocular blood flow in glaucoma,\" Current Opinion Pharmacol., vol. 13, no. 1, pp. 36–42, Feb. 2013.",
+            "[3] K. Y. Tey et al., “Optical coherence tomography angiography in diabetic retinopathy: A review of current applications,\" Eye Vis., vol. 6, no. 1, pp. 1–10, Nov. 2019.",
+            "[4] Y. Muraoka et al., \"Morphologic and functional changes in retinal vessels associated with branch retinal vein occlusion,\" Ophthalmology, vol. 120, no. 1, pp. 91–99, Jan. 2013.",
+            "[5] B. Pemp and L. Schmetterer, “Ocular blood flow in diabetes and agerelated macular degeneration,\" Can. J. Ophthalmology, vol. 43, no. 3, pp. 295–301, Jun. 2008.",
+            "[6] M. Ang et al., \"Optical coherence tomography angiography: A review of current and future clinical applications,\" Graefe's Arch. Clin. Exp. Ophthalmology, vol. 256, no. 2, pp. 237–245, Jan. 2018.",
+            "[7] M. M. Fraz et al., “An ensemble classification-based approach applied to retinal blood vessel segmentation,\" IEEE Trans. Biomed. Eng., vol. 59, no. 9, pp. 2538–2548, Sep. 2012."
+        ],
+        "bbox": [
+            519,
+            686,
+            919,
+            732
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "header",
+        "text": "ZHOU et al.: MASKED VASCULAR STRUCTURE SEGMENTATION AND COMPLETION IN RETINAL IMAGES",
+        "bbox": [
+            76,
+            23,
+            643,
+            35
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "page_number",
+        "text": "2501",
+        "bbox": [
+            890,
+            23,
+            919,
+            35
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "list",
+        "sub_type": "ref_text",
+        "list_items": [
+            "[8] S. Holm, G. Russell, V. Nourrit, and N. McLoughlin, “DR HAGIS—A fundus image database for the automatic extraction of retinal surface vessels from diabetic patients,\" J. Med. Imag., vol. 4, no. 1, 2017, Art. no. 014503.",
+            "[9] J. Odstrcilik et al., “Retinal vessel segmentation by improved matched filtering: Evaluation on a new high-resolution fundus image database,\" IET Image Process., vol. 7, no. 4, pp. 373–383, Jun. 2013.",
+            "[10] K. Jin et al., “FIVES: A fundus image dataset for artificial intelligence based vessel segmentation,\" Sci. Data, vol. 9, no. 1, p. 475, Aug. 2022.",
+            "[11] Q. Hu, M. D. Abràmoff, and M. K. Garvin, \"Automated separation of binary overlapping trees in low-contrast color retinal images,\" in Proc. MICCAI. Cham, Switzerland: Springer, Jan. 2013, pp. 436–443.",
+            "[12] X. Lyu, L. Cheng, and S. Zhang, “The RETA benchmark for retinal vascular tree analysis,\" Sci. Data, vol. 9, no. 1, p. 397, Jul. 2022.",
+            "[13] R. Hemelings, B. Elen, I. Stalmans, K. Van Keer, P. D. Boever, and M. B. Blaschko, “Artery-vein segmentation in fundus images using a fully convolutional network,\" Computerized Med. Imag. Graph., vol. 76, Jun. 2019, Art. no. 101636.",
+            "[14] J. I. Orlando et al., \"Towards a glaucoma risk index based on simulated hemodynamics from fundus images,\" in Proc. Int. Conf. Med. Image Comput. Comput.-Assist. Intervent. Cham, Switzerland: Springer, 2018, pp. 65–73.",
+            "[15] J. Van Eijgen, J. Fhima, M.-I. Billen Moulin-Romsée, J. A. Behar, E. Christinaki, and I. Stalmans, \"Leuven-Haifa high-resolution fundus image dataset for retinal blood vessel segmentation and glaucoma diagnosis,\" Sci. Data, vol. 11, no. 1, p. 257, Feb. 2024.",
+            "[16] A. D. Hoover, V. Kouznetsova, and M. Goldbaum, \"Locating blood vessels in retinal images by piecewise threshold probing of a matched filter response,\" IEEE Trans. Med. Imag., vol. 19, no. 3, pp. 203–210, Mar. 2000.",
+            "[17] Y. Zhao, L. Rada, K. Chen, S. P. Harding, and Y. Zheng, \"Automated vessel segmentation using infinite perimeter active contour model with hybrid region information with application to retinal images,\" IEEE Trans. Med. Imag., vol. 34, no. 9, pp. 1797–1807, Sep. 2015.",
+            "[18] J. Zhang, B. Dashtbozorg, E. Bekkers, J. P. W. Pluim, R. Duits, and B. M. T. H. Romeny, \"Robust retinal vessel segmentation via locally adaptive derivative frames in orientation scores,\" IEEE Trans. Med. Imag., vol. 35, no. 12, pp. 2631–2644, Dec. 2016.",
+            "[19] F. Zana and J.-C. Klein, “Segmentation of vessel-like patterns using mathematical morphology and curvature evaluation,\" IEEE Trans. Image Process., vol. 10, no. 7, pp. 1010–1019, Jul. 2001.",
+            "[20] A. M. Mendonca and A. Campilho, \"Segmentation of retinal blood vessels by combining the detection of centerlines and morphological reconstruction,\" IEEE Trans. Med. Imag., vol. 25, no. 9, pp. 1200–1213, Sep. 2006.",
+            "[21] M. S. Miri and A. Mahloojifar, “Retinal image analysis using curvelet transform and multistructure elements morphology by reconstruction,\" IEEE Trans. Biomed. Eng., vol. 58, no. 5, pp. 1183–1192, May 2011.",
+            "[22] F. K. H. Quek and C. Kirbas, \"Vessel extraction in medical images by wave-propagation and traceback,\" IEEE Trans. Med. Imag., vol. 20, no. 2, pp. 117–131, Feb. 2001.",
+            "[23] M. Sofka and C. V. Stewart, “Retinal vessel centerline extraction using multiscale matched filters, confidence and edge measures,\" IEEE Trans. Med. Imag., vol. 25, no. 12, pp. 1531–1546, Dec. 2006.",
+            "[24] K. K. Delibasis, A. I. Kechriniotis, C. Tsonos, and N. Assimakis, “Automatic model-based tracing algorithm for vessel segmentation and diameter estimation,\" Comput. Methods Programs Biomed., vol. 100, no. 2, pp. 108–122, Nov. 2010.",
+            "[25] O. Wink, W. J. Niessen, and M. A. Viergever, \"Multiscale vessel tracking,\" IEEE Trans. Med. Imag., vol. 23, no. 1, pp. 130–133, Jan. 2004.",
+            "[26] M. E. Martinez-Perez, A. D. Hughes, S. A. Thom, A. A. Bharath, and K. H. Parker, \"Segmentation of blood vessels from red-free and fluorescein retinal images,\" Med. Image Anal., vol. 11, no. 1, pp. 47–61, Feb. 2007.",
+            "[27] M. Vlachos and E. Dermatas, “Multi-scale retinal vessel segmentation using line tracking,\" Computerized Med. Imag. Graph., vol. 34, no. 3, pp. 213–227, Apr. 2010.",
+            "[28] K. Hu et al., \"Retinal vessel segmentation of color fundus images using multiscale convolutional neural network with an improved cross-entropy loss function,\" Neurocomputing, vol. 309, pp. 179–191, Oct. 2018.",
+            "[29] C. Sazak, C. Nelson, and B. Obara, “The multiscale bowler-hat transform for blood vessel enhancement in retinal images,\" Pattern Recognit., vol. 88, pp. 739–750, Apr. 2019.",
+            "[30] J. Staal, M. D. Abramoff, M. Niemeijer, M. A. Viergever, and B. van Ginneken, \"Ridge-based vessel segmentation in color images of the retina,\" IEEE Trans. Med. Imag., vol. 23, no. 4, pp. 501–509, Apr. 2004.",
+            "[31] J. V. B. Soares, J. J. G. Leandro, R. M. Cesar, H. F. Jelinek, and M. J. Cree, “\"Retinal vessel segmentation using the 2-D Gabor wavelet and supervised classification,\" IEEE Trans. Med. Imag., vol. 25, no. 9, pp. 1214–1222, Sep. 2006.",
+            "[32] E. Ricci and R. Perfetti, \"Retinal blood vessel segmentation using line operators and support vector classification,\" IEEE Trans. Med. Imag., vol. 26, no. 10, pp. 1357–1365, Oct. 2007.",
+            "[33] C. A. Lupascu, D. Tegolo, and E. Trucco, \"FABC: Retinal vessel segmentation using AdaBoost,\" IEEE Trans. Inf. Technol. Biomed., vol. 14, no. 5, pp. 1267–1274, Sep. 2010.",
+            "[34] D. Marín, A. Aquino, M. E. Gegundez-Arias, and J. M. Bravo, “A new supervised method for blood vessel segmentation in retinal images by using gray-level and moment invariants-based features,\" IEEE Trans. Med. Imag., vol. 30, no. 1, pp. 146–158, Jan. 2011.",
+            "[35] J. I. Orlando, E. Prokofyeva, and M. B. Blaschko, \"A discriminatively trained fully connected conditional random field model for blood vessel segmentation in fundus images,\" IEEE Trans. Biomed. Eng., vol. 64, no. 1, pp. 16–27, Jan. 2017.",
+            "[36] M. R. K. Mookiah et al., “A review of machine learning methods for retinal blood vessel segmentation and artery/vein classification,\" Med. Image Anal., vol. 68, Feb. 2021, Art. no. 101905.",
+            "[37] K.-K. Maninis, J. Pont-Tuset, P. Arbeláez, and L. Van Gool, “Deep retinal image understanding,\" in Proc. MICCAI, Jan. 2016, pp. 140–148.",
+            "[38] P. Liskowski and K. Krawiec, “Segmenting retinal blood vessels with deep neural networks,\" IEEE Trans. Med. Imag., vol. 35, no. 11, pp. 2369–2380, Nov. 2016.",
+            "[39] Q. Jin, Z. Meng, T. D. Pham, Q. Chen, L. Wei, and R. Su, \"DUNet: A deformable network for retinal vessel segmentation,\" Knowl.-Based Syst., vol. 178, pp. 149–162, Aug. 2019.",
+            "[40] Q. Li, B. Feng, L. Xie, P. Liang, H. Zhang, and T. Wang, \"A crossmodality learning approach for vessel segmentation in retinal images,' IEEE Trans. Med. Imag., vol. 35, no. 1, pp. 109–118, Jan. 2016.",
+            "[41] A. Oliveira, S. Pereira, and C. A. Silva, “Retinal vessel segmentation based on fully convolutional neural networks,\" Expert Syst. Appl., vol. 112, pp. 229–242, Dec. 2018.",
+            "[42] H. Wu, W. Wang, J. Zhong, B. Lei, Z. Wen, and J. Qin, \"SCS-net: A scale and context sensitive network for retinal vessel segmentation,\" Med. Image Anal., vol. 70, May 2021, Art. no. 102025.",
+            "[43] Y. Ma et al., “ROSE: A retinal OCT-angiography vessel segmentation dataset and new model,\" IEEE Trans. Med. Imag., vol. 40, no. 3, pp. 928–939, Mar. 2021.",
+            "[44] Z. Gu et al., “CE-Net: Context encoder network for 2D medical image segmentation,\" IEEE Trans. Med. Imag., vol. 38, no. 10, pp. 2281–2292, Oct. 2019.",
+            "[45] H. Fu, Y. Xu, S. Lin, D. W. K. Wong, and J. Liu, \"DeepVessel: Retinal vessel segmentation via deep learning and conditional random field,\" in Proc. Int. Conf. Med. Image Comput. Comput.-Assist. Intervent., 2016, pp. 132–139.",
+            "[46] Y. Li, Y. Zhang, W. Cui, B. Lei, X. Kuang, and T. Zhang, \"Dual encoder-based dynamic-channel graph convolutional network with edge enhancement for retinal vessel segmentation,\" IEEE Trans. Med. Imag., vol. 41, no. 8, pp. 1975–1989, Aug. 2022.",
+            "[47] A. Vaswani et al., “Attention is all you need,\" in Proc. NeurIPS, vol. 30, Jun. 2017, pp. 5998–6008.",
+            "[48] X. Li, Y. Jiang, M. Li, and S. Yin, \"Lightweight attention convolutional neural network for retinal vessel image segmentation,\" IEEE Trans. Ind. Informat., vol. 17, no. 3, pp. 1958–1967, Mar. 2021.",
+            "[49] X. Tan et al., “OCT2Former: A retinal OCT-angiography vessel segmentation transformer,\" Comput. Methods Programs Biomed., vol. 233 May 2023, Art. no. 107454.",
+            "[50] M. Gori, G. Monfardini, and F. Scarselli, “A new model for learning in graph domains,\" in Proc. IEEE Int. Joint Conf. Neural Netw., vol. 2, Mar. 2005, pp. 729–734.",
+            "[51] T. Kipf and M. Welling, “\"Semi-supervised classification with graph convolutional networks,\" in Proc. ICLR, Jan. 2016, pp. 1–11.",
+            "[52] S. Y. Shin, S. Lee, I. D. Yun, and K. M. Lee, “Deep vessel segmentation by learning graphical connectivity,\" Med. Image Anal., vol. 58, Dec. 2019, Art. no. 101556.",
+            "[53] Y. Meng et al., \"Graph-based region and boundary aggregation for biomedical image segmentation,\" IEEE Trans. Med. Imag., vol. 41, no. 3, pp. 690–701, Mar. 2022.",
+            "[54] G. Zhao et al., \"Graph convolution based cross-network multiscale feature fusion for deep vessel segmentation,\" IEEE Trans. Med. Imag., vol. 42, no. 1, pp. 183–195, Jan. 2023."
+        ],
+        "bbox": [
+            89,
+            73,
+            491,
+            118
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "page_number",
+        "text": "2502",
+        "bbox": [
+            76,
+            23,
+            107,
+            35
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "header",
+        "text": "IEEE TRANSACTIONS ON MEDICAL IMAGING, VOL. 44, NO. 6, JUNE 2025",
+        "bbox": [
+            522,
+            23,
+            921,
+            35
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "list",
+        "sub_type": "ref_text",
+        "list_items": [
+            "[55] K. He, X. Chen, S. Xie, Y. Li, P. Dollár, and R. Girshick, \"Masked autoencoders are scalable vision learners,\" in Proc. IEEE/CVF Conf. Comput. Vis. Pattern Recognit. (CVPR), Jun. 2022, pp. 16000–16009.",
+            "[56] P. Bibiloni, M. González-Hidalgo, and S. Massanet, “A survey on curvilinear object segmentation in multiple applications,\" Pattern Recognit., vol. 60, pp. 949–970, Dec. 2016.",
+            "[57] D.-S. Huang, W. Jia, and D. Zhang, \"Palmprint verification based on principal lines,\" Pattern Recognit., vol. 41, no. 4, pp. 1316–1328, Apr. 2008.",
+            "[58] X. Qian et al., “A non-parametric vessel detection method for complex vascular structures,\" Med. Image Anal., vol. 13, no. 1, pp. 49–61, Feb. 2009.",
+            "[59] G. Azzopardi, N. Strisciuglio, M. Vento, and N. Petkov, \"Trainable COSFIRE filters for vessel delineation with application to retinal images,\" Med. Image Anal., vol. 19, no. 1, pp. 46–57, Jan. 2015.",
+            "[60] J. A. Tyrrell et al., “Robust 3-D modeling of vasculature imagery using superellipsoids,\" IEEE Trans. Med. Imag., vol. 26, no. 2, pp. 223–237, Feb. 2007.",
+            "[61] V. Bismuth, R. Vaillant, H. Talbot, and L. Najman, \"Curvilinear structure enhancement with the polygonal path image-application to guide-wire segmentation in X-ray fluoroscopy,\" in Proc. MICCAI, 2012, pp. 9–16.",
+            "[62] S. Roychowdhury, D. D. Koozekanani, and K. K. Parhi, \"Iterative vessel segmentation of fundus images,\" IEEE Trans. Biomed. Eng., vol. 62, no. 7, pp. 1738–1749, Jul. 2015.",
+            "[63] H. Zhao, J. Kumagai, M. Nakagawa, and R. Shibasaki, \"Semiautomatic road extraction from high-resolution satellite image,\" Int. Arch. Photogramm., Remote Sens. Spatial Inf. Sci.-ISPRS Arch., vol. 34, pp. 406–411, Jan. 2002.",
+            "[64] Y. Wu, Y. Xia, Y. Song, Y. Zhang, and W. Cai, \"Multiscale network followed network model for retinal vessel segmentation,\" in Proc. MICCAI, Jan. 2018, pp. 119–126.",
+            "[65] L. Lin et al., “BSDA-Net: A boundary shape and distance aware joint learning framework for segmenting and classifying OCTA images,\" in Proc. 24th Int. Conf. Med. Image Comput. Comput. Assist. Intervent., Sep. 2021, pp. 65–75.",
+            "[66] J. Hao et al., “Retinal structure detection in OCTA image via votingbased multitask learning,\" IEEE Trans. Med. Imag., vol. 41, no. 12, pp. 3969–3980, Dec. 2022.",
+            "[67] L. Mou et al., “CS-net: Channel and spatial attention network for curvilinear structure segmentation,\" in Proc. MICCAI, Jan. 2019, pp. 721–730.",
+            "[68] L. Mou et al., “CS2-net: Deep learning segmentation of curvilinear structures in medical imaging,\" Med. Image Anal., vol. 67, Jan. 2021, Art. no. 101874.",
+            "[69] L. Lin et al., “YoloCurvSeg: You only label one noisy skeleton for vessel-style curvilinear structure segmentation,\" Med. Image Anal., vol. 90, Dec. 2023, Art. no. 102937.",
+            "[70] X. Xu, M. C. Nguyen, Y. Yazici, K. Lu, H. Min, and C.-S. Foo, “SemiCurv: Semi-supervised curvilinear structure segmentation,\"IEEE Trans. Image Process., vol. 31, pp. 5109–5120, 2022.",
+            "[71] T. Shi, X. Ding, L. Zhang, and X. Yang, \"FreeCOS: Self-supervised learning from fractals and unlabeled images for curvilinear object segmentation,\" in Proc. IEEE/CVF Int. Conf. Comput. Vis. (ICCV), Oct. 2023, pp. 876–886.",
+            "[72] T. Wang and Q. Dai, “SURVS: A Swin-Unet and game theory-based unsupervised segmentation method for retinal vessel,\" Comput. Biol. Med., vol. 166, Nov. 2023, Art. no. 107542.",
+            "[73] S. Gur, L. Wolf, L. Golgher, and P. Blinder, \"Unsupervised microvascular image segmentation using an active contours mimicking neural network,\" in Proc. IEEE/CVF Int. Conf. Comput. Vis. (ICCV), Oct. 2019, pp. 10721–10730.",
+            "[74] W. Tahir et al., \"Anatomical modeling of brain vasculature in twophoton microscopy by generalizable deep learning,\" BME Frontiers, vol. 2021, pp. 1–12, Jan. 2021.",
+            "[75] S. Shit et al., “CIDice—A novel topology-preserving loss function for tubular structure segmentation,\" in Proc. IEEE/CVF Conf. Comput. Vis. Pattern Recognit. (CVPR), Jun. 2021, pp. 16555–16564.",
+            "[76] X. Hu, F. Li, D. Samaras, and C. Chen, \"Topology-preserving deep image segmentation,\" in Proc. NeurIPS, vol. 32, Jan. 2019, pp. 1–11.",
+            "[77] R. Forman, \"Morse theory for cell complexes,\" Adv. Math., vol. 134, no. 1, pp. 90–145, Mar. 1998.",
+            "[78] X. Hu, Y. Wang, F. Li, D. Samaras, and C. Chen, \"Topology-aware segmentation using discrete Morse theory,\" in Proc. ICLR, Jan. 2021, pp. 1–12.",
+            "[79] X. Hu, D. Samaras, and C. Chen, \"Learning probabilistic topological representations using discrete Morse theory,\" in Proc. ICLR, Jan. 2022, pp. 1–20.",
+            "[80] N. Stucki, J. C. Paetzold, S. Shit, B. Menze, and U. Bauer, \"Topologically faithful image segmentation via induced matching of persistence barcodes,\" in Proc. ICML, Jan. 2022, pp. 32698–32727.",
+            "[81] S. Gupta et al., “Learning topological interactions for multi-class medical image segmentation,\" in Proc. Eur. Conf. Comput. Vis. (ECCV), 2022, pp. 701–718.",
+            "[82] S. Gupta, Y. Zhang, X. Hu, P. Prasanna, and C. Chen, “\"Topologyaware uncertainty for image segmentation,\" in Proc. NeurIPS, vol. 36, Jan. 2023, pp. 1–16.",
+            "[83] H. Fu, Y. Xu, D. W. K. Wong, and J. Liu, \"Retinal vessel segmentation via deep learning network and fully-connected conditional random fields,\" in Proc. IEEE 13th Int. Symp. Biomed. Imag. (ISBI), Apr. 2016, pp. 698–701.",
+            "[84] J. Zhang et al., “Reconnection of interrupted curvilinear structures via cortically inspired completion for ophthalmologic images,\" IEEE Trans. Biomed. Eng., vol. 65, no. 5, pp. 1151–1165, May 2018.",
+            "[85] H. Du et al., “Retinal blood vessel segmentation by using the MS-LSDNet network and geometric skeleton reconnection method,\" Comput. Biol. Med., vol. 153, Feb. 2023, Art. no. 106416.",
+            "[86] R. Damseh et al., “Automatic graph-based modeling of brain microvessels captured with two-photon microscopy,\" IEEE J. Biomed. Health Informat., vol. 23, no. 6, pp. 2551–2562, Nov. 2019.",
+            "[87] L. Mou, L. Chen, J. Cheng, Z. Gu, Y. Zhao, and J. Liu, \"Dense dilated network with probability regularized walk for vessel detection,\"IEEE Trans. Med. Imag., vol. 39, no. 5, pp. 1392–1403, May 2020.",
+            "[88] L.-C. Chen, G. Papandreou, I. Kokkinos, K. Murphy, and A. L. Yuille, “DeepLab: Semantic image segmentation with deep convolutional nets, atrous convolution, and fully connected CRFs,\" IEEE Trans. Pattern Anal. Mach. Intell., vol. 40, no. 4, pp. 834–848, Apr. 2017.",
+            "[89] Z. Yan, X. Yang, and K.-T. Cheng, \"Joint segment-level and pixelwise losses for deep learning based retinal vessel segmentation,\" IEEE Trans. Biomed. Eng., vol. 65, no. 9, pp. 1912–1923, Sep. 2018.",
+            "[90] Z. Yan, X. Yang, and K.-T. Cheng, “A three-stage deep learning model for accurate retinal vessel segmentation,\" IEEE J. Biomed. Health Informat., vol. 23, no. 4, pp. 1427–1436, Jul. 2019.",
+            "[91] Y. Wu, Y. Xia, Y. Song, Y. Zhang, and W. Cai, \"NFN+: A novel network followed network for retinal vessel segmentation,\" Neural Netw., vol. 126, pp. 153–162, Jun. 2020.",
+            "[92] S. Carneiro-Esteves, A. Vacavant, and O. Merveille, “Restoring connectivity in vascular segmentations using a learned post-processing model,\" in Proc. Int. Workshop Topology-Graph-Informed Imag. Informat. Cham, Switzerland: Springer, Oct. 2024, pp. 55–65.",
+            "[93] S. Carneiro-Esteves, A. Vacavant, and O. Merveille, “A plug-and-play framework for curvilinear structure segmentation based on a learned reconnecting regularization,\" Neurocomputing, vol. 599, Sep. 2024, Art. no. 128055.",
+            "[94] K. Han, Y. Wang, J. Guo, Y. Tang, and E. Wu, \"Vision GNN: An image is worth graph of nodes,\" in Proc. Adv. Neural Inf. Process. Syst. (NIPS), vol. 35, Dec. 2022, pp. 8291–8303.",
+            "[95] M. E. Gegundez-Arias, A. Aquino, J. M. Bravo, and D. Marin, “A function for quality evaluation of retinal vessel segmentations, IEEE Trans. Med. Imag., vol. 31, no. 2, pp. 231–239, Feb. 2012.",
+            "[96] P. Singh et al., \"Enhancing medical image segmentation: Optimizing cross-entropy weights and post-processing with autoencoders,\" in Proc. IEEE/CVF Int. Conf. Comput. Vis. Workshops (ICCVW), Oct. 2023, pp. 2684–2693.",
+            "[97] M. Li et al., “OCTA-500: A retinal dataset for optical coherence tomography angiography study,\" Med. Image Anal., vol. 93, Apr. 2024, Art. no. 103092.",
+            "[98] O. Ronneberger, P. Fischer, and T. Brox, \"U-Net: Convolutional networks for biomedical image segmentation,\" in Proc. 18th Int. Conf. Med. Image Comput. Comput.-Assist. Intervent., 2015, pp. 234–241.",
+            "[99] A. Dosovitskiy et al., “An image is worth 16× 16 words: Transformers for image recognition at scale,\" in Proc. ICLR, Jan. 2020, pp. 1–9.",
+            "[100] H. Bao, D. Li, and F. Wei, \"BEiT: BERT pre-training of image transformers,\" in Proc. ICLR, Jan. 2021, pp. 1–7.",
+            "[101] L. Zhou, H. Liu, J. Bae, J. He, D. Samaras, and P. Prasanna, \"Self pretraining with masked autoencoders for medical image classification and segmentation,\" in Proc. IEEE 20th Int. Symp. Biomed. Imag. (ISBI), Apr. 2023, pp. 1–6.",
+            "[102] H. Cao et al., “Swin-UNet: UNet-like pure transformer for medical image segmentation,\" in Proc. Eur. Conf. Comput. Vis., 2022, pp. 205–218."
+        ],
+        "bbox": [
+            83,
+            73,
+            490,
+            108
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "header",
+        "text": "ZHOU et al.: MASKED VASCULAR STRUCTURE SEGMENTATION AND COMPLETION IN RETINAL IMAGES",
+        "bbox": [
+            75,
+            23,
+            643,
+            35
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "page_number",
+        "text": "2503",
+        "bbox": [
+            890,
+            23,
+            921,
+            35
+        ],
+        "page_idx": 11
+    }
+]

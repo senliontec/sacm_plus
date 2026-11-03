@@ -1,0 +1,2627 @@
+[
+    [
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "nnWNet: Rethinking the Use of Transformers in Biomedical Image Segmentation and Calling for a Unified Evaluation Benchmark"
+                    }
+                ],
+                "level": 1
+            },
+            "bbox": [
+                160,
+                128,
+                836,
+                175
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Yanfeng Zhou1 Lingrui Li² Le Lu¹ Minfeng Xu¹"
+                    }
+                ]
+            },
+            "bbox": [
+                276,
+                203,
+                720,
+                222
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "1DAMO Academy, Alibaba Group"
+                    }
+                ]
+            },
+            "bbox": [
+                359,
+                222,
+                640,
+                238
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "2School of Computer Science, University of Nottingham, Nottingham, UK"
+                    }
+                ]
+            },
+            "bbox": [
+                202,
+                238,
+                795,
+                257
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "{zhouyanfeng.zyf, eric.xmf}@alibaba-inc.com, lingrui.li@nottingham.ac.uk,"
+                    }
+                ]
+            },
+            "bbox": [
+                174,
+                258,
+                820,
+                275
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "tiger.lelu@gmail.com"
+                    }
+                ]
+            },
+            "bbox": [
+                405,
+                277,
+                589,
+                291
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "Abstract"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                248,
+                325,
+                326,
+                343
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Semantic segmentation is a crucial prerequisite in clinical applications and computer-aided diagnosis. With the development of deep neural networks, biomedical image segmentation has achieved remarkable success. Encoder-decoder architectures that integrate convolutions and transformers are gaining attention for their potential to capture both global and local features. However, current designs face the contradiction that these two features cannot be continuously transmitted. In addition, some models lack a unified and standardized evaluation benchmark, leading to significant discrepancies in the experimental setup. In this study, we review and summarize these architectures and analyze their contradictions in design. We modify UNet and propose WNet to combine transformers and convolutions, addressing the transmission issue effectively. WNet captures long-range dependencies and local details simultaneously while ensuring their continuous transmission and multi-scale fusion. We integrate WNet into the nnUNet framework for unified benchmarking. Our model achieves state-of-the-art performance in biomedical image segmentation. Extensive experiments demonstrate their effectiveness on four 2D datasets (DRIVE, ISIC-2017, Kvasir-SEG, and CREMI) and four 3D datasets (Parse2022, AMOS22, BTCV, and ImageCAS). The code is available at https : //github.com/Yanfeng-Zhou/nnWNet."
+                    }
+                ]
+            },
+            "bbox": [
+                88,
+                358,
+                485,
+                738
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "1. Introduction"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                91,
+                768,
+                222,
+                785
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Segmentation is a fundamental task in biomedical image analysis, where the goal is to assign a class label to each pixel (voxel). With the development of deep learning, biomedical image segmentation has achieved superior results [16, 23, 25, 33, 41, 58, 60–62]. Convolutional neural networks (CNNs) based on the encoder-decoder architecture are a mainstream paradigm [25, 41]. Two key characteristics of CNNs are local connections and parameter sharing. Local connections ensure that the extracted features are specific to the local input, while parameter sharing makes the features translationally invariant. This design enhances computational efficiency while enabling CNNs to focus on local details."
+                    }
+                ]
+            },
+            "bbox": [
+                88,
+                795,
+                485,
+                901
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": []
+            },
+            "bbox": [
+                509,
+                328,
+                906,
+                420
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Recently, the sequence-to-sequence transformer architecture has gained significant attention [11, 34, 47]. It utilizes a global self-attention mechanism to capture longrange dependencies and global information. However, it also brings the limitations of high computational overhead and a tendency to overlook local details."
+                    }
+                ]
+            },
+            "bbox": [
+                511,
+                422,
+                908,
+                513
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Some studies have attempted to combine convolutions and transformers to leverage both local and global receptive fields simultaneously. These combination strategies include: alternately stacking convolutional layers and transformer layers [3, 14, 29], using convolution (Conv) to build the encoder and transformer (Trans) to build the decoder (or vice versa) [17, 18], and incorporating transformers into bottleneck blocks or bridge blocks between the encoder and decoder [6, 7, 48, 50]"
+                    }
+                ]
+            },
+            "bbox": [
+                511,
+                516,
+                908,
+                652
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "However, these designs are contradictory and flawed. The purpose of the transformer layer is to extract long-range dependencies and generate corresponding global features, while the convolutional layer is to capture local details and generate locally-focused features. The current combination method forces the transformer layer to use local features as input to extract global features, and enforces the convolutional layer to operate on global features to extract local details. Global features and local features are generated alternately and cannot be transmitted continuously and stably throughout the model. This contradiction leads to feature confusion and instability of the training process."
+                    }
+                ]
+            },
+            "bbox": [
+                511,
+                655,
+                908,
+                838
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "In addition, the current biomedical image segmentation models lack a unified evaluation benchmark [26]. Different studies have significant discrepancies in experimental datasets, image preprocessing strategies (such as resampling, region of interest cropping), training and validation set divisions, evaluation metrics, and some key hyperparameters (such as patch size, loss function, and number of training epochs). This lack of standardization makes it challenging to compare results across studies and evaluate the true performance of different models. Some models may excel in specific datasets, but fail to generalize in others. Moreover, certain models that claim state-of-the-art performance may not perform well under a unified benchmark and even worse than a well-designed UNet."
+                    }
+                ]
+            },
+            "bbox": [
+                511,
+                839,
+                908,
+                901
+            ]
+        },
+        {
+            "type": "page_header",
+            "content": {
+                "page_header_content": [
+                    {
+                        "type": "text",
+                        "content": "CvF"
+                    }
+                ]
+            },
+            "bbox": [
+                106,
+                2,
+                181,
+                41
+            ]
+        },
+        {
+            "type": "page_header",
+            "content": {
+                "page_header_content": [
+                    {
+                        "type": "text",
+                        "content": "This CVPR paper is the Open Access version, provided by the Computer Vision Foundation. Except for this watermark, it is identical to the accepted version; the final published version of the proceedings is available on IEEE Xplore."
+                    }
+                ]
+            },
+            "bbox": [
+                235,
+                0,
+                810,
+                46
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "20852"
+                    }
+                ]
+            },
+            "bbox": [
+                478,
+                944,
+                519,
+                957
+            ]
+        }
+    ],
+    [
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": []
+            },
+            "bbox": [
+                88,
+                92,
+                485,
+                242
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "In this study, we review various biomedical image segmentation models based on convolutions and transformers, abstracting them into several typical architectures and analyzing the contradictions and defects within these designs. To effectively incorporate transformers into the fully convolutional UNet [41] for extracting global features while addressing these issues, we propose a modified architecture, WNet. WNet captures both long-range dependencies and local details, ensuring continuous transmission of these two types of features without alternation or confusion. We then integrate WNet into the automatically configured framework, nnUNet [25], resulting in nnWNet. Extensive experiments on a unified evaluation benchmark based on the nnUNet framework demonstrate its effectiveness. Our model achieves state-of-the-art performance on four 2D datasets and four 3D datasets with different segmentation objects, data scales, and image modalities."
+                    }
+                ]
+            },
+            "bbox": [
+                88,
+                242,
+                485,
+                500
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Our contributions are summarized as follows:"
+                    }
+                ]
+            },
+            "bbox": [
+                109,
+                500,
+                415,
+                513
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "• We systematically summarize and classify various biomedical image segmentation models based on convolutions and transformers, and analyze their contradictions and defects."
+                    }
+                ]
+            },
+            "bbox": [
+                89,
+                513,
+                485,
+                574
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "• We slightly adjust the UNet architecture and propose WNet. WNet focuses on both long-range dependencies and local details, ensuring continuous transmission of these two types of features without alternation or confusion throughout the network."
+                    }
+                ]
+            },
+            "bbox": [
+                89,
+                574,
+                485,
+                650
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "• We integrate WNet into the nnUNet framework, resulting in nnWNet. nnWNet achieves state-of-the-art performance on four 2D datasets and four 3D datasets within a unified evaluation benchmark."
+                    }
+                ]
+            },
+            "bbox": [
+                89,
+                650,
+                485,
+                710
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "2. Related Work"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                89,
+                723,
+                233,
+                739
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Convolution-Based Biomedical Image Segmentation. The efficient and lightweight U-shaped CNNs are dominant in biomedical image segmentation. They can retain the position information of the boundaries and alleviate overfitting under the limited data volume of biomedical images. Some studies add or improve various designs to the U-shaped CNNs to better extract features. UNet++ [62] redesigns the skip connection between the encoder and decoder to achieve multi-scale feature aggregation. Attention UNet [37] integrates the attention gate module into UNet [41] to better focus on target structures of varying shapes and sizes. [45] proposes a full convolutional U-shaped network (CMUNet) that incorporates hybrid convolution and multi-scale attention gate. Furthermore, some studies have extended these architectures to 3D to meet the needs of volumetric segmentation. [36] proposes a fully convolutional 3D network, VNet. ConResNet [55] proposes inter-slice context residual learning to improve the ability of spatial context perception. [57] proposes a low-frequency and high-frequency fusion network, XNet, for fully- and semi-supervised biomedical image segmentation."
+                    }
+                ]
+            },
+            "bbox": [
+                88,
+                750,
+                485,
+                902
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": []
+            },
+            "bbox": [
+                509,
+                92,
+                908,
+                257
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Transformer-Based Biomedical Image Segmentation. The transformer model treats images as sequences of small patches. It employs a self-attention mechanism based on fully connected networks to capture long-range dependencies across the entire image and uses position encoding to represent the spatial relationships between the patches. Several studies have explored integrating transformers into U-shaped architectures. Common strategies include: pure transformer UNet without convolutional layers, such as SwinUNet [5], D-Former [12], nnFormer [56]; replacing the convolutional encoder or decoder with the transformer, such as TC-CoNet [8], ConvTransSeg [13], UN-ETR [18], Swin UNETR [17], 3D UX-Net [32]; incorporating transformer-based bridges or bottlenecks between the encoder and decoder, such as CoTr [50], MissFormer [24], DCA [1], TransAttUNet [6]; stacking convolutional layers and transformer layers in series or parallel, such as ConvFormer [14], H2Former [20], DuAT [46], MaxViT-UNet [29]. Furthermore, some studies are focused on optimizing the self-attention mechanism to reduce computational costs and memory consumption, such as BRAU-Net++ [30], UNETR++ [43]. However, these architectural designs have the defect of alternating and confusing transmission between global and local features. We discuss this issue in more detail in Section 3.1."
+                    }
+                ]
+            },
+            "bbox": [
+                509,
+                257,
+                908,
+                635
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "nnUNet. nnUNet [25, 26] is an automatically configured segmentation framework that sets image preprocessing, data augmentation, and training hyperparameters. It not only serves as an out-of-the-box segmentation solution but also provides a unified benchmark for evaluating model performance. In this study, we conduct a comprehensive and fair comparison based on the nnUNet framework."
+                    }
+                ]
+            },
+            "bbox": [
+                509,
+                635,
+                908,
+                742
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "3. Method"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                511,
+                753,
+                606,
+                771
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "In Section 3.1, we review and summarize various encoderdecoder architectures and analyze the contradictions of current designs combining transformers and convolutions. In Section 3.2, we make slight adjustments to the fully convolutional UNet to propose WNet, which integrates transformers and addresses the contradictions. In Section 3.3, we integrate WNet into the nnUNet framework for unified benchmarking."
+                    }
+                ]
+            },
+            "bbox": [
+                509,
+                780,
+                908,
+                901
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "20853"
+                    }
+                ]
+            },
+            "bbox": [
+                478,
+                944,
+                519,
+                957
+            ]
+        }
+    ],
+    [
+        {
+            "type": "image",
+            "content": {
+                "image_source": {
+                    "path": "images/dc7fbfed7f2c10026affe90d7119f2de26b5cc43f7410a55794d0b3d42eaf9bf.jpg"
+                },
+                "image_caption": [
+                    {
+                        "type": "text",
+                        "content": "Figure 1. Summary of three architectures in biomedical image segmentation."
+                    }
+                ],
+                "image_footnote": []
+            },
+            "bbox": [
+                133,
+                87,
+                861,
+                473
+            ]
+        },
+        {
+            "type": "table",
+            "content": {
+                "image_source": {
+                    "path": "images/c2956cef83d3cdaa2fd516a55a76c8245b5c084d92eb9a961438dc9c5ab33325.jpg"
+                },
+                "table_caption": [
+                    {
+                        "type": "text",
+                        "content": "Table 1. Demonstration of various architectures along with their corresponding models."
+                    }
+                ],
+                "table_footnote": [],
+                "html": "<table><tr><td>Architecture</td><td>Encoder</td><td>Bottleneck</td><td>Bridge</td><td>Decoder</td><td>Model</td></tr><tr><td rowspan=\"3\">Pure Conv</td><td>Conv</td><td></td><td></td><td>Conv</td><td>UNet [41], Attention UNet [37], VNet [36], MedNeXt [42], GobletNet [59]</td></tr><tr><td>Conv</td><td>Conv</td><td></td><td>Conv</td><td>CMUNet [45], I2U-Net [10], XNet [57]</td></tr><tr><td>Trans</td><td></td><td></td><td>Trans</td><td>SwinUnet [5], UNETR++ [43], UNetFormer+ [19], D-Former [49]</td></tr><tr><td rowspan=\"3\">Pure Trans</td><td>Trans</td><td>Trans</td><td></td><td>Trans</td><td>nnFormer [56], DAE-Former [2]</td></tr><tr><td>Trans</td><td></td><td>Trans</td><td>Trans</td><td>MISSFormer [24], FET [4]</td></tr><tr><td>Conv</td><td></td><td></td><td>Trans</td><td>ConvTransSeg [13]</td></tr><tr><td rowspan=\"11\">Hybrid (Conv + Trans)</td><td>Trans</td><td></td><td></td><td>Conv</td><td>UNetFormer [19], UNETR [18], Swin UNETR [17], SegFormer 3D [38], TC-CoNet [8], 3D UX-Net [32]</td></tr><tr><td>Conv</td><td>Trans</td><td></td><td>Conv</td><td>TransBTS [48], CoTr [50], TransUNet [7], TransAttUNet [6], LeViT-UNet [51]</td></tr><tr><td>Conv</td><td></td><td>Trans</td><td>Conv</td><td></td></tr><tr><td>Trans</td><td></td><td>Conv</td><td>Trans</td><td>DCA [1] BRAU-Net++ [30]</td></tr><tr><td>Series</td><td></td><td></td><td>Conv</td><td></td></tr><tr><td>Parallel</td><td></td><td></td><td>Conv</td><td>SwinUNETR-V2 [22]</td></tr><tr><td>Trans</td><td></td><td></td><td>Parallel</td><td>H2Former [20]</td></tr><tr><td>Series</td><td></td><td></td><td>Series</td><td>DuAT [46] MaxViT-UNet [29]</td></tr></table>",
+                "table_type": "complex_table",
+                "table_nest_level": 1
+            },
+            "bbox": [
+                91,
+                535,
+                905,
+                694
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "3.1. Discussion on Encoder-Decoder Architectures"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                89,
+                713,
+                478,
+                729
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "As shown in Figure 1, current encoder-decoder models can be summarized and abstracted into three main architectures: encoder-decoder, encoder-bottleneck-decoder, and encoder-bridge-decoder. These three architectures are composed of four modules: encoder, decoder, bottleneck, and bridge. These four modules can not only be the sequential connection of pure convolutional layers or pure transformer layers, but also the series or parallel connection of convolutional layers and transformer layers. Table 2 lists these architectures along with some corresponding models. Convolution focuses on capturing local details, while transformer emphasizes global relationships. Their combination has the potential to enhance the feature representation capability."
+                    }
+                ]
+            },
+            "bbox": [
+                88,
+                750,
+                485,
+                901
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": []
+            },
+            "bbox": [
+                511,
+                714,
+                906,
+                761
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "However, current combination strategies are contradictory. Whether using transformers as encoders and convolutions as decoders (or vice versa), or stacking convolutional and transformer layers alternately, they force the transformer layers to utilize local features as input to capture long-range dependencies, and force the convolutional layers to use global features as input for extracting local details. It disrupts the continuous and stable flow of global and local features throughout the model, leading to training instability and significant performance degradation. We observe this phenomenon in comparative experiments in Section 4.3."
+                    }
+                ]
+            },
+            "bbox": [
+                511,
+                765,
+                908,
+                902
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "20854"
+                    }
+                ]
+            },
+            "bbox": [
+                478,
+                944,
+                519,
+                957
+            ]
+        }
+    ],
+    [
+        {
+            "type": "image",
+            "content": {
+                "image_source": {
+                    "path": "images/8b4746c3768081951ddf3a7e15bb6e1a8bd7f0f5d601039e2e2fe4c1fe2baf0b.jpg"
+                },
+                "image_caption": [
+                    {
+                        "type": "text",
+                        "content": "Figure 2. Overview of WNet. OPE indicates Overlapped Patch Embedding. LSB indicates Local Scope Block. GSB indicates Global Scope Bridge. * indicates local and global feature fusion. H and W indicate the feature map size. "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "C _ { 1 } , C _ { 2 } , C _ { 3 }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "and "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "C _ { 4 }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "indicate the number of channels of feature maps at different scales."
+                    }
+                ],
+                "image_footnote": []
+            },
+            "bbox": [
+                112,
+                88,
+                882,
+                397
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": []
+            },
+            "bbox": [
+                89,
+                464,
+                483,
+                511
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "3.2. Integrating Transformers without Contradictions"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                89,
+                526,
+                482,
+                558
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "To integrate the transformer into the encoder-decoder architecture, and ensure that global and local features can be continuously transmitted without interruption and confusion, we slightly adjust UNet [41] and propose WNet. Figure 2 shows an overview of WNet. WNet consists of two cascaded encoder-decoder architectures, performs Overlapped Patch Embedding (OPE) on the input images, uses the Local Scope Blocks (LSBs) to construct multi-scale encoding and decoding layers, and introduces the Global Scope Bridges (GSBs) between the encoding and decoding layers at each scale. We employ convolutional layers as LSBs to extract local details, and use transformer layers as GSBs to capture long-range dependencies. LSBs and GSBs perform feature fusion to exchange information at each encoding-decoding scale. We explain the motivation of architecture design in detail in the supplementary material."
+                    }
+                ]
+            },
+            "bbox": [
+                88,
+                565,
+                485,
+                809
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Specifically, the overlapped feature embedding is implemented by 3×3 convolutions with a stride of 1 and down-sampling. LSBs are implemented by 3×3 residual blocks [21] with a stride of 1 and down/up-sampling. GSBs are implemented by transformers with global attention mechanism. Feature fusion is implemented by channel concatenation. We compare various attention mechanisms and fusion strategies in ablation studies in Section 4.6. Note that the local features based on LSBs contain implicitly positional relationships, and since LSBs and GSBs can exchange information, we do not introduce additional positional encoding in GSBs."
+                    }
+                ]
+            },
+            "bbox": [
+                89,
+                809,
+                485,
+                901
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": []
+            },
+            "bbox": [
+                511,
+                464,
+                906,
+                556
+            ]
+        },
+        {
+            "type": "image",
+            "content": {
+                "image_source": {
+                    "path": "images/7a7fbeb9d1c22aea25826f5d4a39eab55472d9314afbc7c14c2034175053a70a.jpg"
+                },
+                "image_caption": [
+                    {
+                        "type": "text",
+                        "content": "Figure 3. Transmission of global and local features. (a) Transmission of local features. (b) Transmission of global features. The two features flow and fuse continuously without interruption."
+                    }
+                ],
+                "image_footnote": []
+            },
+            "bbox": [
+                516,
+                564,
+                901,
+                786
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "How to address the contradiction? From Figure 3, we can see that the global and local features in WNet can flow continuously throughout the model and exchange informa-"
+                    }
+                ]
+            },
+            "bbox": [
+                511,
+                854,
+                906,
+                901
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "20855"
+                    }
+                ]
+            },
+            "bbox": [
+                478,
+                944,
+                519,
+                957
+            ]
+        }
+    ],
+    [
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "(b)"
+                    }
+                ]
+            },
+            "bbox": [
+                179,
+                303,
+                199,
+                314
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "(c)"
+                    }
+                ]
+            },
+            "bbox": [
+                246,
+                303,
+                264,
+                314
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "(f)"
+                    }
+                ]
+            },
+            "bbox": [
+                442,
+                303,
+                457,
+                314
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "(a)"
+                    }
+                ]
+            },
+            "bbox": [
+                116,
+                303,
+                133,
+                314
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "tion with each other at each scale, which not only addresses the contradiction, but also effectively fuses the global and local features into a unified representation. We compare the effective receptive fields (ERFs) of LSBs and GSBs at different scales in Figure 4. The ERFs of LSBs are small, whereas the ERFs of GSBs are large, and they are complementary. This indicates that LSBs primarily capture local features, while GSBs focuse on non-local features. More details on the visualization of the ERFs can be found in the supplementary material. In addition, WNet is just an extension of the U-shaped architecture without any complex operations. It has fewer parameters than nnUNet. We compare the number of parameters and the performance of different models in Section 4.3."
+                    }
+                ]
+            },
+            "bbox": [
+                89,
+                92,
+                485,
+                301
+            ]
+        },
+        {
+            "type": "image",
+            "content": {
+                "image_source": {
+                    "path": "images/17ee5b68683ce8fa553e162dc8b147211d06904042b1c003ed8244d742c955ec.jpg"
+                },
+                "image_caption": [
+                    {
+                        "type": "text",
+                        "content": "(d)"
+                    },
+                    {
+                        "type": "text",
+                        "content": "Figure 4. Effective receptive fields (ERFs) of LSBs and GSBs on ISIC2017 [9], Kvasir-SEG [27], CREMI [12] (average over 100 images). Top row: residual blocks in LSBs. Botton row: 11× 11 depth-wise convolution self-attentions in GSBs. (a) Scale 1 on ISIC-2017. (b) Scale 2 on ISIC-2017. (c) Scale 3 on ISIC-2017. (d) Scale 4 on ISIC-2017. (e) Scale 4 on Kvasir-SEG. (f) Scale 4 on CREMI."
+                    }
+                ],
+                "image_footnote": []
+            },
+            "bbox": [
+                91,
+                305,
+                480,
+                414
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "3.3. Calling for a Unified Evaluation Benchmark"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                89,
+                535,
+                467,
+                551
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Due to the diversity of biomedical images in terms of image sizes, dimensions, modalities, imaging regions, pixel (voxel) sizes, segmentation objects, data scales, and pathological changes, there are significant differences even among datasets for the same clinical application. It results in a lack of standardized training and validation set divisions and consistent evaluation metrics for evaluating performance. Some studies attempt to refine image preprocessing (such as image resampling and region of interest cropping) and optimize key hyperparameters (such as patch size and the number of training epochs) to ensure that their models perform better."
+                    }
+                ]
+            },
+            "bbox": [
+                89,
+                558,
+                485,
+                738
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "In general, due to the lack of a unified evaluation benchmark, comparative experiments are no longer merely a competition of model architectures. nnUNet [25, 26] is an automatically configured segmentation framework. More importantly, it provides a unified benchmark for purely and fairly comparing various architectures. We integrate WNet into the nnUNet framework to standardize the experimental setup."
+                    }
+                ]
+            },
+            "bbox": [
+                109,
+                739,
+                483,
+                753
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": []
+            },
+            "bbox": [
+                511,
+                92,
+                908,
+                198
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "4. Experiments"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                513,
+                209,
+                647,
+                227
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "4.1. Datasets"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                513,
+                233,
+                617,
+                250
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "We evaluate our model on four 2D datasets (DRIVE [44], ISIC-2017 [9], Kvasir-SEG [27], and CREMI [12]) and four 3D datasets (Parse2022 [35], AMOS22 [28], BTCV [31], ImageCAS [53]). Table 2 presents the details on their experimental setup. Additional information on these eight datasets is presented in the supplementary materials. From Table 2, these datasets cover different modalities, dimensions, imaging regions, data scales, and segmentation objects. Evaluating model performance is more representative and convincing."
+                    }
+                ]
+            },
+            "bbox": [
+                511,
+                256,
+                908,
+                407
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "4.2. Unified Evaluation Benchmark"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                513,
+                415,
+                790,
+                431
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "We implement our model via nnUNet framework (version 2.3.1). Training and inference of all the models are performed on one NVIDIA RTX A6000 GPU. All models are trained from scratch. To balance training time and effect, we use 2d and 3d_lowres trainer for 2D and 3D datasets, respectively. The number of training epochs is set to 200 for 2D datasets and 500 for 3D datasets. We use five-fold cross-validation to evaluate the segmentation results and use the Jaccard index (Jaccard), Dice coefficient (Dice), 95thpercentile Hausdorff distance (95HD), and average surface distance (ASD) as performance metrics. Jaccard and Dice emphasize pixel-wise accuracy, whereas 95HD and ASD emphasize boundary accuracy. Furthermore, we only use the output of models to evaluate performance without any additional post-processing. Other configurations (such as learning rate, loss function, patch size, and optimizer) are the default in the nnUNet framework."
+                    }
+                ]
+            },
+            "bbox": [
+                509,
+                436,
+                908,
+                695
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "4.3. Comparison with State-of-the-art Models"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                511,
+                702,
+                869,
+                718
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "We compare nnWNet extensively with state-of-the-art models, including pure convolutional, pure transformer, and hy-"
+                    }
+                ]
+            },
+            "bbox": [
+                511,
+                723,
+                906,
+                756
+            ]
+        },
+        {
+            "type": "table",
+            "content": {
+                "image_source": {
+                    "path": "images/4ef61bcd493f2fa93d7519a67b0561553e463f1cb911950a735b1c23a7179c5a.jpg"
+                },
+                "table_caption": [
+                    {
+                        "type": "text",
+                        "content": "Table 2. Comparison of eight datasets in terms of imaging region, modality, segmentation object, and data scale."
+                    }
+                ],
+                "table_footnote": [],
+                "html": "<table><tr><td>Dimension</td><td>Dataset</td><td>Modality</td><td>Imaging Region</td><td>Segmentation Object</td><td>Data Scale</td></tr><tr><td rowspan=\"4\">2D</td><td>DRIVE</td><td>Fundus</td><td>Retina</td><td>Retinal Vessel</td><td>40</td></tr><tr><td>ISIC-2017</td><td>Dermoscope</td><td>Skin</td><td>Lesion</td><td>2750</td></tr><tr><td>Kvasir-SEG</td><td>Colonoscope</td><td>Gastrointestinal Tract</td><td>Polyp</td><td>1000</td></tr><tr><td>CREMI</td><td>Electron Microscope</td><td>Drosophila &amp; Adult Fly - Brain</td><td>Neuronal Membrane</td><td>7059</td></tr><tr><td rowspan=\"4\">3D</td><td>Parse2022</td><td>CTA</td><td>Lung</td><td>Pulmonary Artery</td><td>100</td></tr><tr><td>AMOS22</td><td>CT, MRI</td><td>Abdomen</td><td>15 Abdominal Organs</td><td>360</td></tr><tr><td>BTCV</td><td>CT</td><td>Abdomen</td><td>13 Abdominal Organs</td><td>30</td></tr><tr><td>ImageCAS</td><td>CTA</td><td>Heart</td><td>Coronary Artery</td><td>1000</td></tr></table>",
+                "table_type": "complex_table",
+                "table_nest_level": 1
+            },
+            "bbox": [
+                93,
+                799,
+                898,
+                897
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "20856"
+                    }
+                ]
+            },
+            "bbox": [
+                478,
+                945,
+                519,
+                958
+            ]
+        }
+    ],
+    [
+        {
+            "type": "table",
+            "content": {
+                "image_source": {
+                    "path": "images/9eefc138d86c4c7e4f2c89c10fa083f66cf7295165c1b7a85d917ddc897237ca.jpg"
+                },
+                "table_caption": [
+                    {
+                        "type": "text",
+                        "content": "Table 3. Comparison with state-of-the-art models on 2D and 3D datasets. Green indicates better performance than nnUNet, orange indicates worse performance than nnUNet, and red indicates training failure or significant performance degradation. Bold indicates the best performance among all models."
+                    }
+                ],
+                "table_footnote": [],
+                "html": "<table><tr><td rowspan=\"2\">Architecture</td><td rowspan=\"2\">Model</td><td rowspan=\"2\">Params</td><td colspan=\"4\">DRIVE</td><td colspan=\"4\">ISIC-2017</td></tr><tr><td>Jaccard ↑</td><td>Dice ↑</td><td>95HD↓</td><td>ASD↓</td><td>Jaccard ↑</td><td>Dice ↑</td><td>95HD↓</td><td>ASD↓</td></tr><tr><td rowspan=\"5\">Conv</td><td>BCUNet [54]</td><td>102M</td><td> $6 9 . 4 5 { \\pm } 1 . 1 4 $ </td><td> $\\overline { { 8 1 . 8 9 { \\pm } 0 . 8 9 } }$ </td><td> $\\overline { { 4 . 4 9 \\pm 1 . 2 0 } }$ </td><td>1.07±0.10</td><td> $8 2 . 5 6 { \\pm } 0 . 7 8$ </td><td> $\\overline { { 8 9 . 3 6 { \\pm 0 . 5 9 } } }$ </td><td> $1 3 . 0 4 \\pm 0 . 8 9$ </td><td> $\\overline { { 5 . 1 6 { \\pm 0 . 3 5 } } }$ </td></tr><tr><td>CMUNet [45]</td><td>50M</td><td> $6 9 . 0 5 { \\pm } 1 . 4 2 $ </td><td> $8 1 . 6 0 { \\pm } 1 . 1 1 $ </td><td> $4 . 4 8 \\pm 1 . 3 9$ </td><td> $1 . 0 8 { \\pm } 0 . 1 3$ </td><td> $8 1 . 9 9 { \\pm } 0 . 6 3 $ </td><td> $8 8 . 8 5 { \\pm } 0 . 4 9$ </td><td> $1 3 . 3 2 { \\pm } 0 . 5 8 $ </td><td> $5 . 3 4 \\pm 0 . 2 4$ </td></tr><tr><td>GFANet [40]</td><td>23M</td><td> $6 6 . 6 2 \\pm 1 . 5 7$ </td><td> $7 9 . 8 5 { \\pm } 1 . 3 1 $ </td><td> $6 . 9 6 \\pm 1 . 7 6$ </td><td> $1 . 3 7 { \\pm } 0 . 1 6$ </td><td> $8 2 . 4 5 { \\pm } 0 . 9 0 $ </td><td> $8 9 . 2 9 { \\pm } 0 . 7 3 $ </td><td> $1 2 . 6 8 { \\pm } 0 . 9 5 $ </td><td> $5 . 1 4 \\pm 0 . 3 8$ </td></tr><tr><td>U2Net [39]</td><td>44M</td><td> $6 9 . 6 8 \\pm 1 . 3 4$ </td><td> $8 2 . 0 1 { \\pm } 1 . 0 7$ </td><td> $4 . 6 6 \\pm 1 . 4 9$ </td><td> $1 . 1 0 { \\pm } 0 . 1 4 $ </td><td> $8 2 . 5 5 { \\pm } 0 . 8 6$ </td><td> $8 9 . 3 5 { \\pm } 0 . 6 9$ </td><td> $1 2 . 7 3 { \\scriptstyle \\pm 0 . 8 7 }$ </td><td> $5 . 1 8 { \\pm } 0 . 4 0 $ </td></tr><tr><td>nnUNet [25]</td><td>92M</td><td> $6 8 . 7 0 { \\scriptstyle \\pm 1 . 0 3 }$ </td><td> $8 1 . 3 7 { \\pm } 0 . 8 0 $ </td><td> $4 . 6 5 { \\pm } 1 . 1 6$ </td><td> $1 . 0 9 { \\pm } 0 . 1 2 $ </td><td> $8 2 . 3 0 { \\pm } 0 . 7 6$ </td><td> $8 9 . 1 8 { \\pm } 0 . 6 0 $ </td><td> $1 3 . 3 8 { \\pm } 0 . 9 5 $ </td><td> $5 . 3 3 \\pm 0 . 3 6$ </td></tr><tr><td rowspan=\"4\">Trans</td><td>SwinUNet [5]</td><td>41M</td><td> $6 4 . 2 5 { \\pm } 1 . 2 6 $ </td><td>78.13±1.05</td><td> $8 . 1 9 { \\pm } 1 . 1 8$ </td><td>1.51±0.12</td><td> $\\overline { { 8 1 . 2 4 \\pm 0 . 8 1 } }$ </td><td> $\\overline { { 8 8 . 3 8 { \\pm } 0 . 6 4 } }$ </td><td> $\\overline { { 1 4 . 1 7 \\pm 0 . 7 0 } }$ </td><td> $\\overline { { 5 . 6 6 \\pm 0 . 3 2 } }$ </td></tr><tr><td>H2Former [20]</td><td>33M</td><td> $6 9 . 0 5 { \\scriptstyle \\pm 1 . 4 6 }$ </td><td> $8 1 . 5 8 { \\pm } 1 . 1 6 $ </td><td> $4 . 8 3 \\pm 1 . 3 8$ </td><td>1.12±0.13</td><td> $8 2 . 5 6 { \\pm } 0 . 7 8$ </td><td> $\\overline { { 8 9 . 3 6 \\pm 0 . 5 9 } }$ </td><td> $\\overline { { 1 3 . 0 4 \\pm 0 . 8 9 } }$ </td><td> $5 . 1 6 { \\pm } 0 . 3 5$ </td></tr><tr><td>ConvFormer [14]</td><td>116M</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td>DuAT [46]</td><td>25M</td><td> $6 7 . 4 2 \\pm 1 . 1 1$ </td><td> $8 0 . 4 6 \\pm 0 . 9 2$ </td><td> $5 . 7 5 { \\pm } 1 . 2 6 $ </td><td> $1 . 2 4 \\pm 0 . 0 9$ </td><td> $8 2 . 0 2 { \\pm } 1 . 0 0 $ </td><td> $8 8 . 9 9 \\pm 0 . 8 5$ </td><td> $1 3 . 1 2 { \\pm } 1 . 0 0 $ </td><td> $5 . 3 4 \\pm 0 . 4 7$ </td></tr><tr><td rowspan=\"4\">(Conv + Trans)</td><td>TransAttUNet [6]</td><td>23M</td><td> $\\mathbf { 6 9 . 9 3 { \\scriptstyle \\pm 0 . 8 4 } }$ </td><td> $\\mathbf { 8 2 . 2 0 } \\pm \\mathbf { 0 . 6 7 }$ </td><td> $4 . 5 7 \\pm 1 . 3 3$ </td><td> $1 . 0 8 { \\pm } 0 . 1 3$ </td><td> $8 1 . 7 8 { \\scriptstyle \\pm 0 . 6 7 }$ </td><td> $8 8 . 7 7 \\pm 0 . 5 3 $ </td><td> $1 4 . 0 1 { \\pm } 0 . 7 8 $ </td><td> $5 . 3 9 \\pm 0 . 3 4$ </td></tr><tr><td>nnWNet (Ours)</td><td>7M</td><td> $6 9 . 8 6 \\pm 1 . 2 6 $ </td><td> $8 2 . 1 8 { \\pm } 0 . 9 7$ </td><td> ${ \\bf 4 . 4 7 \\pm 1 . 1 9 }$ </td><td> ${ \\bf 1 . 0 7 \\pm 0 . 1 2 }$ </td><td> ${ \\bf 8 2 . 6 2 \\pm 0 . 7 1 }$ </td><td> $\\mathbf { 8 9 . 4 4 \\pm 0 . 5 9 }$ </td><td> $\\mathbf { 1 } 2 . 7 3 { \\pm } 0 . 8 4$ </td><td> ${ \\bf 5 . 1 1 \\pm 0 . 4 1 }$ </td></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr></table>",
+                "table_type": "complex_table",
+                "table_nest_level": 1
+            },
+            "bbox": [
+                91,
+                142,
+                910,
+                281
+            ]
+        },
+        {
+            "type": "table",
+            "content": {
+                "image_source": {
+                    "path": "images/ebcee0743af5270ae8f456b6272871639ec413bd2c84e82acc8729d742b164f1.jpg"
+                },
+                "table_caption": [],
+                "table_footnote": [],
+                "html": "<table><tr><td rowspan=\"2\">Architecture</td><td rowspan=\"2\">Model</td><td rowspan=\"2\">Params</td><td colspan=\"4\">Kvasir-SEG</td><td colspan=\"4\">CREMI</td></tr><tr><td>Jaccard ↑</td><td>Dice ↑</td><td> $9 5 \\mathrm { H D } \\downarrow$ </td><td>ASD ↓</td><td>Jaccard ↑</td><td>Dice ↑</td><td>95HD↓</td><td>ASD↓</td></tr><tr><td rowspan=\"5\">Conv</td><td>BCUNet [54]</td><td>102M</td><td> $8 1 . 9 9 { \\pm } 1 . 4 3$ </td><td> $8 8 . 2 3 { \\pm } 1 . 4 1$ </td><td> $2 7 . 1 4 \\pm 1 . 4 5$ </td><td>5.94±0.69</td><td> $7 7 . 8 1 \\pm 0 . 2 7$ </td><td> $8 7 . 1 4 { \\pm } 0 . 2 4$ </td><td>3.34±0.38</td><td> $\\overline { { 0 . 8 4 \\pm 0 . 0 7 } }$ </td></tr><tr><td>CMUNet [45]</td><td>50M</td><td> $8 3 . 1 0 { \\pm } 1 . 9 2 $ </td><td> $8 8 . 8 1 \\pm 1 . 7 0 $ </td><td> $2 0 . 3 9 { \\pm } 2 . 2 4 $ </td><td> $5 . 2 3 { \\pm } 0 . 7 4 $ </td><td> $7 9 . 1 6 { \\pm } 0 . 2 4$ </td><td> $8 8 . 0 0 \\pm 0 . 2 0 $ </td><td> $2 . 9 4 \\pm 0 . 2 0$ </td><td> $0 . 7 3 { \\scriptstyle \\pm 0 . 0 4 }$ </td></tr><tr><td>GFANet [40]</td><td>23M</td><td> $8 4 . 0 0 \\pm 1 . 8 9$ </td><td> $8 9 . 6 5 { \\pm } 1 . 6 3 $ </td><td> $1 9 . 1 8 { \\pm } 2 . 3 6 $ </td><td> $4 . 8 6 \\pm 0 . 6 8$ </td><td> $7 5 . 7 3 { \\pm } 0 . 2 1 $ </td><td> $8 5 . 8 5 { \\pm } 0 . 1 9$ </td><td> $3 . 1 4 \\pm 0 . 1 5$ </td><td> $0 . 8 4 \\pm 0 . 0 3$ </td></tr><tr><td>U2Net [39]</td><td>44M</td><td> $8 3 . 6 6 \\pm 1 . 8 6$ </td><td> $8 9 . 2 5 { \\pm } 1 . 6 9$ </td><td> $1 9 . 5 1 \\pm 2 . 7 4$ </td><td> $5 . 1 0 { \\pm } 0 . 8 3$ </td><td> $7 9 . 6 2 \\pm 0 . 2 5$ </td><td> $8 8 . 2 9 { \\pm } 0 . 2 0 $ </td><td> $2 . 8 3 \\pm 0 . 1 3$ </td><td> $0 . 7 0 { \\pm } 0 . 0 3$ </td></tr><tr><td>nnUNet [25]</td><td>92M</td><td> $8 3 . 9 2 \\pm 2 . 3 0 $ </td><td> $8 9 . 7 1 \\pm 1 . 8 4 $ </td><td> $2 0 . 8 5 { \\pm } 3 . 4 8 $ </td><td> $5 . 1 1 \\pm 1 . 0 1$ </td><td> $7 7 . 5 7 { \\pm } 0 . 2 5 $ </td><td> $8 6 . 9 5 { \\pm } 0 . 2 3 $ </td><td>3.35±0.41</td><td> $0 . 8 3 { \\pm } 0 . 0 7$ </td></tr><tr><td rowspan=\"4\">Trans</td><td>SwinUNet [5]</td><td>41M</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td>H2Former [20]</td><td>33M</td><td> $\\overline { { 8 3 . 8 7 \\pm 2 . 1 1 } }$ </td><td>89.50±1.84</td><td> $\\overline { { 1 9 . 8 1 \\pm 1 . 9 3 } }$ </td><td>4.89±0.70</td><td> $\\overline { { 7 8 . 6 5 \\pm 0 . 2 5 } }$ </td><td> $\\overline { { 8 7 . 6 8 \\pm 0 . 2 2 } }$ </td><td>2.97±0.11</td><td> $0 . 7 5 { \\scriptstyle \\pm 0 . 0 2 }$ </td></tr><tr><td>ConvFormer [14]</td><td>116M</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td>DuAT [46]</td><td>25M</td><td> $8 2 . 7 8 { \\pm } 2 . 4 4$ </td><td> $8 8 . 6 6 \\pm 2 . 1 1 $ </td><td> $1 9 . 6 7 { \\pm 2 . 7 8 }$ </td><td> $5 . 2 0 { \\pm } 0 . 8 1$ </td><td> $7 4 . 8 5 { \\pm } 0 . 2 5 $ </td><td> $8 5 . 2 3 { \\pm } 0 . 2 2$ </td><td>3.64±0.29</td><td> $0 . 9 4 \\pm 0 . 0 7$ </td></tr><tr><td rowspan=\"4\">(Conv + Trans)</td><td>TransAttUNet [6]</td><td>23M</td><td> $8 3 . 1 3 { \\pm } 2 . 1 6$ </td><td> $8 9 . 1 2 \\pm 1 . 9 8 $ </td><td>20.55±2.78</td><td> $5 . 2 4 \\pm 1 . 0 5$ </td><td> $7 9 . 7 1 { \\pm } 0 . 2 9$ </td><td> $8 8 . 3 5 { \\pm } 0 . 2 3 $ </td><td>2.76±0.22</td><td>0.70±0.05</td></tr><tr><td>nnWNet (Ours)</td><td>7M</td><td> $\\mathbf { 8 4 . 5 8 \\pm 1 . 8 9 }$ </td><td>89.98±1.72</td><td> ${ \\bf 1 8 . 1 7 \\pm 2 . 4 3 }$ </td><td> $\\mathbf { 4 . 7 3 \\bot 0 . 8 6 }$ </td><td> $\\mathbf { 7 9 . 8 6 \\pm 0 . 2 5 }$ </td><td> $\\mathbf { 8 8 . 4 3 \\pm 0 . 2 0 }$ </td><td> $\\mathbf { 2 . 7 5 { \\pm } 0 . 1 4 }$ </td><td> ${ \\bf 0 . 6 9 } \\pm { \\bf 0 . 0 4 }$ </td></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr></table>",
+                "table_type": "complex_table",
+                "table_nest_level": 1
+            },
+            "bbox": [
+                91,
+                286,
+                908,
+                429
+            ]
+        },
+        {
+            "type": "table",
+            "content": {
+                "image_source": {
+                    "path": "images/7a5b71a2a33169c965a9c1699c4eb76a4a3e8bce7722c51df323fdc2cce237a0.jpg"
+                },
+                "table_caption": [],
+                "table_footnote": [],
+                "html": "<table><tr><td rowspan=\"2\">Architecture</td><td rowspan=\"2\">Model</td><td rowspan=\"2\">Params</td><td colspan=\"4\">Parse2022</td><td colspan=\"4\">AMOS22</td></tr><tr><td>Jaccard ↑</td><td>Dice ↑</td><td>95HD↓</td><td>ASD ↓</td><td>Jaccard ↑</td><td>Dice ↑</td><td>95HD↓</td><td>ASD↓</td></tr><tr><td rowspan=\"2\">Conv</td><td>VNet [36]</td><td>46M</td><td> $\\overline { { 7 2 . 4 7 \\pm 1 . 6 4 } }$ </td><td> $8 3 . 8 9 \\pm 1 . 1 2$ </td><td>5.74±0.81</td><td>1.24±0.09</td><td>70.04±2.75</td><td> $7 9 . 7 5 { \\pm } 2 . 4 8$ </td><td>6.41±1.60</td><td> $\\overline { { 1 . 6 2 \\pm 0 . 3 9 } }$ </td></tr><tr><td>nnUNet [25]</td><td>88M</td><td> $7 2 . 6 7 { \\pm } 1 . 5 5 $ </td><td> $8 3 . 9 9 \\pm 1 . 0 9$ </td><td>4.78±0.59</td><td>1.11±0.09</td><td>78.12±0.71</td><td> $8 5 . 9 9 \\pm 0 . 6 4$ </td><td>4.03±0.42</td><td> $1 . 0 2 { \\pm } 0 . 1 4$ </td></tr><tr><td rowspan=\"2\">Trans</td><td>nnFormer [56]</td><td>149M</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td>D-Former [49]</td><td>51M</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td rowspan=\"6\">Hybrid (Conv + Trans)</td><td>UNETR [18]</td><td>93M</td><td> $\\overline { { 6 7 . 1 8 \\pm 1 . 3 3 } }$ </td><td>80.20±0.98</td><td> $1 2 . 4 3 { \\pm } 0 . 7 0 $ </td><td>2.22±0.09</td><td> $\\overline { { 5 6 . 3 4 \\pm 1 . 3 3 } }$ </td><td> $\\overline { { 6 8 . 7 2 \\pm 1 . 1 4 } }$ </td><td>13.57±1.62</td><td> $3 . 1 9 { \\pm } 0 . 4 3$ </td></tr><tr><td>TransBTS [48]</td><td>31M</td><td> $7 2 . 2 6 { \\pm } 0 . 7 8$ </td><td> $8 3 . 7 2 \\pm 0 . 5 4$ </td><td> $5 . 4 0 \\pm 0 . 7 3$ </td><td>1.18±0.08</td><td> $5 1 . 5 5 { \\pm } 1 . 5 0 $ </td><td> $6 4 . 0 7 \\pm 2 . 1 2$ </td><td> $1 2 . 5 3 { \\pm } 1 . 0 2 $ </td><td>3.46±0.51</td></tr><tr><td>CoTr [50]</td><td>11M</td><td> $7 3 . 4 2 \\pm 1 . 3 9$ </td><td> $8 4 . 5 1 { \\pm } 0 . 9 5 $ </td><td> $4 . 3 0 { \\pm } 0 . 5 9$ </td><td> $1 . 0 5 { \\pm } 0 . 0 9$ </td><td> $7 4 . 3 8 \\pm 2 . 1 9$ </td><td> $8 3 . 0 3 { \\pm } 1 . 8 0 $ </td><td> $4 . 9 7 \\pm 0 . 5 4$ </td><td> $1 . 2 6 \\pm 0 . 2 4$ </td></tr><tr><td>SegFormer 3D [38]</td><td>4M</td><td> $5 9 . 5 6 { \\pm } 0 . 8 2 $ </td><td> $7 4 . 4 8 { \\pm } 0 . 6 4$ </td><td> $2 6 . 6 7 { \\scriptstyle \\pm 0 . 7 2 }$ </td><td> $4 . 5 8 { \\pm } 0 . 1 0 $ </td><td> $6 4 . 4 9 { \\pm } 0 . 4 8 $ </td><td> $7 5 . 6 4 \\pm 0 . 4 1$ </td><td> $6 . 9 0 { \\pm } 0 . 5 8 $ </td><td> $1 . 7 9 { \\pm } 0 . 1 1$ </td></tr><tr><td>3D UX-Net [32]</td><td>53M</td><td> $7 2 . 4 8 \\pm 1 . 1 4$ </td><td> $8 3 . 8 6 \\pm 0 . 8 2$ </td><td> $5 . 2 6 { \\pm } 0 . 7 0 $ </td><td> $1 . 1 7 { \\pm } 0 . 0 9$ </td><td> $7 5 . 9 8 \\pm 0 . 7 6$ </td><td> $8 4 . 3 4 \\pm 0 . 6 3$ </td><td> $5 . 6 1 \\pm 0 . 2 0$ </td><td> $1 . 3 1 { \\pm } 0 . 1 2$ </td></tr><tr><td>nnWNet (Ours)</td><td>56M</td><td> ${ \\bf 7 3 . 7 1 \\pm 0 . 6 4 }$ </td><td> $\\mathbf { 8 4 . 7 0 \\pm 0 . 4 6 }$ </td><td> ${ \\bf 3 . 8 7 \\pm 0 . 3 6 }$ </td><td> $\\mathbf { 1 . 0 0 \\pm 0 . 0 5 }$ </td><td> $\\mathbf { 7 8 . 9 3 \\pm 0 . 5 8 }$ </td><td> $\\mathbf { 8 6 . 3 9 \\pm 0 . 4 9 }$ </td><td> $\\mathbf { 3 . 7 1 \\pm 0 . 2 3 }$ </td><td> $\\mathbf { 0 . 9 4 \\pm 0 . 0 8 }$ </td></tr></table>",
+                "table_type": "complex_table",
+                "table_nest_level": 1
+            },
+            "bbox": [
+                91,
+                435,
+                908,
+                563
+            ]
+        },
+        {
+            "type": "table",
+            "content": {
+                "image_source": {
+                    "path": "images/478520337de70dfd9ba35410e3e24169685001bb8e8b2fd6c835c110897d4218.jpg"
+                },
+                "table_caption": [
+                    {
+                        "type": "text",
+                        "content": "models perform worse than a well-designed UNet."
+                    }
+                ],
+                "table_footnote": [],
+                "html": "<table><tr><td rowspan=\"2\">Architecture</td><td rowspan=\"2\">Model</td><td rowspan=\"2\">Params</td><td colspan=\"4\">BTCV</td><td colspan=\"4\">ImageCAS</td></tr><tr><td>Jaccard ↑</td><td> $\\mathrm { D i c e } \\uparrow$ </td><td> $9 5 \\mathrm { H D } \\downarrow$ </td><td>ASD↓</td><td>Jaccard ↑</td><td>Dice ↑</td><td>95HD↓</td><td>ASD↓</td></tr><tr><td rowspan=\"2\">Conv</td><td>VNet [36]</td><td>46M</td><td>71.23±2.11</td><td> $8 1 . 0 6 \\pm 2 . 1 0$ </td><td> $7 . 0 7 \\pm 3 . 1 8$ </td><td>1.96±0.98</td><td> $6 7 . 5 5 { \\pm } 0 . 5 0 $ </td><td> $\\overline { { 8 0 . 4 2 \\pm 0 . 3 5 } }$ </td><td> $1 2 . 4 5 { \\pm } 0 . 6 1$ </td><td> $2 . 1 7 { \\pm } 0 . 0 6$ </td></tr><tr><td>nnUNet [25]</td><td>88M</td><td> $7 3 . 1 0 { \\scriptstyle \\pm 2 . 0 7 }$ </td><td> $8 2 . 3 8 \\pm 2 . 2 0 $ </td><td> $6 . 3 2 \\pm 3 . 5 9$ </td><td> $1 . 9 4 \\pm 1 . 3 6$ </td><td> $7 0 . 7 7 { \\scriptstyle \\pm 0 . 2 7 }$ </td><td> $8 2 . 6 9 { \\pm } 0 . 1 7$ </td><td> ${ \\bf 1 0 . 1 8 \\pm 0 . 8 3 }$ </td><td> $1 . 8 1 { \\pm } 0 . 0 8 $ </td></tr><tr><td rowspan=\"2\">Trans</td><td>nnFormer [56]</td><td>149M</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td>D-Former [49]</td><td>51M</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td rowspan=\"6\">Hybrid (Conv + Trans)</td><td>UNETR [18]</td><td>93M</td><td> $\\overline { { 6 3 . 1 3 \\pm 1 . 9 9 } }$ </td><td> $\\overline { { 7 4 . 4 3 \\pm 1 . 9 9 } }$ </td><td> $\\overline { { 1 4 . 5 5 { \\pm } 3 . 7 1 } }$ </td><td> $\\overline { { 3 . 3 4 \\pm 1 . 2 2 } }$ </td><td> $\\overline { { 6 6 . 3 3 { \\pm } 0 . 6 7 } }$ </td><td> $\\overline { { 7 9 . 5 5 \\pm 0 . 5 0 } }$ </td><td> $\\overline { { 1 2 . 8 4 \\pm 0 . 6 2 } }$ </td><td> $\\overline { { 2 . 3 4 \\pm 0 . 0 7 } }$ </td></tr><tr><td>TransBTS [48]</td><td>31M</td><td> $7 1 . 5 1 \\pm 1 . 9 8$ </td><td> $8 1 . 2 1 \\pm 2 . 0 8$ </td><td> $7 . 2 0 \\pm 3 . 4 7$ </td><td> $1 . 9 9 \\pm 1 . 0 9$ </td><td> $6 9 . 0 8 { \\scriptstyle \\pm 0 . 2 6 }$ </td><td> $8 1 . 5 2 { \\pm } 0 . 1 9$ </td><td> $1 0 . 9 6 { \\pm } 0 . 7 9$ </td><td> $1 . 9 5 { \\pm } 0 . 0 9$ </td></tr><tr><td>CoTr [50]</td><td>11M</td><td> $7 2 . 4 1 \\pm 1 . 7 5$ </td><td> $8 1 . 9 3 { \\pm } 1 . 8 8 $ </td><td> $7 . 0 5 \\pm 2 . 7 2$ </td><td> $1 . 7 9 { \\pm } 0 . 7 6 $ </td><td> $7 0 . 2 4 \\pm 0 . 2 5$ </td><td> $8 2 . 3 2 { \\pm } 0 . 1 9$ </td><td> $1 0 . 9 4 \\pm 0 . 8 4$ </td><td> $1 . 9 4 \\pm 0 . 0 8$ </td></tr><tr><td>SegFormer 3D [38]</td><td>4M</td><td> $6 4 . 8 2 \\pm 2 . 2 5$ </td><td> $7 5 . 8 4 \\pm 2 . 3 3 $ </td><td> $9 . 1 7 \\pm 3 . 7 9$ </td><td> $2 . 7 5 { \\pm } 1 . 4 3$ </td><td> $6 5 . 0 7 { \\pm } 0 . 1 8$ </td><td> $7 8 . 6 6 { \\pm } 0 . 1 4$ </td><td> $1 0 . 9 0 { \\scriptstyle \\pm 0 . 8 0 }$ </td><td> $2 . 0 1 { \\pm } 0 . 0 8$ </td></tr><tr><td>3D UX-Net [32]</td><td>53M</td><td> $7 1 . 4 3 { \\pm } 2 . 0 1$ </td><td> $8 1 . 2 3 { \\pm } 2 . 1 9$ </td><td> $8 . 7 9 { \\pm } 2 . 8 9$ </td><td> $2 . 1 0 { \\pm } 1 . 1 5 $ </td><td> $6 9 . 8 9 { \\pm } 0 . 7 8 $ </td><td> $8 2 . 0 7 { \\pm } 0 . 5 5 $ </td><td> $1 1 . 4 4 { \\pm } 0 . 8 2 $ </td><td> $2 . 0 0 { \\pm } 0 . 1 0 \\ $ </td></tr><tr><td> $\\mathrm { n n } \\mathrm { W N e t } \\left( \\mathrm { O u r s } \\right)$ </td><td>56M</td><td> $7 4 . 7 6 { \\scriptstyle \\pm 2 . 4 6 }$ </td><td> $\\mathbf { 8 3 . 7 0 \\pm 2 . 5 5 }$ </td><td> ${ \\pm 1 . 2 8 \\pm 1 . 7 7 }$ </td><td> $\\mathbf { 1 . 3 3 \\pm 0 . 4 3 }$ </td><td> ${ \\bf 7 1 . 5 8 \\pm 0 . 2 5 }$ </td><td> $\\mathbf { 8 3 . 2 5 \\pm 0 . 1 9 }$ </td><td> $1 0 . 2 7 { \\pm } 0 . 8 6 $ </td><td> $\\mathbf { 1 . 8 0 \\pm 0 . 0 8 }$ </td></tr></table>",
+                "table_type": "complex_table",
+                "table_nest_level": 1
+            },
+            "bbox": [
+                91,
+                569,
+                908,
+                699
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "We also compare the model size in Table 3. Our model maintains a relatively small number of parameters (Params) among all encoder-decoder architectures."
+                    }
+                ]
+            },
+            "bbox": [
+                511,
+                731,
+                906,
+                777
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "brid models. Table 3 presents the comparison results for 2D and 3D datasets. nnWNet previous state-of-the-art models by a large margin; this may be because our model captures long-range dependencies and local details simultaneously and ensures their continuous transmission and fusion at multiple feature scales. We also note that several pure transformer models fail to converge; possibly because they overemphasize long-range dependencies and ignore crucial local features. Several hybrid models exhibit significant performance degradation; this may be due to the confusion and contradiction in the transmission of global and local features. In addition, under the unified benchmark, some"
+                    }
+                ]
+            },
+            "bbox": [
+                88,
+                710,
+                486,
+                895
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "4.4. Statistic Analysis"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                513,
+                799,
+                683,
+                815
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Table 4 shows the statistical significance of the Jaccard metric between nnWNet and other models. Our model achieves a significance rate of 87.50%, succeeding in 28 out of 32 t-tests "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "( p < 0 . 0 5 )"
+                    },
+                    {
+                        "type": "text",
+                        "content": ". It demonstrates that nnWNet has statistically significant improvements."
+                    }
+                ]
+            },
+            "bbox": [
+                509,
+                824,
+                908,
+                901
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "20857"
+                    }
+                ]
+            },
+            "bbox": [
+                477,
+                944,
+                519,
+                958
+            ]
+        }
+    ],
+    [
+        {
+            "type": "image",
+            "content": {
+                "image_source": {
+                    "path": "images/0549731bd502a467977f39b9b02c8cb42e5ca80e8e50c9dd4b366286942dfa89.jpg"
+                },
+                "image_caption": [],
+                "image_footnote": []
+            },
+            "bbox": [
+                191,
+                80,
+                495,
+                180
+            ]
+        },
+        {
+            "type": "image",
+            "content": {
+                "image_source": {
+                    "path": "images/be6019812017afaa40582a8d189e7f1ad938022ca23b1921da65600f955195f5.jpg"
+                },
+                "image_caption": [],
+                "image_footnote": []
+            },
+            "bbox": [
+                503,
+                80,
+                808,
+                181
+            ]
+        },
+        {
+            "type": "image",
+            "content": {
+                "image_source": {
+                    "path": "images/5bd0e9ba509c6793ec36b607cd331dd5dd0c5601b7060a65d48e81174d6c0239.jpg"
+                },
+                "image_caption": [
+                    {
+                        "type": "text",
+                        "content": "Figure 5. Qualitative results of different models on 2D datasets. (a) Raw images. (b) Ground truth. (c) TransAttUNet. (d) nnUNet. (e) nnWNet. The red arrows highlight the differences among the results."
+                    }
+                ],
+                "image_footnote": []
+            },
+            "bbox": [
+                191,
+                228,
+                504,
+                328
+            ]
+        },
+        {
+            "type": "image",
+            "content": {
+                "image_source": {
+                    "path": "images/34cd6cfe19d4bc6757e06f331ea8dd3b0eb029117eef60f8d6786049b25b2291.jpg"
+                },
+                "image_caption": [
+                    {
+                        "type": "text",
+                        "content": "Figure 6. Qualitative results of different models on 3D datasets. (a) Raw images. (b) Ground truth. (c) CoTr. (d) nnUNet. (e) nnWNet. The green arrows highlight the differences among the results"
+                    }
+                ],
+                "image_footnote": []
+            },
+            "bbox": [
+                509,
+                228,
+                803,
+                327
+            ]
+        },
+        {
+            "type": "table",
+            "content": {
+                "image_source": {
+                    "path": "images/d679c09a06270efa9d6504cafea747f70cc63a4f85bb503f30397f88ed92b727.jpg"
+                },
+                "table_caption": [
+                    {
+                        "type": "text",
+                        "content": "Table 4. The significance p of t-test between nnWNet and other models on the Jaccard metric. Red indicates "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "p \\geqslant 0 . 0 5"
+                    }
+                ],
+                "table_footnote": [],
+                "html": "<table><tr><td>Versus</td><td>DRIVE</td><td>ISIC-2017</td><td>Kvasir-SEG</td><td>CREMI</td></tr><tr><td>nnWNet vs. nnUNet</td><td>0.0000</td><td>0.0429</td><td>0.0665</td><td>0.0000</td></tr><tr><td>nnWNet vs.  $\\mathrm { U ^ { 2 } N e t }$ </td><td>0.0462</td><td>0.0027</td><td>0.0215</td><td>0.0001</td></tr><tr><td>nnWNet vs. H2Former</td><td>0.0018</td><td>0.6749</td><td>0.0301</td><td>0.0000</td></tr><tr><td>nnWNet vs. TransAttUNet</td><td>0.8266</td><td>0.0000</td><td>0.0000</td><td>0.0000</td></tr></table>",
+                "table_type": "simple_table",
+                "table_nest_level": 1
+            },
+            "bbox": [
+                91,
+                412,
+                485,
+                468
+            ]
+        },
+        {
+            "type": "table",
+            "content": {
+                "image_source": {
+                    "path": "images/e332713f76e959ad9bf5cf6710037f859006270d7951ece8ca841a0ba29efdb2.jpg"
+                },
+                "table_caption": [],
+                "table_footnote": [],
+                "html": "<table><tr><td>Versus</td><td>Parse2022</td><td>AMOS22</td><td>BTCV</td><td>ImageCAS</td></tr><tr><td>nnWNet vs. nnUNet</td><td>0.0001</td><td>0.0002</td><td>0.0000</td><td>0.0000</td></tr><tr><td>nnWNet vs. VNet</td><td>0.0003</td><td>0.0000</td><td>0.0006</td><td>0.0000</td></tr><tr><td>nnWNet vs. TransBTS</td><td>0.0000</td><td>0.0000</td><td>0.0000</td><td>0.0000</td></tr><tr><td>nnWNet vs. CoTr</td><td>0.2598</td><td>0.0000</td><td>0.0000</td><td>0.0000</td></tr></table>",
+                "table_type": "simple_table",
+                "table_nest_level": 1
+            },
+            "bbox": [
+                91,
+                477,
+                485,
+                532
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "4.5. Qualitative Results"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                91,
+                545,
+                274,
+                560
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Figure 5 and Figure 6 show various qualitative results of different models. Based on the continuous flow and multiscale fusion of global and local features, nnWNet achieves better pixel-wise accuracy and contour accuracy. More qualitative results are available in the Supplemental Material."
+                    }
+                ]
+            },
+            "bbox": [
+                89,
+                568,
+                485,
+                657
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "4.6. Ablation Studies"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                89,
+                666,
+                254,
+                681
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "To verify the effectiveness of each component, we perform the following ablation studies on four 2D datasets."
+                    }
+                ]
+            },
+            "bbox": [
+                89,
+                689,
+                482,
+                719
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Comparison of Different Self-Attention. Table 5 compares the performance of adding different self-attentions to GSBs, including depth-wise convolution (DW Conv) with large kernel [32], pooling [52], and efficient multi-head selfattention (E-MHSA) [15]. Pooling achieves better results. We use pooling as self-attention to all relevant experiments in Table 3."
+                    }
+                ]
+            },
+            "bbox": [
+                89,
+                719,
+                483,
+                824
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Comparison of Fusion Strategies. Table 6 compares different fusion strategies of global and local features. We find that the channel concatenation used by the raw UNet achieves better performance. We apply it to all relevant experiments in Table 3."
+                    }
+                ]
+            },
+            "bbox": [
+                89,
+                825,
+                485,
+                901
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Effectiveness of Combining Convolution and Transformer. We replace LSBs with PoolFormers and GSBs with residual blocks to generate a pure transformer WNet and a pure convolutional WNet, respectively. Table 7 compares the performance of hybrid, pure convolutional, and pure transformer architectures. Overall, the hybrid architecture demonstrates superior results. Note that the pure convolutional architecture may achieve better contour accuracy because convolution focuses on local details and is sensitive to boundaries."
+                    }
+                ]
+            },
+            "bbox": [
+                511,
+                375,
+                908,
+                526
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Necessity of Continuous Transmission of Global and Local Features. We replace the encoder and decoder in the raw UNet [41] to demonstrate the significance of continuous transmitting global and local features. Specifically, we implement pure convolution, pure transformer, series connection of convolution and transformer, and parallel connection of convolution and transformer to construct the encoder and decoder. Table 8 compares the performance of these architectures. Our findings indicate that the series connection has a negative effect. This may be due to the series connection forcing global and local features to be generated alternately, which hinders continuous transmission. In contrast, the parallel connection and fusion before each down-sampling yields positive results because it avoids the conflict of capturing long-range dependencies from local features while simultaneously extracting local details from global features. The performance of using a convolutional encoder with a transformer decoder is similar to that of using a transformer encoder with a convolutional decoder, with both architectures performing between the series and parallel connections. Furthermore, we find that the combination of transformer and convolution outperforms the pure convolutional architecture, further proving the necessity of focusing on both global and local features."
+                    }
+                ]
+            },
+            "bbox": [
+                509,
+                537,
+                908,
+                902
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "20858"
+                    }
+                ]
+            },
+            "bbox": [
+                478,
+                945,
+                519,
+                957
+            ]
+        }
+    ],
+    [
+        {
+            "type": "table",
+            "content": {
+                "image_source": {
+                    "path": "images/91c9cca527a2b68e574c1b5794e2d416dff8f0133e34902063fd34546cfd1685.jpg"
+                },
+                "table_caption": [
+                    {
+                        "type": "text",
+                        "content": "Table 5. Comparison of Adding Different Self-Attentions to GSBs."
+                    }
+                ],
+                "table_footnote": [],
+                "html": "<table><tr><td rowspan=\"2\">Token-Mixer</td><td colspan=\"4\">DRIVE</td><td colspan=\"4\">ISIC-2017</td></tr><tr><td>Jaccard ↑Dice ↑</td><td></td><td> $9 5 \\mathrm { H D } \\downarrow$ </td><td>ASD↓</td><td>Jaccard ↑Dice ↑</td><td></td><td>95HD↓ASD↓</td><td></td></tr><tr><td> $\\overline { { \\mathrm { ~ D W ~ C o n v ~ 7 ~ } \\times ~ 7 ~ } }$ </td><td> $\\overline { { 6 9 . 7 9 2 1 . 1 5 } }$ </td><td> $\\overline { { 8 2 . 1 2 \\pm 0 . 9 1 } }$ </td><td> $\\overline { { 4 . 7 4 \\pm 1 . 3 1 } }$ </td><td> $\\overline { { 1 . 1 3 \\pm 0 . 1 4 } }$ </td><td> $\\overline { { 8 2 . 5 5 \\pm 0 . 5 7 } }$ </td><td> $\\overline { { 8 9 . 3 2 \\pm 0 . 5 1 } }$ </td><td> $\\overline { { 1 2 . 7 1 { \\pm } { 0 . 6 1 } } }$ </td><td> $\\overline { { 5 . 3 2 \\pm 0 . 3 0 } }$ </td></tr><tr><td> $\\mathrm { D W } \\mathrm { C o n v 1 1 \\times 1 1 }$ </td><td> $6 9 . 4 9 { \\pm } 1 . 3 7 $ </td><td> $8 1 . 8 9 { \\pm } 1 . 1 1 $ </td><td> $4 . 8 8 \\pm 1 . 3 9$ </td><td> $1 . 1 5 { \\pm } 0 . 1 6$ </td><td> $8 2 . 4 6 { \\pm } 0 . 5 1 $ </td><td> $8 9 . 3 0 { \\pm } 0 . 4 2 $ </td><td> $1 2 . 8 8 { \\pm } 0 . 6 1 $ </td><td> $5 . 3 3 \\pm 0 . 2 7$ </td></tr><tr><td>Pooling</td><td> $\\mathbf { 6 9 . 8 6 \\pm 1 . 2 6 }$ </td><td> $\\mathbf { 8 2 . 1 8 \\pm 0 . 9 7 }$ </td><td> ${ \\bf 4 . 4 7 \\pm 1 . 1 9 }$ </td><td> ${ \\bf 1 . 0 7 \\pm 0 . 1 2 }$ </td><td> ${ \\bf 8 2 . 6 2 \\pm 0 . 7 1 }$ </td><td> $\\mathbf { 8 9 . 4 4 \\pm 0 . 5 9 }$ </td><td> $1 2 . 7 3 { \\scriptstyle \\pm 0 . 8 4 }$ </td><td> ${ \\bf 5 . 1 1 \\pm 0 . 4 1 }$ </td></tr><tr><td>E-MHSA</td><td> $6 9 . 6 7 \\pm 1 . 3 5$ </td><td> $8 2 . 0 2 { \\pm } 1 . 0 7 $ </td><td> $4 . 5 6 \\pm 1 . 2 7$ </td><td> $1 . 1 2 { \\pm } 0 . 1 5$ </td><td> $8 2 . 4 5 { \\pm } 0 . 6 2 $ </td><td> $8 9 . 2 7 { \\pm } 0 . 4 9 $ </td><td> $1 2 . 9 8 { \\pm } 0 . 6 6 $ </td><td> $5 . 4 1 \\pm 0 . 3 4$ </td></tr></table>",
+                "table_type": "complex_table",
+                "table_nest_level": 1
+            },
+            "bbox": [
+                91,
+                107,
+                915,
+                174
+            ]
+        },
+        {
+            "type": "table",
+            "content": {
+                "image_source": {
+                    "path": "images/5243d628439929912c9123ec58c9d664320566a3847372b4a178422a59982f85.jpg"
+                },
+                "table_caption": [],
+                "table_footnote": [],
+                "html": "<table><tr><td rowspan=\"2\">Token-Mixer</td><td colspan=\"4\">Kvasir-SEG</td><td colspan=\"4\">CREMI</td></tr><tr><td>Jaccard ↑</td><td>Dice ↑</td><td>95HD↓</td><td>ASD↓</td><td>Jaccard ↑</td><td>Dice ↑</td><td>95HD ↓</td><td>ASD ↓</td></tr><tr><td>DW Conv  $\\overline { { 7 \\times 7 } }$ </td><td> $\\overline { { 8 4 . 3 3 \\pm 1 . 9 0 } }$ </td><td> $\\overline { { 8 9 . 7 2 \\pm 1 . 7 6 } }$ </td><td> $\\overline { { 1 9 . 0 5 \\pm 2 . 5 6 } }$ </td><td> $\\overline { { 5 . 6 7 \\pm 1 . 1 5 } }$ </td><td> $\\overline { { 7 9 . 0 2 \\pm 0 . 2 1 } }$ </td><td> $\\overline { { 8 7 . 9 2 \\pm 0 . 1 6 } }$ </td><td> $\\overline { { 3 . 0 0 \\pm 0 . 2 7 } }$ </td><td> $\\overline { { 0 . 7 9 \\pm 0 . 0 6 } }$ </td></tr><tr><td>DW Conv 11 × 11</td><td> $8 4 . 4 9 \\pm 2 . 0 8$ </td><td> $8 9 . 8 8 \\pm 1 . 9 0 $ </td><td> $1 8 . 7 1 \\pm 2 . 4 8$ </td><td> $5 . 5 0 { \\pm } 1 . 1 3 $ </td><td> $7 9 . 0 1 { \\scriptstyle \\pm 0 . 2 6 }$ </td><td> $8 7 . 9 0 { \\pm } 0 . 2 2 $ </td><td> $2 . 9 7 { \\pm } 0 . 1 1$ </td><td> $0 . 7 9 2 0 . 0 4$ </td></tr><tr><td>Pooling</td><td> $\\mathbf { 8 4 . 5 8 \\pm 1 . 8 9 }$ </td><td> $\\mathbf { 8 9 . 9 8 { \\pm } 1 . 7 2 }$ </td><td> ${ \\bf 1 8 . 1 7 \\pm 2 . 4 3 }$ </td><td> $\\mathbf { 4 . 7 3 \\bot 0 . 8 6 }$ </td><td> $\\mathbf { 7 9 . 8 6 \\pm 0 . 2 5 }$ </td><td> $\\mathbf { 8 8 . 4 3 \\pm 0 . 2 0 }$ </td><td> $\\mathbf { 2 . 7 5 { \\pm } 0 . 1 4 }$ </td><td> ${ \\bf 0 . 6 9 } \\pm { \\bf 0 . 0 4 }$ </td></tr><tr><td>E-MHSA</td><td> $8 4 . 3 7 \\pm 2 . 3 8 $ </td><td> $8 9 . 8 5 { \\pm } 2 . 0 5$ </td><td> $1 8 . 8 3 \\pm 3 . 3 7$ </td><td> $5 . 4 4 \\pm 1 . 2 7$ </td><td> $7 8 . 3 7 { \\pm } 0 . 2 0 $ </td><td> $8 7 . 4 8 { \\pm } 0 . 1 6 $ </td><td> $3 . 1 5 { \\pm } 0 . 2 8$ </td><td> $0 . 8 3 { \\pm } 0 . 0 6$ </td></tr></table>",
+                "table_type": "complex_table",
+                "table_nest_level": 1
+            },
+            "bbox": [
+                91,
+                180,
+                915,
+                248
+            ]
+        },
+        {
+            "type": "table",
+            "content": {
+                "image_source": {
+                    "path": "images/f1be598ca3aafae27dfc930143a79db6e37deac41012d36a3450168736ec1841.jpg"
+                },
+                "table_caption": [
+                    {
+                        "type": "text",
+                        "content": "Table 6. Comparison of different fusion strategies between global and local features. © indicates channel concatenation,  indicates element-wise multiplication, and  indicates element-wise addition."
+                    }
+                ],
+                "table_footnote": [],
+                "html": "<table><tr><td rowspan=\"2\">Fusion Strategy</td><td colspan=\"4\">DRIVE</td><td colspan=\"4\">ISIC-2017</td></tr><tr><td>Jaccard ↑</td><td> $\\mathrm { D i c e } \\uparrow$ </td><td>95HD↓</td><td> $\\mathbf { A S D } \\downarrow$ </td><td>Jaccard ↑</td><td> $\\mathrm { D i c e } \\uparrow$ </td><td>95HD↓</td><td>ASD↓</td></tr><tr><td>©</td><td> $\\overline { { { \\bf 6 9 . 8 6 } \\pm 1 . 2 6 } }$ </td><td> $\\overline { { 8 2 . 1 8 \\pm 0 . 9 7 } }$ </td><td>4.47±1.19</td><td>1.07±0.12</td><td> $\\overline { { 8 2 . 6 2 \\pm 0 . 7 1 } }$ </td><td> $\\overline { { { \\bf 8 9 . 4 4 } \\pm { \\bf 0 . 5 9 } } }$ </td><td> $\\overline { { 1 2 . 7 3 \\pm 0 . 8 4 } }$ </td><td>5.11±0.41</td></tr><tr><td></td><td> $6 8 . 8 4 \\pm 2 . 8 3 $ </td><td> $8 1 . 3 5 { \\pm } 2 . 2 7$ </td><td>5.55±2.36</td><td>1.21±0.30</td><td> $8 1 . 6 8 { \\pm } 0 . 4 7$ </td><td> $8 8 . 6 9 { \\pm } 0 . 4 4 $ </td><td> $1 3 . 9 0 { \\pm } 0 . 5 8 $ </td><td>5.57±0.32</td></tr><tr><td>⊕</td><td> $6 9 . 6 3 { \\pm } 1 . 5 2 $ </td><td> $8 1 . 9 8 { \\pm } 1 . 2 3 $ </td><td>4.76±1.44</td><td>1.11±0.15</td><td>82.36±0.62</td><td> $8 9 . 1 8 { \\pm } 0 . 4 9$ </td><td> $1 2 . 8 7 { \\pm } 0 . 6 5 $ </td><td>5.15±0.27</td></tr></table>",
+                "table_type": "complex_table",
+                "table_nest_level": 1
+            },
+            "bbox": [
+                91,
+                295,
+                903,
+                352
+            ]
+        },
+        {
+            "type": "table",
+            "content": {
+                "image_source": {
+                    "path": "images/d94bdfe01573b052112452c4c03161008530545036f949a090c570bde15571e6.jpg"
+                },
+                "table_caption": [],
+                "table_footnote": [],
+                "html": "<table><tr><td rowspan=\"2\">Fusion Strategy</td><td colspan=\"4\">Kvasir-SEG</td><td colspan=\"4\">CREMI</td></tr><tr><td>Jaccard ↑</td><td>Dice ↑</td><td>95HD ↓</td><td>ASD ↓</td><td>Jaccard ↑</td><td> $\\mathrm { D i c e } \\uparrow$ </td><td>95HD ↓</td><td>ASD ↓</td></tr><tr><td>©</td><td> $\\overline { { 8 4 . 5 8 \\pm 1 . 8 9 } }$ </td><td> $\\overline { { 8 9 . 9 8 \\pm 1 . 7 2 } }$ </td><td> $\\overline { { 1 8 . 1 7 \\pm 2 . 4 3 } }$ </td><td>4.73±0.86</td><td> $\\overline { { 7 9 . 8 6 \\pm 0 . 2 5 } }$ </td><td> $\\overline { { 8 8 . 4 3 \\pm 0 . 2 0 } }$ </td><td> $\\overline { { 2 . 7 5 \\pm 0 . 1 4 } }$ </td><td>0.69±0.04</td></tr><tr><td>O</td><td> $8 2 . 3 8 { \\pm } 2 . 6 2$ </td><td> $8 8 . 2 7 \\pm 2 . 4 2$ </td><td> $2 0 . 2 7 { \\pm } 2 . 6 4$ </td><td> $5 . 2 1 \\pm 0 . 7 3$ </td><td> $7 7 . 4 9 { \\pm } 0 . 3 6 $ </td><td> $8 6 . 8 3 { \\pm } 0 . 3 6 $ </td><td> $3 . 5 4 \\pm 0 . 2 8$ </td><td>0.84±0.04</td></tr><tr><td>⊕</td><td> $8 4 . 2 4 \\pm 1 . 8 7$ </td><td> $8 9 . 8 7 { \\pm } 1 . 7 5 $ </td><td> ${ \\bf 1 8 . 1 3 \\pm 2 . 7 3 }$ </td><td> $4 . 7 9 2 0 . 9 6$ </td><td> $7 8 . 4 8 { \\pm } 0 . 2 7$ </td><td> $8 7 . 5 6 { \\pm } 0 . 2 2 $ </td><td> $3 . 1 7 { \\pm } 0 . 1 3$ </td><td>0.80±0.02</td></tr></table>",
+                "table_type": "complex_table",
+                "table_nest_level": 1
+            },
+            "bbox": [
+                93,
+                359,
+                903,
+                416
+            ]
+        },
+        {
+            "type": "table",
+            "content": {
+                "image_source": {
+                    "path": "images/dfd93a925b29f2679949965bf9e5aa494c246200eb96f839ed6314da1c46eb3d.jpg"
+                },
+                "table_caption": [
+                    {
+                        "type": "text",
+                        "content": "Table 7. Comparison of pure convolutional, pure transformer and hybrid architectures. GSBs are replaced with residual blocks to generate pure convolutional architecture, while LSBs are replaced with PoolFormer to generate pure transformer architecture."
+                    }
+                ],
+                "table_footnote": [],
+                "html": "<table><tr><td rowspan=\"2\">LSB</td><td rowspan=\"2\">GSB</td><td colspan=\"4\">DRIVE</td><td colspan=\"4\">ISIC-2017</td></tr><tr><td>Jaccard ↑</td><td> $\\mathrm { D i c e } \\uparrow$ </td><td> $9 5 \\mathrm { H D } \\downarrow$ </td><td> $\\mathbf { A S D \\downarrow }$ </td><td>Jaccard ↑</td><td>Dice ↑</td><td>95HD↓</td><td>ASD ↓</td></tr><tr><td>Residual Block</td><td>PoolFormer</td><td> $\\overline { { { \\bf 6 9 . 8 6 } \\pm 1 . 2 6 } }$ </td><td> $\\overline { { 8 2 . 1 8 \\pm 0 . 9 7 } }$ </td><td> $\\overline { { 4 . 4 7 \\pm 1 . 1 9 } }$ </td><td> $\\overline { { { \\bf 1 . 0 7 } \\pm { \\bf 0 . 1 2 } } }$ </td><td> $\\overline { { 8 2 . 6 2 \\pm 0 . 7 1 } }$ </td><td> $\\overline { { { \\bf 8 9 . 4 4 } \\pm { \\bf 0 . 5 9 } } }$ </td><td> $\\overline { { 1 2 . 7 3 \\pm 0 . 8 4 } }$ </td><td> $\\mathbf { 5 . 1 1 \\pm 0 . 4 1 }$ </td></tr><tr><td>Residual Block</td><td>Residual Block</td><td> ${ \\bf 6 9 . 8 6 \\pm 1 . 1 3 }$ </td><td> $8 2 . 1 7 { \\pm } 0 . 8 9$ </td><td> ${ \\bf 4 . 4 3 \\pm 1 . 1 6 }$ </td><td> ${ \\bf 1 . 0 7 \\pm 0 . 1 1 }$ </td><td> $8 2 . 1 3 { \\pm } 0 . 5 3 $ </td><td> $8 9 . 0 2 { \\pm } 0 . 4 8 $ </td><td> $1 3 . 4 8 { \\pm } 0 . 9 0 $ </td><td> $5 . 3 0 { \\pm } 0 . 3 1 $ </td></tr><tr><td>PoolFormer</td><td>PoolFormer</td><td> $6 9 . 3 3 { \\pm } 1 . 5 6 $ </td><td> $8 1 . 7 7 { \\pm } 1 . 2 7$ </td><td> $5 . 0 9 { \\pm } 1 . 4 6 $ </td><td> $1 . 1 3 { \\pm } 0 . 1 5$ </td><td> $8 2 . 1 6 { \\pm } 0 . 6 8$ </td><td> $8 9 . 0 8 { \\pm } 0 . 5 6 $ </td><td> $1 2 . 9 4 \\pm 0 . 6 6$ </td><td> $5 . 3 5 { \\pm } 0 . 3 6$ </td></tr></table>",
+                "table_type": "complex_table",
+                "table_nest_level": 1
+            },
+            "bbox": [
+                93,
+                463,
+                903,
+                520
+            ]
+        },
+        {
+            "type": "table",
+            "content": {
+                "image_source": {
+                    "path": "images/2714da1f336d5f6a0e4cab74f5c0bc4a6afd4e0d5a6c252f50e7c118e38f3522.jpg"
+                },
+                "table_caption": [],
+                "table_footnote": [],
+                "html": "<table><tr><td rowspan=\"2\">LSB</td><td rowspan=\"2\">GSB</td><td colspan=\"4\">Kvasir-SEG</td><td colspan=\"4\">CREMI</td></tr><tr><td>Jaccard ↑</td><td>Dice ↑</td><td>95HD↓</td><td>ASD↓</td><td>Jaccard ↑</td><td>Dice ↑</td><td>95HD ↓</td><td>ASD ↓</td></tr><tr><td>Residual Block</td><td>PoolFormer</td><td> $\\overline { { 8 4 . 5 8 \\pm 1 . 8 9 } }$ </td><td> $\\overline { { 8 9 . 9 8 \\pm 1 . 7 2 } }$ </td><td> $\\overline { { 1 8 . 1 7 \\pm 2 . 4 3 } }$ </td><td> $\\overline { { 4 . 7 3 \\pm 0 . 8 6 } }$ </td><td> $\\overline { { 7 9 . 8 6 \\pm 0 . 2 5 } }$ </td><td> $\\overline { { 8 8 . 4 3 \\pm 0 . 2 0 } }$ </td><td> $\\overline { { 2 . 7 5 \\pm 0 . 1 4 } }$ </td><td>0.69±0.04</td></tr><tr><td>Residual Block</td><td>Residual Block</td><td> $8 3 . 8 6 \\pm 1 . 5 6$ </td><td> $8 9 . 2 3 { \\pm } 1 . 6 0 $ </td><td> ${ \\bf 1 8 . 1 3 \\pm 1 . 6 2 }$ </td><td> ${ \\bf 4 . 5 9 { \\pm 0 . 5 9 } }$ </td><td> $7 8 . 7 0 { \\pm } 0 . 1 8$ </td><td> $8 7 . 7 1 { \\pm } 0 . 1 5 $ </td><td> $3 . 0 5 { \\pm } 0 . 1 3$ </td><td>0.77±0.02</td></tr><tr><td>PoolFormer</td><td>PoolFormer</td><td> $8 3 . 3 8 { \\pm } 2 . 2 6 $ </td><td> $8 9 . 0 8 { \\pm } 1 . 9 8 $ </td><td> $1 9 . 5 9 { \\pm 2 . 8 6 }$ </td><td> $5 . 1 8 { \\pm } 0 . 8 8$ </td><td> $7 8 . 9 3 { \\scriptstyle \\pm 0 . 2 6 }$ </td><td> $8 7 . 8 4 \\pm 0 . 2 2$ </td><td> $3 . 0 7 \\pm 0 . 2 4$ </td><td>0.76±0.06</td></tr></table>",
+                "table_type": "complex_table",
+                "table_nest_level": 1
+            },
+            "bbox": [
+                91,
+                527,
+                905,
+                583
+            ]
+        },
+        {
+            "type": "table",
+            "content": {
+                "image_source": {
+                    "path": "images/c422e6ee6a12e3c883604ab0f05cce5008afad821f2fc22cb2660035e5d78db2.jpg"
+                },
+                "table_caption": [
+                    {
+                        "type": "text",
+                        "content": "Table 8. Comparison of UNet with different encoders and decoders."
+                    }
+                ],
+                "table_footnote": [],
+                "html": "<table><tr><td rowspan=\"2\">Encoder</td><td rowspan=\"2\">Decoder</td><td colspan=\"4\">DRIVE</td><td colspan=\"4\">ISIC-2017</td></tr><tr><td>Jaccard ↑</td><td>Dice ↑</td><td>95HD↓</td><td>ASD ↓</td><td>Jaccard ↑</td><td>Dice ↑</td><td>95HD↓</td><td>ASD ↓</td></tr><tr><td>Conv</td><td>Conv</td><td> $\\overline { { 6 9 . 2 4 \\pm 1 . 3 3 } }$ </td><td> $\\overline { { 8 1 . 7 3 \\pm 1 . 0 7 } }$ </td><td> $\\overline { { 4 . 8 2 \\pm 1 . 4 7 } }$ </td><td> $\\overline { { 1 . 1 5 \\pm 0 . 1 8 } }$ </td><td> $\\overline { { 8 1 . 8 3 \\pm 0 . 6 5 } }$ </td><td> $\\overline { { 8 8 . 7 9 2 0 . 6 4 } }$ </td><td> $\\overline { { 1 4 . 6 9 \\pm 0 . 5 7 } }$ </td><td> $\\overline { { 5 . 8 3 \\pm 0 . 3 5 } }$ </td></tr><tr><td>Conv</td><td>Trans</td><td> $6 9 . 2 7 { \\pm } 1 . 4 5 $ </td><td> $8 1 . 7 5 { \\pm } 1 . 1 3$ </td><td> $5 . 0 6 \\pm 1 . 4 2$ </td><td> $1 . 1 7 { \\pm } 0 . 1 6$ </td><td> $\\mathbf { 8 2 . 2 0 { \\pm } 0 . 6 5 }$ </td><td> $\\mathbf { 8 9 . 1 2 \\pm 0 . 5 0 }$ </td><td> $1 3 . 2 0 { \\pm } 0 . 6 0 $ </td><td> $5 . 5 2 \\pm 0 . 3 4$ </td></tr><tr><td>Trans</td><td>Conv</td><td> $6 9 . 2 7 { \\pm } 1 . 2 2 $ </td><td> $8 1 . 7 5 { \\pm } 0 . 9 7 $ </td><td> $5 . 1 3 { \\pm } 1 . 3 6$ </td><td> $1 . 1 8 { \\pm } 0 . 1 5$ </td><td> $8 1 . 9 6 { \\pm } 0 . 5 9$ </td><td> $8 8 . 8 9 { \\pm } 0 . 4 5 $ </td><td> $1 3 . 5 8 { \\pm } 0 . 5 8 $ </td><td> $5 . 5 2 { \\pm } 0 . 2 6 $ </td></tr><tr><td>Series</td><td>Series</td><td> $6 9 . 1 8 { \\pm } 1 . 8 4 $ </td><td> $8 1 . 6 7 { \\pm } 1 . 4 5 $ </td><td> $5 . 0 0 { \\pm } 1 . 4 8 $ </td><td> $1 . 1 7 { \\pm } 0 . 1 6$ </td><td> $8 1 . 6 5 { \\pm } 0 . 8 1$ </td><td> $8 8 . 6 7 { \\pm } 0 . 6 8 $ </td><td> $1 3 . 6 6 { \\pm } 0 . 9 4 $ </td><td> $5 . 7 8 \\pm 0 . 4 7$ </td></tr><tr><td>Parallel</td><td>Parallel</td><td> $\\mathbf { 6 9 . 3 5 \\pm 1 . 3 0 }$ </td><td> $\\mathbf { 8 1 . 8 2 \\pm 1 . 0 0 }$ </td><td> $\\mathbf { 4 . 6 0 \\pm 1 . 3 4 }$ </td><td> ${ \\bf 1 . 1 2 \\pm 0 . 1 6 }$ </td><td> $8 2 . 1 5 { \\pm } 0 . 8 3 $ </td><td> $8 9 . 0 3 { \\pm } 0 . 6 5 $ </td><td> ${ \\bf 1 3 . 0 8 \\pm 0 . 8 5 }$ </td><td> ${ \\pm } 0 . 4 4 { \\pm } 0 . 4 6$ </td></tr></table>",
+                "table_type": "complex_table",
+                "table_nest_level": 1
+            },
+            "bbox": [
+                91,
+                617,
+                908,
+                694
+            ]
+        },
+        {
+            "type": "table",
+            "content": {
+                "image_source": {
+                    "path": "images/fe0ee4d34b16db114190dedae1f47dd6e8deb32986a2b3c54102f3fbd120c615.jpg"
+                },
+                "table_caption": [],
+                "table_footnote": [],
+                "html": "<table><tr><td rowspan=\"2\">Encoder</td><td rowspan=\"2\">Decoder</td><td colspan=\"4\">Kvasir-SEG</td><td colspan=\"4\">CREMI</td></tr><tr><td>Jaccard ↑</td><td>Dice ↑</td><td>95HD ↓</td><td>ASD ↓</td><td>Jaccard ↑</td><td> $\\mathrm { D i c e } \\uparrow$ </td><td>95HD↓</td><td>ASD↓</td></tr><tr><td>Conv</td><td>Conv</td><td>82.02±1.36</td><td> $\\overline { { 8 8 . 2 3 \\pm 1 . 3 5 } }$ </td><td> $2 3 . 7 2 { \\scriptstyle \\pm 1 . 4 1 }$ </td><td>6.69±0.89</td><td> $\\overline { { 7 8 . 1 7 \\pm 0 . 2 8 } }$ </td><td> $\\overline { { 8 7 . 3 6 \\pm 0 . 2 5 } }$ </td><td> $3 . 1 1 \\pm 0 . 2 7$ </td><td>0.83±0.05</td></tr><tr><td>Conv</td><td>Trans</td><td> $8 2 . 9 2 { \\pm } 2 . 0 2$ </td><td> $8 8 . 7 8 \\pm 1 . 8 7$ </td><td> $2 1 . 5 2 { \\pm } 1 . 7 0 $ </td><td> $6 . 0 8 \\pm 0 . 8 5$ </td><td> $7 8 . 9 9 \\pm 0 . 2 3 $ </td><td> $8 7 . 8 7 { \\pm } 0 . 2 0 $ </td><td> $3 . 0 7 \\pm 0 . 2 5$ </td><td> $0 . 8 1 \\pm 0 . 0 5$ </td></tr><tr><td>Trans</td><td>Conv</td><td> $8 2 . 3 2 { \\pm } 1 . 6 5 $ </td><td> $8 8 . 3 2 \\pm 1 . 5 9$ </td><td>21.21±1.79</td><td> $6 . 1 1 \\pm 0 . 9 5$ </td><td> $7 9 . 0 7 { \\pm } 0 . 3 0 $ </td><td> $8 7 . 9 3 { \\pm } 0 . 2 6 $ </td><td> $2 . 9 6 \\pm 0 . 2 1$ </td><td> $0 . 8 0 { \\scriptstyle \\pm 0 . 0 4 }$ </td></tr><tr><td>Series</td><td> $\\mathrm { s e r i e s }$ </td><td> $8 2 . 6 3 { \\pm } 2 . 0 9$ </td><td> $8 8 . 6 5 { \\pm } 1 . 8 4 $ </td><td> $2 1 . 2 1 \\pm 2 . 5 7$ </td><td> $6 . 1 5 { \\pm } 1 . 0 3$ </td><td>79.41±0.25</td><td> $8 8 . 1 4 \\pm 0 . 2 2 $ </td><td> $\\mathbf { 2 . 8 2 \\pm 0 . 1 8 }$ </td><td> $\\mathbf { 0 . 7 5 \\pm 0 . 0 5 }$ </td></tr><tr><td>Parallel</td><td>Parallel</td><td> $\\mathbf { 8 3 . 5 3 } \\pm 2 . 0 9$ </td><td> $\\mathbf { 8 9 . 3 3 \\pm 1 . 7 5 }$ </td><td> $\\pm 0 . 4 2 \\pm 2 . 2 1$ </td><td> ${ \\pm } \\mathrm { \\ } 5 . 5 8 { \\pm } 0 . 8 2$ </td><td> $\\mathbf { 7 9 . 4 7 \\pm 0 . 2 5 }$ </td><td> $\\mathbf { 8 8 . 1 8 \\pm 0 . 2 1 }$ </td><td> $2 . 8 3 \\pm 0 . 2 8$ </td><td> $0 . 7 6 { \\pm } 0 . 0 6$ </td></tr></table>",
+                "table_type": "complex_table",
+                "table_nest_level": 1
+            },
+            "bbox": [
+                91,
+                699,
+                910,
+                779
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "5. Conclusion"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                89,
+                792,
+                210,
+                809
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "We systematically summarize the transformer-based encoder-decoder architectures for biomedical image segmentation and analyze the contradictions within their designs. To incorporate the transformer and address the contradictions, we slightly adjust UNet and propose WNet."
+                    }
+                ]
+            },
+            "bbox": [
+                88,
+                824,
+                485,
+                901
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "WNet can capture long-range dependencies and local details simultaneously and ensure their continuous transmission and multi-scale fusion. We integrate WNet into the nnUNet framework for unified benchmarking. Our model achieves state-of-the-art biomedical image segmentation, and extensive experiments on four 2D datasets and four 3D datasets demonstrate its effectiveness."
+                    }
+                ]
+            },
+            "bbox": [
+                509,
+                794,
+                908,
+                901
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "20859"
+                    }
+                ]
+            },
+            "bbox": [
+                478,
+                945,
+                519,
+                957
+            ]
+        }
+    ],
+    [
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "Acknowledgements"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                91,
+                90,
+                258,
+                107
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "This work was supported by Alibaba Group through Alibaba Research Intern Program."
+                    }
+                ]
+            },
+            "bbox": [
+                89,
+                116,
+                482,
+                147
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "References"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                91,
+                162,
+                187,
+                179
+            ]
+        },
+        {
+            "type": "list",
+            "content": {
+                "list_type": "reference_list",
+                "list_items": [
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[1] Gorkem Can Ates, Prasoon Mohan, and Emrah Celik. Dual cross-attention for medical image segmentation. Engineering Applications of Artificial Intelligence, 126:107139, 2023. 2,3"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[2] Reza Azad, René Arimond, Ehsan Khodapanah Aghdam, Amirhossein Kazerouni, and Dorit Merhof. Dae-former: Dual attention-guided efficient transformer for medical image segmentation. In International Workshop on PRedictive Intelligence In MEdicine, pages 83–95. Springer, 2023. 3"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[3] Reza Azad, Yiwei Jia, Ehsan Khodapanah Aghdam, Julien Cohen-Adad, and Dorit Merhof. Enhancing medical image segmentation with transception: A multi-scale feature fusion approach. arXiv preprint arXiv:2301.10847, 2023. 1"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[4] Reza Azad, Amirhossein Kazerouni, Alaa Sulaiman, Afshin Bozorgpour, Ehsan Khodapanah Aghdam, Abin Jose, and Dorit Merhof. Unlocking fine-grained details with waveletbased high-frequency enhancement in transformers. In International Workshop on Machine Learning in Medical Imaging, pages 207–216. Springer, 2023. 3"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[5] Hu Cao, Yueyue Wang, Joy Chen, Dongsheng Jiang, Xiaopeng Zhang, Qi Tian, and Manning Wang. Swin-unet: Unet-like pure transformer for medical image segmentation. arXiv preprint arXiv:2105.05537, 2021. 2, 3, 6"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[6] Bingzhi Chen, Yishu Liu, Zheng Zhang, Guangming Lu, and Adams Wai Kin Kong. Transattunet: Multi-level attentionguided u-net with transformer for medical image segmentation. IEEE Transactions on Emerging Topics in Computational Intelligence, 2023. 1, 2, 3, 6"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[7] Jieneng Chen, Yongyi Lu, Qihang Yu, Xiangde Luo, Ehsan Adeli, Yan Wang, Le Lu, Alan L Yuille, and Yuyin Zhou. Transunet: Transformers make strong encoders for medical image segmentation. arXiv preprint arXiv:2102.04306, 2021.1,3"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[8] Yong Chen, Xuesong Lu, and Qinlan Xie. Collaborative networks of transformers and convolutional neural networks are powerful and versatile learners for accurate 3d medical image segmentation. Computers in Biology and Medicine, 164: 107228, 2023. 2, 3"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[9] Noel CF Codella, David Gutman, M Emre Celebi, Brian Helba, Michael A Marchetti, Stephen W Dusza, Aadi Kalloo, Konstantinos Liopyris, Nabin Mishra, Harald Kittler, et al. Skin lesion analysis toward melanoma detection: A challenge at the 2017 international symposium on biomedical imaging (isbi), hosted by the international skin imaging collaboration (isic). In 2018 IEEE 15th international symposium on biomedical imaging (ISBI 2018), pages 168–172. IEEE, 2018. 5"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[10] Duwei Dai, Caixia Dong, Qingsen Yan, Yongheng Sun, Chunyan Zhang, Zongfang Li, and Songhua Xu. I2u-net: A dual-path u-net with rich information interaction for medical"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "image segmentation. Medical Image Analysis, page 103241, 2024.3"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[11] Alexey Dosovitskiy, Lucas Beyer, Alexander Kolesnikov, Dirk Weissenborn, Xiaohua Zhai, Thomas Unterthiner, Mostafa Dehghani, Matthias Minderer, Georg Heigold, Sylvain Gelly, et al. An image is worth 16x16 words: Transformers for image recognition at scale. arXiv preprint arXiv:2010.11929, 2020. 1"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[12] J Funke, S Saalfeld, DD Bock, SC Turaga, and E Perlman. Miccai challenge on circuit reconstruction from electron microscopy images, 2016. 2, 5"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[13] Zhendi Gong, Andrew P French, Guoping Qiu, and Xin Chen. Convtransseg: A multi-resolution convolutiontransformer network for medical image segmentation. arXiv preprint arXiv:2210.07072, 2022. 2, 3"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[14] Pengfei Gu, Yejia Zhang, Chaoli Wang, and Danny Z Chen. Convformer: Combining cnn and transformer for medical image segmentation. In 2023 IEEE 20th International Symposium on Biomedical Imaging (ISBI), pages 1–5. IEEE, 2023.1,2,6"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[15] Jianyuan Guo, Kai Han, Han Wu, Yehui Tang, Xinghao Chen, Yunhe Wang, and Chang Xu. Cmt: Convolutional neural networks meet vision transformers. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR), pages 12175–12185, 2022. 7"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[16] Yuanhao Guo, Jiaxing Huang, Yanfeng Zhou, Yaoru Luo, Wenjing Li, and Ge Yang. Segmentation of intracellular structures in fluorescence microscopy images by fusing lowlevel features. In Pattern Recognition and Computer Vision, pages 386–397, 2021. 1"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[17] Ali Hatamizadeh, Vishwesh Nath, Yucheng Tang, Dong Yang, Holger R Roth, and Daguang Xu. Swin unetr: Swin transformers for semantic segmentation of brain tumors in mri images. In International MICCAI brainlesion workshop, pages 272–284. Springer, 2021. 1, 2, 3"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[18] Ali Hatamizadeh, Yucheng Tang, Vishwesh Nath, Dong Yang, Andriy Myronenko, Bennett Landman, Holger R Roth, and Daguang Xu. Unetr: Transformers for 3d medical image segmentation. In Proceedings of the IEEE/CVF Winter Conference on Applications of Computer Vision, pages 574–584, 2022. 1, 2, 3, 6"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[19] Ali Hatamizadeh, Ziyue Xu, Dong Yang, Wenqi Li, Holger Roth, and Daguang Xu. Unetformer: A unified vision transformer model and pre-training framework for 3d medical image segmentation. arXiv preprint arXiv:2204.00631, 2022. 3"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[20] Along He, Kai Wang, Tao Li, Chengkun Du, Shuang Xia, and Huazhu Fu. H2former: An efficient hierarchical hybrid transformer for medical image segmentation. IEEE Transactions on Medical Imaging, 42(9):2763–2775, 2023. 2, 3, 6"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[21] Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun. Deep residual learning for image recognition. In Proceedings of the IEEE conference on computer vision and pattern recognition, pages 770–778, 2016. 4"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[22] Yufan He, Vishwesh Nath, Dong Yang, Yucheng Tang, Andriy Myronenko, and Daguang Xu. Swinunetr-v2: Stronger"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "bbox": [
+                99,
+                188,
+                482,
+                242
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "20860"
+                    }
+                ]
+            },
+            "bbox": [
+                478,
+                945,
+                519,
+                957
+            ]
+        }
+    ],
+    [
+        {
+            "type": "list",
+            "content": {
+                "list_type": "reference_list",
+                "list_items": [
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "swin transformers with stagewise convolutions for 3d medical image segmentation. In International Conference on Medical Image Computing and Computer-Assisted Intervention, pages 416–426. Springer, 2023. 3"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[23] Jiaxing Huang, Yanfeng Zhou, Yaoru Luo, Guole Liu, Heng Guo, and Ge Yang. Representing topological self-similarity using fractal feature maps for accurate segmentation of tubular structures. In European Conference on Computer Vision, pages 143–160. Springer, 2024. 1"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[24] Xiaohong Huang, Zhifang Deng, Dandan Li, Xueguang Yuan, and Ying Fu. Missformer: An effective transformer for 2d medical image segmentation. IEEE Transactions on Medical Imaging, 42(5):1484–1494, 2022. 2, 3"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[25] Fabian Isensee, Paul F Jaeger, Simon AA Kohl, Jens Petersen, and Klaus H Maier-Hein. nnu-net: a self-configuring method for deep learning-based biomedical image segmentation. Nature Methods, 18(2):203–211, 2021. 1, 2, 5, 6"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[26] Fabian Isensee, Tassilo Wald, Constantin Ulrich, Michael Baumgartner, Saikat Roy, Klaus Maier-Hein, and Paul F Jaeger. nnu-net revisited: A call for rigorous validation in 3d medical image segmentation. In International Conference on Medical Image Computing and Computer-Assisted Intervention, pages 488–498. Springer, 2024. 1, 2, 5"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[27] Debesh Jha, Pia H Smedsrud, Michael A Riegler, Pål Halvorsen, Thomas de Lange, Dag Johansen, and Håvard D Johansen. Kvasir-seg: A segmented polyp dataset. In International Conference on Multimedia Modeling, pages 451– 462. Springer, 2020. 5"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[28] Yuanfeng Ji, Haotian Bai, Chongjian Ge, Jie Yang, Ye Zhu, Ruimao Zhang, Zhen Li, Lingyan Zhanng, Wanling Ma, Xiang Wan, et al. Amos: A large-scale abdominal multi-organ benchmark for versatile medical image segmentation. Advances in neural information processing systems, 35:36722– 36732, 2022.5"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[29] Abdul Rehman Khan and Asifullah Khan. Maxvit-unet: Multi-axis attention for medical image segmentation. arXiv preprint arXiv:2305.08396, 2023. 1, 2, 3"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[30] Libin Lan, Pengzhou Cai, Lu Jiang, Xiaojuan Liu, Yongmei Li, and Yudong Zhang. Brau-net++: U-shaped hybrid cnntransformer network for medical image segmentation. arXiv preprint arXiv:2401.00722, 2024. 2, 3"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[31] B Landman, Z Xu, JE Igelsias, M Styner, TR Langerak, and A Klein. 2015 miccai multi-atlas labeling beyond the cranial vault-workshop and challenge. In Proc. MICCAI Multi-Atlas Labeling Beyond Cranial Vault—Workshop Challenge, 2020. 5"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[32] Ho Hin Lee, Shunxing Bao, Yuankai Huo, and Bennett A Landman. 3d ux-net: A large kernel volumetric convnet modernizing hierarchical transformer for medical image segmentation. arXiv preprint arXiv:2209.15076, 2022. 2, 3, 6, 7"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[33] Lingrui Li, Yanfeng Zhou, and Ge Yang. Robust sourcefree domain adaptation for fundus image segmentation. In Proceedings of the IEEE/CVF Winter Conference on Applications of Computer Vision, pages 7840–7849, 2024. 1"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[34] Ze Liu, Yutong Lin, Yue Cao, Han Hu, Yixuan Wei, Zheng Zhang, Stephen Lin, and Baining Guo. Swin transformer:"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Hierarchical vision transformer using shifted windows. In Proceedings of the IEEE/CVF International Conference on Computer Vision, pages 10012–10022, 2021. 1"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[35] Gongning Luo, Kuanquan Wang, Jun Liu, Shuo Li, Xinjie Liang, Xiangyu Li, Shaowei Gan, Wei Wang, Suyu Dong, Wenyi Wang, et al. Efficient automatic segmentation for multi-level pulmonary arteries: The parse challenge. arXiv preprint arXiv:2304.03708, 2023. 5"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[36] Fausto Milletari, Nassir Navab, and Seyed-Ahmad Ahmadi. V-net: Fully convolutional neural networks for volumetric medical image segmentation. In 2016 fourth international conference on 3D vision (3DV), pages 565–571. IEEE, 2016. 2,3,6"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[37] Ozan Oktay, Jo Schlemper, Loic Le Folgoc, Matthew Lee, Mattias Heinrich, Kazunari Misawa, Kensaku Mori, Steven McDonagh, Nils Y Hammerla, Bernhard Kainz, et al. Attention u-net: Learning where to look for the pancreas. arXiv preprint arXiv:1804.03999, 2018. 2, 3"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[38] Shehan Perera, Pouyan Navard, and Alper Yilmaz. Segformer3d: an efficient transformer for 3d medical image segmentation. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pages 4981– 4988, 2024. 3, 6"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[39] Xuebin Qin, Zichen Zhang, Chenyang Huang, Masood Dehghan, Osmar R Zaiane, and Martin Jagersand. U2-net: Going deeper with nested u-structure for salient object detection. Pattern recognition, 106:107404, 2020. 6"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[40] Shihan Qiu, Chengfei Li, Yue Feng, Song Zuo, Huijie Liang, and Ao Xu. Gfanet: Gated fusion attention network for skin lesion segmentation. Computers in Biology and Medicine 155:106462, 2023.6"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[41] Olaf Ronneberger, Philipp Fischer, and Thomas Brox. Unet: Convolutional networks for biomedical image segmentation. In International Conference on Medical Image Computing and Computer-Assisted Intervention, pages 234–241. Springer, 2015. 1, 2, 3, 4, 7"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[42] Saikat Roy, Gregor Koehler, Constantin Ulrich, Michael Baumgartner, Jens Petersen, Fabian Isensee, Paul F Jaeger, and Klaus H Maier-Hein. Mednext: transformer-driven scaling of convnets for medical image segmentation. In International Conference on Medical Image Computing and Computer-Assisted Intervention, pages 405–415. Springer, 2023.3"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[43] Abdelrahman M Shaker, Muhammad Maaz, Hanoona Rasheed, Salman Khan, Ming-Hsuan Yang, and Fahad Shahbaz Khan. Unetr++: delving into efficient and accurate 3d medical image segmentation. IEEE Transactions on Medical Imaging, 2024. 2, 3"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[44] Joes Staal, Michael D Abràmoff, Meindert Niemeijer, Max A Viergever, and Bram Van Ginneken. Ridge-based vessel segmentation in color images of the retina. IEEE transactions on medical imaging, 23(4):501–509, 2004. 5"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[45] Fenghe Tang, Lingtao Wang, Chunping Ning, Min Xian, and Jianrui Ding. Cmu-net: a strong convmixer-based medical ultrasound image segmentation network. In 2023 IEEE 20th international symposium on biomedical imaging (ISBI), pages 1–5. IEEE, 2023. 2, 3, 6"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "bbox": [
+                122,
+                93,
+                482,
+                147
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "20861"
+                    }
+                ]
+            },
+            "bbox": [
+                478,
+                945,
+                517,
+                957
+            ]
+        }
+    ],
+    [
+        {
+            "type": "list",
+            "content": {
+                "list_type": "reference_list",
+                "list_items": [
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[46] Feilong Tang, Zhongxing Xu, Qiming Huang, Jinfeng Wang, Xianxu Hou, Jionglong Su, and Jingxin Liu. Duat: Dualaggregation transformer network for medical image segmentation. In Chinese Conference on Pattern Recognition and Computer Vision (PRCV), pages 343–356. Springer, 2023. 2,3,6"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[47] Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan N Gomez, Łukasz Kaiser, and Illia Polosukhin. Attention is all you need. Advances in neural information processing systems, 30, 2017. 1"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[48] Wenxuan Wang, Chen Chen, Meng Ding, Hong Yu, Sen Zha, and Jiangyun Li. Transbts: Multimodal brain tumor segmentation using transformer. In International Conference on Medical Image Computing and Computer-Assisted Intervention, pages 109–119. Springer, 2021. 1, 3, 6"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[49] Yixuan Wu, Kuanlun Liao, Jintai Chen, Jinhong Wang, Danny Z Chen, Honghao Gao, and Jian Wu. D-former: A ushaped dilated transformer for 3d medical image segmentation. Neural Computing and Applications, 35(2):1931–1944, 2023.3,6"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[50] Yutong Xie, Jianpeng Zhang, Chunhua Shen, and Yong Xia. Cotr: Efficiently bridging cnn and transformer for 3d medical image segmentation. In International conference on medical image computing and computer-assisted intervention, pages 171–180. Springer, 2021. 1, 2, 3, 6"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[51] Guoping Xu, Xuan Zhang, Xinwei He, and Xinglong Wu. Levit-unet: Make faster encoders with transformer for medical image segmentation. In Chinese Conference on Pattern Recognition and Computer Vision (PRCV), pages 42– 53. Springer, 2023. 3"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[52] Weihao Yu, Mi Luo, Pan Zhou, Chenyang Si, Yichen Zhou, Xinchao Wang, Jiashi Feng, and Shuicheng Yan. Metaformer is actually what you need for vision. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition, pages 10819–10829, 2022. 7"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[53] An Zeng, Chunbiao Wu, Guisen Lin, Wen Xie, Jin Hong, Meiping Huang, Jian Zhuang, Shanshan Bi, Dan Pan, Najeeb Ullah, et al. Imagecas: A large-scale dataset and benchmark for coronary artery segmentation based on computed tomography angiography images. Computerized Medical Imaging and Graphics, 109:102287, 2023. 5"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[54] Hongbin Zhang, Xiang Zhong, Guangli Li, Wei Liu, Jiawei Liu, Donghong Ji, Xiong Li, and Jianguo Wu. Bcunet: Bridging convnext and u-net for medical image segmentation. Computers in Biology and Medicine, 159:106960, 2023.6"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[55] Jianpeng Zhang, Yutong Xie, Yan Wang, and Yong Xia. Inter-slice context residual learning for 3d medical image segmentation. IEEE Transactions on Medical Imaging, 40 (2):661–672, 2020. 2"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[56] Hong-Yu Zhou, Jiansen Guo, Yinghao Zhang, Lequan Yu, Liansheng Wang, and Yizhou Yu. nnformer: Interleaved transformer for volumetric segmentation. arXiv preprint arXiv:2109.03201, 2021. 2, 3, 6"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[57] Yanfeng Zhou, Jiaxing Huang, Chenlong Wang, Le Song, and Ge Yang. Xnet: Wavelet-based low and high frequency fusion networks for fully-and semi-supervised semantic segmentation of biomedical images. In Proceedings of the"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "IEEE/CVF International Conference on Computer Vision, pages 21085–21096, 2023. 2, 3"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[58] Yanfeng Zhou, yiming huang, and Ge Yang. Spatial and planar consistency for semi-supervised volumetric medical image segmentation. In 34th British Machine Vision Conference, 2023. 1"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[59] Yanfeng Zhou, Lingrui Li, Chenlong Wang, Le Song, and Ge Yang. Gobletnet: Wavelet-based high-frequency fusion network for semantic segmentation of electron microscopy images. IEEE Transactions on Medical Imaging, 2024. 3"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[60] Yanfeng Zhou, Lingrui Li, Zichen Wang, Guole Liu, Ziwen Liu, and Ge Yang. Xnet v2: Fewer limitations, better results and greater universality. In 2024 IEEE International Conference on Bioinformatics and Biomedicine (BIBM), pages 4070–4075, 2024. 1"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[61] Yanfeng Zhou, Liqun Zhong, Zichen Wang, and Yang Ge. A semi-supervised fracture-attention model for segmenting tubular objects with improved topological connectivity. Bioinformatics, 41(1):btaf013, 2025."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[62] Zongwei Zhou, Md Mahfuzur Rahman Siddiquee, Nima Tajbakhsh, and Jianming Liang. Unet++: Redesigning skip connections to exploit multiscale features in image segmentation. IEEE Transactions on Medical Imaging, 39(6):1856– 1867, 2019.1, 2"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "bbox": [
+                91,
+                93,
+                483,
+                174
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "20862"
+                    }
+                ]
+            },
+            "bbox": [
+                478,
+                945,
+                519,
+                957
+            ]
+        }
+    ]
+]

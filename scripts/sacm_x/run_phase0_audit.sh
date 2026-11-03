@@ -118,7 +118,7 @@ audit_pred() {
   local tag="$1" pred="$2" out="$3" datasets="${4:-}" log="$5"
   [ -d "$pred" ] || { echo "ERROR: no prediction tree for $tag: $pred" >&2; return 1; }
   local args=(--pred-root "$pred" --protocol "$TRAIN_ROOT/protocol_manifest.csv" --out "$out" --workers 8)
-  [ -n "$datasets" ] && args+=(--datasets $datasets)
+  [ -n "$datasets" ] && args+=(--datasets "$datasets")
   echo "=== audit: $tag ==="
   "$PYTHON" scripts/pipeline/audit_predictions.py "${args[@]}" >"$log" 2>&1
 }

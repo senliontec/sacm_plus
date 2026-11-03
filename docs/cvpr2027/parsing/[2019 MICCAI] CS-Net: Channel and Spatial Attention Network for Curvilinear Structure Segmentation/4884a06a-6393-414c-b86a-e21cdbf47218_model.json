@@ -1,0 +1,5256 @@
+[
+    {
+        "layout_dets": [
+            {
+                "cls_id": 6,
+                "label": "doc_title",
+                "score": 0.9776,
+                "bbox": [
+                    238,
+                    139,
+                    1019,
+                    287
+                ],
+                "index": 1
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9652,
+                "bbox": [
+                    149,
+                    361,
+                    1105,
+                    433
+                ],
+                "index": 2
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.7144,
+                "bbox": [
+                    279,
+                    455,
+                    977,
+                    608
+                ],
+                "index": 3
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.5762,
+                "bbox": [
+                    157,
+                    606,
+                    1100,
+                    763
+                ],
+                "index": 4
+            },
+            {
+                "cls_id": 0,
+                "label": "abstract",
+                "score": 0.9891,
+                "bbox": [
+                    219,
+                    842,
+                    1037,
+                    1366
+                ],
+                "index": 5
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9633,
+                "bbox": [
+                    220,
+                    1416,
+                    962,
+                    1478
+                ],
+                "index": 6
+            },
+            {
+                "cls_id": 17,
+                "label": "paragraph_title",
+                "score": 0.9459,
+                "bbox": [
+                    144,
+                    1536,
+                    414,
+                    1572
+                ],
+                "index": 7
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9682,
+                "bbox": [
+                    141,
+                    1606,
+                    1115,
+                    1675
+                ],
+                "index": 8
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    241,
+                    142,
+                    1017,
+                    185
+                ],
+                "score": 0.993,
+                "text": "CS-Net: Channel and Spatial Attention"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    289,
+                    196,
+                    968,
+                    233
+                ],
+                "score": 1.0,
+                "text": "Network for Curvilinear Structure"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    493,
+                    246,
+                    764,
+                    284
+                ],
+                "score": 1.0,
+                "text": "Segmentation"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    216,
+                    360,
+                    1037,
+                    396
+                ],
+                "score": 0.981,
+                "text": "Lei Mou1,2, Yitian Zhao2(⊗), Li Chen1, Jun Cheng2, Zaiwang Gu2,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    152,
+                    396,
+                    1102,
+                    429
+                ],
+                "score": 0.996,
+                "text": "Huaying Hao2, Hong Qi3, Yalin Zheng4, Alejandro Frangi2,5, and Jiang Liu2,6"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    358,
+                    452,
+                    895,
+                    492
+                ],
+                "score": 0.987,
+                "text": "1 School of Computer Science and Technology,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    286,
+                    489,
+                    971,
+                    516
+                ],
+                "score": 0.994,
+                "text": "Wuhan University of Science and Technology, Wuhan, China"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    373,
+                    549,
+                    883,
+                    577
+                ],
+                "score": 1.0,
+                "text": "Chinese Academy of Sciences, Ningbo, China"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    475,
+                    584,
+                    782,
+                    611
+                ],
+                "score": 1.0,
+                "text": "yitian.zhao@nimte.ac.cn"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    377,
+                    515,
+                    875,
+                    552
+                ],
+                "score": 0.989,
+                "text": "2 Cixi Institute of Biomedical Engineering,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    155,
+                    604,
+                    1100,
+                    643
+                ],
+                "score": 0.992,
+                "text": "3 Department of Ophthalmology, Peking University Third Hospital, Beijing, China"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    191,
+                    640,
+                    1084,
+                    670
+                ],
+                "score": 1.0,
+                "text": "Department of Eye and Vision Science, University of Liverpool, Liverpool, UK"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    334,
+                    670,
+                    943,
+                    699
+                ],
+                "score": 0.999,
+                "text": "School of Computing, University of Leeds, Leeds, UK"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    324,
+                    696,
+                    931,
+                    736
+                ],
+                "score": 0.993,
+                "text": "6 Department of Computer Science and Engineering,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    259,
+                    733,
+                    996,
+                    760
+                ],
+                "score": 0.996,
+                "text": "Southern University of Science and Technology, Shenzhen, China"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    174,
+                    641,
+                    200,
+                    660
+                ],
+                "score": 1.0,
+                "text": "4"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    322,
+                    672,
+                    325,
+                    687
+                ],
+                "score": 0.977,
+                "text": "5"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    226,
+                    845,
+                    1031,
+                    873
+                ],
+                "score": 0.998,
+                "text": "Abstract. The detection of curvilinear structures in medical images,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    225,
+                    880,
+                    1034,
+                    902
+                ],
+                "score": 0.995,
+                "text": "e.g., blood vessels or nerve fibers, is important in aiding management of"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    225,
+                    910,
+                    1030,
+                    933
+                ],
+                "score": 0.986,
+                "text": "many diseases. In this work, we propose a general unifying curvilinear"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    225,
+                    940,
+                    1031,
+                    964
+                ],
+                "score": 0.992,
+                "text": "structure segmentation network that works on different medical imaging"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    225,
+                    969,
+                    1030,
+                    993
+                ],
+                "score": 0.998,
+                "text": "modalities: optical coherence tomography angiography (OCT-A), color"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    225,
+                    1002,
+                    1032,
+                    1025
+                ],
+                "score": 0.996,
+                "text": "fundus image, and corneal confocal microscopy (CCM). Instead of the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    225,
+                    1029,
+                    1032,
+                    1056
+                ],
+                "score": 0.999,
+                "text": "U-Net based convolutional neural network, we propose a novel network"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    227,
+                    1061,
+                    1031,
+                    1085
+                ],
+                "score": 0.985,
+                "text": "(CS-Net) which includes a self-attention mechanism in the encoder and"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    225,
+                    1091,
+                    1032,
+                    1116
+                ],
+                "score": 0.992,
+                "text": "decoder. Two types of attention modules are utilized - spatial attention"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    226,
+                    1123,
+                    1032,
+                    1145
+                ],
+                "score": 0.998,
+                "text": "and channel attention, to further integrate local features with their global"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    225,
+                    1154,
+                    1032,
+                    1176
+                ],
+                "score": 0.993,
+                "text": "dependencies adaptively. The proposed network has been validated on"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    224,
+                    1182,
+                    1032,
+                    1206
+                ],
+                "score": 0.998,
+                "text": "five datasets: two color fundus datasets, two corneal nerve datasets and"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    224,
+                    1213,
+                    1031,
+                    1238
+                ],
+                "score": 0.995,
+                "text": "one OCT-A dataset. Experimental results show that our method out-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    225,
+                    1244,
+                    1032,
+                    1268
+                ],
+                "score": 0.996,
+                "text": "performs state-of-the-art methods, for example, sensitivities of corneal"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    224,
+                    1275,
+                    1030,
+                    1299
+                ],
+                "score": 0.983,
+                "text": "nerve fiber segmentation were at least 2% higher than the competitors."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    226,
+                    1306,
+                    1033,
+                    1329
+                ],
+                "score": 0.996,
+                "text": "As a complementary output, we made manual annotations of two corneal"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    225,
+                    1337,
+                    875,
+                    1359
+                ],
+                "score": 0.999,
+                "text": "nerve datasets which have been released for public access."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    226,
+                    1421,
+                    958,
+                    1445
+                ],
+                "score": 0.975,
+                "text": "Keywords: Curvilinear structure · Segmentation · Encoder and"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    225,
+                    1451,
+                    315,
+                    1476
+                ],
+                "score": 1.0,
+                "text": "decoder"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    144,
+                    1535,
+                    411,
+                    1573
+                ],
+                "score": 0.999,
+                "text": "1 Introduction"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    149,
+                    1610,
+                    1110,
+                    1635
+                ],
+                "score": 0.985,
+                "text": "Accurate detection of curvilinear structures, such as retinal vasculature from"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    147,
+                    1643,
+                    1106,
+                    1668
+                ],
+                "score": 0.985,
+                "text": "color fundus image [1], optical coherence tomography angiography (OCT-A),"
+            }
+        ],
+        "page_info": {
+            "page_no": 0,
+            "width": 1221,
+            "height": 1851
+        }
+    },
+    {
+        "layout_dets": [
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9881,
+                "bbox": [
+                    100,
+                    152,
+                    1078,
+                    518
+                ],
+                "index": 1
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9883,
+                "bbox": [
+                    100,
+                    518,
+                    1078,
+                    1051
+                ],
+                "index": 2
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9872,
+                "bbox": [
+                    101,
+                    1050,
+                    1079,
+                    1351
+                ],
+                "index": 3
+            },
+            {
+                "cls_id": 17,
+                "label": "paragraph_title",
+                "score": 0.9445,
+                "bbox": [
+                    103,
+                    1398,
+                    463,
+                    1437
+                ],
+                "index": 4
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9862,
+                "bbox": [
+                    100,
+                    1470,
+                    1079,
+                    1672
+                ],
+                "index": 5
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    108,
+                    156,
+                    1070,
+                    183
+                ],
+                "score": 0.993,
+                "text": "and corneal nerve fiber from corneal confocal microscopy (CCM), are essen-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    108,
+                    189,
+                    1071,
+                    215
+                ],
+                "score": 0.994,
+                "text": "tial for many clinical applications [2]. Manual labeling the curvilinear struc-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    106,
+                    223,
+                    1071,
+                    248
+                ],
+                "score": 0.997,
+                "text": "tures is an exhausting, subjective and tedious tasks for human operators, and"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    257,
+                    1070,
+                    283
+                ],
+                "score": 0.986,
+                "text": "practically impossible in high-throughput analysis settings like screening pro-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    290,
+                    1070,
+                    317
+                ],
+                "score": 0.987,
+                "text": "grams or high-throughput microscopy. In consequence, an automatic segmen-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    323,
+                    1071,
+                    348
+                ],
+                "score": 0.997,
+                "text": "tation method for general curvilinear structures is indispensable to overcome"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    108,
+                    357,
+                    1068,
+                    380
+                ],
+                "score": 0.994,
+                "text": "time constraints, scale-up to big data analysis, and avoid human error. However,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    389,
+                    1071,
+                    415
+                ],
+                "score": 0.994,
+                "text": "computer-aided systems under development have yet to solve the segmentation"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    422,
+                    1071,
+                    449
+                ],
+                "score": 0.997,
+                "text": "problems as posed by high anatomical variation across the population, and the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    455,
+                    1071,
+                    483
+                ],
+                "score": 0.991,
+                "text": "varying scales of curvilinear structures within an image. Noise, poor contrast"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    108,
+                    488,
+                    672,
+                    514
+                ],
+                "score": 0.999,
+                "text": "and low resolution, exacerbate these problems."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    148,
+                    520,
+                    1071,
+                    547
+                ],
+                "score": 0.996,
+                "text": "Extensive work has been carried out towards automatic vessel segmenta-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    108,
+                    555,
+                    1072,
+                    580
+                ],
+                "score": 0.985,
+                "text": "tion or fiber tracing (see [3] for extensive review). As vasculatures or fibers are"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    108,
+                    589,
+                    1072,
+                    614
+                ],
+                "score": 0.996,
+                "text": "curvilinear structures distributed across different orientations and scales, various"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    106,
+                    620,
+                    1070,
+                    647
+                ],
+                "score": 0.994,
+                "text": "filtering methods have been proposed, include Hessian matrix-based filters [4],"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    654,
+                    1067,
+                    679
+                ],
+                "score": 0.998,
+                "text": "symmetry filter [2], and tensor-based filter [5], to name only the most widely"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    108,
+                    688,
+                    1071,
+                    713
+                ],
+                "score": 0.99,
+                "text": "used ones. These approaches aim to remove undesired intensity variations in the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    722,
+                    1071,
+                    747
+                ],
+                "score": 0.984,
+                "text": "image, and suppress background structures and image noise, thereby easing the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    755,
+                    1070,
+                    780
+                ],
+                "score": 0.995,
+                "text": "subsequent segmentation problem. Recently, several deep learning-based meth-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    788,
+                    1071,
+                    813
+                ],
+                "score": 0.995,
+                "text": "ods have been proposed for vessel segmentation and nerve fiber tracing in color"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    821,
+                    1071,
+                    846
+                ],
+                "score": 0.987,
+                "text": "fundus and CCM, respectively. Liskowski et al. [6] introduced a retinal vessel"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    854,
+                    1071,
+                    879
+                ],
+                "score": 0.987,
+                "text": "segmentation method based on Convolutional Neural Network (CNN), and Fu"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    888,
+                    1071,
+                    913
+                ],
+                "score": 0.993,
+                "text": "et al. [7] further applied the CNN along with Conditional Random Field to detect"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    106,
+                    921,
+                    1071,
+                    946
+                ],
+                "score": 0.994,
+                "text": "retinal vessels. Alom et al. [8] adopted recurrent residual convolution block as the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    954,
+                    1071,
+                    979
+                ],
+                "score": 0.999,
+                "text": "backbone of the U-shaped network (R2U-Net) to segment the vessels. Colonna et"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    986,
+                    1070,
+                    1013
+                ],
+                "score": 0.993,
+                "text": "al. [9] used the U-Net-based CNN [10] to trace the corneal nerve. However, deep"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    106,
+                    1020,
+                    1068,
+                    1045
+                ],
+                "score": 0.993,
+                "text": "learning-based method has yet to be used to segment retinal vessels in OCT-A."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    149,
+                    1052,
+                    1069,
+                    1079
+                ],
+                "score": 0.981,
+                "text": "Most of these models were designed for segmentation of vessels or fibers from"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    1085,
+                    1072,
+                    1113
+                ],
+                "score": 0.998,
+                "text": "specific biomedical imaging modalities. In this work, we proposed a Channel and"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    106,
+                    1117,
+                    1069,
+                    1146
+                ],
+                "score": 0.996,
+                "text": "Spatial Attention Network (CS-Net) based on U-Net that has proven to be effec-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    1152,
+                    1069,
+                    1179
+                ],
+                "score": 0.986,
+                "text": "tive to extract curvilinear structures from three biomedical imaging modalities."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    108,
+                    1186,
+                    1069,
+                    1213
+                ],
+                "score": 0.992,
+                "text": "This paper makes four contributions: (1) a new segmentation method was pro-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    106,
+                    1219,
+                    1073,
+                    1246
+                ],
+                "score": 0.994,
+                "text": "posed with self-attention mechanism; (2) CS-Net can deal with multiple types of"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    1252,
+                    1071,
+                    1279
+                ],
+                "score": 0.997,
+                "text": "curvilinear structure segmentation in a unified manner; (3) results on 5 datasets"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    1285,
+                    1073,
+                    1312
+                ],
+                "score": 0.991,
+                "text": "demonstrate state-of-the-art performance; (4) we made manual annotations of"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    106,
+                    1319,
+                    957,
+                    1345
+                ],
+                "score": 0.976,
+                "text": "two corneal nerve datasets which have been released for public access."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    104,
+                    1401,
+                    459,
+                    1435
+                ],
+                "score": 0.987,
+                "text": "2 Proposed Method"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    108,
+                    1473,
+                    1072,
+                    1500
+                ],
+                "score": 0.997,
+                "text": "The proposed CS-Net consists of three phases: the encoder module, the channel"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    1506,
+                    1072,
+                    1533
+                ],
+                "score": 0.991,
+                "text": "and spatial attention module (CSAM), and the decoder module, as shown in"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    106,
+                    1539,
+                    1069,
+                    1566
+                ],
+                "score": 0.992,
+                "text": "Fig. 1. The feature encoder module includes four encoder blocks, and the resid-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    108,
+                    1575,
+                    1071,
+                    1598
+                ],
+                "score": 0.998,
+                "text": "ual network (ResNet) block was employed as the backbone for each block, and"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    1606,
+                    1072,
+                    1634
+                ],
+                "score": 0.996,
+                "text": "then followed by a max-pooling layer to increase the receptive field for better"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    1639,
+                    1071,
+                    1667
+                ],
+                "score": 0.988,
+                "text": "extraction of global features. Then the features from the encoder are fed into"
+            }
+        ],
+        "page_info": {
+            "page_no": 1,
+            "width": 1221,
+            "height": 1851
+        }
+    },
+    {
+        "layout_dets": [
+            {
+                "cls_id": 14,
+                "label": "image",
+                "score": 0.9825,
+                "bbox": [
+                    173,
+                    142,
+                    1086,
+                    692
+                ],
+                "index": 1
+            },
+            {
+                "cls_id": 7,
+                "label": "figure_title",
+                "score": 0.9693,
+                "bbox": [
+                    141,
+                    722,
+                    1114,
+                    817
+                ],
+                "index": 2
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9757,
+                "bbox": [
+                    141,
+                    878,
+                    1115,
+                    982
+                ],
+                "index": 3
+            },
+            {
+                "cls_id": 17,
+                "label": "paragraph_title",
+                "score": 0.94,
+                "bbox": [
+                    142,
+                    1028,
+                    584,
+                    1062
+                ],
+                "index": 4
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9885,
+                "bbox": [
+                    140,
+                    1084,
+                    1116,
+                    1350
+                ],
+                "index": 5
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.8395,
+                "bbox": [
+                    597,
+                    1347,
+                    785,
+                    1379
+                ],
+                "index": 6,
+                "latex": "F \\in \\mathbb { R } ^ { C \\times H \\times W }"
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.5781,
+                "bbox": [
+                    148,
+                    1449,
+                    212,
+                    1479
+                ],
+                "index": 7,
+                "latex": "1 \\times 3"
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.9244,
+                "bbox": [
+                    147,
+                    1479,
+                    319,
+                    1514
+                ],
+                "index": 8,
+                "latex": "Q \\in \\mathbb { R } ^ { C \\times H \\times W }"
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.7048,
+                "bbox": [
+                    295,
+                    1449,
+                    360,
+                    1478
+                ],
+                "index": 9,
+                "latex": "3 \\times 1"
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9865,
+                "bbox": [
+                    140,
+                    1349,
+                    1118,
+                    1619
+                ],
+                "index": 10
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.92,
+                "bbox": [
+                    389,
+                    1479,
+                    565,
+                    1513
+                ],
+                "index": 11,
+                "latex": "K \\in \\mathbb { R } ^ { C \\times H \\times W }"
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.4536,
+                "bbox": [
+                    821,
+                    1416,
+                    850,
+                    1448
+                ],
+                "index": 12,
+                "latex": "F _ { ; }"
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.4826,
+                "bbox": [
+                    359,
+                    1582,
+                    387,
+                    1615
+                ],
+                "index": 13,
+                "latex": "Q"
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.8406,
+                "bbox": [
+                    472,
+                    1545,
+                    550,
+                    1577
+                ],
+                "index": 14,
+                "latex": "\\mathbb { R } ^ { C \\times N }"
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.7725,
+                "bbox": [
+                    646,
+                    1548,
+                    795,
+                    1578
+                ],
+                "index": 15,
+                "latex": "N = H \\times W"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    147,
+                    727,
+                    1109,
+                    751
+                ],
+                "score": 0.988,
+                "text": "Fig. 1. CS-Net structure diagram. It comprises of three phases: the feature encoder"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    147,
+                    757,
+                    1108,
+                    782
+                ],
+                "score": 0.997,
+                "text": "module, the channel and spatial attention module and the feature decoder module."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    148,
+                    788,
+                    374,
+                    812
+                ],
+                "score": 0.998,
+                "text": "(Color figure online)"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    148,
+                    883,
+                    1110,
+                    909
+                ],
+                "score": 0.987,
+                "text": "two parallel attention blocks - the channel attention block (CAB) and a spatial"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    148,
+                    915,
+                    1108,
+                    941
+                ],
+                "score": 0.989,
+                "text": "attention block (SAB), as shown in the red and blue rectangles in Fig. 1. Finally,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    146,
+                    949,
+                    861,
+                    976
+                ],
+                "score": 0.988,
+                "text": "the decoder module was used to reconstruct depth feature."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    147,
+                    1031,
+                    579,
+                    1060
+                ],
+                "score": 0.996,
+                "text": "2.1 Spatial Attention Module"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    146,
+                    1087,
+                    1110,
+                    1115
+                ],
+                "score": 0.996,
+                "text": "Many recent works have shown the local feature representation produced"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    147,
+                    1121,
+                    1109,
+                    1147
+                ],
+                "score": 0.998,
+                "text": "by traditional fully convolutional networks (FCNs) may lead to object mis-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    147,
+                    1154,
+                    1111,
+                    1180
+                ],
+                "score": 0.993,
+                "text": "classification [11,12]. To model rich contextual dependencies over local feature"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    146,
+                    1188,
+                    1110,
+                    1215
+                ],
+                "score": 0.996,
+                "text": "representations, the first step is to generate a spatial attention matrix, which"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    146,
+                    1222,
+                    1110,
+                    1248
+                ],
+                "score": 0.993,
+                "text": "models spatial relationships between features of any two pixels. In practice, tree-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    145,
+                    1252,
+                    1110,
+                    1281
+                ],
+                "score": 0.998,
+                "text": "like structures always are distributed throughout the biomedical image [13]. In"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    147,
+                    1288,
+                    1109,
+                    1314
+                ],
+                "score": 0.994,
+                "text": "consequence, we introduce the SAB to encode a wider range of contextual infor-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    145,
+                    1320,
+                    981,
+                    1349
+                ],
+                "score": 0.998,
+                "text": "mation into local features, to increase their representative capability."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    188,
+                    1352,
+                    589,
+                    1380
+                ],
+                "score": 0.999,
+                "text": "We first feed the input features"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    794,
+                    1353,
+                    1111,
+                    1380
+                ],
+                "score": 0.989,
+                "text": "with batch normalization"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    146,
+                    1386,
+                    1113,
+                    1412
+                ],
+                "score": 0.998,
+                "text": "and ReLU layers or channel transformation, where C indicates the number of"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    145,
+                    1418,
+                    820,
+                    1447
+                ],
+                "score": 0.991,
+                "text": "input channels, H and W are the height and width of"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    851,
+                    1418,
+                    1112,
+                    1447
+                ],
+                "score": 1.0,
+                "text": "respectively. Then a"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    217,
+                    1452,
+                    294,
+                    1481
+                ],
+                "score": 1.0,
+                "text": "and a"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    365,
+                    1452,
+                    1111,
+                    1481
+                ],
+                "score": 0.994,
+                "text": "kernel convolution layer is to generate two new feature maps"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    320,
+                    1485,
+                    386,
+                    1515
+                ],
+                "score": 0.997,
+                "text": ", and"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    566,
+                    1486,
+                    1112,
+                    1513
+                ],
+                "score": 0.993,
+                "text": ", respectively, to capture edge information of"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    147,
+                    1520,
+                    1111,
+                    1546
+                ],
+                "score": 0.995,
+                "text": "tree-like structures in horizontal and vertical orientations. These two new feature"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    145,
+                    1553,
+                    470,
+                    1580
+                ],
+                "score": 0.993,
+                "text": "maps are then reshaped to"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    551,
+                    1553,
+                    641,
+                    1581
+                ],
+                "score": 0.991,
+                "text": ", where"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    799,
+                    1552,
+                    1110,
+                    1579
+                ],
+                "score": 0.99,
+                "text": "is the number of features."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    147,
+                    1586,
+                    358,
+                    1612
+                ],
+                "score": 1.0,
+                "text": "The transpose of"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    388,
+                    1586,
+                    1111,
+                    1612
+                ],
+                "score": 0.989,
+                "text": "and K is further fused by a matrix multiplication, and the"
+            }
+        ],
+        "page_info": {
+            "page_no": 2,
+            "width": 1221,
+            "height": 1851
+        }
+    },
+    {
+        "layout_dets": [
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.948,
+                "bbox": [
+                    102,
+                    152,
+                    1063,
+                    187
+                ],
+                "index": 1
+            },
+            {
+                "cls_id": 5,
+                "label": "display_formula",
+                "score": 0.9725,
+                "bbox": [
+                    372,
+                    209,
+                    802,
+                    320
+                ],
+                "index": 2,
+                "latex": "S _ { ( x , y ) } = \\frac { \\exp { \\left( K _ { ( x ) } \\cdot Q ^ { \\mathrm { T } } { } _ { ( y ) } \\right) } } { \\sum _ { x = 1 } ^ { N } \\exp { \\left( K _ { ( x ) } \\cdot Q ^ { \\mathrm { T } } { } _ { ( y ) } \\right) } } ,"
+            },
+            {
+                "cls_id": 11,
+                "label": "formula_number",
+                "score": 0.9264,
+                "bbox": [
+                    1033,
+                    247,
+                    1071,
+                    282
+                ],
+                "index": 3
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.9251,
+                "bbox": [
+                    185,
+                    350,
+                    254,
+                    384
+                ],
+                "index": 4,
+                "latex": "\\boldsymbol { S } _ { ( x , y ) }"
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.9054,
+                "bbox": [
+                    409,
+                    348,
+                    450,
+                    377
+                ],
+                "index": 5,
+                "latex": "x ^ { t h }"
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9492,
+                "bbox": [
+                    102,
+                    347,
+                    869,
+                    383
+                ],
+                "index": 6
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.9079,
+                "bbox": [
+                    711,
+                    347,
+                    753,
+                    380
+                ],
+                "index": 7,
+                "latex": "y ^ { t h }"
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.7624,
+                "bbox": [
+                    666,
+                    384,
+                    722,
+                    410
+                ],
+                "index": 8,
+                "latex": "1 \\times 1"
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.9378,
+                "bbox": [
+                    518,
+                    411,
+                    693,
+                    445
+                ],
+                "index": 9,
+                "latex": "V \\in \\mathbb { R } ^ { C \\times H \\times W }"
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.8799,
+                "bbox": [
+                    106,
+                    444,
+                    224,
+                    477
+                ],
+                "index": 10,
+                "latex": "\\mathbb { R } ^ { C \\times H \\times W }"
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.5799,
+                "bbox": [
+                    1013,
+                    415,
+                    1040,
+                    445
+                ],
+                "index": 11,
+                "latex": "s"
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.986,
+                "bbox": [
+                    101,
+                    383,
+                    1076,
+                    548
+                ],
+                "index": 12
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.9289,
+                "bbox": [
+                    365,
+                    478,
+                    557,
+                    511
+                ],
+                "index": 13,
+                "latex": "M \\in \\mathsf { \\bar { R } } ^ { C \\times H \\times W }"
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.4515,
+                "bbox": [
+                    920,
+                    449,
+                    948,
+                    478
+                ],
+                "index": 14,
+                "latex": "s"
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9801,
+                "bbox": [
+                    101,
+                    548,
+                    1075,
+                    650
+                ],
+                "index": 15
+            },
+            {
+                "cls_id": 17,
+                "label": "paragraph_title",
+                "score": 0.9455,
+                "bbox": [
+                    103,
+                    698,
+                    562,
+                    731
+                ],
+                "index": 16
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9853,
+                "bbox": [
+                    102,
+                    753,
+                    1075,
+                    885
+                ],
+                "index": 17
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.821,
+                "bbox": [
+                    530,
+                    882,
+                    934,
+                    917
+                ],
+                "index": 18,
+                "latex": "Q ^ { \\prime } \\in \\mathbb { R } ^ { C \\times H \\times W } , K ^ { \\prime } \\in \\mathbb { R } ^ { C \\times H \\times W }"
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.9073,
+                "bbox": [
+                    1006,
+                    886,
+                    1070,
+                    916
+                ],
+                "index": 19,
+                "latex": "V ^ { \\prime } \\in"
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.902,
+                "bbox": [
+                    106,
+                    914,
+                    224,
+                    947
+                ],
+                "index": 20,
+                "latex": "\\mathbb { R } ^ { C \\times H \\times W }"
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.7267,
+                "bbox": [
+                    559,
+                    921,
+                    613,
+                    948
+                ],
+                "index": 21,
+                "latex": "1 \\times 1"
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.9372,
+                "bbox": [
+                    179,
+                    948,
+                    352,
+                    982
+                ],
+                "index": 22,
+                "latex": "F \\in \\mathbb { R } ^ { C \\times H \\times W }"
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9851,
+                "bbox": [
+                    101,
+                    883,
+                    1075,
+                    1054
+                ],
+                "index": 23
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.5394,
+                "bbox": [
+                    415,
+                    986,
+                    443,
+                    1015
+                ],
+                "index": 24,
+                "latex": "F"
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.595,
+                "bbox": [
+                    706,
+                    953,
+                    735,
+                    983
+                ],
+                "index": 25,
+                "latex": "F"
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.9146,
+                "bbox": [
+                    769,
+                    948,
+                    848,
+                    982
+                ],
+                "index": 26,
+                "latex": "\\check { \\mathbb R } ^ { C \\times N }"
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.9021,
+                "bbox": [
+                    106,
+                    1015,
+                    182,
+                    1046
+                ],
+                "index": 27,
+                "latex": "\\mathbb { R } ^ { C \\times C }"
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.9104,
+                "bbox": [
+                    1004,
+                    985,
+                    1071,
+                    1016
+                ],
+                "index": 28,
+                "latex": "M ^ { \\prime } \\in"
+            },
+            {
+                "cls_id": 5,
+                "label": "display_formula",
+                "score": 0.9664,
+                "bbox": [
+                    390,
+                    1076,
+                    784,
+                    1163
+                ],
+                "index": 29,
+                "latex": "\\mathcal { C } _ { ( x , y ) } = \\frac { \\exp \\left( F _ { ( x ) } \\cdot F _ { ( y ) } \\right) } { \\sum _ { x = 1 } ^ { C } \\exp \\left( F _ { ( x ) } \\cdot F _ { ( y ) } \\right) } ,"
+            },
+            {
+                "cls_id": 11,
+                "label": "formula_number",
+                "score": 0.9275,
+                "bbox": [
+                    1034,
+                    1099,
+                    1070,
+                    1133
+                ],
+                "index": 30
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.9281,
+                "bbox": [
+                    185,
+                    1189,
+                    250,
+                    1223
+                ],
+                "index": 31,
+                "latex": "\\mathcal { C } _ { ( x , y ) }"
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.9051,
+                "bbox": [
+                    677,
+                    1186,
+                    718,
+                    1215
+                ],
+                "index": 32,
+                "latex": "x ^ { t h }"
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9861,
+                "bbox": [
+                    101,
+                    1185,
+                    1074,
+                    1321
+                ],
+                "index": 33
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.4541,
+                "bbox": [
+                    721,
+                    1220,
+                    744,
+                    1249
+                ],
+                "index": 34,
+                "latex": "\\mathcal { C }"
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.9281,
+                "bbox": [
+                    613,
+                    1248,
+                    731,
+                    1281
+                ],
+                "index": 35,
+                "latex": "\\stackrel { \\cdot } { \\mathbb { R } } { } ^ { C \\times H \\times W }"
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.9098,
+                "bbox": [
+                    922,
+                    1186,
+                    963,
+                    1218
+                ],
+                "index": 36,
+                "latex": "y ^ { t h }"
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.8707,
+                "bbox": [
+                    804,
+                    1219,
+                    838,
+                    1249
+                ],
+                "index": 37,
+                "latex": "V ^ { \\prime }"
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9886,
+                "bbox": [
+                    100,
+                    1320,
+                    1076,
+                    1589
+                ],
+                "index": 38
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.7653,
+                "bbox": [
+                    897,
+                    1420,
+                    958,
+                    1449
+                ],
+                "index": 39,
+                "latex": "2 \\times 2"
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.687,
+                "bbox": [
+                    920,
+                    1487,
+                    982,
+                    1516
+                ],
+                "index": 40,
+                "latex": "1 \\times 1"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    108,
+                    157,
+                    1059,
+                    182
+                ],
+                "score": 0.997,
+                "text": "spatial association of intra-class may be obtained by applying a softmax layer:"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    1030,
+                    249,
+                    1074,
+                    293
+                ],
+                "score": 1.0,
+                "text": "(1)"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    106,
+                    350,
+                    183,
+                    381
+                ],
+                "score": 1.0,
+                "text": "where"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    263,
+                    352,
+                    408,
+                    381
+                ],
+                "score": 1.0,
+                "text": "denotes the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    451,
+                    352,
+                    710,
+                    381
+                ],
+                "score": 0.996,
+                "text": "position's impact on"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    754,
+                    352,
+                    865,
+                    381
+                ],
+                "score": 1.0,
+                "text": "position."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    148,
+                    385,
+                    665,
+                    412
+                ],
+                "score": 0.982,
+                "text": "Meanwhile, the feature map F is fed into a"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    725,
+                    384,
+                    1071,
+                    413
+                ],
+                "score": 0.994,
+                "text": "convolution layer to produce"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    106,
+                    417,
+                    512,
+                    447
+                ],
+                "score": 0.999,
+                "text": "a dimension-reduced feature map"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    694,
+                    418,
+                    1012,
+                    445
+                ],
+                "score": 0.996,
+                "text": ", and then we reshape the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    1041,
+                    418,
+                    1072,
+                    445
+                ],
+                "score": 1.0,
+                "text": "to"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    225,
+                    452,
+                    919,
+                    480
+                ],
+                "score": 0.981,
+                "text": ". A matrix multiplication is performed between V and"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    949,
+                    452,
+                    1071,
+                    480
+                ],
+                "score": 1.0,
+                "text": "to obtain"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    109,
+                    487,
+                    354,
+                    512
+                ],
+                "score": 0.999,
+                "text": "the spatial affinities"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    567,
+                    484,
+                    1072,
+                    512
+                ],
+                "score": 0.995,
+                "text": "at the pixel level. Finally, we perform a"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    519,
+                    536,
+                    546
+                ],
+                "score": 0.983,
+                "text": "pixel-level summation of F and M."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    146,
+                    550,
+                    1071,
+                    580
+                ],
+                "score": 0.991,
+                "text": "SAB gains a global contextual view and selectively aggregates contexts"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    106,
+                    584,
+                    1070,
+                    615
+                ],
+                "score": 0.995,
+                "text": "according to the spatial attention map. It will achieve a more accurate seg-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    620,
+                    708,
+                    645
+                ],
+                "score": 0.993,
+                "text": "mentation performance for curvilinear structures."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    105,
+                    699,
+                    559,
+                    728
+                ],
+                "score": 0.991,
+                "text": "2.2 Channel Attention Module"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    756,
+                    1071,
+                    784
+                ],
+                "score": 0.993,
+                "text": "Each channel of a high-level feature can be regarded as a specific-class response"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    108,
+                    789,
+                    1070,
+                    817
+                ],
+                "score": 0.993,
+                "text": "[13]. Therefore, we further exploit the interdependencies of channel maps in this"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    824,
+                    1070,
+                    852
+                ],
+                "score": 0.994,
+                "text": "section. Feature representation may be improved by emphasizing interdependent"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    858,
+                    271,
+                    883
+                ],
+                "score": 0.998,
+                "text": "feature maps."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    150,
+                    888,
+                    523,
+                    917
+                ],
+                "score": 0.983,
+                "text": "Three channel attention maps"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    935,
+                    888,
+                    1001,
+                    916
+                ],
+                "score": 0.994,
+                "text": ", and"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    230,
+                    922,
+                    558,
+                    949
+                ],
+                "score": 0.999,
+                "text": "are calculated directly by a"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    615,
+                    921,
+                    1072,
+                    951
+                ],
+                "score": 0.998,
+                "text": "convolution layer on the input feature"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    106,
+                    960,
+                    175,
+                    986
+                ],
+                "score": 1.0,
+                "text": "maps"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    353,
+                    955,
+                    705,
+                    986
+                ],
+                "score": 0.978,
+                "text": ". Similar to SAB, we reshape"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    736,
+                    955,
+                    768,
+                    986
+                ],
+                "score": 1.0,
+                "text": "to"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    849,
+                    956,
+                    1070,
+                    984
+                ],
+                "score": 0.996,
+                "text": ". We then perform"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    105,
+                    989,
+                    414,
+                    1018
+                ],
+                "score": 0.998,
+                "text": "a multiplication between"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    444,
+                    989,
+                    997,
+                    1018
+                ],
+                "score": 0.999,
+                "text": "and its transpose. The channel affinities map"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    188,
+                    1021,
+                    741,
+                    1051
+                ],
+                "score": 0.99,
+                "text": "is then obtained by applying a softmax layer:"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    1032,
+                    1100,
+                    1072,
+                    1141
+                ],
+                "score": 1.0,
+                "text": "(2)"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    108,
+                    1192,
+                    184,
+                    1215
+                ],
+                "score": 1.0,
+                "text": "where"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    258,
+                    1191,
+                    676,
+                    1216
+                ],
+                "score": 0.995,
+                "text": "denotes the similarity between the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    719,
+                    1191,
+                    921,
+                    1216
+                ],
+                "score": 1.0,
+                "text": "channel and the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    964,
+                    1191,
+                    1069,
+                    1216
+                ],
+                "score": 1.0,
+                "text": "channel."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    108,
+                    1225,
+                    720,
+                    1250
+                ],
+                "score": 0.996,
+                "text": "A matrix multiplication between the transpose of"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    745,
+                    1225,
+                    803,
+                    1250
+                ],
+                "score": 1.0,
+                "text": "and"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    839,
+                    1225,
+                    1070,
+                    1250
+                ],
+                "score": 0.997,
+                "text": "is added to obtain"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    108,
+                    1257,
+                    610,
+                    1283
+                ],
+                "score": 0.99,
+                "text": "the final output. The result is reshaped as"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    732,
+                    1256,
+                    1070,
+                    1284
+                ],
+                "score": 0.991,
+                "text": ". Such operations emphasize"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    108,
+                    1292,
+                    1019,
+                    1317
+                ],
+                "score": 0.997,
+                "text": "class-dependent feature mapping and help improve feature discriminability."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    148,
+                    1324,
+                    1071,
+                    1351
+                ],
+                "score": 0.997,
+                "text": "Instead of directly upsampling the features of the CSAM to the original image"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    108,
+                    1356,
+                    1071,
+                    1383
+                ],
+                "score": 1.0,
+                "text": "dimensions, we introduce a feature decoder module that restores the dimensions"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    108,
+                    1390,
+                    1071,
+                    1418
+                ],
+                "score": 0.997,
+                "text": "of the high level semantic features layer by layer. In each layer, we use ResNet"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    1422,
+                    896,
+                    1449
+                ],
+                "score": 0.995,
+                "text": "block as the backbone of the decoder block which is followed by a"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    959,
+                    1422,
+                    1071,
+                    1450
+                ],
+                "score": 1.0,
+                "text": "deconvo-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    105,
+                    1456,
+                    1071,
+                    1484
+                ],
+                "score": 0.988,
+                "text": "lution layer. Similar to U-Net [10], we add a skip connection between each layer"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    1490,
+                    916,
+                    1517
+                ],
+                "score": 0.988,
+                "text": "of the encoder and decoder. At the end of the CS-Net, we apply a"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    988,
+                    1490,
+                    1071,
+                    1518
+                ],
+                "score": 1.0,
+                "text": "convo-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    1524,
+                    1071,
+                    1550
+                ],
+                "score": 0.997,
+                "text": "lution layer and a sigmoid layer on the output of the feature encoder module to"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    106,
+                    1554,
+                    507,
+                    1586
+                ],
+                "score": 0.988,
+                "text": "gain the final segmentation map."
+            }
+        ],
+        "page_info": {
+            "page_no": 3,
+            "width": 1221,
+            "height": 1851
+        }
+    },
+    {
+        "layout_dets": [
+            {
+                "cls_id": 17,
+                "label": "paragraph_title",
+                "score": 0.9514,
+                "bbox": [
+                    143,
+                    148,
+                    533,
+                    185
+                ],
+                "index": 2
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.6985,
+                "bbox": [
+                    271,
+                    344,
+                    501,
+                    388
+                ],
+                "index": 3,
+                "latex": "\\begin{array} { r } { \\left( 1 - \\frac { i t e r } { m a x . i t e r } \\right) ^ { \\frac { 1 } { p _ { o w } } \\times e r } } \\end{array}"
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9882,
+                "bbox": [
+                    139,
+                    218,
+                    1117,
+                    486
+                ],
+                "index": 4
+            },
+            {
+                "cls_id": 14,
+                "label": "image",
+                "score": 0.5034,
+                "bbox": [
+                    193,
+                    533,
+                    1060,
+                    988
+                ],
+                "index": 5
+            },
+            {
+                "cls_id": 7,
+                "label": "figure_title",
+                "score": 0.9679,
+                "bbox": [
+                    141,
+                    1021,
+                    1112,
+                    1083
+                ],
+                "index": 6
+            },
+            {
+                "cls_id": 7,
+                "label": "figure_title",
+                "score": 0.952,
+                "bbox": [
+                    173,
+                    1195,
+                    1081,
+                    1226
+                ],
+                "index": 7
+            },
+            {
+                "cls_id": 21,
+                "label": "table",
+                "score": 0.9873,
+                "bbox": [
+                    218,
+                    1250,
+                    1039,
+                    1507
+                ],
+                "index": 8,
+                "html": "<table><tr><td rowspan=2 colspan=1>Methods</td><td rowspan=1 colspan=4>DRIVE</td><td rowspan=1 colspan=4>STARE</td></tr><tr><td rowspan=1 colspan=1>ACC</td><td rowspan=1 colspan=1>SE</td><td rowspan=1 colspan=1>SP</td><td rowspan=1 colspan=1>AUC</td><td rowspan=1 colspan=1>ACC</td><td rowspan=1 colspan=1>SE</td><td rowspan=1 colspan=1>SP</td><td rowspan=1 colspan=1>AUC</td></tr><tr><td rowspan=1 colspan=1>BCOSFIRE [14]</td><td rowspan=1 colspan=1>0.9442</td><td rowspan=1 colspan=1>0.7655</td><td rowspan=1 colspan=1>0.9704</td><td rowspan=1 colspan=1>0.9614</td><td rowspan=1 colspan=1>0.9497</td><td rowspan=1 colspan=1>0.7716</td><td rowspan=1 colspan=1>0.9701</td><td rowspan=1 colspan=1>0.9563</td></tr><tr><td rowspan=1 colspan=1>WSF [2]</td><td rowspan=1 colspan=1>0.9580</td><td rowspan=1 colspan=1>0.7740</td><td rowspan=1 colspan=1>0.9790</td><td rowspan=1 colspan=1>0.9750</td><td rowspan=1 colspan=1>0.9570</td><td rowspan=1 colspan=1>0.7880</td><td rowspan=1 colspan=1>0.9760</td><td rowspan=1 colspan=1>0.9590</td></tr><tr><td rowspan=1 colspan=1>DeepVessel [7]</td><td rowspan=1 colspan=1>0.9533</td><td rowspan=1 colspan=1>0.7603</td><td rowspan=1 colspan=1>0.9776</td><td rowspan=1 colspan=1>0.9789</td><td rowspan=1 colspan=1>0.9609</td><td rowspan=1 colspan=1>0.7412</td><td rowspan=1 colspan=1>0.9701</td><td rowspan=1 colspan=1>0.9790</td></tr><tr><td rowspan=1 colspan=1>U-Net [10]</td><td rowspan=1 colspan=1>0.9531</td><td rowspan=1 colspan=1>0.7537</td><td rowspan=1 colspan=1>0.9639</td><td rowspan=1 colspan=1>0.9601</td><td rowspan=1 colspan=1>0.9409</td><td rowspan=1 colspan=1>0.7675</td><td rowspan=1 colspan=1>0.9631</td><td rowspan=1 colspan=1>0.9705</td></tr><tr><td rowspan=1 colspan=1>R2U-Net [8]</td><td rowspan=1 colspan=1>0.9556</td><td rowspan=1 colspan=1>0.7792</td><td rowspan=1 colspan=1>0.9813</td><td rowspan=1 colspan=1>0.9784</td><td rowspan=1 colspan=1>0.9712</td><td rowspan=1 colspan=1>0.8298</td><td rowspan=1 colspan=1>0.9862</td><td rowspan=1 colspan=1>0.9914</td></tr><tr><td rowspan=1 colspan=1>CE-Net [15]</td><td rowspan=1 colspan=1>0.9545</td><td rowspan=1 colspan=1>0.8309</td><td rowspan=1 colspan=1>0.9747</td><td rowspan=1 colspan=1>0.9779</td><td rowspan=1 colspan=1>0.9583</td><td rowspan=1 colspan=1>0.7841</td><td rowspan=1 colspan=1>0.9725</td><td rowspan=1 colspan=1>0.9787</td></tr><tr><td rowspan=1 colspan=1>CS-Net</td><td rowspan=1 colspan=1>0.9632</td><td rowspan=1 colspan=1>0.8170</td><td rowspan=1 colspan=1>0.9854</td><td rowspan=1 colspan=1>0.9798</td><td rowspan=1 colspan=1>0.9752</td><td rowspan=1 colspan=1>0.8816</td><td rowspan=1 colspan=1>0.9840</td><td rowspan=1 colspan=1>0.9932</td></tr></table>"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    145,
+                    150,
+                    529,
+                    184
+                ],
+                "score": 0.997,
+                "text": "3 Experiment Results"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    149,
+                    222,
+                    1111,
+                    248
+                ],
+                "score": 0.987,
+                "text": "The proposed CS-Net was implemented on PyTorch library with a single"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    145,
+                    254,
+                    1110,
+                    283
+                ],
+                "score": 0.992,
+                "text": "NVIDIA GPU (GeForce GTX 1080Ti). We choose adaptive moment estima-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    147,
+                    289,
+                    1110,
+                    316
+                ],
+                "score": 0.996,
+                "text": "tion (Adam) optimization. The initial learning rate is set to 0.0001 and a weight"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    146,
+                    322,
+                    1109,
+                    350
+                ],
+                "score": 0.996,
+                "text": "decay of 0.0005. We use poly learning rate policy where the learning rate is mul-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    146,
+                    353,
+                    262,
+                    382
+                ],
+                "score": 1.0,
+                "text": "tiplied by"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    508,
+                    355,
+                    1110,
+                    382
+                ],
+                "score": 0.995,
+                "text": "with power 0.9. All training images are rescaled to"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    146,
+                    388,
+                    1110,
+                    414
+                ],
+                "score": 0.986,
+                "text": "384 × 384. We use the k-fold (k = 4 for STARE; and k = 5 for CCM-1, CCM-2,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    147,
+                    422,
+                    1110,
+                    449
+                ],
+                "score": 0.999,
+                "text": "and OCT-A) cross-validation method to divide the images. The reported values"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    147,
+                    454,
+                    630,
+                    481
+                ],
+                "score": 0.995,
+                "text": "are the mean values across all the folds."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    147,
+                    1025,
+                    1108,
+                    1049
+                ],
+                "score": 0.99,
+                "text": "Fig. 2. Retinal vessel segmentation results for two randomly selected images by R2U-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    147,
+                    1057,
+                    380,
+                    1078
+                ],
+                "score": 1.0,
+                "text": "Net and our CS-Net."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    178,
+                    1197,
+                    1077,
+                    1223
+                ],
+                "score": 1.0,
+                "text": "Table 1. Performance of vessel segmentation methods on color fundus datasets."
+            }
+        ],
+        "page_info": {
+            "page_no": 4,
+            "width": 1221,
+            "height": 1851
+        }
+    },
+    {
+        "layout_dets": [
+            {
+                "cls_id": 17,
+                "label": "paragraph_title",
+                "score": 0.9505,
+                "bbox": [
+                    103,
+                    152,
+                    802,
+                    185
+                ],
+                "index": 1
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9886,
+                "bbox": [
+                    101,
+                    205,
+                    1076,
+                    437
+                ],
+                "index": 2
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.6178,
+                "bbox": [
+                    841,
+                    469,
+                    1070,
+                    502
+                ],
+                "index": 3,
+                "latex": "( S E ) = T P / ( T P +"
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.841,
+                "bbox": [
+                    301,
+                    502,
+                    888,
+                    535
+                ],
+                "index": 4,
+                "latex": "( A C C ) = ( T P + T N ) / ( T P + F P + T N + F N )"
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.989,
+                "bbox": [
+                    101,
+                    437,
+                    1077,
+                    838
+                ],
+                "index": 5
+            },
+            {
+                "cls_id": 14,
+                "label": "image",
+                "score": 0.9851,
+                "bbox": [
+                    114,
+                    885,
+                    1061,
+                    1105
+                ],
+                "index": 6
+            },
+            {
+                "cls_id": 7,
+                "label": "figure_title",
+                "score": 0.9466,
+                "bbox": [
+                    233,
+                    1143,
+                    940,
+                    1174
+                ],
+                "index": 7
+            },
+            {
+                "cls_id": 17,
+                "label": "paragraph_title",
+                "score": 0.9493,
+                "bbox": [
+                    103,
+                    1279,
+                    718,
+                    1312
+                ],
+                "index": 8
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9879,
+                "bbox": [
+                    101,
+                    1331,
+                    1077,
+                    1530
+                ],
+                "index": 9
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9741,
+                "bbox": [
+                    102,
+                    1531,
+                    1077,
+                    1599
+                ],
+                "index": 10
+            },
+            {
+                "cls_id": 10,
+                "label": "footnote",
+                "score": 0.931,
+                "bbox": [
+                    108,
+                    1613,
+                    728,
+                    1647
+                ],
+                "index": 11
+            },
+            {
+                "cls_id": 10,
+                "label": "footnote",
+                "score": 0.9196,
+                "bbox": [
+                    109,
+                    1645,
+                    648,
+                    1678
+                ],
+                "index": 12
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    106,
+                    153,
+                    797,
+                    184
+                ],
+                "score": 0.997,
+                "text": "3.1 Vessel Segmentation in Color Fundus Image"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    108,
+                    206,
+                    1071,
+                    235
+                ],
+                "score": 0.995,
+                "text": "We evaluated the proposed method for retinal blood vessel segmentation on two"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    108,
+                    239,
+                    1071,
+                    267
+                ],
+                "score": 0.994,
+                "text": "color fundus datasets: DRIVE1 and STARE2. We chose the first manual anno-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    275,
+                    1072,
+                    301
+                ],
+                "score": 0.999,
+                "text": "tation of both datasets as the groundtruth. Figure2 demonstrates the retinal"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    108,
+                    308,
+                    1070,
+                    335
+                ],
+                "score": 0.998,
+                "text": "vessel segmentation performance by applying one of the state-of-the art meth-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    339,
+                    1071,
+                    368
+                ],
+                "score": 0.981,
+                "text": "ods (named R2U-Net) and the CS-Net. It is clear from visual inspection that"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    108,
+                    373,
+                    1071,
+                    401
+                ],
+                "score": 0.975,
+                "text": "CS-Net achieved better performance than the R2U-Net, as more small vessels"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    406,
+                    657,
+                    435
+                ],
+                "score": 0.989,
+                "text": "were extracted from regions of poor contrast."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    149,
+                    441,
+                    1071,
+                    466
+                ],
+                "score": 0.994,
+                "text": "To facilitate better observation and objective performance evaluation of the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    108,
+                    474,
+                    832,
+                    501
+                ],
+                "score": 0.999,
+                "text": "proposed method, these metrics were calculated: sensitivity"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    506,
+                    293,
+                    536
+                ],
+                "score": 0.995,
+                "text": "FN), accuracy"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    889,
+                    507,
+                    1072,
+                    533
+                ],
+                "score": 0.997,
+                "text": ", and the Area"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    538,
+                    1071,
+                    566
+                ],
+                "score": 0.999,
+                "text": "Under the ROC Curve (AUC). In addition, the segmentation results were further"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    574,
+                    1071,
+                    601
+                ],
+                "score": 0.994,
+                "text": "compared with those of state-of-the-art retinal vessel segmentation algorithms"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    607,
+                    1070,
+                    633
+                ],
+                "score": 0.992,
+                "text": "and deep learning networks: Bar-COSFIRE (BCOSFIRE) [14], Weighted Sym-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    640,
+                    1071,
+                    667
+                ],
+                "score": 0.996,
+                "text": "metry Filter (WSF) [2], DeepVessel [7], U-Net [10], R2U-Net [8], and CE-Net"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    109,
+                    673,
+                    1069,
+                    700
+                ],
+                "score": 0.986,
+                "text": "[15]. Table 1 shows the proposed CS-Net outperforms all competing methods,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    108,
+                    706,
+                    1071,
+                    733
+                ],
+                "score": 1.0,
+                "text": "except for SE in the DRIVE dataset and SP in the STARE dataset, which are"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    738,
+                    1071,
+                    766
+                ],
+                "score": 0.989,
+                "text": "0.91% and 0.22% lower than those of [15] and [8], respectively. Nevertheless, it"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    106,
+                    773,
+                    1071,
+                    799
+                ],
+                "score": 0.992,
+                "text": "can be confirmed that the spatial and channel attention modules are beneficial"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    105,
+                    804,
+                    704,
+                    833
+                ],
+                "score": 1.0,
+                "text": "for retinal vessel detection in color fundus image."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    238,
+                    1147,
+                    938,
+                    1171
+                ],
+                "score": 0.996,
+                "text": "Fig. 3. Visualization results of vessel segmentation in OCT-A."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    105,
+                    1279,
+                    714,
+                    1312
+                ],
+                "score": 0.988,
+                "text": "3.2 Vessel Segmentation in OCT-A Image"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    108,
+                    1335,
+                    1071,
+                    1362
+                ],
+                "score": 0.993,
+                "text": "We then evaluate the proposed CS-Net on one in-house OCT-A dataset to further"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    108,
+                    1367,
+                    1071,
+                    1395
+                ],
+                "score": 0.993,
+                "text": "validate its segmentation performance. All the 30 OCT-A images were acquired"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    108,
+                    1402,
+                    1071,
+                    1429
+                ],
+                "score": 0.988,
+                "text": "using Heidelberg Spectralis device (Heidelberg, Germany) and all the vessels"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    108,
+                    1435,
+                    1070,
+                    1462
+                ],
+                "score": 0.99,
+                "text": "within the superficial vascular plexus (SVP) were manually traced using an in-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    106,
+                    1468,
+                    1071,
+                    1496
+                ],
+                "score": 0.974,
+                "text": "house program written in Matlab (Mathworks R2018, Natwick) by a clinical"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    1502,
+                    440,
+                    1529
+                ],
+                "score": 0.989,
+                "text": "expert as the ground truth."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    148,
+                    1533,
+                    1071,
+                    1563
+                ],
+                "score": 0.998,
+                "text": "To our best knowledge, it is the first attempt to use deep learning approach to"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    106,
+                    1566,
+                    1071,
+                    1595
+                ],
+                "score": 0.999,
+                "text": "extract the vessels for OCT-A image. We compared the proposed network with"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    113,
+                    1615,
+                    724,
+                    1647
+                ],
+                "score": 0.99,
+                "text": "1 http://www.isi.uu.nl/Research/Databases/DRIVE/."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    113,
+                    1645,
+                    641,
+                    1676
+                ],
+                "score": 0.999,
+                "text": "2http://www.ces.clemson.edu/ahoover/stare/."
+            }
+        ],
+        "page_info": {
+            "page_no": 5,
+            "width": 1221,
+            "height": 1851
+        }
+    },
+    {
+        "layout_dets": [
+            {
+                "cls_id": 7,
+                "label": "figure_title",
+                "score": 0.9485,
+                "bbox": [
+                    260,
+                    142,
+                    995,
+                    175
+                ],
+                "index": 2
+            },
+            {
+                "cls_id": 21,
+                "label": "table",
+                "score": 0.9858,
+                "bbox": [
+                    302,
+                    198,
+                    956,
+                    433
+                ],
+                "index": 3,
+                "html": "<table><tr><td rowspan=1 colspan=1>Methods</td><td rowspan=1 colspan=1>ACC</td><td rowspan=1 colspan=1>SE</td><td rowspan=1 colspan=1>SP</td><td rowspan=1 colspan=1>AUC</td></tr><tr><td rowspan=1 colspan=1>U-Net [10]</td><td rowspan=1 colspan=1>0.8422</td><td rowspan=1 colspan=1>0.7867</td><td rowspan=1 colspan=1>0.8780</td><td rowspan=1 colspan=1>0.9108</td></tr><tr><td rowspan=1 colspan=1>Deep ResUNet [16]</td><td rowspan=1 colspan=1>0.8659</td><td rowspan=1 colspan=1>0.8032</td><td rowspan=1 colspan=1>0.8863</td><td rowspan=1 colspan=1>0.9175</td></tr><tr><td rowspan=1 colspan=1>UNet++ [17]</td><td rowspan=1 colspan=1>0.8965</td><td rowspan=1 colspan=1>0.8309</td><td rowspan=1 colspan=1>0.9101</td><td rowspan=1 colspan=1>0.9203</td></tr><tr><td rowspan=1 colspan=1>Attention U-Net [18]</td><td rowspan=1 colspan=1>0.9125</td><td rowspan=1 colspan=1>0.8274</td><td rowspan=1 colspan=1>0.9007</td><td rowspan=1 colspan=1>0.9290</td></tr><tr><td rowspan=1 colspan=1>CS-Net</td><td rowspan=1 colspan=1>0.9183</td><td rowspan=1 colspan=1>0.8631</td><td rowspan=1 colspan=1>0.9192</td><td rowspan=1 colspan=1>0.9453</td></tr></table>"
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9889,
+                "bbox": [
+                    139,
+                    496,
+                    1118,
+                    966
+                ],
+                "index": 4
+            },
+            {
+                "cls_id": 14,
+                "label": "image",
+                "score": 0.6434,
+                "bbox": [
+                    193,
+                    1004,
+                    1063,
+                    1373
+                ],
+                "index": 5
+            },
+            {
+                "cls_id": 7,
+                "label": "figure_title",
+                "score": 0.9675,
+                "bbox": [
+                    141,
+                    1408,
+                    1114,
+                    1471
+                ],
+                "index": 10
+            },
+            {
+                "cls_id": 17,
+                "label": "paragraph_title",
+                "score": 0.9467,
+                "bbox": [
+                    142,
+                    1563,
+                    849,
+                    1598
+                ],
+                "index": 11
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.971,
+                "bbox": [
+                    141,
+                    1611,
+                    1117,
+                    1679
+                ],
+                "index": 12
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    265,
+                    145,
+                    992,
+                    171
+                ],
+                "score": 0.984,
+                "text": "Table 2. Performance of compared methods on OCT-A dataset."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    146,
+                    501,
+                    1108,
+                    526
+                ],
+                "score": 0.976,
+                "text": "other state-of-the-art segmentation networks: U-Net [10], Deep ResUNet [16],"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    147,
+                    534,
+                    1110,
+                    560
+                ],
+                "score": 0.992,
+                "text": "UNet++ [17], and Attention U-Net [18]. Figure 3 presents for visual compari-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    146,
+                    567,
+                    1111,
+                    593
+                ],
+                "score": 0.998,
+                "text": "son the vessel segmentation results of the competing methods on an example"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    146,
+                    600,
+                    1111,
+                    625
+                ],
+                "score": 0.996,
+                "text": "image. Overall, all methods demonstrated similar performance on vessel with"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    146,
+                    634,
+                    1108,
+                    660
+                ],
+                "score": 0.998,
+                "text": "large diameters. The Attention U-Net is able to detect most larger vessels,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    146,
+                    668,
+                    1110,
+                    693
+                ],
+                "score": 0.992,
+                "text": "but also falsely enlarges background features where elongated intensity inho-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    146,
+                    701,
+                    1111,
+                    727
+                ],
+                "score": 0.99,
+                "text": "mogeneities are presented. U-Net misses vessels with small diameters, which"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    145,
+                    732,
+                    1111,
+                    760
+                ],
+                "score": 0.996,
+                "text": "leads to a relative lower sensitivity. In contrast to these networks, the proposed"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    146,
+                    766,
+                    1111,
+                    793
+                ],
+                "score": 0.996,
+                "text": "CS-Net integrates local features with global dependencies adaptively, hence, it"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    147,
+                    801,
+                    1111,
+                    827
+                ],
+                "score": 0.984,
+                "text": "demonstrated superior performance in detecting small vessels, indicated by the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    146,
+                    833,
+                    1111,
+                    859
+                ],
+                "score": 0.995,
+                "text": "green arrow, and provided relatively higher sensitivity. These findings were also"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    146,
+                    866,
+                    1111,
+                    891
+                ],
+                "score": 0.993,
+                "text": "confirmed by the evaluation measures reported in Table2: the CS-Net shows this"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    146,
+                    899,
+                    1110,
+                    925
+                ],
+                "score": 0.998,
+                "text": "superior segmentation performance in terms of all metrics, since it considers the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    147,
+                    934,
+                    894,
+                    959
+                ],
+                "score": 0.997,
+                "text": "attention mechanism to build the association among features."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    146,
+                    1413,
+                    1109,
+                    1437
+                ],
+                "score": 0.981,
+                "text": "Fig. 4. Illustrative results of corneal nerve fiber tracing by different networks. (Color"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    145,
+                    1442,
+                    297,
+                    1469
+                ],
+                "score": 0.998,
+                "text": "figure online)"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    146,
+                    1565,
+                    845,
+                    1596
+                ],
+                "score": 0.998,
+                "text": "3.3 Corneal Nerve Fiber Tracing in CCM Image"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    147,
+                    1616,
+                    1110,
+                    1641
+                ],
+                "score": 0.985,
+                "text": "Finally, the proposed CS-Net was verified by the corneal nerve fiber tracing on"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    146,
+                    1645,
+                    1111,
+                    1675
+                ],
+                "score": 0.994,
+                "text": "two CCM datasets. CCM-1 has 1578 CCM, which were acquired from Peking"
+            }
+        ],
+        "page_info": {
+            "page_no": 6,
+            "width": 1221,
+            "height": 1851
+        }
+    },
+    {
+        "layout_dets": [
+            {
+                "cls_id": 7,
+                "label": "figure_title",
+                "score": 0.9661,
+                "bbox": [
+                    103,
+                    144,
+                    1075,
+                    206
+                ],
+                "index": 1
+            },
+            {
+                "cls_id": 21,
+                "label": "table",
+                "score": 0.9835,
+                "bbox": [
+                    146,
+                    230,
+                    1032,
+                    435
+                ],
+                "index": 2,
+                "html": "<table><tr><td rowspan=2 colspan=1>Methods</td><td rowspan=1 colspan=2>CCM-1</td><td rowspan=1 colspan=2>CCM-2</td></tr><tr><td rowspan=1 colspan=1>SE</td><td rowspan=1 colspan=1>FDR</td><td rowspan=1 colspan=1>SE</td><td rowspan=1 colspan=1>FDR</td></tr><tr><td rowspan=1 colspan=1>U-Net [10]</td><td rowspan=1 colspan=1>0.7856 ± 0.0096</td><td rowspan=1 colspan=1>0.3257 ± 0.0238</td><td rowspan=1 colspan=1>0.7657 ± 0.0193</td><td rowspan=1 colspan=1>0.3365 ± 0.0178</td></tr><tr><td rowspan=1 colspan=1>Deep ResUNet [16]</td><td rowspan=1 colspan=1>0.8067 ± 0.0056</td><td rowspan=1 colspan=1>0.2873 ± 0.0210</td><td rowspan=1 colspan=1>0.8009 ± 0.0221</td><td rowspan=1 colspan=1>0.2949 ± 0.0217</td></tr><tr><td rowspan=1 colspan=1>UNet++ [17]</td><td rowspan=1 colspan=1>0.8290 ± 0.0077</td><td rowspan=1 colspan=1><eq>0 . 2 6 8 5 \\pm 0 . 0 1 3 4</eq></td><td rowspan=1 colspan=1><eq>0 . 8 2 5 7 \\pm 0 . 0 1 7 7</eq></td><td rowspan=1 colspan=1><eq>0 . 2 7 4 4 \\pm 0 . 0 1 0 1</eq></td></tr><tr><td rowspan=1 colspan=1>Attention U-Net [18]</td><td rowspan=1 colspan=1><eq>0 . 8 2 3 1 \\pm 0 . 0 0 3 1</eq></td><td rowspan=1 colspan=1><eq>0 . 2 7 1 7 \\pm 0 . 0 1 4 5</eq></td><td rowspan=1 colspan=1><eq>0 . 8 1 0 1 \\pm 0 . 0 2 3 1</eq></td><td rowspan=1 colspan=1><eq>0 . 2 8 0 6 \\pm 0 . 0 0 9 4</eq></td></tr><tr><td rowspan=1 colspan=1>CS-Net</td><td rowspan=1 colspan=1><eq>\\mathbf { 0 . 8 4 1 5 \\pm 0 . 0 0 3 0 }</eq></td><td rowspan=1 colspan=1><eq>\\mathbf { 0 . 2 5 2 1 \\pm 0 . 0 0 4 4 }</eq></td><td rowspan=1 colspan=1><eq>\\mathbf { 0 . 8 3 4 5 \\pm 0 . 0 1 6 5 }</eq></td><td rowspan=1 colspan=1><eq>\\mathbf { 0 . 2 5 9 1 \\pm 0 . 0 0 1 1 }</eq></td></tr></table>"
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.987,
+                "bbox": [
+                    101,
+                    505,
+                    1076,
+                    672
+                ],
+                "index": 14
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9884,
+                "bbox": [
+                    100,
+                    673,
+                    1078,
+                    905
+                ],
+                "index": 15
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9885,
+                "bbox": [
+                    100,
+                    905,
+                    1079,
+                    1241
+                ],
+                "index": 16
+            },
+            {
+                "cls_id": 17,
+                "label": "paragraph_title",
+                "score": 0.9395,
+                "bbox": [
+                    103,
+                    1289,
+                    349,
+                    1326
+                ],
+                "index": 17
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9874,
+                "bbox": [
+                    100,
+                    1360,
+                    1079,
+                    1595
+                ],
+                "index": 18
+            },
+            {
+                "cls_id": 10,
+                "label": "footnote",
+                "score": 0.9224,
+                "bbox": [
+                    108,
+                    1612,
+                    474,
+                    1647
+                ],
+                "index": 19
+            },
+            {
+                "cls_id": 10,
+                "label": "footnote",
+                "score": 0.898,
+                "bbox": [
+                    109,
+                    1644,
+                    432,
+                    1679
+                ],
+                "index": 20
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    108,
+                    149,
+                    1070,
+                    173
+                ],
+                "score": 0.996,
+                "text": "Table 3. Fiber tracing performance of different methods on two CCM datasets (mean"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    108,
+                    179,
+                    363,
+                    203
+                ],
+                "score": 1.0,
+                "text": "± standard deviation)."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    108,
+                    509,
+                    1071,
+                    536
+                ],
+                "score": 0.993,
+                "text": "University Third Hospital; CCM-2 includes 120 CCM, which were obtained"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    542,
+                    1070,
+                    571
+                ],
+                "score": 0.981,
+                "text": "from University of Padova3. All the images were acquired at size 384 × 384."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    108,
+                    577,
+                    1070,
+                    604
+                ],
+                "score": 0.993,
+                "text": "The fiber ground truths of these two datasets were segmented manually by our"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    108,
+                    609,
+                    1071,
+                    636
+                ],
+                "score": 0.993,
+                "text": "ophthalmologist, who traced the centerlines of all visible nerves, and we made"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    106,
+                    641,
+                    634,
+                    668
+                ],
+                "score": 0.99,
+                "text": "these manual annotations available online⁴."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    148,
+                    675,
+                    1071,
+                    704
+                ],
+                "score": 0.992,
+                "text": "To validate the nerve fiber tracing performance, we computed the sensitiv-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    106,
+                    709,
+                    1072,
+                    736
+                ],
+                "score": 0.99,
+                "text": "ity and false discovery rate (FDR) [19] between the predicted centerlines and"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    743,
+                    1070,
+                    771
+                ],
+                "score": 0.996,
+                "text": "groundtruth. FDR is defined as the fraction of the total of pixels incorrectly"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    776,
+                    1071,
+                    803
+                ],
+                "score": 0.989,
+                "text": "detected as nerve segments over the total of pixels of the traced nerves in"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    810,
+                    1071,
+                    836
+                ],
+                "score": 1.0,
+                "text": "groundtruth. As customary in the evaluating methods extracting one pixel-wide"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    843,
+                    1072,
+                    870
+                ],
+                "score": 0.983,
+                "text": "curves [19], a three-pixel tolerance region around the manually traced nerves is"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    877,
+                    427,
+                    903
+                ],
+                "score": 1.0,
+                "text": "considered a true positive."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    148,
+                    908,
+                    1069,
+                    936
+                ],
+                "score": 0.991,
+                "text": "In a similar fashion to the vessel segmentation in OCT-A, we also used U-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    941,
+                    1069,
+                    969
+                ],
+                "score": 1.0,
+                "text": "Net [10], Deep ResUNet [16], UNet++ [17], and Attention U-Net [18] to demon-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    975,
+                    1072,
+                    1003
+                ],
+                "score": 0.994,
+                "text": "strate the superiority of the CS-Net. Figure 4 illustrates two randomly selected"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    1007,
+                    1069,
+                    1037
+                ],
+                "score": 0.992,
+                "text": "CCMs from two datasets. All the methods present visually appealing results,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    1042,
+                    1069,
+                    1068
+                ],
+                "score": 0.991,
+                "text": "however, both U-Net and Attention U-Net have falsely detect part of the K-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    1075,
+                    1071,
+                    1101
+                ],
+                "score": 0.985,
+                "text": "structures [20] (indicated by red arrows) as nerve fibers, due to the fact that"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    1107,
+                    1069,
+                    1135
+                ],
+                "score": 0.988,
+                "text": "they share similar morphological characteristics. Table 3 demonstrates this supe-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    105,
+                    1142,
+                    1071,
+                    1168
+                ],
+                "score": 0.993,
+                "text": "rior tracing performance in terms of SE and FDR, and is accompanied by their"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    106,
+                    1175,
+                    1068,
+                    1201
+                ],
+                "score": 0.988,
+                "text": "standard deviations: demonstrating both higher sensitivity and lower FDR by"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    108,
+                    1210,
+                    342,
+                    1234
+                ],
+                "score": 0.974,
+                "text": "significant margins."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    104,
+                    1289,
+                    344,
+                    1325
+                ],
+                "score": 0.961,
+                "text": "4 Conclusion"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    1361,
+                    1069,
+                    1390
+                ],
+                "score": 0.997,
+                "text": "Curvilinear structure segmentation is a fundamental step in automated diag-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    1395,
+                    1071,
+                    1422
+                ],
+                "score": 0.988,
+                "text": "nosis of many diseases, and it remains a challenging medical image analysis"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    1430,
+                    1073,
+                    1457
+                ],
+                "score": 0.994,
+                "text": "problem despite considerable efforts in research. In this paper, we developed a"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    106,
+                    1462,
+                    1071,
+                    1489
+                ],
+                "score": 0.995,
+                "text": "new channel and spatial attention network named CS-Net for curvilinear struc-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    106,
+                    1496,
+                    1072,
+                    1523
+                ],
+                "score": 0.998,
+                "text": "ture segmentation. It considers the attention mechanism to build the associates"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    1530,
+                    1072,
+                    1557
+                ],
+                "score": 0.988,
+                "text": "among features, and aggregate the global contextual information, as thus to"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    106,
+                    1562,
+                    1069,
+                    1589
+                ],
+                "score": 0.999,
+                "text": "improve the inter-class discrimination and intra-class aggregation abilities by"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    112,
+                    1612,
+                    471,
+                    1651
+                ],
+                "score": 0.988,
+                "text": "3 http://bioimlab.dei.unipd.it/."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    129,
+                    1645,
+                    425,
+                    1676
+                ],
+                "score": 1.0,
+                "text": "http://imed.nimte.ac.cn/."
+            }
+        ],
+        "page_info": {
+            "page_no": 7,
+            "width": 1221,
+            "height": 1851
+        }
+    },
+    {
+        "layout_dets": [
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9849,
+                "bbox": [
+                    140,
+                    152,
+                    1116,
+                    320
+                ],
+                "index": 1
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9755,
+                "bbox": [
+                    141,
+                    349,
+                    1115,
+                    445
+                ],
+                "index": 2
+            },
+            {
+                "cls_id": 17,
+                "label": "paragraph_title",
+                "score": 0.9397,
+                "bbox": [
+                    143,
+                    490,
+                    328,
+                    526
+                ],
+                "index": 3
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9749,
+                "bbox": [
+                    157,
+                    557,
+                    1113,
+                    647
+                ],
+                "index": 4
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9675,
+                "bbox": [
+                    157,
+                    649,
+                    1113,
+                    708
+                ],
+                "index": 5
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9682,
+                "bbox": [
+                    157,
+                    710,
+                    1113,
+                    768
+                ],
+                "index": 6
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9799,
+                "bbox": [
+                    158,
+                    770,
+                    1113,
+                    887
+                ],
+                "index": 7
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9714,
+                "bbox": [
+                    157,
+                    891,
+                    1114,
+                    950
+                ],
+                "index": 8
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9709,
+                "bbox": [
+                    157,
+                    951,
+                    1112,
+                    1009
+                ],
+                "index": 9
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9786,
+                "bbox": [
+                    158,
+                    1012,
+                    1113,
+                    1131
+                ],
+                "index": 10
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9716,
+                "bbox": [
+                    157,
+                    1133,
+                    1112,
+                    1192
+                ],
+                "index": 11
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9801,
+                "bbox": [
+                    156,
+                    1193,
+                    1113,
+                    1313
+                ],
+                "index": 12
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.981,
+                "bbox": [
+                    146,
+                    1314,
+                    1112,
+                    1434
+                ],
+                "index": 13
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9694,
+                "bbox": [
+                    147,
+                    1436,
+                    1113,
+                    1494
+                ],
+                "index": 14
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9722,
+                "bbox": [
+                    147,
+                    1496,
+                    1112,
+                    1555
+                ],
+                "index": 15
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9689,
+                "bbox": [
+                    147,
+                    1557,
+                    1111,
+                    1614
+                ],
+                "index": 16
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.969,
+                "bbox": [
+                    147,
+                    1616,
+                    1112,
+                    1675
+                ],
+                "index": 17
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    147,
+                    156,
+                    1111,
+                    183
+                ],
+                "score": 0.999,
+                "text": "applying a self-attention mechanism to high level features in the channel and"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    147,
+                    188,
+                    1111,
+                    217
+                ],
+                "score": 0.997,
+                "text": "spatial dimension. Our experimental results show that the proposed method can"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    146,
+                    222,
+                    1110,
+                    249
+                ],
+                "score": 0.991,
+                "text": "improve the segmentation of curvilinear structure for color fundus, OCT-A and"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    147,
+                    255,
+                    1110,
+                    284
+                ],
+                "score": 0.996,
+                "text": "CCM images. Its superior performance confirms it as a powerful tool for wide"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    145,
+                    289,
+                    583,
+                    316
+                ],
+                "score": 0.999,
+                "text": "healthcare applications and beyond."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    146,
+                    350,
+                    1110,
+                    380
+                ],
+                "score": 0.993,
+                "text": "Acknowledgement. This work was supported by National Science Foundation Pro-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    148,
+                    385,
+                    1109,
+                    409
+                ],
+                "score": 0.997,
+                "text": "gram of China (61601029, 61773297), Zhejiang Provincial Natural Science Foundation"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    149,
+                    414,
+                    976,
+                    439
+                ],
+                "score": 0.989,
+                "text": "(LZ19F0 10001), and Ningbo Natural Science Foundation (2018A610055)."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    146,
+                    492,
+                    325,
+                    527
+                ],
+                "score": 1.0,
+                "text": "References"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    160,
+                    559,
+                    1110,
+                    585
+                ],
+                "score": 0.989,
+                "text": "1. Zhao, Y., et al.: Automated vessel segmentation using infinite perimeter active"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    194,
+                    591,
+                    1107,
+                    615
+                ],
+                "score": 0.998,
+                "text": "contour model with hybrid region information with application to retinal images."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    192,
+                    620,
+                    753,
+                    646
+                ],
+                "score": 0.977,
+                "text": "IEEE Trans. Med. Imag. 34(9), 1797–1807 (2015)"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    160,
+                    651,
+                    1109,
+                    676
+                ],
+                "score": 0.992,
+                "text": "2. Zhao, Y., et al.: Automatic 2D/3D vessel enhancement in multiple modality images"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    194,
+                    681,
+                    1108,
+                    706
+                ],
+                "score": 0.992,
+                "text": "using a weighted symmetry filter. IEEE Trans. Med. Imag. 37(2), 438–450 (2018)"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    160,
+                    712,
+                    1111,
+                    737
+                ],
+                "score": 0.992,
+                "text": "3. Fraz, M., et al.: Blood vessel segmentation methodologies in retinal images - a"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    193,
+                    743,
+                    812,
+                    767
+                ],
+                "score": 0.996,
+                "text": "survey. Comput. Meth. Prog. Bio. 108, 407–433 (2012)"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    161,
+                    773,
+                    1109,
+                    796
+                ],
+                "score": 0.989,
+                "text": "4. Frangi, A.F., Niessen, W.J., Vincken, K.L., Viergever, M.A.: Multiscale vessel"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    193,
+                    801,
+                    1110,
+                    827
+                ],
+                "score": 0.987,
+                "text": "enhancement filtering. In: Wells, W.M., Colchester, A., Delp, S. (eds.) MICCAI"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    193,
+                    831,
+                    1106,
+                    859
+                ],
+                "score": 0.993,
+                "text": "1998. LNCS, vol. 1496, pp. 130–137. Springer, Heidelberg (1998). https://doi.org/"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    195,
+                    864,
+                    430,
+                    886
+                ],
+                "score": 1.0,
+                "text": "10.1007/BFb0056195"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    160,
+                    893,
+                    1111,
+                    918
+                ],
+                "score": 0.994,
+                "text": "5. Cetin, S., Unal, G.: A higher-order tensor vessel tractography for segmentation of"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    194,
+                    923,
+                    946,
+                    948
+                ],
+                "score": 0.995,
+                "text": "vascular structures. IEEE Trans. Med. Imag. 34, 2172–2185 (2015)"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    159,
+                    952,
+                    1108,
+                    979
+                ],
+                "score": 0.996,
+                "text": "6. Liskowski, P., Krawiec, K.: Segmenting retinal blood vessels with deep neural net-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    195,
+                    985,
+                    799,
+                    1010
+                ],
+                "score": 0.989,
+                "text": "works. IEEE Trans. Med. Imag. 35, 2369–2380 (2016)"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    160,
+                    1013,
+                    1108,
+                    1038
+                ],
+                "score": 0.994,
+                "text": "7. Fu, H., Xu, Y., Lin, S., Kee Wong, D.W., Liu, J.: DeepVessel: retinal vessel segmen-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    194,
+                    1045,
+                    1108,
+                    1068
+                ],
+                "score": 0.995,
+                "text": "tation via deep learning and conditional random field. In: Ourselin, S., Joskowicz,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    192,
+                    1073,
+                    1108,
+                    1101
+                ],
+                "score": 0.998,
+                "text": "L., Sabuncu, M.R., Unal, G., Wells, W. (eds.) MICCAI 2016. LNCS, vol. 9901, pp."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    194,
+                    1105,
+                    1092,
+                    1131
+                ],
+                "score": 0.993,
+                "text": "132–139. Springer, Cham (2016). https://doi.org/10.1007/978-3-319-46723-8_16"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    161,
+                    1136,
+                    1109,
+                    1158
+                ],
+                "score": 0.995,
+                "text": "8. Alom, M., et al.: Recurrent residual convolutional neural network based on U-net"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    196,
+                    1165,
+                    964,
+                    1190
+                ],
+                "score": 0.995,
+                "text": "(R2U-Net) for medical image segmentation. arXiv:1802.06955 (2018)"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    159,
+                    1195,
+                    1110,
+                    1221
+                ],
+                "score": 0.993,
+                "text": "9. Colonna, A., Scarpa, F., Ruggeri, A.: Segmentation of corneal nerves using"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    191,
+                    1225,
+                    1109,
+                    1251
+                ],
+                "score": 0.992,
+                "text": "a U-Net-based convolutional neural network. In: Stoyanov, D., et al. (eds.)"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    194,
+                    1255,
+                    1109,
+                    1282
+                ],
+                "score": 0.982,
+                "text": "OMIA/COMPAY -2018. LNCS, vol. 11039, pp. 185–192. Springer, Cham (2018)."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    194,
+                    1286,
+                    714,
+                    1313
+                ],
+                "score": 0.995,
+                "text": "https://doi.org/10.1007/978-3-030-00949-6_22"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    148,
+                    1318,
+                    1106,
+                    1341
+                ],
+                "score": 0.99,
+                "text": "10. Ronneberger, O., Fischer, P., Brox, T.: U-Net: convolutional networks for biomed-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    191,
+                    1346,
+                    1110,
+                    1373
+                ],
+                "score": 0.992,
+                "text": "ical image segmentation. In: Navab, N., Hornegger, J., Wells, W.M., Frangi, A.F."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    195,
+                    1376,
+                    1109,
+                    1403
+                ],
+                "score": 0.991,
+                "text": "(eds.) MICCAI 2015. LNCS, vol. 9351, pp. 234–241. Springer, Cham (2015)."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    195,
+                    1407,
+                    713,
+                    1434
+                ],
+                "score": 0.999,
+                "text": "https://doi.org/10.1007/978-3-319-24574-4_28"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    146,
+                    1435,
+                    1110,
+                    1465
+                ],
+                "score": 0.99,
+                "text": "11. Zhao, H., et al.: Pyramid scene parsing network. In: CVPR 2017, pp. 2281–2890"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    192,
+                    1466,
+                    267,
+                    1497
+                ],
+                "score": 1.0,
+                "text": "(2017)"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    148,
+                    1498,
+                    1110,
+                    1523
+                ],
+                "score": 0.991,
+                "text": "12. Peng, C., et al.: Large kernel matters-improve semantic segmentation by global"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    195,
+                    1529,
+                    884,
+                    1554
+                ],
+                "score": 0.975,
+                "text": "convolutional network. In: CVPR 2017, pp. 4353–4361 (2017)"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    146,
+                    1556,
+                    1109,
+                    1587
+                ],
+                "score": 0.992,
+                "text": "13. Jun, F., et al.: Dual attention network for scene segmentation. In: CVPR 2019, pp."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    192,
+                    1589,
+                    388,
+                    1614
+                ],
+                "score": 0.993,
+                "text": "3146–3154 (2019)"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    148,
+                    1619,
+                    1109,
+                    1644
+                ],
+                "score": 0.99,
+                "text": "14. Azzopardi, G., et al.: Trainable cosfire filters for vessel delineation with application"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    194,
+                    1649,
+                    828,
+                    1674
+                ],
+                "score": 0.998,
+                "text": "to retinal images. Med. Image Anal. 19(1), 46–57 (2015)"
+            }
+        ],
+        "page_info": {
+            "page_no": 8,
+            "width": 1221,
+            "height": 1851
+        }
+    },
+    {
+        "layout_dets": [
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9675,
+                "bbox": [
+                    106,
+                    155,
+                    1072,
+                    214
+                ],
+                "index": 1
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9673,
+                "bbox": [
+                    107,
+                    215,
+                    1073,
+                    275
+                ],
+                "index": 2
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9788,
+                "bbox": [
+                    109,
+                    276,
+                    1072,
+                    397
+                ],
+                "index": 3
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9659,
+                "bbox": [
+                    107,
+                    398,
+                    1072,
+                    457
+                ],
+                "index": 4
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9677,
+                "bbox": [
+                    106,
+                    458,
+                    1074,
+                    519
+                ],
+                "index": 5
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9643,
+                "bbox": [
+                    106,
+                    520,
+                    1072,
+                    579
+                ],
+                "index": 6
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    155,
+                    1069,
+                    183
+                ],
+                "score": 0.984,
+                "text": "15. Gu Z., et al.: CE-NET: context encoder network for 2D medical image segmenta-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    155,
+                    187,
+                    598,
+                    212
+                ],
+                "score": 0.998,
+                "text": "tion. IEEE Trans. Med. Imaging (2019)"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    108,
+                    219,
+                    1071,
+                    244
+                ],
+                "score": 0.991,
+                "text": "16. Zhang, Z., Liu, Q., Wang, Y.: Road extraction by deep residual U-NET. IEEE"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    155,
+                    246,
+                    713,
+                    274
+                ],
+                "score": 0.996,
+                "text": "Geosci. Remote Sens. Lett. 15(5), 749–753 (2018)"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    109,
+                    280,
+                    1071,
+                    303
+                ],
+                "score": 0.991,
+                "text": "17. Zhou, Z., Rahman Siddiquee, M.M., Tajbakhsh, N., Liang, J.: UNet++: a nested"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    152,
+                    307,
+                    1070,
+                    335
+                ],
+                "score": 0.996,
+                "text": "U-Net architecture for medical image segmentation. In: Stoyanov, D., et al. (eds.)"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    152,
+                    338,
+                    1070,
+                    366
+                ],
+                "score": 0.982,
+                "text": "DLMIA/ML-CDS -2018. LNCS, vol. 11045, pp. 3–11. Springer, Cham (2018)."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    154,
+                    370,
+                    660,
+                    396
+                ],
+                "score": 0.988,
+                "text": "https://doi.org/10.1007/978-3-030-00889-5_1"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    108,
+                    400,
+                    1069,
+                    425
+                ],
+                "score": 0.995,
+                "text": "18. Oktay, O., et al.: Attention U-NET: learning where to look for the pancreas."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    155,
+                    430,
+                    424,
+                    455
+                ],
+                "score": 0.997,
+                "text": "arXiv:1804.03999 (2018)"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    108,
+                    461,
+                    1073,
+                    486
+                ],
+                "score": 0.993,
+                "text": "19. Guimarães, P., et al.: A fast and efficient technique for the automatic tracing of"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    155,
+                    492,
+                    1026,
+                    517
+                ],
+                "score": 0.995,
+                "text": "corneal nerves in confocal microscopy. Trans. Vis. Sci. Technol. 5(5), 7 (2016)"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    108,
+                    522,
+                    1070,
+                    547
+                ],
+                "score": 0.984,
+                "text": "20. Yokogawa, H., et al.: Mapping of normal corneal K-structures by in vivo laser"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    156,
+                    553,
+                    693,
+                    578
+                ],
+                "score": 0.991,
+                "text": "confocal microscopy. Cornea 27, 879–883 (2008)"
+            }
+        ],
+        "page_info": {
+            "page_no": 9,
+            "width": 1221,
+            "height": 1851
+        }
+    }
+]

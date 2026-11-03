@@ -1,0 +1,4265 @@
+[
+    [
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "Ridge-Based Vessel Segmentation in Color Images of the Retina"
+                    }
+                ],
+                "level": 1
+            },
+            "bbox": [
+                204,
+                74,
+                758,
+                138
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Joes Staal*, Associate Member, IEEE, Michael D. Abràmoff, Member, IEEE, Meindert Niemeijer, Max A. Viergever, Member, IEEE, and Bram van Ginneken, Associate Member, IEEE"
+                    }
+                ]
+            },
+            "bbox": [
+                119,
+                150,
+                841,
+                181
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Abstract—A method is presented for automated segmentation of vessels in two-dimensional color images of the retina. This method can be used in computer analyses of retinal images, e.g., in automated screening for diabetic retinopathy. The system is based on extraction of image ridges, which coincide approximately with vessel centerlines. The ridges are used to compose primitives in the form of line elements. With the line elements an image is partitioned into patches by assigning each image pixel to the closest line element. Every line element constitutes a local coordinate frame for its corresponding patch. For every pixel, feature vectors are computed that make use of properties of the patches and the line elements. The feature vectors are classified using a kNN-classifier and sequential forward feature selection. The algorithm was tested on a database consisting of 40 manually labeled images. The method achieves an area under the receiver operating characteristic curve of 0.952. The method is compared with two recently published rule-based methods of Hoover et al. [1] and Jiang et al. [2]. The results show that our method is significantly better than the two rule-based methods "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathbf { \\left( \\boldsymbol { p } < 0 . 0 1 \\right) }"
+                    },
+                    {
+                        "type": "text",
+                        "content": ". The accuracy of our method is 0.944 versus 0.947 for a second observer."
+                    }
+                ]
+            },
+            "bbox": [
+                55,
+                223,
+                475,
+                477
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Index Terms—Classification, convex sets, feature selection, fundus, image primitives, retina, ridges, vessel segmentation."
+                    }
+                ]
+            },
+            "bbox": [
+                55,
+                482,
+                473,
+                510
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "I. INTRODUCTION"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                204,
+                532,
+                326,
+                545
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "SSESSMENT of the characteristics of vessels plays an important role in a variety of medical diagnoses. For these tasks measurements are needed of e.g., vessel width, color reflectivity, tortuosity, abnormal branching, or the occurrence of vessels of a certain width. When the number of vessels in an image is large, or when a large number of images is acquired, manual delineation of the vessels becomes tedious or even impossible."
+                    }
+                ]
+            },
+            "bbox": [
+                55,
+                553,
+                473,
+                674
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "The focus of this paper is on the automated segmentation of vessels in color images of the retina. These images, also known as fundus images, are acquired by making photographs of the back of the eye. We are interested in vessel segmentation for screening of diabetic retinopathy. Diabetes is a disease that affects about 5.5% of the population worldwide, a number that can be expected to increase significantly in the coming years. About 10% of all diabetic patients have diabetic retinopathy, which is the primary cause of blindness in the Western World. Since this type of blindness can be prevented with treatment at an early stage, the WHO advises yearly ocular screening of patients. Automation will facilitate this screening [3]."
+                    }
+                ]
+            },
+            "bbox": [
+                55,
+                674,
+                475,
+                765
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": []
+            },
+            "bbox": [
+                485,
+                222,
+                905,
+                313
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Knowledge about the location of the vessels can aid in screening of diabetic retinopathy, e.g., to reduce the number of false positives in the detection of microaneurysms [4]–[6], to serve as a means for registration of images taken at different time instants or at different locations of the retina [7], or to find the location of the optic disc and the fovea."
+                    }
+                ]
+            },
+            "bbox": [
+                485,
+                313,
+                906,
+                404
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Previous methods for vessel segmentation in images of the retina can be divided into two groups. The first group consists of rule-based methods and comprises vessel tracking [8]–[11], matched filter responses [1], [12], [13], grouping of edge pixels [14], model based locally adaptive thresholding [2], topology adaptive snakes [15] and morphology-based techniques [16]–[18]. The second group consists of supervised methods, which require manually labeled images for training. To the best of our knowledge, the only published method in this category is the neural network scheme for pixel classification by Sinthanayothin et al. [19], [20]. Our method belongs to the last category."
+                    }
+                ]
+            },
+            "bbox": [
+                485,
+                404,
+                906,
+                585
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "In our opinion, a pixel representation is not optimal for vessel structure. Therefore, our approach is based on the intrinsic property that vessels are elongated structures. This observation leads to a primitive-based method, which we refer to as PBM. Our algorithm uses image primitives formed from image ridges that are grouped into sets that approximate straight line elements. The sets are used for two purposes. First, features are computed which together with a classifier give a probability that the line element is part of a vessel. Second, the sets divide the image into patches by assigning every pixel of the image to its nearest primitive. Within each patch, the line element defines a local coordinate frame in which local features can be extracted for every pixel. The probability that the line element is part of a vessel is one of these features. The features are used to classify the pixels in the patch into vessel and nonvessel."
+                    }
+                ]
+            },
+            "bbox": [
+                485,
+                584,
+                906,
+                810
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Many of the published methods have not been evaluated on large datasets or fail to give good results for large numbers of images as encountered in a screening process. In [9] and [19], evaluation is done on vessel segments and bifurcations. Only in [1] and [2] is an evaluation on complete manually labeled images presented."
+                    }
+                ]
+            },
+            "bbox": [
+                485,
+                810,
+                906,
+                901
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "We have constructed a database of manually labeled images for training and evaluation of our method. The database consists of 40 images taken from a screening programme for diabetic retinopathy in the Netherlands. We compare our method with two rule-based methods. The first one is the method of Hoover et al. [1], the second one the method of Jiang et al. [2]. Hoover et al. have collected a database of manually labeled images, which is publicly available together with the results of their method. For comparison, our system is evaluated on their database too."
+                    }
+                ]
+            },
+            "bbox": [
+                486,
+                901,
+                905,
+                931
+            ]
+        },
+        {
+            "type": "page_footer",
+            "content": {
+                "page_footer_content": [
+                    {
+                        "type": "text",
+                        "content": "0278-0062/04$20.00 © 2004 IEEE"
+                    }
+                ]
+            },
+            "bbox": [
+                385,
+                943,
+                576,
+                955
+            ]
+        },
+        {
+            "type": "page_header",
+            "content": {
+                "page_header_content": [
+                    {
+                        "type": "text",
+                        "content": "IEEE TRANSACTIONS ON MEDICAL IMAGING, VOL. 23, NO. 4, APRIL 2004"
+                    }
+                ]
+            },
+            "bbox": [
+                57,
+                37,
+                452,
+                51
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "501"
+                    }
+                ]
+            },
+            "bbox": [
+                882,
+                39,
+                901,
+                50
+            ]
+        },
+        {
+            "type": "page_footnote",
+            "content": {
+                "page_footnote_content": [
+                    {
+                        "type": "text",
+                        "content": "Manuscript received July 24, 2003; revised January 7, 2004. The Associate Editor responsible for coordinating the review of this paper and recommending its publication was A. H. Hielscher. Asterisk indicates corresponding author."
+                    }
+                ]
+            },
+            "bbox": [
+                55,
+                794,
+                475,
+                829
+            ]
+        },
+        {
+            "type": "page_footnote",
+            "content": {
+                "page_footnote_content": [
+                    {
+                        "type": "text",
+                        "content": "*J. Staal is with the Image Sciences Institute, University Medical Center Utrecht, Heidelberglaan 100, E.01.335, 3584 CX, Utrecht, The Netherlands (e-mail: joes@isi.uu.nl)."
+                    }
+                ]
+            },
+            "bbox": [
+                55,
+                829,
+                473,
+                863
+            ]
+        },
+        {
+            "type": "page_footnote",
+            "content": {
+                "page_footnote_content": [
+                    {
+                        "type": "text",
+                        "content": "M. Niemeijer, M. A. Viergever, and B. van Ginneken are with the Image Sciences Institute, University Medical Center Utrecht, 3584 CX, Utrecht, The Netherlands."
+                    }
+                ]
+            },
+            "bbox": [
+                57,
+                862,
+                473,
+                896
+            ]
+        },
+        {
+            "type": "page_footnote",
+            "content": {
+                "page_footnote_content": [
+                    {
+                        "type": "text",
+                        "content": "M. D. Abràmoff is with the Department of Ophthalmology and Visual Sciences, University of Iowa, Iowa City, IA 52242-1091 USA."
+                    }
+                ]
+            },
+            "bbox": [
+                57,
+                896,
+                473,
+                919
+            ]
+        },
+        {
+            "type": "page_footnote",
+            "content": {
+                "page_footnote_content": [
+                    {
+                        "type": "text",
+                        "content": "Digital Object Identifier 10.1109/TMI.2004.825627"
+                    }
+                ]
+            },
+            "bbox": [
+                70,
+                919,
+                349,
+                931
+            ]
+        }
+    ],
+    [
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": []
+            },
+            "bbox": [
+                58,
+                79,
+                477,
+                184
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "The paper is organized as follows. In Section II, a method for extracting ridges and line elements is developed. The line elements are used to subdivide the image into patches. Section III describes the classifier used and the features that are extracted. A description of the material used is given in Section IV. Section V presents the results, which are summarized and discussed in Section VI."
+                    }
+                ]
+            },
+            "bbox": [
+                58,
+                185,
+                477,
+                290
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "II. REPRESENTATION OF VESSELS"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                155,
+                305,
+                382,
+                319
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "A. Ridge Detection"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                60,
+                327,
+                194,
+                342
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Since image ridges are natural indicators of vessels, we start our analysis with a short overview of ridge detection for twodimensional gray value images. For a more extensive discussion on this subject, see [21] and [22]. The ridge detection method used in this paper is described in full detail in [22]. Because the green channel of color fundus images formatted as an RGB image gives the highest contrast between vessel and background [1], this channel is used for extraction of the image ridges."
+                    }
+                ]
+            },
+            "bbox": [
+                58,
+                347,
+                477,
+                468
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Ridges are defined as points where the image has an extremum in the direction of the largest surface curvature. Stated otherwise, we search for the points in the image "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "L ( \\mathbf { x } )"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", with "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "{ \\bf x } = ( x _ { 1 } , x _ { 2 } ) ^ { T }"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", where the first derivative of the intensity in the direction of the largest surface curvature changes sign."
+                    }
+                ]
+            },
+            "bbox": [
+                58,
+                468,
+                477,
+                542
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "The direction of largest surface curvature is the eigenvector û of the matrix of second order derivatives of the image corresponding to the largest absolute eigenvalue λ. This matrix is referred to as the Hessian matrix H. The sign of λ determines whether a local minimum "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "( \\lambda > 0 )"
+                    },
+                    {
+                        "type": "text",
+                        "content": "or a local maximum "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "( \\lambda < 0 )"
+                    },
+                    {
+                        "type": "text",
+                        "content": "is found."
+                    }
+                ]
+            },
+            "bbox": [
+                58,
+                542,
+                477,
+                633
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Because taking derivatives of discrete images is an ill-posed operation, they are taken at a scale σ using the Gaussian scalespace technique [23], [24]. The main idea is that the image derivatives can be taken by convolving the image with derivatives of a Gaussian"
+                    }
+                ]
+            },
+            "bbox": [
+                58,
+                633,
+                477,
+                709
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "\\begin{array} { r l r } {  { L _ { x _ { j } } = \\frac { \\partial L ( \\mathbf { x } , \\sigma ) } { \\partial x _ { j } } } } \\\\ & { } & { = \\frac { 1 } { 2 \\pi \\sigma ^ { 2 } } \\int _ { \\mathbf { x } ^ { \\prime } \\in \\mathbb { R } ^ { 2 } } \\frac { \\partial \\mathrm { e } ^ { - \\| \\mathbf { x } - \\mathbf { x } ^ { \\prime } \\| ^ { 2 } / 2 \\sigma ^ { 2 } } } { \\partial x _ { j } } L ( \\mathbf { x } ^ { \\prime } ) \\mathrm { d } \\mathbf { x } ^ { \\prime } } \\end{array}\\tag{1}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/2495aaa2f936c9228d7904c7db5d6514ee02baf6009632c2c431e89da83fb95b.jpg"
+                }
+            },
+            "bbox": [
+                112,
+                713,
+                424,
+                792
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "where "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "x _ { j }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "is the image coordinate with respect to which the derivative is taken. Mixed and higher order derivatives are computed by taking mixed and higher order derivatives of the Gaussian kernel."
+                    }
+                ]
+            },
+            "bbox": [
+                58,
+                800,
+                477,
+                859
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "It is now possible to define a scalar field "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\rho ( \\mathbf { x } , \\sigma )"
+                    },
+                    {
+                        "type": "text",
+                        "content": "over the image that takes value -1 for ridges of local minima, 1 for ridges of local maxima and 0 elsewhere as follows:"
+                    }
+                ]
+            },
+            "bbox": [
+                58,
+                859,
+                477,
+                905
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "\\begin{array} { r } { \\rho ( \\mathbf x , \\sigma ) = - \\displaystyle \\frac { 1 } { 2 } \\mathrm { s i g n } ( \\lambda ) | \\mathrm { s i g n } ( \\nabla L ( \\mathbf x + \\epsilon \\hat { \\mathbf v } , \\sigma ) \\cdot \\hat { \\mathbf v } ) } \\\\ { - \\mathrm { s i g n } ( \\nabla L ( \\mathbf x - \\epsilon \\hat { \\mathbf v } , \\sigma ) \\cdot \\hat { \\mathbf v } ) | } \\end{array}\\tag{2}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/e586ff498301808f54636e55fddbc3376dd376296bbff7ca1e629a9bc8a7d415.jpg"
+                }
+            },
+            "bbox": [
+                58,
+                911,
+                441,
+                958
+            ]
+        },
+        {
+            "type": "image",
+            "content": {
+                "image_source": {
+                    "path": "images/cdbc2cc1e1eaf8736a521dba05891451ef1b18d69d6c1be7f29203de64830b05.jpg"
+                },
+                "image_caption": [
+                    {
+                        "type": "text",
+                        "content": "Fig. 1. (a) Green channel of a fundus image obtained from a digital fundus camera. The diameter of the FOV is 540 pixels. (b) The local minima ridges of "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "( \\mathrm { a } ) , \\sigma = 2 . 0"
+                    },
+                    {
+                        "type": "text",
+                        "content": "pixel. A subset of the ridges coincide with the vessels."
+                    }
+                ],
+                "image_footnote": []
+            },
+            "bbox": [
+                501,
+                77,
+                892,
+                239
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "where the gradient operator ∇ is defined as "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "( \\partial / \\partial x _ { 1 } , \\partial / \\partial x _ { 2 } ) ^ { T }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "and "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\lambda ( \\mathbf { x } , \\sigma )"
+                    },
+                    {
+                        "type": "text",
+                        "content": "is the largest eigenvalue by absolute value of "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathbf { H } ="
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\nabla \\nabla ^ { T } L ( \\mathbf { x } , \\overbar { \\boldsymbol { \\sigma } } )"
+                    },
+                    {
+                        "type": "text",
+                        "content": ". In (2), λ and  are evaluated at "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "( \\mathbf { x } , \\sigma )"
+                    },
+                    {
+                        "type": "text",
+                        "content": ". The parameter € is the spatial accuracy with which the point-sets are detected. In the continuous case, the limit "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\epsilon  0"
+                    },
+                    {
+                        "type": "text",
+                        "content": "is taken, but in the discrete pixel case "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\epsilon = 1 . 0"
+                    },
+                    {
+                        "type": "text",
+                        "content": "pixel is a natural choice. The locations at which the gradients are evaluated are in general not on a grid point and linear interpolation is used to obtain the gradient values."
+                    }
+                ]
+            },
+            "bbox": [
+                488,
+                308,
+                906,
+                444
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Fig. 1 shows an example of ridge detection in a fundus image. Since the vessels are dark structures, only local minima ridges are shown. In fluorescein angiography, where the vessels are the brighter structures, the local maxima ridges should be used."
+                    }
+                ]
+            },
+            "bbox": [
+                488,
+                445,
+                906,
+                507
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "B. Affine Convex Sets: Grouping Ridge Pixels"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                490,
+                522,
+                799,
+                537
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "The next step in forming primitives for the vessels is a grouping of ridge pixels which belong to the same ridge. The aim is to obtain primitives which represent approximately straight line elements."
+                    }
+                ]
+            },
+            "bbox": [
+                488,
+                542,
+                906,
+                602
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "The grouping method is a simple region growing algorithm which compares an already grouped ridge pixel with ungrouped pixels in a neighborhood of radius "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\epsilon _ { \\mathrm { c } }"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", where the subscript "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\" \\mathrm { c } ^ { \\prime \\mathrm {  v } }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "stands for connectivity. If no grouped pixel is available, a new one is selected randomly as seed from the remaining ungrouped ridge pixels. The comparison between the grouped and a candidate pixel within the neighborhood is based on two conditions: 1) The eigenvector directions of the ridge pixels should be similar and 2) If condition 1) is met, the pixels should be on the same ridge (and not on parallel ridges). The first condition can be checked by taking the scalar product of the eigenvectors  at the location of the pixels. If the pixels have similar orientation the scalar product will be close to 1. The second condition can be checked by computing the unit-length normalized vector r between the locations of the two pixels under consideration and taking the vector product between ê and  of the grouped pixel. If the pixels are on the same segment, the vector product will be close to 1."
+                    }
+                ]
+            },
+            "bbox": [
+                486,
+                602,
+                908,
+                873
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Mathematically, we check the following inequalities:"
+                    }
+                ]
+            },
+            "bbox": [
+                504,
+                873,
+                857,
+                890
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "\\lVert \\mathbf { x } _ { \\mathrm { g } } - \\mathbf { x } _ { \\mathrm { u } } \\rVert \\leq \\epsilon _ { \\mathrm { c } }\\tag{3}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/fff2cbbe8d48fb0050e13fee7f91121918da94d80b69125b16e36db659953a8e.jpg"
+                }
+            },
+            "bbox": [
+                673,
+                904,
+                785,
+                920
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "\\vert \\hat { \\mathbf { v } } ( \\mathbf { x } _ { \\mathrm { g } } , \\sigma ) \\cdot \\hat { \\mathbf { v } } ( \\mathbf { x } _ { \\mathrm { u } } , \\sigma ) \\vert \\geq \\epsilon _ { \\mathrm { o } }\\tag{4}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/51ac6125f2ecb6b3a4d53707f2e22e3ff56e86dcadc0ac6632a314478aa80c18.jpg"
+                }
+            },
+            "bbox": [
+                607,
+                921,
+                785,
+                940
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "\\| \\hat { \\mathbf { v } } ( \\mathbf { x } _ { \\mathrm { g } } , \\sigma ) \\wedge \\hat { \\mathbf { r } } \\| \\geq \\epsilon _ { \\mathrm { p } }\\tag{5}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/5cecb099b3ca479a0c6abb760ab73e959139b77ac04a3c62f3a8200751929bef.jpg"
+                }
+            },
+            "bbox": [
+                645,
+                941,
+                787,
+                959
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "502"
+                    }
+                ]
+            },
+            "bbox": [
+                60,
+                39,
+                83,
+                49
+            ]
+        },
+        {
+            "type": "page_header",
+            "content": {
+                "page_header_content": [
+                    {
+                        "type": "text",
+                        "content": "IEEE TRANSACTIONS ON MEDICAL IMAGING, VOL. 23, NO. 4, APRIL 2004"
+                    }
+                ]
+            },
+            "bbox": [
+                511,
+                39,
+                906,
+                50
+            ]
+        }
+    ],
+    [
+        {
+            "type": "image",
+            "content": {
+                "image_source": {
+                    "path": "images/95d20a2831209c4973ddc95cb6e982ff922aa70bb620e1ea1cc677ee62575405.jpg"
+                },
+                "image_caption": [
+                    {
+                        "type": "text",
+                        "content": "Fig. 2. The dark curved lines are two ridges. The diameter of the disk is "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\epsilon _ { \\mathrm { c } } . { \\mathbf { v } } _ { \\mathrm { g } }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "is the eigenvector belonging to a grouped pixel, v1 and "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathbf { v } _ { 2 }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "are the eigenvectors of still ungrouped pixels. The vectors r1 and "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathbf { r } _ { 2 }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "are unit vectors pointing from the grouped pixels to the ungrouped pixels. The pixel that belongs to the same ridge will be added to the group, because it satisfies the conditions in (3)–(5). The pixel on the parallel ridge does not satisfy condition (5) and will not be grouped."
+                    }
+                ],
+                "image_footnote": []
+            },
+            "bbox": [
+                176,
+                75,
+                357,
+                196
+            ]
+        },
+        {
+            "type": "image",
+            "content": {
+                "image_source": {
+                    "path": "images/765ec9a04c3215170a986d97bebcac9db8d906ac2e8252981d9b2ee2cc584a99.jpg"
+                },
+                "image_caption": [
+                    {
+                        "type": "text",
+                        "content": "Fig. 3. (a) The convex sets of the ridges of Fig. 1(b). Every grouped set has its own color. (b) Blow up of (a). Note that the number of ridge pixels is equal to the number of ridge pixels in Fig. 1."
+                    }
+                ],
+                "image_footnote": []
+            },
+            "bbox": [
+                62,
+                349,
+                468,
+                510
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "where the subscript "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathrm { ^ { * } g ^ { * } }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "stands for grouped, "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\ \" _ { \\mathrm { u } } \\ \""
+                    },
+                    {
+                        "type": "text",
+                        "content": "for ungrouped, "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "{ \\mathbf { \\ddot { \\mathbf { \\phi } } } } _ { \\mathrm { O } } ^ { 6 6 }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "for orientation and "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathrm { ^ { 6 6 } p \\vec { \\Gamma } }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "for parallelism. The "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\epsilon { \\mathrm { : } } s"
+                    },
+                    {
+                        "type": "text",
+                        "content": "determine the measure for similarity, where "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "0 \\leq \\epsilon _ { \\mathrm { c } } < \\infty"
+                    },
+                    {
+                        "type": "text",
+                        "content": "and "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "0 \\le \\epsilon _ { \\mathrm { o } } , \\epsilon _ { \\mathrm { p } } \\le"
+                    },
+                    {
+                        "type": "text",
+                        "content": "1."
+                    }
+                ]
+            },
+            "bbox": [
+                55,
+                588,
+                473,
+                648
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "We refer to these sets of "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "( x _ { 1 } , x _ { 2 } )"
+                    },
+                    {
+                        "type": "text",
+                        "content": "coordinates as affine convex sets: convex because they approximate straight line elements and affine because of the geodesic convexity instead of straight line (Euclidean) convexity."
+                    }
+                ]
+            },
+            "bbox": [
+                55,
+                651,
+                473,
+                713
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "If the ridge detection is not perfect, "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\epsilon _ { \\mathbf { C } }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "can overcome the discontinuity caused by gaps in the ridges. The parameter "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\epsilon _ { \\mathrm { { O } } }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "controls the amount of curvature between two pixels. If it is set close to zero, highly curved convex sets are formed. If it is set close to one, straighter convex sets are obtained. The parameter "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\epsilon _ { \\mathrm { { p } } }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "prevents the grouping process to jump to parallel ridges. A value close to one is recommended. In this paper, "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\epsilon _ { \\mathrm { c } } = 3 . 0"
+                    },
+                    {
+                        "type": "text",
+                        "content": "pixels, "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\epsilon _ { \\mathrm { o } } = 0 . 9 5"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", and "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\epsilon _ { \\mathrm { { p } } } = 0 . 9 5"
+                    },
+                    {
+                        "type": "text",
+                        "content": "is used. Fig. 2 illustrates the construction of the affine convex sets. In Fig. 3, the convex sets of the ridges of Fig. 1(b) are shown."
+                    }
+                ]
+            },
+            "bbox": [
+                55,
+                715,
+                473,
+                866
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "The kth element in convex set number ¿, consisting of "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "K _ { i }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "points, will be denoted by "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathbf { c } _ { i } ( k ) , k = 1 , \\ldots , K _ { i } ."
+                    },
+                    {
+                        "type": "text",
+                        "content": "The vector "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathbf { c } ( k )"
+                    },
+                    {
+                        "type": "text",
+                        "content": "is the location x of the kth element in the set. The subscript ¿ is omitted when no particular convex set is referred to. For every point in a convex set ¿ there is a corresponding direction "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "{ \\hat { \\mathbf { v } } } _ { i } ( k )"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", the direction in which the ridge is detected."
+                    }
+                ]
+            },
+            "bbox": [
+                55,
+                866,
+                475,
+                958
+            ]
+        },
+        {
+            "type": "image",
+            "content": {
+                "image_source": {
+                    "path": "images/030624d25188cd758ab149d9ef928027707b3130bdc8b658cfaa776ad8cef186.jpg"
+                },
+                "image_caption": [
+                    {
+                        "type": "text",
+                        "content": "Fig. 4. Convex set regions of the convex sets of Fig. 3(a)."
+                    }
+                ],
+                "image_footnote": []
+            },
+            "bbox": [
+                607,
+                75,
+                782,
+                209
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "C. Convex Set Regions"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                486,
+                258,
+                647,
+                273
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "The image can now be partitioned into patches based on the convex sets. Every pixel is assigned to the convex set to which it is closest. Fig. 4 shows the result of this operation on the convex sets of Fig. 3(a). The patches are referred to as convex set regions (CSRs)."
+                    }
+                ]
+            },
+            "bbox": [
+                485,
+                279,
+                905,
+                353
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "A fitted straight line through a convex set can be used as the main axis of a local coordinate frame for the pixels in the corresponding CSR."
+                    }
+                ]
+            },
+            "bbox": [
+                485,
+                354,
+                905,
+                400
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "III. FEATURES AND CLASSIFIERS"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                584,
+                416,
+                807,
+                430
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "The goal of this work is to classify every pixel in an image as vessel or nonvessel. For this purpose labeled examples or training sets, features and a classifier are needed."
+                    }
+                ]
+            },
+            "bbox": [
+                486,
+                438,
+                905,
+                483
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "From the training sets feature vectors are constructed that can be labeled as vessel or nonvessel, so every feature vector belongs to one of two classes. The idea is that feature vectors from a particular class cluster together in the feature space and that a classifier can be designed that determines a decision boundary between the different classes. After the training, a nonlabeled feature vector can be classified by determining on which side of the decision boundary it is situated. With some classifiers it is possible to approximate the chance, given the features, that a pixel is vessel or not. This is called soft classification."
+                    }
+                ]
+            },
+            "bbox": [
+                485,
+                483,
+                905,
+                635
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "A. Classification and Performance"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                485,
+                648,
+                723,
+                664
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "In initial experiments, three classifiers have been compared, a kNN-classifier, a linear classifier and a quadratic classifier [25]. Performance of the kNN-classifier was superior for all experiments, so this classifier has been selected. We use the optimized implementation for kNN-classifiers that is made available by Arya et al. [26]."
+                    }
+                ]
+            },
+            "bbox": [
+                485,
+                669,
+                905,
+                760
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Using k neighbors of which n are labeled as vessel the a posteriori probability for being part of a vessel is approximated as"
+                    }
+                ]
+            },
+            "bbox": [
+                485,
+                760,
+                903,
+                791
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "p ( { \\mathrm { v e s s e l } } ) = { \\frac { n } { k } } .\\tag{6}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/076ef0619097d930989123d7bc5f0e1a03f29f8915da1e83221d315da2fba82a.jpg"
+                }
+            },
+            "bbox": [
+                640,
+                799,
+                750,
+                828
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "This converges to the true probability in the limit of an infinite number of examples [25]."
+                    }
+                ]
+            },
+            "bbox": [
+                486,
+                835,
+                903,
+                866
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "The performance of the system is measured with receiver operating characteristic (ROC) curves [27]. An ROC curve plots the fraction of pixels that is falsely classified as vessel against the fraction that is correctly classified as vessel. The fractions are determined by setting a threshold on the posterior probability. The closer a curve approaches the top left corner, the better the performance of the system. A single measure to quantify this behavior is the area under the curve, "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "A _ { z } ,"
+                    },
+                    {
+                        "type": "text",
+                        "content": "which is 1 for a perfect system. A system that makes random classifications has an ROC curve that is a straight line through the origin with slope 1 and "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "A _ { z } = 0 . 5"
+                    }
+                ]
+            },
+            "bbox": [
+                485,
+                866,
+                905,
+                958
+            ]
+        },
+        {
+            "type": "page_header",
+            "content": {
+                "page_header_content": [
+                    {
+                        "type": "text",
+                        "content": "STAAL et al.: RIDGE-BASED VESSEL SEGMENTATION IN COLOR IMAGES OF THE RETINA"
+                    }
+                ]
+            },
+            "bbox": [
+                57,
+                37,
+                532,
+                50
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "503"
+                    }
+                ]
+            },
+            "bbox": [
+                882,
+                39,
+                903,
+                49
+            ]
+        }
+    ],
+    [
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": []
+            },
+            "bbox": [
+                57,
+                79,
+                477,
+                155
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "B. Feature Selection"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                58,
+                170,
+                202,
+                185
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "In the following sections, many features will be defined and it is not known beforehand which ones will give good classification results and which ones will not. Therefore, feature selection is applied. The scheme used in this paper is the sequential forward selection method [28]. This algorithm starts with a null feature set and, for each step, the best feature that satisfies some criterion function is included with the current feature set. In this paper, Az is taken as the criterion function. After all features have been included, the set that gives the best performance is chosen."
+                    }
+                ]
+            },
+            "bbox": [
+                57,
+                189,
+                478,
+                342
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "C. Convex Sets Features"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                60,
+                357,
+                230,
+                372
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "In Fig. 3, the convex sets that are part of a vessel can be distinguished from the nonvessels by their local appearance. For that reason, features based on the profiles perpendicular to the convex sets seem to be a good choice. To extract profile information, a profile is sampled for every point k in a convex set from the image's green plane in the direction of the vector "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "{ \\hat { \\mathbf { v } } } ( k )"
+                    },
+                    {
+                        "type": "text",
+                        "content": "with "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathbf { c } ( k )"
+                    },
+                    {
+                        "type": "text",
+                        "content": "as midpoint. The obtained profiles are averaged and the mean profile "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\psi ( n )"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", with "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "n = - N , \\ldots , N"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", is taken as the profile of the convex set. The averaging operation performs some smoothing, so blurring of the profile is not considered. Features that are extracted from the profile are as follows."
+                    }
+                ]
+            },
+            "bbox": [
+                57,
+                377,
+                478,
+                544
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "1) The height of the profile: "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "h = \\psi ( 0 )"
+                    }
+                ]
+            },
+            "bbox": [
+                78,
+                545,
+                343,
+                560
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "2) The width of the profile defined as the distance between the strongest right and left edge of the profile: "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "w = n _ { \\mathrm { r e } } -"
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "n _ { \\mathrm { l e } } ( n _ { \\mathrm { r e } } = \\arg \\operatorname* { m a x } _ { n > 0 } \\psi ^ { \\prime } ( n )"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", with "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\psi ^ { \\prime }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "the first derivative of the profile. "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "n _ { \\mathrm { l e } }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "is defined similar for "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "n < 0 )"
+                    }
+                ]
+            },
+            "bbox": [
+                78,
+                560,
+                475,
+                621
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "3) The height divided by the width: "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "h / w"
+                    }
+                ]
+            },
+            "bbox": [
+                78,
+                621,
+                356,
+                636
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "4) The edge strength, defined as: "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "s _ { \\mathrm { e } } = \\psi ^ { \\prime } ( n _ { \\mathrm { l e } } ) + \\psi ^ { \\prime } ( n _ { \\mathrm { r e } } )"
+                    }
+                ]
+            },
+            "bbox": [
+                76,
+                636,
+                460,
+                651
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "5) The edge strength divided by the width: "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "s _ { \\mathrm { e } } / w"
+                    }
+                ]
+            },
+            "bbox": [
+                78,
+                651,
+                408,
+                666
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "6) The edge height: "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "h _ { \\mathrm { e } } = 1 / 2 ( \\psi ( n _ { \\mathrm { l e } } ) + \\psi ( n _ { \\mathrm { r e } } ) )"
+                    }
+                ]
+            },
+            "bbox": [
+                78,
+                666,
+                406,
+                681
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "7) The height minus the edge height: "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "h - h _ { \\mathrm { e } }"
+                    }
+                ]
+            },
+            "bbox": [
+                78,
+                681,
+                383,
+                696
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "8) The height divided by the edge height: "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "h / h _ { \\mathrm { e } } ."
+                    }
+                ]
+            },
+            "bbox": [
+                78,
+                696,
+                400,
+                712
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "There are also features extracted that are not profile related, but might give useful information. The following are computed."
+                    }
+                ]
+            },
+            "bbox": [
+                58,
+                713,
+                475,
+                742
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "9) The distance between the first and last point of a convex set: "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "d = \\| \\mathbf { c } ( 1 ) - \\mathbf { c } ( K ) \\|"
+                    }
+                ]
+            },
+            "bbox": [
+                76,
+                744,
+                475,
+                775
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "10) The length of a convex set: "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\begin{array} { r } { l = \\sum _ { k = 2 } ^ { K } | | \\mathbf { c } ( k ) - \\mathbf { c } ( k - 1 ) | | } \\end{array}"
+                    }
+                ]
+            },
+            "bbox": [
+                76,
+                773,
+                472,
+                791
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "11) Te curvature of a convex set, approximated by: "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\kappa ="
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\begin{array} { r } { \\sum _ { k = 2 } ^ { K } \\hat { \\mathbf v } ( k ) \\cdot \\hat { \\mathbf v } ( k - 1 ) } \\end{array}"
+                    }
+                ]
+            },
+            "bbox": [
+                76,
+                790,
+                475,
+                821
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "12) A rectangular image patch of size "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "1 . 5 \\times w"
+                    },
+                    {
+                        "type": "text",
+                        "content": "by K is sampled in the green plane around a convex set. The mean "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mu _ { \\mathrm { g } }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "for this patch is computed."
+                    }
+                ]
+            },
+            "bbox": [
+                76,
+                820,
+                475,
+                866
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "13) The standard deviation "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\sigma _ { \\mathrm { g } }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "for the green patch."
+                    }
+                ]
+            },
+            "bbox": [
+                76,
+                866,
+                413,
+                881
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "14) The mean value of the green plane at the locations of the convex set divided by the the mean value of the red plane."
+                    }
+                ]
+            },
+            "bbox": [
+                76,
+                881,
+                475,
+                911
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "15) At different scales σ the mean value of "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\lambda ( \\sigma )"
+                    },
+                    {
+                        "type": "text",
+                        "content": "at the locations of the convex set: "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\bar { \\lambda } ( \\sigma ) = 1 / K \\sum _ { k = 1 } ^ { K } \\lambda ( \\mathbf { c } ( k ) , \\sigma )"
+                    },
+                    {
+                        "type": "text",
+                        "content": "this is a measure of ridge strength (see Section I-A)."
+                    }
+                ]
+            },
+            "bbox": [
+                76,
+                911,
+                473,
+                957
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "D. CSR Pixel Features"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                490,
+                79,
+                648,
+                93
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Fitting a straight line through a convex set, a local coordinate system can be established for every CSR. For the origin of the coordinate the center of mass of the convex set is chosen. The first axis is along the direction of the fitted line, the second axis is perpendicular to the first axis and its direction is chosen so that a right hand oriented coordinate system is established. The features computed for the pixels in the CSR can be subdivided into features that take no information of the convex set into account [number 1)-3) in the list below], features that take convex set information into account [features 4)-9) below] and features that exploit the use of the local coordinate system [features 10)–12)]."
+                    }
+                ]
+            },
+            "bbox": [
+                486,
+                98,
+                908,
+                280
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "1) The value of the red plane of the image at the pixel location: "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "r ( \\mathbf { x } )"
+                    }
+                ]
+            },
+            "bbox": [
+                516,
+                281,
+                906,
+                313
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "2) The value of the green plane of the image at the pixel location: "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "g ( \\mathbf { x } )"
+                    }
+                ]
+            },
+            "bbox": [
+                514,
+                313,
+                906,
+                343
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "3) The ratio of the green values and red values of the pixel: "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "g ( \\mathbf { x } ) / r ( \\mathbf { x } )"
+                    }
+                ]
+            },
+            "bbox": [
+                516,
+                343,
+                906,
+                373
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "4) The chance that the corresponding convex set belongs to a vessel: "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "p ( \\mathbf { c } = \\mathrm { v e s s e l } )"
+                    }
+                ]
+            },
+            "bbox": [
+                514,
+                373,
+                906,
+                404
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "5) The distance between the pixel and the closest point on the convex set: "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "d _ { \\mathrm { c l o s e s t } } = \\lvert \\lvert \\bf { x } - \\bf { c } _ { \\mathrm { c l o s e s t } } \\rvert \\rvert"
+                    }
+                ]
+            },
+            "bbox": [
+                514,
+                404,
+                905,
+                434
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "6) The difference in the red values of the pixel and the closest point on the convex set: "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "r ( \\mathbf { x } ) - r ( \\mathbf { c } _ { \\mathrm { c l o s e s t } } )"
+                    }
+                ]
+            },
+            "bbox": [
+                516,
+                434,
+                905,
+                464
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "7) The ratio of the red values of the pixel and the closest point on the convex set: "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "r ( \\mathbf { x } ) / r ( \\mathbf { c } _ { \\mathrm { c l o s e s t } } )"
+                    }
+                ]
+            },
+            "bbox": [
+                516,
+                464,
+                906,
+                494
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "8) The difference in the green values of the pixel and the closest point on the convex set: "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "g ( \\mathbf { x } ) - g ( \\mathbf { c } _ { \\mathrm { c l o s e s t } } )"
+                    }
+                ]
+            },
+            "bbox": [
+                514,
+                494,
+                905,
+                525
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "9) The ratio of the green values of the pixel and the closest point on the convex set: "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "g ( \\mathbf { x } ) / g ( \\mathbf { c } _ { \\mathrm { c l o s e s t } } )"
+                    }
+                ]
+            },
+            "bbox": [
+                514,
+                525,
+                905,
+                555
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "10) The coordinate of the pixel with respect to the first axis: "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "x _ { 1 } ^ { \\prime }"
+                    }
+                ]
+            },
+            "bbox": [
+                508,
+                554,
+                905,
+                584
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "11) The coordinate of the pixel with respect to the second axis: "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "x _ { 2 } ^ { \\prime }"
+                    }
+                ]
+            },
+            "bbox": [
+                508,
+                584,
+                906,
+                614
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "12) "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "L _ { x _ { 1 } ^ { \\prime } } , L _ { x _ { 2 } ^ { \\prime } } , L _ { x _ { 1 } ^ { \\prime } x _ { 1 } ^ { \\prime } }"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", and "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "L _ { x _ { 2 } ^ { \\prime } x _ { 2 } ^ { \\prime } }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "at different scales σ. (Note that these are the number of scales × 4 features)."
+                    }
+                ]
+            },
+            "bbox": [
+                508,
+                614,
+                905,
+                645
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Not all of the features defined in this and the previous subsection are independent, but this is not a concern for the kNNclassifier used here."
+                    }
+                ]
+            },
+            "bbox": [
+                488,
+                645,
+                905,
+                689
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "In the databases we use, the blue channel is often empty or contains a lot of noise. Therefore, no features are extracted from that channel."
+                    }
+                ]
+            },
+            "bbox": [
+                488,
+                690,
+                908,
+                736
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "IV. MATERIAL"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                647,
+                753,
+                750,
+                768
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Two databases with images are used. The first one is obtained from a screening programme in the Netherlands and will be referred to as the Utrecht database. From this database 40 images are taken, containing 7 images with pathology (exudates, hemors, pigment epithelium changes). The images are captured in digital form from a Canon CR5 nonmydriatic 3CCD camera at "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "4 5 ^ { \\circ }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "field of view. The images are of size 768 × 584 pixels, 8 bits per color channel and have a field of view (FOV) of approximately 540 pixels in diameter. The images are in compressed JPEG-format, which is unfortunate for image processing but is commonly used in screening practice. Fig. 1(a) shows an example of the green channel of such a fundus image."
+                    }
+                ]
+            },
+            "bbox": [
+                486,
+                775,
+                908,
+                958
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "504"
+                    }
+                ]
+            },
+            "bbox": [
+                60,
+                39,
+                83,
+                49
+            ]
+        },
+        {
+            "type": "page_header",
+            "content": {
+                "page_header_content": [
+                    {
+                        "type": "text",
+                        "content": "IEEE TRANSACTIONS ON MEDICAL IMAGING, VOL. 23, NO. 4, APRIL 2004"
+                    }
+                ]
+            },
+            "bbox": [
+                511,
+                37,
+                906,
+                51
+            ]
+        }
+    ],
+    [
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "The images were manually segmented by three observers, a computer science student, the third and the first author.1 They were asked to mark all pixels for which they were for at least 70% certain that they were vessel. The observers were trained by an ophthalmologist, the second author."
+                    }
+                ]
+            },
+            "bbox": [
+                55,
+                79,
+                475,
+                155
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "The 40 images have been divided into a train and test set, each containing 20 images. The images in the train set were segmented by the first (14 images) and second observer (6 images). The images in the test set were segmented twice, resulting in a set A and a set B. The images in set A were labeled by the first (13 images) and second observer (7 images). Set B was segmented by the last observer."
+                    }
+                ]
+            },
+            "bbox": [
+                55,
+                155,
+                475,
+                261
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "The train set contains 3 images with pathology. Performance is computed with respect to the test set (the segmentations of set A are used as ground truth). The observers of set A marked 577 649 pixels as vessel and 3 960 494 as background (12.7% vessel), for set B these numbers are 556 532 and 3 981 611, respectively (12.3% vessel)."
+                    }
+                ]
+            },
+            "bbox": [
+                55,
+                260,
+                475,
+                351
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "The second database has been collected by Hoover et al. [1] and consists of 19 images. This database will be referred to as the Hoover database. The Hoover images are digitized slides captured by a TopCon TRV-50 fundus camera at "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "3 5 ^ { \\circ }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "field of view. The slides were digitized to "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "7 0 0 \\times 6 0 5"
+                    },
+                    {
+                        "type": "text",
+                        "content": "pixels, 8 bits per color channel. The FOV in the images are approximately "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "6 5 0 \\times 5 5 0"
+                    },
+                    {
+                        "type": "text",
+                        "content": "pixels in diameter. Two observers manually segmented all images. The first observer segmented 615 726 pixels as vessel and 5 293 034 as background (10.4% vessel), the second observer marked 879 695 pixels as vessel and 5 029 065 as background (14.9% vessel). Nine images contain pathology. The first observer segmented far less (small) vessels than the second observer and there is a large variability between the observers. Performance is computed with the segmentations of the first observer as ground truth."
+                    }
+                ]
+            },
+            "bbox": [
+                55,
+                349,
+                475,
+                577
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Hoover et al. used the complete image for measuring the performance. Since the dark background outside the FOV is easily extracted, in this paper all experiments are done on the FOV only."
+                    }
+                ]
+            },
+            "bbox": [
+                55,
+                577,
+                473,
+                637
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "We compare the performance of our algorithm to that of Hoover et al. [1] using their publicly available results. To compare our system with the method of Jiang et al. [2] we implemented that method."
+                    }
+                ]
+            },
+            "bbox": [
+                55,
+                637,
+                475,
+                699
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "V. RESULTS"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                222,
+                715,
+                310,
+                729
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "All experiments for the PBM are carried out with the following settings, which were found after a pilot study."
+                    }
+                ]
+            },
+            "bbox": [
+                55,
+                736,
+                472,
+                767
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "The ridges in the images are extracted from the green channel at scale "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\sigma = 1 . 5"
+                    },
+                    {
+                        "type": "text",
+                        "content": "pixel. To obtain approximately straight lines, the maximum size of the convex sets is set to 25 pixels."
+                    }
+                ]
+            },
+            "bbox": [
+                55,
+                767,
+                473,
+                813
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Training sets for the convex sets are constructed by counting how many of their pixels intersect with the vessel pixels in the manually labeled ground truth images. If more than 50% of the pixels in a convex set intersect they are labeled as vessel, else as nonvessel."
+                    }
+                ]
+            },
+            "bbox": [
+                55,
+                813,
+                475,
+                887
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "The profile features for the convex sets are computed with a half profile width "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "N = 1 5"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", i.e., the profile consists of 31 pixels."
+                    }
+                ]
+            },
+            "bbox": [
+                55,
+                887,
+                475,
+                919
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "To compensate for the lighting variations and to enhance local contrast, the pixels of every color channel "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "C _ { i }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "of the images are locally normalized to zero mean and unit variance"
+                    }
+                ]
+            },
+            "bbox": [
+                485,
+                79,
+                905,
+                125
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "N _ { i } ( \\mathbf { x } , \\sigma ) = \\frac { C _ { i } ( \\mathbf { x } ) - \\mathcal { E } _ { \\sigma } \\{ C _ { i } \\} ( \\mathbf { x } ) } { \\sqrt { \\mathcal { E } _ { \\sigma } \\{ C _ { i } ^ { 2 } \\} ( \\mathbf { x } ) - \\mathcal { E } _ { \\sigma } ^ { 2 } \\{ C _ { i } \\} ( \\mathbf { x } ) } }\\tag{7}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/f4e1dddc3e9614cbd461e8f1d59ea5114c6e282859739c040a024c283c4d66e4.jpg"
+                }
+            },
+            "bbox": [
+                555,
+                135,
+                833,
+                172
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "with"
+                    }
+                ]
+            },
+            "bbox": [
+                486,
+                183,
+                524,
+                196
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "\\displaystyle \\mathcal { E } _ { \\sigma } \\{ C \\} ( \\mathbf { x } ) = \\frac { 1 } { 2 \\pi \\sigma ^ { 2 } } \\int _ { \\mathbf { x } ^ { \\prime } \\in \\mathbb { R } ^ { 2 } } C ( \\mathbf { x } ^ { \\prime } ) \\mathrm { e } ^ { - \\| \\mathbf { x } - \\mathbf { x } ^ { \\prime } \\| ^ { 2 } / 2 \\sigma ^ { 2 } } \\mathrm { d } \\mathbf { x } ^ { \\prime }\\tag{8}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/6481d72ab23441c9ef3c1465a98996c7635749791bd1cf4f0735ced514c19879.jpg"
+                }
+            },
+            "bbox": [
+                508,
+                205,
+                862,
+                239
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "acting as a local averaging operator. A value of "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\sigma = 8 . 0"
+                    },
+                    {
+                        "type": "text",
+                        "content": "pixels is used. In [19], a similar filtering is performed with a square filter."
+                    }
+                ]
+            },
+            "bbox": [
+                485,
+                250,
+                905,
+                295
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "A. Settings"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                486,
+                311,
+                568,
+                327
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "The ridge measures are extracted from the green channel and scales "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\sigma = 0 . 5 , 1 . 0 , 2 . 0 ."
+                    },
+                    {
+                        "type": "text",
+                        "content": " and 4.0 pixels are used."
+                    }
+                ]
+            },
+            "bbox": [
+                485,
+                332,
+                905,
+                362
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "With these settings a total 18 features per convex set is extracted. For the training of the classifier, only every fourth convex set is taken. This reduces computation time and memory resources."
+                    }
+                ]
+            },
+            "bbox": [
+                485,
+                362,
+                905,
+                421
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "For the computation of the features for the CSR the following settings are used. In the training phase, the a posteriori probabilities for the convex sets are computed using (6) in a leave-one-out fashion, i.e., the convex sets of one image are classified with a classifier trained on the convex sets of the other images in the training set."
+                    }
+                ]
+            },
+            "bbox": [
+                485,
+                422,
+                905,
+                513
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "The derivatives with respect to the local coordinate systems are taken at scales "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\sigma = 0 . 5 , 1 . 0 , 2 . 0 ."
+                    },
+                    {
+                        "type": "text",
+                        "content": "and 4.0, resulting in 27 features. For the training, only every fourth pixel in the "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "x _ { 1 }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "and x2-directions is used."
+                    }
+                ]
+            },
+            "bbox": [
+                485,
+                513,
+                905,
+                573
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "The feature selection is also done on a leave-one-out basis. This is done for every image and the "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "A _ { z }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "value of all images is averaged to obtain a criterion upon which it is decided to include a feature or not."
+                    }
+                ]
+            },
+            "bbox": [
+                485,
+                574,
+                905,
+                633
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "The kNN-classifiers for the classification of the convex sets and the CSR use "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "k = 1 0 1"
+                    }
+                ]
+            },
+            "bbox": [
+                485,
+                633,
+                905,
+                664
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Because kNN-classifiers are sensitive to scaling between different features, in all experiments each feature is normalized independently to zero mean and unit variance."
+                    }
+                ]
+            },
+            "bbox": [
+                485,
+                664,
+                905,
+                710
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "B. The Utrecht Database"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                486,
+                726,
+                661,
+                739
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "The convex sets detection on the train set gives 12 648 vessel segments and 48 838 nonvessel segments (20.6% vessel)."
+                    }
+                ]
+            },
+            "bbox": [
+                485,
+                744,
+                905,
+                776
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "The results of feature selection on the train set are presented in Table I for the convex sets and in Table II for the CSR. Every row in the table gives the performance of the best feature that is added to the feature set (so including the previously selected features). In the last line, the performance is shown when all features are included."
+                    }
+                ]
+            },
+            "bbox": [
+                485,
+                776,
+                905,
+                866
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Fig. 5 shows the ROC curves for the segmentations obtained by the PBM and the method of Jiang et al. on the images of the test set. The performance of the observers of set A versus B is also plotted, together with the result of thresholding the classified images at "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "p = 0 . 5"
+                    },
+                    {
+                        "type": "text",
+                        "content": ". This is equivalent to a hard classification in two classes."
+                    }
+                ]
+            },
+            "bbox": [
+                485,
+                866,
+                906,
+                957
+            ]
+        },
+        {
+            "type": "page_header",
+            "content": {
+                "page_header_content": [
+                    {
+                        "type": "text",
+                        "content": "STAAL et al.: RIDGE-BASED VESSEL SEGMENTATION IN COLOR IMAGES OF THE RETINA"
+                    }
+                ]
+            },
+            "bbox": [
+                57,
+                37,
+                532,
+                51
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "505"
+                    }
+                ]
+            },
+            "bbox": [
+                882,
+                39,
+                903,
+                49
+            ]
+        },
+        {
+            "type": "page_footnote",
+            "content": {
+                "page_footnote_content": [
+                    {
+                        "type": "text",
+                        "content": "1The images and their manual segmentations are made publicly available at http://www.isi.uu.nl/Research/Databases/DRIVE/."
+                    }
+                ]
+            },
+            "bbox": [
+                55,
+                931,
+                475,
+                957
+            ]
+        }
+    ],
+    [
+        {
+            "type": "table",
+            "content": {
+                "image_source": {
+                    "path": "images/317ad1187f018369cdeef78b1edb1afd5340ce630754b8cc6379993f7dc51a14.jpg"
+                },
+                "table_caption": [
+                    {
+                        "type": "text",
+                        "content": "TABLE I"
+                    },
+                    {
+                        "type": "text",
+                        "content": "SELECTED FEATURES FOR THE CONVEX SETS. FOR EVERY ADDED FEATURE THE OBTAINED AREA UNDER THE ROC CURVE IS GIVEN"
+                    }
+                ],
+                "table_footnote": [],
+                "html": "<table><tr><td colspan=\"2\">Utrecht database</td><td colspan=\"2\">Hoover database</td></tr><tr><td></td><td> $A _ { z }$ </td><td></td><td> $A _ { z }$ </td></tr><tr><td> $\\lambda , \\sigma = 2 . 0$ </td><td>0.843</td><td> $\\lambda , \\sigma = 2 . 0$ </td><td>0.934</td></tr><tr><td>h</td><td>0.864</td><td> $d$ </td><td>0.945</td></tr><tr><td>κ</td><td>0.870</td><td> $\\mu _ { \\mathrm { g } }$ </td><td>0.948</td></tr><tr><td> $\\sigma _ { \\mathrm { { g } } }$ </td><td>0.871</td><td> $\\lambda , \\sigma = 4 . 0$ </td><td>0.947</td></tr><tr><td> $\\lambda , \\sigma = 1 . 0$ </td><td>0.872</td><td> $\\lambda , \\sigma = 1 . 0$ </td><td>0.948</td></tr><tr><td> $\\mu _ { \\mathrm { g } }$ </td><td>0.873</td><td> $h _ { \\mathrm { e } }$ </td><td>0.950</td></tr><tr><td> $\\lambda , \\sigma = 4 . 0$ </td><td>0.874</td><td>all features</td><td>0.940</td></tr><tr><td>all features</td><td>0.864</td><td></td><td></td></tr></table>",
+                "table_type": "complex_table",
+                "table_nest_level": 1
+            },
+            "bbox": [
+                140,
+                121,
+                397,
+                255
+            ]
+        },
+        {
+            "type": "table",
+            "content": {
+                "image_source": {
+                    "path": "images/34ac409cf57415f03d6482c698546a896d9d414515e268d80284f68533bf5b5f.jpg"
+                },
+                "table_caption": [
+                    {
+                        "type": "text",
+                        "content": "TABLE II"
+                    },
+                    {
+                        "type": "text",
+                        "content": "SELECTED FEATURES FOR THE CONVEX SET REGIONS. FOR EVERY ADDED FEATURE THE OBTAINED AREA UNDER THE ROC CURVE IS GIVEN"
+                    }
+                ],
+                "table_footnote": [],
+                "html": "<table><tr><td colspan=\"2\">Utrecht database</td><td colspan=\"2\">Hoover database</td></tr><tr><td></td><td>Az</td><td></td><td> $\\overline { { A _ { z } } }$ </td></tr><tr><td> $p ( \\mathbf { c } = \\mathrm { v e s s e l } )$ </td><td>0.8755</td><td> $p ( \\mathbf { c } = \\mathrm { v e s s e l } )$ </td><td>0.8955</td></tr><tr><td> $g ( \\mathbf { x } ) - g ( \\mathbf { c } _ { \\mathrm { c l o s e s t } } )$ </td><td>0.9314</td><td> $g ( \\mathbf { x } ) / g ( \\mathbf { c } _ { \\mathrm { c l o s e s t } } )$ </td><td>0.9653</td></tr><tr><td> $d _ { \\mathrm { c l o s e s t } }$ </td><td>0.9372</td><td> $d _ { \\mathrm { c l o s e s t } }$ </td><td>0.9677</td></tr><tr><td> $L _ { x _ { \\mathrm { * } } ^ { \\prime } } , \\sigma = 1 . 0$ </td><td>0.9437</td><td> $L _ { x _ { 1 } ^ { \\prime } x _ { 1 } ^ { \\prime } } , \\sigma = 2 . 0$ </td><td>0.9683</td></tr><tr><td> $L _ { x _ { \\mathrm { 2 } } ^ { \\prime } } , \\sigma = 2 . 0$ </td><td>0.9463</td><td> $L _ { x _ { 2 } ^ { \\prime } x _ { 2 } ^ { \\prime } } , \\sigma = 2 . 0$ </td><td>0.9680</td></tr><tr><td> $L _ { x _ { 2 } ^ { \\prime } x _ { 2 } ^ { \\prime } } , \\sigma = 1 . 0$ </td><td>0.9472</td><td> $r ( \\bar { \\bf x } ) / \\bar { r } ( { \\bf c } _ { \\mathrm { c l o s e s t } } )$ </td><td>0.9682</td></tr><tr><td> $\\bar { L _ { x _ { 1 } ^ { \\prime } x _ { 1 } ^ { \\prime } } } , \\sigma = 2 . 0$ </td><td>0.9485</td><td> $L _ { x _ { 1 } ^ { \\prime } } , \\sigma = 1 . 0$ </td><td>0.9684</td></tr><tr><td> $r ( \\mathbf { x } ) / \\overset { \\cdot } { g } ( \\mathbf { x } )$ </td><td>0.9490</td><td>all features</td><td>0.9589</td></tr><tr><td> $L _ { x _ { 2 } ^ { \\prime } x _ { 2 } ^ { \\prime } } , \\sigma = 2 . 0$ </td><td>0.9497</td><td></td><td></td></tr><tr><td> $L _ { x _ { \\mathrm { o } } ^ { \\prime } } ^ { - } , \\overline { { \\sigma } } = 1 . 0$ </td><td>0.9498</td><td></td><td></td></tr><tr><td> $g ( { \\bar { \\mathbf { x } } } )$ </td><td>0.9500</td><td></td><td></td></tr><tr><td>all features</td><td>0.9493</td><td></td><td></td></tr></table>",
+                "table_type": "complex_table",
+                "table_nest_level": 1
+            },
+            "bbox": [
+                96,
+                327,
+                441,
+                516
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Fig. 6 shows for the PBM the images with the highest and lowest "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "A _ { z }"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", the results of hard classification of these images and the corresponding manually segmented images for the observers of set A and set B."
+                    }
+                ]
+            },
+            "bbox": [
+                58,
+                541,
+                477,
+                603
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "In Table III, an overview is given of the results of the different methods. The upper part of the table shows the "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "A _ { z }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "values. The "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "A _ { z }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "value for the method of Jiang et al. is approximated by adding the points (0, 0) and (1, 1) to the curve. The lower part of the table lists the accuracies for the different methods."
+                    }
+                ]
+            },
+            "bbox": [
+                58,
+                602,
+                475,
+                679
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "For comparison, the last row shows the results when all pixels are segmented as the most likely class, in this case the background."
+                    }
+                ]
+            },
+            "bbox": [
+                58,
+                679,
+                475,
+                723
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Paired t-tests on the "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "A _ { z }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "values for the individual images of the database, show that the PBM performs significantly better than Jiang et al. with "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "p < 0 . 0 1"
+                    },
+                    {
+                        "type": "text",
+                        "content": ". Using the accuracies of each image, all values in Table III are significantly different from each other with "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "p < 0 . 0 1"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", except for Jiang et al. versus the most likely class, where "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "p < 0 . 0 2"
+                    }
+                ]
+            },
+            "bbox": [
+                58,
+                723,
+                477,
+                814
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "A t-test for the PBM shows no significant differences when the results of the images with pathology are compared to those without pathology."
+                    }
+                ]
+            },
+            "bbox": [
+                58,
+                814,
+                477,
+                861
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "C. The Hoover Database"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                60,
+                876,
+                235,
+                891
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Because no independent test set is available for the Hoover database, leave-one-out experiments are performed, i.e., every image is classified using the other 18 images as training set. However, the computation time required for feature selection is very large and is, therefore, only done once for both the convex sets and the CSR, using 9 of the 19 images (4 with and 5 without pathology)."
+                    }
+                ]
+            },
+            "bbox": [
+                58,
+                896,
+                477,
+                958
+            ]
+        },
+        {
+            "type": "chart",
+            "content": {
+                "image_source": {
+                    "path": "images/3c02ab6e6ce8e9df630900d2099ddf2f11d3e01f36b9bb60bc55a4e3c9f53b36.jpg"
+                },
+                "content": "",
+                "chart_caption": [
+                    {
+                        "type": "text",
+                        "content": "Fig. 5. Results for the Utrecht database. The PBM gives "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "A _ { z } = 0 . 9 5 2"
+                    },
+                    {
+                        "type": "text",
+                        "content": "and the method of Jiang et al. [2] "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "A _ { z } = 0 . 9 3 3"
+                    },
+                    {
+                        "type": "text",
+                        "content": "Comparing set B to set A, false and true positive fractions of (0.0275, 0.775) are found. Performing a hard classification on the results of the PBM gives (0.017, 0.678) for the false and true positive fractions."
+                    }
+                ],
+                "chart_footnote": []
+            },
+            "bbox": [
+                498,
+                77,
+                897,
+                383
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": []
+            },
+            "bbox": [
+                486,
+                478,
+                906,
+                523
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Tables I and II list the features that have been selected. In the train set 8615 convex sets are vessel, and 57 996 nonvessel (12.9% vessel)."
+                    }
+                ]
+            },
+            "bbox": [
+                488,
+                522,
+                906,
+                568
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "After the feature selection, the images are segmented in leave-one-out experiments."
+                    }
+                ]
+            },
+            "bbox": [
+                488,
+                569,
+                906,
+                598
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "The ROC curves for the PBM and for the methods of Jiang et al. and Hoover et al. are shown in Fig. 7. The results of observer 1 versus observer 2 and of hard classification are plotted too."
+                    }
+                ]
+            },
+            "bbox": [
+                486,
+                598,
+                908,
+                659
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Table III shows the "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "A _ { z }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "values and the accuracies for the different methods. Paired t-tests on the "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "A _ { z }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "values show that the PBM performs significantly better than the two other methods and that the method of Jiang et al. is significantly better than the method of Hoover et "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "a l ."
+                    },
+                    {
+                        "type": "text",
+                        "content": ", all with "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "p < 0 . 0 1"
+                    },
+                    {
+                        "type": "text",
+                        "content": ". For the accuracies, the PBM is significantly better than the other methods (including the second observer) with "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "p \\ < \\ 0 . 0 1"
+                    },
+                    {
+                        "type": "text",
+                        "content": ". The method of Hoover et al. is significantly better than Jiang et al. and than classifying every pixel to its most likely class with "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "p < 0 . 0 1"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", but differs only significantly with the second observer with "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "p < 0 . 1"
+                    },
+                    {
+                        "type": "text",
+                        "content": "The method by Jiang et al. is not significantly better than classifying the pixels to the most likely class."
+                    }
+                ]
+            },
+            "bbox": [
+                486,
+                659,
+                906,
+                840
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "The PBM performs significantly better on the images without pathology than on those with pathology "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "( A _ { z } = 0 . 9 6 9"
+                    },
+                    {
+                        "type": "text",
+                        "content": "versus "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "A _ { z } = 0 . 9 5 0 )"
+                    }
+                ]
+            },
+            "bbox": [
+                488,
+                840,
+                908,
+                886
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "VI. DISCUSSION AND CONCLUSION"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                578,
+                905,
+                818,
+                919
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "The results show that the method proposed in this paper (the PBM) outperforms the previously published rule-based methods by Hoover et al. [1] and by Jiang et al. [2]. A possible explanation is that it is very difficult to come up with good rules for problems where many features interact in a complex manner. Supervised methods with feature selection like the PBM seem to be better equipped for these tasks. In the Hoover database, this is illustrated by the fact that the accuracy of the PBM is higher than that of an independent second observer. The PBM is able to adapt to the first observer, who disagrees especially on the number of small vessels with the second observer."
+                    }
+                ]
+            },
+            "bbox": [
+                488,
+                926,
+                908,
+                958
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "506"
+                    }
+                ]
+            },
+            "bbox": [
+                60,
+                39,
+                83,
+                49
+            ]
+        },
+        {
+            "type": "page_header",
+            "content": {
+                "page_header_content": [
+                    {
+                        "type": "text",
+                        "content": "IEEE TRANSACTIONS ON MEDICAL IMAGING, VOL. 23, NO. 4, APRIL 2004"
+                    }
+                ]
+            },
+            "bbox": [
+                511,
+                37,
+                906,
+                51
+            ]
+        }
+    ],
+    [
+        {
+            "type": "image",
+            "content": {
+                "image_source": {
+                    "path": "images/0d7c774f777b3aed8ca1b930e96e46a1e83a903fd350b7b36a1d0d5e14c6b49c.jpg"
+                },
+                "image_caption": [
+                    {
+                        "type": "text",
+                        "content": "(e) PBM, "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "A _ { z } = 0 . 9 3 7"
+                    },
+                    {
+                        "type": "text",
+                        "content": "(f) Hard classification, acc. = 0.934"
+                    },
+                    {
+                        "type": "text",
+                        "content": "(g) Observer set A"
+                    },
+                    {
+                        "type": "text",
+                        "content": "Fig. 6. First column: Best and worst result of the PBM. The grey value denotes the prior probability of the pixel being vessel (bright for the lower values and dark for the higher values). Second column: hard classification. Third column: observer from set A. Fourth column: observer from set B."
+                    }
+                ],
+                "image_footnote": []
+            },
+            "bbox": [
+                66,
+                77,
+                893,
+                412
+            ]
+        },
+        {
+            "type": "table",
+            "content": {
+                "image_source": {
+                    "path": "images/ca365793ad90955b0801b09d7e359be1b234464147772e35054cc8f55b293096.jpg"
+                },
+                "table_caption": [
+                    {
+                        "type": "text",
+                        "content": "TABLE III"
+                    },
+                    {
+                        "type": "text",
+                        "content": "RESULTS FOR THE DIFFERENT DATABASES AND METHODS. ROWS 1–3 GIVE THE AREA UNDER THE ROC-CURVES, ROWS 4–8 THE ACCURACY (THE SUM OF THE NUMBER OF CORRECTLY CLASSIFIED FOREGROUND AND BACKGROUND PIXELS, DIVIDED BY THE TOTAL NUMBER OF PIXELS)"
+                    }
+                ],
+                "table_footnote": [],
+                "html": "<table><tr><td>Criterion</td><td>Method</td><td colspan=\"2\">Database</td></tr><tr><td rowspan=\"2\">Az</td><td>Hoover</td><td>Utrecht</td><td>Hoover 0.7590</td></tr><tr><td>Jiang PBM</td><td>0.9327 0.9520</td><td>0.9298 0.9614</td></tr><tr><td rowspan=\"3\">Accuracy</td><td>2nd obs. Hoover</td><td>0.9473</td><td>0.9351 0.9275</td></tr><tr><td></td><td></td><td></td></tr><tr><td>Jiang</td><td>0.8911</td><td>0.9009</td></tr><tr><td rowspan=\"2\"></td><td>PBM</td><td>0.9441</td><td>0.9516</td></tr><tr><td>Most likely class</td><td>0.8727</td><td>0.8958</td></tr></table>",
+                "table_type": "complex_table",
+                "table_nest_level": 1
+            },
+            "bbox": [
+                117,
+                549,
+                415,
+                676
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": []
+            },
+            "bbox": [
+                55,
+                700,
+                475,
+                835
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "A disadvantage of supervised methods is the need for (manually) labeled training data. For the Utrecht database it took an observer 2 hours on average to label a single image."
+                    }
+                ]
+            },
+            "bbox": [
+                55,
+                835,
+                473,
+                881
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Figs. 5 and 7 and Table III demonstrate that it is possible to design a system that approaches the performance of human observers. It can be noticed from these figures that the second observer does not achieve an accuracy of 1, because the first and second observer disagree in their manual segmentations. One reason is that due to JPEG-artifacts it is hard to discern vessels of pixel or subpixel width. Another reason is the subjective decision that the human observers must make regarding pixels at the border of the vessels. Do they belong to the vessel or not?"
+                    }
+                ]
+            },
+            "bbox": [
+                55,
+                881,
+                475,
+                958
+            ]
+        },
+        {
+            "type": "chart",
+            "content": {
+                "image_source": {
+                    "path": "images/14d23ef5ba6d9f69ef3cd706277b44ea3fb260c873894e32e391237dd6ccfa87.jpg"
+                },
+                "content": "",
+                "chart_caption": [
+                    {
+                        "type": "text",
+                        "content": "Fig. 7. Results for the Hoover database. "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\begin{array} { r l r } { A _ { z } } & { { } = } & { 0 . 9 6 1 } \\end{array}"
+                    },
+                    {
+                        "type": "text",
+                        "content": "for the PBM, "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "A _ { z } ~ = ~ 0 . 9 3 0"
+                    },
+                    {
+                        "type": "text",
+                        "content": "for the algorithm by Jiang et al. [2] and "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "A _ { z } ~ = ~ 0 . 7 5 9"
+                    },
+                    {
+                        "type": "text",
+                        "content": "for the algorithm by Hoover et al. [1]. Comparing the second observer to the first observer, false and true positive fractions of (0.061, 0.903) are found. Performing a hard classification on the results of the PBM gives (0.019, 0.697) for the false and true positive fractions."
+                    }
+                ],
+                "chart_footnote": []
+            },
+            "bbox": [
+                495,
+                482,
+                895,
+                786
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": []
+            },
+            "bbox": [
+                485,
+                896,
+                905,
+                957
+            ]
+        },
+        {
+            "type": "page_header",
+            "content": {
+                "page_header_content": [
+                    {
+                        "type": "text",
+                        "content": "STAAL et al.: RIDGE-BASED VESSEL SEGMENTATION IN COLOR IMAGES OF THE RETINA"
+                    }
+                ]
+            },
+            "bbox": [
+                57,
+                37,
+                532,
+                50
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "507"
+                    }
+                ]
+            },
+            "bbox": [
+                882,
+                39,
+                903,
+                49
+            ]
+        }
+    ],
+    [
+        {
+            "type": "image",
+            "content": {
+                "image_source": {
+                    "path": "images/7ea105ecb9640379c3d05b98cf80dcf36843ee90d68eb1da86439e0246c5b141.jpg"
+                },
+                "image_caption": [
+                    {
+                        "type": "text",
+                        "content": "(c) Hard classification of the PBM"
+                    }
+                ],
+                "image_footnote": []
+            },
+            "bbox": [
+                73,
+                80,
+                261,
+                347
+            ]
+        },
+        {
+            "type": "image",
+            "content": {
+                "image_source": {
+                    "path": "images/854d677a20f4af8366e324fd1e2f973f8a332f72003e8b7ace558c57c7ae814b.jpg"
+                },
+                "image_caption": [
+                    {
+                        "type": "text",
+                        "content": "(d) Result of Hoover et al."
+                    },
+                    {
+                        "type": "text",
+                        "content": "Fig. 8. Results on an image with pathology from the Hoover database."
+                    }
+                ],
+                "image_footnote": []
+            },
+            "bbox": [
+                276,
+                79,
+                459,
+                348
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Asking the observers to rate the probability for such pixels being vessel would increase the time required for the segmentation prohibitively."
+                    }
+                ]
+            },
+            "bbox": [
+                58,
+                414,
+                475,
+                458
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Two types of errors can be distinguished. The first type is over- and undersegmentation of the vessels. This is important in applications where determination of the vessel width is needed. The second type of error is the missing or erroneous detection of vessel branches. Suppose for example that two observers both label a small vessel, but in one of the segmentations the vessel is slightly shifted so that both vessels do not overlap. This will degrade accuracy more than if one of the observers had labeled no vessel at all. Type 2 errors are expected to be encountered with small vessels mostly. Removing the small vessels by a morphological opening, the type 1 error for large vessels can be approximated. The accuracy between first and second observer increased from 0.947 to 0.964 in the Utrecht database and from 0.935 to 0.948 in the Hoover database."
+                    }
+                ]
+            },
+            "bbox": [
+                58,
+                458,
+                477,
+                670
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "A perfect system would yield "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "A _ { z } = 1"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", which is not reached by our method. There are a few reasons. First, in all images high probability for being vessel is found around the boundaries of the FOV, while there are no vessels; see Fig. 6(a) and (e) for an example. This is an artifact of the method, introduced by the blurring that is needed for detecting the ridges of the image. Second, in some images part of the boundary of the optic disc is marked as vessel, cf. Fig. 6(a), while a human observer can clearly discern between the two. This is an indication that the amount of training data might be insufficient. Third, related to the last observation, is the appearance of (severe) pathology of which Fig. 8 gives an example. The method selects with high probability some vessels between bright areas where there are clearly no vessels. More training data that includes the various types of pathology encountered in screening practice might overcome this problem. No experiments were done to investigate the influence of the amount of training data. However, certain types of pathology might be detected and labeled in a preprocessing step. A fourth reason for imperfect performance of the method can be the incorrect labeling of the convex sets in the training sets. Or even worse, no ridge is detected at the location of a vessel, which can happen for very small vessels. This can occur because the locations of the ridges are perturbed by the blurring that is needed for their detection. For large vessels, the detected ridge pixels are still within the vessel, but for small vessels they can be a little off. A possible solution might be to do ridge detection with scale selection, like in [24]. Another interesting reason for scale selection is the use of scale as a feature."
+                    }
+                ]
+            },
+            "bbox": [
+                58,
+                670,
+                478,
+                958
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": []
+            },
+            "bbox": [
+                488,
+                79,
+                906,
+                229
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "For the PBM it takes about 15 min to segment an image in the Utrecht database on a Pentium-III PC, running at 1.0 GHz with 1-GB memory. Most time is spent in the classification. However, our implementation is experimental and could be optimized. For example, Table II shows that for both databases, the most important feature is the probability that a convex set is part of a vessel. It can be expected that for a set with low probability of being vessel the pixels in its CSR will have low probability. This measure can be used to speed up the segmentation by not processing CSR belonging to convex sets with a low chance of being vessel. In the Utrecht database, we observed that only about 10% of the convex sets have a probability higher than 0.5. In [2], processing times of about half a minute are reported. Computation times for [1] are not available."
+                    }
+                ]
+            },
+            "bbox": [
+                488,
+                231,
+                906,
+                441
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "In this paper, evaluation has been done using accuracy of hard classifications and "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "A _ { z }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "values of soft classifications. Other evaluation measures might be more appropriate, depending on the application at hand. For example, if one is interested in examining the tortuosity of the vessels, the width of the vessels might not be important, only the centerlines. The measures used do not take into account the number of branches, the connectedness of the vessels or the number of branching points, which all might be relevant in specific applications. Another good evaluation measure might be the performance of a computer-aided diagnosis system for retinal images that uses the results of a vessel segmentation algorithm in its analysis."
+                    }
+                ]
+            },
+            "bbox": [
+                486,
+                443,
+                906,
+                625
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "ACKNOWLEDGMENT"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                629,
+                650,
+                766,
+                662
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "The authors thank A. Hoover for making his database publicly available."
+                    }
+                ]
+            },
+            "bbox": [
+                490,
+                672,
+                906,
+                704
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "REFERENCES"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                655,
+                729,
+                743,
+                742
+            ]
+        },
+        {
+            "type": "list",
+            "content": {
+                "list_type": "reference_list",
+                "list_items": [
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[1] A. Hoover, V. Kouznetsova, and M. Goldbaum, “\"Locating blood vessels in retinal images by piecewise threshold probing of a matched filter response,\" IEEE Trans. Med. Imag., vol. 19, pp. 203–210, Mar. 2000."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[2] X. Jiang and D. Mojon, “Adaptive local thresholding by verification-based multithreshold probing with application to vessel detection in retinal images,\" IEEE Trans. Pattern Anal. Machine Intell., vol. 25, pp. 131–137, Jan. 2003."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[3] D. C. Klonoff and D. M. Schwartz, “An economic analysis of interventions for diabetes,\" Diabetes Care, vol. 23, no. 3, pp. 390–404, 2000."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[4] T. Spencer, J. A. Olson, K. C. McHardy, P. F. Sharp, and J. V. Forrester, “An image-processing strategy for the segmentation and quantification of microaneurysms in fluorescein angiograms of the ocular fundus,\" Comput. Biomed. Res., vol. 29, no. 4, pp. 284–302, 1996."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[5] A. J. Frame, P. E. Undrill, M. J. Cree, J. A. Olson, K. C. McHardy, P. F. Sharp, and J. V. Forrester, “A comparison of computer based classification methods applied to the detection of microaneurysms in ophthalmic fluorescein angiograms,\" Comput. Biol. Med., vol. 28, no. 3, pp. 225–238, 1998."
+                            }
+                        ]
+                    }
+                ]
+            },
+            "bbox": [
+                508,
+                752,
+                905,
+                785
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "508"
+                    }
+                ]
+            },
+            "bbox": [
+                62,
+                39,
+                83,
+                49
+            ]
+        },
+        {
+            "type": "page_header",
+            "content": {
+                "page_header_content": [
+                    {
+                        "type": "text",
+                        "content": "IEEE TRANSACTIONS ON MEDICAL IMAGING, VOL. 23, NO. 4, APRIL 2004"
+                    }
+                ]
+            },
+            "bbox": [
+                511,
+                37,
+                906,
+                50
+            ]
+        }
+    ],
+    [
+        {
+            "type": "list",
+            "content": {
+                "list_type": "reference_list",
+                "list_items": [
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[6] M. Larsen, J. Godt, N. Larsen, H. Lund-Andersen, A. K. Sjølie, E. Agardh, H. Kalm, M. Grunkin, and D. R. Owens, “Automated detection of fundus photographic red lesions in diabetic retinopathy,\" Investigat. Opht. Vis. Sci., vol. 44, no. 2, pp. 761–766, 2003."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[7] F. Zana and J. C. Klein, “A multimodal registration algorithm of eye fundus images using vessels detection and Hough transform,\" IEEE Trans. Med. Imag., vol. 18, pp. 419–428, May 1999."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[8] O. Chutatape, L. Zheng, and S. Krishman, \"Retinal blood vessel detection and tracking by matched Gaussian and Kalman filters,\" in Proc. IEEE Int. Conf. Eng. Biol. Soc., vol. 20, 1998, pp. 3144–3149."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[9] Y. A. Tolias and S. M. Panas, “A fuzzy vessel tracking algorithm for retinal images based on fuzzy clustering,\" IEEE Trans. Med. Imag., vol. 17, pp. 263–273, Apr. 1998."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[10] A. Can, H. Shen, J. N. Turner, H. L. Tanenbaum, and B. Roysam, “Rapid automated tracing and feature extraction from retinal fundus images using direct exploratory algorithms,\" IEEE Trans. Inform. Technol. Biomed., vol. 3, pp. 125–138, June 1999."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[11] L. Gagnon, M. Lalonde, M. Beaulieu, and M.-C. Boucher, “\"Procedure to detect anatomical structures in optical fundus images,\"Proc. SPIE Med. Imaging: Image Processing, vol. 4322, pp. 1218–1225, 2001."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[12] S. Chaudhuri, S. Chatterjee, N. Katz, M. Nelson, and M. Goldbaum, “Detection of blood vessels in retinal images using two-dimensional matched filters,\" IEEE Trans. Med. Imag., vol. 8, pp. 263–269, Sept. 1989."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[13] L. Gang, O. Chutatape, and S. M. Krishnan, \"Detection and measurement of retinal vessels in fundus images using amplitude modified second-order Gaussian filter,\" IEEE Trans. Biomed. Eng., vol. 49, pp. 168–172, Feb. 2002."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[14] A. Pinz, S. Bernögger, P. Datlinger, and A. Kruger, \"Mapping the human retina,\" IEEE Trans. Med. Imag., vol. 17, pp. 606–619, Aug. 1998."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[15] T. McInerney and D. Terzopoulos, “T-snakes: Topology adaptive snakes,\" Med. Imag. Anal., vol. 4, no. 2, pp. 73–91, 2000."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[16] M. E. Martínez-Pérez, A. D. Hughes, A. V. Stanton, S. A. Thom, A. A. Bharath, and K. H. Parker, \"Scale-space analysis for the characterization of retinal blood vessels,\" in Medical Image Computing and Computer-Assisted Intervention—MICCAI'99, C. Taylor and A. Colchester, Eds. Berlin, Germany : Springer-Verlag, 1999, pp. 90–97. ser. Lecture Notes in Computer Science."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[17] T. Walter and J. C. Klein, “Segmentation of color fundus images of the human retina: Detection of the optic disc and the vascular tree using morphological techniques,\" in Medical Data Analysis, J. Crespo, V. Maojo, and F. Martin, Eds. Berlin, Germany: Springer-Verlag, 2001, pp. 282–287. ser. Lecture Notes in Computer Science."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[18] F. Zana and J. C. Klein, “Segmentation of vessel-like patterns using mathematical morphology and curvature evaluation,\" IEEE Trans Image Processing, vol. 10, no. 7, pp. 1010–1019, 2001."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[19] C. Sinthanayothin, J. F. Boyce, H. L. Cook, and T. H. Williamson, \"Automated localization of the optic disc, fovea, and retinal blood vessels from digital color fundus images,\" Br. J. Ophthalmol., vol. 83, no. 8, pp. 902–910, 1999."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[20] C. Sinthanayothin, J. F. Boyce, T. H. Williamson, H. L. Cook, E. Mensah, S. Lal, and D. Usher, “Automated detection of diabetic retinopathy on digital fundus images,\"Diabetic Med., vol. 19, no. 2, pp. 105–112, 2002."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[21] D. Eberly, Ridges in Image and Data Analysis, Dordrecht, The Netherlands: Kluwer Academic, 1996."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[22] S. N. Kalitzin, J. J. Staal, B. M. ter Haar Romeny, and M. A. Viergever, “A computational method for segmenting topological point sets and application to image analysis,\" IEEE Trans. Pattern Anal. Machine Intell., vol. 23, pp. 447–459, May 2001."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[23] L. M. J. Florack, Image Structure, Dordrecht, The Netherlands: Kluwer Academic, 1997."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[24] T. Lindeberg, Scale-Space Theory in Computer Vision, Dordrecht, The Netherlands: Kluwer Academic, 1994."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[25] R. O. Duda, P. E. Hart, and H. G. Stork, Pattern Classification, 2nd ed. New York: Wiley-Interscience, 2001."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[26] S. Arya, D. M. Mount, N. S. Netanyahu, R. Silverman, and A. Y. Wu, “An optimal algorithm for approximate nearest neighbor searching in fixed dimensions,\" J. ACM, vol. 45, no. 6, pp. 891–923, 1998."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[27] C. E. Metz, \"Basic principles of ROC analysis,\" Seminars Nucl. Med., vol. 8, no. 4, pp. 283–298, 1978."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[28] A. W. Whitney, “A direct method of non parametric measurement selection,\" IEEE Trans. Comput., vol. C-20, pp. 1100–1103, 1971."
+                            }
+                        ]
+                    }
+                ]
+            },
+            "bbox": [
+                75,
+                82,
+                473,
+                127
+            ]
+        },
+        {
+            "type": "page_header",
+            "content": {
+                "page_header_content": [
+                    {
+                        "type": "text",
+                        "content": "STAAL et al.: RIDGE-BASED VESSEL SEGMENTATION IN COLOR IMAGES OF THE RETINA"
+                    }
+                ]
+            },
+            "bbox": [
+                57,
+                39,
+                532,
+                50
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "509"
+                    }
+                ]
+            },
+            "bbox": [
+                882,
+                40,
+                903,
+                49
+            ]
+        }
+    ]
+]

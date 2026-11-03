@@ -1,0 +1,5993 @@
+[
+    {
+        "layout_dets": [
+            {
+                "cls_id": 12,
+                "label": "header",
+                "score": 0.9355,
+                "bbox": [
+                    1113,
+                    37,
+                    1529,
+                    69
+                ],
+                "index": 1
+            },
+            {
+                "cls_id": 12,
+                "label": "header",
+                "score": 0.8393,
+                "bbox": [
+                    109,
+                    220,
+                    693,
+                    310
+                ],
+                "index": 2
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.8925,
+                "bbox": [
+                    254,
+                    416,
+                    397,
+                    467
+                ],
+                "index": 3
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9133,
+                "bbox": [
+                    37,
+                    523,
+                    396,
+                    570
+                ],
+                "index": 4
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.8545,
+                "bbox": [
+                    1345,
+                    360,
+                    1537,
+                    393
+                ],
+                "index": 5
+            },
+            {
+                "cls_id": 6,
+                "label": "doc_title",
+                "score": 0.9808,
+                "bbox": [
+                    425,
+                    417,
+                    1514,
+                    656
+                ],
+                "index": 6
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9618,
+                "bbox": [
+                    423,
+                    675,
+                    1398,
+                    749
+                ],
+                "index": 7
+            },
+            {
+                "cls_id": 0,
+                "label": "abstract",
+                "score": 0.9845,
+                "bbox": [
+                    422,
+                    778,
+                    1530,
+                    1122
+                ],
+                "index": 8
+            },
+            {
+                "cls_id": 17,
+                "label": "paragraph_title",
+                "score": 0.9407,
+                "bbox": [
+                    425,
+                    1193,
+                    755,
+                    1226
+                ],
+                "index": 9
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.988,
+                "bbox": [
+                    421,
+                    1223,
+                    1547,
+                    1477
+                ],
+                "index": 10
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9876,
+                "bbox": [
+                    422,
+                    1475,
+                    1548,
+                    1671
+                ],
+                "index": 11
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9813,
+                "bbox": [
+                    422,
+                    1669,
+                    1548,
+                    1815
+                ],
+                "index": 12
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.6763,
+                "bbox": [
+                    422,
+                    1885,
+                    1547,
+                    2058
+                ],
+                "index": 13
+            },
+            {
+                "cls_id": 8,
+                "label": "footer",
+                "score": 0.9147,
+                "bbox": [
+                    108,
+                    2100,
+                    886,
+                    2132
+                ],
+                "index": 14
+            },
+            {
+                "cls_id": 16,
+                "label": "number",
+                "score": 0.8397,
+                "bbox": [
+                    1523,
+                    2105,
+                    1544,
+                    2130
+                ],
+                "index": 15
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    1112,
+                    38,
+                    1529,
+                    68
+                ],
+                "score": 1.0,
+                "text": "www.nature.com/scientificdata"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    108,
+                    216,
+                    692,
+                    314
+                ],
+                "score": 1.0,
+                "text": "scientific data"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    259,
+                    421,
+                    393,
+                    465
+                ],
+                "score": 1.0,
+                "text": "OPEN"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    40,
+                    530,
+                    394,
+                    576
+                ],
+                "score": 1.0,
+                "text": "DATA DESCRIPTOR"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    1381,
+                    364,
+                    1536,
+                    391
+                ],
+                "score": 1.0,
+                "text": "Check for updates"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    428,
+                    412,
+                    1515,
+                    494
+                ],
+                "score": 1.0,
+                "text": "FIVES: A Fundus Image Dataset for"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    427,
+                    498,
+                    1483,
+                    577
+                ],
+                "score": 0.989,
+                "text": "Artificial Intelligence based Vessel"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    428,
+                    587,
+                    881,
+                    655
+                ],
+                "score": 1.0,
+                "text": "Segmentation"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    679,
+                    1391,
+                    712
+                ],
+                "score": 0.96,
+                "text": "Kai JinD1,5, Xingru Huang²,5, Jingxing Zhou1,5, Yunxiang Li³, Yan Yan1, Yibao Sun²,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    428,
+                    713,
+                    956,
+                    745
+                ],
+                "score": 0.962,
+                "text": "Qianni Zhang², Yaqi Wang4,6& Juan Ye1,6"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    784,
+                    1468,
+                    809
+                ],
+                "score": 0.992,
+                "text": "Retinal vasculature provides an opportunity for direct observation of vessel morphology, which is"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    814,
+                    1518,
+                    839
+                ],
+                "score": 0.999,
+                "text": "linked to multiple clinical conditions. However, objective and quantitative interpretation of the retinal"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    844,
+                    1448,
+                    869
+                ],
+                "score": 0.997,
+                "text": "vasculature relies on precise vessel segmentation, which is time consuming and labor intensive."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    873,
+                    1430,
+                    901
+                ],
+                "score": 0.99,
+                "text": "Artificial intelligence (Al) has demonstrated great promise in retinal vessel segmentation. The"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    906,
+                    1497,
+                    931
+                ],
+                "score": 0.996,
+                "text": "development and evaluation of Al-based models require large numbers of annotated retinal images."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    936,
+                    1516,
+                    961
+                ],
+                "score": 0.992,
+                "text": "However, the public datasets that are usable for this task are scarce. In this paper, we collected a color"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    968,
+                    1515,
+                    993
+                ],
+                "score": 0.992,
+                "text": "fundus image vessel segmentation (FIVES) dataset. The FIVES dataset consists of 800 high-resolution"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    994,
+                    1491,
+                    1024
+                ],
+                "score": 0.996,
+                "text": "multi-disease color fundus photographs with pixelwise manual annotation. The annotation process"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    1027,
+                    1512,
+                    1056
+                ],
+                "score": 0.99,
+                "text": "was standardized through crowdsourcing among medical experts. The quality of each image was also"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    1058,
+                    1478,
+                    1084
+                ],
+                "score": 0.986,
+                "text": "evaluated. To the best of our knowledge, this is the largest retinal vessel segmentation dataset for"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    1087,
+                    1531,
+                    1115
+                ],
+                "score": 0.992,
+                "text": "which we believe this work will be beneficial to the further development of retinal vessel segmentation."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    1194,
+                    749,
+                    1228
+                ],
+                "score": 0.997,
+                "text": "Background & Summary"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    428,
+                    1225,
+                    1542,
+                    1252
+                ],
+                "score": 0.999,
+                "text": "Retinal vasculature is a reliable reflection of vessel morphologic changes, which have been demonstrated to"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    1255,
+                    1541,
+                    1280
+                ],
+                "score": 0.996,
+                "text": "relate to numerous clinical conditions, including both ophthalmological and systemic diseases. Diabetic retin-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    1284,
+                    1540,
+                    1308
+                ],
+                "score": 0.997,
+                "text": "opathy (DR), age-related macular degeneration (AMD), and glaucoma are major blindness-causing diseases¹."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    1313,
+                    1540,
+                    1334
+                ],
+                "score": 0.993,
+                "text": "Multiple studies have investigated the relationship between retinal vasculature characteristics and these ocular"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    1336,
+                    1542,
+                    1365
+                ],
+                "score": 0.995,
+                "text": "diseases2-4. Some life-threatening systemic diseases can also be reflected in fundus images, such as cardiovas-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    1365,
+                    1541,
+                    1389
+                ],
+                "score": 0.99,
+                "text": "cular diseases⁵ and neurological disorders6. Several retinal vessel morphometrics are thought to be linked to"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    1394,
+                    1542,
+                    1419
+                ],
+                "score": 0.999,
+                "text": "disease risk and progression7-10. Retinal vessel segmentation, which means the extraction of visible vasculature"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    1423,
+                    1541,
+                    1447
+                ],
+                "score": 0.994,
+                "text": "from a fundus image (Fig. 1a), is the preliminary step to objectively assessing the fundus image vasculature and"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    1452,
+                    901,
+                    1477
+                ],
+                "score": 0.99,
+                "text": "quantitatively interpreting the morphometrics."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    461,
+                    1475,
+                    1541,
+                    1503
+                ],
+                "score": 0.995,
+                "text": "Retinal vessel segmentation is a challenging task, considering that age, ophthalmic disease, and photograph"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    1503,
+                    1543,
+                    1531
+                ],
+                "score": 0.996,
+                "text": "conditions all have a considerable impact on segmentation. In children, there is a prominent sheen from the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    1535,
+                    1539,
+                    1557
+                ],
+                "score": 0.999,
+                "text": "retinal nerve fibers near the vessels and macula, blocking the view of the connections between vessels (Fig. 1b)."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    1562,
+                    1541,
+                    1585
+                ],
+                "score": 0.996,
+                "text": "In elderly adults, hypoplasia of the retinal pigment epithelium leaves the choroidal vessels visible, similar to the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    1589,
+                    1538,
+                    1611
+                ],
+                "score": 0.995,
+                "text": "retinal vasculature (Fig. 1c). Microaneurysms, hemorrhages, and exudates can be seen on fundus images of dia-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    1617,
+                    1538,
+                    1639
+                ],
+                "score": 0.989,
+                "text": "betic retinopathy patients (Fig. 1d). Eye movements and improper operations can result in loss of focus (Fig. 1e)"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    1643,
+                    776,
+                    1669
+                ],
+                "score": 0.999,
+                "text": "and insufficient exposure (Fig. 1f)."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    464,
+                    1674,
+                    1542,
+                    1696
+                ],
+                "score": 0.996,
+                "text": "In retinal image analysis, manual segmentation of retinal blood vessels is extremely time consuming and"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    428,
+                    1698,
+                    1542,
+                    1725
+                ],
+                "score": 0.999,
+                "text": "labour intensive, unlike other retinal image preprocessing tasks such as artery-vein classification, which is"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    1728,
+                    1542,
+                    1752
+                ],
+                "score": 0.997,
+                "text": "important but can be done manually while conducting medical studies. Automated and semiautomated vessel"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    1757,
+                    1539,
+                    1779
+                ],
+                "score": 0.997,
+                "text": "segmentation is thus an indispensable process for efficient quantitative interpretation of the retinal vasculature."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    1783,
+                    1542,
+                    1809
+                ],
+                "score": 0.991,
+                "text": "Many studies have been conducted on retinal vessel segmentation, including conventional algorithms¹ and"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    1887,
+                    1542,
+                    1914
+                ],
+                "score": 0.984,
+                "text": "1Department of Ophthalmology, the Second Affiliated Hospital of Zhejiang University, College of Medicine, Zhejiang"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    1915,
+                    1540,
+                    1940
+                ],
+                "score": 0.989,
+                "text": "University, Hangzhou, 310009, China. ²School of Electronic Engineering and Computer Science, Queen Mary"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    1945,
+                    1542,
+                    1969
+                ],
+                "score": 0.982,
+                "text": "University of London, London, E1 4NS, United Kingdom. ³College of Computer Science and Technology, Hangzhou"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    428,
+                    1971,
+                    1540,
+                    1998
+                ],
+                "score": 0.99,
+                "text": "Dianzi University, Hangzhou, 310018, China. 4College of Media Engineering, Communication University of Zhejiang,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    2000,
+                    1541,
+                    2024
+                ],
+                "score": 0.989,
+                "text": "Hangzhou, 310018, China. ⁵These authors contributed equally: Kai Jin, Xingru Huang, Jingxing Zhou. 6These authors"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    427,
+                    2026,
+                    1408,
+                    2053
+                ],
+                "score": 0.984,
+                "text": "jointly supervised this work: Juan Ye, Yaqi Wang.e-mail: wangyaqi@cuz.edu.cn; yejuan@zju.edu.cn"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    113,
+                    2108,
+                    882,
+                    2128
+                ],
+                "score": 0.997,
+                "text": "SCIENTIFIC DATA|(2022)9:475|https://doi.org/10.1038/s41597-022-01564-3"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    1526,
+                    2108,
+                    1542,
+                    2128
+                ],
+                "score": 1.0,
+                "text": "1"
+            }
+        ],
+        "page_info": {
+            "page_no": 0,
+            "width": 1654,
+            "height": 2174
+        }
+    },
+    {
+        "layout_dets": [
+            {
+                "cls_id": 12,
+                "label": "header",
+                "score": 0.9508,
+                "bbox": [
+                    108,
+                    39,
+                    521,
+                    68
+                ],
+                "index": 1
+            },
+            {
+                "cls_id": 14,
+                "label": "image",
+                "score": 0.9832,
+                "bbox": [
+                    255,
+                    127,
+                    464,
+                    441
+                ],
+                "index": 2
+            },
+            {
+                "cls_id": 7,
+                "label": "figure_title",
+                "score": 0.8411,
+                "bbox": [
+                    341,
+                    448,
+                    377,
+                    481
+                ],
+                "index": 3
+            },
+            {
+                "cls_id": 14,
+                "label": "image",
+                "score": 0.9831,
+                "bbox": [
+                    472,
+                    128,
+                    679,
+                    442
+                ],
+                "index": 4
+            },
+            {
+                "cls_id": 7,
+                "label": "figure_title",
+                "score": 0.8692,
+                "bbox": [
+                    557,
+                    448,
+                    595,
+                    481
+                ],
+                "index": 5
+            },
+            {
+                "cls_id": 14,
+                "label": "image",
+                "score": 0.9822,
+                "bbox": [
+                    687,
+                    127,
+                    895,
+                    443
+                ],
+                "index": 6
+            },
+            {
+                "cls_id": 7,
+                "label": "figure_title",
+                "score": 0.8545,
+                "bbox": [
+                    772,
+                    449,
+                    811,
+                    481
+                ],
+                "index": 7
+            },
+            {
+                "cls_id": 14,
+                "label": "image",
+                "score": 0.9821,
+                "bbox": [
+                    903,
+                    127,
+                    1111,
+                    443
+                ],
+                "index": 8
+            },
+            {
+                "cls_id": 7,
+                "label": "figure_title",
+                "score": 0.8636,
+                "bbox": [
+                    986,
+                    448,
+                    1025,
+                    481
+                ],
+                "index": 9
+            },
+            {
+                "cls_id": 14,
+                "label": "image",
+                "score": 0.9832,
+                "bbox": [
+                    1118,
+                    128,
+                    1329,
+                    443
+                ],
+                "index": 10
+            },
+            {
+                "cls_id": 7,
+                "label": "figure_title",
+                "score": 0.8636,
+                "bbox": [
+                    1205,
+                    449,
+                    1242,
+                    480
+                ],
+                "index": 11
+            },
+            {
+                "cls_id": 14,
+                "label": "image",
+                "score": 0.9831,
+                "bbox": [
+                    1334,
+                    128,
+                    1542,
+                    442
+                ],
+                "index": 12
+            },
+            {
+                "cls_id": 7,
+                "label": "figure_title",
+                "score": 0.8494,
+                "bbox": [
+                    1423,
+                    449,
+                    1455,
+                    481
+                ],
+                "index": 13
+            },
+            {
+                "cls_id": 7,
+                "label": "figure_title",
+                "score": 0.9751,
+                "bbox": [
+                    424,
+                    504,
+                    1541,
+                    677
+                ],
+                "index": 14
+            },
+            {
+                "cls_id": 21,
+                "label": "table",
+                "score": 0.9897,
+                "bbox": [
+                    430,
+                    732,
+                    1540,
+                    1060
+                ],
+                "index": 15,
+                "html": "<table><tr><td rowspan=1 colspan=2>Dataset</td><td rowspan=1 colspan=3>Year</td><td rowspan=1 colspan=1>Number</td><td rowspan=1 colspan=1>Resolution</td><td rowspan=1 colspan=1>Disease</td><td rowspan=1 colspan=1>Annotators</td></tr><tr><td rowspan=1 colspan=2>STARE</td><td rowspan=1 colspan=3>2000</td><td rowspan=1 colspan=1>20</td><td rowspan=1 colspan=1>605×700</td><td rowspan=1 colspan=1>10 healthy, 10 diseases</td><td rowspan=1 colspan=1>2</td></tr><tr><td rowspan=1 colspan=2>DRIVE</td><td rowspan=1 colspan=3>2004</td><td rowspan=1 colspan=1>40</td><td rowspan=1 colspan=1>768×584</td><td rowspan=1 colspan=1>33 healthy, 7 DR</td><td rowspan=1 colspan=1>3</td></tr><tr><td rowspan=1 colspan=2>ARIA</td><td rowspan=1 colspan=3>2006</td><td rowspan=1 colspan=1>161</td><td rowspan=1 colspan=1>576×768</td><td rowspan=1 colspan=1>61 healthy, 59 DR, 23 AMD</td><td rowspan=1 colspan=1>2</td></tr><tr><td rowspan=4 colspan=1>REVIEW</td><td rowspan=1 colspan=1>HRIS</td><td rowspan=1 colspan=3></td><td rowspan=1 colspan=1>4</td><td rowspan=1 colspan=1>3584×2438</td><td rowspan=4 colspan=1>16 DR</td><td rowspan=4 colspan=1>3</td></tr><tr><td rowspan=1 colspan=1>VDIS</td><td rowspan=1 colspan=1></td><td></td><td rowspan=1 colspan=1></td><td rowspan=1 colspan=1>8</td><td rowspan=1 colspan=1>1360×1024</td></tr><tr><td rowspan=1 colspan=1>CLRIS</td><td rowspan=1 colspan=1></td><td></td><td rowspan=1 colspan=1></td><td rowspan=1 colspan=1>2</td><td rowspan=1 colspan=1>2160×1440</td></tr><tr><td rowspan=1 colspan=1>KPIS</td><td rowspan=1 colspan=3></td><td rowspan=1 colspan=1>2</td><td rowspan=1 colspan=1>288×119,170×92</td></tr><tr><td rowspan=1 colspan=2>CHASEDB1</td><td rowspan=1 colspan=3>2011</td><td rowspan=1 colspan=1>28</td><td rowspan=1 colspan=1>990×960</td><td rowspan=1 colspan=1>28 healthy</td><td rowspan=1 colspan=1>2</td></tr><tr><td rowspan=1 colspan=2>FIVES (proposed)</td><td rowspan=1 colspan=3>2021</td><td rowspan=1 colspan=1>800</td><td rowspan=1 colspan=1>2048×2048</td><td rowspan=1 colspan=1>200 healthy, 200 AMD, 200 DR, 200 glaucoma</td><td rowspan=1 colspan=1>Group</td></tr></table>"
+            },
+            {
+                "cls_id": 7,
+                "label": "figure_title",
+                "score": 0.9512,
+                "bbox": [
+                    426,
+                    1081,
+                    1246,
+                    1112
+                ],
+                "index": 16
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.8666,
+                "bbox": [
+                    424,
+                    1175,
+                    1545,
+                    1377
+                ],
+                "index": 17
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.8178,
+                "bbox": [
+                    459,
+                    1371,
+                    1179,
+                    1402
+                ],
+                "index": 18
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9858,
+                "bbox": [
+                    425,
+                    1426,
+                    1547,
+                    1541
+                ],
+                "index": 19
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9832,
+                "bbox": [
+                    426,
+                    1541,
+                    1546,
+                    1623
+                ],
+                "index": 20
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9824,
+                "bbox": [
+                    426,
+                    1622,
+                    1545,
+                    1711
+                ],
+                "index": 21
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9779,
+                "bbox": [
+                    424,
+                    1734,
+                    1543,
+                    1791
+                ],
+                "index": 22
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9865,
+                "bbox": [
+                    423,
+                    1791,
+                    1547,
+                    1907
+                ],
+                "index": 23
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9765,
+                "bbox": [
+                    426,
+                    1930,
+                    1545,
+                    1988
+                ],
+                "index": 24
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9764,
+                "bbox": [
+                    425,
+                    1987,
+                    1546,
+                    2047
+                ],
+                "index": 25
+            },
+            {
+                "cls_id": 8,
+                "label": "footer",
+                "score": 0.7742,
+                "bbox": [
+                    110,
+                    2101,
+                    306,
+                    2131
+                ],
+                "index": 26
+            },
+            {
+                "cls_id": 8,
+                "label": "footer",
+                "score": 0.8134,
+                "bbox": [
+                    344,
+                    2101,
+                    886,
+                    2131
+                ],
+                "index": 27
+            },
+            {
+                "cls_id": 16,
+                "label": "number",
+                "score": 0.8649,
+                "bbox": [
+                    1523,
+                    2106,
+                    1543,
+                    2129
+                ],
+                "index": 28
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    38,
+                    522,
+                    69
+                ],
+                "score": 1.0,
+                "text": "www.nature.com/scientificdata/"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    339,
+                    448,
+                    378,
+                    485
+                ],
+                "score": 1.0,
+                "text": "(a)"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    553,
+                    450,
+                    594,
+                    485
+                ],
+                "score": 1.0,
+                "text": "(b)"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    770,
+                    449,
+                    812,
+                    486
+                ],
+                "score": 1.0,
+                "text": "(c)"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    985,
+                    449,
+                    1025,
+                    487
+                ],
+                "score": 1.0,
+                "text": "(d)"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    1203,
+                    448,
+                    1244,
+                    486
+                ],
+                "score": 1.0,
+                "text": "(e)"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    1423,
+                    450,
+                    1454,
+                    487
+                ],
+                "score": 1.0,
+                "text": "(f)"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    509,
+                    1528,
+                    533
+                ],
+                "score": 0.994,
+                "text": "Fig. 1 Illustration of fundus photographs and the challenges of retinal vessel segmentation: (a) A normal high-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    537,
+                    1538,
+                    561
+                ],
+                "score": 0.991,
+                "text": "quality fundus image, with the corresponding segmentation result shown in a detailed view. (b) A child's fundus"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    564,
+                    1485,
+                    588
+                ],
+                "score": 0.995,
+                "text": "image showing the retinal nerve fibers blocking the view of the connections between vessels. (c) An elderly"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    590,
+                    1523,
+                    619
+                ],
+                "score": 0.997,
+                "text": "person's fundus image showing a tessellated retina, which can be misrecognized as vessels. (d) A fundus image"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    620,
+                    1526,
+                    644
+                ],
+                "score": 0.997,
+                "text": "showing pathological changes related to diabetic retinopathy. (e) A fundus image with poor focus. (f) A fundus"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    649,
+                    757,
+                    670
+                ],
+                "score": 0.999,
+                "text": "image with insufficient exposure."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    432,
+                    1085,
+                    1242,
+                    1110
+                ],
+                "score": 0.999,
+                "text": "Table 1. Summarization of publicly available retinal vessel segmentation datasets."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    1176,
+                    1540,
+                    1205
+                ],
+                "score": 0.994,
+                "text": "artificial intelligence (AI) based segmentation12. AI based methods have been intensively studied in recent years."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    1205,
+                    1539,
+                    1233
+                ],
+                "score": 0.996,
+                "text": "The development and evaluation of AI-based methods requires datasets with large amounts of annotated images."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    463,
+                    1236,
+                    1542,
+                    1258
+                ],
+                "score": 0.991,
+                "text": "Several retinal vessel segmentation datasets, which are summarized in Table 1, have been established for public"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    1260,
+                    1543,
+                    1287
+                ],
+                "score": 0.981,
+                "text": "use: STARE13, DRIVE14, ARIA15, REVIEW16, CHASEDB117, HRF18, etc. Nearly all retinal vessel segmentation"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    1291,
+                    1542,
+                    1314
+                ],
+                "score": 0.995,
+                "text": "work has been carried out on these datasets, including state-of-the-art vessel segmentation algorithms, such as"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    1315,
+                    1542,
+                    1343
+                ],
+                "score": 0.982,
+                "text": "SCS-Net19, the NFN + model20 and the MS-DRIS-GP model21. There are also algorithms that can do a simultane-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    1345,
+                    1540,
+                    1372
+                ],
+                "score": 0.991,
+                "text": "ous segmentation and artery-vein classification developed on these datasets, such as the work of Hemelings et al.22."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    462,
+                    1370,
+                    1175,
+                    1400
+                ],
+                "score": 0.997,
+                "text": "However, there are some inherent drawbacks of these popular datasets:"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    436,
+                    1431,
+                    1541,
+                    1454
+                ],
+                "score": 0.997,
+                "text": "•First, the images included in these datasets are small in quantity and imbalanced in disease distribution, and"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    469,
+                    1459,
+                    1541,
+                    1482
+                ],
+                "score": 0.992,
+                "text": "most of them are of low resolution. A small quantity may lead to overfitting when using deep learning. The"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    472,
+                    1489,
+                    1542,
+                    1508
+                ],
+                "score": 0.993,
+                "text": "distribution of disease is rather imbalanced, for which disease-specific analysis cannot be conducted. Some of"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    469,
+                    1512,
+                    1297,
+                    1539
+                ],
+                "score": 0.995,
+                "text": "the most commonly used datasets have resolutions of less than 1000 × 1000 pixels23."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    468,
+                    1542,
+                    1540,
+                    1566
+                ],
+                "score": 0.992,
+                "text": "Second, the annotation process has not been standardized by healthcare professionals, so inappropriate anno-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    467,
+                    1569,
+                    1541,
+                    1592
+                ],
+                "score": 0.997,
+                "text": "tations may occur. For example, some pathological changes will form a strip-like structure and should not be"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    469,
+                    1598,
+                    929,
+                    1622
+                ],
+                "score": 0.988,
+                "text": "labelled as retinal vessels, as is shown in Fig. 2."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    436,
+                    1626,
+                    1539,
+                    1650
+                ],
+                "score": 0.992,
+                "text": "•Third, image quality, which is an important factor affecting the segmentation performance, is not evaluated."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    469,
+                    1652,
+                    1542,
+                    1679
+                ],
+                "score": 0.996,
+                "text": "Providing the evaluation of images will be useful for further in-depth research into the question of how the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    467,
+                    1679,
+                    992,
+                    1709
+                ],
+                "score": 0.994,
+                "text": "performance of methods is affected by image quality."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    463,
+                    1737,
+                    1540,
+                    1764
+                ],
+                "score": 0.996,
+                "text": "Taking all of these factors into consideration, it would be meaningful to establish a public retinal vessel seg-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    432,
+                    1767,
+                    879,
+                    1788
+                ],
+                "score": 0.998,
+                "text": "mentation dataset with pixelwise annotation."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    462,
+                    1792,
+                    1542,
+                    1819
+                ],
+                "score": 0.996,
+                "text": "In this paper, we propose a fundus image vessel segmentation (FIVES) dataset consisting of 800"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    1821,
+                    1542,
+                    1848
+                ],
+                "score": 0.993,
+                "text": "high-resolution color fundus photographs with pixelwise manual annotation through standard crowdsourcing"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    432,
+                    1850,
+                    1540,
+                    1873
+                ],
+                "score": 0.999,
+                "text": "among medical staff. For each image, 3 labels were provided: disease, pixelwise vessel annotation and image"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    432,
+                    1877,
+                    1138,
+                    1900
+                ],
+                "score": 1.0,
+                "text": "quality scores. Our major contributions can be summarized as follows:"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    438,
+                    1933,
+                    1542,
+                    1958
+                ],
+                "score": 0.995,
+                "text": "Image: The dataset contains 800 high-resolution images of normal eyes and 3 different eye diseases, with 200"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    470,
+                    1963,
+                    710,
+                    1987
+                ],
+                "score": 1.0,
+                "text": "images in each category."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    436,
+                    1988,
+                    1540,
+                    2017
+                ],
+                "score": 0.998,
+                "text": "Annotation: Pixelwise annotation was performed by a group of trained medical staff and verified by experi-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    470,
+                    2017,
+                    1540,
+                    2042
+                ],
+                "score": 0.985,
+                "text": "enced ophthalmologists who had been annotating for hundreds of hours. The annotation group was made up"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    110,
+                    2104,
+                    306,
+                    2130
+                ],
+                "score": 0.998,
+                "text": "SCIENTIFIC DATA|"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    348,
+                    2107,
+                    883,
+                    2130
+                ],
+                "score": 0.988,
+                "text": "(2022) 9:475 |https://doi.org/10.1038/s41597-022-01564-3"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    1525,
+                    2108,
+                    1541,
+                    2128
+                ],
+                "score": 1.0,
+                "text": "2"
+            }
+        ],
+        "page_info": {
+            "page_no": 1,
+            "width": 1654,
+            "height": 2174
+        }
+    },
+    {
+        "layout_dets": [
+            {
+                "cls_id": 12,
+                "label": "header",
+                "score": 0.9495,
+                "bbox": [
+                    108,
+                    38,
+                    521,
+                    69
+                ],
+                "index": 1
+            },
+            {
+                "cls_id": 14,
+                "label": "image",
+                "score": 0.9608,
+                "bbox": [
+                    429,
+                    126,
+                    753,
+                    357
+                ],
+                "index": 2
+            },
+            {
+                "cls_id": 7,
+                "label": "figure_title",
+                "score": 0.7913,
+                "bbox": [
+                    628,
+                    360,
+                    655,
+                    383
+                ],
+                "index": 3
+            },
+            {
+                "cls_id": 14,
+                "label": "image",
+                "score": 0.9715,
+                "bbox": [
+                    756,
+                    127,
+                    1065,
+                    359
+                ],
+                "index": 4
+            },
+            {
+                "cls_id": 7,
+                "label": "figure_title",
+                "score": 0.7795,
+                "bbox": [
+                    854,
+                    360,
+                    881,
+                    383
+                ],
+                "index": 5
+            },
+            {
+                "cls_id": 7,
+                "label": "figure_title",
+                "score": 0.9719,
+                "bbox": [
+                    424,
+                    408,
+                    1542,
+                    498
+                ],
+                "index": 6
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9733,
+                "bbox": [
+                    462,
+                    559,
+                    1545,
+                    616
+                ],
+                "index": 7
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9704,
+                "bbox": [
+                    426,
+                    616,
+                    1545,
+                    674
+                ],
+                "index": 8
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9732,
+                "bbox": [
+                    424,
+                    699,
+                    1546,
+                    760
+                ],
+                "index": 9
+            },
+            {
+                "cls_id": 17,
+                "label": "paragraph_title",
+                "score": 0.9362,
+                "bbox": [
+                    426,
+                    783,
+                    554,
+                    813
+                ],
+                "index": 10
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9883,
+                "bbox": [
+                    423,
+                    814,
+                    1547,
+                    1012
+                ],
+                "index": 11
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9888,
+                "bbox": [
+                    422,
+                    1011,
+                    1548,
+                    1350
+                ],
+                "index": 12
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9856,
+                "bbox": [
+                    423,
+                    1374,
+                    1546,
+                    1488
+                ],
+                "index": 13
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9872,
+                "bbox": [
+                    423,
+                    1486,
+                    1547,
+                    1627
+                ],
+                "index": 14
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9858,
+                "bbox": [
+                    423,
+                    1626,
+                    1546,
+                    1739
+                ],
+                "index": 15
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9872,
+                "bbox": [
+                    423,
+                    1737,
+                    1547,
+                    1878
+                ],
+                "index": 16
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9814,
+                "bbox": [
+                    423,
+                    1876,
+                    1547,
+                    1964
+                ],
+                "index": 17
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9703,
+                "bbox": [
+                    423,
+                    1991,
+                    1546,
+                    2053
+                ],
+                "index": 18
+            },
+            {
+                "cls_id": 8,
+                "label": "footer",
+                "score": 0.9251,
+                "bbox": [
+                    108,
+                    2101,
+                    886,
+                    2131
+                ],
+                "index": 19
+            },
+            {
+                "cls_id": 16,
+                "label": "number",
+                "score": 0.8617,
+                "bbox": [
+                    1524,
+                    2107,
+                    1544,
+                    2134
+                ],
+                "index": 20
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    38,
+                    521,
+                    69
+                ],
+                "score": 0.998,
+                "text": "www.nature.com/scientificdata/"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    629,
+                    360,
+                    655,
+                    386
+                ],
+                "score": 1.0,
+                "text": "(a)"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    856,
+                    361,
+                    879,
+                    384
+                ],
+                "score": 1.0,
+                "text": "(b)"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    410,
+                    1539,
+                    439
+                ],
+                "score": 0.992,
+                "text": "Fig. 2 Example of mislabeling from public dataset: (a) the primary fundus photograph from the DRIVE dataset"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    441,
+                    1539,
+                    465
+                ],
+                "score": 0.985,
+                "text": "with red arrow referring to strip-like pathological changes, (b) the ground truth provided in the dataset with red"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    470,
+                    1333,
+                    493
+                ],
+                "score": 0.999,
+                "text": "arrow referring to the improper labeling of strip-like pathological changes as retinal vessels."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    467,
+                    559,
+                    1542,
+                    590
+                ],
+                "score": 0.999,
+                "text": "of 3 ophthalmic practitioners as senior annotators and 24 medical staff who were knowledgeable regarding"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    470,
+                    594,
+                    835,
+                    614
+                ],
+                "score": 0.987,
+                "text": "retinal anatomy as junior annotators."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    437,
+                    617,
+                    1542,
+                    644
+                ],
+                "score": 0.996,
+                "text": "Evaluation: The quality of images was evaluated from three perspectives using an automatic algorithm and"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    470,
+                    646,
+                    851,
+                    671
+                ],
+                "score": 0.983,
+                "text": "further corrected by retinal specialists."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    464,
+                    703,
+                    1541,
+                    728
+                ],
+                "score": 0.998,
+                "text": "We believe that the publication of the FIVES dataset will considerably facilitate computer-aided retinal vessel"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    731,
+                    1227,
+                    756
+                ],
+                "score": 0.995,
+                "text": "segmentation research and promote translation from technology to clinical use."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    784,
+                    551,
+                    815
+                ],
+                "score": 1.0,
+                "text": "Methods"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    815,
+                    1542,
+                    844
+                ],
+                "score": 0.993,
+                "text": "Data collection. Eight hundred color fundus photographs were collected from 2016 to 2021 in the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    845,
+                    1542,
+                    872
+                ],
+                "score": 0.997,
+                "text": "Ophthalmology Centre at the Second Affiliated Hospital of Zhejiang University (SHAZU) (Fig. 3a). These"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    876,
+                    1541,
+                    898
+                ],
+                "score": 0.985,
+                "text": "images are from 573 patients, with ages ranging from 4 to 83 years. Written informed consent complying with the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    902,
+                    1541,
+                    925
+                ],
+                "score": 0.998,
+                "text": "requirement of the Medical Ethics Committee of SHAZU was signed by every participant when it was decided"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    432,
+                    930,
+                    1541,
+                    953
+                ],
+                "score": 0.998,
+                "text": "that their photographs would be adopted by scientific research. The study followed the tenets of the Helsinki"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    958,
+                    1540,
+                    981
+                ],
+                "score": 0.999,
+                "text": "Declaration and was approved by the Medical Ethics Committee of SAHZU. The study has been registered on"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    433,
+                    986,
+                    1065,
+                    1009
+                ],
+                "score": 1.0,
+                "text": "ClinicalTrials.gov with trial registration number NCT04718532."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    464,
+                    1015,
+                    1538,
+                    1036
+                ],
+                "score": 0.996,
+                "text": "Patients underwent comprehensive systemic and ocular examinations to establish a diagnosis. Before pho-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    1041,
+                    1541,
+                    1066
+                ],
+                "score": 0.999,
+                "text": "tographing, 2 to 3 drops of 1.0% tropicamide phenylephrine were used for pupil dilation of every examined eye."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    1068,
+                    1542,
+                    1093
+                ],
+                "score": 0.997,
+                "text": "Pupils with diameters over 7 millimeters were considered fully dilated, and fundus photographs were taken. The"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    1096,
+                    1541,
+                    1121
+                ],
+                "score": 0.985,
+                "text": "images were captured by tabletop TRC-NW8 fundus cameras at a 50° field of view (Topcon Medical Systems,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    1124,
+                    1542,
+                    1149
+                ],
+                "score": 0.991,
+                "text": "Tokyo, Japan) and centered at the macula. For a 50° field of view, both the macula and the optic disc could be"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    1151,
+                    1539,
+                    1176
+                ],
+                "score": 0.995,
+                "text": "seen in the image. The photographing process was conducted by experienced examiners. For each examined eye,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    1179,
+                    1541,
+                    1204
+                ],
+                "score": 0.997,
+                "text": "only one photograph was included in the final dataset. For each patient, both eyes were examined. All the images"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    432,
+                    1209,
+                    1541,
+                    1230
+                ],
+                "score": 0.994,
+                "text": "were collected and manually selected to form the final dataset. The manual selection considered both disease"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    1235,
+                    1543,
+                    1260
+                ],
+                "score": 1.0,
+                "text": "diagnosis and image readability. Selection criteria considering disease diagnosis can be found below, and we"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    1265,
+                    1539,
+                    1287
+                ],
+                "score": 0.999,
+                "text": "have intentionally included about 5% images with poor readability assessed by experienced ophthalmic doctors"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    428,
+                    1289,
+                    1542,
+                    1315
+                ],
+                "score": 0.994,
+                "text": "to reflect real clinical situation. Pictures were saved in PNG format with a resolution of 2048 × 2048 pixels. No"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    1319,
+                    1512,
+                    1344
+                ],
+                "score": 0.992,
+                "text": "image compression was conducted during the image capturing, annotation and dataset uploading processes."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    1373,
+                    1541,
+                    1407
+                ],
+                "score": 0.995,
+                "text": "Disease diagnosis. In this study, only patients with a clearly ascertained diagnosis were included. The diag-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    1408,
+                    1540,
+                    1431
+                ],
+                "score": 0.994,
+                "text": "nostic procedure started with first-contact doctors and was further reviewed by experienced ophthalmologic"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    432,
+                    1436,
+                    1540,
+                    1459
+                ],
+                "score": 0.999,
+                "text": "specialists. The diagnosis criteria complied with most updated American Academy of Ophthalmology's guidelines"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    432,
+                    1463,
+                    1102,
+                    1486
+                ],
+                "score": 0.999,
+                "text": "at the time when the picture was taken. Details are described below:"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    462,
+                    1487,
+                    1543,
+                    1516
+                ],
+                "score": 0.992,
+                "text": "For DR, both type 1 and type 2 diabetes mellitus (DM) patients were considered. The diagnosis of DM was"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    1518,
+                    1541,
+                    1543
+                ],
+                "score": 0.99,
+                "text": "based on the criteria proposed by the American Diabetes Association²4. Examinations necessary for the diagno-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    1544,
+                    1540,
+                    1572
+                ],
+                "score": 0.994,
+                "text": "sis of DM were conducted before image capture, including slit-lamp examination, ultrawide fundus photogra-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    1574,
+                    1542,
+                    1599
+                ],
+                "score": 0.997,
+                "text": "phy, optical coherence tomography and fundus florescence angiography, when necessary. Images with laser scars"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    432,
+                    1603,
+                    924,
+                    1624
+                ],
+                "score": 0.994,
+                "text": "were also included to mimic real clinical practice."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    462,
+                    1627,
+                    1541,
+                    1653
+                ],
+                "score": 0.997,
+                "text": "Patients with age-related macular degeneration (AMD) underwent thorough ocular examinations, including"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    1656,
+                    1540,
+                    1682
+                ],
+                "score": 0.997,
+                "text": "slit-lamp examination, fundus photography, optical coherence tomography (OCT) and fundus fluorescein angi-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    1684,
+                    1540,
+                    1710
+                ],
+                "score": 0.998,
+                "text": "ography, if necessary. Pathological features in fundus images include drusen, exudate, geographic atrophy or hem-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    1710,
+                    1536,
+                    1737
+                ],
+                "score": 0.994,
+                "text": "orrhage. The diagnostic procedure was conducted according to the AAO's Preferred Practice Pattern for AMD25."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    464,
+                    1740,
+                    1543,
+                    1765
+                ],
+                "score": 0.998,
+                "text": "For glaucoma, both open-angle glaucoma and angle-closure glaucoma were included in this study. Patients of"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    1766,
+                    1541,
+                    1792
+                ],
+                "score": 0.994,
+                "text": "this kind often present headache, decreased vision, elevated intraocular pressure (IOP) and optic nerve damage,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    1794,
+                    1540,
+                    1820
+                ],
+                "score": 0.995,
+                "text": "which can be seen in fundus photographs. The diagnosis of glaucoma is based on clinical complaints, IOP, fun-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    1824,
+                    1541,
+                    1849
+                ],
+                "score": 0.998,
+                "text": "dus photography, visual field examination and optical coherence tomography. The detailed diagnostic criteria"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    1849,
+                    1091,
+                    1875
+                ],
+                "score": 0.997,
+                "text": "can be found in AAO's Preferred Practice Pattern of glaucoma26,27."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    465,
+                    1879,
+                    1541,
+                    1902
+                ],
+                "score": 0.998,
+                "text": "The exclusion criteria included patients with an uncertain diagnosis, patients with multiple diseases, patients"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    1907,
+                    1541,
+                    1931
+                ],
+                "score": 0.991,
+                "text": "with excessive opacity in refractive media, patients with systemic diseases other than DM that can affect the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    1935,
+                    1207,
+                    1959
+                ],
+                "score": 0.988,
+                "text": "retina, patients with familial ocular diseases, and patients with ocular trauma."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    1992,
+                    1540,
+                    2021
+                ],
+                "score": 0.995,
+                "text": "Vessel annotation. The annotation process started with the recruitment of annotators (Fig. 3b). The recruit-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    2023,
+                    1541,
+                    2049
+                ],
+                "score": 0.991,
+                "text": "ment message was posted online and shared via social media, requesting that medical workers who were willing to"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    112,
+                    2107,
+                    883,
+                    2130
+                ],
+                "score": 0.99,
+                "text": "SCIENTIFIC DATA|(2022)9:475 |https://doi.org/10.1038/s41597-022-01564-3"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    1526,
+                    2109,
+                    1542,
+                    2133
+                ],
+                "score": 1.0,
+                "text": "3"
+            }
+        ],
+        "page_info": {
+            "page_no": 2,
+            "width": 1654,
+            "height": 2174
+        }
+    },
+    {
+        "layout_dets": [
+            {
+                "cls_id": 12,
+                "label": "header",
+                "score": 0.9399,
+                "bbox": [
+                    107,
+                    38,
+                    522,
+                    69
+                ],
+                "index": 1
+            },
+            {
+                "cls_id": 14,
+                "label": "image",
+                "score": 0.8802,
+                "bbox": [
+                    254,
+                    126,
+                    1544,
+                    1259
+                ],
+                "index": 2
+            },
+            {
+                "cls_id": 7,
+                "label": "figure_title",
+                "score": 0.9758,
+                "bbox": [
+                    423,
+                    1288,
+                    1542,
+                    1546
+                ],
+                "index": 3
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9627,
+                "bbox": [
+                    423,
+                    1594,
+                    1545,
+                    1653
+                ],
+                "index": 4
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9849,
+                "bbox": [
+                    423,
+                    1651,
+                    1548,
+                    1903
+                ],
+                "index": 5
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9827,
+                "bbox": [
+                    422,
+                    1901,
+                    1548,
+                    2045
+                ],
+                "index": 6
+            },
+            {
+                "cls_id": 8,
+                "label": "footer",
+                "score": 0.9293,
+                "bbox": [
+                    108,
+                    2101,
+                    886,
+                    2132
+                ],
+                "index": 7
+            },
+            {
+                "cls_id": 16,
+                "label": "number",
+                "score": 0.8516,
+                "bbox": [
+                    1523,
+                    2107,
+                    1544,
+                    2133
+                ],
+                "index": 8
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    106,
+                    38,
+                    522,
+                    69
+                ],
+                "score": 0.999,
+                "text": "www.nature.com/scientificdata/"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    1293,
+                    1492,
+                    1318
+                ],
+                "score": 0.993,
+                "text": "Fig. 3 Workflow of the establishment of the proposed dataset. (a) Eight hundred color fundus photographs"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    1319,
+                    1534,
+                    1344
+                ],
+                "score": 0.996,
+                "text": "were collected in the Ophthalmology Center at the Second Affiliated Hospital of Zhejiang University (SHAZU)."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    1347,
+                    1507,
+                    1372
+                ],
+                "score": 0.999,
+                "text": "These photographs comprised 200 images from patients diagnosed with diabetic retinopathy (DR), 200 from"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    1376,
+                    1539,
+                    1400
+                ],
+                "score": 0.996,
+                "text": "patients with glaucoma, 200 from patients with age-related macular degeneration (AMD), and 200 from normal"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    1403,
+                    1465,
+                    1428
+                ],
+                "score": 0.994,
+                "text": "controls. (b) The annotation team was made up of 3 senior annotators and 24 junior annotators who had"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    1432,
+                    1502,
+                    1457
+                ],
+                "score": 0.992,
+                "text": "completed guideline-based training and image annotation tests. (c) The interface of the specifically designed"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    1462,
+                    1482,
+                    1483
+                ],
+                "score": 0.997,
+                "text": "annotating software used in this study. (d) The annotation process consisted of initial annotation by junior"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    1485,
+                    1506,
+                    1511
+                ],
+                "score": 0.996,
+                "text": "annotators and further verification by senior annotators. Each image was randomly assigned to 2 annotators,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    1516,
+                    1407,
+                    1538
+                ],
+                "score": 0.995,
+                "text": "and the common pixels annotated by both of them were included as the result of initial annotation."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    1596,
+                    1542,
+                    1625
+                ],
+                "score": 1.0,
+                "text": "participate and well aware of the retina anatomy could join in this work. Finally, the annotation group consisted of 3"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    432,
+                    1626,
+                    1540,
+                    1651
+                ],
+                "score": 0.997,
+                "text": "ophthalmic practitioners with clinical ophthalmic experience and 24 medical staff meeting the recruitment criteria."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    465,
+                    1654,
+                    1541,
+                    1678
+                ],
+                "score": 0.994,
+                "text": "The training of annotators was an important part of the annotation process (Fig.3b). A detailed annotation"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    1680,
+                    1541,
+                    1705
+                ],
+                "score": 0.995,
+                "text": "guideline was made by 3 ophthalmic practitioners of SAHZU. For each annotator, having learned the annotation"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    432,
+                    1710,
+                    1542,
+                    1734
+                ],
+                "score": 0.998,
+                "text": "guidelines, 5 test images, including 1 normal, 2 DR, 1glaucoma and 1 AMD, were assigned and retrieved after"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    1737,
+                    1541,
+                    1761
+                ],
+                "score": 0.994,
+                "text": "their initial annotation. The test images were evaluated by the ophthalmic practitioner one by one. If the anno-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    1765,
+                    1542,
+                    1789
+                ],
+                "score": 0.991,
+                "text": "tation result was not satisfiable, the image was sent back to the student for relabeling. If the results of relabeling"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    1793,
+                    1542,
+                    1817
+                ],
+                "score": 0.995,
+                "text": "were still unacceptable, the annotators could not enter the next stage of annotation work. If the test images were"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    1820,
+                    1539,
+                    1844
+                ],
+                "score": 0.995,
+                "text": "thought to be appropriately labeled, more images would be assigned. Annotators were paid differently according"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    1849,
+                    1541,
+                    1874
+                ],
+                "score": 0.998,
+                "text": "to their annotation performance, which was qualitatively evaluated by senior annotators and project managers"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    1876,
+                    1308,
+                    1900
+                ],
+                "score": 0.998,
+                "text": "based on three aspects: false positive pixels, false negative pixels and overall vasculature."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    463,
+                    1901,
+                    1543,
+                    1929
+                ],
+                "score": 0.999,
+                "text": "The annotation was achieved using specifically designed annotating software. Figure 3c shows the annotating"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    1931,
+                    1542,
+                    1956
+                ],
+                "score": 0.995,
+                "text": "interface. Annotators were asked to use the pencil tool to color the pixel white if they thought it was a vessel pixel"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    1959,
+                    1543,
+                    1984
+                ],
+                "score": 0.995,
+                "text": "based on the appearance. In some images, the vessels seemed broken due to various reasons. To ensure that the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    1987,
+                    1541,
+                    2011
+                ],
+                "score": 0.993,
+                "text": "annotated pixels were from vessels and reduce false positive annotation, annotators were told that no modifi-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    2015,
+                    1542,
+                    2040
+                ],
+                "score": 0.992,
+                "text": "cation should be made just to maintain the continuity of the vasculature. The final vessel segmentation ground"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    112,
+                    2106,
+                    883,
+                    2130
+                ],
+                "score": 0.998,
+                "text": "SCIENTIFIC DATA|(2022)9:475|https://doi.org/10.1038/s41597-022-01564-3"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    1525,
+                    2109,
+                    1541,
+                    2131
+                ],
+                "score": 1.0,
+                "text": "4"
+            }
+        ],
+        "page_info": {
+            "page_no": 3,
+            "width": 1654,
+            "height": 2174
+        }
+    },
+    {
+        "layout_dets": [
+            {
+                "cls_id": 12,
+                "label": "header",
+                "score": 0.9447,
+                "bbox": [
+                    107,
+                    38,
+                    522,
+                    69
+                ],
+                "index": 1
+            },
+            {
+                "cls_id": 14,
+                "label": "image",
+                "score": 0.9838,
+                "bbox": [
+                    430,
+                    125,
+                    1335,
+                    695
+                ],
+                "index": 2
+            },
+            {
+                "cls_id": 7,
+                "label": "figure_title",
+                "score": 0.969,
+                "bbox": [
+                    424,
+                    717,
+                    1545,
+                    780
+                ],
+                "index": 3
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9707,
+                "bbox": [
+                    423,
+                    825,
+                    1545,
+                    885
+                ],
+                "index": 4
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9876,
+                "bbox": [
+                    422,
+                    883,
+                    1547,
+                    1110
+                ],
+                "index": 5
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9875,
+                "bbox": [
+                    422,
+                    1131,
+                    1547,
+                    1302
+                ],
+                "index": 6
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9831,
+                "bbox": [
+                    422,
+                    1299,
+                    1547,
+                    1418
+                ],
+                "index": 7
+            },
+            {
+                "cls_id": 17,
+                "label": "paragraph_title",
+                "score": 0.9402,
+                "bbox": [
+                    425,
+                    1436,
+                    613,
+                    1466
+                ],
+                "index": 8
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9888,
+                "bbox": [
+                    422,
+                    1466,
+                    1547,
+                    1892
+                ],
+                "index": 9
+            },
+            {
+                "cls_id": 17,
+                "label": "paragraph_title",
+                "score": 0.9407,
+                "bbox": [
+                    425,
+                    1913,
+                    701,
+                    1945
+                ],
+                "index": 10
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9799,
+                "bbox": [
+                    423,
+                    1944,
+                    1548,
+                    2063
+                ],
+                "index": 11
+            },
+            {
+                "cls_id": 8,
+                "label": "footer",
+                "score": 0.9402,
+                "bbox": [
+                    108,
+                    2100,
+                    886,
+                    2132
+                ],
+                "index": 12
+            },
+            {
+                "cls_id": 16,
+                "label": "number",
+                "score": 0.8564,
+                "bbox": [
+                    1524,
+                    2107,
+                    1544,
+                    2135
+                ],
+                "index": 13
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    106,
+                    38,
+                    522,
+                    69
+                ],
+                "score": 0.999,
+                "text": "www.nature.com/scientificdata/"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    722,
+                    1542,
+                    747
+                ],
+                "score": 0.994,
+                "text": "Fig. 4 Image quality assessment and data split. (a) Illustration of image quality evaluation process. (b) Data split"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    750,
+                    516,
+                    777
+                ],
+                "score": 1.0,
+                "text": "strategy."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    432,
+                    831,
+                    1539,
+                    852
+                ],
+                "score": 0.99,
+                "text": "truth is a two-color image, with white pixels meaning vessel and black for non-vessel pixels. The resolution of the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    857,
+                    1226,
+                    883
+                ],
+                "score": 0.986,
+                "text": "ground truth is 2048 × 2048 pixels, coordinated with the original fundus image."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    463,
+                    884,
+                    1541,
+                    910
+                ],
+                "score": 0.998,
+                "text": "In the official annotation stage (Fig.3d), each annotator was assigned over 30 images. Each image was anno-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    913,
+                    1541,
+                    935
+                ],
+                "score": 0.991,
+                "text": "tated by 2 annotators. The pixels annotated by the 2 annotators in common were included as the final ground"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    432,
+                    942,
+                    1541,
+                    963
+                ],
+                "score": 0.995,
+                "text": "truth of the specific image to reduce the number of false positive pixels. Annotating one image would take"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    968,
+                    1542,
+                    994
+                ],
+                "score": 0.986,
+                "text": "approximately 3–5 hours. The overall annotation process began in December 2020 and ended in June 2021."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    432,
+                    998,
+                    1542,
+                    1019
+                ],
+                "score": 0.998,
+                "text": "After being annotated by junior annotators, the images were further reviewed by senior annotators to correct"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    1025,
+                    1541,
+                    1046
+                ],
+                "score": 0.991,
+                "text": "errors, such as misidentification of the choroidal vessels as retinal vessels. If there were clear mistakes, the senior"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    1053,
+                    1541,
+                    1074
+                ],
+                "score": 0.998,
+                "text": "annotators would directly correct them when reviewing. If the senior annotators disagreed with the annotation"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    1081,
+                    1538,
+                    1103
+                ],
+                "score": 0.995,
+                "text": "results but were not certain, they would discuss the matter amongst themselves and then make the final decision."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    1134,
+                    1542,
+                    1162
+                ],
+                "score": 0.989,
+                "text": "Image quality assessment. Considering that the color fundus image quality was substantially influenced"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    1163,
+                    1542,
+                    1187
+                ],
+                "score": 0.992,
+                "text": "by various factors and to make the dataset usable for different research purposes, each image of the FIVES dataset"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    428,
+                    1191,
+                    1541,
+                    1215
+                ],
+                "score": 0.987,
+                "text": "was evaluated on three image quality aspects: illumination and color distortion, blur, and low contrast distortion."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    1218,
+                    1541,
+                    1246
+                ],
+                "score": 0.998,
+                "text": "The assessment procedure was realized by previously published automatic algorithms28. For each aspect, a score,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    1247,
+                    1542,
+                    1275
+                ],
+                "score": 0.997,
+                "text": "either 0 or 1, was given to represent the quality (Fig. 4a). The image quality gradation grants researchers the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    1277,
+                    1107,
+                    1300
+                ],
+                "score": 0.993,
+                "text": "opportunity to investigate the robustness of the proposed algorithm."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    452,
+                    1298,
+                    1542,
+                    1328
+                ],
+                "score": 0.996,
+                "text": "In AI-based image processing, there should be at least 2 subsets, which are the training set used for learning and"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    1328,
+                    1541,
+                    1356
+                ],
+                "score": 0.995,
+                "text": "the test set used for testing. There should be no intersection between the 2 sets. To fully test an algorithm's capac-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    432,
+                    1359,
+                    1541,
+                    1382
+                ],
+                "score": 0.998,
+                "text": "ity, the characteristics should be distributed equally between these sets. Therefore, we recommend the data split"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    432,
+                    1387,
+                    1538,
+                    1411
+                ],
+                "score": 0.997,
+                "text": "strategy based on the aforementioned image quality score. This process was realized by manual selection (Fig. 4b)."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    432,
+                    1438,
+                    607,
+                    1466
+                ],
+                "score": 1.0,
+                "text": "Data Records"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    1469,
+                    1542,
+                    1494
+                ],
+                "score": 0.993,
+                "text": "The FIVES dataset has been uploaded to Figshare in the form of a zipped file29. The unzipped file folder contains"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    1498,
+                    1542,
+                    1523
+                ],
+                "score": 0.999,
+                "text": "the original fundus photographs, annotation ground truth images and quality assessment scores. The unzipped"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    432,
+                    1527,
+                    1540,
+                    1549
+                ],
+                "score": 0.984,
+                "text": "file is organized into 2 folders and 1 Microsoft office Excel list, named \"train\", \"test\" and “Quality Assessment."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    1554,
+                    1542,
+                    1579
+                ],
+                "score": 0.99,
+                "text": "xlsx\", respectively. The folders contain the images that are recommended for training and testing. The images in"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    432,
+                    1583,
+                    1541,
+                    1604
+                ],
+                "score": 0.994,
+                "text": "these 2 folders are stored, named and arranged in the same way. In the “train\" folder, there are 2 subfolders named"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    432,
+                    1607,
+                    1541,
+                    1635
+                ],
+                "score": 0.98,
+                "text": "\"Original\" and “Ground Truth\" that contain original fundus images and corresponding ground truth images,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    1637,
+                    1542,
+                    1663
+                ],
+                "score": 0.968,
+                "text": "respectively. Images are named \"n_A/D/G/N.png\", where \"n\" means the number of images and \"A\", \"D\", \"G”, and"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    1663,
+                    1542,
+                    1690
+                ],
+                "score": 0.959,
+                "text": "\"N” stand for \"AMD\", \"DR\", \"Glaucoma\" and \"Normal”, respectively. In the \"Ground Truth\" folder, images are"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    1693,
+                    1541,
+                    1718
+                ],
+                "score": 0.998,
+                "text": "named according to the same rule, where a specific image in this folder is the ground truth of the image with"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    1722,
+                    1541,
+                    1743
+                ],
+                "score": 0.972,
+                "text": "the same name in the “Original\". \"n\" is 600 in the training set and 200 in the test set. It should be noted that the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    432,
+                    1750,
+                    1540,
+                    1771
+                ],
+                "score": 0.995,
+                "text": "current data split strategy is recommended by our team and can be altered for different research purposes. In the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    432,
+                    1778,
+                    1541,
+                    1799
+                ],
+                "score": 0.974,
+                "text": "file “Quality Assessment.xlsx\", there are 2 sheets titled “Train\" and “Test\", with 5 columns in each sheet. The first"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    1804,
+                    1540,
+                    1828
+                ],
+                "score": 0.987,
+                "text": "column represents the disease diagnosis. The second column contains the number of specific images. The sub-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    1832,
+                    1537,
+                    1853
+                ],
+                "score": 0.997,
+                "text": "sequent columns represent the illumination and color distortion, blur, and low contrast scores. The image assess-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    1860,
+                    1512,
+                    1885
+                ],
+                "score": 0.996,
+                "text": "ment score is either 1 or 0, with 1 indicating good quality in this specific aspect and 0 indicating poor quality."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    1913,
+                    695,
+                    1945
+                ],
+                "score": 1.0,
+                "text": "TechnicalValidation"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    1945,
+                    1543,
+                    1973
+                ],
+                "score": 0.994,
+                "text": "Dataset characteristics. There are 800 fundus images and their corresponding ground truth images in the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    428,
+                    1973,
+                    1542,
+                    2002
+                ],
+                "score": 0.991,
+                "text": "FIVES dataset. These pictures are from 573 subjects. The mean age of the subjects was 48 years, with a standard"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    432,
+                    2005,
+                    1542,
+                    2028
+                ],
+                "score": 0.991,
+                "text": "deviation of 19.87 years. There were 469 images from female subjects and 331 from males. All the subjects were"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    432,
+                    2034,
+                    1538,
+                    2057
+                ],
+                "score": 0.999,
+                "text": "Asian. The number and proportion of annotated vessel pixels are summarized in Table 2. The mean image quality"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    113,
+                    2108,
+                    882,
+                    2128
+                ],
+                "score": 0.997,
+                "text": "SCIENTIFIC DATA|(2022)9:475|https://doi.org/10.1038/s41597-022-01564-3"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    1526,
+                    2109,
+                    1542,
+                    2132
+                ],
+                "score": 1.0,
+                "text": "5"
+            }
+        ],
+        "page_info": {
+            "page_no": 4,
+            "width": 1654,
+            "height": 2174
+        }
+    },
+    {
+        "layout_dets": [
+            {
+                "cls_id": 12,
+                "label": "header",
+                "score": 0.9524,
+                "bbox": [
+                    107,
+                    39,
+                    521,
+                    69
+                ],
+                "index": 1
+            },
+            {
+                "cls_id": 21,
+                "label": "table",
+                "score": 0.9838,
+                "bbox": [
+                    430,
+                    125,
+                    1268,
+                    226
+                ],
+                "index": 2,
+                "html": "<table><tr><td rowspan=1 colspan=1></td><td rowspan=1 colspan=1>AMD</td><td rowspan=1 colspan=1>DR</td><td rowspan=1 colspan=1>Glaucoma</td><td rowspan=1 colspan=1>Normal</td><td rowspan=1 colspan=1>Total</td></tr><tr><td rowspan=1 colspan=1>Amount (Mean)</td><td rowspan=1 colspan=1>313671</td><td rowspan=1 colspan=1>287402</td><td rowspan=1 colspan=1>270192</td><td rowspan=1 colspan=1>371171</td><td rowspan=1 colspan=1>299561</td></tr><tr><td rowspan=1 colspan=1>Proportion (Mean%)</td><td rowspan=1 colspan=1>7.48</td><td rowspan=1 colspan=1>6.85</td><td rowspan=1 colspan=1>6.44</td><td rowspan=1 colspan=1>8.85</td><td rowspan=1 colspan=1>7.14</td></tr></table>"
+            },
+            {
+                "cls_id": 7,
+                "label": "figure_title",
+                "score": 0.9503,
+                "bbox": [
+                    426,
+                    248,
+                    1141,
+                    279
+                ],
+                "index": 3
+            },
+            {
+                "cls_id": 21,
+                "label": "table",
+                "score": 0.9883,
+                "bbox": [
+                    430,
+                    337,
+                    1048,
+                    555
+                ],
+                "index": 4,
+                "html": "<table><tr><td rowspan=1 colspan=1></td><td rowspan=1 colspan=1>Illumination andcolour distortion (n,%)</td><td rowspan=1 colspan=1>Blur (n,%)</td><td rowspan=1 colspan=1>Low contrast (n,%)</td></tr><tr><td rowspan=1 colspan=1>AMD</td><td rowspan=1 colspan=1>187 (83.5%)</td><td rowspan=1 colspan=1>178 (89.0%)</td><td rowspan=1 colspan=1>200 (100.0%)</td></tr><tr><td rowspan=1 colspan=1>DR</td><td rowspan=1 colspan=1>172 (86.0%)</td><td rowspan=1 colspan=1>154 (77.0%)</td><td rowspan=1 colspan=1>198 (99.0%)</td></tr><tr><td rowspan=1 colspan=1>Glaucoma</td><td rowspan=1 colspan=1>107 (53.5%)</td><td rowspan=1 colspan=1>140 (70.0%)</td><td rowspan=1 colspan=1>167 (83.5%)</td></tr><tr><td rowspan=1 colspan=1>Normal</td><td rowspan=1 colspan=1>178 (89.0%)</td><td rowspan=1 colspan=1>197 (98.5%)</td><td rowspan=1 colspan=1>200 (100.0%)</td></tr><tr><td rowspan=1 colspan=1>Overall</td><td rowspan=1 colspan=1>644 (78.0%)</td><td rowspan=1 colspan=1>669 (83.5%)</td><td rowspan=1 colspan=1>765 (95.5%)</td></tr></table>"
+            },
+            {
+                "cls_id": 7,
+                "label": "figure_title",
+                "score": 0.9461,
+                "bbox": [
+                    425,
+                    579,
+                    1034,
+                    609
+                ],
+                "index": 5
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9862,
+                "bbox": [
+                    423,
+                    673,
+                    1547,
+                    818
+                ],
+                "index": 6
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9889,
+                "bbox": [
+                    423,
+                    844,
+                    1547,
+                    1097
+                ],
+                "index": 7
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9888,
+                "bbox": [
+                    423,
+                    1096,
+                    1548,
+                    1319
+                ],
+                "index": 8
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9858,
+                "bbox": [
+                    424,
+                    1318,
+                    1547,
+                    1430
+                ],
+                "index": 9
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9861,
+                "bbox": [
+                    423,
+                    1429,
+                    1546,
+                    1542
+                ],
+                "index": 10
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9819,
+                "bbox": [
+                    424,
+                    1541,
+                    1546,
+                    1628
+                ],
+                "index": 11
+            },
+            {
+                "cls_id": 17,
+                "label": "paragraph_title",
+                "score": 0.9428,
+                "bbox": [
+                    426,
+                    1653,
+                    606,
+                    1684
+                ],
+                "index": 12
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9854,
+                "bbox": [
+                    423,
+                    1684,
+                    1547,
+                    1829
+                ],
+                "index": 13
+            },
+            {
+                "cls_id": 17,
+                "label": "paragraph_title",
+                "score": 0.86,
+                "bbox": [
+                    427,
+                    1852,
+                    655,
+                    1884
+                ],
+                "index": 14
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9403,
+                "bbox": [
+                    425,
+                    1884,
+                    1001,
+                    1915
+                ],
+                "index": 15
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9147,
+                "bbox": [
+                    425,
+                    1936,
+                    955,
+                    1966
+                ],
+                "index": 16
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.8753,
+                "bbox": [
+                    426,
+                    1967,
+                    763,
+                    1997
+                ],
+                "index": 17
+            },
+            {
+                "cls_id": 8,
+                "label": "footer",
+                "score": 0.9366,
+                "bbox": [
+                    108,
+                    2101,
+                    886,
+                    2131
+                ],
+                "index": 18
+            },
+            {
+                "cls_id": 16,
+                "label": "number",
+                "score": 0.8506,
+                "bbox": [
+                    1523,
+                    2101,
+                    1544,
+                    2129
+                ],
+                "index": 19
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    106,
+                    39,
+                    522,
+                    69
+                ],
+                "score": 1.0,
+                "text": "www.nature.com/scientificdata/"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    249,
+                    1137,
+                    279
+                ],
+                "score": 1.0,
+                "text": "Table 2. Amount and proportion of annotated pixels in FIVES dataset."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    581,
+                    1030,
+                    608
+                ],
+                "score": 0.998,
+                "text": "Table 3. Summarization of image quality assessment scores."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    674,
+                    1542,
+                    702
+                ],
+                "score": 0.987,
+                "text": "scores are summarized in Table 3. Most images were of high quality in terms of the 3 aspects. It is worth noting"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    703,
+                    1541,
+                    729
+                ],
+                "score": 0.995,
+                "text": "that images from glaucoma patients tend to have fewer annotated pixels and lower illumination and color dis-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    731,
+                    1542,
+                    757
+                ],
+                "score": 0.99,
+                "text": "tortion scores. We suspect this is because most glaucoma patients are older and may have more opacity in their"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    432,
+                    761,
+                    1537,
+                    783
+                ],
+                "score": 0.996,
+                "text": "refractive media, causing insufficient illumination, which would then influence the annotation ratio. The inclu-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    788,
+                    1403,
+                    813
+                ],
+                "score": 0.998,
+                "text": "sion of some low-quality images can help reflect clinical reality and test the algorithms' robustness."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    845,
+                    1540,
+                    872
+                ],
+                "score": 0.991,
+                "text": "Intra- and inter-annotator consistency. There are some automatic retinal vessel segmentation algo-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    876,
+                    1541,
+                    901
+                ],
+                "score": 0.998,
+                "text": "rithms that can be used to segment vessels automatically. However, to the best of our knowledge, the best perfor-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    904,
+                    1542,
+                    929
+                ],
+                "score": 0.996,
+                "text": "mance of the proposed algorithms yielded a Dice coefficient of approximately 0.82, the Dice coefficient being a"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    931,
+                    1542,
+                    956
+                ],
+                "score": 0.988,
+                "text": "value that reflects the accuracy of segmentation¹9. For this specific task, the accuracy is not satisfiable enough to"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    958,
+                    1541,
+                    983
+                ],
+                "score": 0.997,
+                "text": "generate a reliable dataset, which is why we opted for manual annotation. In this work, every image was annotated"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    986,
+                    1540,
+                    1011
+                ],
+                "score": 0.993,
+                "text": "by 2 junior annotators and refined by 1 senior annotator. Therefore, three kinds of consistencies should be inves-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    1016,
+                    1542,
+                    1039
+                ],
+                "score": 0.997,
+                "text": "tigated: intra-annotator consistency of the same annotator at different times, inter-annotator consistency of the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    1042,
+                    1542,
+                    1067
+                ],
+                "score": 0.997,
+                "text": "same-level annotators and inter-annotator consistency of different-level annotators. Corresponding experiments"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    432,
+                    1072,
+                    925,
+                    1093
+                ],
+                "score": 0.997,
+                "text": "were conducted to investigate these kinds of error."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    462,
+                    1098,
+                    1542,
+                    1123
+                ],
+                "score": 0.995,
+                "text": "For intra-annotator consistency of the same annotator at different times, 40 images of the whole dataset were"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    1127,
+                    1543,
+                    1152
+                ],
+                "score": 1.0,
+                "text": "selected and extracted to form an example set based on the disease diagnosis and image quality. The example set"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    1155,
+                    1543,
+                    1180
+                ],
+                "score": 0.988,
+                "text": "consisted of 10 images of each diagnosis category and 5–8 low-quality images of each image quality assessment"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    432,
+                    1184,
+                    1542,
+                    1205
+                ],
+                "score": 0.997,
+                "text": "aspect. Five annotators from the annotation group, 1 senior and 4 junior annotators, were asked to annotate"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    432,
+                    1211,
+                    1542,
+                    1233
+                ],
+                "score": 0.992,
+                "text": "the 40 images 2 times in one month, with at least a 1-week gap between each annotation. The Dice coefficient"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    432,
+                    1238,
+                    1538,
+                    1259
+                ],
+                "score": 0.991,
+                "text": "was calculated between the 1st and 2nd annotations. Mean Dice was computed for all 40 images and 4 anno-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    432,
+                    1267,
+                    1541,
+                    1288
+                ],
+                "score": 0.994,
+                "text": "tators. The mean Dice was 0.9679 (0.9602–0.9810), which means the annotators' labeling was stable and the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    432,
+                    1295,
+                    752,
+                    1316
+                ],
+                "score": 0.988,
+                "text": "intra-annotator error was small."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    463,
+                    1321,
+                    1541,
+                    1344
+                ],
+                "score": 0.995,
+                "text": "For inter-annotator consistency of the same-level annotators, the error was evaluated using Dice between"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    1350,
+                    1540,
+                    1373
+                ],
+                "score": 0.997,
+                "text": "annotations generated by 2 annotators. The original annotation results without refinement were used to investi-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    1375,
+                    1542,
+                    1400
+                ],
+                "score": 0.998,
+                "text": "gate this error. The mean Dice was 0.9241 (0.8792–0.9823), which means that the annotation results were close"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    1404,
+                    703,
+                    1430
+                ],
+                "score": 1.0,
+                "text": "between junior annotators."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    463,
+                    1432,
+                    1540,
+                    1455
+                ],
+                "score": 0.993,
+                "text": "For inter-annotator consistency of different-level annotators, the 1st annotations were used for the analysis in"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    432,
+                    1460,
+                    1540,
+                    1483
+                ],
+                "score": 1.0,
+                "text": "this question. The Dice coefficient was calculated between 1 senior annotator's vessel mask and 4 junior annota-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    1488,
+                    1540,
+                    1511
+                ],
+                "score": 0.993,
+                "text": "tors' annotations. Mean dice was computed. The mean Dice of the annotators was 0.9608 (0.9564–0.9676), which"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    432,
+                    1516,
+                    1191,
+                    1539
+                ],
+                "score": 0.998,
+                "text": "means that the disagreement among annotators of different levels was small."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    464,
+                    1544,
+                    1540,
+                    1567
+                ],
+                "score": 0.995,
+                "text": "Through the analysis of original annotations and the example set, we can conclude that annotations were sta-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    1569,
+                    1541,
+                    1595
+                ],
+                "score": 0.992,
+                "text": "ble and consistent between one annotator at different times and different annotators, which lays the groundwork"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    1596,
+                    1100,
+                    1624
+                ],
+                "score": 0.998,
+                "text": "for accurate annotation and repeatable retinal vessel segmentation."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    1655,
+                    601,
+                    1687
+                ],
+                "score": 1.0,
+                "text": "Usage Notes"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    1684,
+                    1540,
+                    1713
+                ],
+                "score": 0.996,
+                "text": "The whole dataset can be downloaded from the link mentioned above. It is worth noting that the data split strat-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    1714,
+                    1540,
+                    1740
+                ],
+                "score": 0.996,
+                "text": "egy was made considering the image quality and disease diagnosis. We recommend that users follow this strategy"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    1741,
+                    1542,
+                    1769
+                ],
+                "score": 0.993,
+                "text": "to make the dataset balanced. However, they can always split the strategy according to their study design. For"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    1772,
+                    1541,
+                    1794
+                ],
+                "score": 0.996,
+                "text": "researchers who use traditional algorithms rather than artificial intelligence, the data split is not applicable. Users"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    432,
+                    1800,
+                    1508,
+                    1822
+                ],
+                "score": 0.998,
+                "text": "should cite this paper in their research output and acknowledge the contribution of this dataset in their study."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    1851,
+                    650,
+                    1886
+                ],
+                "score": 1.0,
+                "text": "Code availability"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    1885,
+                    997,
+                    1912
+                ],
+                "score": 0.998,
+                "text": "No novel code used in the construction of FIVES dataset."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    1940,
+                    949,
+                    1965
+                ],
+                "score": 0.979,
+                "text": "Received: 16 December 2021; Accepted: 12 July 2022;"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    1969,
+                    755,
+                    1994
+                ],
+                "score": 0.999,
+                "text": "Published online: 04 August 2022"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    112,
+                    2107,
+                    883,
+                    2130
+                ],
+                "score": 0.99,
+                "text": "SCIENTIFIC DATA|(2022)9:475 |https://doi.org/10.1038/s41597-022-01564-3"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    1525,
+                    2104,
+                    1541,
+                    2127
+                ],
+                "score": 1.0,
+                "text": "6"
+            }
+        ],
+        "page_info": {
+            "page_no": 5,
+            "width": 1654,
+            "height": 2174
+        }
+    },
+    {
+        "layout_dets": [
+            {
+                "cls_id": 12,
+                "label": "header",
+                "score": 0.9507,
+                "bbox": [
+                    107,
+                    38,
+                    522,
+                    69
+                ],
+                "index": 1
+            },
+            {
+                "cls_id": 17,
+                "label": "paragraph_title",
+                "score": 0.929,
+                "bbox": [
+                    428,
+                    131,
+                    582,
+                    161
+                ],
+                "index": 2
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9676,
+                "bbox": [
+                    435,
+                    161,
+                    1543,
+                    209
+                ],
+                "index": 3
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9669,
+                "bbox": [
+                    438,
+                    209,
+                    1543,
+                    256
+                ],
+                "index": 4
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9686,
+                "bbox": [
+                    439,
+                    256,
+                    1543,
+                    303
+                ],
+                "index": 5
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9719,
+                "bbox": [
+                    438,
+                    302,
+                    1544,
+                    351
+                ],
+                "index": 6
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9426,
+                "bbox": [
+                    439,
+                    350,
+                    1495,
+                    376
+                ],
+                "index": 7
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9688,
+                "bbox": [
+                    438,
+                    374,
+                    1543,
+                    422
+                ],
+                "index": 8
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9688,
+                "bbox": [
+                    438,
+                    421,
+                    1545,
+                    469
+                ],
+                "index": 9
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9668,
+                "bbox": [
+                    438,
+                    470,
+                    1546,
+                    516
+                ],
+                "index": 10
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.969,
+                "bbox": [
+                    436,
+                    516,
+                    1544,
+                    562
+                ],
+                "index": 11
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9698,
+                "bbox": [
+                    431,
+                    563,
+                    1544,
+                    610
+                ],
+                "index": 12
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.97,
+                "bbox": [
+                    430,
+                    610,
+                    1543,
+                    657
+                ],
+                "index": 13
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9702,
+                "bbox": [
+                    430,
+                    657,
+                    1543,
+                    705
+                ],
+                "index": 14
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9666,
+                "bbox": [
+                    430,
+                    705,
+                    1544,
+                    752
+                ],
+                "index": 15
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9628,
+                "bbox": [
+                    429,
+                    752,
+                    1544,
+                    800
+                ],
+                "index": 16
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.964,
+                "bbox": [
+                    430,
+                    799,
+                    1546,
+                    847
+                ],
+                "index": 17
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9673,
+                "bbox": [
+                    431,
+                    847,
+                    1545,
+                    894
+                ],
+                "index": 18
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9662,
+                "bbox": [
+                    431,
+                    895,
+                    1545,
+                    942
+                ],
+                "index": 19
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9687,
+                "bbox": [
+                    430,
+                    941,
+                    1546,
+                    989
+                ],
+                "index": 20
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9687,
+                "bbox": [
+                    429,
+                    988,
+                    1543,
+                    1035
+                ],
+                "index": 21
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9691,
+                "bbox": [
+                    428,
+                    1035,
+                    1544,
+                    1083
+                ],
+                "index": 22
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9692,
+                "bbox": [
+                    428,
+                    1083,
+                    1545,
+                    1130
+                ],
+                "index": 23
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9707,
+                "bbox": [
+                    428,
+                    1130,
+                    1545,
+                    1177
+                ],
+                "index": 24
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9772,
+                "bbox": [
+                    429,
+                    1178,
+                    1544,
+                    1248
+                ],
+                "index": 25
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9699,
+                "bbox": [
+                    428,
+                    1248,
+                    1544,
+                    1295
+                ],
+                "index": 26
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9649,
+                "bbox": [
+                    428,
+                    1295,
+                    1543,
+                    1343
+                ],
+                "index": 27
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9679,
+                "bbox": [
+                    429,
+                    1342,
+                    1543,
+                    1390
+                ],
+                "index": 28
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9696,
+                "bbox": [
+                    429,
+                    1389,
+                    1543,
+                    1436
+                ],
+                "index": 29
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9678,
+                "bbox": [
+                    429,
+                    1436,
+                    1544,
+                    1485
+                ],
+                "index": 30
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9626,
+                "bbox": [
+                    429,
+                    1484,
+                    1543,
+                    1531
+                ],
+                "index": 31
+            },
+            {
+                "cls_id": 17,
+                "label": "paragraph_title",
+                "score": 0.9533,
+                "bbox": [
+                    427,
+                    1551,
+                    699,
+                    1582
+                ],
+                "index": 32
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9568,
+                "bbox": [
+                    424,
+                    1581,
+                    1546,
+                    1696
+                ],
+                "index": 33
+            },
+            {
+                "cls_id": 17,
+                "label": "paragraph_title",
+                "score": 0.9506,
+                "bbox": [
+                    426,
+                    1712,
+                    712,
+                    1742
+                ],
+                "index": 34
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9855,
+                "bbox": [
+                    424,
+                    1743,
+                    1547,
+                    1916
+                ],
+                "index": 35
+            },
+            {
+                "cls_id": 17,
+                "label": "paragraph_title",
+                "score": 0.9198,
+                "bbox": [
+                    426,
+                    1929,
+                    705,
+                    1960
+                ],
+                "index": 36
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9412,
+                "bbox": [
+                    426,
+                    1961,
+                    867,
+                    1992
+                ],
+                "index": 37
+            },
+            {
+                "cls_id": 8,
+                "label": "footer",
+                "score": 0.9403,
+                "bbox": [
+                    108,
+                    2101,
+                    886,
+                    2131
+                ],
+                "index": 38
+            },
+            {
+                "cls_id": 16,
+                "label": "number",
+                "score": 0.8666,
+                "bbox": [
+                    1523,
+                    2107,
+                    1544,
+                    2132
+                ],
+                "index": 39
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    106,
+                    38,
+                    522,
+                    69
+                ],
+                "score": 0.999,
+                "text": "www.nature.com/scientificdata/"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    132,
+                    579,
+                    163
+                ],
+                "score": 1.0,
+                "text": "References"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    442,
+                    165,
+                    1540,
+                    185
+                ],
+                "score": 0.992,
+                "text": "1. Ting, D. et al. Deep learning in ophthalmology: The technical and clinical considerations. Progress in Retinal and Eye Research 72,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    464,
+                    188,
+                    994,
+                    208
+                ],
+                "score": 0.992,
+                "text": "100759, https://doi.org/10.1016/j.preteyeres.2019.04.003 (2019)."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    441,
+                    211,
+                    1540,
+                    234
+                ],
+                "score": 0.995,
+                "text": "2. Wu, R. et al. Retinal vascular geometry and glaucoma: The singapore malay eye study. Ophthalmology 120, 77–83, https://doi."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    465,
+                    235,
+                    807,
+                    254
+                ],
+                "score": 0.999,
+                "text": "org/10.1016/j.ophtha.2012.07.063 (2013)."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    439,
+                    255,
+                    1542,
+                    281
+                ],
+                "score": 0.995,
+                "text": "3. Cheung, C. Y. et al. Retinal vascular geometry and 6 year incidence and progression of diabetic retinopathy. Diabetologia 60,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    464,
+                    283,
+                    985,
+                    302
+                ],
+                "score": 0.981,
+                "text": "1770–1781, https://doi.org/10.1007/s00125-017-4333-0 (2017)"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    441,
+                    303,
+                    1542,
+                    326
+                ],
+                "score": 0.997,
+                "text": "4. Yu, D. Y., Yu, P. K., Cringle, S. J., Kang, M. H. & Su, E. N. Functional and morphological characteristics of the retinal and choroidal"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    463,
+                    330,
+                    1416,
+                    350
+                ],
+                "score": 0.991,
+                "text": "vasculature. Progress in Retinal and Eye Research 40, 53–93, https://doi.org/10.1016/j.preteyeres.2014.02.001 (2014)."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    440,
+                    349,
+                    1491,
+                    376
+                ],
+                "score": 0.994,
+                "text": "5. Flammer, J. et al. The eye and the heart. European Heart Journal 34, 1270–8, https://doi.org/10.1093/eurheartj/eht023 (2013)."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    439,
+                    375,
+                    1542,
+                    398
+                ],
+                "score": 0.993,
+                "text": "6. Kashani, A. et al. Past, present and future role of retinal imaging in neurodegenerative disease. Progress in Retinal and Eye Research"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    463,
+                    401,
+                    1028,
+                    421
+                ],
+                "score": 0.993,
+                "text": "83, 100938, https://doi.org/10.1016/j.preteyeres.2020.100938 (2021)."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    442,
+                    423,
+                    1541,
+                    443
+                ],
+                "score": 0.995,
+                "text": "7. Tapp, R. et al. Associations of retinal microvascular diameters and tortuosity with blood pressure and arterial stiffness: United"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    462,
+                    447,
+                    1355,
+                    467
+                ],
+                "score": 0.993,
+                "text": "kingdom biobank. Hypertension 74, 1383–1390, https://doi.org/10.1161/hypertensionaha.119.13752 (2019)."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    441,
+                    472,
+                    1543,
+                    492
+                ],
+                "score": 0.997,
+                "text": "8. Owen, C. et al. Retinal vasculometry associations with cardiometabolic risk factors in the european prospective investigation of"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    465,
+                    495,
+                    1319,
+                    515
+                ],
+                "score": 0.988,
+                "text": "cancer-norfolk study. Ophthalmology 126, 96–106, https://doi.org/10.1016/j.ophtha.2018.07.022 (2019)."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    440,
+                    518,
+                    1540,
+                    538
+                ],
+                "score": 0.995,
+                "text": "9. Klein, R. et al. The relationship of retinal vessel diameter to changes in diabetic nephropathy structural variables in patients with"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    463,
+                    541,
+                    1254,
+                    561
+                ],
+                "score": 0.985,
+                "text": "type 1 diabetes. Diabetologia 53, 1638–1646, https://doi.org/10.1007/s00125-010-1763-3 (2010)."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    432,
+                    566,
+                    1540,
+                    585
+                ],
+                "score": 0.994,
+                "text": "10. Cheung, C. et al. A deep-learning system for the assessment of cardiovascular disease risk via the measurement of retinal-vessel"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    464,
+                    590,
+                    1316,
+                    609
+                ],
+                "score": 0.991,
+                "text": "calibre. Nature Biomedical Engineering 5, 498–508, https://doi.org/10.1038/s41551-020-00626-4 (2021)."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    611,
+                    1541,
+                    635
+                ],
+                "score": 0.999,
+                "text": "11. Fraz, M. M. et al. Blood vessel segmentation methodologies in retinal images - a survey. Computer Methods and Programs in"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    465,
+                    637,
+                    1112,
+                    656
+                ],
+                "score": 0.983,
+                "text": "Biomedicine 108, 407–433, https://doi.org/10.1016/j.cmpb.2012.03.009 (2012)."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    657,
+                    1540,
+                    681
+                ],
+                "score": 0.997,
+                "text": "12. Mookiah, M. R. K. et al. A review of machine learning methods for retinal blood vessel segmentation and artery/vein classification."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    461,
+                    682,
+                    1134,
+                    704
+                ],
+                "score": 0.99,
+                "text": "Med Image Anal 68, 101905, https://doi.org/10.1016/j.media.2020.101905 (2021)."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    432,
+                    708,
+                    1541,
+                    727
+                ],
+                "score": 0.994,
+                "text": "13. Hoover, A., Kouznetsova, V. & Goldbaum, M. Locating blood vessels in retinal images by piecewise threshold probing of a matched"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    462,
+                    730,
+                    1365,
+                    750
+                ],
+                "score": 0.993,
+                "text": "filter response. IEEE Transactions on Medical Imaging 19, 203–210, https://doi.org/10.1109/42.845178 (2000)."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    432,
+                    755,
+                    1541,
+                    775
+                ],
+                "score": 0.987,
+                "text": "14. Staal, J., Abràmoff, M., Niemeijer, M., Viergever, M. & van Ginneken, B. Ridge-based vessel segmentation in color images of the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    464,
+                    779,
+                    1351,
+                    799
+                ],
+                "score": 0.99,
+                "text": "retina. IEEE Transactions on Medical Imaging 23, 501–509, https://doi.org/10.1109/tmi.2004.825627 (2004)."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    799,
+                    1543,
+                    823
+                ],
+                "score": 0.998,
+                "text": "15. Farnell, D. et al. Enhancement of blood vessels in digital fundus photographs via the application of multiscale line operators. Journal"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    465,
+                    826,
+                    1539,
+                    846
+                ],
+                "score": 0.992,
+                "text": "of the Franklin Institute - Engineering and Applied Mathematics 345, 748–765, https://doi.org/10.1016/j.jfranklin.2008.04.009 (2008)."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    845,
+                    1541,
+                    871
+                ],
+                "score": 0.993,
+                "text": "16. Àl-Diri, B. et al. Review - a reference data set for retinal vessel profiles. Annual International Conference of the IEEE Engineering in"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    463,
+                    873,
+                    1285,
+                    892
+                ],
+                "score": 0.988,
+                "text": "Medicine and Biology Society 2008, 2262–2265, https://doi.org/10.1109/iembs.2008.4649647 (2008)."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    432,
+                    898,
+                    1541,
+                    917
+                ],
+                "score": 0.996,
+                "text": "17. Owen, C. et al. Measuring retinal vessel tortuosity in 10-year-old children: Validation of the computer-assisted image analysis of the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    464,
+                    921,
+                    1529,
+                    940
+                ],
+                "score": 0.989,
+                "text": "retina (caiar) program. Investigative Ophthalmology  Visual Science 50, 2004–2010, https://doi.org/10.1167/iovs.08-3018 (2009)."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    941,
+                    1544,
+                    966
+                ],
+                "score": 0.996,
+                "text": "18. Budai, A., Bock, R., Maier, A., Hornegger, J. & Michelson, G. Robust vessel segmentation in fundus images. International Journal of"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    465,
+                    966,
+                    1116,
+                    986
+                ],
+                "score": 0.992,
+                "text": "Biomedical Imaging 2013, 154860, https://doi.org/10.1155/2013/154860 (2013)."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    432,
+                    991,
+                    1540,
+                    1010
+                ],
+                "score": 0.994,
+                "text": "19. Wu, H. et al. Scs-net: A scale and context sensitive network for retinal vessel segmentation. Med Image Anal 70, 102025, https://doi."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    464,
+                    1015,
+                    805,
+                    1034
+                ],
+                "score": 0.996,
+                "text": "org/10.1016/j.media.2021.102025 (2021)."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    1034,
+                    1542,
+                    1060
+                ],
+                "score": 0.993,
+                "text": "20. Wu, Y., Xia, Y., Song, Y., Zhang, Y. & Cai, W. Nfn: A novel network followed network for retinal vessel segmentation. Neural Netw"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    464,
+                    1061,
+                    1018,
+                    1081
+                ],
+                "score": 0.986,
+                "text": "126, 153–162, https://doi.org/10.1016/j.neunet.2020.02.018 (2020)."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    1086,
+                    1542,
+                    1105
+                ],
+                "score": 0.987,
+                "text": "21. Cherukuri, V., G, V. K. B., Bala, R. & Monga, V. Deep retinal image segmentation with regularization under geometric priors. IEEE"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    465,
+                    1109,
+                    1278,
+                    1128
+                ],
+                "score": 0.988,
+                "text": "Transactions on Image Processing 29, 2552–2567, https://doi.org/10.1109/TIP.2019.2946078 (2019)."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    1129,
+                    1542,
+                    1156
+                ],
+                "score": 0.994,
+                "text": "22. Hemelings, R. et al. Artery-vein segmentation in fundus images using a fully convolutional network. Computerized Medical Imaging"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    464,
+                    1156,
+                    1175,
+                    1175
+                ],
+                "score": 0.998,
+                "text": "and Graphics 76, 101636, https://doi.org/10.1016/j.compmedimag.2019.05.004 (2019)."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    1181,
+                    1541,
+                    1200
+                ],
+                "score": 0.988,
+                "text": "23. Mookiah, M., Hogg, S., Macgillivray, T. & Trucco, E. On the quantitative effects of compression of retinal fundus images on"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    464,
+                    1205,
+                    1540,
+                    1224
+                ],
+                "score": 0.991,
+                "text": "morphometric vascular measurements in vampire. Computer Methods and Programs in Biomedicine 202, 105969, https://doi."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    465,
+                    1228,
+                    800,
+                    1246
+                ],
+                "score": 0.99,
+                "text": "org/10.1016/j.cmpb.2021.105969 (2021)."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    1251,
+                    1542,
+                    1270
+                ],
+                "score": 0.99,
+                "text": "24. American Diabetes Association. 2. Classification and diagnosis of diabetes: Standards of medical care in diabetes-2021. Diabetes"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    465,
+                    1274,
+                    963,
+                    1293
+                ],
+                "score": 0.988,
+                "text": "Care 44, S15-s33, https://doi.org/10.2337/dc21-S002 (2021)."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    1294,
+                    1542,
+                    1320
+                ],
+                "score": 0.992,
+                "text": "25. Flaxel, C. et al. Age-related macular degeneration preferred practice pattern®. Ophthalmology 127, P1-P65, https://doi."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    465,
+                    1322,
+                    807,
+                    1342
+                ],
+                "score": 0.991,
+                "text": "org/10.1016/j.ophtha.2019.09.024 (2020)."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    1066,
+                    1339,
+                    1075,
+                    1347
+                ],
+                "score": 0.507,
+                "text": "2"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    428,
+                    1341,
+                    1541,
+                    1368
+                ],
+                "score": 0.99,
+                "text": "26. Prum, B. et al. Primary open-angle glaucoma preferred practice pattern(®) guidelines. Ophthalmology 123, P41–P111, https://doi."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    461,
+                    1367,
+                    809,
+                    1389
+                ],
+                "score": 1.0,
+                "text": "org/10.1016/j.ophtha.2015.10.053 (2016)."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    1388,
+                    1541,
+                    1415
+                ],
+                "score": 0.992,
+                "text": "27. Prum, B. E. Jr. et al. Primary angle closure preferred practice pattern(®) guidelines. Ophthalmology 123, P1-p40, https://doi."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    464,
+                    1416,
+                    808,
+                    1435
+                ],
+                "score": 0.999,
+                "text": "org/10.1016/j.ophtha.2015.10.049 (2016)."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    1438,
+                    1541,
+                    1462
+                ],
+                "score": 0.993,
+                "text": "28. Wang, S. et al. Human visual system-based fundus image quality assessment of portable fundus camera photographs. IEEE"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    465,
+                    1464,
+                    1286,
+                    1484
+                ],
+                "score": 0.992,
+                "text": "Transactions on Medical Imaging 35, 1046–1055, https://doi.org/10.1109/TMI.2015.2506902 (2016)."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    1485,
+                    1540,
+                    1508
+                ],
+                "score": 0.988,
+                "text": "29. Jin, K. et al. Fives: A fundus image dataset for artificial Intelligence based vessel segmentation, Figshare, https://doi.org/10.6084/"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    464,
+                    1511,
+                    734,
+                    1530
+                ],
+                "score": 0.999,
+                "text": "m9.figshare.19688169.v1 (2022)."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    1549,
+                    696,
+                    1584
+                ],
+                "score": 1.0,
+                "text": "Acknowledgements"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    1583,
+                    1541,
+                    1610
+                ],
+                "score": 0.999,
+                "text": "This work was financially supported by the National Key Research and Development Program of China"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    433,
+                    1614,
+                    1541,
+                    1637
+                ],
+                "score": 0.996,
+                "text": "(grant number 2019YFC0118401), Zhejiang Provincial Key Research and Development Plan (grant number"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    1641,
+                    1541,
+                    1664
+                ],
+                "score": 0.995,
+                "text": "2019C03020), Natural Science Foundation of Zhejiang Province (grant number LQ21H120002), and National"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    1669,
+                    1091,
+                    1692
+                ],
+                "score": 0.987,
+                "text": "Natural Science Foundation of China (grant number U20A20386)."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    1711,
+                    709,
+                    1743
+                ],
+                "score": 0.999,
+                "text": "Author contributions"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    1745,
+                    1541,
+                    1772
+                ],
+                "score": 0.995,
+                "text": "Kai Jin: Conceptualization, Project administration, Manual segmentation, Writing, Reviewing. Xingru Huang:"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    1773,
+                    1541,
+                    1800
+                ],
+                "score": 0.996,
+                "text": "Conceptualization, Methodology, Review. Jingxin Zhou: Manual segmentation, Project conduction, Writing,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    1800,
+                    1542,
+                    1827
+                ],
+                "score": 0.996,
+                "text": "Review, Visualization. Yunxiang Li: Methodology, Validation, Reviewing. Yan Yan: Conceptualization, Formal"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    1831,
+                    1541,
+                    1855
+                ],
+                "score": 0.993,
+                "text": "analysis. Yibao Sun: Methodology, Supervision. Qianni Zhang: Methodology, Supervision, Reviewing. Yaqi"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    1859,
+                    1541,
+                    1883
+                ],
+                "score": 0.993,
+                "text": "Wang: Conceptualization, Methodology, Project administration, Methodology, Visualization, Reviewing. Juan"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    1884,
+                    1449,
+                    1911
+                ],
+                "score": 0.994,
+                "text": "Ye: Conceptualization, Funding acquisition, Project administration, Methodology, Writing, Reviewing."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    1929,
+                    701,
+                    1963
+                ],
+                "score": 0.999,
+                "text": "Competing interests"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    432,
+                    1961,
+                    863,
+                    1990
+                ],
+                "score": 0.997,
+                "text": "The authors declare no competing interests."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    112,
+                    2107,
+                    883,
+                    2130
+                ],
+                "score": 0.99,
+                "text": "SCIENTIFIC DATA|(2022)9:475 |https://doi.org/10.1038/s41597-022-01564-3"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    1526,
+                    2108,
+                    1542,
+                    2131
+                ],
+                "score": 1.0,
+                "text": "7"
+            }
+        ],
+        "page_info": {
+            "page_no": 6,
+            "width": 1654,
+            "height": 2174
+        }
+    },
+    {
+        "layout_dets": [
+            {
+                "cls_id": 12,
+                "label": "header",
+                "score": 0.9462,
+                "bbox": [
+                    108,
+                    39,
+                    521,
+                    69
+                ],
+                "index": 1
+            },
+            {
+                "cls_id": 17,
+                "label": "paragraph_title",
+                "score": 0.9477,
+                "bbox": [
+                    426,
+                    130,
+                    738,
+                    163
+                ],
+                "index": 2
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9275,
+                "bbox": [
+                    425,
+                    162,
+                    1216,
+                    193
+                ],
+                "index": 3
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9379,
+                "bbox": [
+                    425,
+                    202,
+                    1238,
+                    234
+                ],
+                "index": 4
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9722,
+                "bbox": [
+                    424,
+                    241,
+                    1510,
+                    301
+                ],
+                "index": 5
+            },
+            {
+                "cls_id": 14,
+                "label": "image",
+                "score": 0.9216,
+                "bbox": [
+                    428,
+                    313,
+                    547,
+                    360
+                ],
+                "index": 6
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9878,
+                "bbox": [
+                    423,
+                    310,
+                    1547,
+                    540
+                ],
+                "index": 7
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.8252,
+                "bbox": [
+                    426,
+                    561,
+                    656,
+                    592
+                ],
+                "index": 8
+            },
+            {
+                "cls_id": 8,
+                "label": "footer",
+                "score": 0.9434,
+                "bbox": [
+                    109,
+                    2101,
+                    886,
+                    2131
+                ],
+                "index": 9
+            },
+            {
+                "cls_id": 16,
+                "label": "number",
+                "score": 0.8742,
+                "bbox": [
+                    1523,
+                    2101,
+                    1544,
+                    2128
+                ],
+                "index": 10
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    107,
+                    39,
+                    522,
+                    69
+                ],
+                "score": 1.0,
+                "text": "www.nature.com/scientificdata/"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    131,
+                    733,
+                    161
+                ],
+                "score": 0.997,
+                "text": "Additional information"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    433,
+                    166,
+                    1209,
+                    191
+                ],
+                "score": 0.992,
+                "text": "Correspondence and requests for materials should be addressed to Y.W. or J.Y."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    432,
+                    206,
+                    1231,
+                    230
+                ],
+                "score": 1.0,
+                "text": "Reprints and permissions information is available at www.nature.com/reprints."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    246,
+                    1506,
+                    271
+                ],
+                "score": 0.998,
+                "text": "Publisher's note Springer Nature remains neutral with regard to jurisdictional claims in published maps and"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    431,
+                    275,
+                    668,
+                    296
+                ],
+                "score": 0.999,
+                "text": "institutional affiliations."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    435,
+                    321,
+                    467,
+                    352
+                ],
+                "score": 0.82,
+                "text": "cc"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    492,
+                    315,
+                    521,
+                    344
+                ],
+                "score": 0.585,
+                "text": "①"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    554,
+                    314,
+                    1541,
+                    336
+                ],
+                "score": 0.996,
+                "text": "Open Access This article is licensed under a Creative Commons Attribution 4.0 International"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    497,
+                    344,
+                    518,
+                    358
+                ],
+                "score": 1.0,
+                "text": "BY"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    549,
+                    340,
+                    1542,
+                    366
+                ],
+                "score": 1.0,
+                "text": "License, which permits use, sharing, adaptation, distribution and reproduction in any medium or"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    367,
+                    1541,
+                    394
+                ],
+                "score": 0.991,
+                "text": "format, as long as you give appropriate credit to the original author(s) and the source, provide a link to the Cre-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    432,
+                    398,
+                    1541,
+                    420
+                ],
+                "score": 0.996,
+                "text": "ative Commons license, and indicate if changes were made. The images or other third party material in this"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    432,
+                    426,
+                    1540,
+                    448
+                ],
+                "score": 0.995,
+                "text": "article are included in the article's Creative Commons license, unless indicated otherwise in a credit line to the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    451,
+                    1541,
+                    478
+                ],
+                "score": 0.99,
+                "text": "material. If material is not included in the article's Creative Commons license and your intended use is not per-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    432,
+                    480,
+                    1540,
+                    502
+                ],
+                "score": 0.993,
+                "text": "mitted by statutory regulation or exceeds the permitted use, you will need to obtain permission directly from the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    509,
+                    1407,
+                    533
+                ],
+                "score": 0.992,
+                "text": "copyright holder. To view a copy of this license, visit http://creativecommons.org/licenses/by/4.0/."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    430,
+                    562,
+                    650,
+                    590
+                ],
+                "score": 0.989,
+                "text": "© The Author(s) 2022"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    113,
+                    2107,
+                    883,
+                    2130
+                ],
+                "score": 0.991,
+                "text": "SCIENTIFIC DATA|(2022)9:475 |https://doi.org/10.1038/s41597-022-01564-3"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    1525,
+                    2104,
+                    1541,
+                    2127
+                ],
+                "score": 1.0,
+                "text": "8"
+            }
+        ],
+        "page_info": {
+            "page_no": 7,
+            "width": 1654,
+            "height": 2174
+        }
+    }
+]

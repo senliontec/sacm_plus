@@ -1,0 +1,5565 @@
+[
+    {
+        "layout_dets": [
+            {
+                "cls_id": 2,
+                "label": "aside_text",
+                "score": 0.9385,
+                "bbox": [
+                    24,
+                    200,
+                    57,
+                    1992
+                ],
+                "index": 1
+            },
+            {
+                "cls_id": 6,
+                "label": "doc_title",
+                "score": 0.9686,
+                "bbox": [
+                    187,
+                    258,
+                    1514,
+                    341
+                ],
+                "index": 2
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.948,
+                "bbox": [
+                    164,
+                    389,
+                    797,
+                    429
+                ],
+                "index": 3
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9694,
+                "bbox": [
+                    280,
+                    467,
+                    681,
+                    584
+                ],
+                "index": 4
+            },
+            {
+                "cls_id": 17,
+                "label": "paragraph_title",
+                "score": 0.9172,
+                "bbox": [
+                    409,
+                    653,
+                    569,
+                    688
+                ],
+                "index": 5
+            },
+            {
+                "cls_id": 0,
+                "label": "abstract",
+                "score": 0.9898,
+                "bbox": [
+                    143,
+                    705,
+                    834,
+                    1206
+                ],
+                "index": 6
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9636,
+                "bbox": [
+                    143,
+                    1219,
+                    833,
+                    1288
+                ],
+                "index": 7
+            },
+            {
+                "cls_id": 17,
+                "label": "paragraph_title",
+                "score": 0.9403,
+                "bbox": [
+                    356,
+                    1320,
+                    622,
+                    1353
+                ],
+                "index": 8
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9875,
+                "bbox": [
+                    142,
+                    1379,
+                    834,
+                    1612
+                ],
+                "index": 9
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9707,
+                "bbox": [
+                    986,
+                    465,
+                    1537,
+                    582
+                ],
+                "index": 10
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9886,
+                "bbox": [
+                    142,
+                    1613,
+                    834,
+                    2014
+                ],
+                "index": 11
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9293,
+                "bbox": [
+                    1190,
+                    389,
+                    1337,
+                    429
+                ],
+                "index": 12
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9885,
+                "bbox": [
+                    866,
+                    656,
+                    1560,
+                    990
+                ],
+                "index": 13
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9859,
+                "bbox": [
+                    866,
+                    994,
+                    1558,
+                    1161
+                ],
+                "index": 14
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9785,
+                "bbox": [
+                    867,
+                    1167,
+                    1557,
+                    1269
+                ],
+                "index": 15
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9746,
+                "bbox": [
+                    866,
+                    1273,
+                    1558,
+                    1374
+                ],
+                "index": 16
+            },
+            {
+                "cls_id": 17,
+                "label": "paragraph_title",
+                "score": 0.9407,
+                "bbox": [
+                    1075,
+                    1433,
+                    1350,
+                    1466
+                ],
+                "index": 17
+            },
+            {
+                "cls_id": 17,
+                "label": "paragraph_title",
+                "score": 0.944,
+                "bbox": [
+                    869,
+                    1493,
+                    1277,
+                    1527
+                ],
+                "index": 18
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9882,
+                "bbox": [
+                    865,
+                    1552,
+                    1560,
+                    2018
+                ],
+                "index": 19
+            },
+            {
+                "cls_id": 8,
+                "label": "footer",
+                "score": 0.9404,
+                "bbox": [
+                    144,
+                    2056,
+                    641,
+                    2088
+                ],
+                "index": 20
+            },
+            {
+                "cls_id": 16,
+                "label": "number",
+                "score": 0.8925,
+                "bbox": [
+                    819,
+                    2058,
+                    879,
+                    2088
+                ],
+                "index": 21
+            },
+            {
+                "cls_id": 8,
+                "label": "footer",
+                "score": 0.9307,
+                "bbox": [
+                    1390,
+                    2057,
+                    1553,
+                    2088
+                ],
+                "index": 22
+            },
+            {
+                "cls_id": 8,
+                "label": "footer",
+                "score": 0.9235,
+                "bbox": [
+                    219,
+                    2117,
+                    1470,
+                    2147
+                ],
+                "index": 23
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    24,
+                    199,
+                    59,
+                    1997
+                ],
+                "score": 0.589,
+                "text": "1A4/ :0 33  0$//----  (5          00 - 0 504"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    189,
+                    268,
+                    1511,
+                    304
+                ],
+                "score": 0.987,
+                "text": "SAM-OCTA: A FINE-TUNING STRATEGY FOR APPLYING FOUNDATION MODEL TO"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    547,
+                    310,
+                    1155,
+                    342
+                ],
+                "score": 0.992,
+                "text": "OCTA IMAGE SEGMENTATION TASKS"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    170,
+                    393,
+                    792,
+                    428
+                ],
+                "score": 0.988,
+                "text": "Chengliang Wang, Xinrun Chen, Haojian Ning"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    332,
+                    469,
+                    629,
+                    505
+                ],
+                "score": 1.0,
+                "text": "Chongqing University"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    283,
+                    507,
+                    678,
+                    544
+                ],
+                "score": 0.997,
+                "text": "College of Computer Science"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    357,
+                    548,
+                    604,
+                    581
+                ],
+                "score": 0.998,
+                "text": "Chongqing, China"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    415,
+                    661,
+                    564,
+                    686
+                ],
+                "score": 1.0,
+                "text": "ABSTRACT"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    147,
+                    710,
+                    829,
+                    738
+                ],
+                "score": 0.992,
+                "text": "In the analysis of optical coherence tomography angiogra-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    149,
+                    746,
+                    828,
+                    770
+                ],
+                "score": 0.988,
+                "text": "phy (OCTA) images, the operation of segmenting specific"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    147,
+                    777,
+                    829,
+                    804
+                ],
+                "score": 0.996,
+                "text": "targets is necessary. Existing methods typically train on su-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    149,
+                    812,
+                    827,
+                    836
+                ],
+                "score": 0.991,
+                "text": "pervised datasets with limited samples (approximately a few"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    149,
+                    846,
+                    828,
+                    870
+                ],
+                "score": 0.997,
+                "text": "hundred), which can lead to overfitting. To address this,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    149,
+                    878,
+                    828,
+                    902
+                ],
+                "score": 0.994,
+                "text": "the low-rank adaptation technique is adopted for foundation"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    147,
+                    910,
+                    830,
+                    938
+                ],
+                "score": 0.999,
+                "text": "model fine-tuning and proposed corresponding prompt point"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    148,
+                    944,
+                    829,
+                    969
+                ],
+                "score": 0.993,
+                "text": "generation strategies to process various segmentation tasks"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    149,
+                    978,
+                    829,
+                    1002
+                ],
+                "score": 0.991,
+                "text": "on OCTA datasets. This method is named SAM-OCTA and"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    147,
+                    1009,
+                    828,
+                    1036
+                ],
+                "score": 0.993,
+                "text": "has been experimented on the publicly available OCTA-500"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    147,
+                    1042,
+                    829,
+                    1070
+                ],
+                "score": 0.987,
+                "text": "dataset. While achieving state-of-the-art performance met-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    149,
+                    1078,
+                    828,
+                    1102
+                ],
+                "score": 0.998,
+                "text": "rics, this method accomplishes local vessel segmentation as"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    150,
+                    1111,
+                    830,
+                    1134
+                ],
+                "score": 0.987,
+                "text": "well as effective artery-vein segmentation, which was not"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    150,
+                    1144,
+                    828,
+                    1168
+                ],
+                "score": 0.977,
+                "text": "well-solved in previous works. The code is available at:"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    147,
+                    1176,
+                    639,
+                    1202
+                ],
+                "score": 0.994,
+                "text": "https://github.com/ShellRedia/SAM-OCTA."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    188,
+                    1222,
+                    831,
+                    1255
+                ],
+                "score": 0.99,
+                "text": "Index Terms— OCTA, Image Segmentation, Fine-tuning,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    148,
+                    1257,
+                    363,
+                    1287
+                ],
+                "score": 0.986,
+                "text": "Prompt Generation"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    358,
+                    1327,
+                    618,
+                    1358
+                ],
+                "score": 0.991,
+                "text": "1. INTRODUCTION"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    148,
+                    1383,
+                    829,
+                    1410
+                ],
+                "score": 0.999,
+                "text": "Optical coherence tomography angiography (OCTA) is an in-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    148,
+                    1417,
+                    829,
+                    1442
+                ],
+                "score": 0.992,
+                "text": "novative and non-invasive imaging technique that enables the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    150,
+                    1451,
+                    829,
+                    1476
+                ],
+                "score": 1.0,
+                "text": "visualization of retinal microvasculature with high resolution"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    149,
+                    1483,
+                    829,
+                    1508
+                ],
+                "score": 0.993,
+                "text": "and without needing dye injection [1]. It is a valuable tool"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    146,
+                    1516,
+                    830,
+                    1543
+                ],
+                "score": 1.0,
+                "text": "for disease staging and preclinical diagnosis [2], benefits for"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    149,
+                    1551,
+                    828,
+                    1576
+                ],
+                "score": 0.993,
+                "text": "monitoring lesions such as diabetic retinopathy, macular de-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    148,
+                    1584,
+                    695,
+                    1609
+                ],
+                "score": 1.0,
+                "text": "generation, glaucoma, and retinal vein occlusion."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    989,
+                    468,
+                    1533,
+                    507
+                ],
+                "score": 0.99,
+                "text": "Xiang'an Hospital of Xiamen University"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    1054,
+                    508,
+                    1468,
+                    546
+                ],
+                "score": 1.0,
+                "text": "Department of Ophthalmology"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    1160,
+                    550,
+                    1365,
+                    580
+                ],
+                "score": 1.0,
+                "text": "Xiamen, China"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    191,
+                    1617,
+                    829,
+                    1643
+                ],
+                "score": 0.999,
+                "text": "Certain specific retinal structures, such as retinal vessels"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    149,
+                    1649,
+                    830,
+                    1677
+                ],
+                "score": 0.998,
+                "text": "(RV) and the foveal avascular zone (FAZ) of the macula, usu-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    150,
+                    1684,
+                    828,
+                    1708
+                ],
+                "score": 0.985,
+                "text": "ally need to be segmented from the raw data of OCTA for fur-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    148,
+                    1716,
+                    829,
+                    1743
+                ],
+                "score": 0.998,
+                "text": "ther analysis [2, 3]. Researchers have been actively exploring"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    148,
+                    1750,
+                    830,
+                    1777
+                ],
+                "score": 0.995,
+                "text": "deep learning-based methods for image quality assessment"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    150,
+                    1783,
+                    828,
+                    1810
+                ],
+                "score": 0.991,
+                "text": "and segmentation to address these challenges and enhance the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    149,
+                    1816,
+                    829,
+                    1843
+                ],
+                "score": 0.997,
+                "text": "accuracy and efficiency of OCTA image analysis. Most deep"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    147,
+                    1850,
+                    829,
+                    1874
+                ],
+                "score": 0.981,
+                "text": "learning segmentation methods related to OCTA are based"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    150,
+                    1885,
+                    828,
+                    1908
+                ],
+                "score": 0.995,
+                "text": "on self-designed neural networks and modules. This requires"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    150,
+                    1918,
+                    828,
+                    1942
+                ],
+                "score": 0.99,
+                "text": "training the model from scratch, which can lead to overfitting"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    148,
+                    1950,
+                    827,
+                    1974
+                ],
+                "score": 0.991,
+                "text": "issues. The foundational models, trained on large-scale data,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    150,
+                    1984,
+                    582,
+                    2007
+                ],
+                "score": 0.996,
+                "text": "can be applied to various scenarios [4]."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    1192,
+                    389,
+                    1335,
+                    434
+                ],
+                "score": 1.0,
+                "text": "Shiying Li"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    915,
+                    661,
+                    1554,
+                    687
+                ],
+                "score": 0.992,
+                "text": "Segment Anything Model (SAM) was introduced as a"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    872,
+                    693,
+                    1552,
+                    720
+                ],
+                "score": 0.986,
+                "text": "foundational model for addressing natural image tasks. This"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    872,
+                    727,
+                    1552,
+                    754
+                ],
+                "score": 0.999,
+                "text": "benchmark model demonstrated, for the first time, the promis-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    873,
+                    762,
+                    1552,
+                    788
+                ],
+                "score": 0.991,
+                "text": "ing wide applicability to various image segmentation tasks"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    874,
+                    795,
+                    1553,
+                    821
+                ],
+                "score": 0.991,
+                "text": "without the need for prior re-training [5]. However, medical"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    873,
+                    828,
+                    1554,
+                    854
+                ],
+                "score": 0.991,
+                "text": "images differ significantly from natural images in terms of"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    873,
+                    861,
+                    1554,
+                    886
+                ],
+                "score": 0.999,
+                "text": "quality, noise, resolution, and other factors, which can affect"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    873,
+                    895,
+                    1553,
+                    921
+                ],
+                "score": 0.988,
+                "text": "SAM's segmentation performance. Thus, further research"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    874,
+                    928,
+                    1553,
+                    954
+                ],
+                "score": 0.995,
+                "text": "and optimization efforts are required to harness the potential"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    874,
+                    961,
+                    1422,
+                    987
+                ],
+                "score": 0.999,
+                "text": "of SAM in medical image segmentation fully [6]."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    915,
+                    998,
+                    1555,
+                    1026
+                ],
+                "score": 0.992,
+                "text": "We find that adopting a fine-tuning approach to SAM"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    873,
+                    1032,
+                    1554,
+                    1060
+                ],
+                "score": 0.99,
+                "text": "and introducing prompt information can enhance and guide"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    874,
+                    1067,
+                    1553,
+                    1092
+                ],
+                "score": 0.983,
+                "text": "the model's segmentation, aiming to improve some complex"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    874,
+                    1099,
+                    1553,
+                    1124
+                ],
+                "score": 0.999,
+                "text": "OCTA segmentation cases. We call our method SAM-OCTA"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    874,
+                    1133,
+                    1363,
+                    1157
+                ],
+                "score": 1.0,
+                "text": "and summarize the contributions as follows:"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    916,
+                    1171,
+                    1553,
+                    1199
+                ],
+                "score": 0.986,
+                "text": "(1) Applying Low-Rank Adaptation (LoRA) technology"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    871,
+                    1202,
+                    1554,
+                    1232
+                ],
+                "score": 0.992,
+                "text": "for fine-tuning the SAM model enables it to perform effective"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    873,
+                    1238,
+                    1474,
+                    1266
+                ],
+                "score": 0.995,
+                "text": "segmentation of specific targets within OCTA images."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    915,
+                    1276,
+                    1552,
+                    1306
+                ],
+                "score": 0.993,
+                "text": "(2) A strategy for generating prompt points is proposed,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    874,
+                    1310,
+                    1554,
+                    1338
+                ],
+                "score": 0.995,
+                "text": "which optimizes the segmentation performance of FAZ and"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    875,
+                    1344,
+                    1372,
+                    1370
+                ],
+                "score": 0.99,
+                "text": "artery-vein(AV) tasks within OCTA samples."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    1079,
+                    1440,
+                    1345,
+                    1464
+                ],
+                "score": 0.999,
+                "text": "2. RELATED WORK"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    874,
+                    1496,
+                    1272,
+                    1525
+                ],
+                "score": 0.995,
+                "text": "2.1. OCTA Segmentation Models"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    874,
+                    1556,
+                    1553,
+                    1584
+                ],
+                "score": 0.992,
+                "text": "As a typical architecture for deep image processing, the vision"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    872,
+                    1588,
+                    1553,
+                    1616
+                ],
+                "score": 1.0,
+                "text": "transformer (ViT) is frequently used for segmentation tasks in"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    873,
+                    1621,
+                    1553,
+                    1648
+                ],
+                "score": 0.991,
+                "text": "OCTA [7]. In OCTA images, the distribution of RV is exten-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    873,
+                    1655,
+                    1552,
+                    1681
+                ],
+                "score": 0.997,
+                "text": "sive, and it requires the models to utilize the global informa-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    874,
+                    1688,
+                    1550,
+                    1714
+                ],
+                "score": 0.996,
+                "text": "tion effectively in the images. The TCU-Net, OCT2Former,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    873,
+                    1721,
+                    1553,
+                    1749
+                ],
+                "score": 0.997,
+                "text": "and StruNet methods have improved ViT, achieving accurate"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    874,
+                    1756,
+                    1550,
+                    1779
+                ],
+                "score": 0.999,
+                "text": "RV segmentation and addressing issues such as vessel discon-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    874,
+                    1787,
+                    1552,
+                    1813
+                ],
+                "score": 0.991,
+                "text": "tinuities or missing segments [8, 9, 10]. Other methods, from"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    874,
+                    1820,
+                    1553,
+                    1847
+                ],
+                "score": 0.993,
+                "text": "the perspectives of efficiency, denoising, and the utilization of"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    874,
+                    1855,
+                    1553,
+                    1881
+                ],
+                "score": 0.99,
+                "text": "three-dimensional data, have designed a series of techniques"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    875,
+                    1890,
+                    1552,
+                    1914
+                ],
+                "score": 0.999,
+                "text": "and strategies, achieving promising segmentation results on"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    875,
+                    1923,
+                    1552,
+                    1946
+                ],
+                "score": 0.992,
+                "text": "OCTA datasets [2, 11, 12, 13, 14]. The above-mentioned"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    872,
+                    1954,
+                    1553,
+                    1982
+                ],
+                "score": 0.99,
+                "text": "methods have demonstrated that existing deep networks are"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    874,
+                    1987,
+                    1527,
+                    2014
+                ],
+                "score": 0.988,
+                "text": "capable of achieving precise segmentation of RV and FAZ."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    150,
+                    2063,
+                    636,
+                    2087
+                ],
+                "score": 0.989,
+                "text": "979-8-3503-4485-1/24/$31.00 ©2024 IEEE"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    820,
+                    2061,
+                    878,
+                    2092
+                ],
+                "score": 1.0,
+                "text": "1771"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    1391,
+                    2061,
+                    1551,
+                    2089
+                ],
+                "score": 0.999,
+                "text": "ICASSP 2024"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    224,
+                    2120,
+                    1467,
+                    2146
+                ],
+                "score": 0.995,
+                "text": "Authorized licensed use limited to: Istanbul Bilgi University. Downloaded on July 24,2026 at 18:37:21 UTC from IEEE Xplore. Restrictions apply."
+            }
+        ],
+        "page_info": {
+            "page_no": 0,
+            "width": 1700,
+            "height": 2200
+        }
+    },
+    {
+        "layout_dets": [
+            {
+                "cls_id": 14,
+                "label": "image",
+                "score": 0.9807,
+                "bbox": [
+                    149,
+                    199,
+                    827,
+                    512
+                ],
+                "index": 1
+            },
+            {
+                "cls_id": 7,
+                "label": "figure_title",
+                "score": 0.9698,
+                "bbox": [
+                    143,
+                    546,
+                    832,
+                    614
+                ],
+                "index": 2
+            },
+            {
+                "cls_id": 17,
+                "label": "paragraph_title",
+                "score": 0.9433,
+                "bbox": [
+                    144,
+                    672,
+                    718,
+                    706
+                ],
+                "index": 3
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9891,
+                "bbox": [
+                    141,
+                    719,
+                    835,
+                    1322
+                ],
+                "index": 4
+            },
+            {
+                "cls_id": 17,
+                "label": "paragraph_title",
+                "score": 0.9346,
+                "bbox": [
+                    401,
+                    1362,
+                    576,
+                    1395
+                ],
+                "index": 5
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9804,
+                "bbox": [
+                    142,
+                    1421,
+                    833,
+                    1557
+                ],
+                "index": 6
+            },
+            {
+                "cls_id": 17,
+                "label": "paragraph_title",
+                "score": 0.9419,
+                "bbox": [
+                    143,
+                    1595,
+                    571,
+                    1630
+                ],
+                "index": 7
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9875,
+                "bbox": [
+                    141,
+                    1644,
+                    834,
+                    1878
+                ],
+                "index": 8
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9824,
+                "bbox": [
+                    142,
+                    1879,
+                    834,
+                    2012
+                ],
+                "index": 9
+            },
+            {
+                "cls_id": 14,
+                "label": "image",
+                "score": 0.9816,
+                "bbox": [
+                    874,
+                    198,
+                    1553,
+                    459
+                ],
+                "index": 10
+            },
+            {
+                "cls_id": 7,
+                "label": "figure_title",
+                "score": 0.9716,
+                "bbox": [
+                    867,
+                    493,
+                    1557,
+                    595
+                ],
+                "index": 11
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9889,
+                "bbox": [
+                    865,
+                    652,
+                    1560,
+                    1086
+                ],
+                "index": 12
+            },
+            {
+                "cls_id": 17,
+                "label": "paragraph_title",
+                "score": 0.9426,
+                "bbox": [
+                    868,
+                    1124,
+                    1357,
+                    1159
+                ],
+                "index": 13
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9889,
+                "bbox": [
+                    865,
+                    1180,
+                    1560,
+                    1579
+                ],
+                "index": 14
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.5946,
+                "bbox": [
+                    1137,
+                    1347,
+                    1546,
+                    1380
+                ],
+                "index": 15,
+                "latex": "( x _ { 1 } , y _ { 1 } , 1 ) , ( x _ { 2 } , y _ { 2 } , 1 ) , . . . , ( x _ { n } , y _ { n } , 0 )"
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.989,
+                "bbox": [
+                    865,
+                    1581,
+                    1561,
+                    2014
+                ],
+                "index": 16
+            },
+            {
+                "cls_id": 16,
+                "label": "number",
+                "score": 0.9145,
+                "bbox": [
+                    819,
+                    2058,
+                    881,
+                    2088
+                ],
+                "index": 17
+            },
+            {
+                "cls_id": 8,
+                "label": "footer",
+                "score": 0.9221,
+                "bbox": [
+                    219,
+                    2118,
+                    1471,
+                    2147
+                ],
+                "index": 18
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    148,
+                    551,
+                    830,
+                    579
+                ],
+                "score": 0.997,
+                "text": "Fig. 1. Schematic diagram illustrating the fine-tuning of SAM"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    149,
+                    584,
+                    394,
+                    613
+                ],
+                "score": 0.999,
+                "text": "using OCTA samples."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    148,
+                    673,
+                    713,
+                    704
+                ],
+                "score": 0.997,
+                "text": "2.2. SAM and Related Fine-tuning Approaches"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    151,
+                    725,
+                    827,
+                    749
+                ],
+                "score": 0.999,
+                "text": "The SAM is a foundational vision model for general image"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    149,
+                    758,
+                    828,
+                    785
+                ],
+                "score": 0.995,
+                "text": "segmentation. With the ability to segment diverse objects,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    148,
+                    791,
+                    828,
+                    817
+                ],
+                "score": 0.998,
+                "text": "parts, and visual structures in various scenarios, SAM takes"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    149,
+                    825,
+                    829,
+                    852
+                ],
+                "score": 0.984,
+                "text": "prompts in the form of points, bounding boxes, or coarse"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    149,
+                    859,
+                    827,
+                    883
+                ],
+                "score": 0.977,
+                "text": "masks as input. Its remarkable zero-shot segmentation ca-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    150,
+                    892,
+                    827,
+                    916
+                ],
+                "score": 0.998,
+                "text": "pabilities enable its easy transfer to numerous applications"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    151,
+                    926,
+                    827,
+                    950
+                ],
+                "score": 0.986,
+                "text": "through simple prompting [5]. Although SAM has estab-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    148,
+                    956,
+                    828,
+                    984
+                ],
+                "score": 0.999,
+                "text": "lished an efficient data engine for model training, there are rel-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    151,
+                    992,
+                    828,
+                    1016
+                ],
+                "score": 0.994,
+                "text": "atively few cases collected for medical applications or other"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    149,
+                    1024,
+                    827,
+                    1048
+                ],
+                "score": 0.99,
+                "text": "rare image scenarios. Therefore, some fine-tuning methods"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    149,
+                    1056,
+                    828,
+                    1083
+                ],
+                "score": 0.992,
+                "text": "have been applied to SAM to improve its performance in cer-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    150,
+                    1091,
+                    826,
+                    1115
+                ],
+                "score": 0.988,
+                "text": "tain segmentation failure cases [15, 16]. The common char-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    150,
+                    1124,
+                    828,
+                    1148
+                ],
+                "score": 0.999,
+                "text": "acteristic of these fine-tuning methods is that they introduce"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    150,
+                    1157,
+                    827,
+                    1181
+                ],
+                "score": 0.996,
+                "text": "additional network layers on top of the pre-trained SAM. With"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    150,
+                    1190,
+                    827,
+                    1214
+                ],
+                "score": 0.987,
+                "text": "a small number of added trainable parameters, fine-tuning be-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    150,
+                    1224,
+                    827,
+                    1248
+                ],
+                "score": 0.993,
+                "text": "comes feasible through further training on a new dataset. The"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    148,
+                    1255,
+                    828,
+                    1283
+                ],
+                "score": 0.998,
+                "text": "advantage of fine-tuning methods lies in their ability to pre-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    149,
+                    1288,
+                    779,
+                    1316
+                ],
+                "score": 0.986,
+                "text": "serve SAM's strong zero-shot capabilities and flexibility."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    405,
+                    1368,
+                    571,
+                    1397
+                ],
+                "score": 0.998,
+                "text": "3. METHOD"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    149,
+                    1427,
+                    828,
+                    1452
+                ],
+                "score": 0.989,
+                "text": "In this paper, we fine-tuned the pre-trained SAM using OCTA"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    147,
+                    1457,
+                    830,
+                    1487
+                ],
+                "score": 0.992,
+                "text": "datasets and corresponding annotations. The process is shown"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    149,
+                    1493,
+                    830,
+                    1519
+                ],
+                "score": 0.993,
+                "text": "in Figure 1. SAM consists of three parts: an image encoder, a"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    149,
+                    1526,
+                    739,
+                    1551
+                ],
+                "score": 0.998,
+                "text": "flexible prompt encoder, and a fast mask decoder [5]."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    148,
+                    1598,
+                    565,
+                    1627
+                ],
+                "score": 1.0,
+                "text": "3.1. Fine-tuning of Image Encoder"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    150,
+                    1649,
+                    829,
+                    1674
+                ],
+                "score": 0.998,
+                "text": "The image encoder utilizes a ViT pre-trained with the masked"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    149,
+                    1683,
+                    828,
+                    1708
+                ],
+                "score": 0.999,
+                "text": "auto-encode method. The ViT model comes in three variants:"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    149,
+                    1715,
+                    828,
+                    1743
+                ],
+                "score": 1.0,
+                "text": "vit-b, vit-1, and vit-h, which can only process fixed-size inputs"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    149,
+                    1750,
+                    828,
+                    1775
+                ],
+                "score": 0.986,
+                "text": "(e.g., 1024 * 1024 * 3). Scaling and padding operations are"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    147,
+                    1783,
+                    829,
+                    1808
+                ],
+                "score": 0.991,
+                "text": "employed to support input images of different resolutions. In"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    147,
+                    1814,
+                    830,
+                    1840
+                ],
+                "score": 0.979,
+                "text": "this study, we used the image encoder from the \"vit-h\"model"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    149,
+                    1848,
+                    449,
+                    1875
+                ],
+                "score": 0.999,
+                "text": "for the fine-tuning process."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    192,
+                    1883,
+                    828,
+                    1908
+                ],
+                "score": 0.988,
+                "text": "As shown in Figure 2, OCTA data is inherently in 3D for-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    149,
+                    1917,
+                    828,
+                    1942
+                ],
+                "score": 0.99,
+                "text": "mat, but most datasets provide en-face 2D projection forms."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    148,
+                    1949,
+                    828,
+                    1976
+                ],
+                "score": 0.995,
+                "text": "En-face projection is obtained through layer-wise segmen-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    149,
+                    1983,
+                    829,
+                    2007
+                ],
+                "score": 0.984,
+                "text": "tation based on vascular anatomical structures. As SAM"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    873,
+                    499,
+                    1552,
+                    524
+                ],
+                "score": 0.996,
+                "text": "Fig. 2. OCTA structural diagram. (a) Three-dimensional vol-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    873,
+                    532,
+                    1552,
+                    558
+                ],
+                "score": 0.998,
+                "text": "ume rendering with arrows indicating different projection di-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    873,
+                    565,
+                    1477,
+                    590
+                ],
+                "score": 0.984,
+                "text": "rections. (b) En-face projection. (c) B-scan projection."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    873,
+                    657,
+                    1552,
+                    683
+                ],
+                "score": 1.0,
+                "text": "requires three-channel images as input, in this work, we"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    873,
+                    689,
+                    1552,
+                    716
+                ],
+                "score": 0.994,
+                "text": "stack projection layers of OCTA images in different depths"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    873,
+                    723,
+                    1553,
+                    749
+                ],
+                "score": 0.996,
+                "text": "to adapt to this input format. The benefit of this approach"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    874,
+                    757,
+                    1552,
+                    781
+                ],
+                "score": 0.997,
+                "text": "is that it preserves the vascular structure information in the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    874,
+                    789,
+                    1553,
+                    816
+                ],
+                "score": 0.991,
+                "text": "OCTA images while fully utilizing SAM's feature-extracting"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    874,
+                    823,
+                    1553,
+                    849
+                ],
+                "score": 0.992,
+                "text": "capabilities. Fine-tuning aims to retain SAM's powerful"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    874,
+                    856,
+                    1550,
+                    880
+                ],
+                "score": 0.995,
+                "text": "image-understanding capabilities while enhancing its perfor-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    873,
+                    889,
+                    1552,
+                    915
+                ],
+                "score": 0.996,
+                "text": "mance on OCTA. The approach used in this paper involves"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    874,
+                    921,
+                    1551,
+                    948
+                ],
+                "score": 0.994,
+                "text": "utilizing the LoRA technique [17], which introduces addi-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    873,
+                    955,
+                    1553,
+                    982
+                ],
+                "score": 1.0,
+                "text": "tional linear network layers in each transformer block of the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    873,
+                    989,
+                    1553,
+                    1015
+                ],
+                "score": 0.999,
+                "text": "image encoder, similar in form to a ResNet block. During the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    873,
+                    1022,
+                    1550,
+                    1048
+                ],
+                "score": 0.998,
+                "text": "training process, the weights of the SAM are frozen, and only"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    874,
+                    1055,
+                    1378,
+                    1081
+                ],
+                "score": 0.989,
+                "text": "the newly introduced parameters are updated."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    872,
+                    1127,
+                    1350,
+                    1158
+                ],
+                "score": 0.98,
+                "text": "3.2. Prompt Points Generation Strategy"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    875,
+                    1185,
+                    1551,
+                    1211
+                ],
+                "score": 0.992,
+                "text": "The prompt encoder is divided into two types of prompts:"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    873,
+                    1219,
+                    1552,
+                    1243
+                ],
+                "score": 0.991,
+                "text": "sparse prompts (points, boxes, text) and dense prompts"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    874,
+                    1250,
+                    1553,
+                    1277
+                ],
+                "score": 0.988,
+                "text": "(masks). In our work, we chose points as the prompt for"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    874,
+                    1282,
+                    1552,
+                    1310
+                ],
+                "score": 0.995,
+                "text": "OCTA segmentation. For each sample's prompt points in-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    873,
+                    1318,
+                    1553,
+                    1344
+                ],
+                "score": 0.988,
+                "text": "put, assuming there are n points in the prompt point input, it"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    875,
+                    1352,
+                    1127,
+                    1376
+                ],
+                "score": 0.98,
+                "text": "can be represented as"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    874,
+                    1384,
+                    1552,
+                    1411
+                ],
+                "score": 1.0,
+                "text": "where x and y denote the coordinates of prompt points in the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    873,
+                    1417,
+                    1551,
+                    1443
+                ],
+                "score": 0.983,
+                "text": "image. The values \"1\" and \"0\" indicate positive (foreground)"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    875,
+                    1453,
+                    1552,
+                    1476
+                ],
+                "score": 0.993,
+                "text": "and negative (background) points, respectively. The prompt"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    873,
+                    1483,
+                    1553,
+                    1510
+                ],
+                "score": 0.985,
+                "text": "encoder of SAM will perform embedding on this input, and"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    873,
+                    1516,
+                    1553,
+                    1543
+                ],
+                "score": 0.999,
+                "text": "due to its pre-training, it can appropriately integrate with the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    873,
+                    1549,
+                    1252,
+                    1576
+                ],
+                "score": 0.999,
+                "text": "information from the input image."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    915,
+                    1585,
+                    1553,
+                    1611
+                ],
+                "score": 0.992,
+                "text": "The prompt points generation strategy has two types:"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    874,
+                    1617,
+                    1553,
+                    1644
+                ],
+                "score": 0.986,
+                "text": "global and local modes. The global mode is applied to all"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    875,
+                    1652,
+                    1552,
+                    1675
+                ],
+                "score": 0.996,
+                "text": "OCTA segmentation tasks, while the local mode is specific to"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    875,
+                    1685,
+                    1551,
+                    1708
+                ],
+                "score": 0.992,
+                "text": "AV segmentation. The study of segmenting individual vessels"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    873,
+                    1716,
+                    1552,
+                    1744
+                ],
+                "score": 0.985,
+                "text": "as a local segmentation task has not been attempted in pre-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    874,
+                    1750,
+                    1553,
+                    1777
+                ],
+                "score": 0.997,
+                "text": "vious works. By the prompt encoder, more accurate regional"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    875,
+                    1784,
+                    1552,
+                    1807
+                ],
+                "score": 0.996,
+                "text": "vessel segmentation can be achieved in OCTA datasets. For"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    873,
+                    1816,
+                    1554,
+                    1842
+                ],
+                "score": 0.991,
+                "text": "this task, the first step is to identify and label all connected"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    873,
+                    1849,
+                    1552,
+                    1876
+                ],
+                "score": 1.0,
+                "text": "components in the segmentation masks with unique identi-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    874,
+                    1885,
+                    1552,
+                    1908
+                ],
+                "score": 0.994,
+                "text": "fiers. Due to the weak connectivity at the endpoints of some"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    873,
+                    1915,
+                    1552,
+                    1943
+                ],
+                "score": 0.993,
+                "text": "vessels in OCTA labels, we adopt the eight-connectivity crite-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    874,
+                    1951,
+                    1552,
+                    1975
+                ],
+                "score": 0.999,
+                "text": "rion. Then, positive points are randomly selected within each"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    875,
+                    1984,
+                    1551,
+                    2007
+                ],
+                "score": 0.989,
+                "text": "connected component. Due to varying numbers of vessels in"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    821,
+                    2061,
+                    879,
+                    2092
+                ],
+                "score": 1.0,
+                "text": "1772"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    223,
+                    2118,
+                    1469,
+                    2147
+                ],
+                "score": 0.995,
+                "text": "Authorized licensed use limited to: Istanbul Bilgi University. Downloaded on July 24,2026 at 18:37:21 UTC from IEEE Xplore. Restrictions apply."
+            }
+        ],
+        "page_info": {
+            "page_no": 1,
+            "width": 1700,
+            "height": 2200
+        }
+    },
+    {
+        "layout_dets": [
+            {
+                "cls_id": 14,
+                "label": "image",
+                "score": 0.9831,
+                "bbox": [
+                    146,
+                    200,
+                    827,
+                    550
+                ],
+                "index": 1
+            },
+            {
+                "cls_id": 7,
+                "label": "figure_title",
+                "score": 0.9632,
+                "bbox": [
+                    141,
+                    584,
+                    833,
+                    655
+                ],
+                "index": 2
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9807,
+                "bbox": [
+                    141,
+                    711,
+                    834,
+                    847
+                ],
+                "index": 3
+            },
+            {
+                "cls_id": 17,
+                "label": "paragraph_title",
+                "score": 0.937,
+                "bbox": [
+                    143,
+                    890,
+                    387,
+                    923
+                ],
+                "index": 4
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9878,
+                "bbox": [
+                    140,
+                    939,
+                    835,
+                    1244
+                ],
+                "index": 5
+            },
+            {
+                "cls_id": 17,
+                "label": "paragraph_title",
+                "score": 0.9315,
+                "bbox": [
+                    362,
+                    1288,
+                    614,
+                    1321
+                ],
+                "index": 6
+            },
+            {
+                "cls_id": 17,
+                "label": "paragraph_title",
+                "score": 0.9416,
+                "bbox": [
+                    143,
+                    1349,
+                    528,
+                    1384
+                ],
+                "index": 7
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9878,
+                "bbox": [
+                    141,
+                    1405,
+                    834,
+                    1740
+                ],
+                "index": 8
+            },
+            {
+                "cls_id": 17,
+                "label": "paragraph_title",
+                "score": 0.9428,
+                "bbox": [
+                    143,
+                    1789,
+                    476,
+                    1825
+                ],
+                "index": 9
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9847,
+                "bbox": [
+                    141,
+                    1843,
+                    834,
+                    2014
+                ],
+                "index": 10
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.8218,
+                "bbox": [
+                    456,
+                    1975,
+                    515,
+                    2008
+                ],
+                "index": 11,
+                "latex": "1 0 ^ { - 3 }"
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.6667,
+                "bbox": [
+                    768,
+                    1943,
+                    827,
+                    1974
+                ],
+                "index": 12,
+                "latex": "1 0 ^ { - 5 }"
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9856,
+                "bbox": [
+                    866,
+                    203,
+                    1559,
+                    371
+                ],
+                "index": 13
+            },
+            {
+                "cls_id": 5,
+                "label": "display_formula",
+                "score": 0.932,
+                "bbox": [
+                    989,
+                    395,
+                    1437,
+                    432
+                ],
+                "index": 14,
+                "latex": "L _ { c l D i c e } = 0 . 8 * L _ { D i c e } + 0 . 2 * L _ { c l D i c e } ^ { \\prime } ,"
+            },
+            {
+                "cls_id": 5,
+                "label": "display_formula",
+                "score": 0.7272,
+                "bbox": [
+                    931,
+                    458,
+                    1445,
+                    696
+                ],
+                "index": 15,
+                "latex": "\\begin{array} { r l } & { \\mathrm { ~ e ~ } L _ { D i c e } = 1 - \\frac { 2 * \\dot { | \\hat { Y } \\cap Y | } } { | \\hat { Y } | + | Y | } \\mathrm { , } } \\\\ & { \\begin{array} { r } { L _ { c l D i c e } ^ { \\prime } = 1 - 2 * \\frac { T p r e c ( \\hat { Y } _ { s } , Y ) * T s e n s ( Y _ { s } , \\hat { Y } ) } { T p r e c ( \\hat { Y } _ { s } , Y ) + T s e n s ( Y _ { s } , \\hat { Y } ) } \\mathrm { , } } \\\\ { Y  t h e g r o u n d - t r u t h , } \\\\ { \\hat { Y }  t h e p r e d i c t e d ~ \\nu a l u e , } \\end{array} } \\\\ & { \\begin{array} { r } { Y _ { s } , \\hat { Y } _ { s }  s o f t - s k e l e t o n ( Y , \\hat { Y } ) , \\mathrm { a n d } } \\\\ { T p r e c , T s e n s  p r e c i s i o n ~ a n d ~ s e n s i t i \\nu i t y . } \\end{array} } \\end{array}"
+            },
+            {
+                "cls_id": 17,
+                "label": "paragraph_title",
+                "score": 0.9348,
+                "bbox": [
+                    868,
+                    731,
+                    1027,
+                    764
+                ],
+                "index": 16
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9778,
+                "bbox": [
+                    865,
+                    783,
+                    1557,
+                    886
+                ],
+                "index": 17
+            },
+            {
+                "cls_id": 5,
+                "label": "display_formula",
+                "score": 0.965,
+                "bbox": [
+                    889,
+                    904,
+                    1533,
+                    989
+                ],
+                "index": 18,
+                "latex": "D i c e ( \\hat { Y } , Y ) = \\frac { 2 | \\hat { Y } \\cap Y | } { | \\hat { Y } | + | Y | } , ~ J a c c a r d ( \\hat { Y } , Y ) = \\frac { | \\hat { Y } \\cap Y | } { | \\hat { Y } \\cup Y | } ."
+            },
+            {
+                "cls_id": 17,
+                "label": "paragraph_title",
+                "score": 0.9238,
+                "bbox": [
+                    868,
+                    1042,
+                    1107,
+                    1075
+                ],
+                "index": 19
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9878,
+                "bbox": [
+                    865,
+                    1088,
+                    1560,
+                    1355
+                ],
+                "index": 20
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9882,
+                "bbox": [
+                    864,
+                    1355,
+                    1561,
+                    1690
+                ],
+                "index": 21
+            },
+            {
+                "cls_id": 17,
+                "label": "paragraph_title",
+                "score": 0.93,
+                "bbox": [
+                    868,
+                    1726,
+                    1094,
+                    1759
+                ],
+                "index": 22
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9855,
+                "bbox": [
+                    865,
+                    1778,
+                    1559,
+                    1945
+                ],
+                "index": 23
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9688,
+                "bbox": [
+                    867,
+                    1945,
+                    1559,
+                    2013
+                ],
+                "index": 24
+            },
+            {
+                "cls_id": 16,
+                "label": "number",
+                "score": 0.9044,
+                "bbox": [
+                    819,
+                    2058,
+                    881,
+                    2088
+                ],
+                "index": 25
+            },
+            {
+                "cls_id": 8,
+                "label": "footer",
+                "score": 0.9196,
+                "bbox": [
+                    219,
+                    2118,
+                    1471,
+                    2147
+                ],
+                "index": 26
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    149,
+                    591,
+                    829,
+                    616
+                ],
+                "score": 0.989,
+                "text": "Fig. 3. Illustration of prompt points generation. Green and"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    149,
+                    625,
+                    827,
+                    649
+                ],
+                "score": 1.0,
+                "text": "red points represent positive and negative points, respectively."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    150,
+                    717,
+                    827,
+                    742
+                ],
+                "score": 1.0,
+                "text": "different samples, to standardize their data format, negative"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    148,
+                    748,
+                    828,
+                    777
+                ],
+                "score": 0.996,
+                "text": "points are added from the background adjacent to the con-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    148,
+                    783,
+                    828,
+                    812
+                ],
+                "score": 0.985,
+                "text": "nected components. The prompt points generation process"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    149,
+                    817,
+                    472,
+                    841
+                ],
+                "score": 0.994,
+                "text": "can be described as Figure 3."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    148,
+                    892,
+                    381,
+                    922
+                ],
+                "score": 0.98,
+                "text": "3.3. Mask Decoder"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    149,
+                    943,
+                    828,
+                    972
+                ],
+                "score": 0.99,
+                "text": "The role of the mask decoder is to efficiently map the im-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    151,
+                    981,
+                    829,
+                    1005
+                ],
+                "score": 0.999,
+                "text": "age embeddings, prompt embeddings, and output tokens to a"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    150,
+                    1014,
+                    829,
+                    1037
+                ],
+                "score": 0.992,
+                "text": "segmentation mask. A modified version of the transformer"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    148,
+                    1045,
+                    828,
+                    1072
+                ],
+                "score": 1.0,
+                "text": "decoder block is employed, followed by a dynamic mask pre-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    148,
+                    1078,
+                    829,
+                    1105
+                ],
+                "score": 0.99,
+                "text": "diction head. For an image input and corresponding prompt"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    149,
+                    1112,
+                    828,
+                    1138
+                ],
+                "score": 0.999,
+                "text": "input, the mask decoder outputs multiple segmentation masks"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    148,
+                    1146,
+                    827,
+                    1172
+                ],
+                "score": 1.0,
+                "text": "to represent objects at different semantic levels. In this work,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    150,
+                    1180,
+                    827,
+                    1203
+                ],
+                "score": 0.997,
+                "text": "the loss function (in the fine-tuning process) is computed with"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    148,
+                    1210,
+                    782,
+                    1239
+                ],
+                "score": 0.992,
+                "text": "the highest confidence based on the segmentation output."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    368,
+                    1295,
+                    609,
+                    1320
+                ],
+                "score": 0.997,
+                "text": "4. EXPERIMENTS"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    150,
+                    1352,
+                    522,
+                    1382
+                ],
+                "score": 0.998,
+                "text": "4.1. Dataset and Preprocessing"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    148,
+                    1408,
+                    828,
+                    1438
+                ],
+                "score": 0.994,
+                "text": "The publicly available dataset used in this paper is OCTA-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    148,
+                    1441,
+                    829,
+                    1470
+                ],
+                "score": 0.995,
+                "text": "500 [18]. The OCTA-500 dataset contains 500 samples, clas-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    148,
+                    1474,
+                    828,
+                    1503
+                ],
+                "score": 0.982,
+                "text": "sified based on the field of view (FoV): 3mm * 3mm (3M)"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    149,
+                    1509,
+                    828,
+                    1536
+                ],
+                "score": 0.995,
+                "text": "and 6mm * 6mm (6M). The corresponding image resolutions"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    149,
+                    1541,
+                    829,
+                    1570
+                ],
+                "score": 0.996,
+                "text": "are 304*304 and 400 *400, with 200 and 300 samples respec-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    148,
+                    1574,
+                    828,
+                    1604
+                ],
+                "score": 0.996,
+                "text": "tively. The OCTA-500 dataset annotates RV, FAZ, capillary,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    149,
+                    1609,
+                    828,
+                    1636
+                ],
+                "score": 0.989,
+                "text": "artery, and vein. The adopted data augmentation tool is Al-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    148,
+                    1640,
+                    829,
+                    1670
+                ],
+                "score": 0.997,
+                "text": "bumentations [19]. The data augmentation strategies include"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    148,
+                    1675,
+                    829,
+                    1702
+                ],
+                "score": 0.993,
+                "text": "horizontal flipping, brightness and contrast adjustment, and"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    148,
+                    1708,
+                    404,
+                    1737
+                ],
+                "score": 0.994,
+                "text": "random slight rotation."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    149,
+                    1792,
+                    471,
+                    1823
+                ],
+                "score": 0.997,
+                "text": "4.2. Experimental Settings"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    149,
+                    1846,
+                    830,
+                    1877
+                ],
+                "score": 0.998,
+                "text": "The OCTA-SAM is deployed on A100 graphic cards with 80"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    148,
+                    1881,
+                    829,
+                    1911
+                ],
+                "score": 0.973,
+                "text": "GB memory. To evaluate the training results, 10-fold cross-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    149,
+                    1917,
+                    828,
+                    1942
+                ],
+                "score": 0.998,
+                "text": "validation is adopted. The optimizer used is AdamW, and the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    148,
+                    1950,
+                    762,
+                    1975
+                ],
+                "score": 0.995,
+                "text": "learning rate adopts a warm-up strategy, starting from"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    150,
+                    1984,
+                    452,
+                    2008
+                ],
+                "score": 0.984,
+                "text": "and gradually increasing to"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    914,
+                    204,
+                    1554,
+                    235
+                ],
+                "score": 0.993,
+                "text": "The loss functions used for fine-tuning vary depending on"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    874,
+                    241,
+                    1552,
+                    266
+                ],
+                "score": 1.0,
+                "text": "the segmentation tasks. For FAZ and capillary, the Dice loss is"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    872,
+                    272,
+                    1553,
+                    300
+                ],
+                "score": 0.991,
+                "text": "employed. However, for RV, artery, and vein, the clDice loss"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    873,
+                    307,
+                    1552,
+                    332
+                ],
+                "score": 0.986,
+                "text": "is utilized, which is more feasible for tubular segmentation"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    874,
+                    340,
+                    1461,
+                    366
+                ],
+                "score": 0.999,
+                "text": "[20]. These two loss functions can be represented as:"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    873,
+                    734,
+                    1021,
+                    763
+                ],
+                "score": 1.0,
+                "text": "4.3. Results"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    873,
+                    787,
+                    1554,
+                    814
+                ],
+                "score": 0.998,
+                "text": "We conducted extensive experiments with various cases on"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    872,
+                    820,
+                    1553,
+                    847
+                ],
+                "score": 0.995,
+                "text": "the OCTA-500 dataset. The segmentation results using met-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    872,
+                    856,
+                    1479,
+                    880
+                ],
+                "score": 0.999,
+                "text": "rics Dice and Jaccard, which are calculated as follows:"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    874,
+                    1046,
+                    1100,
+                    1074
+                ],
+                "score": 0.993,
+                "text": "4.3.1. Global Mode"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    874,
+                    1091,
+                    1553,
+                    1120
+                ],
+                "score": 0.999,
+                "text": "We have experimented with various prompt point generation"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    874,
+                    1127,
+                    1552,
+                    1152
+                ],
+                "score": 0.995,
+                "text": "strategies, including the number of points and the generation"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    874,
+                    1160,
+                    1553,
+                    1185
+                ],
+                "score": 0.995,
+                "text": "area for negative points. The best metrics have been selected"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    872,
+                    1191,
+                    1553,
+                    1220
+                ],
+                "score": 0.987,
+                "text": "as the final results. RV and FAZ are common segmentation"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    874,
+                    1226,
+                    1551,
+                    1251
+                ],
+                "score": 0.991,
+                "text": "tasks in previous studies. Therefore, we will summarize the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    874,
+                    1260,
+                    1551,
+                    1285
+                ],
+                "score": 0.998,
+                "text": "comparative results in Table 1. The experimental data from"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    872,
+                    1291,
+                    1553,
+                    1318
+                ],
+                "score": 0.994,
+                "text": "previous methods are referenced from [21]. Our method's"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    874,
+                    1326,
+                    1551,
+                    1350
+                ],
+                "score": 0.999,
+                "text": "comprehensive performance reaches the state-of-the-art level."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    916,
+                    1359,
+                    1552,
+                    1386
+                ],
+                "score": 0.991,
+                "text": "The impact of prompt points is insignificant for segmen-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    873,
+                    1392,
+                    1550,
+                    1419
+                ],
+                "score": 0.988,
+                "text": "tation tasks involving global vessels such as RV and capillary"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    872,
+                    1424,
+                    1554,
+                    1453
+                ],
+                "score": 0.99,
+                "text": "However, for FAZ, artery, and vein segmentation, prompt"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    873,
+                    1459,
+                    1553,
+                    1486
+                ],
+                "score": 0.998,
+                "text": "points lead to a noticeable improvement in segmentation"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    872,
+                    1490,
+                    1554,
+                    1518
+                ],
+                "score": 0.997,
+                "text": "performance. The segmentation results can be observed in"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    873,
+                    1525,
+                    1553,
+                    1552
+                ],
+                "score": 0.999,
+                "text": "Figures 4, 5, and Table 2. It can be inferred that the effect of"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    873,
+                    1559,
+                    1553,
+                    1586
+                ],
+                "score": 0.987,
+                "text": "prompt point information is more pronounced within a local"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    872,
+                    1592,
+                    1553,
+                    1619
+                ],
+                "score": 0.995,
+                "text": "region. For the widely distributed vessels, importing more"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    872,
+                    1623,
+                    1554,
+                    1652
+                ],
+                "score": 0.992,
+                "text": "prompt points has a limited effect. However, the prompt"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    872,
+                    1658,
+                    1551,
+                    1683
+                ],
+                "score": 0.996,
+                "text": "points can help improve the boundary delineation of the FAZ."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    873,
+                    1730,
+                    1088,
+                    1758
+                ],
+                "score": 0.978,
+                "text": "4.3.2. Local Mode"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    873,
+                    1781,
+                    1552,
+                    1810
+                ],
+                "score": 0.987,
+                "text": "The local mode primarily focuses on precisely segmenting"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    875,
+                    1817,
+                    1551,
+                    1842
+                ],
+                "score": 1.0,
+                "text": "vessels in local regions. The segmentation targets include the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    873,
+                    1848,
+                    1553,
+                    1877
+                ],
+                "score": 0.998,
+                "text": "artery and vein. For each sample, two positive points are se-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    872,
+                    1881,
+                    1553,
+                    1911
+                ],
+                "score": 0.987,
+                "text": "lected on the target vessels and two negative points on the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    875,
+                    1918,
+                    1051,
+                    1943
+                ],
+                "score": 1.0,
+                "text": "adjacent region."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    915,
+                    1950,
+                    1553,
+                    1975
+                ],
+                "score": 0.996,
+                "text": "Due to the morphological similarities between retinal ar-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    874,
+                    1983,
+                    1552,
+                    2008
+                ],
+                "score": 0.999,
+                "text": "teries and veins and the complexities introduced by factors"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    820,
+                    2061,
+                    879,
+                    2091
+                ],
+                "score": 1.0,
+                "text": "1773"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    223,
+                    2118,
+                    1469,
+                    2147
+                ],
+                "score": 0.995,
+                "text": "Authorized licensed use limited to: Istanbul Bilgi University. Downloaded on July 24,2026 at 18:37:21 UTC from IEEE Xplore. Restrictions apply."
+            }
+        ],
+        "page_info": {
+            "page_no": 2,
+            "width": 1700,
+            "height": 2200
+        }
+    },
+    {
+        "layout_dets": [
+            {
+                "cls_id": 7,
+                "label": "figure_title",
+                "score": 0.9488,
+                "bbox": [
+                    248,
+                    221,
+                    1452,
+                    255
+                ],
+                "index": 1
+            },
+            {
+                "cls_id": 21,
+                "label": "table",
+                "score": 0.9841,
+                "bbox": [
+                    232,
+                    254,
+                    1470,
+                    599
+                ],
+                "index": 2,
+                "html": "<table><tr><td>Label</td><td colspan=\"4\">RV</td><td colspan=\"4\">FAZ</td></tr><tr><td rowspan=\"2\">Method</td><td colspan=\"2\">OCTA-500(3M)</td><td colspan=\"2\">OCTA-500(6M)</td><td colspan=\"2\">OCTA-500(3M)</td><td colspan=\"2\">OCTA-500(6M)</td></tr><tr><td>Dice ↑</td><td>Jaccard ↑</td><td>Dice ↑</td><td>Jaccard ↑</td><td>Dice ↑</td><td>Jaccard ↑</td><td>Dice ↑</td><td>Jaccard ↑</td></tr><tr><td>U-Net (2015)</td><td>0.9068</td><td>0.8301</td><td>0.8876</td><td>0.7987</td><td>0.9747</td><td>0.9585</td><td>0.8770</td><td>0.8124</td></tr><tr><td>IPN (2020)</td><td>0.9062</td><td>0.8325</td><td>0.8864</td><td>0.7973</td><td>0.9505</td><td>0.9091</td><td>0.8802</td><td>0.7980</td></tr><tr><td>IPN V2+ (2020)</td><td>0.9274</td><td>0.8667</td><td>0.8941</td><td>0.8095</td><td>0.9755</td><td>0.9532</td><td>0.9084</td><td>0.8423</td></tr><tr><td>FARGO (2021)</td><td>0.9112</td><td>0.8374</td><td>0.8798</td><td>0.7864</td><td>0.9785</td><td>0.9587</td><td>0.8930</td><td>0.8355</td></tr><tr><td>Joint-Seg (2022)</td><td>0.9113</td><td>0.8378</td><td>0.8972</td><td>0.8117</td><td>0.9843</td><td>0.9693</td><td>0.9051</td><td>0.8424</td></tr><tr><td>SAM-OCTA (ours)</td><td>0.9199</td><td>0.8520</td><td>0.8869</td><td>0.7975</td><td>0.9838</td><td>0.9692</td><td>0.9073</td><td>0.8473</td></tr></table>"
+            },
+            {
+                "cls_id": 7,
+                "label": "figure_title",
+                "score": 0.9346,
+                "bbox": [
+                    152,
+                    678,
+                    824,
+                    711
+                ],
+                "index": 3
+            },
+            {
+                "cls_id": 21,
+                "label": "table",
+                "score": 0.9851,
+                "bbox": [
+                    155,
+                    711,
+                    818,
+                    1300
+                ],
+                "index": 4,
+                "html": "<table><tr><td colspan=\"2\">FoV</td><td colspan=\"2\">OCTA-500(3M)</td><td colspan=\"2\">OCTA-500(6M)</td></tr><tr><td colspan=\"2\">Prompts</td><td>X</td><td>V</td><td>X</td><td>V</td></tr><tr><td colspan=\"2\"></td><td colspan=\"4\">Global Mode</td></tr><tr><td rowspan=\"3\">RV</td><td>Dice ↑</td><td>0.9165</td><td>0.9199</td><td>0.8865</td><td>0.8869</td></tr><tr><td>Jaccard ↑</td><td>0.8431</td><td>0.8520</td><td>0.7955</td><td>0.7975</td></tr><tr><td>Dice ↑</td><td>0.9545</td><td>0.9838</td><td>0.8787</td><td>0.9073</td></tr><tr><td rowspan=\"2\">FAZ</td><td>Jaccard ↑</td><td>0.9345</td><td>0.9692</td><td>0.7991</td><td>0.8473</td></tr><tr><td>Dice ↑</td><td>0.8813</td><td>0.8785</td><td>0.8337</td><td>0.8379</td></tr><tr><td rowspan=\"2\">Capillary Artery</td><td>Jaccard ↑</td><td>0.7881</td><td>0.7837</td><td>0.7152</td><td>0.7213</td></tr><tr><td>Dice ↑</td><td>0.8342</td><td>0.8747</td><td>0.8352</td><td>0.8602</td></tr><tr><td rowspan=\"2\">Vein</td><td>Jaccard ↑</td><td>0.7528</td><td>0.7785</td><td>0.7325</td><td>0.7572</td></tr><tr><td>Dice ↑</td><td>0.8409</td><td>0.8817</td><td>0.8263</td><td>0.8526</td></tr><tr><td></td><td>Jaccard ↑</td><td>0.7463</td><td>0.7897</td><td>0.7168</td><td>0.7474</td></tr><tr><td rowspan=\"3\">Artery</td><td></td><td></td><td></td><td>Local Mode</td><td></td></tr><tr><td>Dice ↑</td><td>0.7393</td><td>0.8707</td><td>0.6865</td><td>0.7922</td></tr><tr><td>Jaccard ↑</td><td>0.6339</td><td>0.7792</td><td>0.5699</td><td>0.6851</td></tr><tr><td rowspan=\"2\">Vein</td><td>Dice ↑</td><td>0.7742</td><td>0.8352</td><td>0.7053</td><td>0.8167</td></tr><tr><td>Jaccard ↑</td><td>0.6658</td><td>0.7267</td><td>0.5823</td><td>0.7014</td></tr></table>"
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9882,
+                "bbox": [
+                    141,
+                    1365,
+                    835,
+                    1701
+                ],
+                "index": 5
+            },
+            {
+                "cls_id": 17,
+                "label": "paragraph_title",
+                "score": 0.9391,
+                "bbox": [
+                    370,
+                    1750,
+                    607,
+                    1783
+                ],
+                "index": 6
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9857,
+                "bbox": [
+                    141,
+                    1811,
+                    835,
+                    2014
+                ],
+                "index": 7
+            },
+            {
+                "cls_id": 14,
+                "label": "image",
+                "score": 0.968,
+                "bbox": [
+                    924,
+                    659,
+                    1503,
+                    1053
+                ],
+                "index": 8
+            },
+            {
+                "cls_id": 7,
+                "label": "figure_title",
+                "score": 0.9692,
+                "bbox": [
+                    867,
+                    1088,
+                    1556,
+                    1155
+                ],
+                "index": 9
+            },
+            {
+                "cls_id": 14,
+                "label": "image",
+                "score": 0.7166,
+                "bbox": [
+                    872,
+                    1175,
+                    1552,
+                    1480
+                ],
+                "index": 10
+            },
+            {
+                "cls_id": 7,
+                "label": "figure_title",
+                "score": 0.9785,
+                "bbox": [
+                    866,
+                    1509,
+                    1559,
+                    1713
+                ],
+                "index": 11
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9475,
+                "bbox": [
+                    867,
+                    1764,
+                    1354,
+                    1800
+                ],
+                "index": 12
+            },
+            {
+                "cls_id": 17,
+                "label": "paragraph_title",
+                "score": 0.9482,
+                "bbox": [
+                    869,
+                    1844,
+                    1195,
+                    1889
+                ],
+                "index": 13
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9752,
+                "bbox": [
+                    865,
+                    1908,
+                    1559,
+                    2009
+                ],
+                "index": 14
+            },
+            {
+                "cls_id": 16,
+                "label": "number",
+                "score": 0.91,
+                "bbox": [
+                    818,
+                    2058,
+                    882,
+                    2087
+                ],
+                "index": 15
+            },
+            {
+                "cls_id": 8,
+                "label": "footer",
+                "score": 0.9216,
+                "bbox": [
+                    219,
+                    2118,
+                    1471,
+                    2147
+                ],
+                "index": 16
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    254,
+                    224,
+                    1448,
+                    255
+                ],
+                "score": 0.999,
+                "text": "Table 1. RV and FAZ segmentation results on OCTA-500 (underscores indicate the top two highest values)."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    156,
+                    681,
+                    821,
+                    711
+                ],
+                "score": 0.995,
+                "text": "Table 2. The effect of prompt points on segmentation tasks."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    150,
+                    1369,
+                    828,
+                    1396
+                ],
+                "score": 0.995,
+                "text": "such as age, gender, and disease conditions, deep learning"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    149,
+                    1404,
+                    828,
+                    1430
+                ],
+                "score": 0.985,
+                "text": "methods often encounter segmentation disconnections or con-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    148,
+                    1435,
+                    829,
+                    1463
+                ],
+                "score": 0.993,
+                "text": "fusion in the AV segmentation task [22]. Without prompt"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    149,
+                    1470,
+                    827,
+                    1496
+                ],
+                "score": 0.993,
+                "text": "points, the OCTA-SAM is prone to confusion when an artery"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    151,
+                    1504,
+                    827,
+                    1527
+                ],
+                "score": 1.0,
+                "text": "and a vein are closed or overlapping. Table 2 reveals the sub-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    149,
+                    1536,
+                    830,
+                    1562
+                ],
+                "score": 0.998,
+                "text": "stantial metrics improvement with prompts. From Figure 5, it"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    148,
+                    1569,
+                    828,
+                    1596
+                ],
+                "score": 0.996,
+                "text": "can be seen that the introduced prompt points (especially the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    149,
+                    1603,
+                    829,
+                    1629
+                ],
+                "score": 0.998,
+                "text": "negative points on the vein when segmenting the artery) assist"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    149,
+                    1636,
+                    828,
+                    1662
+                ],
+                "score": 0.997,
+                "text": "the model in effectively distinguishing different types of ves-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    150,
+                    1670,
+                    819,
+                    1694
+                ],
+                "score": 0.994,
+                "text": "sels, thereby improving the artery-vein segmentation results."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    374,
+                    1756,
+                    602,
+                    1788
+                ],
+                "score": 0.989,
+                "text": "5. CONCLUSION"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    152,
+                    1817,
+                    827,
+                    1842
+                ],
+                "score": 0.999,
+                "text": "We propose a fine-tuning method for SAM for OCTA image"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    149,
+                    1849,
+                    829,
+                    1878
+                ],
+                "score": 0.999,
+                "text": "segmentation and design prompt point generation strategies as"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    148,
+                    1882,
+                    828,
+                    1909
+                ],
+                "score": 0.997,
+                "text": "global and local modes. It excels in both RV and FAZ tasks"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    150,
+                    1916,
+                    828,
+                    1944
+                ],
+                "score": 0.993,
+                "text": "while also firstly exploring and achieving good results in the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    151,
+                    1948,
+                    827,
+                    1974
+                ],
+                "score": 0.993,
+                "text": "AV segmentation task on the OCTA-500 dataset. This is ex-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    149,
+                    1984,
+                    827,
+                    2009
+                ],
+                "score": 0.997,
+                "text": "pected to assist in analyzing and diagnosing related diseases"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    872,
+                    1092,
+                    1554,
+                    1120
+                ],
+                "score": 0.999,
+                "text": "Fig. 4. Segmentation of RV, capillary, and FAZ. White arrows"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    873,
+                    1125,
+                    1506,
+                    1153
+                ],
+                "score": 0.989,
+                "text": "indicate the improvement area with added prompt points."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    873,
+                    1513,
+                    1553,
+                    1542
+                ],
+                "score": 0.995,
+                "text": "Fig. 5. The performance of SAM-OCTA on AV segmentation"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    873,
+                    1547,
+                    1552,
+                    1573
+                ],
+                "score": 0.991,
+                "text": "tasks. (a) Global mode; (b) Local mode. The red and blue"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    873,
+                    1580,
+                    1553,
+                    1608
+                ],
+                "score": 0.99,
+                "text": "vessels represent arteries and veins, respectively. Red dots"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    873,
+                    1614,
+                    1552,
+                    1639
+                ],
+                "score": 0.995,
+                "text": "indicate arteries, while cyan dots indicate veins. Yellow dots"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    872,
+                    1647,
+                    1553,
+                    1676
+                ],
+                "score": 0.999,
+                "text": "represent negative background prompt points. White arrows"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    871,
+                    1678,
+                    1508,
+                    1708
+                ],
+                "score": 0.99,
+                "text": "indicate areas of improvement with added prompt points."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    875,
+                    1770,
+                    1348,
+                    1796
+                ],
+                "score": 0.991,
+                "text": "with varying impacts on arteries and veins."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    872,
+                    1845,
+                    1192,
+                    1887
+                ],
+                "score": 0.965,
+                "text": "Acknowledgement"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    873,
+                    1911,
+                    1552,
+                    1942
+                ],
+                "score": 1.0,
+                "text": "This work is supported by the Chongqing Technology Innova-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    875,
+                    1947,
+                    1551,
+                    1972
+                ],
+                "score": 0.996,
+                "text": "tion & Application Development Key Project (cstc2020jscx;"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    874,
+                    1978,
+                    1302,
+                    2005
+                ],
+                "score": 1.0,
+                "text": "dxwtBX0055; cstb2022tiad-kpx0148)."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    819,
+                    2059,
+                    881,
+                    2094
+                ],
+                "score": 1.0,
+                "text": "1774"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    223,
+                    2118,
+                    1469,
+                    2147
+                ],
+                "score": 0.989,
+                "text": "Authorized licensed use limited to: Istanbul Bilgi University. Downloaded on July 24,2026 at 18:37:21 UTC from IEEE Xplore. Restrictions apply."
+            }
+        ],
+        "page_info": {
+            "page_no": 3,
+            "width": 1700,
+            "height": 2200
+        }
+    },
+    {
+        "layout_dets": [
+            {
+                "cls_id": 17,
+                "label": "paragraph_title",
+                "score": 0.9156,
+                "bbox": [
+                    382,
+                    205,
+                    595,
+                    233
+                ],
+                "index": 1
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9797,
+                "bbox": [
+                    159,
+                    261,
+                    831,
+                    442
+                ],
+                "index": 2
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9813,
+                "bbox": [
+                    159,
+                    453,
+                    832,
+                    632
+                ],
+                "index": 3
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9809,
+                "bbox": [
+                    159,
+                    645,
+                    832,
+                    795
+                ],
+                "index": 4
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9797,
+                "bbox": [
+                    159,
+                    807,
+                    832,
+                    929
+                ],
+                "index": 5
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9794,
+                "bbox": [
+                    159,
+                    940,
+                    830,
+                    1060
+                ],
+                "index": 6
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9751,
+                "bbox": [
+                    160,
+                    1070,
+                    832,
+                    1161
+                ],
+                "index": 7
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9811,
+                "bbox": [
+                    159,
+                    1171,
+                    832,
+                    1351
+                ],
+                "index": 8
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9781,
+                "bbox": [
+                    159,
+                    1363,
+                    832,
+                    1483
+                ],
+                "index": 9
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9809,
+                "bbox": [
+                    159,
+                    1495,
+                    832,
+                    1646
+                ],
+                "index": 10
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9793,
+                "bbox": [
+                    148,
+                    1656,
+                    832,
+                    1777
+                ],
+                "index": 11
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9812,
+                "bbox": [
+                    148,
+                    1788,
+                    832,
+                    1940
+                ],
+                "index": 12
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9669,
+                "bbox": [
+                    148,
+                    1949,
+                    832,
+                    2010
+                ],
+                "index": 13
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9722,
+                "bbox": [
+                    923,
+                    206,
+                    1556,
+                    294
+                ],
+                "index": 14
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9806,
+                "bbox": [
+                    871,
+                    307,
+                    1557,
+                    457
+                ],
+                "index": 15
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9764,
+                "bbox": [
+                    872,
+                    469,
+                    1557,
+                    561
+                ],
+                "index": 16
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9763,
+                "bbox": [
+                    872,
+                    574,
+                    1557,
+                    663
+                ],
+                "index": 17
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9798,
+                "bbox": [
+                    872,
+                    676,
+                    1556,
+                    796
+                ],
+                "index": 18
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9788,
+                "bbox": [
+                    872,
+                    808,
+                    1557,
+                    927
+                ],
+                "index": 19
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9787,
+                "bbox": [
+                    872,
+                    940,
+                    1557,
+                    1063
+                ],
+                "index": 20
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9784,
+                "bbox": [
+                    872,
+                    1074,
+                    1557,
+                    1196
+                ],
+                "index": 21
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9819,
+                "bbox": [
+                    873,
+                    1206,
+                    1558,
+                    1417
+                ],
+                "index": 22
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9804,
+                "bbox": [
+                    873,
+                    1431,
+                    1557,
+                    1580
+                ],
+                "index": 23
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9797,
+                "bbox": [
+                    873,
+                    1594,
+                    1557,
+                    1746
+                ],
+                "index": 24
+            },
+            {
+                "cls_id": 16,
+                "label": "number",
+                "score": 0.9118,
+                "bbox": [
+                    818,
+                    2059,
+                    881,
+                    2087
+                ],
+                "index": 25
+            },
+            {
+                "cls_id": 8,
+                "label": "footer",
+                "score": 0.9144,
+                "bbox": [
+                    219,
+                    2118,
+                    1471,
+                    2146
+                ],
+                "index": 26
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    388,
+                    211,
+                    588,
+                    232
+                ],
+                "score": 0.995,
+                "text": "6. REFERENCES"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    162,
+                    266,
+                    827,
+                    289
+                ],
+                "score": 0.981,
+                "text": "[1] Yufei Wang, Yiqing Shen, Meng Yuan, Jing Xu, Bin Yang,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    201,
+                    293,
+                    831,
+                    320
+                ],
+                "score": 0.977,
+                "text": "Chi Liu, Wenjia Cai, Weijing Cheng, and Wei Wang, “A"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    204,
+                    327,
+                    828,
+                    351
+                ],
+                "score": 0.994,
+                "text": "deep learning-based quality assessment and segmentation sys-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    203,
+                    356,
+                    829,
+                    380
+                ],
+                "score": 0.996,
+                "text": "tem with a large-scale benchmark dataset for optical co-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    203,
+                    389,
+                    829,
+                    412
+                ],
+                "score": 0.994,
+                "text": "herence tomographic angiography image,\" arXiv preprint"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    205,
+                    417,
+                    457,
+                    439
+                ],
+                "score": 0.979,
+                "text": "arXiv:2107.10476, 2021."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    162,
+                    457,
+                    829,
+                    481
+                ],
+                "score": 0.981,
+                "text": "[2] Zhijin Liang, Junkang Zhang, and Cheolhong An, \"Foveal"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    204,
+                    488,
+                    827,
+                    512
+                ],
+                "score": 0.994,
+                "text": "avascular zone segmentation of octa images using deep learn-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    203,
+                    517,
+                    831,
+                    543
+                ],
+                "score": 0.976,
+                "text": "ing approach with unsupervised vessel segmentation,\" in"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    203,
+                    546,
+                    828,
+                    573
+                ],
+                "score": 0.999,
+                "text": "ICASSP 2021-2021 IEEE International Conference on Acous-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    205,
+                    579,
+                    826,
+                    603
+                ],
+                "score": 0.997,
+                "text": "tics, Speech and Signal Processing (ICASSP). IEEE, 2021, pp."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    205,
+                    608,
+                    325,
+                    632
+                ],
+                "score": 0.972,
+                "text": "1200-1204."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    161,
+                    650,
+                    828,
+                    673
+                ],
+                "score": 0.996,
+                "text": "[3] Weisheng Li, Hongchuan Zhang, Feiyan Li, and Linhong"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    204,
+                    678,
+                    829,
+                    706
+                ],
+                "score": 0.982,
+                "text": "Wang, “Rps-net: An effective retinal image projection seg-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    203,
+                    709,
+                    829,
+                    734
+                ],
+                "score": 0.999,
+                "text": "mentation network for retinal vessels and foveal avascular zone"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    201,
+                    739,
+                    830,
+                    766
+                ],
+                "score": 0.987,
+                "text": "based on octa data,\" Medical Physics, vol. 49, no. 6, pp. 3830–"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    204,
+                    771,
+                    325,
+                    794
+                ],
+                "score": 0.997,
+                "text": "3844, 2022."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    161,
+                    812,
+                    828,
+                    835
+                ],
+                "score": 0.993,
+                "text": "[4] Chunhui Zhang, Li Liu, Yawen Cui, Guanjie Huang, Weilin"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    203,
+                    842,
+                    828,
+                    866
+                ],
+                "score": 0.991,
+                "text": "Lin, Yiqian Yang, and Yuehong Hu, “A comprehensive sur-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    205,
+                    873,
+                    829,
+                    897
+                ],
+                "score": 0.994,
+                "text": "vey on segment anything model for vision and beyond,\" arXiv"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    203,
+                    904,
+                    544,
+                    925
+                ],
+                "score": 0.998,
+                "text": "preprint arXiv:2305.08196, 2023."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    161,
+                    943,
+                    828,
+                    967
+                ],
+                "score": 0.987,
+                "text": "[5] Alexander Kirillov, Eric Mintun, Nikhila Ravi, Hanzi Mao,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    204,
+                    973,
+                    828,
+                    996
+                ],
+                "score": 0.986,
+                "text": "Chloe Rolland, Laura Gustafson, Tete Xiao, Spencer White-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    201,
+                    1002,
+                    829,
+                    1029
+                ],
+                "score": 0.983,
+                "text": "head, Alexander C Berg, Wan-Yen Lo, et al., “Segment any-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    204,
+                    1033,
+                    680,
+                    1057
+                ],
+                "score": 0.989,
+                "text": "thing,\" arXiv preprint arXiv:2304.02643, 2023."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    162,
+                    1075,
+                    829,
+                    1099
+                ],
+                "score": 0.99,
+                "text": "[6] Yichi Zhang and Rushi Jiao, \"How segment anything model"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    204,
+                    1105,
+                    829,
+                    1128
+                ],
+                "score": 0.99,
+                "text": "(sam) boost medical image segmentation?,\" arXiv preprint"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    206,
+                    1136,
+                    455,
+                    1156
+                ],
+                "score": 0.985,
+                "text": "arXiv:2305.03678, 2023."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    162,
+                    1175,
+                    829,
+                    1199
+                ],
+                "score": 0.999,
+                "text": "[7] Alexey Dosovitskiy, Lucas Beyer, Alexander Kolesnikov, Dirk"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    205,
+                    1204,
+                    829,
+                    1228
+                ],
+                "score": 0.991,
+                "text": "Weissenborn, Xiaohua Zhai, Thomas Unterthiner, Mostafa De-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    204,
+                    1237,
+                    828,
+                    1260
+                ],
+                "score": 0.989,
+                "text": "hghani, Matthias Minderer, Georg Heigold, Sylvain Gelly,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    204,
+                    1266,
+                    829,
+                    1289
+                ],
+                "score": 0.975,
+                "text": "et al., “An image is worth 16x16 words: Transformers for"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    204,
+                    1298,
+                    828,
+                    1321
+                ],
+                "score": 0.997,
+                "text": "image recognition at scale,\" arXiv preprint arXiv:2010.11929,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    202,
+                    1325,
+                    264,
+                    1350
+                ],
+                "score": 1.0,
+                "text": "2020."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    161,
+                    1366,
+                    830,
+                    1393
+                ],
+                "score": 0.992,
+                "text": "[8] Zidi Shi, Yu Li, Hua Zou, and Xuedong Zhang, “Tcu-net:"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    205,
+                    1398,
+                    829,
+                    1422
+                ],
+                "score": 0.998,
+                "text": "Transformer embedded in convolutional u-shaped network for"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    203,
+                    1429,
+                    828,
+                    1452
+                ],
+                "score": 0.986,
+                "text": "retinal vessel segmentation,\" Sensors, vol. 23, no. 10, pp. 4897,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    202,
+                    1457,
+                    265,
+                    1483
+                ],
+                "score": 1.0,
+                "text": "2023."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    160,
+                    1497,
+                    829,
+                    1524
+                ],
+                "score": 0.995,
+                "text": "[9] Xiao Tan, Xinjian Chen, Qingquan Meng, Fei Shi, Dehui"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    204,
+                    1529,
+                    828,
+                    1553
+                ],
+                "score": 0.989,
+                "text": "Xiang, Zhongyue Chen, Lingjiao Pan, and Weifang Zhu,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    204,
+                    1558,
+                    829,
+                    1586
+                ],
+                "score": 0.991,
+                "text": "\"Oct2former: A retinal oct-angiography vessel segmenta-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    203,
+                    1588,
+                    830,
+                    1616
+                ],
+                "score": 0.992,
+                "text": "tion transformer,\" Computer Methods and Programs in"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    205,
+                    1621,
+                    618,
+                    1644
+                ],
+                "score": 0.997,
+                "text": "Biomedicine, vol. 233, pp. 107454, 2023."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    147,
+                    1658,
+                    828,
+                    1686
+                ],
+                "score": 0.997,
+                "text": "[10] Yuhui Ma, Qifeng Yan, Yonghuai Liu, Jiang Liu, Jiong Zhang,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    203,
+                    1689,
+                    828,
+                    1717
+                ],
+                "score": 0.979,
+                "text": "and Yitian Zhao, “Strunet: Perceptual and low-rank regu-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    204,
+                    1721,
+                    829,
+                    1745
+                ],
+                "score": 0.997,
+                "text": "larized transformer for medical image denoising,\" Medical"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    204,
+                    1752,
+                    351,
+                    1776
+                ],
+                "score": 1.0,
+                "text": "Physics, 2023."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    147,
+                    1790,
+                    829,
+                    1818
+                ],
+                "score": 0.988,
+                "text": "[11] Chengliang Wang, Haojian Ning, Xinrun Chen, and Shiying"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    203,
+                    1822,
+                    829,
+                    1845
+                ],
+                "score": 0.977,
+                "text": "Li, \"Db-unet: Mlp based dual branch unet for accurate ves-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    205,
+                    1853,
+                    829,
+                    1877
+                ],
+                "score": 0.985,
+                "text": "sel segmentation in octa images,\" in ICASSP 2023-2023 IEEE"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    204,
+                    1883,
+                    827,
+                    1906
+                ],
+                "score": 0.989,
+                "text": "International Conference on Acoustics, Speech and Signal Pro-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    205,
+                    1914,
+                    605,
+                    1938
+                ],
+                "score": 0.997,
+                "text": "cessing (ICASSP). IEEE, 2023, pp. 1–5."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    149,
+                    1954,
+                    828,
+                    1977
+                ],
+                "score": 0.996,
+                "text": "[12] Mingchao Li, Yerui Chen, Zexuan Ji, Keren Xie, Songtao"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    204,
+                    1981,
+                    829,
+                    2010
+                ],
+                "score": 0.993,
+                "text": "Yuan, Qiang Chen, and Shuo Li, \"Image projection network:"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    930,
+                    210,
+                    1552,
+                    233
+                ],
+                "score": 0.999,
+                "text": "3d to 2d image segmentation in octa images,\" IEEE Trans-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    929,
+                    239,
+                    1552,
+                    263
+                ],
+                "score": 0.996,
+                "text": "actions on Medical Imaging, vol. 39, no. 11, pp. 3343–3354,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    927,
+                    269,
+                    990,
+                    294
+                ],
+                "score": 1.0,
+                "text": "2020."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    874,
+                    312,
+                    1553,
+                    335
+                ],
+                "score": 0.996,
+                "text": "[13] Chengzhang Zhu, Han Wang, Yalong Xiao, Yulan Dai, Zixi"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    928,
+                    342,
+                    1553,
+                    365
+                ],
+                "score": 0.984,
+                "text": "Liu, and Beiji Zou, “Ovs-net: An effective feature extraction"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    926,
+                    370,
+                    1554,
+                    398
+                ],
+                "score": 0.997,
+                "text": "network for optical coherence tomography angiography vessel"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    929,
+                    403,
+                    1552,
+                    426
+                ],
+                "score": 0.992,
+                "text": "segmentation,\" Computer Animation and Virtual Worlds, vol."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    929,
+                    433,
+                    1217,
+                    456
+                ],
+                "score": 0.996,
+                "text": "33, no. 3-4, pp. e2096, 2022."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    874,
+                    475,
+                    1554,
+                    499
+                ],
+                "score": 0.985,
+                "text": "[14] Ziping Ma, Dongxiu Feng, Jingyu Wang, and Hu Ma, \"Retinal"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    929,
+                    505,
+                    1552,
+                    528
+                ],
+                "score": 0.996,
+                "text": "octa image segmentation based on global contrastive learning,\""
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    928,
+                    534,
+                    1331,
+                    559
+                ],
+                "score": 0.968,
+                "text": "Sensors, vol. 22, no. 24, pp. 9847, 2022."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    872,
+                    575,
+                    1553,
+                    603
+                ],
+                "score": 0.988,
+                "text": "[15] Kaidong Zhang and Dong Liu, “Customized segment any-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    929,
+                    608,
+                    1554,
+                    631
+                ],
+                "score": 0.993,
+                "text": "thing model for medical image segmentation,\" arXiv preprint"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    930,
+                    637,
+                    1180,
+                    660
+                ],
+                "score": 0.997,
+                "text": "arXiv:2304.13785, 2023."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    873,
+                    679,
+                    1552,
+                    706
+                ],
+                "score": 0.985,
+                "text": "[16] Junde Wu, Rao Fu, Huihui Fang, Yuanpei Liu, Zhaowei Wang,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    930,
+                    710,
+                    1552,
+                    734
+                ],
+                "score": 0.979,
+                "text": "Yanwu Xu, Yueming Jin, and Tal Arbel, \"Medical sam adapter:"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    929,
+                    740,
+                    1553,
+                    766
+                ],
+                "score": 1.0,
+                "text": "Adapting segment anything model for medical image segmen-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    929,
+                    770,
+                    1411,
+                    794
+                ],
+                "score": 0.997,
+                "text": "tation,\"arXiv preprint arXiv:2304.12620, 2023."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    874,
+                    813,
+                    1552,
+                    836
+                ],
+                "score": 0.984,
+                "text": "[17] Edward J Hu, Yelong Shen, Phillip Wallis, Zeyuan Allen-Zhu,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    929,
+                    841,
+                    1552,
+                    866
+                ],
+                "score": 0.994,
+                "text": "Yuanzhi Li, Shean Wang, Lu Wang, and Weizhu Chen, \"Lora:"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    928,
+                    873,
+                    1553,
+                    897
+                ],
+                "score": 0.99,
+                "text": "Low-rank adaptation of large language models,\" arXiv preprint"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    930,
+                    905,
+                    1180,
+                    924
+                ],
+                "score": 0.994,
+                "text": "arXiv:2106.09685, 2021."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    874,
+                    946,
+                    1553,
+                    970
+                ],
+                "score": 0.999,
+                "text": "[18] Mingchao Li, Yuhan Zhang, Zexuan Ji, Keren Xie, Songtao"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    930,
+                    976,
+                    1552,
+                    1000
+                ],
+                "score": 0.982,
+                "text": "Yuan, Qinghuai Liu, and Qiang Chen, \"Ipn-v2 and octa-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    929,
+                    1006,
+                    1548,
+                    1030
+                ],
+                "score": 0.988,
+                "text": "500: Methodology and dataset for retinal image segmentation,'"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    928,
+                    1036,
+                    1328,
+                    1059
+                ],
+                "score": 0.994,
+                "text": "arXiv preprint arXiv:2012.07261, 2020."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    874,
+                    1079,
+                    1552,
+                    1101
+                ],
+                "score": 0.99,
+                "text": "[19] Alexander Buslaev, Vladimir I. Iglovikov, Eugene Khved-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    928,
+                    1108,
+                    1552,
+                    1131
+                ],
+                "score": 0.995,
+                "text": "chenya, Alex Parinov, Mikhail Druzhinin, and Alexandr A."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    928,
+                    1138,
+                    1552,
+                    1163
+                ],
+                "score": 0.985,
+                "text": "Kalinin, “Albumentations: Fast and flexible image augmen-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    929,
+                    1170,
+                    1352,
+                    1192
+                ],
+                "score": 0.995,
+                "text": "tations,\" Information, vol. 11, no. 2, 2020."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    873,
+                    1208,
+                    1552,
+                    1236
+                ],
+                "score": 0.985,
+                "text": "[20] Suprosanna Shit, Johannes C Paetzold, Anjany Sekuboyina,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    928,
+                    1242,
+                    1551,
+                    1265
+                ],
+                "score": 0.999,
+                "text": "Ivan Ezhov, Alexander Unger, Andrey Zhylka, Josien PW"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    928,
+                    1271,
+                    1553,
+                    1294
+                ],
+                "score": 0.974,
+                "text": "Pluim, Ulrich Bauer, and Bjoern H Menze, \"cldice-a novel"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    928,
+                    1302,
+                    1553,
+                    1328
+                ],
+                "score": 1.0,
+                "text": "topology-preserving loss function for tubular structure seg-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    929,
+                    1333,
+                    1553,
+                    1356
+                ],
+                "score": 0.984,
+                "text": "mentation,\" in Proceedings of the IEEE/CVF Conference on"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    929,
+                    1363,
+                    1554,
+                    1389
+                ],
+                "score": 0.997,
+                "text": "Computer Vision and Pattern Recognition, 2021, pp. 16560–"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    928,
+                    1392,
+                    1002,
+                    1416
+                ],
+                "score": 0.997,
+                "text": "16569."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    874,
+                    1435,
+                    1552,
+                    1459
+                ],
+                "score": 0.992,
+                "text": "[21] Kai Hu, Shuai Jiang, Yuan Zhang, Xuanya Li, and Xieping"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    928,
+                    1466,
+                    1554,
+                    1488
+                ],
+                "score": 0.988,
+                "text": "Gao, “Joint-seg: Treat foveal avascular zone and retinal vessel"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    929,
+                    1497,
+                    1553,
+                    1520
+                ],
+                "score": 0.992,
+                "text": "segmentation in octa images as a joint task,\" IEEE Transac-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    927,
+                    1526,
+                    1552,
+                    1550
+                ],
+                "score": 0.984,
+                "text": "tions on Instrumentation and Measurement, vol. 71, pp. 1–13,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    926,
+                    1553,
+                    988,
+                    1578
+                ],
+                "score": 1.0,
+                "text": "2022."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    872,
+                    1596,
+                    1554,
+                    1624
+                ],
+                "score": 0.986,
+                "text": "[22] Xiayu Xu, Peiwei Yang, Hualin Wang, Zhanfeng Xiao, Gang"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    928,
+                    1628,
+                    1552,
+                    1651
+                ],
+                "score": 0.999,
+                "text": "Xing, Xiulan Zhang, Wei Wang, Feng Xu, Jiong Zhang, and"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    928,
+                    1659,
+                    1552,
+                    1684
+                ],
+                "score": 0.995,
+                "text": "Jianqin Lei, “Av-casnet: Fully automatic arteriole-venule seg-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    927,
+                    1687,
+                    1553,
+                    1715
+                ],
+                "score": 0.983,
+                "text": "mentation and differentiation in oct angiography,\" IEEE Trans-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    929,
+                    1720,
+                    1552,
+                    1744
+                ],
+                "score": 0.999,
+                "text": "actions on Medical Imaging, vol. 42, no. 2, pp. 481–492, 2022."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    820,
+                    2061,
+                    879,
+                    2092
+                ],
+                "score": 1.0,
+                "text": "1775"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    224,
+                    2120,
+                    1468,
+                    2145
+                ],
+                "score": 0.993,
+                "text": "Authorized licensed use limited to: Istanbul Bilgi University. Downloaded on July 24,2026 at 18:37:21 UTC from IEEE Xplore. Restrictions apply."
+            }
+        ],
+        "page_info": {
+            "page_no": 4,
+            "width": 1700,
+            "height": 2200
+        }
+    }
+]

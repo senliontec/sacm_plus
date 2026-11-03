@@ -1,0 +1,3263 @@
+[
+    [
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "Dual-level Adapter Boosting Prompt-free Curvilinear Structure Segmentation"
+                    }
+                ],
+                "level": 1
+            },
+            "bbox": [
+                104,
+                128,
+                890,
+                152
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Kai Zhu1,2 Li Chen1,2, Jun Cheng³"
+                    }
+                ]
+            },
+            "bbox": [
+                364,
+                180,
+                692,
+                198
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "1School of Computer Science and Technology, Wuhan University of Science and Technology, Wuhan, China 2Hubei Province Key Laboratory of Intelligent Information Processing and Real-time Industrial System, Wuhan University of Science and Technology, Wuhan, China 3Institute for Infocomm Research (I2R), A*STAR, Singapore"
+                    }
+                ]
+            },
+            "bbox": [
+                101,
+                198,
+                955,
+                268
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "kylechuzk@gmail.comchenli@wust.edu.cnjuncheng@ieee.org"
+                    }
+                ]
+            },
+            "bbox": [
+                261,
+                272,
+                790,
+                286
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "Abstract"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                248,
+                320,
+                328,
+                338
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Curvilinear structure segmentation is essential in domains such as medical imaging, remote sensing, and materials science. Existing methods often require extensive domainspecific training and lack generalization to novel domains. To overcome these limitations, we propose the Segment Anything Curve Model (SACM) — a universal framework for curvilinear structure segmentation built upon the pretrained Segment Anything Model (SAM). SACM introduces a duallevel adapter architecture that enables both fine-grained local adaptation and robust cross-domain generalization: block-level internal adapters refine local structural representations, while external adapters facilitate cross-domain feature alignment. Specifically, the internal adapters are embedded within each Transformer block to locally adapt and refine features for thin and intricate curvilinear patterns, while the external adapters operate across blocks to capture global, multi-layer contextual information and facilitate domain adaptation. Furthermore, SACM introduces a feature fusion mechanism that aggregates multi-layer features from all external adapters via a feed-forward network module, and a dual-stage refnement process in the mask decoder to enhance topology and connectivity. This design enables prompt-free, data-efficient fine-tuning and achieves robust cross-domain generalization when trained with only 18 annotated images. Extensive experiments across twelve diverse curvilinear datasets validate that SACM achieves state-of-the-art performance. The code is available at https://github.com/kylechuuuuu/SACM."
+                    }
+                ]
+            },
+            "bbox": [
+                89,
+                353,
+                485,
+                776
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "1. Introduction"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                89,
+                805,
+                223,
+                821
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Curvilinear structures, such as vascular networks, neural pathways, and road systems, form the essential skeletons of objects across a vast spectrum of scientific and engineering domains [17]. Their accurate and automated segmentation is not merely a technical task but a critical enabler for fundamental applications, from quantifying neuronal degradation in neurodegenerative diseases [5] and monitoring infrastructural integrity [39] to analyzing root system architectures for crop improvement [13]. However, the manual delineation of these intricate patterns is notoriously laborious and unscalable, creating a significant bottleneck that impedes large-scale quantitative analysis and the deployment of high-throughput systems. This underscores a compelling and persistent need for automated segmentation methods that are not only precise but also robust and generalizable across diverse real-world scenarios."
+                    }
+                ]
+            },
+            "bbox": [
+                89,
+                830,
+                485,
+                878
+            ]
+        },
+        {
+            "type": "image",
+            "content": {
+                "image_source": {
+                    "path": "images/13569248acceef24017d8990f68a7c5d35f273a8db14cb2f019695910774702b.jpg"
+                },
+                "image_caption": [
+                    {
+                        "type": "text",
+                        "content": "(a)Wire"
+                    }
+                ],
+                "image_footnote": []
+            },
+            "bbox": [
+                539,
+                321,
+                707,
+                386
+            ]
+        },
+        {
+            "type": "image",
+            "content": {
+                "image_source": {
+                    "path": "images/59ca2bf2b3debd80e519ff7fe4e6774554d9187b81b842db05a45bd95edea55d.jpg"
+                },
+                "image_caption": [
+                    {
+                        "type": "text",
+                        "content": "(b)Tyre"
+                    }
+                ],
+                "image_footnote": []
+            },
+            "bbox": [
+                715,
+                321,
+                882,
+                386
+            ]
+        },
+        {
+            "type": "image",
+            "content": {
+                "image_source": {
+                    "path": "images/cc386ec4db53b96e0b168a782a5a7e8b19785b397f084ff29887f79cf67e2a4a.jpg"
+                },
+                "image_caption": [
+                    {
+                        "type": "text",
+                        "content": "(c)Road"
+                    }
+                ],
+                "image_footnote": []
+            },
+            "bbox": [
+                539,
+                405,
+                707,
+                469
+            ]
+        },
+        {
+            "type": "image",
+            "content": {
+                "image_source": {
+                    "path": "images/230f6dfd9dd113f5c4f5e99f26cf076e709fdbca1d02458f5bd494b30766b240.jpg"
+                },
+                "image_caption": [
+                    {
+                        "type": "text",
+                        "content": "(d)Vessel"
+                    },
+                    {
+                        "type": "text",
+                        "content": "Figure 1. Segmentation results across four diverse domains using SACM. These results demonstrate the model's superior generalization in extracting complex curvilinear structures, including wire networks, tyre tread, remote sensing roads, and retinal vessels."
+                    }
+                ],
+                "image_footnote": []
+            },
+            "bbox": [
+                715,
+                406,
+                880,
+                469
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": []
+            },
+            "bbox": [
+                511,
+                568,
+                908,
+                765
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Curvilinear Structure Segmentation (CSS) presents a formidable challenge rooted in a fundamental dichotomy: the need to reconcile local, fine-grained feature fidelity with global, long-range topological coherence. On one hand, these structures are defined by subtle local characteristics, such as faint boundaries, heterogeneous intensity profiles, and rapidly varying widths, which are often corrupted by noise or occluded by surrounding tissues [25, 28]. This demands a model with high sensitivity to low-level details."
+                    }
+                ]
+            },
+            "bbox": [
+                511,
+                765,
+                908,
+                901
+            ]
+        },
+        {
+            "type": "page_header",
+            "content": {
+                "page_header_content": [
+                    {
+                        "type": "text",
+                        "content": "CvF"
+                    }
+                ]
+            },
+            "bbox": [
+                106,
+                2,
+                181,
+                41
+            ]
+        },
+        {
+            "type": "page_header",
+            "content": {
+                "page_header_content": [
+                    {
+                        "type": "text",
+                        "content": "This CVPR paper is the Open Access version, provided by the Computer Vision Foundation. Except for this watermark, it is identical to the accepted version; the final published version of the proceedings is available on IEEE Xplore."
+                    }
+                ]
+            },
+            "bbox": [
+                210,
+                0,
+                784,
+                46
+            ]
+        },
+        {
+            "type": "page_footnote",
+            "content": {
+                "page_footnote_content": [
+                    {
+                        "type": "text",
+                        "content": " Corresponding author."
+                    }
+                ]
+            },
+            "bbox": [
+                112,
+                886,
+                250,
+                901
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "36300"
+                    }
+                ]
+            },
+            "bbox": [
+                478,
+                944,
+                519,
+                957
+            ]
+        }
+    ],
+    [
+        {
+            "type": "image",
+            "content": {
+                "image_source": {
+                    "path": "images/3792483cd1e0076f72389d0ebac384bea4163f68e6194c36f1bdade453cf7e5f.jpg"
+                },
+                "image_caption": [
+                    {
+                        "type": "text",
+                        "content": "Figure 2. Structure of different SAM-based adapter mechanisms: (a) ViT Block in SAM without adaptation, (b) Medical Image Adapter [4] with internal-only adaptation, and (c) Our dual-level adapter architecture with both block internal and external adapter."
+                    }
+                ],
+                "image_footnote": []
+            },
+            "bbox": [
+                116,
+                87,
+                457,
+                194
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "On the other hand, these structures are defined by their continuity, elongation, and branching topology, necessitating the preservation of global structural connectivity across extended regions. Many established CSS methods, from classic filter-based approaches to modern deep convolutional networks [15, 22, 43], often excel at one aspect at the expense of another. They tend to produce fragmented segments in low-contrast regions or lose fine details, thereby failing to maintain topological integrity. Furthermore, their heavy reliance on large, domain-specific annotated datasets severely limits their cross-domain generalization, as models trained on retinal vessels, for example, typically fail to segment satellite road imagery, hindering their practical utility."
+                    }
+                ]
+            },
+            "bbox": [
+                88,
+                281,
+                485,
+                478
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "The recent advent of large-scale foundation models, particularly the SAM [12], has marked a paradigm shift in computer vision, demonstrating unprecedented zero-shot generalization capabilities. However, these models were primarily designed for generic object segmentation and harbor intrinsic architectural biases that render them suboptimal for the unique geometric properties of curvilinear structures. A direct application is fundamentally challenged: (1) The prompting mechanism is ill-posed for CSS. The dense, tortuous, and interconnected nature of curvilinear networks makes discrete point- or box-based prompting impractical and inefficient for achieving complete segmentation. (2) Existing adaptation strategies are insufficient. Current fine-tuning or adapter-based methods [3, 4, 18, 24] typically insert lightweight modules into the MLP layers of the Transformer blocks (as shown in Fig. 2(b)). This single-level adaptation primarily refines block-level local features, while neglecting the global structural modeling mechanism itself. Consequently, it fails to explicitly enhance the model's capacity for capturing long-range spatial dependencies that are essential for maintaining the continuity of curved global structures. This architectural limitation restricts their ability to effectively model global topology and transfer structural knowledge across disparate domains."
+                    }
+                ]
+            },
+            "bbox": [
+                88,
+                478,
+                485,
+                840
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "To address the limitations of adapting generic vision foundation models for CSS, we propose SACM, a universal framework built upon the pre-trained SAM. Fig. 1 demonstrates SACM's superior segmentation results across diverse domains. Our approach introduces a novel Dual-Level Adapter (DLAda) architecture (as shown in Fig. 2(c)), designed to enhance both fine-grained local adaptation and robust global context refinement. Complementing this, we develop a Prompt-Free Adapter-Fusion Decoder (PFAF-D) that integrates multi-layer features and employs a dual-stage refinement process to generate precise and topologically coherent segmentation masks. This synergistic design forms our contributions, which are summarized as follows:"
+                    }
+                ]
+            },
+            "bbox": [
+                89,
+                840,
+                485,
+                901
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": []
+            },
+            "bbox": [
+                511,
+                92,
+                906,
+                227
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "• We propose SACM, a universal, prompt-free framework for curvilinear structure segmentation built on the pretrained SAM, enabling direct mask prediction without user prompts, requiring only a few-shot training set for fine-tuning, and robust cross-domain generalization."
+                    }
+                ]
+            },
+            "bbox": [
+                513,
+                229,
+                906,
+                305
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "• We introduce a dual-level adapter architecture comprising: (1) block-internal adapters in each Transformer MLP path for fine-grained local feature tuning, and (2) blockexternal adapters between Transformer blocks for global, multi-layer feature injection. (3) An Adapter Fusion module aggregates multi-layer features from all external adapters and injects them into the mask decoder to enable prompt-free segmentation. The decoder then employs a two-stage refinement process to enhance segmentation accuracy and topological connectivity."
+                    }
+                ]
+            },
+            "bbox": [
+                513,
+                305,
+                908,
+                457
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "• Extensive experiments demonstrate that SACM consistently outperforms state-of-the-art baselines across twelve curvilinear datasets, achieving strong crossdomain generalization with only few-shot training data, highlighting its practical utility for data-scarce scenarios."
+                    }
+                ]
+            },
+            "bbox": [
+                513,
+                457,
+                908,
+                534
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "2. Related Work"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                513,
+                549,
+                656,
+                565
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "2.1. Curvilinear Structure Segmentation"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                513,
+                574,
+                828,
+                590
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Curvilinear segmentation targets thin, elongated structures. U-Net [25] established the baseline; subsequent CNN improvements include residual blocks [1], multiscale aggregation [14], attention modules [27], and deformable or dilated convolutions [47]. However, CNNs often produce fragmented outputs and rely on costly postprocessing. Recent architectures emphasize global context and long-range dependencies: hybrid Transformer designs (e.g., TSNet [46]), state-space models with edge enhancement (MambaVesselNet [16]), semi-supervised Transformer methods for low-data regimes (EXP-Net [26]), and context-distillation decoders (FCoDT-Net [42])."
+                    }
+                ]
+            },
+            "bbox": [
+                511,
+                597,
+                908,
+                779
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "2.2. SAM-based Semantic Segmentation"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                513,
+                787,
+                826,
+                804
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Foundation models shifted segmentation toward promptdriven, general-purpose frameworks. The SAM [12] enables zero-shot, promptable masks and has inspired three adaptation paths: (1) domain transfer via fine-tuning or adapters (SAM-Med2D [4], CWSAM [24]); (2) prompt and output refinement to improve boundary quality (HQ-"
+                    }
+                ]
+            },
+            "bbox": [
+                511,
+                810,
+                908,
+                902
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "36301"
+                    }
+                ]
+            },
+            "bbox": [
+                478,
+                944,
+                519,
+                957
+            ]
+        }
+    ],
+    [
+        {
+            "type": "image",
+            "content": {
+                "image_source": {
+                    "path": "images/b3908b120198c42835700bcb4b5000b83dcad09e84a0251fd594f5e86158969f.jpg"
+                },
+                "image_caption": [
+                    {
+                        "type": "text",
+                        "content": "Figure 3. Overview of the SACM framework. SACM leverages the pretrained SAM as the foundation model, enhanced with dual-level adapter fine-tuning. Multi-layer features from external adapters are aggregated and integrated into the mask decoder via a dual-stage refinement mechanism to improve curvilinear structure segmentation."
+                    }
+                ],
+                "image_footnote": []
+            },
+            "bbox": [
+                151,
+                92,
+                844,
+                361
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "SAM [11]); and (3) structure-aware prompting for geometrically constrained targets (e.g., SAM-OCTA [33])."
+                    }
+                ]
+            },
+            "bbox": [
+                89,
+                435,
+                482,
+                467
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "2.3. Adapter-Based Fine-tuning"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                89,
+                474,
+                338,
+                491
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Adapters provide parameter-efficient adaptation by freezing most pretrained weights and training small modules [3, 24, 37]. Originating in NLP [6, 8], adapters are effective across vision tasks [7, 34, 38] and help reduce memory and compute during transfer [32, 44]. However, by inserting adapters only locally within Transformer blocks, these methods lack a mechanism for global, multi-scale feature aggregation. This architectural limitation makes them inherently unsuitable for curvilinear segmentation, which demands long-range spatial dependency modeling to maintain topological continuity."
+                    }
+                ]
+            },
+            "bbox": [
+                88,
+                497,
+                485,
+                665
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "3. Methodology"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                89,
+                676,
+                225,
+                694
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "This section provides a detailed description of SACM, our prompt-free framework for CSS, built upon a frozen SAM image encoder. SACM's architecture is centered around two key components: (1) DLAda for both local and global feature adaptation within the encoder, and (2) PFAF-D for multi-layer features fusion and dual-stage mask refinement. The overall pipeline is illustrated in Fig. 3, with each component elaborated in the subsequent subsections."
+                    }
+                ]
+            },
+            "bbox": [
+                89,
+                702,
+                485,
+                824
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "3.1. Dual-Level Adapter Architecture"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                89,
+                833,
+                383,
+                848
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "The DLAda architecture is the core component enabling parameter-efficient fine-tuning and robust domain generalization for curvilinear structures. As demonstrated in Fig. 3, it is strategically integrated into every Transformer block across the depth of the frozen SAM image encoder. This design achieves feature adaptation across multiple granularities while effectively preserving the knowledge encoded within the pretrained foundation model backbone. The DLAda architecture comprises two distinct, yet complementary, components that collaboratively address the challenge of fine-grained local feature discrimination and global topological coherence: the block-internal adapter (Adapter-I) and the block-external adapter (Adapter-E)."
+                    }
+                ]
+            },
+            "bbox": [
+                89,
+                854,
+                483,
+                901
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": []
+            },
+            "bbox": [
+                511,
+                434,
+                908,
+                587
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "3.1.1. Block-Internal Adapter"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                513,
+                594,
+                725,
+                609
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "The block-internal adapter is designed for fine-grained local feature adaptation within the transformer block, focusing on refining feature representations crucial for distinguishing thin structures from the complex background. Following established parameter-efficient fine-tuning methodologies, Adapter-I is embedded within the residual pathway of the MLP sub-module of the l-th Transformer block."
+                    }
+                ]
+            },
+            "bbox": [
+                511,
+                614,
+                906,
+                719
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Concretely, let "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathbf { X } ^ { ( l ) } \\in \\mathbb { R } ^ { N \\times D }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "be the input sequence to block l (where N is the sequence length and D the embedding dimension). The internal adapter is a token-wise bottleneck module:"
+                    }
+                ]
+            },
+            "bbox": [
+                511,
+                720,
+                906,
+                781
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "\\mathrm { A d a p t e r } \\bar { t } ( { \\bf X } ) = \\mathcal { G } \\big ( { \\bf X } { \\bf W } _ { \\downarrow } ^ { I } \\big ) { \\bf W } _ { \\uparrow } ^ { I } ,\\tag{1}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/c8e43052a5c093d31a0208ab21a1a349d547ece494949de651c2fa000c81d3e9.jpg"
+                }
+            },
+            "bbox": [
+                594,
+                792,
+                823,
+                811
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "where "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathbf { W } _ { \\downarrow } ^ { I } \\in \\mathbb { R } ^ { D \\times r }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "and "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathbf { W } _ { \\mathrm { \\uparrow } } ^ { I } \\in \\mathbb { R } ^ { r \\times D }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "are the down-/upprojection matrices, r is the bottleneck ratio, and G denotes GELU activation. This per-token design keeps the adapter's Jacobian block-diagonal across tokens, concentrating updates on channel-wise, local refinements."
+                    }
+                ]
+            },
+            "bbox": [
+                511,
+                823,
+                906,
+                901
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "36302"
+                    }
+                ]
+            },
+            "bbox": [
+                478,
+                944,
+                519,
+                957
+            ]
+        }
+    ],
+    [
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "The MLP output augmented by the internal adapter is incorporated via the residual connection:"
+                    }
+                ]
+            },
+            "bbox": [
+                89,
+                90,
+                483,
+                122
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "{ \\bf H } _ { \\mathrm { o u t } } ^ { I } = \\mathrm { M L P } \\big ( \\mathrm { L N } ( { \\bf Y } ) \\big ) + { \\bf Y } + \\mathrm { A d a p t e r } { \\cal I } \\big ( \\mathrm { L N } ( { \\bf Y } ) \\big ) ,\\tag{2}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/dd5e53803a5f6588ba494c716fb1e64fc50eed42ffd6786d8ebb1b86225e2d09.jpg"
+                }
+            },
+            "bbox": [
+                98,
+                128,
+                452,
+                147
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "where Y is the feature sequence after the MSA, and LN denotes LayerNorm. Embedding Adapter-I in the MLP path emphasizes local discriminative features (e.g., thin edges, fine vessel details) while preserving the pretrained transformer's global structure."
+                    }
+                ]
+            },
+            "bbox": [
+                89,
+                154,
+                483,
+                229
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "3.1.2. Block-External Adapter"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                89,
+                236,
+                305,
+                250
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Unlike conventional adapter approaches that operate solely within individual Transformer blocks, our block external adapter operates at the block level, creating direct pathways for cross-layer feature fusion and hierarchical representation learning. Positioned in the residual connection around the entire Transformer block, it facilitates global contextual propagation. The external adapter processes the normalized block output:"
+                    }
+                ]
+            },
+            "bbox": [
+                89,
+                253,
+                485,
+                376
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "\\mathbf { X } ^ { ( l + 1 ) } = F _ { l } \\big ( \\mathbf { X } ^ { ( l ) } \\big ) + \\mathrm { A d a p t e r } . E \\Big ( \\mathrm { L N } \\big ( F _ { l } ( \\mathbf { X } ^ { ( l ) } ) \\big ) \\Big ) ,\\tag{3}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/6dd6e9a8107e70108fb16d871e7f4c7a0f91f8098c07336576382105c2bba60c.jpg"
+                }
+            },
+            "bbox": [
+                98,
+                382,
+                452,
+                406
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "where "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "F _ { l }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "denotes the Transformer block at layer l, with the same bottleneck form but independent parameters:"
+                    }
+                ]
+            },
+            "bbox": [
+                89,
+                414,
+                483,
+                444
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "\\mathrm { A d a p t e r - } E ( \\mathbf { Y } ) = \\mathcal { G } \\big ( \\mathbf { Y } \\mathbf { W } _ { \\downarrow } ^ { E } \\big ) \\mathbf { W } _ { \\uparrow } ^ { E } ,\\tag{4}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/19c95176f6957eb250a9a99532670fa82f9fd2cee46033c6f6cf7f5b9e55f821.jpg"
+                }
+            },
+            "bbox": [
+                166,
+                450,
+                406,
+                469
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "where "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathbf { W } _ { \\downarrow } ^ { E } \\in \\mathbb { R } ^ { D \\times r }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "and "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathbf { W } _ { \\uparrow } ^ { E } \\in \\mathbb { R } ^ { r \\times D }"
+                    }
+                ]
+            },
+            "bbox": [
+                89,
+                476,
+                356,
+                493
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Because Adapter-E receives features after attentionbased token mixing in "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "F _ { l } ,"
+                    },
+                    {
+                        "type": "text",
+                        "content": "its perturbation is naturally propagated through subsequent attention layers. Unlike Adapter-I which refines tokens locally, Adapter-E injects global feature updates at the block boundary. Through successive layers, this effect compounds: each deeper layer increases cross-token interaction density, enabling Adapter-E's structural cues to influence distant tokens and capture longrange dependencies. This hierarchical propagation enables Adapter-E to inject global, multi-layer context for preserving long-range continuity in curvilinear structures."
+                    }
+                ]
+            },
+            "bbox": [
+                89,
+                493,
+                485,
+                660
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "This mechanism is validated by: (i) Grad-CAM visualizations showing Adapter-E captures broad vessel structures globally, while Adapter-I focuses on local details; and (ii) ablation studies demonstrating that combining both adapters yields synergistic gains, confirming their complementary roles in multi-layer feature adaptation."
+                    }
+                ]
+            },
+            "bbox": [
+                88,
+                660,
+                485,
+                751
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "3.2. Prompt-Free Adapter Fusion Decoder"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                89,
+                757,
+                421,
+                773
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "To overcome the limitations of prompt-driven segmentation for thin, branching structures, SACM introduces a promptfree mask decoder with two key components: (1) a promptfree feature-fusion stream that aggregates multi-layer outputs from external adapters to provide global structural priors, and (2) a dual-stage refinement module that ensures both local boundary precision and global topological coherence. The following sections detail these components."
+                    }
+                ]
+            },
+            "bbox": [
+                88,
+                780,
+                485,
+                901
+            ]
+        },
+        {
+            "type": "image",
+            "content": {
+                "image_source": {
+                    "path": "images/7ba386b5dae8f9cd69655b8feadb2d68e3aea71b1ef1f9e7a84fb7c8856e9ce6.jpg"
+                },
+                "image_caption": [
+                    {
+                        "type": "text",
+                        "content": "Figure 4. The orange regions indicate the SAM (ViT-L) output mask, while the green regions represent the input prompts. The visual evidence suggests that the segmentation performance across all three prompt modalities (points, box, and mask) is suboptimal for curvilinear structure segmentation."
+                    }
+                ],
+                "image_footnote": []
+            },
+            "bbox": [
+                539,
+                89,
+                880,
+                154
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "3.2.1. Adapter Fusion for Prompt-Free Segmentation"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                513,
+                256,
+                887,
+                272
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Prompt-based segmentation (points, boxes, and masks) is inherently ill-suited for CSS due to three fundamental mismatches (as shown in Fig. 4): (i) positional bias—sparse prompts introduce localized cues that blur fine boundaries and disrupt thin structure continuity; (ii) scale mismatch—fixed prompts struggle to encode multi-scale information needed for both thin vessels and complex junctions; (iii) topology agnostic—prompts provide no global continuity guidance for maintaining branching topology."
+                    }
+                ]
+            },
+            "bbox": [
+                511,
+                276,
+                906,
+                412
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "SACM operates in a fully prompt-free manner by replacing interactive prompts with learned, feature-level structural guidance. The Adapter Fusion module aggregates multilayer outputs from external adapters, which inherently capture cross-layer, attention-mixed context, and injects this fused descriptor into the mask decoder. External adapters encode long-range dependencies across encoder layers, naturally capturing thin, elongated geometry and branching structures, while internal adapters perform token-wise refinements. The fused multi-layer descriptor provides global feature priors, addressing CSS challenges and enabling automatic segmentation of curvilinear structures."
+                    }
+                ]
+            },
+            "bbox": [
+                511,
+                412,
+                906,
+                594
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Formally, let "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\{ \\mathcal { E } _ { 1 } , \\ldots , \\mathcal { E } _ { L } \\}"
+                    },
+                    {
+                        "type": "text",
+                        "content": "denote the external adapter outputs from L encoder layers, where each "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathcal { E } _ { l }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "corresponds to the output at layer l. We compute layer-wise descriptors via average pooling:"
+                    }
+                ]
+            },
+            "bbox": [
+                511,
+                594,
+                906,
+                656
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "\\mathbf { z } _ { l } = \\mathcal { A } ( \\mathcal { E } _ { l } ) \\quad ( l = 1 , \\ldots , L ) ,\\tag{5}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/939832e75add7a129183c2e4dfea738ec94e65144978c5aab94510933cf5fb6b.jpg"
+                }
+            },
+            "bbox": [
+                611,
+                670,
+                807,
+                685
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "where A denotes average pooling."
+                    }
+                ]
+            },
+            "bbox": [
+                513,
+                700,
+                743,
+                715
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Since different encoder layers contribute unequally to CSS, we then learn adaptive weights "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "{ \\pmb { \\alpha } } = [ \\alpha _ { 1 } , \\dots , \\alpha _ { L } ]"
+                    },
+                    {
+                        "type": "text",
+                        "content": "that reflect each layer's contribution:"
+                    }
+                ]
+            },
+            "bbox": [
+                511,
+                717,
+                906,
+                761
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "\\alpha = \\mathrm { S o f t m a x } \\left( \\mathrm { F F N } \\left( \\mathrm { C o n c a t ( { \\bf z } _ { 1 } , \\dots , { \\bf z } _ { L } ) } \\right) \\right) ,\\tag{6}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/4dd2569bfda26c184818b7b92ceeb3c6dbdb9cfd9973aa6abab2e7d1d502c5de.jpg"
+                }
+            },
+            "bbox": [
+                562,
+                775,
+                854,
+                791
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "where FFN denotes a feed-forward network."
+                    }
+                ]
+            },
+            "bbox": [
+                513,
+                805,
+                808,
+                819
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "The weighted fusion aggregates multi-layer structural information:"
+                    }
+                ]
+            },
+            "bbox": [
+                511,
+                821,
+                905,
+                851
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "\\mathcal { F } _ { \\mathrm { f u s i o n } } = \\mathrm { U P } \\left( \\mathbf { M L P } \\left( \\sum _ { l = 1 } ^ { L } \\alpha _ { l } \\cdot \\mathbf { \\mathcal { E } } _ { l } \\right) \\right) ,\\tag{7}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/c87cc9f96a94fcbc3d827ac39cd165f487f57eb07ddd56c2083b363b4410b934.jpg"
+                }
+            },
+            "bbox": [
+                581,
+                861,
+                836,
+                904
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "36303"
+                    }
+                ]
+            },
+            "bbox": [
+                478,
+                945,
+                519,
+                957
+            ]
+        }
+    ],
+    [
+        {
+            "type": "image",
+            "content": {
+                "image_source": {
+                    "path": "images/dbb13f68c1f0da17925d16d3e66e2e3c8de5106d6a27981090c0235615b33f4c.jpg"
+                },
+                "image_caption": [
+                    {
+                        "type": "text",
+                        "content": "Figure 5. Dual-stage mask refinement: Stage-1 generates coarse descriptors and ranks heads by confidence scores; Stage-2 refines masks with reordered descriptors, balancing boundary precision and topological consistency."
+                    }
+                ],
+                "image_footnote": []
+            },
+            "bbox": [
+                116,
+                90,
+                459,
+                148
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "where UP denotes upsample operations. The fused representation is then injected into the decoder via a residual connection:"
+                    }
+                ]
+            },
+            "bbox": [
+                89,
+                234,
+                483,
+                280
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "\\mathbf { F } _ { \\mathrm { d e c o d e r } } ^ { \\mathrm { o u t } } = \\mathbf { F } _ { \\mathrm { d e c o d e r } } ^ { \\mathrm { i n } } + \\mathcal { F } _ { \\mathrm { f u s i o n } } .\\tag{8}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/0362f5693ee5f50cfee56dfe619edc18e60629063c42924b182625cf2d5ed92a.jpg"
+                }
+            },
+            "bbox": [
+                191,
+                295,
+                382,
+                314
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "3.2.2. Dual-stage Refinement"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                89,
+                327,
+                297,
+                343
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Single-pass mask decoding often produces locally plausible but globally inconsistent predictions for CSS, exhibiting topological inconsistencies such as discontinuous vessels or spurious branches. To address this, we introduce a two-stage refinement module that separates local boundary precision from global topological coherence. The structure of the dual-stage refinement module is shown in Fig. 5."
+                    }
+                ]
+            },
+            "bbox": [
+                88,
+                347,
+                483,
+                452
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Let U denote the fused feature map from the decoder upsampling path. The module employs two identicalarchitecture MLP networks: "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "{ \\bf M L P } _ { 1 }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "for coarse mask generation and "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "{ \\mathrm { { M L P } _ { 2 } } }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "for refined mask prediction. In the first stage, coarse masks "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathbf { M } ^ { ( 1 ) }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "are generated to assess global topological coherence:"
+                    }
+                ]
+            },
+            "bbox": [
+                89,
+                452,
+                485,
+                544
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "\\mathbf { M } ^ { ( 1 ) } = \\mathbf { M } \\mathbf { L } \\mathbf { P } _ { 1 } ( \\mathbf { U } ) , \\quad \\mathbf { w } = \\mathrm { S o f t m a x } \\left( \\mathcal { M } ( \\mathbf { M } ^ { ( 1 ) } ) \\right) ,\\tag{9}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/39413499cffeec27d528f29e45da9afe12dcc5f34654476a1ca7bd438e8c28af.jpg"
+                }
+            },
+            "bbox": [
+                104,
+                554,
+                444,
+                579
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "where M denotes the max pooling and w represents confidence weights. Heads are ranked by their maximum spatial activation strength: "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathbf { s } = \\mathrm { a r g s o r t } ( \\mathbf { w }"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", descending)."
+                    }
+                ]
+            },
+            "bbox": [
+                89,
+                590,
+                483,
+                636
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "In the second stage, refined masks "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathbf { M } ^ { ( 2 ) }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "are generated using the same feature map but conditioned on the ranking:"
+                    }
+                ]
+            },
+            "bbox": [
+                89,
+                636,
+                483,
+                667
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "{ \\bf M } ^ { ( 2 ) } = { \\bf M } { \\bf L } { \\bf P } _ { 2 } ( { \\bf U } , { \\bf s } ) ,\\tag{10}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/f93a55b99efb0dd600281fcb9dab93892af39e27e3fa74e5de25bcb3dd848b29.jpg"
+                }
+            },
+            "bbox": [
+                202,
+                679,
+                352,
+                696
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "An MLP-based IoU predictor selects the optimal mask from the ordered candidates. This two-stage design ensures topologically sound heads dominate final predictions while maintaining boundary precision, producing segmentation that balances sharp local boundaries with preserved vessel connectivity."
+                    }
+                ]
+            },
+            "bbox": [
+                89,
+                704,
+                485,
+                796
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "3.3. Loss Function and Evaluation Metrics"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                89,
+                805,
+                421,
+                820
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "The loss function is formulated as a weighted sum of Binary Cross-Entropy (BCE) loss and Dice loss to achieve optimal segmentation performance:"
+                    }
+                ]
+            },
+            "bbox": [
+                89,
+                827,
+                483,
+                873
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "\\mathcal { L } _ { S A C M } = \\mathcal { L } _ { B C E } + \\lambda \\cdot \\mathcal { L } _ { D i c e } ,\\tag{11}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/bddf02a46425966c84aa9462a23ae8baf9bf513fe2237c80beab55a406fa4093.jpg"
+                }
+            },
+            "bbox": [
+                181,
+                885,
+                392,
+                901
+            ]
+        },
+        {
+            "type": "table",
+            "content": {
+                "image_source": {
+                    "path": "images/9643897f57c671842a10d2ceaffa6de62f5ed18548b5fd908a74d06a2b83ea89.jpg"
+                },
+                "table_caption": [
+                    {
+                        "type": "text",
+                        "content": "Table 1. Details of the datasets for experiments."
+                    }
+                ],
+                "table_footnote": [],
+                "html": "<table><tr><td>Split</td><td>Distribution Dataset</td><td></td><td>Modality</td><td>Target</td><td>Samples</td></tr><tr><td rowspan=\"6\">Train</td><td></td><td>DRIVE [31]</td><td>Fundus</td><td>Vessel</td><td>3</td></tr><tr><td></td><td>CHASEDB1 [23]</td><td>Fundus</td><td>Vessel</td><td>33</td></tr><tr><td></td><td>DCA1 [2]</td><td>X-ray</td><td>Vessel</td><td></td></tr><tr><td></td><td>CrackTree [50]</td><td>RGB</td><td>Crack</td><td>3</td></tr><tr><td></td><td>CREMI1</td><td>Microscopy</td><td>Boundary</td><td>3</td></tr><tr><td></td><td>CORN [21]</td><td>Microscopy</td><td>Nerve</td><td>3</td></tr><tr><td rowspan=\"8\">Test (Base)</td><td>Seen</td><td>DRIVE [31]</td><td>Fundus</td><td>Vessel</td><td>20</td></tr><tr><td>Seen</td><td>CHASEDB1 [23]</td><td>Fundus</td><td>Vessel</td><td>8</td></tr><tr><td>Seen</td><td>DCA1 [2]</td><td>X-ray</td><td>Vessel</td><td>100</td></tr><tr><td>Seen</td><td>CORN [21]</td><td>Microscopy</td><td>Nerve</td><td>100</td></tr><tr><td>Unseen</td><td>FIVES [10]</td><td>Fundus</td><td>Vessel</td><td>200</td></tr><tr><td>Unseen</td><td>DSCA [45]</td><td>X-ray</td><td>Vessel</td><td>45</td></tr><tr><td>Unseen</td><td>XCAD [19]</td><td>X-ray</td><td>Vessel</td><td>126</td></tr><tr><td>Unseen</td><td>CRACK</td><td>RGB</td><td>Crack</td><td>31</td></tr><tr><td rowspan=\"4\">Test (Novel)</td><td>Unseen</td><td>ROAD [20]</td><td>Aerial</td><td>Road line</td><td>49</td></tr><tr><td>Unseen</td><td>LEAF</td><td>RGB</td><td>Venation</td><td>31</td></tr><tr><td>Unseen</td><td>TYRE</td><td>RGB</td><td>Tread line</td><td>36</td></tr><tr><td>Unseen</td><td>WIRE</td><td>RGB</td><td>Wire</td><td>31</td></tr></table>",
+                "table_type": "complex_table",
+                "table_nest_level": 1
+            },
+            "bbox": [
+                514,
+                88,
+                905,
+                271
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "where λ controls the trade-off between the two loss items."
+                    }
+                ]
+            },
+            "bbox": [
+                511,
+                318,
+                898,
+                332
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "We use both pixel-level and topology-aware metrics to provide a comprehensive assessment of segmentation quality. Specifically, Dice [41] and Intersection-over-Union (IoU) [35] measure pixel-wise agreement between predictions and ground truth, clDice [29] evaluates topological correctness by comparing skeletonized centerlines, and the 95th-percentile Hausdorff distance (HD95) [36] assesses boundary localization while reducing sensitivity to extreme outliers. All metrics are computed on binarized masks (threshold = 0.5); clDice is computed on skeletonized masks obtained via standard morphological thinning. For HD95, lower values indicate better boundary agreement."
+                    }
+                ]
+            },
+            "bbox": [
+                509,
+                333,
+                908,
+                515
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "4. Experiments"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                513,
+                527,
+                647,
+                545
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "4.1. Datasets"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                513,
+                553,
+                617,
+                568
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "To fine-tune SACM, we randomly sampled a training set of only 3-shot per dataset (18 images) from six curvilinear benchmarks: DRIVE [31], CHASEDB1 [23], DCA1 [2], CrackTree [50], CREMI1, and CORN [21]. These datasets cover diverse curvilinear segmentation tasks, including retinal vessel extraction, neuron boundary delineation, crack detection, and nerve fiber segmentation. Modalities, targets, and case counts for all training and evaluation datasets are summarized in Table 1."
+                    }
+                ]
+            },
+            "bbox": [
+                511,
+                574,
+                908,
+                710
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "For evaluation, we partitioned the test data along two dimensions: class familiarity (Base or Novel) and data distribution (Seen or Unseen). Base refers to curvilinear structure classes that appeared in the training set, while Novel refers to entirely new classes never encountered during training. Seen indicates test images from the same datasets used in training, while Unseen indicates test images from different datasets with distinct data distributions."
+                    }
+                ]
+            },
+            "bbox": [
+                511,
+                710,
+                908,
+                832
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "The Base-Seen subset comprises test images from the training datasets (DRIVE [31], CHASEDB1 [23], DCA1 [2], and CORN [21]), evaluating in-distribution performance on familiar classes. The Base-Unseen subset includes FIVES [10], DSCA [45], XCAD [19], and the CRACK collection [50], testing generalization to new data distributions for familiar structure classes. The Novel category contains the public ROAD benchmark [20] and our in-house datasets LEAF, TYRE, and WIRE, representing completely new curvilinear structure classes from unseen distributions. The in-house images were captured with mobile phones and annotated with pixel-level masks; most images have a resolution of 1024×768."
+                    }
+                ]
+            },
+            "bbox": [
+                511,
+                832,
+                908,
+                878
+            ]
+        },
+        {
+            "type": "page_footnote",
+            "content": {
+                "page_footnote_content": [
+                    {
+                        "type": "text",
+                        "content": "1https://cremi.org/"
+                    }
+                ]
+            },
+            "bbox": [
+                531,
+                886,
+                684,
+                901
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "36304"
+                    }
+                ]
+            },
+            "bbox": [
+                478,
+                944,
+                519,
+                958
+            ]
+        }
+    ],
+    [
+        {
+            "type": "table",
+            "content": {
+                "image_source": {
+                    "path": "images/31cdf371e7d9ba39509ebf275a6c605ffee58fcf753b1ccef51fbceefd919076.jpg"
+                },
+                "table_caption": [
+                    {
+                        "type": "text",
+                        "content": "Table 2. Comparison of Dice(%), IoU(%), clDice(%) and HD95 (px) on 4 base datasets. Best results are in bold, second best are underlined. The upper part of the table represents models without pre-trained weights, while the lower part represents models with pre-trained weights."
+                    }
+                ],
+                "table_footnote": [],
+                "html": "<table><tr><td rowspan=\"2\">Method</td><td rowspan=\"2\">Prompt</td><td rowspan=\"2\">Dice↑</td><td rowspan=\"2\">DRIVE [31] IoU↑ cÍDice↑</td><td colspan=\"2\"></td><td rowspan=\"2\"></td><td colspan=\"4\">CHASEDB1 [23]</td><td colspan=\"4\">DCA1 [2]</td><td colspan=\"4\">CORN [21]</td></tr><tr><td>HD95↓</td><td>Dice↑</td><td>IoU↑</td><td>clDice↑</td><td>HD95↓</td><td>Dice↑</td><td>IoU↑</td><td></td><td>clDice↑ HD95↓</td><td></td><td>Dice↑ IoU↑</td><td></td><td>clDice↑ HD95↓</td><td></td></tr><tr><td>U-Net(2015) [25]</td><td></td><td>74.66</td><td>59.81</td><td>25.19</td><td>17.48</td><td>71.53</td><td>55.89</td><td></td><td>13.27</td><td>34.06</td><td>67.41</td><td>51.77</td><td>30.40</td><td>29.78</td><td>22.46</td><td>12.88</td><td>11.81</td><td>60.92</td></tr><tr><td>CS2Net(2021) [22]</td><td></td><td>75.83</td><td>60.12</td><td>26.45</td><td>16.92</td><td>72.14</td><td>56.78</td><td></td><td>14.23</td><td>33.45</td><td>68.68</td><td>53.12</td><td>30.96</td><td>27.86</td><td>23.89</td><td>13.45</td><td>12.34</td><td>59.67</td></tr><tr><td>BCUNet(2023) [43]</td><td>×××××</td><td>78.08</td><td>64.32</td><td>29.40</td><td>9.07</td><td>78.24</td><td>64.35</td><td></td><td>17.20</td><td>23.52</td><td>73.35</td><td>58.29</td><td>30.98</td><td>21.02</td><td>29.76</td><td>17.57</td><td>15.35</td><td>41.35</td></tr><tr><td>MaskVSC(2025) [48]</td><td></td><td>67.47</td><td>51.06</td><td>14.37</td><td>13.56</td><td>66.39</td><td>49.76</td><td></td><td>9.22</td><td>28.07</td><td>59.78</td><td>43.02</td><td>20.21</td><td>50.11</td><td>35.16</td><td>21.46</td><td>19.13</td><td>23.64</td></tr><tr><td>nnWNet(2025) [49]]</td><td></td><td>68.12</td><td>52.34</td><td>15.67</td><td>12.89</td><td>67.45</td><td>50.23</td><td></td><td>10.45</td><td>27.34</td><td>71.92</td><td>56.47</td><td>29.84</td><td>23.49</td><td>36.23</td><td>22.67</td><td>19.78</td><td>22.45</td></tr><tr><td>SAM-Med2d(2023) [4]</td><td></td><td>59.23</td><td>42.20</td><td>7.21</td><td>16.68</td><td>53.01</td><td>36.18</td><td></td><td>4.47</td><td>83.79</td><td>45.76</td><td>29.71</td><td>16.89</td><td>71.25</td><td>25.34</td><td>14.67</td><td>5.89</td><td>55.23</td></tr><tr><td>SAMOCTA(2024) [33]</td><td></td><td>60.45</td><td>43.12</td><td>8.34</td><td>15.67</td><td>54.23</td><td></td><td>37.89</td><td>5.12</td><td>82.34</td><td>61.84</td><td>44.75</td><td>24.75</td><td>42.88</td><td>26.78</td><td>15.34</td><td>6.45</td><td>54.12</td></tr><tr><td>CWSAM(2025) [24]</td><td></td><td>61.01</td><td>43.56</td><td>8.55</td><td>15.03</td><td>54.85</td><td>38.22</td><td></td><td>5.31</td><td>81.52</td><td>63.69</td><td>46.91</td><td>25.88</td><td>38.76</td><td>27.07</td><td>15.53</td><td>6.62</td><td>53.54</td></tr><tr><td>KnowSAM(2025) [9]</td><td></td><td>58.13</td><td>41.14</td><td>7.05</td><td>17.12</td><td>52.42</td><td>35.88</td><td>4.03</td><td>84.52</td><td></td><td>43.87</td><td>28.10</td><td>15.97</td><td>75.92</td><td>24.56</td><td>13.89</td><td>5.67</td><td>56.34</td></tr><tr><td>SegDINO(2025) [40]</td><td></td><td>61.78</td><td>44.56</td><td>9.12</td><td>14.89</td><td>55.67</td><td>39.23</td><td></td><td>6.34 81.45</td><td></td><td>48.95</td><td>32.41</td><td>18.16</td><td>66.35</td><td>27.34</td><td>16.12</td><td>7.01</td><td>53.67</td></tr><tr><td>Ours (SAC)</td><td>VVノV×X</td><td>78.89</td><td>65.24</td><td>29.02</td><td>8.34</td><td>79.27</td><td></td><td>65.72</td><td>16.66</td><td>14.58</td><td>75.67</td><td>61.10</td><td>32.65</td><td>16.67</td><td>55.38</td><td>38.44</td><td>34.70</td><td>16.07</td></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr></table>",
+                "table_type": "complex_table",
+                "table_nest_level": 1
+            },
+            "bbox": [
+                91,
+                88,
+                905,
+                218
+            ]
+        },
+        {
+            "type": "table",
+            "content": {
+                "image_source": {
+                    "path": "images/a750854f30ec17f82b46e972b2c7d90a802a8375d1e13aa05154b39fbe02eec9.jpg"
+                },
+                "table_caption": [
+                    {
+                        "type": "text",
+                        "content": "Table 3. Cross-dataset Performance on Four Unseen Datasets."
+                    }
+                ],
+                "table_footnote": [],
+                "html": "<table><tr><td rowspan=\"2\">Method</td><td rowspan=\"2\">Prompt</td><td rowspan=\"2\">Dice↑</td><td colspan=\"3\">DSCA [45] IoU↑</td><td rowspan=\"2\"></td><td colspan=\"3\">CRACK</td><td rowspan=\"2\"></td><td colspan=\"3\">XCAD [19]</td><td rowspan=\"2\"></td><td colspan=\"3\">FIVES [10]</td></tr><tr><td>clDice↑</td><td>HD95↓</td><td>Dice↑</td><td>IoU↑</td><td>clDice↑ HD95↓</td><td>Dice↑</td><td>IoU↑</td><td>ciDice↑</td><td>HD95↓ Dice↑</td><td>IoU↑</td><td>clDice↑</td><td>HD95↓</td></tr><tr><td>U-Net(2015) [25]</td><td></td><td>34.49</td><td>21.17</td><td>12.37</td><td>80.66</td><td>24.56</td><td>15.52</td><td>13.57</td><td>165.02</td><td>48.37</td><td>32.22</td><td>8.62</td><td>112.54</td><td>42.94</td><td>29.33</td><td>6.37</td><td>150.53</td></tr><tr><td>CS2Net(2021) [22]</td><td></td><td>35.63</td><td>23.55</td><td>13.68</td><td>80.32</td><td>19.57</td><td>12.84</td><td>12.48</td><td>120.36</td><td>55.50</td><td>40.40</td><td>9.97</td><td>88.23</td><td>37.54</td><td>25.10</td><td>8.42</td><td>168.16</td></tr><tr><td>BCUNet(2023) [43]</td><td></td><td>30.54</td><td>18.63</td><td>12.78</td><td>125.58</td><td>25.62</td><td>15.56</td><td>13.88</td><td>93.88</td><td>21.15</td><td>12.63</td><td>6.01</td><td>98.09</td><td>56.01</td><td>41.74</td><td>9.73</td><td>128.16</td></tr><tr><td>MaskVSC(2025) [48]</td><td>×××××</td><td>31.85</td><td>19.11</td><td>8.65</td><td>225.17</td><td>33.38</td><td>20.55</td><td>10.89</td><td>236.64</td><td>37.80</td><td>23.56</td><td>5.72</td><td>124.57</td><td>64.71</td><td>48.87</td><td></td><td>120.24</td></tr><tr><td>nnWNet(2025) [49]</td><td></td><td>18.99</td><td>10.70</td><td>13.01</td><td>176.30</td><td>5.66</td><td>3.37</td><td>2.48</td><td>282.24</td><td>63.27</td><td>47.78</td><td>11.48</td><td>78.03</td><td>32.86</td><td>21.34</td><td>5.4</td><td>364.26</td></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td>SAM-Med2d(2023) [4]</td><td></td><td>36.52</td><td>24.35</td><td>10.85</td><td>123.45</td><td>5.68</td><td>4.54</td><td>14.37</td><td>160.18</td><td>25.59</td><td>16.67</td><td>5.31</td><td>102.34</td><td>10.71</td><td>8.57</td><td>2.98</td><td>120.65</td></tr><tr><td>SAMOCTA(2024) [33]</td><td></td><td>65.65 44.31</td><td>49.46</td><td>13.96</td><td>128.01</td><td>52.30</td><td>37.40</td><td>16.83</td><td>76.23</td><td>68.58</td><td>54.86</td><td>6.68</td><td>92.34</td><td>74.51</td><td>60.94</td><td>10.44</td><td>87.26</td></tr><tr><td>CWSAM(2025) [24]</td><td></td><td>38.10</td><td>28.86</td><td>7.75</td><td>197.47</td><td>49.21 14.38</td><td>34.23 8.11</td><td>15.94 3.55</td><td>109.14</td><td>68.32</td><td>52.24</td><td>10.33</td><td>112.92</td><td>64.95</td><td>48.65</td><td>8.78</td><td>105.13 129.88</td></tr><tr><td>KnowSAM(2025) [9] SegDINO(2025) [40]</td><td></td><td>35.46</td><td>23.91 22.40</td><td>1.60 1.81</td><td>115.79 294.60</td><td>14.42</td><td>8.24</td><td>2.01</td><td>140.77 168.17</td><td>25.02 57.54</td><td>14.71 40.74</td><td>4.03 3.28</td><td>81.53</td><td>45.09 46.93</td><td>29.64 31.20</td><td>1.51 2.89</td><td>78.66</td></tr><tr><td>Ours (ŠACM)</td><td>VンンV××</td><td>68.43</td><td>53.51</td><td>15.51</td><td>78.22</td><td>63.17</td><td>47.80</td><td>19.19</td><td>62.03</td><td>74.29</td><td>57.74</td><td></td><td>204.22</td><td></td><td></td><td>12.24</td><td>69.47</td></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>13.46</td><td>43.33</td><td>75.48</td><td>62.26</td><td></td><td></td></tr></table>",
+                "table_type": "complex_table",
+                "table_nest_level": 1
+            },
+            "bbox": [
+                93,
+                265,
+                903,
+                393
+            ]
+        },
+        {
+            "type": "table",
+            "content": {
+                "image_source": {
+                    "path": "images/28812c5a46e1af0011ff798a342674b0b3c7fa586a47ba92bd5d29dddb86b2f3.jpg"
+                },
+                "table_caption": [
+                    {
+                        "type": "text",
+                        "content": "Table 4. Cross-dataset Performance on Four Unseen Datasets with Novel Classes."
+                    }
+                ],
+                "table_footnote": [],
+                "html": "<table><tr><td rowspan=\"2\">Method</td><td rowspan=\"2\">Prompt</td><td rowspan=\"2\">Dice↑</td><td colspan=\"3\">ROAD [20] IoU↑ clDice↑</td><td rowspan=\"2\"></td><td colspan=\"3\">LEAF</td><td rowspan=\"2\"></td><td colspan=\"3\">TYRE</td><td rowspan=\"2\"></td><td colspan=\"3\">WIRE</td></tr><tr><td></td><td>HD95↓</td><td>Dice↑</td><td>IoU↑</td><td>&quot;ciDice↑ HD95↓</td><td>Dice↑</td><td>IoU↑</td><td>clDice↑ HD95↓</td><td>Dice↑</td><td>IoU↑</td><td>clDice↑ HD95↓</td><td></td></tr><tr><td>U-Net(2015) [25]</td><td></td><td>1.42</td><td>0.72</td><td>0.27</td><td>180.17</td><td>0.70</td><td>0.36</td><td>0.18</td><td>166.81</td><td>31.27</td><td>20.27</td><td>16.44</td><td>109.80</td><td>35.13</td><td>21.82</td><td>12.11</td><td>106.90</td></tr><tr><td>CS2Net(2021) [22]</td><td></td><td>2.21</td><td>1.77</td><td>0.36</td><td>150.22</td><td>0.36</td><td>0.29</td><td>0.12</td><td>192.28</td><td>24.78</td><td>16.14</td><td>13.43</td><td>129.48</td><td>26.48</td><td>17.26</td><td>11.32</td><td>112.31</td></tr><tr><td>BCUNet(2023) [43]</td><td>×××××</td><td>1.05</td><td>0.53</td><td>0.22</td><td>143.38</td><td>4.87</td><td>2.90</td><td>0.87</td><td>180.40</td><td>32.46</td><td>21.19</td><td>14.20</td><td>88.26</td><td>29.91</td><td>18.20</td><td>12.73</td><td>93.49</td></tr><tr><td>MaskVSC(2025) [48]</td><td></td><td>5.62</td><td>2.97</td><td>0.66</td><td>203.99</td><td>10.16</td><td>5.69</td><td>2.04</td><td>115.11</td><td>31.59</td><td>19.43</td><td>10.25</td><td>99.63</td><td>35.03</td><td>22.46</td><td>12.14</td><td>83.88</td></tr><tr><td>nnWNet(2025) [49]</td><td></td><td>0.97</td><td>0.49</td><td>0.49</td><td>323.95</td><td>13.98</td><td>7.93</td><td>6.26</td><td>163.94</td><td>31.68</td><td>19.60</td><td>11.59</td><td>121.32</td><td>15.74</td><td>9.31</td><td>6.31</td><td>191.72</td></tr><tr><td>SAM-Med2d(2023) [4]</td><td></td><td>0.52</td><td>0.42</td><td>0.12</td><td>340.12</td><td>2.35</td><td>1.88</td><td>0.35</td><td>150.23</td><td>12.06</td><td>9.65</td><td>1.14</td><td>120.45</td><td>5.99</td><td>4.79</td><td>2.42</td><td>145.28</td></tr><tr><td>SAMOCTA(2024) [33]</td><td></td><td>21.62</td><td>14.11</td><td>5.24</td><td>150.22</td><td>20.43</td><td>13.37</td><td>6.43</td><td>94.12</td><td>20.08</td><td>13.16</td><td>8.34</td><td>110.23</td><td>44.20</td><td>30.37</td><td>14.67</td><td>79.53</td></tr><tr><td>CWSAM(2025) [24]</td><td></td><td>24.79</td><td>14.53</td><td>2.99</td><td>182.50</td><td>27.85</td><td>17.01</td><td>7.94</td><td>115.80</td><td>30.77</td><td>19.19</td><td>10.43</td><td>99.04</td><td>42.61</td><td>29.55</td><td>14.65</td><td>80.42</td></tr><tr><td>KnowSAM(2025) [9]</td><td></td><td>0.42</td><td>0.21</td><td>0.04</td><td>160.29</td><td>8.41</td><td>4.46</td><td>1.18</td><td>106.54</td><td>13.68</td><td>7.70</td><td>1.47</td><td>165.81</td><td>17.13</td><td>9.81</td><td>3.31</td><td>95.75</td></tr><tr><td>SegDINO(2025) [40]</td><td>VVVVXX</td><td>0.81</td><td>0.41</td><td>0.13</td><td>267.29</td><td>4.54</td><td>2.39</td><td>0.67</td><td>104.30</td><td>18.53</td><td>10.71</td><td>2.27</td><td>108.82</td><td>26.46</td><td>15.88</td><td>2.27</td><td>100.99</td></tr><tr><td>Ours (SACM)</td><td></td><td>40.43</td><td>26.31</td><td>6.80</td><td>131.79</td><td>36.80</td><td>23.61</td><td>9.32</td><td>48.88</td><td>37.43</td><td>24.12</td><td>10.56</td><td>75.52</td><td>54.60</td><td>38.25</td><td>17.43</td><td>55.66</td></tr></table>",
+                "table_type": "complex_table",
+                "table_nest_level": 1
+            },
+            "bbox": [
+                91,
+                426,
+                905,
+                556
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": []
+            },
+            "bbox": [
+                88,
+                602,
+                485,
+                753
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "4.2. Implementation Details"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                89,
+                770,
+                308,
+                786
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "For fair comparison, all SAM-based baselines and SACM use the ViT-L image encoder from SAM at the same scale and are initialized with identical pretrained weights. All compared methods were trained under the same 3-shot per-dataset protocol (18 images total from DRIVE, CHASEDB1, DCA1, CrackTree, CREMI, and CORN). Experiments were conducted on a server with an NVIDIA"
+                    }
+                ]
+            },
+            "bbox": [
+                88,
+                795,
+                485,
+                901
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "RTX 4090 GPU (24 GB) and PyTorch version 2.9.1. Finetuning is performed for 50 epochs with a batch size of 1 and a learning rate of "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "3 \\times 1 0 ^ { - 4 }"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", using the AdamW optimizer "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "( \\beta _ { 1 }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "= 0.9 and "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\beta _ { 2 } = 0 . 9 9 9 )"
+                    },
+                    {
+                        "type": "text",
+                        "content": "and a cosine learning rate scheduler. The image encoder block is frozen during fine-tuning; only the DLAda and the PFAF-D are updated."
+                    }
+                ]
+            },
+            "bbox": [
+                511,
+                602,
+                906,
+                693
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "4.3. Comparison to State-of-the-art"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                511,
+                705,
+                789,
+                722
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "4.3.1. Quantitative Results"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                513,
+                729,
+                704,
+                744
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "We evaluate SACM against representative curvilinear segmentation methods, including classic CNN-based models (U-Net [25], "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathrm { C S ^ { 2 } N e t }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "[22], BCUNet [43], MaskVSC [48], nnWNet [49]) and recent SAM-based adaptations (SAM-Med2d [4], SAM-OCTA [33], CWSAM [24]). We further include KnowSAM [9], a semi-supervised SAM adaptation, and SegDINO [40], which builds on DINOv3 [30] pretraining, to cover diverse adaptation strategies and pretraining regimes. According to the released code of the compared methods, all compared SAM-based methods use point prompts during fine-tuning or inference, whereas our method is completely prompt-free and does not rely on any additional prompt information. Tables 2, 3 and 4 report the Dice, IoU, clDice, and HD95 scores on twelve curvilinear datasets. The upper part of the table represents small models without pre-trained weights, while the lower part represents fine-tuned models with pre-trained weights."
+                    }
+                ]
+            },
+            "bbox": [
+                509,
+                750,
+                908,
+                901
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "36305"
+                    }
+                ]
+            },
+            "bbox": [
+                478,
+                944,
+                519,
+                957
+            ]
+        }
+    ],
+    [
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": []
+            },
+            "bbox": [
+                89,
+                92,
+                485,
+                196
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "For the seen (Base) test sets (Table 2), SACM achieves state-of-the-art performance across all reported metrics. Concretely, SACM attains Dice scores of 78.89, 79.27, 75.67 and 55.38 on DRIVE, CHASEDB1, DCA1 and CORN respectively, with corresponding IoU values of 65.24, 65.72, 61.10 and 38.44, improved clDice measures and substantially reduced HD95 errors (e.g., 8.34 on DRIVE). These results indicate that, under the same 3-shot fine-tuning protocol, SACM consistently improves pixel-level overlap and boundary accuracy compared to both conventional CNN baselines and recent SAM-based adaptations."
+                    }
+                ]
+            },
+            "bbox": [
+                89,
+                196,
+                485,
+                377
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "On the unseen domains (Tables 3 and 4), SACM demonstrates strong cross-domain generalization without any prompt engineering. On the open unseen benchmarks DSCA, CRACK, XCAD and FIVES, SACM reports the following Dice and IoU results: DSCA 68.43 and 53.51, CRACK 63.17 and 47.80, XCAD 74.29 and 57.74, and FIVES 75.48 and 62.26. On the in-house novel domains ROAD, LEAF, TYRE and WIRE, SACM achieves Dice and IoU of 40.43 and 26.31 on ROAD, 36.80 and 23.61 on LEAF, 37.43 and 24.12 on TYRE, and 54.60 and 38.25 on WIRE. These improvements, particularly on structurally diverse datasets such as XCAD, FIVES and WIRE, suggest that our prompt-free approach effectively transfers curvilinear priors across domains."
+                    }
+                ]
+            },
+            "bbox": [
+                88,
+                378,
+                485,
+                590
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "4.3.2. Qualitative Results"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                89,
+                594,
+                271,
+                609
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Fig. 6 presents a qualitative comparison of SACM against BCUNet [43], nnWNet [49], CWSAM [24], KnowSAM [9], and SegDINO [40], across eight curvilinear segmentation datasets (DSCA [45], XCAD [19], ROAD [20], FIVES [10], CRACK, LEAF, TYRE, WIRE). SACM produces cleaner masks with improved structural continuity and sharper boundaries."
+                    }
+                ]
+            },
+            "bbox": [
+                89,
+                613,
+                483,
+                719
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "On FIVES and XCAD, the colorized segmentation overlays show more complete and anatomically plausible vascular and tubular structures, with fewer spurious fragments and fewer missing branches, demonstrating SACM's superior ability to maintain long-range structural continuity. On LEAF and ROAD, SACM preserves long-range connectivity and fine curvilinear detail under cluttered backgrounds and partial occlusions, whereas competing methods often fragment or over-cover the target structures. On CRACK and TYRE, dominated by thin, irregular, high-contrast patterns, SACM accurately captures subtle fractures and tread features with minimal noise and fewer breaks. Similar trends are observed across the remaining datasets."
+                    }
+                ]
+            },
+            "bbox": [
+                88,
+                719,
+                485,
+                901
+            ]
+        },
+        {
+            "type": "image",
+            "content": {
+                "image_source": {
+                    "path": "images/60f5b0e70573a7dd69f5f56b004cfc70291f395eb8e6f974f136b85a2b5e5750.jpg"
+                },
+                "image_caption": [
+                    {
+                        "type": "text",
+                        "content": "Figure 6. Visual comparison of segmentation results showing SACM's strong generalization to varying curvilinear datasets. Different colors are used to highlight differences between datasets for better visualization."
+                    }
+                ],
+                "image_footnote": []
+            },
+            "bbox": [
+                516,
+                89,
+                903,
+                383
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": []
+            },
+            "bbox": [
+                511,
+                472,
+                843,
+                486
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "4.4. Ablation Studies"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                513,
+                496,
+                679,
+                512
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "4.4.1. Impact of Different Components"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                513,
+                520,
+                787,
+                535
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "We conduct an ablation study to assess the individual and combined effects of the block-internal adapter (Adapter-I), block external adapter (Adapter-E), adapter fusion (Adapter-F), and Dual-stage. Table 5 reports results on the WIRE dataset. The baseline SAM performs poorly (Dice 5.61%, clDice 2.32%), confirming that domain adaptation is essential. Adding Adapter-I or Adapter-E individually yields large gains (Dice 46.11%, clDice 14.83% and Dice 45.02%, clDice 15.24%, respectively), indicating both internal and external adapters contribute substantially. Using both adapters raises Dice to 50.38% (clDice 15.52%), and adding the Adapter-Fusion further increases Dice to 53.93% (clDice 16.02%). The full model with Dual-Stage refinement achieves the best performance (Dice 54.60%, clDice 17.43%), showing that internal adapters, external adapters, and multi-layer fusion provide complementary and cumulative improvements for curvilinear structure segmentation."
+                    }
+                ]
+            },
+            "bbox": [
+                511,
+                540,
+                908,
+                813
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "4.4.2. Impact of Training Shot Size"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                511,
+                820,
+                761,
+                835
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "We studied SACM's data efficiency by varying the number of training shots per dataset. Experiments were conducted under 1-shot to 7-shot settings. As shown in Fig. 7, SACM achieves strong performance even with only 3-shot per dataset, outperforming other SAM-based models finetuned with the same amount of data. Performance improves with more shots, but the gains diminish beyond 5-shots, indicating SACM leverages limited annotations for robust curvilinear segmentation."
+                    }
+                ]
+            },
+            "bbox": [
+                511,
+                839,
+                908,
+                901
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "36306"
+                    }
+                ]
+            },
+            "bbox": [
+                478,
+                945,
+                519,
+                957
+            ]
+        }
+    ],
+    [
+        {
+            "type": "table",
+            "content": {
+                "image_source": {
+                    "path": "images/8e5c132fa54ca6d75b15cb44a99d3114bf3b3566293127190e31a62c4f01ef23.jpg"
+                },
+                "table_caption": [
+                    {
+                        "type": "text",
+                        "content": "Table 5. Ablation study of different components on WIRE dataset. √ indicates the component is enabled."
+                    }
+                ],
+                "table_footnote": [],
+                "html": "<table><tr><td>Adapter-I</td><td>Adapter-E</td><td>Adapter-F</td><td>Dual-stage</td><td>Dice↑</td><td>clDice↑</td></tr><tr><td></td><td></td><td></td><td></td><td>5.61</td><td>2.32</td></tr><tr><td>√</td><td></td><td></td><td></td><td>46.11</td><td>14.83</td></tr><tr><td>一</td><td>√</td><td></td><td></td><td>45.02</td><td>15.24</td></tr><tr><td>√</td><td>√</td><td></td><td></td><td>50.38</td><td>15.52</td></tr><tr><td>√</td><td></td><td>√</td><td></td><td>53.93</td><td>16.02</td></tr><tr><td>V</td><td>VV</td><td>√</td><td>√</td><td>54.60</td><td>17.43</td></tr></table>",
+                "table_type": "simple_table",
+                "table_nest_level": 1
+            },
+            "bbox": [
+                119,
+                89,
+                454,
+                160
+            ]
+        },
+        {
+            "type": "chart",
+            "content": {
+                "image_source": {
+                    "path": "images/04b42cac8e3bbbe869e42f73fbabb941d4b8dc75f9db97ecf4709b90e55fbecf.jpg"
+                },
+                "content": "",
+                "chart_caption": [
+                    {
+                        "type": "text",
+                        "content": "Figure 7. Dice of SACM versus the number of training shots per dataset on the WIRE dataset."
+                    }
+                ],
+                "chart_footnote": []
+            },
+            "bbox": [
+                114,
+                208,
+                460,
+                295
+            ]
+        },
+        {
+            "type": "image",
+            "content": {
+                "image_source": {
+                    "path": "images/08fea0e1e0798b567e9616e4cd55a8c488fe1295c1e775ebe8818ac01233ccd4.jpg"
+                },
+                "image_caption": [
+                    {
+                        "type": "text",
+                        "content": "Figure 8. Grad-CAM visualizations of the original SAM, SAM with only Adapter-I, and SAM with only Adapter-E."
+                    }
+                ],
+                "image_footnote": []
+            },
+            "bbox": [
+                114,
+                342,
+                459,
+                426
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": []
+            },
+            "bbox": [
+                89,
+                484,
+                485,
+                560
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "4.4.3. Grad-CAM of Different Adapters"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                89,
+                568,
+                372,
+                583
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "To visualize the distinct contributions of the internal and external adapters, we generate Grad-CAM heatmaps for three configurations: original SAM without adapters, SAM with only Adapter-I, and SAM with only Adapter-E. As shown in Fig. 8, the original SAM exhibits diffuse attention patterns. With only Adapter-I, the model attends more to local vessel regions but lacks global context. In contrast, with only Adapter-E, the attention highlights broader vessel structures but introduces more irrelevant regions. This demonstrates that Adapter-I enhances local feature representation while Adapter-E captures global context, and their combination in SACM leads to comprehensive curvilinear segmentation."
+                    }
+                ]
+            },
+            "bbox": [
+                88,
+                587,
+                485,
+                770
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "4.4.4. Impact of Hyperparameters"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                89,
+                776,
+                334,
+                791
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "We evaluate the effect of two key hyperparameters on the WIRE dataset via grid search: the adapter bottleneck ratio r and the loss weight λ. As shown in Fig. 9(a), performance peaks at "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "r = 0 . 1"
+                    },
+                    {
+                        "type": "text",
+                        "content": ". A smaller bottleneck constrains the adapter capacity, leading to more moderate updates to the pretrained encoder, while a larger r increases the adapter's degrees of freedom and can lead to overfitting on limited data. Based on this observation, we set r = 0.1 as the default setup. Similarly, for the loss weight λ, Fig. 9(b) shows that performance peaks near "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\lambda = 0 . 4"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", indicating that a balanced combination of BCE and Dice loss yields optimal results for curvilinear structure segmentation."
+                    }
+                ]
+            },
+            "bbox": [
+                88,
+                795,
+                485,
+                901
+            ]
+        },
+        {
+            "type": "chart",
+            "content": {
+                "image_source": {
+                    "path": "images/8ab856fe7e8c62d48ea0ea0b34a3a524781e3066eb492834937d8efdce25609c.jpg"
+                },
+                "content": "",
+                "chart_caption": [
+                    {
+                        "type": "text",
+                        "content": "(a) Bottleneck ratio r"
+                    }
+                ],
+                "chart_footnote": []
+            },
+            "bbox": [
+                516,
+                88,
+                674,
+                178
+            ]
+        },
+        {
+            "type": "chart",
+            "content": {
+                "image_source": {
+                    "path": "images/fdccc9f6b841cb218ac51e0cce97700f2e0d64893dae34e247819b740353b01a.jpg"
+                },
+                "content": "",
+                "chart_caption": [
+                    {
+                        "type": "text",
+                        "content": "(b) Loss weight λ"
+                    }
+                ],
+                "chart_footnote": []
+            },
+            "bbox": [
+                746,
+                89,
+                905,
+                178
+            ]
+        },
+        {
+            "type": "chart",
+            "content": {
+                "image_source": {
+                    "path": "images/e58d19462b32dca68da197c3f444f6f3991b296842cbb7b59c41ca276e6a4e65.jpg"
+                },
+                "content": "",
+                "chart_caption": [
+                    {
+                        "type": "text",
+                        "content": "Figure 9. Validation score with different bottleneck ratio r and loss weight λ."
+                    },
+                    {
+                        "type": "text",
+                        "content": "Figure 10. t-SNE visualization of SAM, CWSAM, and SACM; colors represent different data domains."
+                    }
+                ],
+                "chart_footnote": []
+            },
+            "bbox": [
+                537,
+                241,
+                870,
+                316
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": []
+            },
+            "bbox": [
+                511,
+                375,
+                906,
+                450
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "4.4.5. Visualization of t-SNE"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                513,
+                457,
+                717,
+                472
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "To demonstrate the generalization of the SACM, we visualize feature embeddings from eight domains using t-SNE. As an illustration in Fig. 10, we compare the baseline of CWSAM with SACM. The CWSAM exhibits heavily overlapping, diffuse clusters with poor intra-domain cohesion and blurred domain boundaries. In contrast, SACM produces tighter, well-separated intra-domain groups, clearly distinguishing each domain in the embedding space. This improvement stems from dual-level adapter fine-tuning, which enhances domain-specific invariance."
+                    }
+                ]
+            },
+            "bbox": [
+                511,
+                476,
+                908,
+                627
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "5. Conclusion"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                513,
+                640,
+                633,
+                656
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "In this paper, we presented SACM, a prompt-free framework for curvilinear structure segmentation built on SAM. By improving both local detail and global structural continuity, SACM achieves strong few-shot and cross-domain performance. Experiments on twelve datasets show that SACM consistently outperforms existing baselines using only 18 training images. Future work will explore continual adaptation, more efficient fine-tuning, and improved robustness to severe domain shifts."
+                    }
+                ]
+            },
+            "bbox": [
+                511,
+                666,
+                908,
+                803
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "6. Acknowledgment"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                511,
+                815,
+                686,
+                832
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "The work was supported in part by the National Natural Science Foundation of China (62271359) and the Agency for Science, Technology and Research (A*STAR) under its MTC Programmatic Funds (Grant No. M23L7b0021)."
+                    }
+                ]
+            },
+            "bbox": [
+                511,
+                839,
+                908,
+                901
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "36307"
+                    }
+                ]
+            },
+            "bbox": [
+                478,
+                944,
+                519,
+                957
+            ]
+        }
+    ],
+    [
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "References"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                91,
+                89,
+                189,
+                106
+            ]
+        },
+        {
+            "type": "list",
+            "content": {
+                "list_type": "reference_list",
+                "list_items": [
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[1] Md Zahangir Alom, Mahmudul Hasan, Chris Yakopcic, Tarek M Taha, and Vijayan K Asari. Recurrent residual convolutional neural network based on u-net (r2u-net) for medical image segmentation. arXiv preprint arXiv:1802.06955, 2018.2"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[2] Fernando Cervantes-Sanchez, Ivan Cruz-Aceves, Arturo Hernandez-Aguirre, Martha Alicia Hernandez-Gonzalez, and Sergio Eduardo Solorio-Meza. Automatic segmentation of coronary arteries in x-ray angiograms using multiscale analysis and artificial neural networks. Applied Sciences, 9 (24), 2019. 5, 6"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[3] Tianrun Chen, Lanyun Zhu, Chaotao Ding, Runlong Cao, Yan Wang, Shangzhan Zhang, Zejian Li, Lingyun Sun, Ying Zang, and Papa Mao. Sam-adapter: Adapting segment anything in underperformed scenes. In 2023 IEEE/CVF International Conference on Computer Vision Workshops (ICCVW), pages 3359–3367, 2023. 2, 3"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[4] Junlong Cheng, Jin Ye, Zhongying Deng, Jianpin Chen, Tianbin Li, Haoyu Wang, Yanzhou Su, Ziyan Huang, Jilong Chen, Lei Jiang, et al. Sam-med2d. arXiv preprint arXiv:2308.16184, 2023. 2, 6"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[5] Venkateswararao Cherukuri, Vijay Kumar B.G., Raja Bala, and Vishal Monga. Deep retinal image segmentation with regularization under geometric priors. IEEE Transactions on Image Processing, 29:2552–2567, 2020. 1"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[6] Jacob Devlin, Ming-Wei Chang, Kenton Lee, and Kristina Toutanova. Bert: Pre-training of deep bidirectional transformers for language understanding. In Proceedings of the 2019 conference of the North American chapter of the association for computational linguistics: human language technologies, volume 1 (long and short papers), pages 4171– 4186, 2019.3"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[7] Ryunosuke Hamada, Tsubasa Minematsu, Cheng Tang, and Atsushi Shimada. Analysis of adapter in attention of change detection vision transformer. In Proceedings of the Asian Conference on Computer Vision, pages 34–49, 2024. 3"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[8] Neil Houlsby, Andrei Giurgiu, Stanislaw Jastrzebski, Bruna Morrone, Quentin De Laroussilhe, Andrea Gesmundo, Mona Attariyan, and Sylvain Gelly. Parameter-efficient transfer learning for nlp. In International conference on machine learning, pages 2790–2799. PMLR, 2019. 3"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[9] Kaiwen Huang, Tao Zhou, Huazhu Fu, Yizhe Zhang, Yi Zhou, Chen Gong, and Dong Liang. Learnable prompting sam-induced knowledge distillation for semi-supervised medical image segmentation. IEEE Transactions on Medical Imaging, 44(5):2295–2306, 2025. 6, 7"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[10] Kai Jin, Xingru Huang, Jingxing Zhou, Yunxiang Li, Yan Yan, Yibao Sun, Qianni Zhang, Yaqi Wang, and Juan Ye. Fives: A fundus image dataset for artificial intelligence based vessel segmentation. Scientific data, 9(1):475, 2022. 5, 6, 7"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[11] Lei Ke, Mingqiao Ye, Martin Danelljan, Yifan liu, Yu-Wing Tai, Chi-Keung Tang, and Fisher Yu. Segment anything in high quality. In Advances in Neural Information Processing Systems, pages 29914–29934, 2023. 3"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[12] Alexander Kirillov, Eric Mintun, Nikhila Ravi, Hanzi Mao, Chloe Rolland, Laura Gustafson, Tete Xiao, Spencer White-"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "head, Alexander C. Berg, Wan-Yen Lo, Piotr Dollár, and Ross Girshick. Segment anything. In 2023 IEEE/CVF International Conference on Computer Vision (ICCV), pages 3992–4003, 2023. 2"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[13] Mónica G Larese, Rafael Namías, Roque M Craviotto, Miriam R Arango, Carina Gallo, and Pablo M Granitto. Automatic classification of legumes using leaf vein image features. Pattern Recognition, 47(1):158–168, 2014. 1"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[14] Xiang Li, Chong Fu, Qun Wang, Wenchao Zhang, Chiu-Wing Sham, and Junxin Chen. Dmsa-unet: Dual multi-scale attention makes unet more strong for medical image segmentation. Knowledge-Based Systems, 299:112050, 2024. 2"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[15] Ji Lin, Xingru Huang, Huiyu Zhou, Yaqi Wang, and Qianni Zhang. Stimulus-guided adaptive transformer network for retinal blood vessel segmentation in fundus images. Medical Image Analysis, 89:102929–102943, 2023. 2"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[16] Tianyong Liu, Zhiqing Zhang, Guojia Fan, Bin Li, Shoujun Zhou, Chengwu Xu, Gang Zhao, and Fuxia Yang. Mambavesselnet: A novel approach to blood vessel segmentation based on state-space models. IEEE Journal of Biomedical and Health Informatics, 29(3):2034–2047, 2025. 2"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[17] Liana M Lorigo, Olivier D Faugeras, W Eric L Grimson, Renaud Keriven, Ron Kikinis, Arya Nabavi, and C-F Westin. Curves: Curve evolution for vessel segmentation. Medical image analysis, 5(3):195–206, 2001. 1"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[18] Jun Ma, Yuting He, Feifei Li, Lin Han, Chenyu You, and Bo Wang. Segment anything in medical images. Nature Communications, 15(1):654–663, 2024. 2"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[19] Yuxin Ma, Yang Hua, Hanming Deng, Tao Song, Hao Wang, Zhengui Xue, Heng Cao, Ruhui Ma, and Haibing Guan. Selfsupervised vessel segmentation via adversarial learning. In Proceedings of the IEEE/CVF International Conference on Computer Vision (ICCV), pages 7536–7545, 2021. 5, 6, 7"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[20] Volodymyr Mnih. Machine Learning for Aerial Image Labeling. PhD thesis, University of Toronto, 2013. 5, 6, 7"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[21] Lei Mou, Yitian Zhao, Li Chen, Jun Cheng, Zaiwang Gu, Huaying Hao, Hong Qi, Yalin Zheng, Alejandro Frangi, and Jiang Liu. Cs-net: channel and spatial attention network for curvilinear structure segmentation. In International Conference on Medical Image Computing and Computer-Assisted Intervention, pages 721–730. Springer, 2019. 5, 6"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[22] Lei Mou, Yitian Zhao, Huazhu Fu, Yonghuai Liu, Jun Cheng, Yalin Zheng, Pan Su, Jianlong Yang, Li Chen, Alejandro F Frangi, et al. Cs2-net: Deep learning segmentation of curvilinear structures in medical imaging. Medical image analysis, 67:101874, 2021. 2, 6"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[23] Christopher G Owen, Alicja R Rudnicka, Robert Mullen Sarah A Barman, Dorothy Monekosso, Peter H Whincup, Jeffrey Ng, and Carl Paterson. Measuring retinal vessel tortuosity in 10-year-old children: validation of the computerassisted image analysis of the retina (caiar) program. Investigative ophthalmology & visual science, 50(5):2004–2010, 2009.5,6"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[24] Xinyang Pu, Hecheng Jia, Linghao Zheng, Feng Wang, and Feng Xu. Classwise-sam-adapter: Parameter efficient finetuning adapts segment anything to sar domain for semantic segmentation. IEEE Journal of Selected Topics in Applied Earth Observations and Remote Sensing, 2025. 2, 3, 6, 7"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "bbox": [
+                99,
+                114,
+                482,
+                183
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "36308"
+                    }
+                ]
+            },
+            "bbox": [
+                478,
+                945,
+                519,
+                957
+            ]
+        }
+    ],
+    [
+        {
+            "type": "list",
+            "content": {
+                "list_type": "reference_list",
+                "list_items": [
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[25] Olaf Ronneberger, Philipp Fischer, and Thomas Brox. Unet: Convolutional networks for biomedical image segmentation. In Medical image computing and computer-assisted intervention–MICCAI 2015: 18th international conference, Munich, Germany, October 5-9, 2015, proceedings, part III 18, pages 234–241. Springer, 2015. 1, 2, 6"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[26] Ning Shen, Tingfa Xu, Shiqi Huang, Feng Mu, and Jianan Li. Expert-guided knowledge distillation for semi-supervised vessel segmentation. IEEE Journal of Biomedical and Health Informatics, 27(11):5542–5553, 2023. 2"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[27] Yuhe Shen, Jiang Li, Weifang Zhu, Kai Yu, Meng Wang, Yuanyuan Peng, Yi Zhou, Liling Guan, and Xinjian Chen. Graph attention u-net for retinal layer surface detection and choroid neovascularization segmentation in oct images. IEEE Transactions on Medical Imaging, 42(11):3140–3154, 2023.2"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[28] Tianyi Shi, Xiaohuan Ding, Wei Zhou, Feng Pan, Zengqiang Yan, Xiang Bai, and Xin Yang. Affinity feature strengthening for accurate, complete and robust vessel segmentation. IEEE Journal of Biomedical and Health Informatics, 27(8):4006– 4017,2023.1"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[29] Suprosanna Shit, Johannes C Paetzold, Anjany Sekuboyina, Ivan Ezhov, Alexander Unger, Andrey Zhylka, Josien PW Pluim, Ulrich Bauer, and Bjoern H Menze. cldice-a novel topology-preserving loss function for tubular structure segmentation. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition, pages 16560– 16569,2021.5"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[30] Oriane Siméoni, Huy V. Vo, Maximilian Seitzer, Federico Baldassarre, Maxime Oquab, Cijo Jose, Vasil Khalidov, Marc Szafraniec, Seungeun Yi, Michaël Ramamonjisoa, Francisco Massa, Daniel Haziza, Luca Wehrstedt, Jianyuan Wang, Timothée Darcet, Théo Moutakanni, Leonel Sentana, Claire Roberts, Andrea Vedaldi, Jamie Tolan, John Brandt, Camille Couprie, Julien Mairal, Hervé Jégou, Patrick Labatut, and Piotr Bojanowski. DINOv3, 2025. 6"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[31] Joes Staal, Michael D Abràmoff, Meindert Niemeijer, Max A Viergever, and Bram Van Ginneken. Ridge-based vessel segmentation in color images of the retina. IEEE transactions on medical imaging, 23(4):501–509, 2004. 5, 6"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[32] Jiapeng Su, Qi Fan, Wenjie Pei, Guangming Lu, and Fanglin Chen. Domain-rectifying adapter for cross-domain few-shot segmentation. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pages 24036– 24045,2024.3"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[33] Chengliang Wang, Xinrun Chen, Haojian Ning, and Shiying Li. Sam-octa: A fine-tuning strategy for applying foundation model octa image segmentation tasks. In ICASSP 2024 - 2024 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP), pages 1771–1775, 2024. 3,6"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[34] Qijie Wang, Guandu Liu, and Bin Wang. Caps-adapter: Caption-based multimodal adapter in zero-shot classification. In Proceedings of the 32nd ACM International Conference on Multimedia, pages 5442–5450, 2024. 3"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[35] Yicheng Wu, Zongyuan Ge, Donghao Zhang, Minfeng Xu, Lei Zhang, Yong Xia, and Jianfei Cai. Mutual consistency"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "learning for semi-supervised medical image segmentation. Medical Image Analysis, 81:102530, 2022. 5"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[36] Yicheng Wu, Zhonghua Wu, Qianyi Wu, Zongyuan Ge, and Jianfei Cai. Exploring smoothness and class-separation for semi-supervised medical image segmentation. In Medical Image Computing and Computer Assisted Intervention – MICCAI 2022, pages 34–43, Cham, 2022. Springer Nature Switzerland. 5"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[37] Zhaozhi Xie, Bochen Guan, Weihao Jiang, Muyang Yi, Yue Ding, Hongtao Lu, and Lei Zhang. Pa-sam: Prompt adapter sam for high-quality image segmentation. In 2024 IEEE International Conference on Multimedia and Expo (ICME), pages 1–6. IEEE, 2024. 3"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[38] Mengde Xu, Zheng Zhang, Fangyun Wei, Han Hu, and Xiang Bai. San: Side adapter network for open-vocabulary semantic segmentation. IEEE Transactions on Pattern Analysis and Machine Intelligence, 45(12):15546–15561, 2023. 3"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[39] Fan Yang, Lei Zhang, Sijia Yu, Danil Prokhorov, Xue Mei, and Haibin Ling. Feature pyramid and hierarchical boosting network for pavement crack detection. IEEE Transactions on Intelligent Transportation Systems, 21(4):1525–1535, 2020. 1"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[40] Sicheng Yang, Hongqiu Wang, Zhaohu Xing, Sixiang Chen, and Lei Zhu. Segdino: An efficient design for medical and natural image segmentation with dino-v3. arXiv preprint arXiv:2509.00833, 2025. 6, 7"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[41] Lequan Yu, Shujun Wang, Xiaomeng Li, Chi-Wing Fu, and Pheng-Ann Heng. Uncertainty-aware self-ensembling model for semi-supervised 3d left atrium segmentation. In Medical Image Computing and Computer Assisted Intervention – MICCAI 2019, pages 605–613. Springer International Publishing, 2019. 5"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[42] Qin YuTao, Yang SiZhe, Hu Bang, and Ren Wei. Fcodtnet: A novel framework for high-precision medical image segmentation using contextual distillation transformer. In ICASSP 2025 - 2025 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP), pages 1–5, 2025. 2"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[43] Hongbin Zhang, Xiang Zhong, Guangli Li, Wei Liu, Jiawei Liu, Donghong Ji, Xiong Li, and Jianguo Wu. Bcu-net: Bridging convnext and u-net for medical image segmentation. Computers in Biology and Medicine, 159:106960– 106976, 2023. 2, 6, 7"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[44] Haoran Zhang, Shuanghao Bai, Wanqi Zhou, Jingwen Fu, and Badong Chen. Promptta: Prompt-driven text adapter for source-free domain generalization. In ICASSP 2025 - 2025 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP), pages 1–5, 2025. 3"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[45] Jiong Zhang, Qihang Xie, Lei Mou, Dan Zhang, Da Chen, Caifeng Shan, Yitian Zhao, Ruisheng Su, and Mengguo Guo. Dsca: A digital subtraction angiography sequence dataset and spatio-temporal model for cerebral artery segmentation. IEEE Transactions on Medical Imaging, 44(6):2515–2527, 2025.5,6, 7"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[46] Yishuo Zhang and Albert C. S. Chung. Retinal vessel segmentation by a transformer-u-net hybrid model with dual-"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "bbox": [
+                91,
+                93,
+                483,
+                175
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "36309"
+                    }
+                ]
+            },
+            "bbox": [
+                478,
+                945,
+                519,
+                957
+            ]
+        }
+    ],
+    [
+        {
+            "type": "list",
+            "content": {
+                "list_type": "reference_list",
+                "list_items": [
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "path decoder. IEEE Journal of Biomedical and Health Informatics, 28(9):5347–5359, 2024. 2"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[47] Yindong Zhang, Jie Chen, Li Wang, Miaohong Chen, Guoming Zhang, and Jianqiang Li. Dd-unet: Densely dilated u-net for curvilinear structure segmentation in fundus image. In 2023 IEEE International Conference on Bioinformatics and Biomedicine (BIBM), pages 2374–2379, 2023. 2"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[48] Yi Zhou, Thiara Sana Ahmed, Meng Wang, Eric A. Newman, Leopold Schmetterer, Huazhu Fu, Jun Cheng, and Bingyao Tan. Masked vascular structure segmentation and completion in retinal images. IEEE Transactions on Medical"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Imaging, 44(6):2492–2503, 2025. 6"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[49] Yanfeng Zhou, Lingrui Li, Le Lu, and Minfeng Xu. nnWNet: Rethinking the Use of Transformers in Biomedical Image Segmentation and Calling for a Unified Evaluation Benchmark . In 2025 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR), pages 20852– 20862, 2025. 6, 7"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[50] Qin Zou, Yu Cao, Qingquan Li, Qingzhou Mao, and Song Wang. Cracktree: Automatic crack detection from pavement images. Pattern Recognition Letters, 33(3):227–238, 2012. 5,6"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "bbox": [
+                124,
+                93,
+                482,
+                119
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "36310"
+                    }
+                ]
+            },
+            "bbox": [
+                478,
+                945,
+                519,
+                957
+            ]
+        }
+    ]
+]
