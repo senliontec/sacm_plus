@@ -23,7 +23,7 @@ else
   EPOCHS="${EPOCHS:-300}"
 fi
 SEED="${SEED:-0}"
-VAL_INTERVAL="${VAL_INTERVAL:-5}"
+VAL_INTERVAL="${VAL_INTERVAL:-1}"
 # Dedicated root: never inherit CANONICAL_ROOT from an older audit shell.
 ABLATION_ROOT="${ABLATION_ROOT:-results/runs/ablation_v3_vs_v2_skel}"
 LOG_DIR="${LOG_DIR:-results/ablation_logs}"
