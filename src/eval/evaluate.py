@@ -98,8 +98,12 @@ def evaluate(args):
     internal_adapter_count = sum(1 for name, _ in sam.image_encoder.named_parameters() if 'blocks' in name and 'adapter' in name)
     logging.info(f"Model has {internal_adapter_count} internal block adapters and {external_adapter_count} external adapters")
 
-    # Load trained weights
-    checkpoint = torch.load(args.trained_weights, map_location=device)
+    # Load trained weights.  PyTorch >=2.6 defaults weights_only=True, but
+    # this is a trusted project checkpoint containing config metadata and a
+    # TorchVersion object; the baseline runtime already loads it with
+    # weights_only=False.
+    checkpoint = torch.load(
+        args.trained_weights, map_location=device, weights_only=False)
     try:
         sam.load_state_dict(checkpoint['model_state_dict'])
     except RuntimeError as e:
