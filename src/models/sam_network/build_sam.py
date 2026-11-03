@@ -30,6 +30,7 @@ def build_sam_vit_h(
     use_coarse_to_fine=True,
     use_fusion_v2=True,
     use_multi_depth=True,
+    use_dynamic_strip=False,
     init_stage2_from_stage1=False,
     use_typed_heads=False,
 ):
@@ -47,6 +48,7 @@ def build_sam_vit_h(
         use_coarse_to_fine=use_coarse_to_fine,
         use_fusion_v2=use_fusion_v2,
         use_multi_depth=use_multi_depth,
+        use_dynamic_strip=use_dynamic_strip,
         init_stage2_from_stage1=init_stage2_from_stage1,
         use_typed_heads=use_typed_heads,
     )
@@ -65,6 +67,7 @@ def build_sam_vit_l(
     use_coarse_to_fine=True,
     use_fusion_v2=True,
     use_multi_depth=True,
+    use_dynamic_strip=False,
     init_stage2_from_stage1=False,
     use_typed_heads=False,
 ):
@@ -82,6 +85,7 @@ def build_sam_vit_l(
         use_coarse_to_fine=use_coarse_to_fine,
         use_fusion_v2=use_fusion_v2,
         use_multi_depth=use_multi_depth,
+        use_dynamic_strip=use_dynamic_strip,
         init_stage2_from_stage1=init_stage2_from_stage1,
         use_typed_heads=use_typed_heads,
     )
@@ -97,6 +101,7 @@ def build_sam_vit_b(
     use_coarse_to_fine=True,
     use_fusion_v2=True,
     use_multi_depth=True,
+    use_dynamic_strip=False,
     init_stage2_from_stage1=False,
     use_typed_heads=False,
 ):
@@ -114,6 +119,7 @@ def build_sam_vit_b(
         use_coarse_to_fine=use_coarse_to_fine,
         use_fusion_v2=use_fusion_v2,
         use_multi_depth=use_multi_depth,
+        use_dynamic_strip=use_dynamic_strip,
         init_stage2_from_stage1=init_stage2_from_stage1,
         use_typed_heads=use_typed_heads,
     )
@@ -141,6 +147,7 @@ def _build_sam(
     use_coarse_to_fine=True,
     use_fusion_v2=True,
     use_multi_depth=True,
+    use_dynamic_strip=False,
     init_stage2_from_stage1=False,
     use_typed_heads=False,
 ):
@@ -191,6 +198,7 @@ def _build_sam(
             use_geo_i=use_geo_i,
             use_geo_e=use_geo_e,
             geo_e_indices=geo_e_indices,
+            use_dynamic_strip=use_dynamic_strip,
         ),
         prompt_encoder=PromptEncoder(
             embed_dim=prompt_embed_dim,

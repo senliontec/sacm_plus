@@ -82,6 +82,10 @@ PRESETS = {
     # Full model: + Fusion v2 (cross-layer interaction + spatial gate)
     # + multi-depth decoder path.
     "full": dict(FULL),
+    # Full model + deformable (dynamic) strip branches in the geometric
+    # adapters.  Offsets are zero-initialized, so training starts from the
+    # exact full-model behaviour and learns local strip deformation.
+    "full_dynamic_strip": {**FULL, "use_dynamic_strip": True},
     # D8 candidate-supervision ablations. `full` defaults to soft after
     # the fix; full_wta reproduces the old winner-take-all behaviour.
     # wta = only gating head; allhead = mean over all heads;

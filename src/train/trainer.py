@@ -277,6 +277,7 @@ def train(args):
         use_coarse_to_fine=args.use_coarse_to_fine,
         use_fusion_v2=args.use_fusion_v2,
         use_multi_depth=args.use_multi_depth,
+        use_dynamic_strip=getattr(args, 'use_dynamic_strip', False),
         use_typed_heads=getattr(args, 'use_typed_heads', False),
         init_stage2_from_stage1=getattr(args, 'init_stage2_from_stage1', False),
     )
@@ -578,6 +579,9 @@ if __name__ == '__main__':
     parser.add_argument('--use_coarse_to_fine', type=str2bool, default=True, help='Closed-loop coarse-to-fine refinement')
     parser.add_argument('--use_fusion_v2', type=str2bool, default=True, help='Fusion v2 (concat+FFN weights + spatial gate); off = original SACM fusion')
     parser.add_argument('--use_multi_depth', type=str2bool, default=True, help='Multi-depth semantic path from encoder intermediates')
+    parser.add_argument('--use_dynamic_strip', type=str2bool, default=False,
+                        help='Use deformable (dynamic) strip branches in the '
+                             'geometric adapters; requires torchvision deform_conv2d')
     parser.add_argument('--use_typed_heads', type=str2bool, default=False,
                         help='Typed structural Stage-2 heads (thin/blob/boundary/recall); '
                              'opt-in via preset full_typed or this flag')

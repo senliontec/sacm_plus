@@ -35,6 +35,7 @@ SAM_DEFAULTS = dict(
     use_coarse_to_fine=True,
     use_fusion_v2=True,
     use_multi_depth=True,
+    use_dynamic_strip=False,
     # Default OFF: the typed-head prototype is opt-in through the
     # `full_typed` preset; the stable SACM-X path is unchanged.
     use_typed_heads=False,

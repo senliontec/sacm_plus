@@ -19,6 +19,7 @@ import torch.nn.functional as F
 from typing import Optional, Tuple, Type
 
 from .common import LayerNorm2d, MLPBlock
+from .dynamic_strip import DynamicStripBranch
 
 
 # This class and its supporting functions below lightly adapted from the ViTDet backbone available at: https://github.com/facebookresearch/detectron2/blob/main/detectron2/modeling/backbone/vit.py # noqa
@@ -46,6 +47,7 @@ class ImageEncoderViT(nn.Module):
         use_geo_i: bool = True,
         use_geo_e: bool = True,
         geo_e_indices: Tuple[int, ...] = None,
+        use_dynamic_strip: bool = False,
     ) -> None:
         """
         Args:
@@ -82,6 +84,7 @@ class ImageEncoderViT(nn.Module):
         self.use_adapter = use_adapter
         self.use_geo_i = use_geo_i
         self.use_geo_e = use_geo_e
+        self.use_dynamic_strip = bool(use_dynamic_strip)
         self.geo_e_indices = set(geo_e_indices) if use_geo_e and geo_e_indices is not None else None
         self.patch_size = patch_size
         self.depth = depth
@@ -120,6 +123,7 @@ class ImageEncoderViT(nn.Module):
                 use_adapter=use_adapter,
                 adapter_dim_ratio=adapter_dim_ratio,
                 geo_adapter=use_geo_i,
+                dynamic_strip=use_dynamic_strip,
             )
             self.blocks.append(block)
 
@@ -155,7 +159,9 @@ class ImageEncoderViT(nn.Module):
                 ) and i not in self.global_attn_indexes
                 if is_geo_e_layer:
                     self.external_adapters.append(
-                        AdapterEGlobal(embed_dim, adapter_dim_ratio, act_layer)
+                        AdapterEGlobal(
+                            embed_dim, adapter_dim_ratio, act_layer,
+                            dynamic_strip=use_dynamic_strip)
                     )
                 else:
                     self.external_adapters.append(
@@ -295,9 +301,13 @@ class GeoAdapterModule(nn.Module):
         act_layer: Type[nn.Module] = nn.GELU,
         strip_kernel: int = 15,
         strip_dim: int = 32,
+        dynamic_strip: bool = False,
+        dynamic_kernel: int = 9,
+        dynamic_offset_groups: int = 8,
     ):
         super().__init__()
         self.adapter_dim = int(dim * adapter_dim_ratio)
+        self.dynamic_strip = bool(dynamic_strip)
 
         # Original bottleneck path
         self.down_proj = nn.Linear(dim, self.adapter_dim)
@@ -309,14 +319,25 @@ class GeoAdapterModule(nn.Module):
         # Strip branch (depthwise, orthogonal directions).
         # (k, 1) is a vertical strip along the height axis; (1, k) horizontal.
         self.strip_down = nn.Conv2d(dim, strip_dim, kernel_size=1)
-        self.strip_v = nn.Conv2d(
-            strip_dim, strip_dim, (strip_kernel, 1),
-            groups=strip_dim, padding=(strip_kernel // 2, 0),
-        )
-        self.strip_h = nn.Conv2d(
-            strip_dim, strip_dim, (1, strip_kernel),
-            groups=strip_dim, padding=(0, strip_kernel // 2),
-        )
+        if self.dynamic_strip:
+            groups = min(int(dynamic_offset_groups), int(strip_dim))
+            if strip_dim % groups:
+                groups = 1
+            self.strip_branch = DynamicStripBranch(
+                strip_dim, kernel_size=int(dynamic_kernel),
+                offset_groups=groups)
+            self.strip_v = None
+            self.strip_h = None
+        else:
+            self.strip_branch = None
+            self.strip_v = nn.Conv2d(
+                strip_dim, strip_dim, (strip_kernel, 1),
+                groups=strip_dim, padding=(strip_kernel // 2, 0),
+            )
+            self.strip_h = nn.Conv2d(
+                strip_dim, strip_dim, (1, strip_kernel),
+                groups=strip_dim, padding=(0, strip_kernel // 2),
+            )
         self.strip_up = nn.Conv2d(strip_dim, dim, kernel_size=1)
 
         # Branch coefficient, zero-initialized: initial output == Adapter-I
@@ -328,8 +349,11 @@ class GeoAdapterModule(nn.Module):
 
         xt = x.permute(0, 3, 1, 2).contiguous()  # [B, C, H, W]
         s = self.strip_down(xt)
-        s = self.strip_v(s)
-        s = self.strip_h(s)
+        if self.dynamic_strip:
+            s = self.strip_branch(s)
+        else:
+            s = self.strip_v(s)
+            s = self.strip_h(s)
         s = self.strip_up(s).permute(0, 2, 3, 1).contiguous()  # [B, H, W, C]
         return out + self.gamma * s
 
@@ -357,10 +381,13 @@ class AdapterEGlobal(nn.Module):
         act_layer: Type[nn.Module] = nn.GELU,
         strip_kernel: int = 31,
         se_ratio: int = 16,
+        dynamic_strip: bool = False,
+        dynamic_kernel: int = 31,
     ):
         super().__init__()
         self.eps_se = nn.Parameter(torch.zeros(1))
         self.eps_strip = nn.Parameter(torch.zeros(1))
+        self.dynamic_strip = bool(dynamic_strip)
 
         hidden = max(dim // se_ratio, 8)
         self.se = nn.Sequential(
@@ -371,12 +398,22 @@ class AdapterEGlobal(nn.Module):
         )
 
         # (k, 1): vertical strip along the height axis; (1, k): horizontal
-        self.strip_v = nn.Conv2d(
-            dim, dim, (strip_kernel, 1), groups=dim, padding=(strip_kernel // 2, 0)
-        )
-        self.strip_h = nn.Conv2d(
-            dim, dim, (1, strip_kernel), groups=dim, padding=(0, strip_kernel // 2)
-        )
+        if self.dynamic_strip:
+            # Shared offsets keep the full-width external adapter cheap.
+            self.strip_branch = DynamicStripBranch(
+                dim, kernel_size=int(dynamic_kernel), offset_groups=1)
+            self.strip_v = None
+            self.strip_h = None
+        else:
+            self.strip_branch = None
+            self.strip_v = nn.Conv2d(
+                dim, dim, (strip_kernel, 1), groups=dim,
+                padding=(strip_kernel // 2, 0)
+            )
+            self.strip_h = nn.Conv2d(
+                dim, dim, (1, strip_kernel), groups=dim,
+                padding=(0, strip_kernel // 2)
+            )
 
         self.adapter_dim = int(dim * adapter_dim_ratio)
         self.down_proj = nn.Linear(dim, self.adapter_dim)
@@ -391,8 +428,11 @@ class AdapterEGlobal(nn.Module):
         gated = self.eps_se * x * gate.unsqueeze(1).unsqueeze(2)
 
         xt = x.permute(0, 3, 1, 2).contiguous()  # [B, C, H, W]
-        s = self.strip_v(xt)
-        s = self.strip_h(s)
+        if self.dynamic_strip:
+            s = self.strip_branch(xt)
+        else:
+            s = self.strip_v(xt)
+            s = self.strip_h(s)
         s = self.eps_strip * s.permute(0, 2, 3, 1).contiguous()  # [B, H, W, C]
 
         x = x + gated + s
@@ -417,6 +457,7 @@ class Block(nn.Module):
         use_adapter: bool = False,
         adapter_dim_ratio: float = 0.1,
         geo_adapter: bool = False,
+        dynamic_strip: bool = False,
     ) -> None:
         """
         Args:
@@ -455,7 +496,9 @@ class Block(nn.Module):
         self.use_adapter = use_adapter
         if use_adapter:
             if geo_adapter:
-                self.adapter = GeoAdapterModule(dim, adapter_dim_ratio, act_layer)
+                self.adapter = GeoAdapterModule(
+                    dim, adapter_dim_ratio, act_layer,
+                    dynamic_strip=dynamic_strip)
             else:
                 self.adapter = AdapterModule(dim, adapter_dim_ratio, act_layer)
 
