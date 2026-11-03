@@ -108,6 +108,25 @@ bash scripts/sacm_x/eval_sacm_x_20.sh
 This forces `resize` and disables the empty guard.  Report it as a separate
 ablation, not as the proposed method's default score.
 
+**Optional evaluation speed-ups (default off).**
+
+```bash
+GPU=7 SEED="$SEED" PRESET="$PRESET" \
+TRAIN_OUT="$RUN_ROOT" OUTPUT_ROOT="$RUN_ROOT/eval" \
+REUSE_EVAL_MODEL=1 PAPER_METRICS_ONLY=1 \
+bash scripts/sacm_x/eval_sacm_x_20.sh
+```
+
+- `REUSE_EVAL_MODEL=1` loads the model/checkpoint once and evaluates all
+  datasets in one process.  Outputs stay at
+  `<eval>/<preset>/<DATASET>/`; `multi_eval_status.json` records each
+  dataset's status and a failed dataset does not stop the others.
+- `PAPER_METRICS_ONLY=1` computes only Dice, IoU, clDice and HD95.  These
+  values are identical to the full-suite run; the other metrics, AUC and the
+  optional persistence engines are skipped.
+- Both default to `0`, so the original one-process-per-dataset, 16-metric
+  path is unchanged.
+
 ## Latest run index
 
 ```bash

@@ -47,8 +47,9 @@ def compute_metrics(
     compute_auc=False,
     compute_betti_matching=False,
     compute_topograph=False,
+    metric_names=None,
 ):
-    """Compute the full metric suite for one image.
+    """Compute the requested metric suite for one image.
 
     Args:
         pred_logits: RAW LOGITS from the mask decoder, shape [H, W],
@@ -64,44 +65,73 @@ def compute_metrics(
             slow — seconds per image).
         compute_topograph: additionally compute topograph_error
             (official engine, at 256 resolution; needs networkx/scipy).
+        metric_names: optional iterable of names to compute.  ``None``
+            (default) computes the full suite.  Requested metrics are
+            skipped entirely, not computed and discarded, which matters
+            for the expensive distance/topology metrics.  AUC and the
+            optional engines are computed only when both their flag and
+            their name are requested.
     Returns:
-        dict with keys dice, iou, precision, recall, sensitivity,
-        specificity, accuracy, mcc, cldice, hd, hd95, assd, asd, ravd,
-        nsd, betti (+ dice_auc, cldice_auc when compute_auc, and
-        betti_matching / topograph_error when their flags are set).
+        dict with the requested subset of dice, iou, precision, recall,
+        sensitivity, specificity, accuracy, mcc, cldice, hd, hd95, assd,
+        asd, ravd, nsd, betti (+ dice_auc, cldice_auc when compute_auc,
+        and betti_matching / topograph_error when their flags are set).
         Distance/topology metrics are NaN when a mask is empty or a
         dependency is missing; callers aggregate with NaN exclusion.
     """
-    from .persistence import betti_matching_score, topograph_error_score
+    requested = None if metric_names is None else set(metric_names)
+
+    def want(name):
+        return requested is None or name in requested
 
     pred = binarize(to_numpy(pred_logits).squeeze(), threshold)
     ref = binarize(to_numpy(gt).squeeze(), gt_threshold)
 
-    metrics = {
-        "dice": dice_score(pred, ref),
-        "iou": iou_score(pred, ref),
-        "precision": precision_score(pred, ref),
-        "recall": recall_score(pred, ref),
-        "sensitivity": sensitivity_score(pred, ref),
-        "specificity": specificity_score(pred, ref),
-        "accuracy": accuracy_score(pred, ref),
-        "mcc": mcc_score(pred, ref),
-        "cldice": cldice_score(pred, ref),
-        "hd": hausdorff_score(pred, ref),
-        "hd95": hd95_score(pred, ref),
-        "assd": assd_score(pred, ref),
-        "asd": asd_score(pred, ref),
-        "ravd": ravd_score(pred, ref),
-        "nsd": nsd_score(pred, ref, tolerance_mm=nsd_tolerance),
-        "betti": betti_error(pred, ref),
-    }
-    if compute_auc:
+    metrics = {}
+    if want("dice"):
+        metrics["dice"] = dice_score(pred, ref)
+    if want("iou"):
+        metrics["iou"] = iou_score(pred, ref)
+    if want("precision"):
+        metrics["precision"] = precision_score(pred, ref)
+    if want("recall"):
+        metrics["recall"] = recall_score(pred, ref)
+    if want("sensitivity"):
+        metrics["sensitivity"] = sensitivity_score(pred, ref)
+    if want("specificity"):
+        metrics["specificity"] = specificity_score(pred, ref)
+    if want("accuracy"):
+        metrics["accuracy"] = accuracy_score(pred, ref)
+    if want("mcc"):
+        metrics["mcc"] = mcc_score(pred, ref)
+    if want("cldice"):
+        metrics["cldice"] = cldice_score(pred, ref)
+    if want("hd"):
+        metrics["hd"] = hausdorff_score(pred, ref)
+    if want("hd95"):
+        metrics["hd95"] = hd95_score(pred, ref)
+    if want("assd"):
+        metrics["assd"] = assd_score(pred, ref)
+    if want("asd"):
+        metrics["asd"] = asd_score(pred, ref)
+    if want("ravd"):
+        metrics["ravd"] = ravd_score(pred, ref)
+    if want("nsd"):
+        metrics["nsd"] = nsd_score(pred, ref, tolerance_mm=nsd_tolerance)
+    if want("betti"):
+        metrics["betti"] = betti_error(pred, ref)
+    if compute_auc and (requested is None or (
+            "dice_auc" in requested or "cldice_auc" in requested)):
         probs = 1.0 / (1.0 + np.exp(-to_numpy(pred_logits).squeeze().astype(np.float64)))
         dice_auc, cldice_auc = _auc_scores(probs, ref)
-        metrics["dice_auc"] = dice_auc
-        metrics["cldice_auc"] = cldice_auc
-    if compute_betti_matching:
+        if want("dice_auc"):
+            metrics["dice_auc"] = dice_auc
+        if want("cldice_auc"):
+            metrics["cldice_auc"] = cldice_auc
+    if compute_betti_matching and want("betti_matching"):
+        from .persistence import betti_matching_score
         metrics["betti_matching"] = betti_matching_score(pred_logits, gt)
-    if compute_topograph:
+    if compute_topograph and want("topograph_error"):
+        from .persistence import topograph_error_score
         metrics["topograph_error"] = topograph_error_score(pred_logits, gt)
     return metrics

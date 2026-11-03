@@ -70,6 +70,19 @@ def test_identical_masks():
     assert cldice_score(m, m) == pytest.approx(1.0)
 
 
+def test_compute_metrics_subset_matches_full():
+    """The paper-only fast path must not change the four main values."""
+    rng = np.random.default_rng(1)
+    gt = (rng.random((32, 32)) > 0.5).astype(np.float32)
+    logits = (gt * 2.0 - 1.0) * 4.0
+    full = compute_metrics(logits, gt)
+    paper_keys = ['dice', 'iou', 'cldice', 'hd95']
+    subset = compute_metrics(logits, gt, metric_names=paper_keys)
+    assert set(subset) == set(paper_keys)
+    for key in paper_keys:
+        assert subset[key] == pytest.approx(full[key])
+
+
 def test_cldice_empty_skeleton_is_nan():
     empty = np.zeros((8, 8), dtype=np.uint8)
     full = np.ones((8, 8), dtype=np.uint8)

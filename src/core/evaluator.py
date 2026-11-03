@@ -25,6 +25,9 @@ from core.wandb_utils import finish_run, log_scalars, setup_wandb
 
 METRIC_KEYS = ['dice', 'iou', 'precision', 'recall', 'sensitivity', 'specificity',
                'accuracy', 'mcc', 'cldice', 'hd', 'hd95', 'assd', 'asd', 'ravd', 'nsd', 'betti']
+# Paper table metrics only.  Same definitions and aggregation as in the full
+# suite; requesting this subset skips the other (expensive) computations.
+PAPER_METRIC_KEYS = ['dice', 'iou', 'cldice', 'hd95']
 AUC_KEYS = ['dice_auc', 'cldice_auc']
 BETTI_MATCHING_KEYS = ['betti_matching']
 TOPOGRAPH_KEYS = ['topograph_error']
@@ -209,6 +212,9 @@ class Evaluator:
                 'trained_weights': self.args.trained_weights,
                 'selection': self.args.selection,
                 'tta': self.args.tta,
+                'metric_keys': list(self.metric_keys),
+                'paper_metrics_only': bool(getattr(
+                    self.args, 'paper_metrics_only', False)),
                 'seed': getattr(self.args, 'seed', 0),
                 'deterministic': bool(getattr(
                     self.args, 'deterministic', True)),
@@ -395,6 +401,7 @@ class Evaluator:
                     compute_auc=self.args.auc,
                     compute_betti_matching=self.args.betti_matching,
                     compute_topograph=self.args.topograph_metric,
+                    metric_names=self.metric_keys,
                 )
                 row = {'image': img_name[0]}
                 if selected_head is not None:
@@ -507,6 +514,7 @@ class Evaluator:
                             compute_auc=self.args.auc,
                             compute_betti_matching=self.args.betti_matching,
                             compute_topograph=self.args.topograph_metric,
+                            metric_names=self.metric_keys,
                         )
                         c = component_metrics(cand_bin, gt_binary)
                         head_full_rows.append({
@@ -627,6 +635,9 @@ class Evaluator:
             f.write(f"Deterministic: {getattr(args, 'deterministic', True)}\n")
             f.write(f"Num workers: {getattr(args, 'num_workers', 4)}\n")
             f.write(f"Selection: {args.selection}\n")
+            if getattr(args, 'paper_metrics_only', False):
+                f.write("Metric set: paper-only "
+                        "(dice, iou, cldice, hd95)\n")
             if getattr(args, 'fixed_head', None) is not None:
                 f.write(f"Fixed head: {args.fixed_head}\n")
             f.write(f"TTA: {args.tta}\n")

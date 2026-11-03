@@ -23,6 +23,9 @@ Options:
     --skip_test    only run training
     --selection    mask selection; default: 'iou' iff the preset trains the
                    IoU head, else gating (original SACM behavior)
+    --reuse_eval_model   one evaluate.py process for all datasets (model
+                         loaded once); default is one process per dataset
+    --paper_metrics_only compute only Dice/IoU/clDice/HD95
 """
 
 import argparse
@@ -100,9 +103,57 @@ def test_command(args, preset, dataset, test_dir, ckpt_path, selection):
         cmd.append('--empty_guard')
     if args.tta:
         cmd.append('--tta')
+    if getattr(args, 'paper_metrics_only', False):
+        cmd.append('--paper_metrics_only')
     if getattr(args, 'extra_eval_args', ''):
         cmd += shlex.split(args.extra_eval_args)
     return cmd
+
+
+def reused_test_command(args, preset, datasets, ckpt_path, selection):
+    """One evaluate.py process for all datasets (model loaded once)."""
+    cmd = [
+        sys.executable, os.path.join(SRC_DIR, 'eval', 'evaluate.py'),
+        '--preset', preset,
+        '--test_datasets',
+        *[f"{name}:{test_dir}" for name, test_dir in datasets],
+        '--trained_weights', ckpt_path,
+        '--output_dir', os.path.join(args.output_root, preset),
+        '--selection', selection,
+        '--pred_threshold', str(args.pred_threshold),
+        '--eval_input_mode', args.eval_input_mode,
+        '--seed', str(args.seed),
+        '--num_workers', str(args.num_workers),
+        '--deterministic', str(bool(args.deterministic)).lower(),
+        '--deterministic_strict', str(bool(args.deterministic_strict)).lower(),
+    ]
+    fixed_head = getattr(args, 'fixed_head', None)
+    if fixed_head is not None:
+        cmd += ['--fixed_head', str(fixed_head)]
+    if args.empty_guard:
+        cmd.append('--empty_guard')
+    if args.tta:
+        cmd.append('--tta')
+    if getattr(args, 'paper_metrics_only', False):
+        cmd.append('--paper_metrics_only')
+    if getattr(args, 'extra_eval_args', ''):
+        cmd += shlex.split(args.extra_eval_args)
+    return cmd
+
+
+def multi_eval_status_path(args, preset):
+    return os.path.join(args.output_root, preset, 'multi_eval_status.json')
+
+
+def load_multi_eval_status(args, preset):
+    """Read the per-dataset status written by evaluate.py --test_datasets."""
+    try:
+        with open(multi_eval_status_path(args, preset)) as f:
+            payload = json.load(f)
+        datasets = payload.get('datasets', {})
+        return datasets if isinstance(datasets, dict) else {}
+    except (OSError, ValueError, TypeError):
+        return {}
 
 
 def status_rows(slot, status):
@@ -193,6 +244,33 @@ def start_next_test(slot, args):
           flush=True)
 
 
+def start_reuse_test(slot, args):
+    """Launch one evaluation process for every dataset in the slot."""
+    if not slot['datasets']:
+        slot['phase'] = 'done'
+        if slot['status'] == 'running':
+            slot['status'] = 'done'
+        slot['log'].close()
+        return
+    slot['phase'] = 'test_reuse'
+    slot['current_dataset'] = '*'
+    # Do not let a stale status from an earlier run masquerade as this run's
+    # result if the child dies before writing its own status.
+    try:
+        os.remove(multi_eval_status_path(args, slot['preset']))
+    except OSError:
+        pass
+    cmd = reused_test_command(
+        args, slot['preset'], slot['datasets'],
+        slot['ckpt'], slot['selection'])
+    slot['log'].write(
+        f"=== test all datasets (model reused) ===\n{' '.join(cmd)}\n")
+    slot['log'].flush()
+    _launch(slot, cmd)
+    print(f"[gpu {slot['gpu']}] {slot['preset']}: test started "
+          f"({len(slot['datasets'])} datasets, model reused)", flush=True)
+
+
 def start_job(gpu, preset, test_datasets, args):
     """Start a preset job (train first, then all test datasets)."""
     preset_dir = os.path.join(args.output_root, preset)
@@ -233,7 +311,10 @@ def start_job(gpu, preset, test_datasets, args):
             log_fh.close()
             return slot
         print(f"[gpu {gpu}] {preset}: train skipped")
-        start_next_test(slot, args)
+        if getattr(args, 'reuse_eval_model', False):
+            start_reuse_test(slot, args)
+        else:
+            start_next_test(slot, args)
         return slot
 
     cmd = train_command(args, preset, ckpt_path, selection)
@@ -268,8 +349,46 @@ def advance(slot, args):
             slot['phase'] = 'done'
             slot['log'].close()
             return True
-        start_next_test(slot, args)
+        if getattr(args, 'reuse_eval_model', False):
+            start_reuse_test(slot, args)
+        else:
+            start_next_test(slot, args)
         return slot['phase'] == 'done'
+
+    if slot['phase'] == 'test_reuse':
+        statuses = load_multi_eval_status(args, preset)
+        for dataset, _test_dir in slot['datasets']:
+            entry = statuses.get(dataset) or {}
+            state = entry.get('status')
+            if state == 'done':
+                status = 'done'
+            elif state in ('failed', 'running', 'pending'):
+                status = f'test_failed({state}, rc={rc})'
+            else:
+                # No status entry (older evaluate.py or early crash): only a
+                # summary produced by this run is evidence of success.
+                summary_path = os.path.join(
+                    args.output_root, preset, dataset, 'results_summary.txt')
+                status = (
+                    'done' if rc == 0 and os.path.isfile(summary_path)
+                    else f'test_failed(rc={rc})')
+            slot['rows'].append({
+                'preset': preset, 'dataset': dataset, 'gpu': gpu,
+                'status': status,
+            })
+            if status != 'done':
+                print(f"[gpu {gpu}] {preset}/{dataset}: {status}")
+        slot['phase'] = 'done'
+        slot['status'] = (
+            'done' if all(row['status'] == 'done' for row in slot['rows'])
+            else 'done_with_failures')
+        if slot['status'] == 'done':
+            print(f"[gpu {gpu}] {preset}: all datasets done (model reused)")
+        else:
+            print(f"[gpu {gpu}] {preset}: reused-model test finished with "
+                  f"failures (rc={rc})")
+        slot['log'].close()
+        return True
 
     dataset = slot['current_dataset']
     if rc == 0:
@@ -330,6 +449,14 @@ def main():
                              'selected mask is empty')
     parser.add_argument('--tta', action='store_true',
                         help='Enable four-way flip TTA at test time')
+    parser.add_argument('--reuse_eval_model', action='store_true',
+                        help='Evaluate all test datasets in one process, '
+                             'loading the model/checkpoint once. Default: one '
+                             'process per dataset (unchanged).')
+    parser.add_argument('--paper_metrics_only', action='store_true',
+                        help='Compute only Dice/IoU/clDice/HD95 in every '
+                             'evaluate.py process. Values are identical to '
+                             'the full suite.')
     parser.add_argument('--num_workers', type=int, default=4,
                         help='DataLoader workers; keep fixed across runs')
     parser.add_argument('--deterministic', type=str2bool, default=True,
@@ -426,6 +553,9 @@ def main():
             for preset in args.presets
         },
         'eval_input_mode': args.eval_input_mode,
+        'reuse_eval_model': bool(getattr(args, 'reuse_eval_model', False)),
+        'paper_metrics_only': bool(
+            getattr(args, 'paper_metrics_only', False)),
         'skip_train': bool(args.skip_train),
         'jobs_csv': os.path.abspath(jobs_path),
         'jobs': status_rows_all,

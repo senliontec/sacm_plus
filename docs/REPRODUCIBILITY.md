@@ -91,3 +91,8 @@ bitwise guaranteed.
   Baseline rows use their official geometry/guards.  For a matched
   comparison set `MATCH_BASELINE_GEOMETRY=1` when invoking
   `scripts/sacm_x/eval_sacm_x_20.sh` and report that ablation separately.
+- `REUSE_EVAL_MODEL=1` only changes process/model-loading lifetime; each
+  dataset still uses the same seeded DataLoader generator and the same
+  deterministic settings.  `PAPER_METRICS_ONLY=1` computes the same Dice,
+  IoU, clDice and HD95 definitions and only omits unrequested metrics.
+  Both default to off; neither changes the seed or the canonical layout.

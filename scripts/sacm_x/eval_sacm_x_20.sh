@@ -10,7 +10,8 @@
 # Environment:
 #   GPU (default 3), TRAIN_OUT, CKPT, OUTPUT_ROOT, CANONICAL_ROOT,
 #   PRESET (default full), SEED, SAM_CKPT, DATASETS, USE_WANDB, WANDB_MODE,
-#   SAVE_CANDIDATE_MASKS, SAVE_CANDIDATE_PROBS.
+#   SAVE_CANDIDATE_MASKS, SAVE_CANDIDATE_PROBS, REUSE_EVAL_MODEL,
+#   PAPER_METRICS_ONLY.
 #
 # Canonical layout:
 #   TRAIN_OUT=results/runs/sacm_x/<preset>/seed<seed>
@@ -78,6 +79,11 @@ TRAIN_ROOT="${TRAIN_ROOT:-data/sacm_3shot_seed${SEED}}"
 EVAL_INPUT_MODE="${EVAL_INPUT_MODE:-aspect_pad}"
 USE_TTA="${USE_TTA:-false}"
 EMPTY_GUARD="${EMPTY_GUARD:-true}"
+# Optional speed-ups; both default to the previous behavior.
+#   REUSE_EVAL_MODEL=1  load the model/checkpoint once for all datasets
+#   PAPER_METRICS_ONLY=1 compute only Dice/IoU/clDice/HD95
+REUSE_EVAL_MODEL="${REUSE_EVAL_MODEL:-0}"
+PAPER_METRICS_ONLY="${PAPER_METRICS_ONLY:-0}"
 # Fairness ablation: baselines do not have SACM-X's aspect_pad geometry or
 # empty-mask fallback.  Set MATCH_BASELINE_GEOMETRY=1 to evaluate SACM-X
 # under the same square-resize / no-empty-guard operating point.
@@ -158,6 +164,7 @@ if [ "$SKIP_EVAL" = "true" ] || [ "$SKIP_EVAL" = "1" ]; then
 else
   echo "no retraining; evaluating with --skip_train"
   echo "eval_input_mode=$EVAL_INPUT_MODE tta=$USE_TTA empty_guard=$EMPTY_GUARD"
+  echo "reuse_eval_model=$REUSE_EVAL_MODEL paper_metrics_only=$PAPER_METRICS_ONLY"
   EXTRA_EVAL="--use_wandb $USE_WANDB --no-fov"
   if [ -n "$DEEP_CLOSING_CKPT" ]; then
     EXTRA_EVAL+=" --deep_closing_checkpoint $DEEP_CLOSING_CKPT"
@@ -211,6 +218,12 @@ else
   fi
   if [ "$USE_TTA" = "true" ] || [ "$USE_TTA" = "1" ]; then
     EXTRA_RUN+=(--tta)
+  fi
+  if [ "$REUSE_EVAL_MODEL" = "true" ] || [ "$REUSE_EVAL_MODEL" = "1" ]; then
+    EXTRA_RUN+=(--reuse_eval_model)
+  fi
+  if [ "$PAPER_METRICS_ONLY" = "true" ] || [ "$PAPER_METRICS_ONLY" = "1" ]; then
+    EXTRA_RUN+=(--paper_metrics_only)
   fi
   "$PYTHON" scripts/sacm_x/run_experiments.py \
     --gpus "$GPU" \
