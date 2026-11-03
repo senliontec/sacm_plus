@@ -20,7 +20,9 @@
 #   PYTHON, GPU, PRESET, RUN_NAME, EPOCHS, VAL_INTERVAL, SEED, DATASETS, CKPT,
 #   TRAIN_ROOT, OUTPUT_ROOT, CANONICAL_ROOT, MONITOR, USE_WANDB, WANDB_MODE,
 #   WANDB_NAME, INIT_STAGE2_FROM_STAGE1, SKIP_TEST, SCNP, SCNP_WINDOW,
-#   SCNP_ORIGINAL_WEIGHT, REUSE_EVAL_MODEL, PAPER_METRICS_ONLY, RESUME
+#   SCNP_ORIGINAL_WEIGHT, REUSE_EVAL_MODEL, PAPER_METRICS_ONLY, RESUME,
+#   VAL_SELECTION (auto/iou/gating/quality/fixed), VAL_FIXED_HEAD,
+#   VAL_EMPTY_GUARD, TOPOLOGY_LOSS, TOPOLOGY_LOSS_WEIGHT, TOPOLOGY_RESOLUTION
 #
 # MONITOR=baseline (default): every-epoch macro Dice/IoU/clDice/HD95 and
 #   per-dataset W&B keys, exactly like src/baseline_zoo/runtime.py;
@@ -91,8 +93,22 @@ USE_TTA="${USE_TTA:-false}"
 EMPTY_GUARD="${EMPTY_GUARD:-true}"
 SELECTION="${SELECTION:-}"
 FIXED_HEAD="${FIXED_HEAD:-}"
+VAL_SELECTION="${VAL_SELECTION:-auto}"
+VAL_FIXED_HEAD="${VAL_FIXED_HEAD:-2}"
+VAL_EMPTY_GUARD="${VAL_EMPTY_GUARD:-$EMPTY_GUARD}"
 QUALITY_SMALL_COMPONENT_WEIGHT="${QUALITY_SMALL_COMPONENT_WEIGHT:-0.5}"
 QUALITY_COMPONENT_WEIGHT="${QUALITY_COMPONENT_WEIGHT:-0.05}"
+TOPOLOGY_LOSS="${TOPOLOGY_LOSS:-}"
+TOPOLOGY_LOSS_WEIGHT="${TOPOLOGY_LOSS_WEIGHT:-0.1}"
+TOPOLOGY_RESOLUTION="${TOPOLOGY_RESOLUTION:-256}"
+# Keep the one-shot eval aligned with the validation policy unless the user
+# explicitly overrides it.
+if [ "$VAL_SELECTION" = "fixed" ] && [ -z "$FIXED_HEAD" ]; then
+  FIXED_HEAD="$VAL_FIXED_HEAD"
+fi
+if [ "$VAL_SELECTION" = "quality" ] && [ -z "$SELECTION" ]; then
+  SELECTION="quality"
+fi
 COMPONENT_METRICS="${COMPONENT_METRICS:-false}"
 COMPONENT_PRUNE_MODE="${COMPONENT_PRUNE_MODE:-off}"
 COMPONENT_PRUNE_MIN_AREA="${COMPONENT_PRUNE_MIN_AREA:-0}"
@@ -151,6 +167,16 @@ TRAIN_EXTRA+=(--wandb_name "${WANDB_NAME:-sacm_x_seed${SEED}_${PRESET}}")
 
 TRAIN_EXTRA+=(--scnp "$SCNP" --scnp_window "$SCNP_WINDOW" \
               --scnp_original_weight "$SCNP_ORIGINAL_WEIGHT")
+TRAIN_EXTRA+=(--val_selection "$VAL_SELECTION" \
+              --val_fixed_head "$VAL_FIXED_HEAD" \
+              --val_empty_guard "$VAL_EMPTY_GUARD" \
+              --quality_small_component_weight "$QUALITY_SMALL_COMPONENT_WEIGHT" \
+              --quality_component_weight "$QUALITY_COMPONENT_WEIGHT")
+if [ -n "$TOPOLOGY_LOSS" ]; then
+  TRAIN_EXTRA+=(--topology_loss "$TOPOLOGY_LOSS" \
+                --topology_loss_weight "$TOPOLOGY_LOSS_WEIGHT" \
+                --topology_resolution "$TOPOLOGY_RESOLUTION")
+fi
 
 if [ -n "$DEEP_CLOSING_CKPT" ]; then
   if [ ! -f "$DEEP_CLOSING_CKPT" ]; then
@@ -181,7 +207,7 @@ SPECS="$("$PYTHON" scripts/pipeline/protocol_specs.py \
   --datasets "$DATASETS")"
 read -r -a spec_array <<< "$SPECS"
 
-echo "seed=$SEED preset=$PRESET epochs=$EPOCHS gpu=$GPU monitor=$MONITOR val_interval=$VAL_INTERVAL init_stage2_from_stage1=$INIT_STAGE2_FROM_STAGE1 input_mode=$INPUT_MODE eval_input_mode=$EVAL_INPUT_MODE fg_crop_prob=$FG_CROP_PROB boundary_weight=$BOUNDARY_LOSS_WEIGHT tta=$USE_TTA empty_guard=$EMPTY_GUARD scnp=$SCNP($SCNP_WINDOW) deep_closing=${DEEP_CLOSING_CKPT:-none} skip_test=$SKIP_TEST resume=${RESUME:-none}"
+echo "seed=$SEED preset=$PRESET epochs=$EPOCHS gpu=$GPU monitor=$MONITOR val_interval=$VAL_INTERVAL init_stage2_from_stage1=$INIT_STAGE2_FROM_STAGE1 input_mode=$INPUT_MODE eval_input_mode=$EVAL_INPUT_MODE fg_crop_prob=$FG_CROP_PROB boundary_weight=$BOUNDARY_LOSS_WEIGHT val_selection=$VAL_SELECTION val_fixed_head=$VAL_FIXED_HEAD val_empty_guard=$VAL_EMPTY_GUARD topology=${TOPOLOGY_LOSS:-<preset>}(${TOPOLOGY_LOSS_WEIGHT}) tta=$USE_TTA empty_guard=$EMPTY_GUARD scnp=$SCNP($SCNP_WINDOW) deep_closing=${DEEP_CLOSING_CKPT:-none} skip_test=$SKIP_TEST resume=${RESUME:-none}"
 echo "datasets=${#spec_array[@]}  output=$OUTPUT_ROOT"
 # Training only.  Evaluation is a separate stage so every seed has one
 # canonical checkpoint and one canonical eval tree.

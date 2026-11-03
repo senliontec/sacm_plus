@@ -108,6 +108,10 @@ Every training run now writes, in addition to the selected checkpoint:
   `--keep_checkpoints` newest snapshots;
 - `train_config.json` with the full resolved args, git commit/dirty state,
   environment versions, base-checkpoint SHA256 and data-manifest hash;
+- checkpoint `config` records `val_selection`, `val_fixed_head`,
+  `val_empty_guard`, the quality-selector weights and topology-loss settings;
+  `evaluate.py` reuses fixed/quality selection automatically when the
+  checkpoint was trained with it;
 - `provenance/data_manifest.json` with train/val/test paths, sizes, mtimes
   and SHA256s (disable hashing with `--hash_data_files false`);
 - copies of `protocol_manifest.csv`, `split_manifest.csv` and

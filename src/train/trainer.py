@@ -601,9 +601,23 @@ if __name__ == '__main__':
     parser.add_argument('--soft_select_tau', type=float, default=1.0,
                         help='soft mode: temperature for softmax(iou_pred / tau)')
     parser.add_argument('--val_selection', type=str, default='auto',
-                        choices=['auto', 'iou', 'gating'],
+                        choices=['auto', 'iou', 'gating', 'quality', 'fixed'],
                         help='Mask used for validation/checkpoint selection: '
-                             'auto -> iou when iou_loss_weight>0, else gating')
+                             'auto -> iou when iou_loss_weight>0, else gating; '
+                             'quality = IoU score minus fragmentation penalties; '
+                             'fixed = one fixed Stage-2 head (--val_fixed_head)')
+    parser.add_argument('--val_fixed_head', type=int, default=2,
+                        choices=[0, 1, 2, 3],
+                        help='Stage-2 head used by --val_selection fixed '
+                             '(default: 2)')
+    parser.add_argument('--val_empty_guard', type=str2bool, default=False,
+                        help='Apply the largest-area fallback during validation '
+                             'when the fixed/quality selection is empty')
+    parser.add_argument('--quality_small_component_weight', type=float,
+                        default=0.5,
+                        help='quality selection: penalty for small-component rate')
+    parser.add_argument('--quality_component_weight', type=float, default=0.05,
+                        help='quality selection: penalty for log(1 + n_components)')
     parser.add_argument('--selection_metric', type=str, default='dice',
                         choices=['dice', 'f1', 'cldice'],
                         help='Validation metric used to select the best checkpoint: '

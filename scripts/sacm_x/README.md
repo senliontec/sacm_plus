@@ -93,6 +93,34 @@ arguments, code revision, environment, base checkpoint hash, and the
 train/val/test data manifest (including test-mask paths/hashes used by the
 prediction-vs-GT audit).
 
+## Recommended typed-candidate run (seed 0)
+
+The audit showed that the IoU head selector can be worse than a fixed head.
+This one-click entry trains the typed candidates with a Betti topology term,
+selects checkpoints with fixed head 2, and evaluates the saved checkpoint
+with the same policy:
+
+```bash
+GPU=7 SEED=0 bash scripts/sacm_x/run_typed800_selector.sh
+```
+
+Defaults: `PRESET=full_typed_topo`, `VAL_SELECTION=fixed`,
+`VAL_FIXED_HEAD=3` (typed `recall` head; use 2 for the untyped `full` model),
+`VAL_EMPTY_GUARD=true`, `EPOCHS=800`, one-shot 20-dataset evaluation.
+To compare selectors under the same training recipe:
+
+```bash
+GPU=7 SEED=0 VAL_SELECTION=iou bash scripts/sacm_x/run_typed800_selector.sh
+GPU=7 SEED=0 VAL_SELECTION=quality bash scripts/sacm_x/run_typed800_selector.sh
+```
+
+`VAL_SELECTION` is used for validation/checkpoint selection; the same
+selection is propagated to the final evaluation unless `SELECTION` or
+`FIXED_HEAD` is explicitly overridden.  `TOPOLOGY_LOSS=none` disables the
+Betti term while keeping the typed candidates.  The selector comparison
+must be run on the validation/support split first; do not tune it on the
+20 test sets.
+
 Resume at the next epoch boundary from the last completed epoch:
 
 ```bash

@@ -161,15 +161,34 @@ def _prepare_evaluation(args):
     # settings instead of silently evaluating a different decision rule.
     if args.selection == 'auto':
         saved_selection = ckpt_cfg.get('val_selection')
-        if saved_selection in ('iou', 'gating'):
+        if saved_selection in ('iou', 'gating', 'quality'):
             args.selection = saved_selection
             logging.info(f"Using checkpoint val_selection={saved_selection}")
+        elif saved_selection == 'fixed':
+            saved_head = ckpt_cfg.get('val_fixed_head')
+            if args.fixed_head is None and saved_head is not None:
+                args.fixed_head = int(saved_head)
+                logging.info(
+                    "Using checkpoint val_selection=fixed, "
+                    f"val_fixed_head={args.fixed_head}")
+    if args.selection == 'quality':
+        for key in ('quality_small_component_weight',
+                    'quality_component_weight'):
+            if key in ckpt_cfg:
+                setattr(args, key, float(ckpt_cfg[key]))
+    if ckpt_cfg.get('val_empty_guard') and not args.empty_guard:
+        args.empty_guard = True
+        logging.info("Using checkpoint val_empty_guard=True")
     if args.pred_threshold == 0.0 and 'pred_threshold' in ckpt_cfg:
         args.pred_threshold = float(ckpt_cfg['pred_threshold'])
         logging.info(f"Using checkpoint pred_threshold={args.pred_threshold}")
     if ckpt_cfg.get('no_fov') and not args.no_fov:
         args.no_fov = True
         logging.info("Using checkpoint no_fov=True (official comparison)")
+    # The final mask is fixed-head when --fixed_head is set; avoid the
+    # irrelevant untrained-IoU warning for the unused selection argument.
+    if args.fixed_head is not None and args.selection == 'auto':
+        args.selection = 'gating'
     args.selection = resolve_selection(args.selection, iou_weight)
     if args.fixed_head is not None:
         logging.info(

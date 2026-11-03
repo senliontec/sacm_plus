@@ -66,6 +66,8 @@ def test_d8_supervision_modes_are_explicit():
     assert PRESETS["full_typed"]["stage2_supervision"] == "typed"
     assert PRESETS["full_typed"]["use_typed_heads"] is True
     assert PRESETS["full"]["use_typed_heads"] is False
+    assert PRESETS["full_typed_topo"]["use_typed_heads"] is True
+    assert PRESETS["full_typed_topo"]["topology_loss"] == "betti"
 
 
 def test_yaml_uses_python_presets_as_source_of_truth(tmp_path):

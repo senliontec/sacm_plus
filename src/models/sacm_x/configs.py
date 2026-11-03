@@ -123,6 +123,17 @@ PRESETS = {
     "none": {},
 }
 
+# Typed candidates + a component/topology-aware auxiliary loss.  Betti
+# matching directly penalizes unmatched components/holes, unlike clDice.
+# This is deliberately an ablation preset: keep the weight small and compare
+# against `full_typed` before claiming a gain.
+PRESETS["full_typed_topo"] = {
+    **PRESETS["full_typed"],
+    "topology_loss": "betti",
+    "topology_loss_weight": 0.05,
+    "topology_resolution": 256,
+}
+
 
 def apply_preset(args, preset):
     """Overlay a preset on the parsed argparse namespace."""

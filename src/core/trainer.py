@@ -22,7 +22,11 @@ from tqdm import tqdm
 
 from core.console import console, epoch_header, epoch_row, topo_legend
 from core.data import letterbox_rect
-from core.evaluator import resolve_selection
+from core.evaluator import (
+    resolve_selection,
+    select_mask_fixed,
+    select_mask_quality,
+)
 from core.losses.monitor import topology_loss_monitor
 from core.run_artifacts import (
     ARTIFACT_VERSION,
@@ -459,9 +463,18 @@ class Trainer:
         val_has_monitored = False
         vis_items = []  # (image, gt, pred) 供 wandb 可视化
         VAL_ENGINE_IMGS = 50  # 引擎指标子集大小(均值估计,验证提速关键)
-        val_selection = getattr(self.args, 'val_selection', 'auto')
-        val_selection = resolve_selection(
-            val_selection, getattr(self.args, 'iou_loss_weight', 0.0))
+        val_selection_raw = getattr(self.args, 'val_selection', 'auto')
+        if val_selection_raw == 'fixed':
+            val_selection = 'fixed'
+        else:
+            val_selection = resolve_selection(
+                val_selection_raw,
+                getattr(self.args, 'iou_loss_weight', 0.0))
+        val_empty_guard = bool(getattr(self.args, 'val_empty_guard', False))
+        quality_small_weight = float(getattr(
+            self.args, 'quality_small_component_weight', 0.5))
+        quality_count_weight = float(getattr(
+            self.args, 'quality_component_weight', 0.05))
         pred_threshold = float(getattr(self.args, 'pred_threshold', 0.0))
 
         # DDP 分布式验证(fencing-algs 模式):验证集由 DistributedSampler
@@ -491,7 +504,21 @@ class Trainer:
 
                 # Select at decoder resolution, then restore the ORIGINAL GT
                 # size before loss/metrics — the same path as test evaluation.
-                if val_selection == 'iou':
+                if val_selection == 'fixed':
+                    main_mask, _selected_head = select_mask_fixed(
+                        masks_stage2,
+                        int(getattr(self.args, 'val_fixed_head', 2)),
+                        empty_guard=val_empty_guard,
+                        foreground_threshold=pred_threshold)
+                elif val_selection == 'quality':
+                    main_mask, _selected_head, _scores = select_mask_quality(
+                        masks_stage2,
+                        iou_pred,
+                        foreground_threshold=pred_threshold,
+                        small_component_weight=quality_small_weight,
+                        component_count_weight=quality_count_weight,
+                        empty_guard=val_empty_guard)
+                elif val_selection == 'iou':
                     idx = iou_pred.argmax(dim=1)
                     gather = idx[:, None, None, None].expand(
                         -1, 1, masks_stage2.shape[2], masks_stage2.shape[3])
@@ -716,6 +743,20 @@ class Trainer:
                     'iou_loss_weight': self.args.iou_loss_weight,
                     'pred_threshold': getattr(self.args, 'pred_threshold', 0.0),
                     'val_selection': getattr(self.args, 'val_selection', 'auto'),
+                    'val_fixed_head': int(getattr(
+                        self.args, 'val_fixed_head', 2)),
+                    'val_empty_guard': bool(getattr(
+                        self.args, 'val_empty_guard', False)),
+                    'quality_small_component_weight': float(getattr(
+                        self.args, 'quality_small_component_weight', 0.5)),
+                    'quality_component_weight': float(getattr(
+                        self.args, 'quality_component_weight', 0.05)),
+                    'topology_loss': getattr(
+                        self.args, 'topology_loss', 'none'),
+                    'topology_loss_weight': float(getattr(
+                        self.args, 'topology_loss_weight', 0.1)),
+                    'topology_resolution': int(getattr(
+                        self.args, 'topology_resolution', 256)),
                     'selection_metric': self.selection_metric,
                     'seed': getattr(self.args, 'seed', 0),
                     'deterministic': bool(getattr(
