@@ -36,6 +36,8 @@ from core.run_artifacts import (
     write_wandb_info,
 )
 from core.losses.registry import TOPOLOGY_LOSS_REGISTRY
+from core.losses.structural_targets import build_structural_targets
+from core.losses.topology_utils import resize_target_for_topology
 from core.losses.tversky import TverskyLoss
 from core.metrics import BINARY_METRICS, binary_metrics, compute_metrics
 from core.metrics_advisor import advise
@@ -266,7 +268,7 @@ class Trainer:
         train_loss = 0.0
         comps_sum = {k: 0.0 for k in (
             'loss_main', 'loss_ds', 'loss_iou', 'loss_cl', 'loss_topo',
-            'loss_boundary')}
+            'loss_boundary', 'loss_center', 'loss_width', 'loss_area')}
         # 进度条已移除:逐 epoch 的 rich 宽表 + time 列取代进度反馈
         train_pbar = tqdm(self.train_loader, total=len(self.train_loader),
                           desc=f"Epoch {epoch+1}/{self.args.epochs} [Train]",
@@ -440,11 +442,59 @@ class Trainer:
                     loss_cl = self.soft_cl(aux_mask, masks)
                 if self.boundary_loss is not None and boundary_mu > 0:
                     loss_boundary = self.boundary_loss(aux_mask, masks)
+                if tversky_mu > 0:
+                    loss_tversky = self.tversky(aux_mask, masks)
 
             # Extra topology loss (optional; strict ports)
             loss_topo = 0.0
             if self.topo_loss is not None:
                 loss_topo = self.topo_loss(aux_mask, masks)
+
+            # V3 structural auxiliary heads.  Targets are built at the
+            # decoder resolution with max-pooled GT so 1-px lines survive.
+            loss_center = 0.0
+            loss_width = 0.0
+            loss_area = 0.0
+            if getattr(self.args, 'use_v3', False):
+                decoder = getattr(self.model, 'mask_decoder', None)
+                aux = getattr(decoder, 'last_aux_outputs', None)
+                center_w = float(getattr(
+                    self.args, 'v3_centerline_weight', 0.0))
+                aux_boundary_w = float(getattr(
+                    self.args, 'v3_boundary_weight', 0.0))
+                width_w = float(getattr(
+                    self.args, 'v3_width_weight', 0.0))
+                area_w = float(getattr(self.args, 'v3_area_weight', 0.0))
+                if aux is not None and (center_w > 0 or aux_boundary_w > 0
+                                       or width_w > 0):
+                    res = aux['centerline'].shape[-1]
+                    targets = build_structural_targets(
+                        masks, res,
+                        width_max=float(getattr(decoder, 'width_max', 16.0)))
+                    if center_w > 0 and aux.get('centerline') is not None:
+                        loss_center = self.criterion(
+                            aux['centerline'], targets['centerline'])
+                        cl256 = aux.get('centerline_256')
+                        if cl256 is not None:
+                            t256 = resize_target_for_topology(
+                                targets['centerline'], cl256.shape[-1])
+                            loss_center = 0.5 * (
+                                loss_center
+                                + self.criterion(cl256, t256))
+                    if (aux_boundary_w > 0
+                            and aux.get('boundary') is not None):
+                        loss_boundary = self.criterion(
+                            aux['boundary'], targets['boundary'])
+                    if width_w > 0 and aux.get('width') is not None:
+                        pred_width = torch.sigmoid(aux['width'])
+                        fg = targets['width'] > 0
+                        if bool(fg.any()):
+                            loss_width = F.l1_loss(
+                                pred_width[fg], targets['width'][fg])
+                if area_w > 0:
+                    pred_area = torch.sigmoid(aux_mask).mean(dim=(2, 3))
+                    gt_area = masks.mean(dim=(2, 3))
+                    loss_area = (pred_area - gt_area).abs().mean()
 
             loss = (
                 loss_main
@@ -456,6 +506,14 @@ class Trainer:
                 + tversky_mu * loss_tversky
                 + tadt_weight * loss_tadt
                 + self.args.topology_loss_weight * loss_topo
+                + float(getattr(self.args, 'v3_centerline_weight', 0.0))
+                * loss_center
+                + float(getattr(self.args, 'v3_boundary_weight', 0.0))
+                * loss_boundary
+                + float(getattr(self.args, 'v3_width_weight', 0.0))
+                * loss_width
+                + float(getattr(self.args, 'v3_area_weight', 0.0))
+                * loss_area
             )
 
             loss.backward()

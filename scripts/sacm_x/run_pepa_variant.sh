@@ -47,7 +47,7 @@ case "$MODE" in
 esac
 
 case "$PRESET" in
-  *rank*|*all*|*v2*)
+  *rank*|*all*|*v2*|*v3*)
     # Ranker/single-head presets use the IoU score directly; no fixed2.
     VAL_SELECTION=iou
     FIXED_HEAD=""
@@ -61,6 +61,7 @@ case "$PRESET" in
     ;;
 esac
 
+export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}"
 export GPU SEED EPOCHS USE_WANDB SKIP_TEST CANONICAL_ROOT
 export PRESET MONITOR=baseline
 export VAL_SELECTION VAL_FIXED_HEAD FIXED_HEAD SELECTION

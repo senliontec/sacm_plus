@@ -79,6 +79,17 @@ def _build_model(args, device):
         high_res_refine=getattr(args, 'high_res_refine', False),
         high_res_refine_size=getattr(args, 'high_res_refine_size', 1024),
         single_head=getattr(args, 'single_head', False),
+        use_v3=getattr(args, 'use_v3', False),
+        v3_feature_dim=getattr(args, 'v3_feature_dim', 128),
+        v3_mid_dim=getattr(args, 'v3_mid_dim', 96),
+        v3_fine_dim=getattr(args, 'v3_fine_dim', 64),
+        v3_refine_channels=getattr(args, 'v3_refine_channels', 16),
+        v3_aux_centerline=getattr(args, 'v3_aux_centerline', True),
+        v3_aux_boundary=getattr(args, 'v3_aux_boundary', True),
+        v3_aux_width=getattr(args, 'v3_aux_width', True),
+        use_internal_adapter=getattr(args, 'use_internal_adapter', True),
+        collect_adapter_features=getattr(
+            args, 'collect_adapter_features', True),
     )
     # Keep this script runnable against checkouts that do not yet contain
     # the optional dynamic-strip model code.  For the default `full` preset
@@ -183,6 +194,17 @@ def main() -> int:
     parser.add_argument('--high-res-output', type=str2bool, default=False)
     parser.add_argument('--high-res-refine', type=str2bool, default=False)
     parser.add_argument('--single-head', type=str2bool, default=False)
+    parser.add_argument('--use-v3', type=str2bool, default=False)
+    parser.add_argument('--v3-feature-dim', type=int, default=128)
+    parser.add_argument('--v3-mid-dim', type=int, default=96)
+    parser.add_argument('--v3-fine-dim', type=int, default=64)
+    parser.add_argument('--v3-refine-channels', type=int, default=16)
+    parser.add_argument('--v3-aux-centerline', type=str2bool, default=True)
+    parser.add_argument('--v3-aux-boundary', type=str2bool, default=True)
+    parser.add_argument('--v3-aux-width', type=str2bool, default=True)
+    parser.add_argument('--use-internal-adapter', type=str2bool, default=True)
+    parser.add_argument('--collect-adapter-features', type=str2bool,
+                        default=True)
     parser.add_argument('--fixed-head', type=int, default=2,
                         choices=[0, 1, 2, 3])
     parser.add_argument('--pred-threshold', type=float, default=0.0,

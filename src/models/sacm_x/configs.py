@@ -226,6 +226,78 @@ PRESETS["full_v2"] = {
     "topology_resolution": 256,
 }
 
+# V3: dense structural decoder.  One adapter mechanism only (external geo),
+# no prompt decoder, no candidate heads, no C2F/deep supervision.  The
+# mask head is a 512 conv head; centerline/boundary/width are training-only
+# auxiliary heads.  Skeleton Recall is evaluated at 512 with max-pooled GT.
+PRESETS["full_v3"] = {
+    **FULL,
+    "use_v3": True,
+    "use_geo_i": False,
+    "use_geo_e": True,
+    "use_internal_adapter": False,
+    "collect_adapter_features": False,
+    "use_coarse_to_fine": False,
+    "use_fusion_v2": False,
+    "use_multi_depth": False,
+    "use_typed_heads": False,
+    "deep_sup_weight": 0.0,
+    "cl_dice_weight": 0.1,
+    "iou_loss_weight": 0.5,
+    # Thin-foreground balance: BCE 0.7 leaves a ~27:1 background gradient
+    # at 1% foreground, which traps a randomly initialised decoder in the
+    # all-background solution.  Dice/Tversky dominate in v3.
+    "bce_weight": 0.3,
+    "dice_weight": 0.7,
+    "tversky_weight": 0.5,
+    # The v3 decoder is trained from scratch (no SAM mask-decoder warm
+    # start), so it gets the adapter LR rather than the 1e-4 new-module LR.
+    "new_module_lr": 3e-4,
+    "stage2_supervision": "soft",
+    "init_stage2_from_stage1": False,
+    "use_detail_stem": True,
+    "high_res_output": True,
+    "high_res_size": 512,
+    "high_res_refine": True,
+    "high_res_refine_size": 1024,
+    "single_head": True,
+    "use_tcsu": False,
+    "use_tadt": False,
+    "use_ranker": False,
+    "use_dynamic_strip": False,
+    # Skeleton Recall is bounded in [0,1]; raw Topograph grows with the
+    # predicted component count (random logits ~1.6e3), so it is kept as
+    # a separate ablation with a much smaller weight.
+    "topology_loss": "skeleton_recall",
+    "topology_loss_weight": 0.2,
+    "topology_resolution": 512,
+    "tversky_weight": 0.3,
+    "tversky_alpha": 0.3,
+    "tversky_beta": 0.7,
+    "v3_aux_centerline": True,
+    "v3_aux_boundary": True,
+    "v3_aux_width": True,
+    "v3_centerline_weight": 0.2,
+    "v3_boundary_weight": 0.1,
+    "v3_width_weight": 0.05,
+    "v3_area_weight": 0.05,
+}
+
+
+# Transition ablation: keep the v2 prompt decoder but use the fixed
+# (max-pooled, 512) Skeleton Recall instead of Topograph.  Isolates the
+# topology-target fix from the v3 architecture change.
+PRESETS["full_v2_skel"] = {
+    **PRESETS["full_v2"],
+    "use_tadt": False,
+    "topology_loss": "skeleton_recall",
+    "topology_loss_weight": 0.2,
+    "topology_resolution": 512,
+    "tversky_weight": 0.3,
+    "tversky_alpha": 0.3,
+    "tversky_beta": 0.7,
+}
+
 
 def apply_preset(args, preset):
     """Overlay a preset on the parsed argparse namespace."""

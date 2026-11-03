@@ -299,6 +299,17 @@ def train(args):
         high_res_refine=getattr(args, 'high_res_refine', False),
         high_res_refine_size=getattr(args, 'high_res_refine_size', 1024),
         single_head=getattr(args, 'single_head', False),
+        use_v3=getattr(args, 'use_v3', False),
+        v3_feature_dim=getattr(args, 'v3_feature_dim', 128),
+        v3_mid_dim=getattr(args, 'v3_mid_dim', 96),
+        v3_fine_dim=getattr(args, 'v3_fine_dim', 64),
+        v3_refine_channels=getattr(args, 'v3_refine_channels', 16),
+        v3_aux_centerline=getattr(args, 'v3_aux_centerline', True),
+        v3_aux_boundary=getattr(args, 'v3_aux_boundary', True),
+        v3_aux_width=getattr(args, 'v3_aux_width', True),
+        use_internal_adapter=getattr(args, 'use_internal_adapter', True),
+        collect_adapter_features=getattr(
+            args, 'collect_adapter_features', True),
     )
     sam.to(device)
     if hasattr(sam.image_encoder, 'grad_checkpointing'):
@@ -654,6 +665,39 @@ if __name__ == '__main__':
     parser.add_argument('--single_head', type=str2bool, default=False,
                         help='Use one Stage-2 mask head (no fixed2/selector); '
                              'opt-in via full_v2')
+    # ---- V3 dense structural decoder ----
+    parser.add_argument('--use_v3', type=str2bool, default=False,
+                        help='Use the v3 dense structural decoder instead of '
+                             'the SAM prompt decoder (opt-in via full_v3)')
+    parser.add_argument('--v3_feature_dim', type=int, default=128,
+                        help='V3 FPN feature width')
+    parser.add_argument('--v3_mid_dim', type=int, default=96,
+                        help='V3 1/4-resolution feature width')
+    parser.add_argument('--v3_fine_dim', type=int, default=64,
+                        help='V3 1/2-resolution feature width')
+    parser.add_argument('--v3_refine_channels', type=int, default=16,
+                        help='V3 1024-refinement hidden width')
+    parser.add_argument('--v3_aux_centerline', type=str2bool, default=True,
+                        help='V3: predict a training-only centerline head')
+    parser.add_argument('--v3_aux_boundary', type=str2bool, default=True,
+                        help='V3: predict a training-only boundary head')
+    parser.add_argument('--v3_aux_width', type=str2bool, default=True,
+                        help='V3: predict a training-only width head')
+    parser.add_argument('--v3_centerline_weight', type=float, default=0.0,
+                        help='V3 centerline BCE+Dice loss weight')
+    parser.add_argument('--v3_boundary_weight', type=float, default=0.0,
+                        help='V3 boundary BCE+Dice loss weight')
+    parser.add_argument('--v3_width_weight', type=float, default=0.0,
+                        help='V3 width L1 loss weight')
+    parser.add_argument('--v3_area_weight', type=float, default=0.0,
+                        help='V3 foreground-area consistency weight')
+    parser.add_argument('--use_internal_adapter', type=str2bool, default=True,
+                        help='Keep the per-block internal adapters. V3 sets '
+                             'this to False to remove the duplicate adapter')
+    parser.add_argument('--collect_adapter_features', type=str2bool,
+                        default=True,
+                        help='Collect all external-adapter outputs for the '
+                             'decoder fusion. V3 disables it to save memory')
     parser.add_argument('--init_stage2_from_stage1', type=str2bool, default=True,
                         help='Warm-start the new Stage-2 mask heads from the '
                              'loaded pretrained Stage-1 heads (applied after '

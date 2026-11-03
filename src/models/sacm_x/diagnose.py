@@ -101,6 +101,17 @@ def build_model(args, device):
         high_res_refine=getattr(args, 'high_res_refine', False),
         high_res_refine_size=getattr(args, 'high_res_refine_size', 1024),
         single_head=getattr(args, 'single_head', False),
+        use_v3=getattr(args, 'use_v3', False),
+        v3_feature_dim=getattr(args, 'v3_feature_dim', 128),
+        v3_mid_dim=getattr(args, 'v3_mid_dim', 96),
+        v3_fine_dim=getattr(args, 'v3_fine_dim', 64),
+        v3_refine_channels=getattr(args, 'v3_refine_channels', 16),
+        v3_aux_centerline=getattr(args, 'v3_aux_centerline', True),
+        v3_aux_boundary=getattr(args, 'v3_aux_boundary', True),
+        v3_aux_width=getattr(args, 'v3_aux_width', True),
+        use_internal_adapter=getattr(args, 'use_internal_adapter', True),
+        collect_adapter_features=getattr(
+            args, 'collect_adapter_features', True),
     )
     sam.to(device)
     checkpoint = torch.load(args.trained_weights, map_location=device)

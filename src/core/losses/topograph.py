@@ -59,6 +59,7 @@ except ImportError:
 
 from .registry import register
 from .centerline_ce import _soft_skel_clce
+from .topology_utils import resize_target_for_topology
 
 
 # ---------------------------------------------------------------------------
@@ -637,8 +638,9 @@ class TopographLossAdapter(nn.Module):
         if self.resolution is not None and logits.shape[-1] != self.resolution:
             logits = F.interpolate(logits, size=(self.resolution, self.resolution),
                                    mode='bilinear', align_corners=False)
-            target = F.interpolate(target, size=(self.resolution, self.resolution),
-                                   mode='bilinear', align_corners=False)
+            # Max-pool/nearest keeps 1-px targets; bilinear + argmax
+            # silently maps them to background at 256.
+            target = resize_target_for_topology(target, self.resolution)
         two_ch_logits = torch.cat([torch.zeros_like(logits), logits], dim=1)
         one_hot_target = torch.cat([1.0 - target, target], dim=1)
         return self.loss(two_ch_logits, one_hot_target)
@@ -841,8 +843,9 @@ class DiceTopographLossAdapter(nn.Module):
         if self.resolution is not None and logits.shape[-1] != self.resolution:
             logits = F.interpolate(logits, size=(self.resolution, self.resolution),
                                    mode='bilinear', align_corners=False)
-            target = F.interpolate(target, size=(self.resolution, self.resolution),
-                                   mode='bilinear', align_corners=False)
+            # Max-pool/nearest keeps 1-px targets; bilinear + argmax
+            # silently maps them to background at 256.
+            target = resize_target_for_topology(target, self.resolution)
         two_ch_logits = torch.cat([torch.zeros_like(logits), logits], dim=1)
         one_hot_target = torch.cat([1.0 - target, target], dim=1)
         loss, _dic = self.loss(two_ch_logits, one_hot_target)
@@ -1059,8 +1062,9 @@ class ExactTopographLossAdapter(nn.Module):
         if self.resolution is not None and logits.shape[-1] != self.resolution:
             logits = F.interpolate(logits, size=(self.resolution, self.resolution),
                                    mode='bilinear', align_corners=False)
-            target = F.interpolate(target, size=(self.resolution, self.resolution),
-                                   mode='bilinear', align_corners=False)
+            # Max-pool/nearest keeps 1-px targets; bilinear + argmax
+            # silently maps them to background at 256.
+            target = resize_target_for_topology(target, self.resolution)
         two_ch_logits = torch.cat([torch.zeros_like(logits), logits], dim=1)
         one_hot_target = torch.cat([1.0 - target, target], dim=1)
         return self.loss(two_ch_logits, one_hot_target)

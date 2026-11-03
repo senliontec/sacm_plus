@@ -89,13 +89,48 @@ bash scripts/sacm_x/run_full_pepa.sh
 bash scripts/sacm_x/run_full_pepa.sh smoke
 ```
 
-Recommended optimized variant (`full_v2`: external geometric adapters only,
-DetailStem 512/1024, TADT, single main head, Topograph + Skeleton Recall):
+Earlier optimized variant (`full_v2`: external geometric adapters only,
+DetailStem 512/1024, TADT, single main head, Topograph + Skeleton Recall).
+Keep it as an ablation: raw Topograph is unbounded and was replaced by
+Skeleton Recall in the newer presets:
 
 ```bash
 bash scripts/sacm_x/run_full_v2.sh smoke
 bash scripts/sacm_x/run_full_v2.sh
 ```
+
+V3 dense structural decoder (`full_v3`): one external adapter, no prompt
+decoder, no candidate heads, learned 64→512 upsampling, centerline /
+boundary / width auxiliary heads, image-guided 1024 refinement, and
+Skeleton Recall at 512.
+
+```bash
+bash scripts/sacm_x/run_full_v3.sh smoke
+bash scripts/sacm_x/run_full_v3.sh
+```
+
+`full_v2_skel` isolates the topology-target fix from the decoder change
+(v2 prompt decoder + Skeleton Recall at 512, no Topograph):
+
+```bash
+bash scripts/sacm_x/run_pepa_variant.sh full_v2_skel
+```
+
+One-click architecture decision run (two GPUs in parallel, 300 epochs,
+train + validation only, no test-set evaluation):
+
+```bash
+bash scripts/sacm_x/run_v3_vs_v2_skel.sh
+```
+
+The default uses GPU 1 for `full_v2_skel` and GPU 2 for `full_v3`
+(GPU 0 is left free).  Override with `GPU_V2=... GPU_V3=...` if needed.
+Set `MODE=full` for the 800-epoch + 20-test run after choosing the winner.
+
+**Topology target fix.** Skeleton Recall and Topograph now downsample the
+GT with max-pool/nearest instead of bilinear + `>0.5`.  A 1-px line at
+1024 previously became zero at 256/512, silently disabling both losses
+on CREMI/OCTA.  Skeleton Recall in the v2/v3 presets runs at 512.
 
 P1-P4 variants are opt-in presets through one generic runner:
 

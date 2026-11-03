@@ -20,11 +20,15 @@ class TopographSkeletonLoss(nn.Module):
         self,
         resolution: int = 256,
         skeleton_weight: float = 0.5,
-        skeleton_resolution: int | None = 256,
+        skeleton_resolution: int | None = 512,
         **_: object,
     ) -> None:
         super().__init__()
         self.topograph = TopographLossAdapter(resolution=resolution)
+        # 512 keeps a 1-px structure at a useful tube resolution; with the
+        # max-pooling target resize this remains active even for 1-px GT.
+        if skeleton_resolution is not None and skeleton_resolution < 512:
+            skeleton_resolution = 512
         self.skeleton = SkeletonRecallLoss(resolution=skeleton_resolution)
         self.skeleton_weight = float(skeleton_weight)
 

@@ -17,6 +17,7 @@ from .image_encoder import ImageEncoderViT
 from .mask_decoder import MaskDecoder
 from .prompt_encoder import PromptEncoder
 from .sam import Sam
+from .structural_decoder import StructuralDecoderV3
 from .transformer import TwoWayTransformer
 
 
@@ -52,6 +53,16 @@ def build_sam_vit_h(
     high_res_refine=False,
     high_res_refine_size=1024,
     single_head=False,
+    use_v3=False,
+    v3_feature_dim=128,
+    v3_mid_dim=96,
+    v3_fine_dim=64,
+    v3_refine_channels=16,
+    v3_aux_centerline=True,
+    v3_aux_boundary=True,
+    v3_aux_width=True,
+    use_internal_adapter=True,
+    collect_adapter_features=True,
 ):
     return _build_sam(
         encoder_embed_dim=1280,
@@ -89,6 +100,16 @@ def build_sam_vit_h(
         high_res_refine=high_res_refine,
         high_res_refine_size=high_res_refine_size,
         single_head=single_head,
+        use_v3=use_v3,
+        v3_feature_dim=v3_feature_dim,
+        v3_mid_dim=v3_mid_dim,
+        v3_fine_dim=v3_fine_dim,
+        v3_refine_channels=v3_refine_channels,
+        v3_aux_centerline=v3_aux_centerline,
+        v3_aux_boundary=v3_aux_boundary,
+        v3_aux_width=v3_aux_width,
+        use_internal_adapter=use_internal_adapter,
+        collect_adapter_features=collect_adapter_features,
     )
 
 
@@ -127,6 +148,16 @@ def build_sam_vit_l(
     high_res_refine=False,
     high_res_refine_size=1024,
     single_head=False,
+    use_v3=False,
+    v3_feature_dim=128,
+    v3_mid_dim=96,
+    v3_fine_dim=64,
+    v3_refine_channels=16,
+    v3_aux_centerline=True,
+    v3_aux_boundary=True,
+    v3_aux_width=True,
+    use_internal_adapter=True,
+    collect_adapter_features=True,
 ):
     return _build_sam(
         encoder_embed_dim=1024,
@@ -164,6 +195,16 @@ def build_sam_vit_l(
         high_res_refine=high_res_refine,
         high_res_refine_size=high_res_refine_size,
         single_head=single_head,
+        use_v3=use_v3,
+        v3_feature_dim=v3_feature_dim,
+        v3_mid_dim=v3_mid_dim,
+        v3_fine_dim=v3_fine_dim,
+        v3_refine_channels=v3_refine_channels,
+        v3_aux_centerline=v3_aux_centerline,
+        v3_aux_boundary=v3_aux_boundary,
+        v3_aux_width=v3_aux_width,
+        use_internal_adapter=use_internal_adapter,
+        collect_adapter_features=collect_adapter_features,
     )
 
 
@@ -199,6 +240,16 @@ def build_sam_vit_b(
     high_res_refine=False,
     high_res_refine_size=1024,
     single_head=False,
+    use_v3=False,
+    v3_feature_dim=128,
+    v3_mid_dim=96,
+    v3_fine_dim=64,
+    v3_refine_channels=16,
+    v3_aux_centerline=True,
+    v3_aux_boundary=True,
+    v3_aux_width=True,
+    use_internal_adapter=True,
+    collect_adapter_features=True,
 ):
     return _build_sam(
         encoder_embed_dim=768,
@@ -236,6 +287,16 @@ def build_sam_vit_b(
         high_res_refine=high_res_refine,
         high_res_refine_size=high_res_refine_size,
         single_head=single_head,
+        use_v3=use_v3,
+        v3_feature_dim=v3_feature_dim,
+        v3_mid_dim=v3_mid_dim,
+        v3_fine_dim=v3_fine_dim,
+        v3_refine_channels=v3_refine_channels,
+        v3_aux_centerline=v3_aux_centerline,
+        v3_aux_boundary=v3_aux_boundary,
+        v3_aux_width=v3_aux_width,
+        use_internal_adapter=use_internal_adapter,
+        collect_adapter_features=collect_adapter_features,
     )
 
 
@@ -283,6 +344,16 @@ def _build_sam(
     high_res_refine=False,
     high_res_refine_size=1024,
     single_head=False,
+    use_v3=False,
+    v3_feature_dim=128,
+    v3_mid_dim=96,
+    v3_fine_dim=64,
+    v3_refine_channels=16,
+    v3_aux_centerline=True,
+    v3_aux_boundary=True,
+    v3_aux_width=True,
+    use_internal_adapter=True,
+    collect_adapter_features=True,
 ):
     prompt_embed_dim = 256
     image_size = 1024
@@ -312,37 +383,24 @@ def _build_sam(
         else encoder_depth
     )
 
-    sam = Sam(
-        image_encoder=ImageEncoderViT(
-            depth=encoder_depth,
-            embed_dim=encoder_embed_dim,
-            img_size=image_size,
-            mlp_ratio=4,
-            norm_layer=partial(torch.nn.LayerNorm, eps=1e-6),
-            num_heads=encoder_num_heads,
-            patch_size=vit_patch_size,
-            qkv_bias=True,
-            use_rel_pos=True,
-            global_attn_indexes=encoder_global_attn_indexes,
-            window_size=14,
-            out_chans=prompt_embed_dim,
-            use_adapter=use_adapter,
-            adapter_dim_ratio=adapter_dim_ratio,
-            use_geo_i=use_geo_i,
-            use_geo_e=use_geo_e,
-            geo_e_indices=geo_e_indices,
-            use_dynamic_strip=use_dynamic_strip,
-            use_detail_stem=use_detail_stem,
-            detail_channels=detail_channels,
-            detail_out_channels=detail_out_channels,
-        ),
-        prompt_encoder=PromptEncoder(
-            embed_dim=prompt_embed_dim,
-            image_embedding_size=(image_embedding_size, image_embedding_size),
-            input_image_size=(image_size, image_size),
-            mask_in_chans=16,
-        ),
-        mask_decoder=MaskDecoder(
+    if use_v3:
+        # Dense structural decoder: no prompt tokens, no candidate heads.
+        mask_decoder = StructuralDecoderV3(
+            encoder_embed_dim=encoder_embed_dim,
+            decoder_dim=prompt_embed_dim,
+            feature_dim=v3_feature_dim,
+            mid_dim=v3_mid_dim,
+            fine_dim=v3_fine_dim,
+            detail_channels=detail_out_channels,
+            output_size=high_res_size,
+            refine_size=high_res_refine_size if high_res_refine else None,
+            refine_channels=v3_refine_channels,
+            use_centerline=v3_aux_centerline,
+            use_boundary=v3_aux_boundary,
+            use_width=v3_aux_width,
+        )
+    else:
+        mask_decoder = MaskDecoder(
             num_multimask_outputs=3,
             transformer=TwoWayTransformer(
                 depth=2,
@@ -381,7 +439,42 @@ def _build_sam(
             high_res_refine=high_res_refine,
             high_res_refine_size=high_res_refine_size,
             single_head=single_head,
+        )
+
+    sam = Sam(
+        image_encoder=ImageEncoderViT(
+            depth=encoder_depth,
+            embed_dim=encoder_embed_dim,
+            img_size=image_size,
+            mlp_ratio=4,
+            norm_layer=partial(torch.nn.LayerNorm, eps=1e-6),
+            num_heads=encoder_num_heads,
+            patch_size=vit_patch_size,
+            qkv_bias=True,
+            use_rel_pos=True,
+            global_attn_indexes=encoder_global_attn_indexes,
+            window_size=14,
+            out_chans=prompt_embed_dim,
+            use_adapter=use_adapter,
+            adapter_dim_ratio=adapter_dim_ratio,
+            use_geo_i=use_geo_i,
+            use_geo_e=use_geo_e,
+            use_internal_adapter=use_internal_adapter,
+            collect_adapter_features=(
+                collect_adapter_features and not use_v3),
+            geo_e_indices=geo_e_indices,
+            use_dynamic_strip=use_dynamic_strip,
+            use_detail_stem=use_detail_stem,
+            detail_channels=detail_channels,
+            detail_out_channels=detail_out_channels,
         ),
+        prompt_encoder=PromptEncoder(
+            embed_dim=prompt_embed_dim,
+            image_embedding_size=(image_embedding_size, image_embedding_size),
+            input_image_size=(image_size, image_size),
+            mask_in_chans=16,
+        ),
+        mask_decoder=mask_decoder,
         pixel_mean=[123.675, 116.28, 103.53],
         pixel_std=[58.395, 57.12, 57.375],
     )
@@ -389,14 +482,37 @@ def _build_sam(
     if checkpoint is not None:
         with open(checkpoint, "rb") as f:
             state_dict = torch.load(f)
-        missing, unexpected = sam.load_state_dict(state_dict, strict=False)
+        # ``strict=False`` does not ignore shape mismatches.  Single-head
+        # models shrink mask_tokens / the IoU head from 4 slots to 1, and
+        # v3 has no prompt decoder at all.  Slice a leading dimension when
+        # possible, skip the rest, and report what was skipped.
+        target = sam.state_dict()
+        compatible = {}
+        skipped = []
+        for key, value in state_dict.items():
+            if key not in target:
+                continue  # unexpected for this architecture
+            target_shape = target[key].shape
+            if value.shape == target_shape:
+                compatible[key] = value
+            elif (value.ndim == len(target_shape)
+                  and value.shape[1:] == tuple(target_shape[1:])
+                  and value.shape[0] > target_shape[0]):
+                compatible[key] = value[:target_shape[0]]
+            else:
+                skipped.append((key, tuple(value.shape),
+                                tuple(target_shape)))
+        missing, unexpected = sam.load_state_dict(compatible, strict=False)
         logging.info(
-            "SAM checkpoint loaded: %d missing keys, %d unexpected keys",
-            len(missing), len(unexpected))
+            "SAM checkpoint loaded: %d missing keys, %d unexpected keys, "
+            "%d shape-skipped keys",
+            len(missing), len(unexpected), len(skipped))
         if missing:
             logging.info("  missing (first 10): %s", missing[:10])
         if unexpected:
             logging.info("  unexpected (first 10): %s", unexpected[:10])
+        if skipped:
+            logging.info("  shape-skipped (first 10): %s", skipped[:10])
 
         # Stage-2 warm-start must happen AFTER the base checkpoint load.
         # A full SACM-X checkpoint already contains Stage-2 weights; never
@@ -405,7 +521,8 @@ def _build_sam(
         has_stage2 = any(
             key.startswith('mask_decoder.output_hypernetworks_mlps_stage2.')
             for key in state_dict)
-        if init_stage2_from_stage1 and not has_stage2:
+        if (init_stage2_from_stage1 and not has_stage2
+                and hasattr(sam.mask_decoder, 'copy_stage1_to_stage2')):
             sam.mask_decoder.copy_stage1_to_stage2()
             logging.info(
                 "Initialized Stage-2 mask heads from the loaded Stage-1 heads")

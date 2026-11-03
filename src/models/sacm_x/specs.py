@@ -28,6 +28,7 @@ NEW_DECODER_PREFIXES = (
     'mask_decoder.ranker',
     'mask_decoder.detail_fuse_',
     'mask_decoder.final_refine',
+    'mask_decoder.v3_',
 )
 
 # Architecture switches shared by the whole SAM family (defaults = the
@@ -66,6 +67,17 @@ SAM_DEFAULTS = dict(
     high_res_refine=False,
     high_res_refine_size=1024,
     single_head=False,
+    # V3 dense structural decoder (opt-in via full_v3).
+    use_v3=False,
+    v3_feature_dim=128,
+    v3_mid_dim=96,
+    v3_fine_dim=64,
+    v3_refine_channels=16,
+    v3_aux_centerline=True,
+    v3_aux_boundary=True,
+    v3_aux_width=True,
+    use_internal_adapter=True,
+    collect_adapter_features=True,
     # Default ON for SACM-X: the final masks come from the new Stage-2 heads,
     # so initialize them from SAM's pretrained Stage-1 heads instead of random.
     init_stage2_from_stage1=True,
@@ -85,6 +97,23 @@ def freeze_sam(sam):
         # the pretrained ViT parameters frozen.
         if 'adapter' not in name and 'detail_stem' not in name:
             param.requires_grad = False
+
+    # External adapters/norms on global-attention layers (and on layers
+    # excluded by geo_e_layers) are never called by the encoder forward.
+    # They are pure optimizer/checkpoint dead weight; keep them frozen.
+    encoder = sam.image_encoder
+    if (getattr(encoder, 'use_geo_e', False)
+            and getattr(encoder, 'adapter_norms', None) is not None):
+        used = getattr(encoder, 'geo_e_indices', None)
+        for i in range(encoder.depth):
+            skipped = (i in encoder.global_attn_indexes
+                       or (used is not None and i not in used))
+            if not skipped:
+                continue
+            for param in encoder.external_adapters[i].parameters():
+                param.requires_grad = False
+            for param in encoder.adapter_norms[i].parameters():
+                param.requires_grad = False
 
     # Freeze prompt encoder parameters (no_mask_embed stays as pretrained anchor)
     for param in sam.prompt_encoder.parameters():

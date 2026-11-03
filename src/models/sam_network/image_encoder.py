@@ -47,6 +47,8 @@ class ImageEncoderViT(nn.Module):
         adapter_dim_ratio: float = 0.1,
         use_geo_i: bool = True,
         use_geo_e: bool = True,
+        use_internal_adapter: bool = True,
+        collect_adapter_features: bool = True,
         geo_e_indices: Tuple[int, ...] = None,
         use_dynamic_strip: bool = False,
         use_detail_stem: bool = False,
@@ -88,6 +90,8 @@ class ImageEncoderViT(nn.Module):
         self.use_adapter = use_adapter
         self.use_geo_i = use_geo_i
         self.use_geo_e = use_geo_e
+        self.use_internal_adapter = bool(use_internal_adapter)
+        self.collect_adapter_features = bool(collect_adapter_features)
         self.use_dynamic_strip = bool(use_dynamic_strip)
         self.use_detail_stem = bool(use_detail_stem)
         self.geo_e_indices = set(geo_e_indices) if use_geo_e and geo_e_indices is not None else None
@@ -125,7 +129,7 @@ class ImageEncoderViT(nn.Module):
                 rel_pos_zero_init=rel_pos_zero_init,
                 window_size=window_size if i not in global_attn_indexes else 0,
                 input_size=(img_size // patch_size, img_size // patch_size),
-                use_adapter=use_adapter,
+                use_adapter=use_adapter and use_internal_adapter,
                 adapter_dim_ratio=adapter_dim_ratio,
                 geo_adapter=use_geo_i,
                 dynamic_strip=use_dynamic_strip,
@@ -249,7 +253,8 @@ class ImageEncoderViT(nn.Module):
                     continue
                 external_adapter_out = self.external_adapters[i](
                     self.adapter_norms[i](x))
-                adapter_features.append(external_adapter_out)
+                if self.collect_adapter_features:
+                    adapter_features.append(external_adapter_out)
 
                 # Directly add the adapter output to the main branch
                 x = x + external_adapter_out

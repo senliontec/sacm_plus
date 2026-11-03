@@ -31,6 +31,7 @@ except ImportError:  # pragma: no cover
     binary_dilation = None
 
 from .registry import register
+from .topology_utils import resize_target_for_topology
 
 
 class SkeletonRecallLoss(nn.Module):
@@ -78,9 +79,9 @@ class SkeletonRecallLoss(nn.Module):
             logits = F.interpolate(
                 logits, size=(self.resolution, self.resolution),
                 mode='bilinear', align_corners=False)
-            target = F.interpolate(
-                target, size=(self.resolution, self.resolution),
-                mode='bilinear', align_corners=False)
+            # Never bilinear-downsample the target: a 1-px line becomes
+            # <=0.5 and is erased by the >0.5 skeleton threshold.
+            target = resize_target_for_topology(target, self.resolution)
         tube = self._tubes(target)
         if tube.sum() <= 0:
             return logits.sum() * 0.0
