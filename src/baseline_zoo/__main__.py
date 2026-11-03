@@ -539,7 +539,8 @@ def cmd_report(args: argparse.Namespace) -> int:
     result_root = resolve_result_root(args.result_root)
     rows, missing = load_runs(
         [model.id for model in models], seeds, result_root,
-        preset=getattr(args, 'preset', None))
+        preset=getattr(args, 'preset', None),
+        allow_partial=getattr(args, 'allow_partial', False))
 
     print(f'report: models={[model.id for model in models]} seeds={seeds} '
           f'root={_repo_path(result_root)} rows={len(rows)}')
@@ -625,6 +626,9 @@ def build_parser() -> argparse.ArgumentParser:
     report.add_argument('--allow-missing', action='store_true',
                         help='write a report even when some model/seed '
                              'runs are missing')
+    report.add_argument('--allow-partial', action='store_true',
+                        help='include runs whose manifest status is '
+                             'partial/train_only/failed (default: skip)')
     report.add_argument('--gpus', default='', help=argparse.SUPPRESS)
     report.add_argument('--resume', action='store_true',
                         help=argparse.SUPPRESS)

@@ -136,8 +136,10 @@ class MaskVSCAdapter(BaselineAdapter):
         'Checkpoint selection uses the 6-image validation split by Dice and '
         'compares the stage-1 and stage-2 best scores. Upstream evaluates the '
         'test split every epoch and selects the best ViG by test Dice, which '
-        'violates the protocol. If stage 2 does not beat stage 1, the final '
-        'checkpoint records use_vig=false and inference uses the UNet alone.',
+        'violates the protocol. If stage 2 does not beat stage 1, the default '
+        'falls back to stage 1 with a warning because a stage-1 U-Net is not '
+        'the full MaskVSC method; --maskvsc-require-vig 1 fails the run '
+        'instead, and the checkpoint records use_vig=false.',
         'The shared 800-epoch budget is split 600 stage-1 + 200 stage-2 by '
         'default; the masked-vessel corruption ramp spans those 600 stage-1 '
         'epochs. Upstream uses 200 + 200; use --maskvsc-stage1-epochs 800 '
@@ -241,6 +243,12 @@ class MaskVSCAdapter(BaselineAdapter):
         parser.add_argument(
             '--maskvsc-vig-lr', type=float, default=None,
             help='stage-2 Adam LR; default = --lr')
+        parser.add_argument(
+            '--maskvsc-require-vig', type=int, choices=[0, 1], default=0,
+            help='1 refuses to publish a stage-1 U-Net checkpoint as '
+                 'MaskVSC when the ViG completion head does not beat stage 1; '
+                 '0 (default) keeps the release-style fallback and prints a '
+                 'warning so the row is not silently mislabeled')
 
     def _resolve_stage_epochs(self, args) -> tuple[int, int]:
         stage2 = int(getattr(args, 'maskvsc_stage2_epochs', 200))
@@ -799,6 +807,15 @@ class MaskVSCAdapter(BaselineAdapter):
 
             selected_stage = (
                 2 if best2_epoch and best2 > best1 else 1)
+            if selected_stage == 1:
+                message = (
+                    'MaskVSC stage-2 ViG did not beat stage-1 on the shared '
+                    'validation Dice; this run falls back to the stage-1 '
+                    'U-Net and must not be labeled as the full two-stage '
+                    'method. Pass --maskvsc-require-vig 1 to fail instead.')
+                if int(getattr(args, 'maskvsc_require_vig', 0)):
+                    raise SystemExit(message)
+                print('[warn] ' + message)
             self._use_vig = selected_stage == 2
             if selected_stage == 2:
                 # The on-disk checkpoint is the best ViG epoch; reload it so

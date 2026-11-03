@@ -69,6 +69,14 @@ class MatcherAdapter(BaselineAdapter):
         self._support_root: Path | None = None
         self._prediction_seeded = False
 
+    def begin_prediction(self) -> None:
+        super().begin_prediction()
+        # A reused adapter/model must not reuse support tensors encoded by a
+        # previous prediction run (or by a different data root).
+        self._support_cache.clear()
+        self._support_groups = None
+        self._current_dataset = None
+
     def add_args(self, parser):
         parser.add_argument(
             '--sam-weights', type=Path,

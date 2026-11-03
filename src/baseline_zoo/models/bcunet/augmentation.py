@@ -96,9 +96,11 @@ def apply_variant(image, mask, variant: int, seed: int = 0, key: str = ''):
     return image, mask
 
 
-def _resize_pair(image, mask, size: int):
+def _resize_pair(image, mask, size: int, mask_resize: str = 'nearest'):
     image = cv2.resize(image, (size, size), interpolation=cv2.INTER_AREA)
-    mask = cv2.resize(mask, (size, size), interpolation=cv2.INTER_AREA)
+    interpolation = (cv2.INTER_AREA if mask_resize == 'area'
+                     else cv2.INTER_NEAREST)
+    mask = cv2.resize(mask, (size, size), interpolation=interpolation)
     image = torch.from_numpy(
         np.transpose(image, (2, 0, 1)).copy()).float()
     # The release casts the INTER_AREA label to int64 (truncation).
@@ -115,7 +117,8 @@ class BCUNetTrainDataset(Dataset):
     """
 
     def __init__(self, samples, input_size: int = 512, variants: int = 18,
-                 seed: int = 0, augment_scope: str = 'retinal'):
+                 seed: int = 0, augment_scope: str = 'retinal',
+                 mask_resize: str = 'nearest'):
         if variants < 1:
             raise ValueError('variants must be at least 1')
         if variants > N_VARIANTS:
@@ -124,11 +127,15 @@ class BCUNetTrainDataset(Dataset):
         if augment_scope not in ('retinal', 'all'):
             raise ValueError(
                 f'augment_scope must be retinal|all, got {augment_scope!r}')
+        if mask_resize not in ('nearest', 'area'):
+            raise ValueError(
+                f'mask_resize must be nearest|area, got {mask_resize!r}')
         self.samples = list(samples)
         self.input_size = int(input_size)
         self.variants = int(variants)
         self.seed = int(seed)
         self.augment_scope = augment_scope
+        self.mask_resize = mask_resize
 
     def __len__(self):
         return len(self.samples) * self.variants
@@ -142,4 +149,5 @@ class BCUNetTrainDataset(Dataset):
         image, mask = _read_pair(sample)
         image, mask = apply_variant(
             image, mask, variant, seed=self.seed, key=sample.stem)
-        return _resize_pair(image, mask, self.input_size)
+        return _resize_pair(
+            image, mask, self.input_size, mask_resize=self.mask_resize)

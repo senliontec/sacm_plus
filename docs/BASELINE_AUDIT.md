@@ -3,6 +3,12 @@
 > The complete 40-baseline second-pass audit is
 > [`docs/BASELINE_AUDIT_40.md`](BASELINE_AUDIT_40.md).  This file records the
 > earlier paper-ten/runtime audit and remains the detailed per-model notes.
+>
+> The 2026-11 task-adaptation fix pass is documented in
+> [`docs/BASELINE_FIXES_2026-11.md`](BASELINE_FIXES_2026-11.md).  It changes
+> support-dataset attribution, empty-mask metric aggregation, partial-run
+> reporting, method grouping, SCRWKV inference, and several task-adaptation
+> geometry/loss paths.  Re-read that document before reporting any old run.
 
 Date: 2026-10-24
 

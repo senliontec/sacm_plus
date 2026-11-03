@@ -1,5 +1,11 @@
 # Self-contained baseline zoo
 
+> **2026-11 update:** read
+> [`docs/BASELINE_FIXES_2026-11.md`](BASELINE_FIXES_2026-11.md) before reusing
+> any earlier result.  That pass changes support dataset attribution,
+> empty-mask metric aggregation, partial-run reporting, method grouping,
+> SCRWKV inference, and several task-adaptation geometry/loss paths.
+>
 > The 40-model audit/fix ledger is
 > [`docs/BASELINE_AUDIT_40.md`](BASELINE_AUDIT_40.md). K-Prism was ported
 > after that audit and is not yet part of its ledger; an independent

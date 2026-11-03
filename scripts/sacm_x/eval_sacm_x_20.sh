@@ -78,6 +78,14 @@ TRAIN_ROOT="${TRAIN_ROOT:-data/sacm_3shot_seed${SEED}}"
 EVAL_INPUT_MODE="${EVAL_INPUT_MODE:-aspect_pad}"
 USE_TTA="${USE_TTA:-false}"
 EMPTY_GUARD="${EMPTY_GUARD:-true}"
+# Fairness ablation: baselines do not have SACM-X's aspect_pad geometry or
+# empty-mask fallback.  Set MATCH_BASELINE_GEOMETRY=1 to evaluate SACM-X
+# under the same square-resize / no-empty-guard operating point.
+MATCH_BASELINE_GEOMETRY="${MATCH_BASELINE_GEOMETRY:-0}"
+if [ "$MATCH_BASELINE_GEOMETRY" = "1" ]; then
+  EVAL_INPUT_MODE=resize
+  EMPTY_GUARD=false
+fi
 SELECTION="${SELECTION:-}"
 FIXED_HEAD="${FIXED_HEAD:-}"
 QUALITY_SMALL_COMPONENT_WEIGHT="${QUALITY_SMALL_COMPONENT_WEIGHT:-0.5}"

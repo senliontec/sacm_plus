@@ -84,9 +84,12 @@ class BCUNetAdapter(BaselineAdapter):
         '6 val images and selects the checkpoint by validation Dice; the '
         'paper reports five-fold cross-validation and test metrics.',
         'No official BCU-Net trained weights are released or required; only '
-        'the ConvNeXt ImageNet-22k backbone is initialized locally. '
-        'Preprocessing remains the official BGR [0,255] read + INTER_AREA '
-        'resize with no normalization and no extra test-time preprocessing.',
+        'the ConvNeXt ImageNet-22k backbone is initialized locally. The '
+        'image uses the official BGR [0,255] read + INTER_AREA resize with '
+        'no normalization and no extra test-time preprocessing. The default '
+        'mask resize is NEAREST to preserve 1-px curvilinear labels; '
+        '--bcunet-mask-resize area restores the official INTER_AREA label '
+        'downsampling.',
         'Official main.py uses nn.DataParallel on four GPUs, workers=8 and an '
         'unseeded global RNG; this port uses one GPU per job, workers=0 and '
         'the shared protocol seed, so floating-point accumulation and data '
@@ -121,6 +124,12 @@ class BCUNetAdapter(BaselineAdapter):
         parser.add_argument(
             '--bcunet-convtranspose', action='store_true',
             help='use the release ConvTranspose2d U-Net upsampling')
+        parser.add_argument(
+            '--bcunet-mask-resize', choices=['nearest', 'area'],
+            default='nearest',
+            help='mask resize when fitting the 512 input. nearest (default) '
+                 'preserves 1-px curvilinear labels; area reproduces the '
+                 'official INTER_AREA label downsampling that can erase them')
 
     def _fusion_weights(self, args):
         unet = float(getattr(args, 'bcunet_fusion_unet', 0.5))
@@ -194,7 +203,9 @@ class BCUNetAdapter(BaselineAdapter):
             samples, input_size=self.input_size, variants=variants,
             seed=int(getattr(args, 'seed', 0)),
             augment_scope=str(getattr(
-                args, 'bcunet_augment_scope', 'retinal')))
+                args, 'bcunet_augment_scope', 'retinal')),
+            mask_resize=str(getattr(
+                args, 'bcunet_mask_resize', 'nearest')))
 
     def _load_image(self, sample):
         image = cv2.imread(str(sample.image_path))
@@ -207,11 +218,17 @@ class BCUNetAdapter(BaselineAdapter):
         mask = cv2.imread(str(sample.mask_path), cv2.IMREAD_GRAYSCALE)
         if mask is None:
             raise SystemExit(f'cv2 could not read {sample.mask_path}')
-        # Upstream thresholds at original resolution, then INTER_AREA
-        # resizes the 0/1 label.
+        # Threshold at original resolution, then resize the 0/1 label.
+        # INTER_AREA (official) averages sub-pixel structures to zero on
+        # large images; NEAREST (default task adaptation) preserves thin
+        # labels.  --bcunet-mask-resize area restores the release behavior.
+        args = getattr(self, 'args', None)
+        resize_mode = str(getattr(args, 'bcunet_mask_resize', 'nearest'))
+        interpolation = (cv2.INTER_AREA if resize_mode == 'area'
+                         else cv2.INTER_NEAREST)
         mask = (mask >= 128).astype(np.uint8)
         mask = cv2.resize(mask, (self.input_size, self.input_size),
-                          interpolation=cv2.INTER_AREA)
+                          interpolation=interpolation)
         return mask.astype(np.int64)
 
     def prepare_train_batch(self, samples, rng: random.Random):
@@ -272,6 +289,8 @@ class BCUNetAdapter(BaselineAdapter):
             'fusion_convnext': convnext_weight,
             'convtranspose': bool(
                 getattr(args, 'bcunet_convtranspose', False)),
+            'mask_resize': str(
+                getattr(args, 'bcunet_mask_resize', 'nearest')),
         }
 
     def restore_config(self, args, config):
@@ -283,6 +302,7 @@ class BCUNetAdapter(BaselineAdapter):
                 ('augment_scope', 'bcunet_augment_scope'),
                 ('fusion_unet', 'bcunet_fusion_unet'),
                 ('fusion_convnext', 'bcunet_fusion_convnext'),
-                ('convtranspose', 'bcunet_convtranspose')):
+                ('convtranspose', 'bcunet_convtranspose'),
+                ('mask_resize', 'bcunet_mask_resize')):
             if key in config:
                 setattr(args, attribute, config[key])

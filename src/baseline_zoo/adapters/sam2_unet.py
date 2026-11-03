@@ -75,9 +75,10 @@ class SAM2UNetAdapter(BaselineAdapter):
         'upstream. Masks use bicubic resize and remain soft in [0,1], also '
         'matching upstream; the evaluator still uses the original binary GT.',
         'Upstream inference writes per-image min-max normalized grayscale '
-        'maps and does not binarize; this port bilinearly resizes the main '
-        'logits to GT and thresholds sigmoid at 0.5 to satisfy the shared '
-        'prediction contract.',
+        'maps and does not binarize; the official evaluator applies an '
+        'adaptive/dynamic threshold. This port bilinearly resizes the main '
+        'logits to GT and defaults to Otsu on the sigmoid probability '
+        '(--sam2-unet-threshold fixed restores 0.5).',
         'Checkpoints store the full SAM2UNet state dict including the frozen '
         'encoder. Prediction therefore does not need the SAM2 pretrained '
         'file; training does unless --random-init (code smoke only).',
@@ -104,6 +105,13 @@ class SAM2UNetAdapter(BaselineAdapter):
         parser.add_argument(
             '--allow-random-init', action='store_true',
             help='predict-only: allow a checkpoint trained with --random-init')
+        parser.add_argument(
+            '--sam2-unet-threshold', choices=['otsu', 'fixed'],
+            default='otsu',
+            help='binarization for the shared mask contract. The official '
+                 'evaluator uses an adaptive/dynamic threshold; otsu '
+                 '(default) is the closest task-adapted equivalent, fixed '
+                 'uses sigmoid > 0.5')
 
     def build_model(self, args):
         from baseline_zoo.models.sam2_unet import SAM2UNet
@@ -211,7 +219,17 @@ class SAM2UNetAdapter(BaselineAdapter):
         out = F.interpolate(
             out, size=(height, width), mode='bilinear',
             align_corners=False)
-        return (torch.sigmoid(out)[0, 0].cpu().numpy() > 0.5)
+        prob = torch.sigmoid(out)[0, 0].float().cpu().numpy()
+        args = getattr(self, 'args', None)
+        mode = str(getattr(args, 'sam2_unet_threshold', 'otsu'))
+        threshold = 0.5
+        if mode == 'otsu' and prob.size and prob.max() > prob.min():
+            try:
+                from skimage.filters import threshold_otsu
+                threshold = float(threshold_otsu(prob))
+            except ImportError:
+                threshold = 0.5
+        return prob > threshold
 
     def save_config(self, args):
         checkpoint = getattr(args, 'sam2_checkpoint', None)

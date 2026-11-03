@@ -539,7 +539,10 @@ class A2SAMAdapter(BaselineAdapter):
                 'logits': logits[0].detach().cpu(),
                 'y_c': y_c[0].float().detach().cpu(),
                 'uncertainty': uncertainty[0].detach().cpu(),
-                'gt': self._load_mask(sample, None),
+                # Stage-3 supervision is at the model's 1024 geometry; cache
+                # the resized target instead of retaining native 3504x2336
+                # masks for every training image.
+                'gt': self._load_mask(sample, 1024),
             }
         if uncertainty_means:
             print(
@@ -563,6 +566,18 @@ class A2SAMAdapter(BaselineAdapter):
             uncertainty = cached['uncertainty']
             coarse = cached['logits'] if mode == 'release' else cached['y_c']
             gt = cached['gt']
+            # The official dataset resizes every mask to a fixed configured
+            # original_size before the SAM loss.  Computing BCE/IoU/TA over
+            # native 3504x2336 tensors (and a second interpolation) is both
+            # far more expensive and blurs thin structures; keep the stage-3
+            # loss at the model's 1024 input geometry.
+            target_hw = (1024, 1024)
+            if tuple(gt.shape[-2:]) != target_hw:
+                # gt is [1, H, W]; keep the channel dimension so the batch
+                # stack remains [B, 1, H, W].
+                gt = F.interpolate(
+                    gt.unsqueeze(0).float(), size=target_hw,
+                    mode='nearest')[0]
             if flip:
                 image = torch.flip(image, dims=[-1]).contiguous()
                 uncertainty = torch.flip(

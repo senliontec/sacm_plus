@@ -63,9 +63,14 @@ class SAMOCTAAdapter(BaselineAdapter):
         'Per-block activation checkpointing is enabled for 11 GiB training; '
         'it changes memory, not the computation.',
         'GT-derived point prompts (one positive per component plus one '
-        'negative in the 8-pixel ring) are preserved. Official loss applies '
-        'clDice only to Artery/Vein/LargeVessel classes; the binary '
-        '20-dataset port applies 0.8*Dice+0.2*clDice uniformly. Official '
+        'negative in the 8-pixel ring) are preserved; this is an '
+        'oracle-prompted reference row, not prompt-free. Official loss '
+        'applies clDice only to Artery/Vein/LargeVessel classes; the binary '
+        '20-dataset port applies 0.8*Dice + 0.2*clDice uniformly. Note that '
+        'the released clDiceLoss.forward itself equals 0.8*Dice+0.2*clDice, '
+        'so the effective clDice weight is 0.04. The official 0.8 '
+        'threshold is exposed as --sam-octa-threshold for validation-only '
+        'calibration. Official '
         'train_sam_octa.py uses an unseeded global RNG and DataParallel on one '
         'visible GPU; this port uses the shared protocol seed and a single '
         'module, so data/augmentation order is not bitwise identical. Final '
@@ -84,6 +89,11 @@ class SAMOCTAAdapter(BaselineAdapter):
             '--sam-checkpoint', type=Path, default=None,
             help='defaults to the local SAM checkpoint matching '
                  '--sam-octa-model-type')
+        parser.add_argument(
+            '--sam-octa-threshold', type=float, default=0.8,
+            help='official OCTA probability threshold; expose it so a '
+                 'validation-only calibration can be reported for the '
+                 '20-dataset task adaptation')
 
     def _default_checkpoint(self, model_type: str) -> Path:
         names = {
@@ -240,4 +250,5 @@ class SAMOCTAAdapter(BaselineAdapter):
         pred = model(prepared['image'], prepared['original_size'],
                      prepared['point_coords'], prepared['point_labels'])
         pred = pred[0, 0].detach().cpu().numpy()
-        return pred > 0.8
+        args = getattr(self, 'args', None)
+        return pred > float(getattr(args, 'sam_octa_threshold', 0.8))

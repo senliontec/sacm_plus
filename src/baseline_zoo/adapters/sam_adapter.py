@@ -200,7 +200,10 @@ class SAMAdapter(BaselineAdapter):
         pred = torch.sigmoid(logits)
         inter = (pred * targets).sum(dim=(2, 3))
         union = (pred + targets).sum(dim=(2, 3)) - inter
-        return (1 - inter / union).mean()
+        # The official implementation divides by an unguarded union; a
+        # single empty/empty pair then produces NaN and poisons the run.
+        # Smoothing keeps the same objective for non-degenerate pairs.
+        return (1 - (inter + 1e-6) / (union + 1e-6)).mean()
 
     def train_step(self, model, batch):
         images, masks = batch

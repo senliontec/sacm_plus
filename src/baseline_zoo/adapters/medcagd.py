@@ -89,8 +89,11 @@ class MedCAGDAdapter(BaselineAdapter):
         'This port defaults to use_stage0=0 (paper final); set '
         '--medcagd-use-stage0 1 to reproduce the upstream code variant.',
         'The official per-iteration fresh/resume xrun scheduler is replaced '
-        'by the shared epoch budget and CosineAnnealingWarmRestarts with the '
-        'upstream T_0=5, T_mult=1; no test-time augmentation is used.',
+        'by the shared epoch budget and CosineAnnealingWarmRestarts. The '
+        'period scales the upstream T_0=5 from its ~128 effective epochs to '
+        'the configured budget (T_0=31 at 800 epochs); '
+        '--medcagd-restart-epochs 5 restores the previous trajectory. No '
+        'test-time augmentation is used.',
     )
 
     def __init__(self):
@@ -149,6 +152,12 @@ class MedCAGDAdapter(BaselineAdapter):
             '--medcagd-use-stage0', type=int, choices=[0, 1], default=0,
             help='include the upstream raw-image Stage 0 path; the paper '
                  'excludes it from the final model')
+        parser.add_argument(
+            '--medcagd-restart-epochs', type=int, default=0,
+            help='CosineAnnealingWarmRestarts T_0. 0 (default) scales the '
+                 'official T_0=5 over its ~128 effective epochs to the '
+                 'configured budget (31 at 800 epochs); set 5 to reproduce '
+                 'the previous 160-restart trajectory')
 
     def build_model(self, args) -> nn.Module:
         self.input_size = int(getattr(args, 'input_size', 256))
@@ -209,9 +218,17 @@ class MedCAGDAdapter(BaselineAdapter):
 
     def make_scheduler(self, optimizer, args):
         # Official xrun uses CosineAnnealingWarmRestarts(T_0=5, T_mult=1)
-        # for its >10-epoch recipe; the shared runtime steps once per epoch.
+        # over roughly 128 effective epochs (8 epochs x up to 16 xruns).
+        # Stretching T_0=5 over 800 shared epochs would produce ~160
+        # restarts instead of ~26.  Scale the period with the budget unless
+        # the caller explicitly requests the old value.
+        period = int(getattr(args, 'medcagd_restart_epochs', 0) or 0)
+        if period <= 0:
+            official_epochs = 8 * 16
+            epochs = max(int(getattr(args, 'epochs', 800) or 800), 1)
+            period = max(1, int(round(5 * epochs / official_epochs)))
         return torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
-            optimizer, T_0=5, T_mult=1, eta_min=1e-6)
+            optimizer, T_0=period, T_mult=1, eta_min=1e-6)
 
     @staticmethod
     def _crop_origin(mask: np.ndarray, patch: int,

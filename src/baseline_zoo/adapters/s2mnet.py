@@ -59,7 +59,11 @@ class S2MNetAdapter(BaselineAdapter):
         'pipeline is not applied to the mixed protocol: images are RGB '
         '[0,1], training uses 352 random crops with flips, rot90 and light '
         'brightness/contrast jitter, and inference uses overlapping 352 '
-        'patches (stride 176) with probability averaging.',
+        'patches (stride 176) with probability averaging. Training crops now '
+        'follow the released foreground-filtered pool idea: up to '
+        '--s2mnet-crop-tries random candidates are drawn and the first crop '
+        'with foreground >= --s2mnet-min-fg-ratio (default 0.005) is used.',
+
         'The official effective batch 32 and 150 epochs become batch 8 '
         '(effective 8) on the shared 18-image split and the shared '
         '800-epoch budget; validation-Dice selection replaces the release '
@@ -89,6 +93,14 @@ class S2MNetAdapter(BaselineAdapter):
         parser.add_argument(
             '--s2mnet-warmup-epochs', type=int, default=10)
         parser.add_argument('--s2mnet-tile-stride', type=int, default=176)
+        parser.add_argument(
+            '--s2mnet-min-fg-ratio', type=float, default=0.005,
+            help='minimum foreground fraction for a training crop, matching '
+                 'the released foreground-filtered patch pool (0.005)')
+        parser.add_argument(
+            '--s2mnet-crop-tries', type=int, default=16,
+            help='random crop attempts before accepting the best foreground '
+                 'crop')
         parser.add_argument('--s2mnet-no-augment', action='store_true')
         parser.add_argument(
             '--s2mnet-random-init', action='store_true',
@@ -174,8 +186,25 @@ class S2MNetAdapter(BaselineAdapter):
             height, width = new_h, new_w
 
         image_np = np.asarray(image, dtype=np.float32) / 255.0
-        top = rng.randrange(0, height - tile + 1) if train else 0
-        left = rng.randrange(0, width - tile + 1) if train else 0
+        if train and rng is not None:
+            args = getattr(self, 'args', None)
+            min_fg = float(getattr(args, 's2mnet_min_fg_ratio', 0.005))
+            tries = max(1, int(getattr(args, 's2mnet_crop_tries', 16)))
+            best = (0, 0, -1.0)
+            for _ in range(tries):
+                candidate_top = rng.randrange(0, height - tile + 1)
+                candidate_left = rng.randrange(0, width - tile + 1)
+                candidate = mask[
+                    candidate_top:candidate_top + tile,
+                    candidate_left:candidate_left + tile]
+                ratio = float(candidate.mean()) if candidate.size else 0.0
+                if ratio > best[2]:
+                    best = (candidate_top, candidate_left, ratio)
+                if ratio >= min_fg:
+                    break
+            top, left = best[0], best[1]
+        else:
+            top = left = 0
         image_np = image_np[top:top + tile, left:left + tile]
         mask = mask[top:top + tile, left:left + tile]
         image_t = torch.from_numpy(

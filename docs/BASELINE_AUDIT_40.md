@@ -1,5 +1,12 @@
 # 40-baseline porting audit
 
+> **2026-11 task-adaptation pass:** see
+> [`docs/BASELINE_FIXES_2026-11.md`](BASELINE_FIXES_2026-11.md).  It fixes the
+> support dataset-attribution bug, empty-mask metric dropout, partial-report
+> inclusion, method grouping, SCRWKV inference, and several task-adaptation
+> geometry/loss paths.  Old metrics in this ledger are source-level audit
+> notes, not current result claims.
+
 Date: 2026-10-28 (fix pass updated 2026-10-29)
 Scope: all 40 runnable baselines in `configs/models/` (SACM-X excluded).
 Method: read-only comparison of the local paper (`parsing/`), official code

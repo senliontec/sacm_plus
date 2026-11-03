@@ -52,7 +52,7 @@ from metrics import compute_selected  # noqa: E402
 from core.run_status import RunStatus  # noqa: E402
 
 MAIN_METRICS = ['dice', 'iou', 'cldice', 'hd95']
-CACHE_VERSION = 2
+CACHE_VERSION = 3
 DEFAULT_WORKERS = min(8, os.cpu_count() or 1)
 METHOD_META = {
     'a2sam': ('A2SAM (MIA 2026)', '✓'),
@@ -178,7 +178,7 @@ def cache_paths(out_root, method, dataset, layout='legacy'):
 
 
 def load_cached(metrics_path, meta_path, metric_names, n_expected,
-                pred_root, signature, max_images):
+                pred_root, signature, max_images, empty_policy='penalty'):
     if not (metrics_path.is_file() and meta_path.is_file()):
         return None
     try:
@@ -190,7 +190,8 @@ def load_cached(metrics_path, meta_path, metric_names, n_expected,
             or meta.get('n_expected') != n_expected
             or meta.get('pred_root') != str(pred_root)
             or meta.get('pred_signature') != signature
-            or meta.get('max_images') != max_images):
+            or meta.get('max_images') != max_images
+            or meta.get('empty_policy', 'penalty') != empty_policy):
         return None
     try:
         with open(metrics_path) as f:
@@ -232,7 +233,7 @@ def _load_binary(path):
 
 
 def collect_chunk(method, dataset, chunk_index, rows_chunk, pred_root,
-                  metric_names):
+                  metric_names, empty_policy='penalty'):
     """Worker: compute a contiguous image chunk (process-pool safe)."""
     per_rows = []
     missing = []
@@ -248,7 +249,8 @@ def collect_chunk(method, dataset, chunk_index, rows_chunk, pred_root,
         if pred.shape != gt.shape:
             raise SystemExit(
                 f'{pred_path}: prediction shape {pred.shape} != GT {gt.shape}')
-        metrics = compute_selected(pred, gt, metric_names)
+        metrics = compute_selected(
+            pred, gt, metric_names, empty_policy=empty_policy)
         per_rows.append({
             'image': stem,
             'role': row['role'],
@@ -259,7 +261,8 @@ def collect_chunk(method, dataset, chunk_index, rows_chunk, pred_root,
 
 def collect_method(method, rows, pred_root, out_root, metric_names,
                    max_images=None, workers=DEFAULT_WORKERS, resume=True,
-                   status=None, chunk_size=100, layout='legacy'):
+                   status=None, chunk_size=100, layout='legacy',
+                   empty_policy='penalty'):
     cache_enabled = metric_names != 'all'
     grouped = group_rows(rows, max_images)
     order = list(grouped)
@@ -285,7 +288,7 @@ def collect_method(method, rows, pred_root, out_root, metric_names,
         if resume and cache_enabled:
             cached = load_cached(
                 metrics_path, meta_path, metric_names, len(rows_ds),
-                pred_root, signature, max_images)
+                pred_root, signature, max_images, empty_policy)
         if cached is not None:
             per_dataset[dataset] = cached
             missing.extend(missing_predictions(
@@ -335,7 +338,7 @@ def collect_method(method, rows, pred_root, out_root, metric_names,
     with ProcessPoolExecutor(max_workers=workers) as pool:
         futures = {
             pool.submit(collect_chunk, method, dataset, chunk_index, chunk,
-                        pred_root, metric_names):
+                        pred_root, metric_names, empty_policy):
                 (dataset, chunk_index, len(chunk))
             for dataset, chunk_index, chunk in chunk_specs
         }
@@ -386,6 +389,7 @@ def collect_method(method, rows, pred_root, out_root, metric_names,
                         'pred_root': str(pred_root),
                         'pred_signature': dataset_signatures[dataset],
                         'max_images': max_images,
+                        'empty_policy': empty_policy,
                         'generated_at_utc':
                             datetime.now(timezone.utc).isoformat(),
                     }
@@ -603,6 +607,12 @@ def main():
                         help='optional dataset-name filter')
     parser.add_argument('--metrics', default='dice,iou,cldice,hd95',
                         help="comma-separated metrics or 'all'")
+    parser.add_argument(
+        '--empty-metric-policy', default='penalty',
+        choices=['penalty', 'nan'],
+        help='empty prediction convention. penalty (default) scores an '
+             'empty prediction as Dice/IoU/clDice=0 and HD95=image diagonal; '
+             'nan keeps the raw official NaN semantics')
     parser.add_argument('--max-images', type=int, default=None,
                         help='per-dataset cap for smoke tests')
     parser.add_argument('--allow-missing', action='store_true',
@@ -732,7 +742,8 @@ def main():
             per_dataset, missing = collect_method(
                 method, rows, args.pred_root, args.out_root,
                 worker_metrics, args.max_images, args.workers,
-                use_cache, status, args.chunk_size, args.layout)
+                use_cache, status, args.chunk_size, args.layout,
+                args.empty_metric_policy)
             if missing and not args.allow_missing:
                 raise SystemExit(
                     f'{method}: {len(missing)} missing predictions; '

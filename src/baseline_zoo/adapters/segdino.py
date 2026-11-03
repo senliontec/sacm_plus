@@ -38,7 +38,10 @@ class SegDINOAdapter(BaselineAdapter):
     official_lr = 1e-4
     official_weight_decay = 1e-4
     train_batch_size = 4
-    drop_last = True
+    # The official loader has thousands of images, so drop_last=True is
+    # harmless there.  The 18-image protocol would drop 2 images (11%) every
+    # epoch; keep the full split for the 3-shot benchmark.
+    drop_last = False
     selection = 'dice'
     deviations = (
         'Official checkpoint selection uses the test split; the protocol '
@@ -65,9 +68,11 @@ class SegDINOAdapter(BaselineAdapter):
         'The default backbone is small (the official README example); the '
         'official argparse default is base. Pass --dino-size b for the '
         'parser default or --dino-size l for ViT-L.',
-        'Training uses drop_last=True as in the official loader; the '
-        'backbone size is saved in the checkpoint and restored at prediction '
-        'time, constructing the timm backbone without a gated download.',
+        'The official loader uses drop_last=True; with only 18 training '
+        'images that would drop 2 images every epoch, so this port uses '
+        'drop_last=False. The backbone size is saved in the checkpoint and '
+        'restored at prediction time, constructing the timm backbone without '
+        'a gated download.',
         'DPT intermediate-layer indices now follow the selected backbone '
         'size (official code for small/base/large).',
         'Official training uses seed 42 and workers=16; this port uses the '

@@ -77,3 +77,17 @@ A rerun can be compared through:
 If strict mode aborts on an operator, report the exact op and use
 `--deterministic_strict false` only as a diagnostic; the run is then not
 bitwise guaranteed.
+
+## Empty-mask and geometry conventions
+
+- The baseline runtime and canonical paper collector default to
+  `--empty-metric-policy penalty`: an empty prediction gets Dice/IoU/clDice=0
+  and HD95=image diagonal, so it stays in every denominator.  Use
+  `--empty-metric-policy nan` only when reproducing the raw official metric
+  semantics; a NaN-based table silently drops empty predictions.
+- The report skips runs whose `run_manifest.json` status is not `done`.
+  Use `--allow-partial` only for diagnostics, never for a paper table.
+- SACM-X defaults to aspect-preserving `aspect_pad` plus an empty guard.
+  Baseline rows use their official geometry/guards.  For a matched
+  comparison set `MATCH_BASELINE_GEOMETRY=1` when invoking
+  `scripts/sacm_x/eval_sacm_x_20.sh` and report that ablation separately.

@@ -61,10 +61,11 @@ class SCRWKVAdapter(BaselineAdapter):
         'AdamW lr 5e-4, wd 0.01, PolyLR to 1e-6, batch 1. The shared '
         'runtime steps the scheduler once per epoch; the released trainer '
         'also steps per epoch.',
-        'Official test.py normalizes raw logits by each image maximum and '
-        'thresholds at 0.2; this port keeps that inference rule and '
-        'nearest-resizes the binary mask to the original GT resolution '
-        '(the release evaluates at 512).',
+        'Official test.py writes 255*(out/max(out)) and thresholds that '
+        '0-255 image at 0.2; the equivalent normalized ratio is 0.2/255, '
+        'used here. This port keeps that inference rule and nearest-resizes '
+        'the binary mask to the original GT resolution (the release '
+        'evaluates at 512).',
         'The port builds ~2.04M parameters, whereas the paper reports '
         '1.22M for SCRWKV; the released Crack config and CSHF/DySample '
         'modules are kept verbatim, so the discrepancy is in the paper '
@@ -76,6 +77,12 @@ class SCRWKVAdapter(BaselineAdapter):
 
     def add_args(self, parser):
         parser.add_argument('--input-size', type=int, default=512)
+        parser.add_argument(
+            '--scrwkv-threshold', type=float, default=0.2 / 255.0,
+            help='threshold on max-normalized logits. The official '
+                 'test.py thresholds a 0-255 image at 0.2, i.e. a ratio of '
+                 '0.2/255 (default); pass 0.2 to reproduce the old, '
+                 'incorrect interpretation')
 
     def build_model(self, args):
         self.input_size = int(getattr(args, 'input_size', 512))
@@ -168,7 +175,11 @@ class SCRWKVAdapter(BaselineAdapter):
         peak = float(logits.max())
         if peak > 0:
             logits = logits / peak
-        pred = (logits >= 0.2).float()
+        # Official test.py writes ``255*(out/max(out))`` and thresholds the
+        # uint8 image at 0.2, so the equivalent normalized ratio is 0.2/255.
+        args = getattr(self, 'args', None)
+        threshold = float(getattr(args, 'scrwkv_threshold', 0.2 / 255.0))
+        pred = (logits >= threshold).float()
         width, height = prepared['size']
         pred = F.interpolate(
             pred[None, None], size=(height, width), mode='nearest')[0, 0]

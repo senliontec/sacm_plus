@@ -46,17 +46,33 @@ def list_pairs(root: Path) -> list[tuple[Path, Path]]:
 
 
 def dataset_of(image_path: Path) -> str:
-    """Protocol convention: ``<DATASET>_<case>`` -> ``<DATASET>``."""
+    """Protocol convention: ``<DATASET>_<case>`` -> ``<DATASET>``.
+
+    Seen test roots are written by ``prepare_data.py`` with a dataset prefix
+    (``DRIVE_21_training``).  Unseen/Novel roots are original datasets and
+    frequently use unprefixed stems (``100_D.png``, ``405.png``), so callers
+    that know the dataset name must pass it explicitly; deriving it from the
+    stem would turn FIVES/DeepCrack/etc. into a numeric name and break
+    support-donor selection.
+    """
     return image_path.stem.split('_', 1)[0]
 
 
 class RawPairDataset(Dataset):
-    """Original-resolution image/mask pairs with no preprocessing."""
+    """Original-resolution image/mask pairs with no preprocessing.
 
-    def __init__(self, root: Path):
+    ``dataset_name`` overrides the stem-prefix convention.  External test
+    roots must pass the protocol dataset name so every sample keeps its
+    true identity for support selection and per-dataset caches.
+    """
+
+    def __init__(self, root: Path, dataset_name: str | None = None):
         self.root = Path(root)
+        self.dataset_name = None if dataset_name is None else str(dataset_name)
         self.samples = [
-            Sample(image, mask, dataset_of(image), image.stem)
+            Sample(image, mask,
+                   self.dataset_name if self.dataset_name is not None
+                   else dataset_of(image), image.stem)
             for image, mask in list_pairs(self.root)
         ]
 
@@ -77,8 +93,18 @@ def load_rgb(path: Path) -> Image.Image:
 
 
 def load_mask(path: Path) -> np.ndarray:
+    """Load a grayscale mask as boolean foreground.
+
+    Protocol masks are normally 0/255, but some source masks use literal
+    0/1.  A literal 0/1 PNG would become all-background under ``> 127``,
+    silently corrupting both training targets and validation.  Detect the
+    literal-binary range and treat any nonzero pixel as foreground.
+    """
     with Image.open(path) as mask:
-        return np.asarray(mask.convert('L')) > 127
+        values = np.asarray(mask.convert('L'))
+    if values.size and int(values.max()) <= 1:
+        return values > 0
+    return values > 127
 
 
 def sample_specs(root: Path) -> list[Sample]:

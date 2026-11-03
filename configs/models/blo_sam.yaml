@@ -27,6 +27,7 @@ note: >-
   5e-3/0.1 with prompt optimizer 5e-3/0.1 and the effective per-step
   polynomial LR. The 18 training images are split once into seeded disjoint
   9/9 D1/D2 subsets, stratified across the six pooled domains; prompt
-  updates and checkpoint selection use D2, matching the official trainer.
-  Official 100-epoch budget. No official BLO-SAM weights; starts from
-  sam_vit_b_01ec64.pth.
+  updates use D2. Checkpoint selection defaults to the shared 6-image
+  validation Dice; --blo-sam-selection d2 restores the official D2
+  criterion. Official 100-epoch budget. No official BLO-SAM weights; starts
+  from sam_vit_b_01ec64.pth.

@@ -51,6 +51,35 @@ def _restore_center_square(pred: np.ndarray, width: int, height: int):
     return out
 
 
+def _pad_square(image: Image.Image, mask: Image.Image, size: int):
+    """Aspect-preserving pad to a square, then resize to ``size``.
+
+    Unlike the official centre crop, this keeps the whole field of view.
+    The extra canvas is black/background and is removed after prediction.
+    """
+    width, height = image.size
+    side = max(width, height)
+    left = (side - width) // 2
+    top = (side - height) // 2
+    canvas = Image.new('RGB', (side, side), (0, 0, 0))
+    canvas.paste(image, (left, top))
+    mask_canvas = Image.new('L', (side, side), 0)
+    mask_canvas.paste(mask, (left, top))
+    return (canvas.resize((size, size)),
+            mask_canvas.resize((size, size)))
+
+
+def _restore_padded_square(pred: np.ndarray, width: int, height: int):
+    """Remove the square-pad canvas and restore the original aspect ratio."""
+    side = max(width, height)
+    left = (side - width) // 2
+    top = (side - height) // 2
+    resized = Image.fromarray((pred.astype(np.uint8) * 255)).resize(
+        (side, side), Image.NEAREST)
+    out = np.asarray(resized) > 127
+    return out[top:top + height, left:left + width]
+
+
 def _official_dice_loss(pred: torch.Tensor,
                         target: torch.Tensor) -> torch.Tensor:
     """Upstream ``dice_coeff_loss`` (per-image Dice, eps 1e-4)."""
@@ -84,8 +113,11 @@ class CS2NetAdapter(BaselineAdapter):
         'unreachable, so it never writes a best model; using test here would '
         'violate the protocol.',
         'The official predict.py depends on an undefined center_crop and is '
-        'not runnable; inference reuses the data-loader center-square crop '
-        'and places the Otsu mask back into that square at GT resolution.',
+        'not runnable. The default task adaptation uses aspect-preserving '
+        'black padding to keep the full field of view (--cs2net-geometry '
+        'padded); --cs2net-geometry center restores the official data-loader '
+        'min-side centre crop, which zeroes everything outside the centre '
+        'square.',
         'Official whole-model pickle checkpoints are replaced by the unified '
         'state_dict schema so every baseline shares one evaluator.',
         'Per-epoch validation runs once per epoch (upstream also tests every '
@@ -94,6 +126,19 @@ class CS2NetAdapter(BaselineAdapter):
         'and an unseeded global RNG; this port runs one GPU, workers=0 and a '
         'seeded runtime RNG. Training trajectories are not bitwise identical.',
     )
+
+    def add_args(self, parser):
+        parser.add_argument(
+            '--cs2net-geometry', choices=['padded', 'center'],
+            default='padded',
+            help='padded (default) preserves the full field of view with '
+                 'aspect-preserving black padding; center reproduces the '
+                 'official min-side centre crop that zeroes everything '
+                 'outside the centre square')
+
+    def _geometry_mode(self) -> str:
+        args = getattr(self, 'args', None)
+        return str(getattr(args, 'cs2net_geometry', 'padded'))
 
     def build_model(self, args) -> nn.Module:
         return CSNet(classes=1, channels=3)
@@ -133,7 +178,10 @@ class CS2NetAdapter(BaselineAdapter):
         for sample in samples:
             image = load_rgb(sample.image_path)
             mask = Image.open(sample.mask_path).convert('L')
-            image, mask = _center_square(image, mask, self.input_size)
+            if self._geometry_mode() == 'padded':
+                image, mask = _pad_square(image, mask, self.input_size)
+            else:
+                image, mask = _center_square(image, mask, self.input_size)
 
             angle = rng.randint(-40, 40)
             image = image.rotate(angle)
@@ -174,7 +222,10 @@ class CS2NetAdapter(BaselineAdapter):
     def prepare_eval_sample(self, sample, device):
         image = load_rgb(sample.image_path)
         mask = Image.open(sample.mask_path).convert('L')
-        image, _ = _center_square(image, mask, self.input_size)
+        if self._geometry_mode() == 'padded':
+            image, _ = _pad_square(image, mask, self.input_size)
+        else:
+            image, _ = _center_square(image, mask, self.input_size)
         tensor = torch.from_numpy(
             np.asarray(image, dtype=np.float32).copy()
         ).permute(2, 0, 1) / 255.0
@@ -190,4 +241,6 @@ class CS2NetAdapter(BaselineAdapter):
         binary = arr > threshold
         with Image.open(sample.mask_path) as mask:
             width, height = mask.size
+        if self._geometry_mode() == 'padded':
+            return _restore_padded_square(binary, width, height)
         return _restore_center_square(binary, width, height)

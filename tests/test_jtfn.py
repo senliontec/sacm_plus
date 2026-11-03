@@ -98,7 +98,8 @@ def test_eval_downscales_oversized_image_and_restores_gt_shape(tmp_path):
     sample = Sample(image_path=image, mask_path=mask,
                     dataset='BIG', stem='BIG_0')
     adapter = JTFNAdapter()
-    adapter.args = SimpleNamespace(jtfn_eval_max_side=64)
+    adapter.args = SimpleNamespace(
+        jtfn_eval_max_side=64, jtfn_eval_mode='downscale')
     prepared = adapter.prepare_eval_sample(sample, torch.device('cpu'))
     assert prepared['original_size'] == (96, 128)
     assert prepared['model_size'] == (48, 64)

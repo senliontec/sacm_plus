@@ -51,7 +51,8 @@ def test_registry_and_metadata():
     assert isinstance(adapter, CSUNetAdapter)
     assert adapter.id == 'csunet'
     assert adapter.input_size == 512
-    assert adapter.official_lr == pytest.approx(0.01)
+    assert adapter.paper_lr == pytest.approx(0.01)
+    assert adapter.official_lr == pytest.approx(0.00125)
     assert adapter.official_weight_decay == 0.0
     assert any('placeholder' in item for item in adapter.deviations)
 

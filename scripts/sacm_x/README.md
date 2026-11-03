@@ -93,6 +93,21 @@ script trains, finalizes the checkpoint, then invokes the 20-dataset eval.
 Do not pass a hard-coded seed path.  Derive it from `SEED`, as above, so each
 seed writes to a different directory.
 
+**Fairness ablation.**  Baseline adapters use square stretch/their official
+geometry and have no empty-mask fallback.  SACM-X defaults to
+`EVAL_INPUT_MODE=aspect_pad` and `EMPTY_GUARD=true`.  To compare SACM-X under
+the baseline operating point, run:
+
+```bash
+GPU=7 SEED="$SEED" PRESET="$PRESET" \
+TRAIN_OUT="$RUN_ROOT" OUTPUT_ROOT="$RUN_ROOT/eval" \
+MATCH_BASELINE_GEOMETRY=1 USE_WANDB=true \
+bash scripts/sacm_x/eval_sacm_x_20.sh
+```
+
+This forces `resize` and disables the empty guard.  Report it as a separate
+ablation, not as the proposed method's default score.
+
 ## Latest run index
 
 ```bash

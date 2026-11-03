@@ -57,10 +57,11 @@ class JTFNAdapter(BaselineAdapter):
         'not required.',
         'Inference pads the original image to a multiple of 32 for shape '
         'safety and crops the prediction back; the official test runs '
-        'full-resolution images without padding. Images whose longest side '
-        'exceeds --jtfn-eval-max-side (default 1024) are downscaled before '
-        'the forward pass and the prediction is upsampled to GT resolution; '
-        'this memory adaptation can change high-resolution metrics.',
+        'full-resolution images without padding. Evaluation defaults to '
+        'native-resolution overlapping 512-pixel tiles so 1-px structures '
+        'are preserved; --jtfn-eval-mode downscale restores the earlier '
+        'longest-side cap (default 1024), which materially changes '
+        'high-resolution metrics.',
         'The official DRIVE evaluation excludes pixels outside the retinal '
         'field of view with its ignore_mask. The shared protocol applies no '
         'FOV mask, so all pixels contribute to validation/test metrics. '
@@ -77,9 +78,20 @@ class JTFNAdapter(BaselineAdapter):
             choices=['base64', 'base32', 'resbase32', 'resbase64'])
         parser.add_argument('--jtfn-steps', type=int, default=3)
         parser.add_argument(
+            '--jtfn-eval-mode', choices=['tile', 'downscale'],
+            default='tile',
+            help='tile (default) preserves native resolution with '
+                 'overlapping 512-pixel inference; downscale reproduces the '
+                 'earlier longest-side cap')
+        parser.add_argument(
+            '--jtfn-tile-size', type=int, default=512,
+            help='tile size for native-resolution inference (default 512)')
+        parser.add_argument(
+            '--jtfn-tile-stride', type=int, default=256,
+            help='tile stride for native-resolution inference (default 256)')
+        parser.add_argument(
             '--jtfn-eval-max-side', type=int, default=1024,
-            help='downscale eval images whose longest side exceeds this '
-                 'value before the forward pass (memory safety)')
+            help='downscale-only longest-side cap; ignored in tile mode')
 
     def build_model(self, args) -> nn.Module:
         self.input_size = int(args.input_size)
@@ -193,9 +205,11 @@ class JTFNAdapter(BaselineAdapter):
         image, _, _ = self._preprocess(
             sample, random.Random(0), train=False)
         height, width = image.shape[-2:]
-        max_side = max(int(getattr(self.args, 'jtfn_eval_max_side', 1024)), 32)
+        args = getattr(self, 'args', None)
+        mode = str(getattr(args, 'jtfn_eval_mode', 'tile'))
+        max_side = max(int(getattr(args, 'jtfn_eval_max_side', 1024)), 32)
         model_h, model_w = height, width
-        if max(height, width) > max_side:
+        if mode == 'downscale' and max(height, width) > max_side:
             scale = max_side / max(height, width)
             model_h = max(32, int(round(height * scale)))
             model_w = max(32, int(round(width * scale)))
@@ -210,12 +224,51 @@ class JTFNAdapter(BaselineAdapter):
             image = image.unsqueeze(0)
         return {'image': image.to(device),
                 'original_size': (height, width),
-                'model_size': (model_h, model_w)}
+                'model_size': (model_h, model_w),
+                'eval_mode': mode}
+
+    @staticmethod
+    def _tile_starts(length: int, tile: int, stride: int) -> list[int]:
+        if length <= tile:
+            return [0]
+        starts = list(range(0, length - tile + 1, stride))
+        if starts[-1] != length - tile:
+            starts.append(length - tile)
+        return starts
 
     def predict_sample(self, model, prepared, sample):
-        output = model({'img': prepared['image']})['output']
+        image = prepared['image']
         height, width = prepared['original_size']
         model_h, model_w = prepared['model_size']
+        mode = prepared.get('eval_mode', 'downscale')
+        args = getattr(self, 'args', None)
+        if mode == 'tile' and max(model_h, model_w) > int(
+                getattr(args, 'jtfn_tile_size', 512)):
+            tile = max(32, int(getattr(args, 'jtfn_tile_size', 512)))
+            stride = max(1, int(getattr(
+                args, 'jtfn_tile_stride', tile // 2)))
+            stride = min(stride, tile)
+            pad_h = max(0, tile - model_h)
+            pad_w = max(0, tile - model_w)
+            if pad_h or pad_w:
+                image = F.pad(image, (0, pad_w, 0, pad_h))
+            padded_h, padded_w = image.shape[-2:]
+            accumulator = torch.zeros(
+                (padded_h, padded_w), device=image.device,
+                dtype=torch.float32)
+            counts = torch.zeros_like(accumulator)
+            for top in self._tile_starts(padded_h, tile, stride):
+                for left in self._tile_starts(padded_w, tile, stride):
+                    patch = image[:, :, top:top + tile, left:left + tile]
+                    logits = model({'img': patch})['output']
+                    probability = torch.sigmoid(logits)[0, 0]
+                    accumulator[top:top + tile, left:left + tile] += \
+                        probability
+                    counts[top:top + tile, left:left + tile] += 1.0
+            probability = accumulator / counts.clamp_min(1.0)
+            return (probability[:height, :width] > 0.5).cpu().numpy()
+
+        output = model({'img': image})['output']
         output = output[..., :model_h, :model_w]
         if (model_h, model_w) != (height, width):
             output = F.interpolate(
@@ -230,11 +283,16 @@ class JTFNAdapter(BaselineAdapter):
             'jtfn_steps': int(getattr(args, 'jtfn_steps', 3)),
             'jtfn_eval_max_side': int(
                 getattr(args, 'jtfn_eval_max_side', 1024)),
+            'jtfn_eval_mode': str(
+                getattr(args, 'jtfn_eval_mode', 'tile')),
+            'jtfn_tile_size': int(getattr(args, 'jtfn_tile_size', 512)),
+            'jtfn_tile_stride': int(getattr(args, 'jtfn_tile_stride', 256)),
         }
 
     def restore_config(self, args, config):
         for key in ('input_size', 'jtfn_backbone', 'jtfn_steps',
-                    'jtfn_eval_max_side'):
+                    'jtfn_eval_max_side', 'jtfn_eval_mode',
+                    'jtfn_tile_size', 'jtfn_tile_stride'):
             if key in config:
                 setattr(args, key, config[key])
         self.input_size = int(getattr(args, 'input_size', 256))

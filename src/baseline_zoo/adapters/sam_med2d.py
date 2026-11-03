@@ -40,6 +40,7 @@ class SamMed2DAdapter(BaselineAdapter):
     official_lr = 1e-4
     official_weight_decay = 0.0
     train_batch_size = 2
+    optimizer_steps_per_batch = 9  # initial mask + iter_point-1 refinements
     selection = 'dice'
     deviations = (
         'Default initialization is the official SAM-Med2D ViT-B checkpoint '

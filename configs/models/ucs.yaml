@@ -7,7 +7,9 @@ note: >-
   Oracle-prompted UCS (official code derives GT boxes/points and uses
   GT-guided refinement clicks). Official 20-epoch recipe extended to the
   800-epoch 3-shot budget, with MultiStepLR milestones scaled to [200,400];
-  prompted/reference group, not prompt-free. Requires the SAM ViT-L
+  checkpoint selection defaults to the shared 6-image validation Dice
+  (--ucs-selection train restores the official training-Dice rule).
+  Prompted/reference group, not prompt-free. Requires the SAM ViT-L
   checkpoint.
 train_entrypoint: >-
   python -m baseline_zoo.run_one --model ucs --stage train

@@ -37,10 +37,7 @@ from torch.utils.data import DataLoader
 from core.console import console
 from core.reproducibility import configure_determinism, seed_worker
 from core.metrics import (
-    cldice_score,
-    dice_score,
-    hd95_score,
-    iou_score,
+    binary_metrics as canonical_binary_metrics,
 )
 from core.run_status import RunStatus
 from core.wandb_utils import (
@@ -92,6 +89,9 @@ class BaselineAdapter(ABC):
     deviations: tuple[str, ...] = ()
     custom_pipeline: bool = False
     training_free: bool = False
+    # Training-free adapters may still need the support split (PerSAM,
+    # Matcher, RSRM).  A zero-shot adapter can opt out.
+    needs_split: bool = True
 
     def __init__(self):
         self.args: argparse.Namespace | None = None
@@ -277,22 +277,20 @@ def _mean(values: Iterable[float]) -> float:
         return float(np.nanmean(values))
 
 
-def binary_metrics(pred: np.ndarray, gt: np.ndarray) -> dict[str, float]:
+def binary_metrics(pred: np.ndarray, gt: np.ndarray,
+                   empty_policy: str = 'penalty') -> dict[str, float]:
     # Use the same canonical metric functions as paper-metric collection
     # (medpy Dice/IoU conventions, no epsilon smoothing) so validation
     # checkpoint selection and reported test metrics share one definition.
-    return {
-        'dice': dice_score(pred, gt),
-        'iou': iou_score(pred, gt),
-        'cldice': cldice_score(pred, gt),
-        'hd95': hd95_score(pred, gt),
-        'empty': float(pred.sum() == 0),
-    }
+    # ``empty_policy='penalty'`` keeps empty predictions in clDice/HD95
+    # averages instead of silently dropping them through NaN.
+    return canonical_binary_metrics(pred, gt, empty_policy=empty_policy)
 
 
 @torch.no_grad()
 def evaluate(adapter: BaselineAdapter, model: nn.Module,
-             samples: Sequence[Sample], device: torch.device
+             samples: Sequence[Sample], device: torch.device,
+             empty_policy: str = 'penalty'
              ) -> tuple[dict[str, float], dict[str, dict[str, float]]]:
     model.eval()
     overall = {key: [] for key in (*METRIC_NAMES, 'empty')}
@@ -308,7 +306,7 @@ def evaluate(adapter: BaselineAdapter, model: nn.Module,
             raise RuntimeError(
                 f'{adapter.id}: prediction shape {pred.shape} != GT '
                 f'{gt.shape} for {sample.image_path}')
-        values = binary_metrics(pred, gt)
+        values = binary_metrics(pred, gt, empty_policy=empty_policy)
         bucket = per_dataset.setdefault(
             sample.dataset, {key: [] for key in (*METRIC_NAMES, 'empty')})
         for key, value in values.items():
@@ -511,11 +509,14 @@ def make_training_scheduler(adapter: BaselineAdapter,
     """
     choice = getattr(args, 'scheduler', 'official') or 'official'
     if choice == 'official':
+        # Keep the adapter's per-group LRs (e.g. TPSegformer head x10, DKA
+        # head/adapter split).  Overwriting them here would erase those
+        # official ratios for the first epoch.
         return adapter.make_scheduler(optimizer, args)
 
-    # A few adapters (notably SAM-OCTA) keep a nominal optimizer LR and
-    # apply the effective LR through their own scheduler.  Generic
-    # overrides are expressed in effective LR, so normalize the base first.
+    # Generic overrides are expressed in the effective LR, so normalize the
+    # base first.  They are intentionally not applied to official
+    # multi-group schedules.
     for group in optimizer.param_groups:
         group['lr'] = float(args.lr)
 
@@ -606,8 +607,15 @@ def run_training_free(adapter: BaselineAdapter,
     adapter.args = args
     adapter.device = device
 
-    train_samples = load_split_samples(Path(args.data_root), 'train')
-    val_samples = load_split_samples(Path(args.data_root), 'val')
+    try:
+        train_samples = load_split_samples(Path(args.data_root), 'train')
+        val_samples = load_split_samples(Path(args.data_root), 'val')
+    except SystemExit:
+        if getattr(adapter, 'needs_split', True):
+            raise
+        # A zero-shot adapter (C2P) does not consume the protocol data at
+        # all; a missing local split must not block its metadata checkpoint.
+        train_samples, val_samples = [], []
     if args.limit_train:
         train_samples = train_samples[:args.limit_train]
     if args.limit_val:
@@ -630,6 +638,8 @@ def run_training_free(adapter: BaselineAdapter,
         'input_size': adapter.input_size,
         'adapter_config': adapter.save_config(args),
         'selection': args.selection,
+        'empty_metric_policy': getattr(
+            args, 'empty_metric_policy', 'penalty'),
         'seed': args.seed,
         'training_free': True,
         'split_manifest_sha256': split_sha,
@@ -723,6 +733,23 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
     optimizer = adapter.make_optimizer(model, args)
     scheduler = make_training_scheduler(adapter, optimizer, args)
 
+    # Record the actual optimization budget.  "800 epochs" is not a common
+    # unit across models: a sampler can expand the dataset (LIOT repeat=30,
+    # BCU-Net 18x augmentation), and accumulation changes the update count.
+    samples_per_epoch = len(train_dataset)
+    if sampler is not None and getattr(sampler, 'num_samples', None):
+        samples_per_epoch = int(sampler.num_samples)
+    batches_per_epoch = (
+        samples_per_epoch // args.batch_size
+        if getattr(adapter, 'drop_last', False)
+        else math.ceil(samples_per_epoch / max(args.batch_size, 1))
+    ) if samples_per_epoch else 0
+    inner_steps = max(1, int(getattr(
+        adapter, 'optimizer_steps_per_batch', 1)))
+    updates_per_epoch = (
+        math.ceil(batches_per_epoch / max(args.accum_steps, 1)) * inner_steps
+        if batches_per_epoch else 0)
+
     split_manifest = Path(args.data_root) / 'split_manifest.csv'
     split_sha256 = (file_sha256(split_manifest)
                     if split_manifest.is_file() else None)
@@ -741,11 +768,17 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
         'batch_size': args.batch_size,
         'accum_steps': args.accum_steps,
         'effective_batch_size': args.batch_size * args.accum_steps,
+        'samples_per_epoch': samples_per_epoch,
+        'batches_per_epoch': batches_per_epoch,
+        'approx_optimizer_steps_per_epoch': updates_per_epoch,
+        'approx_total_optimizer_steps': updates_per_epoch * args.epochs,
         'lr': args.lr,
         'weight_decay': args.weight_decay,
         'input_size': adapter.input_size,
         'adapter_config': adapter.save_config(args),
         'selection': args.selection,
+        'empty_metric_policy': getattr(
+            args, 'empty_metric_policy', 'penalty'),
         'seed': args.seed,
         'optimizer': type(optimizer).__name__,
         'scheduler': type(scheduler).__name__ if scheduler else None,
@@ -857,7 +890,8 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
         train_loss = adapter.train_epoch(model, loader, optimizer, scheduler,
                                          args)
         val_metrics, val_per_dataset = evaluate(
-            adapter, model, val_samples, device)
+            adapter, model, val_samples, device,
+            empty_policy=getattr(args, 'empty_metric_policy', 'penalty'))
         if adapter.scheduler_after_validation:
             adapter.step_scheduler(scheduler, val_metrics)
         elapsed = time.time() - epoch_t0
@@ -1025,7 +1059,10 @@ def run_prediction(adapter: BaselineAdapter, args: argparse.Namespace,
         if not sep or not name or not root:
             raise SystemExit(
                 f'--test-datasets entries must be NAME:DIR, got {spec!r}')
-        test_set = RawPairDataset(Path(root))
+        # External roots often use unprefixed stems (100_D.png, 405.png).
+        # The explicit protocol name must win over the stem-prefix guess so
+        # support-donor selection and per-dataset caches stay correct.
+        test_set = RawPairDataset(Path(root), dataset_name=name)
         datasets.append((name, test_set.samples))
     total_images = sum(len(samples) for _, samples in datasets)
     status = RunStatus(method=adapter.id, stage='predict', heartbeat=10.0)
@@ -1150,6 +1187,12 @@ def build_parser(adapter: BaselineAdapter) -> argparse.ArgumentParser:
     parser.add_argument('--selection', default=adapter.selection,
                         choices=['dice', 'iou', 'cldice', 'hd95'],
                         help='validation metric for checkpoint selection')
+    parser.add_argument(
+        '--empty-metric-policy', default='penalty',
+        choices=['penalty', 'nan'],
+        help='empty prediction convention: penalty (default) keeps empty '
+             'masks in clDice/HD95 with a finite worst-case value; nan keeps '
+             'the raw official NaN semantics and silently drops them')
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument(
         '--deterministic', type=lambda value: str(value).lower()

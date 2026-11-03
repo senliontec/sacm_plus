@@ -6,7 +6,7 @@ checkpoint: "{output_root}/best_model.pth"
 train_entrypoint: >-
   python -m baseline_zoo.run_one --model csunet --stage train
   --data-root {split_root} --workdir {output_root}
-  --batch-size 4 --lr 0.01 --csunet-filters 32
+  --batch-size 4 --lr 0.00125 --csunet-filters 32
   --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
 eval_entrypoint: >-
   python scripts/pipeline/run_baseline_test.py --method csunet
@@ -25,8 +25,9 @@ note: >-
   blocks (Conv-GroupNorm(16)-ReLU-Snake; no deformable offsets in the
   release), GFR/FSF skip fusion with global-max SE, reduction 8, degree-5
   Gegenbauer activations (learnable softplus alpha, sigmoid inputs), 1x1
-  half-channel compression and a skip gate; Dice loss, SGD 0.01/momentum
-  0.9, constant LR minus 1e-6 per epoch, 512-square RGB [0,1], no
-  augmentation. Shared 800-epoch budget and validation-Dice selection;
-  batch 32 -> 4 because the 18-image split has fewer than 32 images.
+  half-channel compression and a skip gate; Dice loss, SGD with
+  batch-32 lr 0.01 scaled to 1.25e-3 at the actual batch 4, momentum 0.9,
+  constant LR minus 1e-6 per epoch, 512-square RGB [0,1], no augmentation.
+  Shared 800-epoch budget and validation-Dice selection; batch 32 -> 4
+  because the 18-image split has fewer than 32 images.
   No official weights.

@@ -18,3 +18,9 @@ eval_entrypoint: >-
 protocols: [seeded5, fixed]
 defaults:
   epochs: 800
+note: >-
+  Corrected SACM variant. It fixes SAM normalization, the no-mask prompt,
+  per-block Adapter-E LN, Stage-2 descriptor ordering, branch-repeat and
+  weight-decay issues, but it also adds all-head Stage-1/Stage-2 supervision,
+  deep supervision and IoU-head selection. Label it as a corrected/
+  paper-faithful reimplementation, not as a pure bug fix of the official code.

@@ -82,6 +82,10 @@ class SegDINOV2Adapter(BaselineAdapter):
         parser.add_argument('--segdino-v2-no-augment', action='store_true')
         parser.add_argument('--segdino-v2-random-init', action='store_true',
                             help='smoke only: random DINOv3 weights')
+        parser.add_argument(
+            '--allow-random-init', action='store_true',
+            help='predict-only: allow a checkpoint trained with '
+                 '--segdino-v2-random-init')
 
     def build_model(self, args):
         self.input_size = int(getattr(args, 'input_size', 256))
@@ -90,7 +94,13 @@ class SegDINOV2Adapter(BaselineAdapter):
         random_init = bool(getattr(args, 'segdino_v2_random_init', False))
         size = getattr(args, 'segdino_v2_dino_size', 'small')
         ckpt = getattr(args, 'segdino_v2_dino_ckpt', None)
-        if ckpt is None and not random_init and not self.prediction_mode:
+        # Prediction restores the full model state from the project
+        # checkpoint, so the original DINOv3 file is not required on the
+        # evaluation machine.  Build the architecture without touching it.
+        if self.prediction_mode:
+            ckpt = None
+            random_init = True
+        elif ckpt is None and not random_init:
             ckpt = find_dinov3_checkpoint(size)
         if ckpt is not None:
             ckpt = Path(ckpt)
@@ -257,4 +267,9 @@ class SegDINOV2Adapter(BaselineAdapter):
         if 'augment' in config:
             args.segdino_v2_no_augment = not config['augment']
         if 'random_init' in config:
+            if config['random_init'] and not bool(getattr(
+                    args, 'allow_random_init', False)):
+                raise SystemExit(
+                    'checkpoint was trained with --segdino-v2-random-init '
+                    '(smoke only); pass --allow-random-init to evaluate it')
             args.segdino_v2_random_init = config['random_init']

@@ -239,11 +239,16 @@ class NNUNet2DAdapter(BaselineAdapter):
         workdir = Path(args.workdir)
         workdir.mkdir(parents=True, exist_ok=True)
         nn_root, env = self._init_env(workdir)
-        # A reused workdir must not mix raw PNGs/preprocessed arrays from a
-        # different protocol; re-stage and re-plan deterministically.
+        # A reused workdir must not mix raw PNGs/preprocessed arrays or old
+        # model results from a different protocol; re-stage and re-plan
+        # deterministically.
         shutil.rmtree(nn_root / 'raw' / DATASET_NAME, ignore_errors=True)
         shutil.rmtree(nn_root / 'preprocessed' / DATASET_NAME,
                       ignore_errors=True)
+        shutil.rmtree(nn_root / 'results' / DATASET_NAME, ignore_errors=True)
+        stale_pointer = workdir / 'nnunet_model_dir.txt'
+        if stale_pointer.exists():
+            stale_pointer.unlink()
         # Fit the planner/preprocessor on train only.  Staging val before
         # planning leaked the 6 validation images into normalization and
         # planner choices.

@@ -28,7 +28,11 @@ class CSUNetAdapter(BaselineAdapter):
     official_source = 'CS-UNet (ICASSP 2026)'
     official_entrypoint = 'https://github.com/Jayku88/CSUNet'
     input_size = 512
-    official_lr = 0.01
+    # The notebook uses batch 32 and SGD lr 0.01.  Batch 4 keeps the
+    # 18-image loader usable; scale the LR linearly (4/32) so the effective
+    # step size is not 8x the official one.
+    paper_lr = 0.01
+    official_lr = 0.00125
     official_weight_decay = 0.0
     train_batch_size = 4
     accumulation_steps = 1
@@ -48,9 +52,10 @@ class CSUNetAdapter(BaselineAdapter):
         'and sigmoid-bounded inputs, 1x1 compression to half channels, a '
         'global-max sigmoid gate on the skip, and skip*gate + decoder.',
         'The official batch 32 with the 18-image split gives '
-        'steps_per_epoch=0; this port uses batch 4 and SGD 0.01 with '
-        'momentum 0.9 and no gradient clipping (official settings), '
-        'documented as a necessary reduction.',
+        'steps_per_epoch=0; this port uses batch 4. The official SGD lr '
+        '0.01 is linearly scaled to 1.25e-3 for batch 4 (the unconverted '
+        'value is kept as paper_lr). Momentum 0.9 and no gradient clipping '
+        'are official.',
         'The official 100-epoch budget and val-loss early stopping become '
         'the shared 800-epoch budget with validation-Dice selection.',
         'The official constant LR minus 1e-6 per epoch is applied per epoch '

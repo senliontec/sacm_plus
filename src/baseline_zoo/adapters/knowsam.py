@@ -186,6 +186,12 @@ class KnowSAMAdapter(BaselineAdapter):
                  'metrics with the same W&B keys as other baselines; '
                  '0 = official branch Dice only')
         parser.add_argument('--unlabeled-limit', type=int, default=384)
+        parser.add_argument(
+            '--unlabeled-balance', choices=['domain', 'source-order'],
+            default='domain',
+            help='domain (default) round-robins the six source domains so '
+                 'the pool is not dominated by CORN/CRÉMI; source-order '
+                 'reproduces the previous first-domain-first policy')
         parser.add_argument('--labeled-batch', type=int, default=3)
         parser.add_argument(
             '--input-size', type=int, default=256,
@@ -239,7 +245,13 @@ class KnowSAMAdapter(BaselineAdapter):
                 if row['split'] in ('val', 'test'):
                     heldout_groups.setdefault(dataset, set()).add(row['group'])
 
-        count = 0
+        # Build eligible pools first.  The previous implementation broke at
+        # the global limit while iterating domains in a fixed order, so CORN
+        # and CRÉMI filled almost the entire 384-image pool.  Round-robin
+        # over the available domains keeps the unlabeled stream balanced
+        # (and falls back to the remaining domains when a source pool is
+        # small).
+        queues: dict[str, list] = {}
         for domain in SOURCE_DOMAINS:
             domain_root = REPO_ROOT / 'datasets' / 'seen' / domain
             if domain == 'CORN':
@@ -247,6 +259,7 @@ class KnowSAMAdapter(BaselineAdapter):
             if not (domain_root / 'images').is_dir():
                 continue
             blocked = heldout_groups.get(domain, set())
+            candidates = []
             for sample in RawPairDataset(domain_root).samples:
                 if sample.stem in excluded.get(domain, set()):
                     continue
@@ -260,13 +273,46 @@ class KnowSAMAdapter(BaselineAdapter):
                         f'{sample.stem!r} to a split_manifest.csv group')
                 if group in blocked:
                     continue
-                self._save_pair(root / 'unlabeled', sample,
-                                f'{domain}_{sample.stem}')
-                count += 1
-                if count >= unlabeled_limit:
+                candidates.append(sample)
+            if candidates:
+                queues[domain] = candidates
+
+        if not queues:
+            raise SystemExit('no unlabeled images found for KnowSAM')
+        limit = max(1, int(unlabeled_limit))
+        balance = str(getattr(
+            getattr(self, 'args', None), 'unlabeled_balance', 'domain'))
+        count = 0
+        if balance == 'source-order':
+            for domain in SOURCE_DOMAINS:
+                for sample in queues.get(domain, []):
+                    self._save_pair(root / 'unlabeled', sample,
+                                    f'{domain}_{sample.stem}')
+                    count += 1
+                    if count >= limit:
+                        break
+                if count >= limit:
                     break
-            if count >= unlabeled_limit:
-                break
+        else:
+            order = [domain for domain in SOURCE_DOMAINS if domain in queues]
+            positions = {domain: 0 for domain in order}
+            while count < limit:
+                progressed = False
+                for domain in order:
+                    if count >= limit:
+                        break
+                    index = positions[domain]
+                    candidates = queues[domain]
+                    if index >= len(candidates):
+                        continue
+                    sample = candidates[index]
+                    positions[domain] = index + 1
+                    self._save_pair(root / 'unlabeled', sample,
+                                    f'{domain}_{sample.stem}')
+                    count += 1
+                    progressed = True
+                if not progressed:
+                    break
         if count == 0:
             raise SystemExit('no unlabeled images found for KnowSAM')
         return len(labeled), count, len(val)

@@ -37,8 +37,10 @@ class CWSAMAdapter(BaselineAdapter):
     deviations = (
         'The upstream SAR config is 5-class; this is a 2-class '
         '(background/foreground) port. The official per-class weights '
-        '[1.5, 1, 0.5, 1.9, 0.1] have no binary mapping, so neutral CE is '
-        'used.',
+        '[1.5, 1, 0.5, 1.9, 0.1] have no binary mapping, so the binary '
+        'adaptation uses background 0.1 / foreground 1.0 CE plus a 0.5 '
+        'foreground soft-Dice term. Set --cwsam-bg-weight 1 '
+        '--cwsam-fg-weight 1 --cwsam-dice-weight 0 to restore neutral CE.',
         'Default ViT-B matches the released ClassWise-SAM-Adapter configs '
         'and checkpoint. The paper states that all SAM-based baselines share '
         'a ViT-L encoder, but that claim could not be verified locally; '
@@ -67,6 +69,17 @@ class CWSAMAdapter(BaselineAdapter):
             '--sam-checkpoint', type=Path, default=None,
             help='base SAM checkpoint; defaults to the local ViT-B/ViT-L '
                  'checkpoint matching --cwsam-encoder')
+        parser.add_argument(
+            '--cwsam-bg-weight', type=float, default=0.1,
+            help='background CE weight for the binary adaptation '
+                 '(official foreground classes have higher weight than bg)')
+        parser.add_argument(
+            '--cwsam-fg-weight', type=float, default=1.0,
+            help='foreground CE weight for the binary adaptation')
+        parser.add_argument(
+            '--cwsam-dice-weight', type=float, default=0.5,
+            help='foreground soft-Dice weight added to CE; 0 restores the '
+                 'earlier uniform-CE port')
 
     def _default_checkpoint(self, encoder: str) -> Path:
         name = ('sam_vit_b_01ec64.pth' if encoder == 'vit_b'
@@ -179,7 +192,23 @@ class CWSAMAdapter(BaselineAdapter):
         if images.shape[0] != 1:
             raise RuntimeError('CWSAM.infer only supports batch size 1')
         logits = model.infer(images)
-        return nn.CrossEntropyLoss()(logits, masks)
+        args = getattr(self, 'args', None)
+        background = float(getattr(args, 'cwsam_bg_weight', 0.1))
+        foreground = float(getattr(args, 'cwsam_fg_weight', 1.0))
+        weight = torch.tensor(
+            [background, foreground], dtype=logits.dtype,
+            device=logits.device)
+        loss = F.cross_entropy(logits, masks, weight=weight)
+        dice_weight = float(getattr(args, 'cwsam_dice_weight', 0.5))
+        if dice_weight > 0:
+            prob = torch.softmax(logits, dim=1)[:, 1]
+            target = (masks == 1).to(prob.dtype)
+            dims = tuple(range(1, prob.ndim))
+            intersection = (prob * target).sum(dim=dims)
+            union = prob.sum(dim=dims) + target.sum(dim=dims)
+            dice = 1.0 - (2.0 * intersection + 1.0) / (union + 1.0)
+            loss = loss + dice_weight * dice.mean()
+        return loss
 
     def prepare_eval_sample(self, sample, device):
         return self._preprocess(sample, device)

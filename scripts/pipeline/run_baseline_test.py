@@ -245,6 +245,12 @@ def main():
     parser.add_argument('--datasets', nargs='+', default=None)
     parser.add_argument('--num-samples', type=int, default=8)
     parser.add_argument('--metrics', default='dice,iou,cldice,hd95')
+    parser.add_argument(
+        '--empty-metric-policy', default='penalty',
+        choices=['penalty', 'nan'],
+        help='empty prediction convention forwarded to the metric '
+             'collector; penalty (default) keeps empty masks in clDice/HD95 '
+             'with a finite worst-case value')
     parser.add_argument('--device', default=None)
     parser.add_argument(
         '--seed', type=int, default=None,
@@ -483,6 +489,7 @@ def main():
                    '--pred-root', args.pred_root,
                    '--out-root', args.paper_root,
                    '--metrics', args.metrics,
+                   '--empty-metric-policy', args.empty_metric_policy,
                    '--protocol', args.protocol,
                    '--layout', 'canonical',
                    '--family', 'baseline',

@@ -65,6 +65,11 @@ class RSRMAdapter(BaselineAdapter):
         self._support_root: Path | None = None
         self._dinov3_sha: str | None = None
 
+    def begin_prediction(self) -> None:
+        super().begin_prediction()
+        self._support_cache.clear()
+        self._support_groups = None
+
     def add_args(self, parser):
         parser.add_argument('--input-size', type=int, default=480)
         parser.add_argument(

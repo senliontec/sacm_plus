@@ -63,8 +63,12 @@ class TPSegformerAdapter(BaselineAdapter):
         'resize (nearest GT), horizontal flip and a light MMSeg-style '
         'brightness/contrast/saturation/hue jitter.',
         'The official main cross-entropy is replaced by binary BCE for the '
-        'one-channel head; the auxiliary Dice (0.5) and Sobel edge-aware '
-        '(1.0) losses, five-conv FCN head and dropout are preserved.',
+        'one-channel head. The auxiliary Dice (0.5) and Sobel edge-aware '
+        '(1.0) losses, five-conv FCN head and dropout are preserved. Because '
+        'the official Dice/edge terms only reach the auxiliary head, this '
+        'port adds a 0.5 soft-Dice term on the main output '
+        '(--tpsegformer-main-dice-weight) to avoid BCE-only collapse on '
+        'sparse curvilinear masks.',
         'AdamW lr 6e-5, wd 0.01, head lr x10 and zero weight decay for '
         'norm/position parameters are preserved. The official per-iteration '
         'LinearLR(1500) + PolyLR(160k) schedule is approximated per epoch '
@@ -90,6 +94,11 @@ class TPSegformerAdapter(BaselineAdapter):
         parser.add_argument(
             '--tpsegformer-backbone',
             default='swin_tiny_patch4_window7_224')
+        parser.add_argument(
+            '--tpsegformer-main-dice-weight', type=float, default=0.5,
+            help='soft-Dice weight on the main TPHead output; the official '
+                 'Dice/edge terms only reach the auxiliary FCN head, which '
+                 'leaves the main head BCE-only on sparse curvilinear masks')
         parser.add_argument(
             '--tpsegformer-drop-path', type=float, default=0.3)
         parser.add_argument(
@@ -262,7 +271,11 @@ class TPSegformerAdapter(BaselineAdapter):
 
     def train_step(self, model, batch):
         main, aux = model(batch['image'])
+        args = getattr(self, 'args', None)
+        main_dice = float(getattr(
+            args, 'tpsegformer_main_dice_weight', 0.5))
         return (F.binary_cross_entropy_with_logits(main, batch['gt'])
+                + main_dice * soft_dice_loss(main, batch['gt'])
                 + 0.5 * soft_dice_loss(aux, batch['gt'])
                 + 1.0 * edge_aware_loss(aux, batch['gt']))
 

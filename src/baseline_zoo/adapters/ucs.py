@@ -41,6 +41,7 @@ class UCSAdapter(BaselineAdapter):
     official_lr = 1e-4
     official_weight_decay = 0.0
     train_batch_size = 1
+    optimizer_steps_per_batch = 9  # initial prompt + iter_point-1 refinements
     selection = 'dice'
     deviations = (
         'Oracle-prompted: the official inference derives boxes/points from the '
@@ -49,8 +50,10 @@ class UCSAdapter(BaselineAdapter):
         'Uses the official batch-1, Adam 1e-4, MultiStepLR gamma 0.5 and '
         'iter_point=8 recipe with milestones scaled from [5,10] at 20 epochs '
         'to [200,400] at the 800-epoch 3-shot budget.',
-        'Checkpoint selection uses training Dice (official), not the 6-image '
-        'validation Dice used by other baselines; validation is still logged.',
+        'Checkpoint selection defaults to the shared 6-image validation '
+        'Dice so the row is comparable to other baselines. Pass '
+        '--ucs-selection train to reproduce the official training-Dice rule; '
+        'validation is always logged.',
         'Bypasses the UCS JSON dataset manifests and consumes the shared '
         '18/6 split Samples directly.',
         'Official train.py uses DataLoader workers=4; this port uses '
@@ -87,6 +90,11 @@ class UCSAdapter(BaselineAdapter):
             '--sam-checkpoint', type=Path,
             default=REPO_ROOT / 'checkpoints' / 'sam_vit_l_0b3195.pth')
         parser.add_argument('--input-size', type=int, default=1024)
+        parser.add_argument(
+            '--ucs-selection', choices=['val', 'train'], default='val',
+            help='checkpoint selection metric. val (default) uses the shared '
+                 '6-image validation Dice for a comparable table; train '
+                 'reproduces the official training-Dice rule')
         parser.add_argument('--iter-point', type=int, default=8)
         parser.add_argument('--point-num', type=int, default=1)
         parser.add_argument('--mask-num', type=int, default=1)
@@ -315,7 +323,11 @@ class UCSAdapter(BaselineAdapter):
         return float(np.mean(losses)) if losses else 0.0
 
     def selection_score(self, metrics, per_dataset):
-        return self._train_dice
+        mode = str(getattr(
+            getattr(self, 'args', None), 'ucs_selection', 'val'))
+        if mode == 'train':
+            return self._train_dice
+        return super().selection_score(metrics, per_dataset)
 
     def _prediction_rng_active(self) -> bool:
         return bool(getattr(self, 'prediction_mode', False)

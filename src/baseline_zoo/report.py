@@ -12,6 +12,7 @@ display converts them to percentages); HD95 is in pixels.
 from __future__ import annotations
 
 import csv
+import json
 import math
 import os
 import statistics
@@ -20,11 +21,16 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
+from .method_groups import GROUP_LABELS, group_for, validate_groups
 from .protocols import ProtocolConfig
 from .registry import REPO_ROOT
 
 METRICS = ('dice', 'iou', 'cldice', 'hd95')
 ROLES = ('Seen', 'Unseen', 'Novel')
+GROUP_ORDER = (
+    'prompt_free', 'proposed', 'support', 'oracle', 'semi_supervised',
+    'zero_shot', 'appendix', 'reconstructed', 'unclassified',
+)
 PRIMARY = {'dice': 'Dice', 'iou': 'IoU', 'cldice': 'clDice', 'hd95': 'HD95'}
 
 
@@ -37,6 +43,7 @@ class MetricRow:
     metric: str
     mean: float
     std: float
+    group: str = 'unclassified'
 
 
 def _float(value) -> float:
@@ -52,14 +59,40 @@ def _role(value: str) -> str:
         text, value)
 
 
+def _run_status(run_root: Path) -> str | None:
+    """Return the manifest status, or None for a legacy run without one."""
+    failed = (run_root / 'eval' / 'run_manifest.failed.json')
+    if failed.is_file():
+        return 'failed'
+    for candidate in (run_root / 'eval' / 'run_manifest.json',
+                      run_root / 'run_manifest.json'):
+        if not candidate.is_file():
+            continue
+        try:
+            payload = json.loads(candidate.read_text())
+        except (OSError, json.JSONDecodeError):
+            return 'invalid_manifest'
+        return str(payload.get('status', 'done'))
+    return None
+
+
 def load_run(run_root: Path, model: str, seed: int,
-             preset: str | None = None) -> list[MetricRow]:
+             preset: str | None = None,
+             allow_partial: bool = False) -> list[MetricRow]:
     """Read one (model, variant, seed) canonical result directory.
 
     Canonical rows live at ``<run>/eval/tables/all_metrics.csv``.  The
     legacy fallbacks remain readable so a partially migrated tree can still
-    be reported.
+    be reported.  Runs whose manifest says ``partial``/``train_only``/
+    ``failed`` are skipped unless ``allow_partial`` is explicit; otherwise a
+    19/20-dataset table would silently share a macro denominator with
+    complete runs.
     """
+    status = _run_status(run_root)
+    if status is not None and status != 'done' and not allow_partial:
+        print(f'[warn] skipping incomplete run {run_root} '
+              f'(status={status}); pass --allow-partial to include it')
+        return []
     path = run_root / 'eval' / 'tables' / 'all_metrics.csv'
     if not path.is_file():
         path = run_root / 'tables' / 'all_metrics.csv'
@@ -98,6 +131,7 @@ def load_run(run_root: Path, model: str, seed: int,
                     metric=metric,
                     mean=mean,
                     std=_float(raw.get(f'{metric}_std')),
+                    group=group_for(model),
                 ))
     return rows
 
@@ -118,9 +152,15 @@ def _run_variant(model: str, preset: str | None) -> str:
 
 def load_runs(models: Iterable[str], seeds: Iterable[int],
               result_root: Path,
-              preset: str | None = None) -> tuple[list[MetricRow], list[str]]:
+              preset: str | None = None,
+              allow_partial: bool = False
+              ) -> tuple[list[MetricRow], list[str]]:
     rows: list[MetricRow] = []
     missing: list[str] = []
+    unknown = validate_groups(models)
+    if unknown:
+        print(f'[warn] unclassified method group(s): {unknown}; '
+              'add them to method_groups.py before a paper table')
     for model in models:
         # --preset selects SACM-X's variant; baseline variants are always
         # default regardless of the requested SACM-X preset.
@@ -139,7 +179,8 @@ def load_runs(models: Iterable[str], seeds: Iterable[int],
             legacy = result_root / model / f'seed_{seed}'
             if not run_root.is_dir() and legacy.is_dir():
                 run_root = legacy
-            current = load_run(run_root, model, seed, preset=preset)
+            current = load_run(run_root, model, seed, preset=preset,
+                               allow_partial=allow_partial)
             if not current:
                 missing.append(str(run_root))
             rows.extend(current)
@@ -159,12 +200,13 @@ def _group(rows: Iterable, keys: tuple[str, ...]):
 
 def build_tables(rows: list[MetricRow]):
     macro = []
-    for (model, seed, role, metric), items in sorted(_group(
-            rows, ('model', 'seed', 'role', 'metric')).items()):
+    for (group, model, seed, role, metric), items in sorted(_group(
+            rows, ('group', 'model', 'seed', 'role', 'metric')).items()):
         values = [item.mean for item in items if math.isfinite(item.mean)]
         if not values:
             continue
         macro.append({
+            'group': group,
             'model': model,
             'seed': seed,
             'role': role,
@@ -175,14 +217,17 @@ def build_tables(rows: list[MetricRow]):
         })
 
     variance = []
-    for (model, role, metric), items in sorted(_group(
-            macro, ('model', 'role', 'metric')).items()):
+    for (group, model, role, metric), items in sorted(_group(
+            macro, ('group', 'model', 'role', 'metric')).items()):
         values = [item['mean'] for item in items]
+        n_datasets = [item['n_datasets'] for item in items]
         variance.append({
+            'group': group,
             'model': model,
             'role': role,
             'metric': metric,
             'n_seeds': len(values),
+            'n_datasets': min(n_datasets) if n_datasets else 0,
             'mean': statistics.fmean(values),
             'std': statistics.stdev(values) if len(values) > 1 else 0.0,
         })
@@ -229,33 +274,46 @@ def _fmt(value: float, metric: str) -> str:
 
 
 def write_markdown(path: Path, variance: list[dict]) -> None:
-    by_key = {(row['model'], row['role'], row['metric']): row
+    by_key = {(row['group'], row['model'], row['role'], row['metric']): row
               for row in variance}
-    models = sorted({row['model'] for row in variance})
+    groups = [
+        group for group in GROUP_ORDER
+        if any(row.get('group', 'unclassified') == group
+               for row in variance)
+    ]
     lines = [
         '# Paper results',
         '',
         'Mean over seeds; ± is the standard deviation across seeds. '
-        'Dice/IoU/clDice are percentages; HD95 is pixels (lower is better).',
+        'Dice/IoU/clDice are percentages; HD95 is pixels (lower is better). '
+        'Groups use different task/supervision settings and must not be '
+        'compared as one main table.',
         '',
     ]
-    for role in ROLES:
-        if not any(row['role'] == role for row in variance):
-            continue
-        lines += [f'## {role}', '',
-                  '| Model | Dice (%) | IoU (%) | clDice (%) | HD95 |',
-                  '|---|---:|---:|---:|---:|']
-        for model in models:
-            cells = []
-            for metric in METRICS:
-                item = by_key.get((model, role, metric))
-                if item is None:
-                    cells.append('--')
-                else:
-                    sd = item['std'] * 100.0 if metric != 'hd95' else item['std']
-                    cells.append(f"{_fmt(item['mean'], metric)} ± {sd:.2f}")
-            lines.append(f'| {model} | ' + ' | '.join(cells) + ' |')
-        lines.append('')
+    for group in groups:
+        group_rows = [row for row in variance
+                      if row.get('group', 'unclassified') == group]
+        models = sorted({row['model'] for row in group_rows})
+        lines += [f'## {GROUP_LABELS.get(group, "Unclassified")}', '']
+        for role in ROLES:
+            if not any(row['role'] == role for row in group_rows):
+                continue
+            lines += [f'### {role}', '',
+                      '| Model | Dice (%) | IoU (%) | clDice (%) | HD95 |',
+                      '|---|---:|---:|---:|---:|']
+            for model in models:
+                cells = []
+                for metric in METRICS:
+                    item = by_key.get((group, model, role, metric))
+                    if item is None:
+                        cells.append('--')
+                    else:
+                        sd = (item['std'] * 100.0
+                              if metric != 'hd95' else item['std'])
+                        cells.append(
+                            f"{_fmt(item['mean'], metric)} ± {sd:.2f}")
+                lines.append(f'| {model} | ' + ' | '.join(cells) + ' |')
+            lines.append('')
     _atomic_write_text(path, '\n'.join(lines) + '\n')
 
 
@@ -269,13 +327,16 @@ def write_report(rows: list[MetricRow], out_dir: Path) -> dict[str, Path]:
         'main_results': out_dir / 'main_results.md',
     }
     write_csv(paths['all_metrics'],
-              ['model', 'seed', 'dataset', 'role', 'metric', 'mean', 'std'],
+              ['group', 'model', 'seed', 'dataset', 'role', 'metric',
+               'mean', 'std'],
               [row.__dict__ for row in rows])
     write_csv(paths['macro_metrics'],
-              ['model', 'seed', 'role', 'metric', 'n_datasets', 'mean', 'std'],
+              ['group', 'model', 'seed', 'role', 'metric', 'n_datasets',
+               'mean', 'std'],
               macro)
     write_csv(paths['seed_variance'],
-              ['model', 'role', 'metric', 'n_seeds', 'mean', 'std'],
+              ['group', 'model', 'role', 'metric', 'n_seeds', 'n_datasets',
+               'mean', 'std'],
               variance)
     write_markdown(paths['main_results'], variance)
     return paths

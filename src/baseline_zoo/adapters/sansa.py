@@ -224,12 +224,16 @@ class SANSAAdapter(BaselineAdapter):
             sample.dataset, shots)
         frames = torch.cat([supports, query.unsqueeze(0)], dim=0)
         support_masks = support_masks.unsqueeze(0).to(device)
+        # select_supports may drop empty/short donors; use the number of
+        # supports actually returned instead of indexing a fixed ``shots``
+        # length and raising IndexError on a short donor set.
+        actual_shots = int(support_masks.shape[1])
         from PIL import Image
         with Image.open(sample.mask_path) as mask:
             width, height = mask.size
         return {
             'samples': frames.unsqueeze(0).to(device),
-            'prompt': self._prompt_dict(support_masks, shots),
+            'prompt': self._prompt_dict(support_masks, actual_shots),
             'size': (int(width), int(height)),
         }
 

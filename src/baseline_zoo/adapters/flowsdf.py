@@ -57,11 +57,12 @@ class FlowSDFAdapter(BaselineAdapter):
         'images.',
         'Final prediction uses overlapping 128x128 tiles (stride 64) '
         'averaged in SDF space, following the MoNuSeg patch-averaging '
-        'strategy; the released sampler only evaluates a single test batch. '
-        'Validation resizes the whole image to 128 (the official GlaS path) '
-        'with K=1 so the shared every-epoch validation is affordable; final '
-        'prediction uses K=4 from the released config.  The paper reports '
-        'MMSE with K=25; K=4 is a documented speed/quality choice.',
+        'strategy; validation now defaults to the same native tiled path '
+        '(stride 128, K=1) so checkpoint selection matches test geometry. '
+        'The previous whole-image 128 resize is available only via '
+        '--flowsdf-val-mode whole. Final prediction uses K=4 from the '
+        'released config. The paper reports MMSE with K=25; K=4 is a '
+        'documented speed/quality choice.',
         'The official checkpoint is the lowest training loss. This port '
         'selects by validation Dice of the EMA weights (shared protocol).',
         'The released config uses batch 4 while the paper reports batch 16; '
@@ -104,6 +105,15 @@ class FlowSDFAdapter(BaselineAdapter):
         parser.add_argument('--flowsdf-threshold', type=float, default=0.03)
         parser.add_argument('--flowsdf-tile-stride', type=int, default=64)
         parser.add_argument('--flowsdf-tile-chunk', type=int, default=4)
+        parser.add_argument(
+            '--flowsdf-val-mode', choices=['tile', 'whole'], default='tile',
+            help='validation geometry. tile (default) uses the same native '
+                 'tiled SDF path as test and fixes the previous selection '
+                 'mismatch; whole uses the fast GlaS-style 128 resize and '
+                 'should only be used for throughput')
+        parser.add_argument(
+            '--flowsdf-val-stride', type=int, default=128,
+            help='stride for tiled validation (default non-overlapping)')
         parser.add_argument('--flowsdf-no-augment', action='store_true')
 
     def build_model(self, args):
@@ -305,33 +315,37 @@ class FlowSDFAdapter(BaselineAdapter):
         parameter = next(net.parameters())
         if parameter.device != image.device:
             net.to(image.device)
+        args = getattr(self, 'args', None)
         k_samples = int(
-            getattr(self.args, 'flowsdf_k_samples', 4)
+            getattr(args, 'flowsdf_k_samples', 4)
             if self.prediction_mode
-            else getattr(self.args, 'flowsdf_val_k_samples', 1)
+            else getattr(args, 'flowsdf_val_k_samples', 1)
         )
         common = dict(
             k_samples=max(1, k_samples),
-            nfe=int(getattr(self.args, 'flowsdf_ode_steps', 4)),
-            sigma_min=float(getattr(self.args, 'flowsdf_sigma_min', 1e-5)),
+            nfe=int(getattr(args, 'flowsdf_ode_steps', 4)),
+            sigma_min=float(getattr(args, 'flowsdf_sigma_min', 1e-5)),
             seed=int(prepared['seed']),
         )
-        if self.prediction_mode:
+        val_mode = str(getattr(args, 'flowsdf_val_mode', 'tile'))
+        if self.prediction_mode or val_mode == 'tile':
+            stride_key = ('flowsdf_tile_stride' if self.prediction_mode
+                          else 'flowsdf_val_stride')
+            default_stride = (64 if self.prediction_mode else 128)
             sdf = predict_tiled(
                 net,
                 image,
                 patch=self.input_size,
-                stride=int(getattr(self.args, 'flowsdf_tile_stride', 64)),
-                tile_chunk=int(getattr(
-                    self.args, 'flowsdf_tile_chunk', 4)),
+                stride=int(getattr(args, stride_key, default_stride)),
+                tile_chunk=int(getattr(args, 'flowsdf_tile_chunk', 4)),
                 **common,
             )
         else:
-            # Official GlaS-style whole-image pass; keeps the shared
-            # every-epoch validation affordable.
+            # Fast GlaS-style whole-image pass.  It is not geometry-matched
+            # to native tiled test inference; use only for throughput.
             sdf = predict_whole(
                 net, image, size=self.input_size, **common)
-        threshold = float(getattr(self.args, 'flowsdf_threshold', 0.03))
+        threshold = float(getattr(args, 'flowsdf_threshold', 0.03))
         return (sdf <= threshold).cpu().numpy()
 
     # ------------------------------------------------------------------

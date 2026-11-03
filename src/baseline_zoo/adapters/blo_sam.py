@@ -42,9 +42,10 @@ class BLOSAMAdapter(BaselineAdapter):
         'disjoint D1/D2 halves. This port uses a fixed seeded 9/9 split '
         'across epochs, stratified by source domain so all six pooled '
         'domains appear in both levels; the upper-level prompt update runs '
-        'on D2 and checkpoint selection uses D2 Dice. Unlike the released '
-        'loop, which repeatedly reads only the first D2 batch, the port '
-        'cycles through all D2 batches.',
+        'on D2. Checkpoint selection defaults to the shared 6-image '
+        'validation Dice; --blo-sam-selection d2 reproduces the official '
+        'D2 criterion. Unlike the released loop, which repeatedly reads '
+        'only the first D2 batch, the port cycles through all D2 batches.',
         'Official datasets are preprocessed folders of images/masks with '
         'five foreground classes; this port supports the binary protocol '
         'head (background + one foreground token) and converts GT masks to '
@@ -85,6 +86,11 @@ class BLOSAMAdapter(BaselineAdapter):
         parser.add_argument('--blo-sam-prompt-wd', type=float, default=0.1)
         parser.add_argument('--blo-sam-unrolled', type=int, choices=[0, 1],
                             default=0)
+        parser.add_argument(
+            '--blo-sam-selection', choices=['val', 'd2'], default='val',
+            help='checkpoint selection. val (default) uses the shared '
+                 '6-image validation Dice; d2 reproduces the official '
+                 'upper-level D2 criterion')
 
     def build_model(self, args) -> nn.Module:
         self.input_size = int(getattr(args, 'input_size', 256))
@@ -218,9 +224,12 @@ class BLOSAMAdapter(BaselineAdapter):
         return float(np.mean(scores)) if scores else None
 
     def selection_score(self, metrics, per_dataset):
-        # The paper selects the checkpoint on the upper-level D2 subset.
-        if (self._d2_dice is not None
-                and getattr(self.args, 'selection', 'dice') == 'dice'):
+        # Official selection uses the upper-level D2 subset.  The shared
+        # table defaults to the common 6-image validation Dice; D2 remains
+        # available for an official-recipe ablation.
+        mode = str(getattr(
+            getattr(self, 'args', None), 'blo_sam_selection', 'val'))
+        if mode == 'd2' and self._d2_dice is not None:
             return float(self._d2_dice)
         return super().selection_score(metrics, per_dataset)
 

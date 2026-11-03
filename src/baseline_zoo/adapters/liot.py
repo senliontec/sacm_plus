@@ -62,9 +62,12 @@ class LIOTAdapter(BaselineAdapter):
         'with --liot-polarity; unknown datasets default to the paper '
         'polarity.',
         'The release predicts overlapping 128x128 patches with stride 8 and '
-        'sweeps thresholds for F1; this port performs a whole-image forward '
-        'pass, thresholds at 0.5 for the shared boolean protocol, and '
-        'returns the exact GT resolution.',
+        'averages probabilities; this port defaults to tiled inference with '
+        'stride 64 for affordable 20-dataset/large-image evaluation '
+        '(--liot-eval-stride 8 restores the release stride; --liot-eval-mode '
+        'whole restores the earlier whole-image port). It thresholds at 0.5 '
+        'for the shared boolean protocol and returns the exact GT '
+        'resolution; the release F1 threshold sweep is not used.',
         'The official HDF5/DRIVE data pipeline and torchvision augmentation '
         'are replaced by original-resolution protocol loading and a '
         'torchvision reimplementation of the release rotation/shear/flip/'
@@ -90,6 +93,16 @@ class LIOTAdapter(BaselineAdapter):
         parser.add_argument(
             '--liot-repeat', type=int, default=30,
             help='release repeat factor per training image (default 30)')
+        parser.add_argument(
+            '--liot-eval-mode', choices=['tile', 'whole'], default='tile',
+            help='official inference is overlapping 128x128 patches '
+                 '(average_mode=True); tile (default) implements that. '
+                 'whole preserves the earlier whole-image port.')
+        parser.add_argument(
+            '--liot-eval-stride', type=int, default=64,
+            help='stride for tiled inference. The release uses 8; 64 is the '
+                 'default task adaptation to keep 20-dataset / large-image '
+                 'evaluation affordable. Use 8 for paper-exact stride.')
         parser.add_argument(
             '--liot-random-init', action='store_true',
             help='compatibility flag; LIOT always starts from random')
@@ -274,23 +287,59 @@ class LIOTAdapter(BaselineAdapter):
             'size': (int(height), int(width)),
         }
 
+    @staticmethod
+    def _tile_starts(length: int, tile: int, stride: int) -> list[int]:
+        if length <= tile:
+            return [0]
+        starts = list(range(0, length - tile + 1, stride))
+        if starts[-1] != length - tile:
+            starts.append(length - tile)
+        return starts
+
     @torch.no_grad()
     def predict_sample(self, model, prepared, sample):
         model.eval()
         image = prepared['image']
         height, width = image.shape[-2:]
-        pad_h = max(0, self.input_size - height)
-        pad_w = max(0, self.input_size - width)
+        adapter_args = getattr(self, 'args', None)
+        mode = str(getattr(adapter_args, 'liot_eval_mode', 'tile'))
+        if mode == 'whole':
+            pad_h = max(0, self.input_size - height)
+            pad_w = max(0, self.input_size - width)
+            if pad_h or pad_w:
+                image = F.pad(
+                    image.unsqueeze(0), (0, pad_w, 0, pad_h),
+                    mode='constant', value=0.0)
+            else:
+                image = image.unsqueeze(0)
+            logits = model(image)
+            probability = torch.softmax(logits, dim=1)[0, 1]
+            probability = probability[:height, :width]
+            return (probability > 0.5).cpu().numpy()
+
+        tile = int(self.input_size)
+        stride = max(1, min(
+            int(getattr(adapter_args, 'liot_eval_stride', 64)), tile))
+        pad_h = max(0, tile - height)
+        pad_w = max(0, tile - width)
         if pad_h or pad_w:
             image = F.pad(
-                image.unsqueeze(0), (0, pad_w, 0, pad_h),
+                image, (0, pad_w, 0, pad_h),
                 mode='constant', value=0.0)
-        else:
-            image = image.unsqueeze(0)
-        logits = model(image)
-        probability = torch.softmax(logits, dim=1)[0, 1]
-        probability = probability[:height, :width]
-        return (probability > 0.5).cpu().numpy()
+        padded_h, padded_w = image.shape[-2:]
+        accumulator = torch.zeros(
+            (padded_h, padded_w), device=image.device,
+            dtype=torch.float32)
+        counts = torch.zeros_like(accumulator)
+        for top in self._tile_starts(padded_h, tile, stride):
+            for left in self._tile_starts(padded_w, tile, stride):
+                patch = image[:, top:top + tile, left:left + tile]
+                logits = model(patch.unsqueeze(0))
+                probability = torch.softmax(logits, dim=1)[0, 1]
+                accumulator[top:top + tile, left:left + tile] += probability
+                counts[top:top + tile, left:left + tile] += 1.0
+        probability = accumulator / counts.clamp_min(1.0)
+        return (probability[:height, :width] > 0.5).cpu().numpy()
 
     # ------------------------------------------------------------------
     # Checkpoint / config

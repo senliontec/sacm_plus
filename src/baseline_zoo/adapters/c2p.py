@@ -42,6 +42,7 @@ class C2PAdapter(BaselineAdapter):
     train_batch_size = 1
     selection = 'dice'
     training_free = True
+    needs_split = False  # zero-shot; the protocol train/val split is unused
     deviations = (
         'C2P is a prompt-free universal foundation baseline, evaluated '
         'zero-shot with the official HuggingFace checkpoint trained on '

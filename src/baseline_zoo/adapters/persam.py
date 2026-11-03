@@ -61,6 +61,11 @@ class PerSAMAdapter(BaselineAdapter):
         self._support_embeddings: dict[str, list[torch.Tensor]] = {}
         self._support_root: Path | None = None
 
+    def begin_prediction(self) -> None:
+        super().begin_prediction()
+        self._support_embeddings.clear()
+        self._support_groups = None
+
     def add_args(self, parser):
         parser.add_argument(
             '--sam-checkpoint', type=Path,
