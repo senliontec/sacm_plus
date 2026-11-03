@@ -481,7 +481,10 @@ def _build_sam(
     sam.eval()
     if checkpoint is not None:
         with open(checkpoint, "rb") as f:
-            state_dict = torch.load(f)
+            # Local, trusted SAM checkpoint (contains TorchVersion metadata).
+            # PyTorch >= 2.6 defaults weights_only=True and rejects it.
+            state_dict = torch.load(
+                f, map_location='cpu', weights_only=False)
         # ``strict=False`` does not ignore shape mismatches.  Single-head
         # models shrink mask_tokens / the IoU head from 4 slots to 1, and
         # v3 has no prompt decoder at all.  Slice a leading dimension when

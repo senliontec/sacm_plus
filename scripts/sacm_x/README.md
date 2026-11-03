@@ -125,7 +125,10 @@ bash scripts/sacm_x/run_v3_vs_v2_skel.sh
 
 The default uses GPU 1 for `full_v2_skel` and GPU 2 for `full_v3`
 (GPU 0 is left free).  Override with `GPU_V2=... GPU_V3=...` if needed.
-Set `MODE=full` for the 800-epoch + 20-test run after choosing the winner.
+Runs are written to `results/runs/ablation_v3_vs_v2_skel/` (override with
+`ABLATION_ROOT=...`), so an inherited `CANONICAL_ROOT` from an older audit
+shell cannot redirect them.  Set `MODE=full` for the 800-epoch + 20-test
+run after choosing the winner.
 
 **Topology target fix.** Skeleton Recall and Topograph now downsample the
 GT with max-pool/nearest instead of bilinear + `>0.5`.  A 1-px line at

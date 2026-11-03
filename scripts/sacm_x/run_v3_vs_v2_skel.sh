@@ -24,8 +24,8 @@ else
 fi
 SEED="${SEED:-0}"
 VAL_INTERVAL="${VAL_INTERVAL:-5}"
-MODE="${MODE:-train}"          # train | full
-CANONICAL_ROOT="${CANONICAL_ROOT:-results/runs}"
+# Dedicated root: never inherit CANONICAL_ROOT from an older audit shell.
+ABLATION_ROOT="${ABLATION_ROOT:-results/runs/ablation_v3_vs_v2_skel}"
 LOG_DIR="${LOG_DIR:-results/ablation_logs}"
 USE_WANDB="${USE_WANDB:-true}"
 
@@ -47,18 +47,19 @@ echo " epochs:    $EPOCHS"
 echo " seed:      $SEED"
 echo " mode:      $MODE (skip_test=$SKIP_TEST)"
 echo " val every: $VAL_INTERVAL"
+echo " out root:  $ABLATION_ROOT"
 echo " logs:      $LOG_V2"
 echo "            $LOG_V3"
 echo "============================================================"
 
 GPU="$GPU_V2" SEED="$SEED" EPOCHS="$EPOCHS" VAL_INTERVAL="$VAL_INTERVAL" \
-CANONICAL_ROOT="$CANONICAL_ROOT" USE_WANDB="$USE_WANDB" \
+CANONICAL_ROOT="$ABLATION_ROOT" USE_WANDB="$USE_WANDB" \
   bash scripts/sacm_x/run_pepa_variant.sh full_v2_skel "$MODE" \
   > "$LOG_V2" 2>&1 &
 PID_V2=$!
 
 GPU="$GPU_V3" SEED="$SEED" EPOCHS="$EPOCHS" VAL_INTERVAL="$VAL_INTERVAL" \
-CANONICAL_ROOT="$CANONICAL_ROOT" USE_WANDB="$USE_WANDB" \
+CANONICAL_ROOT="$ABLATION_ROOT" USE_WANDB="$USE_WANDB" \
   bash scripts/sacm_x/run_full_v3.sh "$MODE" \
   > "$LOG_V3" 2>&1 &
 PID_V3=$!
@@ -72,11 +73,20 @@ echo
 echo "v2_skel exit=$RC_V2  log=$LOG_V2"
 echo "v3      exit=$RC_V3  log=$LOG_V3"
 if [ "$RC_V2" -ne 0 ] || [ "$RC_V3" -ne 0 ]; then
-  echo "At least one run failed; inspect the logs above." >&2
+  echo
+  echo "===== v2_skel log tail ====="
+  tail -n 80 "$LOG_V2" || true
+  echo
+  echo "===== v3 log tail ====="
+  tail -n 80 "$LOG_V3" || true
+  echo
+  echo "At least one run failed; full logs:"
+  echo "  $LOG_V2"
+  echo "  $LOG_V3"
   exit 1
 fi
 
 echo
 echo "Compare validation metrics:"
-echo "  results/runs/sacm_x/full_v2_skel/seed_${SEED}/metrics_history.json"
-echo "  results/runs/sacm_x/full_v3/seed_${SEED}/metrics_history.json"
+echo "  ${ABLATION_ROOT}/sacm_x/full_v2_skel/seed_${SEED}/metrics_history.json"
+echo "  ${ABLATION_ROOT}/sacm_x/full_v3/seed_${SEED}/metrics_history.json"
