@@ -125,11 +125,14 @@ bash scripts/sacm_x/run_v3_vs_v2_skel.sh
 
 The default uses GPU 1 for `full_v2_skel` and GPU 2 for `full_v3`
 (GPU 0 is left free).  Override with `GPU_V2=... GPU_V3=...` if needed.
-Runs are written to `results/runs/ablation_v3_vs_v2_skel/` (override with
-`ABLATION_ROOT=...`), so an inherited `CANONICAL_ROOT` from an older audit
-shell cannot redirect them.  Validation runs every epoch by default
-(`VAL_INTERVAL=1`), so W&B receives a val point for every epoch.  Set
-`MODE=full` for the 800-epoch + 20-test run after choosing the winner.
+The script forces `checkpoints/sam_vit_l_0b3195.pth`, ignores an inherited
+`CKPT` from an audit shell, and clears `OUTPUT_ROOT`, so a training
+artifact is never mistaken for a raw SAM state dict.  Runs are written to
+`results/runs/ablation_v3_vs_v2_skel/` (override with `ABLATION_ROOT=...`),
+so an inherited `CANONICAL_ROOT` cannot redirect them.  Validation runs
+every epoch by default (`VAL_INTERVAL=1`), so W&B receives a val point for
+every epoch.  Set `MODE=full` for the 800-epoch + 20-test run after
+choosing the winner.
 
 **Topology target fix.** Skeleton Recall and Topograph now downsample the
 GT with max-pool/nearest instead of bilinear + `>0.5`.  A 1-px line at

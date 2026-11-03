@@ -483,8 +483,30 @@ def _build_sam(
         with open(checkpoint, "rb") as f:
             # Local, trusted SAM checkpoint (contains TorchVersion metadata).
             # PyTorch >= 2.6 defaults weights_only=True and rejects it.
-            state_dict = torch.load(
+            payload = torch.load(
                 f, map_location='cpu', weights_only=False)
+        # Accept both a raw state dict (SAM release) and a training
+        # artifact ({'model_state_dict': ...}).  Without this unwrap a
+        # warm-start from results/runs/... loads ZERO weights because every
+        # top-level key ('model_state_dict', 'optimizer', ...) is unknown,
+        # silently leaving the frozen encoder randomly initialised.
+        if isinstance(payload, dict) and isinstance(
+                payload.get('model_state_dict'), dict):
+            state_dict = payload['model_state_dict']
+            logging.info(
+                'SAM checkpoint was a training artifact; unwrapped '
+                'model_state_dict')
+        elif isinstance(payload, dict) and isinstance(
+                payload.get('state_dict'), dict):
+            state_dict = payload['state_dict']
+            logging.info(
+                'SAM checkpoint was a training artifact; unwrapped state_dict')
+        else:
+            state_dict = payload
+        state_dict = {
+            (key[len('module.'):] if key.startswith('module.') else key): value
+            for key, value in state_dict.items()
+        }
         # ``strict=False`` does not ignore shape mismatches.  Single-head
         # models shrink mask_tokens / the IoU head from 4 slots to 1, and
         # v3 has no prompt decoder at all.  Slice a leading dimension when

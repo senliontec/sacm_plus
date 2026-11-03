@@ -271,7 +271,6 @@ PRESETS["full_v3"] = {
     "topology_loss": "skeleton_recall",
     "topology_loss_weight": 0.2,
     "topology_resolution": 512,
-    "tversky_weight": 0.3,
     "tversky_alpha": 0.3,
     "tversky_beta": 0.7,
     "v3_aux_centerline": True,

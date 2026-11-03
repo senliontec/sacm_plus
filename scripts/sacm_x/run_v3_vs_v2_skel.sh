@@ -26,6 +26,11 @@ SEED="${SEED:-0}"
 VAL_INTERVAL="${VAL_INTERVAL:-1}"
 # Dedicated root: never inherit CANONICAL_ROOT from an older audit shell.
 ABLATION_ROOT="${ABLATION_ROOT:-results/runs/ablation_v3_vs_v2_skel}"
+# Base SAM weights by default.  Do not inherit CKPT from an audit shell:
+# a results/runs/.../best_model.pth is a training artifact, not a raw SAM
+# state dict, and would silently warm-start from the wrong checkpoint.
+SAM_CKPT="${ABLATION_CKPT:-checkpoints/sam_vit_l_0b3195.pth}"
+TRAIN_ROOT="${ABLATION_TRAIN_ROOT:-data/sacm_3shot_seed${SEED}}"
 LOG_DIR="${LOG_DIR:-results/ablation_logs}"
 # W&B is online by default.  Do not inherit USE_WANDB=false from an older
 # smoke/audit shell; disable explicitly with ABLATION_USE_WANDB=false.
@@ -51,19 +56,25 @@ echo " seed:      $SEED"
 echo " mode:      $MODE (skip_test=$SKIP_TEST)"
 echo " val every: $VAL_INTERVAL"
 echo " wandb:     $USE_WANDB (mode=$WANDB_MODE)"
+echo " checkpoint: $SAM_CKPT"
+echo " train root: $TRAIN_ROOT"
 echo " out root:  $ABLATION_ROOT"
 echo " logs:      $LOG_V2"
 echo "            $LOG_V3"
 echo "============================================================"
 
 GPU="$GPU_V2" SEED="$SEED" EPOCHS="$EPOCHS" VAL_INTERVAL="$VAL_INTERVAL" \
-CANONICAL_ROOT="$ABLATION_ROOT" USE_WANDB="$USE_WANDB" WANDB_MODE="$WANDB_MODE" \
+CKPT="$SAM_CKPT" TRAIN_ROOT="$TRAIN_ROOT" \
+CANONICAL_ROOT="$ABLATION_ROOT" OUTPUT_ROOT= WANDB_NAME= \
+USE_WANDB="$USE_WANDB" WANDB_MODE="$WANDB_MODE" \
   bash scripts/sacm_x/run_pepa_variant.sh full_v2_skel "$MODE" \
   > "$LOG_V2" 2>&1 &
 PID_V2=$!
 
 GPU="$GPU_V3" SEED="$SEED" EPOCHS="$EPOCHS" VAL_INTERVAL="$VAL_INTERVAL" \
-CANONICAL_ROOT="$ABLATION_ROOT" USE_WANDB="$USE_WANDB" WANDB_MODE="$WANDB_MODE" \
+CKPT="$SAM_CKPT" TRAIN_ROOT="$TRAIN_ROOT" \
+CANONICAL_ROOT="$ABLATION_ROOT" OUTPUT_ROOT= WANDB_NAME= \
+USE_WANDB="$USE_WANDB" WANDB_MODE="$WANDB_MODE" \
   bash scripts/sacm_x/run_full_v3.sh "$MODE" \
   > "$LOG_V3" 2>&1 &
 PID_V3=$!
