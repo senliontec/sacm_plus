@@ -27,7 +27,10 @@ VAL_INTERVAL="${VAL_INTERVAL:-5}"
 # Dedicated root: never inherit CANONICAL_ROOT from an older audit shell.
 ABLATION_ROOT="${ABLATION_ROOT:-results/runs/ablation_v3_vs_v2_skel}"
 LOG_DIR="${LOG_DIR:-results/ablation_logs}"
-USE_WANDB="${USE_WANDB:-true}"
+# W&B is online by default.  Do not inherit USE_WANDB=false from an older
+# smoke/audit shell; disable explicitly with ABLATION_USE_WANDB=false.
+USE_WANDB="${ABLATION_USE_WANDB:-true}"
+WANDB_MODE="${ABLATION_WANDB_MODE:-online}"
 
 case "$MODE" in
   train) SKIP_TEST=true ;;
@@ -47,19 +50,20 @@ echo " epochs:    $EPOCHS"
 echo " seed:      $SEED"
 echo " mode:      $MODE (skip_test=$SKIP_TEST)"
 echo " val every: $VAL_INTERVAL"
+echo " wandb:     $USE_WANDB (mode=$WANDB_MODE)"
 echo " out root:  $ABLATION_ROOT"
 echo " logs:      $LOG_V2"
 echo "            $LOG_V3"
 echo "============================================================"
 
 GPU="$GPU_V2" SEED="$SEED" EPOCHS="$EPOCHS" VAL_INTERVAL="$VAL_INTERVAL" \
-CANONICAL_ROOT="$ABLATION_ROOT" USE_WANDB="$USE_WANDB" \
+CANONICAL_ROOT="$ABLATION_ROOT" USE_WANDB="$USE_WANDB" WANDB_MODE="$WANDB_MODE" \
   bash scripts/sacm_x/run_pepa_variant.sh full_v2_skel "$MODE" \
   > "$LOG_V2" 2>&1 &
 PID_V2=$!
 
 GPU="$GPU_V3" SEED="$SEED" EPOCHS="$EPOCHS" VAL_INTERVAL="$VAL_INTERVAL" \
-CANONICAL_ROOT="$ABLATION_ROOT" USE_WANDB="$USE_WANDB" \
+CANONICAL_ROOT="$ABLATION_ROOT" USE_WANDB="$USE_WANDB" WANDB_MODE="$WANDB_MODE" \
   bash scripts/sacm_x/run_full_v3.sh "$MODE" \
   > "$LOG_V3" 2>&1 &
 PID_V3=$!
@@ -86,7 +90,15 @@ if [ "$RC_V2" -ne 0 ] || [ "$RC_V3" -ne 0 ]; then
   exit 1
 fi
 
+V2_HIST="${ABLATION_ROOT}/sacm_x/full_v2_skel/seed_${SEED}/metrics_history.json"
+V3_HIST="${ABLATION_ROOT}/sacm_x/full_v3/seed_${SEED}/metrics_history.json"
+PYTHON="${PYTHON:-python}"
+if [ -f "$V2_HIST" ] && [ -f "$V3_HIST" ]; then
+  "$PYTHON" scripts/sacm_x/compare_val_runs.py \
+    "full_v2_skel=$V2_HIST" "full_v3=$V3_HIST" || true
+fi
+
 echo
-echo "Compare validation metrics:"
-echo "  ${ABLATION_ROOT}/sacm_x/full_v2_skel/seed_${SEED}/metrics_history.json"
-echo "  ${ABLATION_ROOT}/sacm_x/full_v3/seed_${SEED}/metrics_history.json"
+echo "Validation histories:"
+echo "  $V2_HIST"
+echo "  $V3_HIST"
