@@ -36,6 +36,7 @@ LOG_DIR="${LOG_DIR:-results/ablation_logs}"
 # smoke/audit shell; disable explicitly with ABLATION_USE_WANDB=false.
 USE_WANDB="${ABLATION_USE_WANDB:-true}"
 WANDB_MODE="${ABLATION_WANDB_MODE:-online}"
+WANDB_PREFIX="${ABLATION_WANDB_PREFIX:-sacm_x}"
 
 case "$MODE" in
   train) SKIP_TEST=true ;;
@@ -47,6 +48,8 @@ mkdir -p "$LOG_DIR"
 STAMP="$(date +%Y%m%d_%H%M%S)"
 LOG_V2="$LOG_DIR/v2_skel_seed${SEED}_${STAMP}.log"
 LOG_V3="$LOG_DIR/v3_seed${SEED}_${STAMP}.log"
+WANDB_NAME_V2="${WANDB_PREFIX}_seed${SEED}_full_v2_skel"
+WANDB_NAME_V3="${WANDB_PREFIX}_seed${SEED}_full_v3"
 
 echo "============================================================"
 echo " v2_skel vs v3"
@@ -56,6 +59,7 @@ echo " seed:      $SEED"
 echo " mode:      $MODE (skip_test=$SKIP_TEST)"
 echo " val every: $VAL_INTERVAL"
 echo " wandb:     $USE_WANDB (mode=$WANDB_MODE)"
+echo " wandb run: $WANDB_NAME_V2 / $WANDB_NAME_V3"
 echo " checkpoint: $SAM_CKPT"
 echo " train root: $TRAIN_ROOT"
 echo " out root:  $ABLATION_ROOT"
@@ -65,7 +69,7 @@ echo "============================================================"
 
 GPU="$GPU_V2" SEED="$SEED" EPOCHS="$EPOCHS" VAL_INTERVAL="$VAL_INTERVAL" \
 CKPT="$SAM_CKPT" TRAIN_ROOT="$TRAIN_ROOT" \
-CANONICAL_ROOT="$ABLATION_ROOT" OUTPUT_ROOT= WANDB_NAME= \
+CANONICAL_ROOT="$ABLATION_ROOT" OUTPUT_ROOT= WANDB_NAME="$WANDB_NAME_V2" \
 USE_WANDB="$USE_WANDB" WANDB_MODE="$WANDB_MODE" \
   bash scripts/sacm_x/run_pepa_variant.sh full_v2_skel "$MODE" \
   > "$LOG_V2" 2>&1 &
@@ -73,7 +77,7 @@ PID_V2=$!
 
 GPU="$GPU_V3" SEED="$SEED" EPOCHS="$EPOCHS" VAL_INTERVAL="$VAL_INTERVAL" \
 CKPT="$SAM_CKPT" TRAIN_ROOT="$TRAIN_ROOT" \
-CANONICAL_ROOT="$ABLATION_ROOT" OUTPUT_ROOT= WANDB_NAME= \
+CANONICAL_ROOT="$ABLATION_ROOT" OUTPUT_ROOT= WANDB_NAME="$WANDB_NAME_V3" \
 USE_WANDB="$USE_WANDB" WANDB_MODE="$WANDB_MODE" \
   bash scripts/sacm_x/run_full_v3.sh "$MODE" \
   > "$LOG_V3" 2>&1 &
