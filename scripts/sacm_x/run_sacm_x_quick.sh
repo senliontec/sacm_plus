@@ -20,7 +20,7 @@
 #   PYTHON, GPU, PRESET, RUN_NAME, EPOCHS, VAL_INTERVAL, SEED, DATASETS, CKPT,
 #   TRAIN_ROOT, OUTPUT_ROOT, CANONICAL_ROOT, MONITOR, USE_WANDB, WANDB_MODE,
 #   WANDB_NAME, INIT_STAGE2_FROM_STAGE1, SKIP_TEST, SCNP, SCNP_WINDOW,
-#   SCNP_ORIGINAL_WEIGHT, REUSE_EVAL_MODEL, PAPER_METRICS_ONLY
+#   SCNP_ORIGINAL_WEIGHT, REUSE_EVAL_MODEL, PAPER_METRICS_ONLY, RESUME
 #
 # MONITOR=baseline (default): every-epoch macro Dice/IoU/clDice/HD95 and
 #   per-dataset W&B keys, exactly like src/baseline_zoo/runtime.py;
@@ -62,6 +62,19 @@ TRAIN_ROOT="${TRAIN_ROOT:-data/sacm_3shot_seed${SEED}}"
 CANONICAL_ROOT="${CANONICAL_ROOT:-results/runs}"
 FINAL_RUN_ROOT="${CANONICAL_ROOT}/sacm_x/${PRESET}/seed_${SEED}"
 OUTPUT_ROOT="${OUTPUT_ROOT:-$FINAL_RUN_ROOT}"
+# 'last'/'best' normally refer to the raw preset dir.  After finalize_run has
+# promoted the checkpoint, fall back to the canonical run-root copy so a
+# one-click resume still works.
+if [ "${RESUME:-}" = "last" ] \
+    && [ ! -f "$OUTPUT_ROOT/$PRESET/last_model.pth" ] \
+    && [ -f "$FINAL_RUN_ROOT/last_model.pth" ]; then
+  RESUME="$FINAL_RUN_ROOT/last_model.pth"
+fi
+if [ "${RESUME:-}" = "best" ] \
+    && [ ! -f "$OUTPUT_ROOT/$PRESET/best_model.pth" ] \
+    && [ -f "$FINAL_RUN_ROOT/best_model.pth" ]; then
+  RESUME="$FINAL_RUN_ROOT/best_model.pth"
+fi
 if ! printf '%s\n' "$OUTPUT_ROOT" | grep -qE "seed[_-]?${SEED}([^0-9]|$)"; then
   echo "WARNING: OUTPUT_ROOT does not contain seed_${SEED} or seed${SEED}; different seeds can collide." >&2
 fi
@@ -99,6 +112,7 @@ SCNP_ORIGINAL_WEIGHT="${SCNP_ORIGINAL_WEIGHT:-0.0}"
 DEEP_CLOSING_CKPT="${DEEP_CLOSING_CKPT:-}"
 DEEP_CLOSING_THRESHOLD="${DEEP_CLOSING_THRESHOLD:-}"
 SKIP_TEST="${SKIP_TEST:-false}"
+RESUME="${RESUME:-}"
 USE_WANDB="${USE_WANDB:-true}"
 WANDB_MODE="${WANDB_MODE:-online}"
 DETERMINISTIC="${DETERMINISTIC:-true}"
@@ -167,7 +181,7 @@ SPECS="$("$PYTHON" scripts/pipeline/protocol_specs.py \
   --datasets "$DATASETS")"
 read -r -a spec_array <<< "$SPECS"
 
-echo "seed=$SEED preset=$PRESET epochs=$EPOCHS gpu=$GPU monitor=$MONITOR val_interval=$VAL_INTERVAL init_stage2_from_stage1=$INIT_STAGE2_FROM_STAGE1 input_mode=$INPUT_MODE eval_input_mode=$EVAL_INPUT_MODE fg_crop_prob=$FG_CROP_PROB boundary_weight=$BOUNDARY_LOSS_WEIGHT tta=$USE_TTA empty_guard=$EMPTY_GUARD scnp=$SCNP($SCNP_WINDOW) deep_closing=${DEEP_CLOSING_CKPT:-none} skip_test=$SKIP_TEST"
+echo "seed=$SEED preset=$PRESET epochs=$EPOCHS gpu=$GPU monitor=$MONITOR val_interval=$VAL_INTERVAL init_stage2_from_stage1=$INIT_STAGE2_FROM_STAGE1 input_mode=$INPUT_MODE eval_input_mode=$EVAL_INPUT_MODE fg_crop_prob=$FG_CROP_PROB boundary_weight=$BOUNDARY_LOSS_WEIGHT tta=$USE_TTA empty_guard=$EMPTY_GUARD scnp=$SCNP($SCNP_WINDOW) deep_closing=${DEEP_CLOSING_CKPT:-none} skip_test=$SKIP_TEST resume=${RESUME:-none}"
 echo "datasets=${#spec_array[@]}  output=$OUTPUT_ROOT"
 # Training only.  Evaluation is a separate stage so every seed has one
 # canonical checkpoint and one canonical eval tree.
@@ -189,6 +203,7 @@ echo "datasets=${#spec_array[@]}  output=$OUTPUT_ROOT"
   --boundary_loss_warmup "$BOUNDARY_LOSS_WARMUP" \
   --boundary_loss_ramp "$BOUNDARY_LOSS_RAMP" \
   --skip_test \
+  --resume "$RESUME" \
   --extra_train_args "${TRAIN_EXTRA[*]}" \
   --extra_eval_args "$EVAL_EXTRA"
 

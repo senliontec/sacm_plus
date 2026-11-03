@@ -39,6 +39,18 @@ from core.reproducibility import configure_determinism, seed_worker
 from core.metrics import (
     binary_metrics as canonical_binary_metrics,
 )
+from core.run_artifacts import (
+    ARTIFACT_VERSION,
+    capture_generator_state,
+    capture_rng_state,
+    prepare_training_artifacts,
+    read_json,
+    restore_generator_state,
+    restore_rng_state,
+    write_json_atomic,
+    write_prediction_index,
+    write_wandb_info,
+)
 from core.run_status import RunStatus
 from core.wandb_utils import (
     finish_run,
@@ -412,20 +424,59 @@ def _csv_value(value):
     return '' if value != value else f'{value:.6f}'
 
 
-def write_history(path: Path, config, history, best_epoch, best_score):
+def _save_checkpoint_atomic(payload, path: Path) -> None:
+    tmp = path.with_name(path.name + '.tmp')
+    torch.save(payload, tmp)
+    os.replace(tmp, path)
+
+
+def _prune_periodic_checkpoints(directory: Path, keep: int) -> list[Path]:
+    if not directory.is_dir():
+        return []
+    files = sorted(
+        (path for path in directory.iterdir()
+         if path.name.startswith('epoch_') and path.suffix == '.pth'),
+        key=lambda path: (int(path.stem[6:])
+                          if path.stem[6:].isdigit() else -1))
+    for path in files[:-keep] if keep else files:
+        try:
+            path.unlink()
+        except OSError:
+            pass
+    return files[-keep:] if keep else []
+
+
+def write_history(path: Path, config, history, best_epoch, best_score,
+                  *, status: str = 'running',
+                  last_checkpoint: Path | None = None,
+                  artifacts: dict | None = None,
+                  wandb: dict | None = None,
+                  resumed_from: str | None = None,
+                  error: str | None = None):
     payload = {
+        'artifact_version': ARTIFACT_VERSION,
+        'status': status,
         'config': config,
         'best_epoch': best_epoch,
         'best_score': None if best_score == -float('inf')
         else round(float(best_score), 6),
+        'last_epoch': (history[-1].get('epoch') if history else None),
         'history': history,
+        'last_checkpoint': (str(Path(last_checkpoint).resolve())
+                            if last_checkpoint is not None else None),
+        'resumed_from': resumed_from,
+        'wandb': wandb or {},
+        'error': error,
     }
-    tmp = path.with_name(path.name + '.tmp')
+    if artifacts:
+        payload['artifacts'] = {
+            key: artifacts.get(key) for key in (
+                'train_config', 'data_manifest', 'provenance_dir',
+                'data_manifest_sha256', 'base_checkpoint',
+            )
+        }
     try:
-        with tmp.open('w') as f:
-            json.dump(payload, f, indent=2, allow_nan=False)
-            f.write('\n')
-        os.replace(tmp, path)
+        write_json_atomic(path, payload)
     except (OSError, ValueError) as exc:
         print(f'WARNING: failed to write {path}: {exc}')
 
@@ -433,7 +484,13 @@ def write_history(path: Path, config, history, best_epoch, best_score):
 def write_run_info(path: Path, *, method: str, seed: int, checkpoint: Path,
                    best_epoch: int, last_epoch: int, selection: str,
                    epochs: int, data_root: str | None = None,
-                   reproducibility_info: dict | None = None):
+                   reproducibility_info: dict | None = None,
+                   status: str = 'done', last_checkpoint: Path | None = None,
+                   wandb: dict | None = None,
+                   artifacts: dict | None = None,
+                   resumed_from: str | None = None,
+                   periodic_checkpoints: list[str] | None = None,
+                   error: str | None = None):
     """Write seed-aware checkpoint metadata next to metrics_history.json.
 
     This is additive: it does not change the checkpoint format or the
@@ -441,26 +498,38 @@ def write_run_info(path: Path, *, method: str, seed: int, checkpoint: Path,
     from which the model and its seed can be found without guessing.
     """
     payload = {
+        'artifact_version': ARTIFACT_VERSION,
         'family': 'baseline',
         'method': str(method),
         'variant': 'default',
         'seed': int(seed),
+        'status': str(status),
         'checkpoint': str(Path(checkpoint).resolve()),
+        'best_checkpoint': str(Path(checkpoint).resolve()),
+        'last_checkpoint': (str(Path(last_checkpoint).resolve())
+                            if last_checkpoint is not None else None),
         'best_epoch': int(best_epoch),
         'last_epoch': int(last_epoch),
         'selection': str(selection),
         'epochs': int(epochs),
+        'resumed_from': resumed_from,
+        'wandb': wandb or {},
+        'periodic_checkpoints': list(periodic_checkpoints or []),
+        'error': error,
     }
+    if artifacts:
+        payload['artifacts'] = {
+            key: artifacts.get(key) for key in (
+                'train_config', 'data_manifest', 'provenance_dir',
+                'data_manifest_sha256', 'base_checkpoint',
+            )
+        }
     if data_root is not None:
         payload['data_root'] = str(data_root)
     if reproducibility_info:
         payload['reproducibility_info'] = reproducibility_info
-    tmp = path.with_name(path.name + '.tmp')
     try:
-        with tmp.open('w') as f:
-            json.dump(payload, f, indent=2, allow_nan=False)
-            f.write('\n')
-        os.replace(tmp, path)
+        write_json_atomic(path, payload)
     except (OSError, ValueError) as exc:
         print(f'WARNING: failed to write {path}: {exc}')
 
@@ -704,6 +773,20 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
     _select_cuda_device(device)
     adapter.args = args
     adapter.device = device
+    workdir = Path(args.workdir)
+    workdir.mkdir(parents=True, exist_ok=True)
+    try:
+        artifact_info = prepare_training_artifacts(
+            args, workdir,
+            hash_files=bool(getattr(args, 'hash_data_files', True)),
+            resume=bool(getattr(args, 'resume', False)),
+        )
+        print(f'Training artifacts -> {artifact_info["train_config"]}',
+              flush=True)
+    except OSError as exc:
+        print(f'WARNING: provenance artifacts not written: {exc}',
+              flush=True)
+        artifact_info = {}
 
     train_samples = load_split_samples(Path(args.data_root), 'train')
     val_samples = load_split_samples(Path(args.data_root), 'val')
@@ -787,13 +870,23 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
         'split_manifest_sha256': split_sha256,
         'num_params': num_params,
         'trainable_params': trainable,
+        'artifact_version': ARTIFACT_VERSION,
+        'train_config': artifact_info.get('train_config'),
+        'data_manifest': artifact_info.get('data_manifest'),
+        'data_manifest_sha256': artifact_info.get(
+            'data_manifest_sha256'),
+        'base_checkpoint': artifact_info.get('base_checkpoint'),
     }
     run = setup_wandb(args, name=f'{adapter.id}-seed{args.seed}',
                       config=run_config)
+    try:
+        wandb_run_info = write_wandb_info(workdir, run)
+    except OSError as exc:
+        print(f'WARNING: wandb metadata save failed: {exc}', flush=True)
+        wandb_run_info = {}
 
-    workdir = Path(args.workdir)
-    workdir.mkdir(parents=True, exist_ok=True)
     ckpt_path = workdir / 'best_model.pth'
+    last_path = workdir / 'last_model.pth'
     if ckpt_path.is_file() and not args.resume:
         backup = ckpt_path.with_name(
             f'best_model.before_{time.strftime("%Y%m%d_%H%M%S")}.pth')
@@ -816,8 +909,27 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
     best_epoch = 0
     saved_any = False
     start_epoch = 1
-    if args.resume and ckpt_path.is_file():
-        payload = torch.load(ckpt_path, map_location=device,
+    resume_choice = getattr(args, 'resume_checkpoint', 'auto')
+    last_checkpoint = (
+        last_path
+        if args.resume and resume_choice in ('auto', 'last')
+        and last_path.is_file() else None)
+    periodic_checkpoints: list[str] = []
+    resume_path = None
+    if args.resume:
+        choice = getattr(args, 'resume_checkpoint', 'auto')
+        if choice == 'last':
+            resume_path = last_path
+        elif choice == 'best':
+            resume_path = ckpt_path
+        else:
+            resume_path = last_path if last_path.is_file() else ckpt_path
+        if not resume_path.is_file():
+            raise SystemExit(
+                f'--resume requested but no checkpoint exists '
+                f'(last={last_path}, best={ckpt_path})')
+    if resume_path is not None:
+        payload = torch.load(resume_path, map_location=device,
                              weights_only=False)
         stored_selection = payload.get('selection')
         if stored_selection and stored_selection != args.selection:
@@ -836,47 +948,84 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
                 'resume checkpoint was trained on a different split '
                 f'(checkpoint={stored_split}, current={split_sha256}); '
                 'use a matching --data-root or start a fresh run')
+        if payload.get('data_manifest_sha256') and artifact_info.get(
+                'data_manifest_sha256') and (
+                payload['data_manifest_sha256']
+                != artifact_info['data_manifest_sha256']):
+            raise SystemExit(
+                'resume checkpoint was trained with a different data '
+                'manifest; use the matching --data-root')
         adapter.load_state_dict(model, payload['model_state_dict'])
         if payload.get('optimizer_state_dict'):
             optimizer.load_state_dict(payload['optimizer_state_dict'])
         if scheduler is not None and payload.get('scheduler_state_dict'):
             scheduler.load_state_dict(payload['scheduler_state_dict'])
-        start_epoch = int(payload.get('epoch', 0)) + 1
+        restore_rng_state(payload.get('rng_state'))
+        restore_generator_state(
+            train_generator, payload.get('train_generator_state'))
+        completed = int(payload.get(
+            'epoch_completed', payload.get('epoch', 0)))
+        start_epoch = completed + 1
         best_score = float(payload.get('best_score', -float('inf')))
-        best_epoch = int(payload.get('epoch', 0))
+        best_epoch = int(payload.get('best_epoch', completed))
         best_metric = float(payload.get(
-            'val_metrics', {}).get(args.selection, float('nan')))
+            'best_metric', payload.get('val_metrics', {}).get(
+                args.selection, float('nan'))))
         # The existing checkpoint is a valid result even if no later epoch
         # improves on it.
         saved_any = True
-        print(f'resume from {ckpt_path} at epoch {start_epoch}; '
-              f'best_score={best_score:.4f}')
-        if history_path.is_file():
+        print(f'resume from {resume_path} at epoch {start_epoch}; '
+              f'best_score={best_score:.4f}', flush=True)
+        stored_history = payload.get('history')
+        if not isinstance(stored_history, list) and history_path.is_file():
+            stored_history = read_json(history_path).get('history', [])
+        if isinstance(stored_history, list):
             history = [
-                entry for entry in
-                json.loads(history_path.read_text()).get('history', [])
-                if int(entry.get('epoch', 0)) <= best_epoch]
-            # Rewrite the per-dataset CSV to the same truncated history;
-            # appending would duplicate rows after a weights-only resume.
-            with dataset_csv_path.open('w', newline='') as handle:
-                writer = csv.DictWriter(handle, fieldnames=csv_fields)
-                writer.writeheader()
-                for entry in history:
-                    row = {
-                        'epoch': entry.get('epoch', ''),
-                        'train_loss': _csv_value(entry.get('train_loss')),
-                        'lr': _csv_value(entry.get('lr')),
-                        'is_best': int(bool(entry.get('is_best', False))),
-                    }
-                    datasets = entry.get('datasets', {})
-                    for dataset in dataset_names:
-                        values = datasets.get(dataset, {})
-                        for metric in METRIC_NAMES:
-                            row[f'{dataset}_{metric}'] = _csv_value(
-                                values.get(metric))
-                    writer.writerow(row)
+                entry for entry in stored_history
+                if int(entry.get('epoch', 0)) <= completed]
+        # Rewrite the per-dataset CSV to the same truncated history;
+        # appending would duplicate rows after a resume.
+        with dataset_csv_path.open('w', newline='') as handle:
+            writer = csv.DictWriter(handle, fieldnames=csv_fields)
+            writer.writeheader()
+            for entry in history:
+                row = {
+                    'epoch': entry.get('epoch', ''),
+                    'train_loss': _csv_value(entry.get('train_loss')),
+                    'lr': _csv_value(entry.get('lr')),
+                    'is_best': int(bool(entry.get('is_best', False))),
+                }
+                datasets = entry.get('datasets', {})
+                for dataset in dataset_names:
+                    values = datasets.get(dataset, {})
+                    for metric in METRIC_NAMES:
+                        row[f'{dataset}_{metric}'] = _csv_value(
+                            values.get(metric))
+                writer.writerow(row)
 
-    write_history(history_path, run_config, history, best_epoch, best_score)
+    write_history(
+        history_path, run_config, history, best_epoch, best_score,
+        status='running', last_checkpoint=last_checkpoint,
+        artifacts=artifact_info, wandb=wandb_run_info,
+        resumed_from=(str(resume_path) if resume_path is not None else None))
+    write_run_info(
+        workdir / 'run_info.json',
+        method=adapter.id,
+        seed=args.seed,
+        checkpoint=ckpt_path,
+        best_epoch=best_epoch,
+        last_epoch=(int(history[-1].get('epoch', 0))
+                    if history else 0),
+        selection=args.selection,
+        epochs=args.epochs,
+        data_root=str(args.data_root),
+        reproducibility_info=getattr(args, 'reproducibility_info', None),
+        status='running',
+        last_checkpoint=last_checkpoint,
+        wandb=wandb_run_info,
+        artifacts=artifact_info,
+        resumed_from=(str(resume_path) if resume_path is not None else None),
+    )
     print(f'metrics history -> {history_path}')
     print(f'per-dataset metrics -> {dataset_csv_path}')
     for deviation in adapter.deviations:
@@ -915,6 +1064,7 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
             best_metric = selection_metric
             best_epoch = epoch
             payload = {
+                'artifact_version': ARTIFACT_VERSION,
                 'adapter': adapter.id,
                 'official_source': adapter.official_source,
                 'deviations': list(adapter.deviations),
@@ -924,13 +1074,26 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
                 'scheduler_state_dict': (scheduler.state_dict()
                                          if scheduler is not None else None),
                 'epoch': epoch,
+                'epoch_completed': epoch,
                 'best_score': best_score,
+                'best_metric': best_metric,
+                'best_epoch': best_epoch,
                 'selection': args.selection,
                 'val_dice': val_metrics['dice'],
                 'val_metrics': val_metrics,
                 'val_per_dataset': val_per_dataset,
                 'input_size': adapter.input_size,
                 'split_manifest_sha256': split_sha256,
+                'data_manifest_sha256': artifact_info.get(
+                    'data_manifest_sha256'),
+                'full_config': artifact_info.get('train_config_payload'),
+                'history': list(history),
+                'rng_state': capture_rng_state(),
+                'train_generator_state': capture_generator_state(
+                    train_generator),
+                'wandb': wandb_run_info,
+                'resumed_from': (
+                    str(resume_path) if resume_path is not None else None),
                 'config': run_config,
             }
             # Atomic replace: a kill during a multi-GB save must not destroy
@@ -970,14 +1133,124 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
                 csv.DictWriter(f, fieldnames=csv_fields).writerow(csv_row)
         except OSError as exc:
             print(f'WARNING: failed to append {dataset_csv_path}: {exc}')
-        write_history(history_path, run_config, history,
-                      best_epoch, best_score)
+        write_history(
+            history_path, run_config, history, best_epoch, best_score,
+            status='running', last_checkpoint=last_checkpoint,
+            artifacts=artifact_info, wandb=wandb_run_info,
+            resumed_from=(
+                str(resume_path) if resume_path is not None else None))
+        last_payload = {
+            'artifact_version': ARTIFACT_VERSION,
+            'adapter': adapter.id,
+            'official_source': adapter.official_source,
+            'deviations': list(adapter.deviations),
+            'model_state_dict': adapter.state_dict(model),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'scheduler_state_dict': (scheduler.state_dict()
+                                     if scheduler is not None else None),
+            'epoch': epoch,
+            'epoch_completed': epoch,
+            'best_score': best_score,
+            'best_metric': best_metric,
+            'best_epoch': best_epoch,
+            'selection': args.selection,
+            'val_dice': val_metrics['dice'],
+            'val_metrics': val_metrics,
+            'val_per_dataset': val_per_dataset,
+            'input_size': adapter.input_size,
+            'split_manifest_sha256': split_sha256,
+            'data_manifest_sha256': artifact_info.get(
+                'data_manifest_sha256'),
+            'full_config': artifact_info.get('train_config_payload'),
+            'history': list(history),
+            'rng_state': capture_rng_state(),
+            'train_generator_state': capture_generator_state(
+                train_generator),
+            'wandb': wandb_run_info,
+            'resumed_from': (
+                str(resume_path) if resume_path is not None else None),
+            'config': run_config,
+        }
+        save_last_every = int(getattr(args, 'save_last_every', 1) or 0)
+        if save_last_every > 0 and (
+                epoch % save_last_every == 0 or epoch == args.epochs):
+            try:
+                _save_checkpoint_atomic(last_payload, last_path)
+                last_checkpoint = last_path
+            except (OSError, RuntimeError) as exc:
+                print(f'WARNING: last checkpoint save failed: {exc}')
+        save_every = int(getattr(args, 'save_every', 0) or 0)
+        if save_every > 0 and epoch % save_every == 0:
+            checkpoint_dir = workdir / 'checkpoints'
+            checkpoint_dir.mkdir(parents=True, exist_ok=True)
+            periodic_path = checkpoint_dir / f'epoch_{epoch:04d}.pth'
+            try:
+                _save_checkpoint_atomic(last_payload, periodic_path)
+                periodic_checkpoints = [
+                    str(path) for path in _prune_periodic_checkpoints(
+                        checkpoint_dir,
+                        int(getattr(args, 'keep_checkpoints', 2)))
+                ]
+            except (OSError, RuntimeError) as exc:
+                print(f'WARNING: periodic checkpoint save failed: {exc}')
+        write_history(
+            history_path, run_config, history, best_epoch, best_score,
+            status='running', last_checkpoint=last_checkpoint,
+            artifacts=artifact_info, wandb=wandb_run_info,
+            resumed_from=(
+                str(resume_path) if resume_path is not None else None))
+        write_run_info(
+            workdir / 'run_info.json',
+            method=adapter.id,
+            seed=args.seed,
+            checkpoint=ckpt_path,
+            best_epoch=best_epoch,
+            last_epoch=epoch,
+            selection=args.selection,
+            epochs=args.epochs,
+            data_root=str(args.data_root),
+            reproducibility_info=getattr(args, 'reproducibility_info', None),
+            status='running',
+            last_checkpoint=last_checkpoint,
+            wandb=wandb_run_info,
+            artifacts=artifact_info,
+            resumed_from=(
+                str(resume_path) if resume_path is not None else None),
+        )
 
     if not saved_any:
-        raise SystemExit(
+        error = (
             'training finished without writing a checkpoint: every '
             f'validation {args.selection} score was non-finite or never '
-            'improved. Check the validation masks/metric and rerun.')
+            'improved.')
+        write_history(
+            history_path, run_config, history, best_epoch, best_score,
+            status='failed', last_checkpoint=last_checkpoint,
+            artifacts=artifact_info, wandb=wandb_run_info,
+            resumed_from=(
+                str(resume_path) if resume_path is not None else None),
+            error=error)
+        write_run_info(
+            workdir / 'run_info.json',
+            method=adapter.id, seed=args.seed, checkpoint=ckpt_path,
+            best_epoch=best_epoch,
+            last_epoch=(int(history[-1].get('epoch', 0))
+                        if history else 0),
+            selection=args.selection, epochs=args.epochs,
+            data_root=str(args.data_root),
+            reproducibility_info=getattr(
+                args, 'reproducibility_info', None),
+            status='failed', last_checkpoint=last_checkpoint,
+            wandb=wandb_run_info, artifacts=artifact_info,
+            resumed_from=(
+                str(resume_path) if resume_path is not None else None),
+            error=error)
+        raise SystemExit(error)
+    write_history(
+        history_path, run_config, history, best_epoch, best_score,
+        status='done', last_checkpoint=last_checkpoint,
+        artifacts=artifact_info, wandb=wandb_run_info,
+        resumed_from=(str(resume_path) if resume_path is not None else None))
     print_epoch_footer()
     console.print(
         f' [bold]Best[/]  E{best_epoch:03d}  '
@@ -993,6 +1266,12 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
         epochs=args.epochs,
         data_root=str(args.data_root),
         reproducibility_info=getattr(args, 'reproducibility_info', None),
+        status='done',
+        last_checkpoint=last_checkpoint,
+        wandb=wandb_run_info,
+        artifacts=artifact_info,
+        resumed_from=(
+            str(resume_path) if resume_path is not None else None),
     )
     if run is not None:
         if args.wandb_log_artifact:
@@ -1029,6 +1308,7 @@ def run_prediction(adapter: BaselineAdapter, args: argparse.Namespace,
     # Checkpoints may carry large optimizer states (e.g. SAM-Med2D Adapters);
     # load them on CPU and move only the model to the GPU.
     payload = torch.load(ckpt_path, map_location='cpu', weights_only=False)
+    checkpoint_sha = file_sha256(ckpt_path)
     stored_adapter = payload.get('adapter')
     if stored_adapter and stored_adapter != adapter.id:
         raise SystemExit(
@@ -1102,6 +1382,28 @@ def run_prediction(adapter: BaselineAdapter, args: argparse.Namespace,
                     eta = (total - done) / rate if rate > 0 else 0.0
                     print(f'  {name}: {done}/{total}  {rate:.1f} img/s  '
                           f'ETA {eta:.0f}s', flush=True)
+            prediction_rows = [{
+                'dataset': name,
+                'image': sample.image_path.name,
+                # Relative to out_dir: finalize_run moves prediction dirs.
+                'pred_path': f'{sample.stem}.png',
+                'gt_path': str(Path(sample.mask_path).resolve()),
+                'image_path': str(Path(sample.image_path).resolve()),
+            } for sample in samples]
+            try:
+                write_prediction_index(
+                    out_dir, name, prediction_rows,
+                    manifest_extra={
+                        'method': adapter.id,
+                        'checkpoint': str(ckpt_path),
+                        'checkpoint_sha256': checkpoint_sha,
+                        'prediction_suffix': '.png',
+                        'input_size': int(adapter.input_size),
+                        'data_root': str(Path(root)),
+                    })
+            except OSError as exc:
+                print(f'WARNING: prediction index save failed for {name}: '
+                      f'{exc}', flush=True)
             elapsed = time.time() - t0
             status.finish_dataset()
             print(f'{name}: done {total} predictions in {elapsed:.0f}s '
@@ -1112,14 +1414,17 @@ def run_prediction(adapter: BaselineAdapter, args: argparse.Namespace,
             'official_source': adapter.official_source,
             'deviations': list(adapter.deviations),
             'checkpoint': str(ckpt_path),
-            'checkpoint_sha256': file_sha256(ckpt_path),
+            'checkpoint_sha256': checkpoint_sha,
             'split_manifest_sha256': payload.get('split_manifest_sha256'),
             'datasets': [name for name, _ in datasets],
+            'prediction_index': str(
+                (Path(args.pred_root) / '{DATASET}' /
+                 'prediction_index.csv').resolve()),
+            'artifact_version': ARTIFACT_VERSION,
         }
         Path(args.pred_root).mkdir(parents=True, exist_ok=True)
-        with open(Path(args.pred_root) / '.prediction_meta.json', 'w') as f:
-            json.dump(meta, f, indent=2)
-            f.write('\n')
+        write_json_atomic(
+            Path(args.pred_root) / '.prediction_meta.json', meta)
         status.finish('predictions complete')
     except BaseException as exc:
         status.fail(exc)
@@ -1209,12 +1514,29 @@ def build_parser(adapter: BaselineAdapter) -> argparse.ArgumentParser:
     parser.add_argument('--num-workers', type=int, default=0)
     parser.add_argument(
         '--resume', action='store_true',
-        help='resume from the best checkpoint (weights-only unless '
-             '--save-optimizer was used; history/CSV are truncated to the '
-             'checkpoint epoch)')
+        help='resume at the next epoch boundary from last_model.pth when '
+             'available, otherwise best_model.pth; use --resume-checkpoint '
+             'to force one')
+    parser.add_argument(
+        '--resume-checkpoint', choices=['auto', 'last', 'best'],
+        default='auto',
+        help='resume source: auto=last if present else best (default)')
     parser.add_argument('--save-optimizer', action='store_true',
                         help='store optimizer state in the best checkpoint '
                              '(large for SAM-Med2D Adapters; default off)')
+    parser.add_argument('--save-last-every', type=int, default=1,
+                        help='write last_model.pth every N epochs (default 1)')
+    parser.add_argument('--save-every', type=int, default=50,
+                        help='write checkpoints/epoch_XXXX.pth every N epochs '
+                             '(0 disables periodic snapshots)')
+    parser.add_argument('--keep-checkpoints', type=int, default=2,
+                        help='keep this many newest periodic checkpoints')
+    parser.add_argument(
+        '--hash-data-files',
+        type=lambda value: str(value).lower() in ('1', 'true', 'yes', 'on'),
+        default=True,
+        help='hash train/val files and test masks into '
+             'provenance/data_manifest.json (default true)')
     parser.add_argument('--limit-train', type=int, default=0,
                         help='debug only: truncate the train split')
     parser.add_argument('--limit-val', type=int, default=0,

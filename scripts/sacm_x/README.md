@@ -4,9 +4,19 @@ Every run, baseline or SACM-X, lives in exactly one directory:
 
 ```text
 results/runs/<method>/<variant>/seed_<seed>/
-  best_model.pth            # file checkpoints
+  best_model.pth            # selected checkpoint
+  last_model.pth            # resumable state of the last completed epoch
   best_model                # directory checkpoints (symlink)
+  checkpoints/              # periodic snapshots (epoch_XXXX.pth)
   checkpoint.json           # kind + native checkpoint path
+  train_config.json         # full resolved args + provenance pointers
+  provenance/
+    data_manifest.json      # train/val/test paths, sizes and SHA256s
+    environment.json        # torch/CUDA/NumPy/SciPy/GPU versions
+    git.json                # commit, branch, dirty state/diff hash
+    protocol_manifest.csv   # copied split/protocol files
+    split_manifest.csv
+  wandb_run.json
   run_info.json
   metrics_history.json
   train.log
@@ -16,6 +26,8 @@ results/runs/<method>/<variant>/seed_<seed>/
       metrics.csv           # per-image metrics
       summary.csv           # one canonical dataset row
       results_summary.txt ...
+      prediction_index.csv  # prediction -> GT mapping for audits
+      eval_manifest.json    # roots, checkpoint, eval settings
     tables/
       all_metrics.csv       # unified schema
       macro_metrics.csv     # unified long schema
@@ -73,8 +85,39 @@ Training promotes the best checkpoint to:
 ```
 
 `run_info.json` records `best_epoch`, `last_epoch`, `selection`, `seed`, and
-the checkpoint kind/path.  Only the validation-selected best checkpoint is
-saved.
+the checkpoint kind/path.  The selected `best_model.pth` is kept, and
+`last_model.pth` plus optional `checkpoints/epoch_XXXX.pth` snapshots carry
+the optimizer, scheduler, RNG, generator and metric-history state for
+resume.  `train_config.json` and `provenance/` record the full resolved
+arguments, code revision, environment, base checkpoint hash, and the
+train/val/test data manifest (including test-mask paths/hashes used by the
+prediction-vs-GT audit).
+
+Resume at the next epoch boundary from the last completed epoch:
+
+```bash
+python src/train/trainer.py --preset "$PRESET" \
+  --data_root "data/sacm_3shot_seed${SEED}" \
+  --checkpoint checkpoints/sam_vit_l_0b3195.pth \
+  --save_path "results/runs/sacm_x/${PRESET}/seed_${SEED}/best_model.pth" \
+  --resume last --epochs 800 --seed "$SEED"
+```
+
+`--resume best` is also supported.  A resume refuses a different seed,
+architecture configuration, split hash, or data-manifest fingerprint.
+The one-click quick launcher accepts the same shortcut through
+`RESUME=last` or `RESUME=best`.
+
+Each evaluated dataset also gets `prediction_index.csv` (relative prediction
+file + absolute GT mask path) and `eval_manifest.json`, so the saved masks can
+be audited later without guessing filenames:
+
+```bash
+python scripts/pipeline/audit_predictions.py \
+  --pred-root results/runs/sacm_x/${PRESET}/seed_${SEED}/eval \
+  --data-manifest results/runs/sacm_x/${PRESET}/seed_${SEED}/provenance/data_manifest.json \
+  --out results/audit/sacm_x_${PRESET}_seed_${SEED}
+```
 
 Evaluate the saved checkpoint:
 

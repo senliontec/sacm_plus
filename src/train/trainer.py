@@ -15,6 +15,7 @@ import os
 import random
 import sys
 from datetime import datetime
+from pathlib import Path
 
 # src-layout bootstrap: make the packages importable without an editable
 # install (harmless when `pip install -e .` is also in effect).
@@ -39,6 +40,12 @@ from core.losses import (
 )
 from core.registry import MODEL_REGISTRY, get_model_spec
 from core.reproducibility import configure_determinism, seed_worker
+from core.run_artifacts import (
+    prepare_training_artifacts,
+    read_json,
+    restore_generator_state,
+    restore_rng_state,
+)
 from core.trainer import ForwardWrapper, Trainer
 from core.wandb_utils import WANDB_API_KEY_DEFAULT, redact_secrets
 from models.sacm_x.configs import PRESETS, apply_preset, str2bool
@@ -95,13 +102,113 @@ def count_parameters(model):
     return total_params, trainable_params
 
 
+def _resolve_resume_path(args, save_dir):
+    raw = getattr(args, 'resume', None)
+    if not raw:
+        return None
+    if str(raw).lower() in ('last', 'best'):
+        path = Path(save_dir) / f'{str(raw).lower()}_model.pth'
+    else:
+        path = Path(raw)
+    if not path.is_file():
+        raise SystemExit(f'resume checkpoint not found: {path}')
+    return path
+
+
+def _completed_epoch(payload):
+    """Return the number of completed epochs (1-based)."""
+    if payload.get('epoch_completed') is not None:
+        return int(payload['epoch_completed'])
+    return int(payload.get('epoch', -1)) + 1
+
+
+def _history_from_checkpoint(payload, history_path, completed_epoch):
+    history = payload.get('history')
+    if not isinstance(history, list):
+        history = read_json(history_path).get('history', [])
+    entries = []
+    for entry in history if isinstance(history, list) else []:
+        try:
+            epoch = int(entry.get('epoch', 0))
+        except (TypeError, ValueError):
+            continue
+        if epoch <= completed_epoch:
+            entries.append(entry)
+    return entries
+
+
+def _validate_resume(payload, args, artifact_info):
+    """Reject silent architecture/seed/data mismatches on resume."""
+    config = payload.get('config') or {}
+    for key in (
+        'model', 'preset', 'use_geo_i', 'use_geo_e', 'geo_e_layers',
+        'use_coarse_to_fine', 'use_fusion_v2', 'use_multi_depth',
+        'use_typed_heads', 'adapter_dim_ratio',
+    ):
+        if key in config:
+            current = getattr(args, key, None)
+            if str(config[key]) != str(current):
+                raise SystemExit(
+                    f'resume checkpoint {key}={config[key]!r} does not match '
+                    f'current --{key}={current!r}')
+    saved_seed = config.get('seed', payload.get('seed'))
+    if saved_seed is not None and int(saved_seed) != int(args.seed):
+        raise SystemExit(
+            f'resume checkpoint seed={saved_seed} != current seed={args.seed}')
+    saved_data = payload.get('data_manifest_sha256')
+    current_data = (artifact_info or {}).get('data_manifest_sha256')
+    if saved_data and current_data and saved_data != current_data:
+        raise SystemExit(
+            'resume checkpoint was trained with a different data manifest; '
+            'use the matching --data-root or start a fresh run')
+
+
+def _apply_resume_state(
+    payload, args, optimizer, scheduler, train_generator, val_generator,
+    save_dir, artifact_info,
+):
+    _validate_resume(payload, args, artifact_info)
+    if payload.get('optimizer_state_dict'):
+        optimizer.load_state_dict(payload['optimizer_state_dict'])
+    if scheduler is not None and payload.get('scheduler_state_dict'):
+        scheduler.load_state_dict(payload['scheduler_state_dict'])
+    restore_rng_state(payload.get('rng_state'))
+    restore_generator_state(
+        train_generator, payload.get('train_generator_state'))
+    restore_generator_state(
+        val_generator, payload.get('val_generator_state'))
+
+    completed = _completed_epoch(payload)
+    history = _history_from_checkpoint(
+        payload, Path(save_dir) / 'metrics_history.json', completed)
+    best_score = payload.get(
+        'best_selection_score', payload.get('best_score', -float('inf')))
+    best_score = (float(best_score)
+                  if best_score is not None else -float('inf'))
+    best_f1 = payload.get(
+        'best_f1_score', payload.get('f1_score', 0.0))
+    best_epoch_raw = payload.get('best_epoch', completed)
+    best_epoch = (int(best_epoch_raw)
+                  if best_epoch_raw is not None else int(completed))
+    return {
+        'start_epoch': completed,
+        'history': history,
+        'best_selection_score': best_score,
+        'best_f1_score': float(best_f1 or 0.0),
+        'best_epoch': best_epoch,
+        'resumed_from': str(payload.get('resumed_from', '')),
+    }
+
+
 def train(args):
     setup_logging(args)
 
     # The save path may point at a not-yet-existing job dir (run_paper.sh /
     # run_experiments use results/<preset>/<dataset>/); create it up front
     # so checkpoint + metrics_history.json saves never fail.
-    os.makedirs(os.path.dirname(args.save_path) or '.', exist_ok=True)
+    save_dir = Path(args.save_path).parent
+    os.makedirs(save_dir or '.', exist_ok=True)
+    resume_path = _resolve_resume_path(args, save_dir)
 
     # DDP:由 torchrun 启动时注入 LOCAL_RANK;否则退化为单卡。
     # 关键顺序(此前 manual_seed_all 在 init 之前执行,会在每个 rank 进程里
@@ -137,6 +244,26 @@ def train(args):
             torch.cuda.manual_seed_all(args.seed)
     logging.info(f"Using device: {device} (ddp={is_ddp})")
 
+    # Provenance hashing runs after deterministic CUDA settings are applied,
+    # so querying GPU names cannot initialize a context under other flags.
+    # Only global rank 0 writes provenance; other DDP ranks must not race on
+    # the same train_config/provenance files.
+    artifact_rank0 = True
+    if is_ddp:
+        import torch.distributed as dist
+        artifact_rank0 = dist.get_rank() == 0
+    if artifact_rank0:
+        artifact_info = prepare_training_artifacts(
+            args, save_dir or Path('.'),
+            hash_files=bool(getattr(args, 'hash_data_files', True)),
+            resume=resume_path is not None,
+        )
+        logging.info(
+            'Training artifacts: config=%s data_manifest=%s',
+            artifact_info['train_config'], artifact_info['data_manifest'])
+    else:
+        artifact_info = {}
+
     # Build the model through the model registry (extensible to other
     # architectures without touching this script).
     spec = get_model_spec(args.model)
@@ -169,6 +296,25 @@ def train(args):
     # decoder only; other models define their own in their ModelSpec)
     spec.freeze(sam)
     base_model = sam
+
+    resume_payload = None
+    if resume_path is not None:
+        resume_payload = torch.load(
+            resume_path, map_location='cpu', weights_only=False)
+        state = resume_payload.get('model_state_dict')
+        if not state:
+            raise SystemExit(
+                f'resume checkpoint has no model_state_dict: {resume_path}')
+        _validate_resume(resume_payload, args, artifact_info)
+        try:
+            base_model.load_state_dict(state)
+        except RuntimeError as exc:
+            raise SystemExit(
+                f'resume model does not match the current architecture: '
+                f'{exc}') from exc
+        logging.info(
+            'Resumed model weights from %s (completed epochs=%d)',
+            resume_path, _completed_epoch(resume_payload))
 
     if is_ddp:
         # Wrap the prompt-free forward, not just the bare Sam, so DDP's
@@ -320,6 +466,19 @@ def train(args):
     logging.info(f"Original decoder learning rate: {args.decoder_lr}")
     logging.info(f"Scheduler: {args.scheduler}")
 
+    resume_state = {}
+    if resume_payload is not None:
+        resume_state = _apply_resume_state(
+            resume_payload, args, optimizer, scheduler,
+            train_generator, val_generator, save_dir, artifact_info)
+        resume_state['resumed_from'] = str(resume_path)
+        if Path(resume_path).name == 'last_model.pth':
+            resume_state['last_checkpoint'] = str(resume_path)
+        logging.info(
+            'Resume state: start_epoch=%d best_epoch=%s best_score=%s',
+            resume_state['start_epoch'], resume_state['best_epoch'],
+            resume_state['best_selection_score'])
+
     trainer = Trainer(
         model=sam, spec=spec, device=device,
         criterion=criterion, soft_cl=soft_cl, topo_loss=topo_loss,
@@ -327,6 +486,10 @@ def train(args):
         train_loader=train_loader, val_loader=val_loader,
         args=args, is_ddp=is_ddp, train_sampler=train_sampler,
         boundary_loss=boundary_loss,
+        artifact_info=artifact_info,
+        train_generator=train_generator,
+        val_generator=val_generator,
+        resume_state=resume_state,
     )
     try:
         trainer.fit()
@@ -390,6 +553,20 @@ if __name__ == '__main__':
     parser.add_argument('--num_workers', type=int, default=4,
                         help='DataLoader workers; keep fixed across runs')
     parser.add_argument('--save_path', type=str, default='best_model.pth', help='Where to save the best checkpoint (per-job paths for parallel runs)')
+    parser.add_argument('--resume', type=str, default=None,
+                        help="Resume from a checkpoint path, or 'last'/'best' "
+                             'for <save_path dir>/last_model.pth or '
+                             'best_model.pth; resumes at the next epoch boundary')
+    parser.add_argument('--save_last_every', type=int, default=1,
+                        help='Write last_model.pth every N epochs (default: 1)')
+    parser.add_argument('--save_every', type=int, default=50,
+                        help='Write checkpoints/epoch_XXXX.pth every N epochs '
+                             '(0 disables periodic snapshots)')
+    parser.add_argument('--keep_checkpoints', type=int, default=2,
+                        help='Keep this many newest periodic checkpoints')
+    parser.add_argument('--hash_data_files', type=str2bool, default=True,
+                        help='Hash train/val files and test masks in '
+                             'provenance/data_manifest.json (slower startup)')
 
     # Architecture preset (applied after parsing; use "none" for manual control)
     parser.add_argument('--preset', type=str, default='full', choices=sorted(PRESETS), help='Architecture/training preset for ablation experiments')

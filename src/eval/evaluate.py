@@ -22,6 +22,7 @@ import os
 import sys
 import traceback
 from datetime import datetime
+from pathlib import Path
 
 # src-layout bootstrap: make the packages importable without an editable
 # install (harmless when `pip install -e .` is also in effect).
@@ -30,7 +31,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import torch
 
 import models  # noqa: F401  (registers every model family's ModelSpecs)
-from core.data import TestDataset
+from core.data import SUPPORTED_EXTENSIONS, TestDataset
 from core.evaluator import (
     AUC_KEYS,
     BETTI_MATCHING_KEYS,
@@ -43,6 +44,7 @@ from core.evaluator import (
 from core.losses import DiceBCELoss
 from core.registry import MODEL_REGISTRY, get_model_spec
 from core.reproducibility import configure_determinism, seed_worker
+from core.run_artifacts import write_json_atomic, write_prediction_index
 from core.wandb_utils import WANDB_API_KEY_DEFAULT, redact_secrets
 from models.sacm_x.configs import PRESETS, apply_preset, str2bool
 
@@ -220,6 +222,65 @@ def _prepare_evaluation(args):
     }
 
 
+def _prediction_index_rows(dataset, output_dir):
+    """Map every saved prediction PNG to its image and GT mask."""
+    rows = []
+    for image_name in dataset.image_files:
+        base_name = os.path.splitext(image_name)[0]
+        mask_path = None
+        for ext in SUPPORTED_EXTENSIONS:
+            candidate = os.path.join(dataset.mask_dir, base_name + ext)
+            if os.path.exists(candidate):
+                mask_path = candidate
+                break
+        if mask_path is None:
+            continue
+        rows.append({
+            'dataset': Path(str(dataset.root_dir).rstrip('/')).name,
+            'image': image_name,
+            # Relative to the per-dataset output dir so the index survives
+            # finalize_run moving that directory into the canonical tree.
+            'pred_path': f'{image_name}_result.png',
+            'gt_path': os.path.abspath(mask_path),
+            'image_path': os.path.abspath(os.path.join(
+                dataset.image_dir, image_name)),
+        })
+    return rows
+
+
+def _write_eval_artifacts(dataset, ctx, args):
+    dataset_name = Path(str(args.data_root).rstrip('/')).name
+    rows = _prediction_index_rows(dataset, args.output_dir)
+    write_prediction_index(
+        args.output_dir, dataset_name, rows,
+        manifest_extra={
+            'data_root': os.path.abspath(str(args.data_root)),
+            'image_dir': os.path.abspath(dataset.image_dir),
+            'mask_dir': os.path.abspath(dataset.mask_dir),
+            'metrics_csv': os.path.abspath(os.path.join(
+                args.output_dir, 'metrics.csv')),
+            'results_summary': os.path.abspath(os.path.join(
+                args.output_dir, 'results_summary.txt')),
+            'trained_weights': os.path.abspath(str(args.trained_weights)),
+            'model': args.model,
+            'preset': args.preset,
+            'use_typed_heads': bool(getattr(args, 'use_typed_heads', False)),
+            'seed': int(getattr(args, 'seed', 0)),
+            'n_images': len(rows),
+            'eval_input_mode': getattr(args, 'eval_input_mode', 'aspect_pad'),
+            'selection': getattr(args, 'selection', None),
+            'fixed_head': getattr(args, 'fixed_head', None),
+            'tta': bool(getattr(args, 'tta', False)),
+            'empty_guard': bool(getattr(args, 'empty_guard', False)),
+            'no_fov': bool(getattr(args, 'no_fov', False)),
+            'pred_threshold': float(getattr(args, 'pred_threshold', 0.0)),
+            'metric_keys': list(ctx.get('metric_keys', [])),
+        })
+    logging.info(
+        'Prediction index saved to %s',
+        os.path.join(args.output_dir, 'prediction_index.csv'))
+
+
 def _run_dataset(ctx, args):
     """Evaluate one dataset with the prepared model."""
     eval_input_mode = getattr(args, 'eval_input_mode', 'aspect_pad')
@@ -256,6 +317,10 @@ def _run_dataset(ctx, args):
 
     Evaluator.save_outputs(
         args.output_dir, summary, csv_rows, n_hd95_nan, avg_loss, args)
+    try:
+        _write_eval_artifacts(dataset, ctx, args)
+    except OSError as exc:
+        logging.warning('prediction index save failed: %s', exc)
     logging.info(f"Per-image metrics saved to {os.path.join(args.output_dir, 'metrics.csv')}")
 
 
@@ -359,6 +424,27 @@ def evaluate_many(args):
             })
             # Release per-dataset activations before loading the next split.
             torch.cuda.empty_cache()
+
+    run_manifest = {
+        'trained_weights': os.path.abspath(str(args.trained_weights)),
+        'metric_keys': list(ctx['metric_keys']),
+        'datasets': {
+            name: {
+                **payload,
+                'eval_manifest': os.path.abspath(os.path.join(
+                    args.output_dir, name, 'eval_manifest.json')),
+                'prediction_index': os.path.abspath(os.path.join(
+                    args.output_dir, name, 'prediction_index.csv')),
+            }
+            for name, payload in statuses.items()
+        },
+    }
+    try:
+        write_json_atomic(
+            os.path.join(args.output_dir, 'eval_run_manifest.json'),
+            run_manifest)
+    except OSError as exc:
+        logging.warning('eval run manifest save failed: %s', exc)
 
     n_done = len(specs) - len(failures)
     print(f"\nMulti-dataset evaluation: {n_done}/{len(specs)} datasets done")

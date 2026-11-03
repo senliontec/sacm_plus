@@ -76,6 +76,8 @@ def train_command(args, preset, ckpt_path, selection):
         '--deterministic', str(bool(args.deterministic)).lower(),
         '--deterministic_strict', str(bool(args.deterministic_strict)).lower(),
     ]
+    if getattr(args, 'resume', None):
+        cmd += ['--resume', str(args.resume)]
     if args.extra_train_args:
         cmd += shlex.split(args.extra_train_args)
     return cmd
@@ -466,6 +468,9 @@ def main():
                         help='Fail on operators without deterministic CUDA '
                              'implementations')
     parser.add_argument('--skip_train', action='store_true')
+    parser.add_argument('--resume', type=str, default=None,
+                        help="SACM-X resume checkpoint path or 'last'/'best'; "
+                             'forwarded to src/train/trainer.py')
     parser.add_argument('--trained_weights', type=str, default=None,
                         help='Explicit trained checkpoint for --skip_train; '
                              'omit to use <output_root>/<preset>/best_model.pth '
@@ -556,6 +561,7 @@ def main():
         'reuse_eval_model': bool(getattr(args, 'reuse_eval_model', False)),
         'paper_metrics_only': bool(
             getattr(args, 'paper_metrics_only', False)),
+        'resume': getattr(args, 'resume', None),
         'skip_train': bool(args.skip_train),
         'jobs_csv': os.path.abspath(jobs_path),
         'jobs': status_rows_all,

@@ -4,9 +4,14 @@
 The only user-facing tree is::
 
     results/runs/<method>/<variant>/seed_<seed>/
-      best_model.pth            # file checkpoints
+      best_model.pth            # selected checkpoint
+      last_model.pth            # resumable last-epoch state (when present)
       best_model                # directory checkpoints (symlink)
+      checkpoints/              # periodic snapshots (when present)
       checkpoint.json           # kind + native checkpoint path
+      train_config.json         # full args + provenance pointers
+      provenance/               # data/environment/git/manifests
+      wandb_run.json
       run_info.json
       metrics_history.json
       train.log
@@ -16,6 +21,8 @@ The only user-facing tree is::
           metrics.csv           # per-image
           summary.csv           # one canonical summary row
           results_summary.txt ...
+          prediction_index.csv  # prediction -> GT mask mapping
+          eval_manifest.json
         tables/
           all_metrics.csv       # unified schema
           macro_metrics.csv     # unified long schema
@@ -634,6 +641,93 @@ def _promote_train_log(source_train: Path, variant: str,
     _copy_file(source, run_root / 'train.log')
 
 
+def _artifact_source(source_train: Path, variant: str,
+                     checkpoint: CheckpointInfo) -> Path | None:
+    """Find the directory that holds train_config/last_model/provenance."""
+    candidates = [
+        checkpoint.native.parent,
+        source_train / variant,
+        source_train,
+    ]
+    seen: set[Path] = set()
+    for candidate in candidates:
+        if candidate in seen or not candidate.is_dir():
+            continue
+        seen.add(candidate)
+        if any((candidate / name).exists() for name in (
+                'train_config.json', 'last_model.pth',
+                'wandb_run.json', 'provenance', 'checkpoints')):
+            return candidate
+    return None
+
+
+def _promote_extra_artifacts(source_train: Path, variant: str,
+                             checkpoint: CheckpointInfo,
+                             run_root: Path) -> dict[str, str | None]:
+    """Copy training-provenance/resume artifacts into the canonical run root."""
+    source = _artifact_source(source_train, variant, checkpoint)
+    result: dict[str, str | None] = {
+        'train_config': None,
+        'last_checkpoint': None,
+        'wandb': None,
+        'provenance': None,
+        'checkpoints': None,
+    }
+    if source is None:
+        return result
+
+    for name, key in (
+            ('train_config.json', 'train_config'),
+            ('wandb_run.json', 'wandb')):
+        source_path = _find_file(
+            source / name,
+            source_train / name,
+            source_train / variant / name,
+            checkpoint.native.parent / name,
+        )
+        target = run_root / name
+        if source_path is not None and not _same_path(source_path, target):
+            _copy_file(source_path, target)
+        if target.is_file():
+            result[key] = str(target.resolve())
+    for resume_config in sorted(source.glob('train_config.resume_*.json')):
+        target = run_root / resume_config.name
+        if not _same_path(resume_config, target):
+            _copy_file(resume_config, target)
+
+    last_source = _find_file(
+        source / 'last_model.pth',
+        checkpoint.native.parent / 'last_model.pth',
+        source_train / 'last_model.pth',
+        source_train / variant / 'last_model.pth',
+    )
+    if last_source is not None:
+        target = run_root / 'last_model.pth'
+        _link_or_copy(last_source, target)
+        result['last_checkpoint'] = str(target.resolve())
+
+    provenance_source = source / 'provenance'
+    provenance_target = run_root / 'provenance'
+    if provenance_source.is_dir() and not _same_path(
+            provenance_source, provenance_target):
+        provenance_target.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(
+            provenance_source, provenance_target, dirs_exist_ok=True)
+    if provenance_target.is_dir():
+        result['provenance'] = str(provenance_target.resolve())
+
+    checkpoint_source = source / 'checkpoints'
+    checkpoint_target = run_root / 'checkpoints'
+    if checkpoint_source.is_dir():
+        checkpoint_target.mkdir(parents=True, exist_ok=True)
+        for source_path in sorted(checkpoint_source.glob('*.pth')):
+            target = checkpoint_target / source_path.name
+            if not _same_path(source_path, target):
+                _link_or_copy(source_path, target)
+        result['checkpoints'] = str(checkpoint_target.resolve())
+    return result
+
+
 def _promote_eval_log(source_eval: Path, source_train: Path,
                       variant: str, eval_root: Path,
                       cleanup: bool) -> None:
@@ -798,6 +892,17 @@ def finalize(args: argparse.Namespace) -> Path:
     history = _read_json(run_root / 'metrics_history.json')
 
     _promote_train_log(source_train, args.variant, checkpoint, run_root)
+    extra_artifacts = _promote_extra_artifacts(
+        source_train, args.variant, checkpoint, run_root)
+    checkpoint_meta_path = run_root / 'checkpoint.json'
+    checkpoint_meta = _read_json(checkpoint_meta_path)
+    if checkpoint_meta:
+        checkpoint_meta.update({
+            'last_checkpoint': extra_artifacts.get('last_checkpoint'),
+            'periodic_checkpoints': extra_artifacts.get('checkpoints'),
+        })
+        checkpoint_meta_path.write_text(
+            json.dumps(checkpoint_meta, indent=2) + '\n')
     _promote_eval_log(source_eval, source_train, args.variant, eval_root,
                       cleanup=bool(args.cleanup))
 
@@ -885,6 +990,16 @@ def finalize(args: argparse.Namespace) -> Path:
                             if source_info_path else None),
         'protocol': (str(protocol_path) if protocol_path else None),
         'status': args.status or ('done' if all_rows else 'train_only'),
+        'last_checkpoint': extra_artifacts.get('last_checkpoint'),
+        'train_config': extra_artifacts.get('train_config'),
+        'provenance': extra_artifacts.get('provenance'),
+        'periodic_checkpoints': extra_artifacts.get('checkpoints'),
+        'checkpoints': {
+            'best': str(canonical_checkpoint.resolve()),
+            'last': extra_artifacts.get('last_checkpoint'),
+            'periodic_dir': extra_artifacts.get('checkpoints'),
+        },
+        'wandb': extra_artifacts.get('wandb'),
         'generated_at': datetime.now().isoformat(timespec='seconds'),
     })
     (run_root / 'run_info.json').write_text(
@@ -900,6 +1015,16 @@ def finalize(args: argparse.Namespace) -> Path:
         'checkpoint': str(canonical_checkpoint.resolve()),
         'checkpoint_kind': checkpoint.kind,
         'native_checkpoint': str(checkpoint.native.resolve()),
+        'last_checkpoint': extra_artifacts.get('last_checkpoint'),
+        'train_config': extra_artifacts.get('train_config'),
+        'provenance': extra_artifacts.get('provenance'),
+        'periodic_checkpoints': extra_artifacts.get('checkpoints'),
+        'checkpoints': {
+            'best': str(canonical_checkpoint.resolve()),
+            'last': extra_artifacts.get('last_checkpoint'),
+            'periodic_dir': extra_artifacts.get('checkpoints'),
+        },
+        'wandb': extra_artifacts.get('wandb'),
         'run_info': str((run_root / 'run_info.json').resolve()),
         'eval_root': str(eval_root.resolve()),
         'metrics_csv': str((tables / 'all_metrics.csv').resolve()),

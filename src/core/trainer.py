@@ -24,6 +24,13 @@ from core.console import console, epoch_header, epoch_row, topo_legend
 from core.data import letterbox_rect
 from core.evaluator import resolve_selection
 from core.losses.monitor import topology_loss_monitor
+from core.run_artifacts import (
+    ARTIFACT_VERSION,
+    capture_generator_state,
+    capture_rng_state,
+    write_json_atomic,
+    write_wandb_info,
+)
 from core.losses.registry import TOPOLOGY_LOSS_REGISTRY
 from core.losses.tversky import TverskyLoss
 from core.metrics import BINARY_METRICS, binary_metrics, compute_metrics
@@ -158,7 +165,9 @@ class Trainer:
 
     def __init__(self, model, spec, device, criterion, soft_cl, topo_loss,
                  optimizer, scheduler, train_loader, val_loader, args,
-                 is_ddp=False, train_sampler=None, boundary_loss=None):
+                 is_ddp=False, train_sampler=None, boundary_loss=None,
+                 artifact_info=None, train_generator=None, val_generator=None,
+                 resume_state=None):
         self.model = model
         self.spec = spec
         self.device = device
@@ -176,6 +185,16 @@ class Trainer:
         self.args = args
         self.is_ddp = is_ddp
         self.train_sampler = train_sampler
+        self.artifact_info = artifact_info or {}
+        self.train_config = self.artifact_info.get(
+            'train_config_payload', {})
+        self.train_generator = train_generator
+        self.val_generator = val_generator
+        self.resume_state = resume_state or {}
+        self.save_dir = os.path.dirname(self.args.save_path) or '.'
+        self.last_checkpoint = self.resume_state.get('last_checkpoint')
+        self.periodic_checkpoints = []
+        self.wandb_info = {}
         self.best_f1_score = 0.0
         # Checkpoint selection metric.  With full validation 'dice' means
         # macro per-image Dice, exactly matching the baseline runner's
@@ -188,6 +207,12 @@ class Trainer:
         log_style = getattr(args, 'log_style', 'table')
         self.best_selection_score = (
             -float('inf') if log_style == 'baseline' else 0.0)
+        if self.resume_state:
+            self.best_selection_score = float(
+                self.resume_state.get(
+                    'best_selection_score', self.best_selection_score))
+            self.best_f1_score = float(
+                self.resume_state.get('best_f1_score', 0.0) or 0.0)
         if (self.selection_metric == 'cldice'
                 and getattr(args, 'fast_val', False)):
             logging.warning(
@@ -654,12 +679,25 @@ class Trainer:
                 state_dict = self.model.state_dict()
             tmp_path = self.args.save_path + '.tmp'
             torch.save({
+                'artifact_version': ARTIFACT_VERSION,
                 'epoch': epoch,
+                'epoch_completed': epoch + 1,
                 'model_state_dict': state_dict,
                 'optimizer_state_dict': self.optimizer.state_dict(),
+                'scheduler_state_dict': (
+                    self.scheduler.state_dict()
+                    if self.scheduler is not None else None),
+                'best_selection_score': selection_score,
+                'best_epoch': epoch + 1,
+                'best_f1_score': f1,
                 'val_loss': avg_val_loss,
                 'val_cldice': avg_val_cldice,
                 'f1_score': f1,
+                'data_manifest_sha256': self.artifact_info.get(
+                    'data_manifest_sha256'),
+                'full_config': self.train_config,
+                'wandb': self.wandb_info,
+                'resumed_from': self.resume_state.get('resumed_from'),
                 'config': {
                     'model': self.args.model,
                     'use_geo_i': self.args.use_geo_i,
@@ -824,39 +862,173 @@ class Trainer:
                 self.args, 'reproducibility_info', {}),
         }
 
-    def _write_history(self, history, best_epoch):
-        """Persist the per-epoch metric history next to the checkpoint.
+    def _checkpoint_config(self):
+        """Flat architecture keys plus full args/provenance metadata."""
+        config = self._run_config()
+        config.update({
+            'artifact_version': ARTIFACT_VERSION,
+            'adapter_dim_ratio': getattr(
+                self.args, 'adapter_dim_ratio', None),
+            'data_root': str(getattr(self.args, 'data_root', '')),
+            'data_manifest_sha256': self.artifact_info.get(
+                'data_manifest_sha256'),
+            'base_checkpoint': self.artifact_info.get('base_checkpoint'),
+        })
+        return config
 
-        This is the AI-feedback-loop artifact: every metric shown in the
-        terminal / uploaded to wandb is also written here as structured
-        JSON, so an analysis pass (human or AI) can read exactly which
-        metric is weak and target the network change at it.
+    def _state_dict(self):
+        if self.is_ddp:
+            inner = self.model.module
+            inner = getattr(inner, 'model', inner)
+            return inner.state_dict()
+        return self.model.state_dict()
+
+    def _checkpoint_payload(self, history, best_epoch, epoch_completed):
+        return {
+            'artifact_version': ARTIFACT_VERSION,
+            'epoch': int(epoch_completed) - 1,
+            'epoch_completed': int(epoch_completed),
+            'model_state_dict': self._state_dict(),
+            'optimizer_state_dict': self.optimizer.state_dict(),
+            'scheduler_state_dict': (
+                self.scheduler.state_dict()
+                if self.scheduler is not None else None),
+            'best_selection_score': self.best_selection_score,
+            'best_f1_score': self.best_f1_score,
+            'best_epoch': int(best_epoch),
+            'selection_metric': self.selection_metric,
+            'config': self._checkpoint_config(),
+            'full_config': self.train_config,
+            'history': list(history),
+            'rng_state': capture_rng_state(),
+            'train_generator_state': capture_generator_state(
+                self.train_generator),
+            'val_generator_state': capture_generator_state(
+                self.val_generator),
+            'data_manifest_sha256': self.artifact_info.get(
+                'data_manifest_sha256'),
+            'wandb': self.wandb_info,
+            'resumed_from': self.resume_state.get('resumed_from'),
+        }
+
+    @staticmethod
+    def _torch_save_atomic(payload, path):
+        path = str(path)
+        tmp_path = path + '.tmp'
+        torch.save(payload, tmp_path)
+        os.replace(tmp_path, path)
+
+    def _save_last_checkpoint(self, history, best_epoch, epoch_completed,
+                              force=False):
+        every = int(getattr(self.args, 'save_last_every', 1) or 0)
+        if every <= 0:
+            return
+        if not force and epoch_completed % every != 0:
+            return
+        path = os.path.join(self.save_dir, 'last_model.pth')
+        try:
+            self._torch_save_atomic(
+                self._checkpoint_payload(
+                    history, best_epoch, epoch_completed),
+                path)
+            self.last_checkpoint = os.path.abspath(path)
+        except (OSError, RuntimeError) as exc:
+            logging.warning('last checkpoint save failed: %s', exc)
+
+    def _prune_periodic(self):
+        keep = max(0, int(getattr(self.args, 'keep_checkpoints', 2)))
+        directory = os.path.join(self.save_dir, 'checkpoints')
+        if not os.path.isdir(directory):
+            return
+        files = sorted(
+            (name for name in os.listdir(directory)
+             if name.startswith('epoch_') and name.endswith('.pth')),
+            key=lambda name: int(name[6:-4]) if name[6:-4].isdigit() else -1)
+        for name in files[:-keep] if keep else files:
+            try:
+                os.remove(os.path.join(directory, name))
+            except OSError:
+                pass
+        self.periodic_checkpoints = [
+            os.path.abspath(os.path.join(directory, name))
+            for name in files[-keep:] if keep
+        ]
+
+    def _save_periodic_checkpoint(self, history, best_epoch,
+                                  epoch_completed):
+        every = int(getattr(self.args, 'save_every', 0) or 0)
+        if every <= 0 or epoch_completed % every != 0:
+            return
+        directory = os.path.join(self.save_dir, 'checkpoints')
+        os.makedirs(directory, exist_ok=True)
+        path = os.path.join(
+            directory, f'epoch_{int(epoch_completed):04d}.pth')
+        try:
+            self._torch_save_atomic(
+                self._checkpoint_payload(
+                    history, best_epoch, epoch_completed),
+                path)
+            self._prune_periodic()
+        except (OSError, RuntimeError) as exc:
+            logging.warning('periodic checkpoint save failed: %s', exc)
+
+    def _write_history(self, history, best_epoch, status='running',
+                       last_epoch=None, error=None):
+        """Persist the metric history and run metadata atomically.
+
+        Called after every epoch, not only at exit, so an interrupted run
+        still has a usable training curve and resume metadata.
         """
-        out_dir = os.path.dirname(self.args.save_path) or '.'
+        out_dir = self.save_dir
         os.makedirs(out_dir, exist_ok=True)
         path = os.path.join(out_dir, 'metrics_history.json')
+        if last_epoch is None:
+            last_epoch = history[-1].get('epoch') if history else None
+        best_selection = (None if not np.isfinite(
+            self.best_selection_score) else self.best_selection_score)
         payload = {
+            'artifact_version': ARTIFACT_VERSION,
+            'status': status,
             'config': self._run_config(),
+            'resolved_config': self.train_config.get('args'),
+            'provenance': {
+                key: self.artifact_info.get(key)
+                for key in (
+                    'train_config', 'data_manifest', 'provenance_dir',
+                    'data_manifest_sha256', 'git', 'environment',
+                    'base_checkpoint',
+                )
+            },
             'best_epoch': best_epoch,
+            'last_epoch': last_epoch,
             'best_f1': self.best_f1_score,
-            'best_selection': (None if not np.isfinite(
-                self.best_selection_score) else self.best_selection_score),
+            'best_selection': best_selection,
             'selection_metric': self.selection_metric,
             'history': history,
+            'checkpoints': {
+                'best': os.path.abspath(self.args.save_path),
+                'last': self.last_checkpoint,
+                'periodic': list(self.periodic_checkpoints),
+            },
+            'wandb': self.wandb_info,
+            'resumed_from': self.resume_state.get('resumed_from'),
+            'error': error,
         }
         try:
-            with open(path, 'w') as f:
-                json.dump(payload, f, indent=2)
-            logging.info(f"Metric history saved to {path}")
-        except OSError as e:
-            logging.warning(f"Metric history save failed: {e}")
+            write_json_atomic(path, payload)
+        except (OSError, ValueError) as exc:
+            logging.warning('metric history save failed: %s', exc)
 
         info_payload = {
+            'artifact_version': ARTIFACT_VERSION,
+            'status': status,
             'checkpoint': os.path.abspath(self.args.save_path),
+            'best_checkpoint': os.path.abspath(self.args.save_path),
+            'last_checkpoint': self.last_checkpoint,
+            'checkpoint_dir': os.path.abspath(out_dir),
             'best_epoch': best_epoch,
-            'last_epoch': (
-                history[-1].get('epoch') if history else None),
-            'best_selection': payload['best_selection'],
+            'last_epoch': last_epoch,
+            'best_selection': best_selection,
             'selection_metric': self.selection_metric,
             'epochs': int(self.args.epochs),
             'preset': getattr(self.args, 'preset', None),
@@ -864,14 +1036,28 @@ class Trainer:
             'data_root': str(getattr(self.args, 'data_root', '')),
             'reproducibility_info': getattr(
                 self.args, 'reproducibility_info', {}),
+            'resumed_from': self.resume_state.get('resumed_from'),
+            'wandb': self.wandb_info,
+            'artifacts': {
+                key: self.artifact_info.get(key)
+                for key in (
+                    'train_config', 'data_manifest', 'provenance_dir',
+                    'data_manifest_sha256', 'base_checkpoint',
+                )
+            },
+            'periodic_checkpoints': list(self.periodic_checkpoints),
+            'checkpoints': {
+                'best': os.path.abspath(self.args.save_path),
+                'last': self.last_checkpoint,
+                'periodic': list(self.periodic_checkpoints),
+            },
+            'error': error,
         }
         info_path = os.path.join(out_dir, 'run_info.json')
         try:
-            with open(info_path, 'w') as f:
-                json.dump(info_payload, f, indent=2)
-            logging.info(f"Run info saved to {info_path}")
-        except OSError as e:
-            logging.warning(f"Run info save failed: {e}")
+            write_json_atomic(info_path, info_payload)
+        except (OSError, ValueError) as exc:
+            logging.warning('run info save failed: %s', exc)
 
     def fit(self):
         """Run the full training schedule (wandb-monitored when enabled)."""
@@ -887,10 +1073,15 @@ class Trainer:
                 name=f"{self.args.model}_{self.args.preset}",
                 config=self._run_config(),
             )
+            try:
+                self.wandb_info = write_wandb_info(self.save_dir, run)
+            except OSError as exc:
+                logging.warning('wandb metadata save failed: %s', exc)
         self._wandb_run = run
-        history = []
+        history = list(self.resume_state.get('history') or [])
         advice_log = {}
-        best_epoch = -1
+        best_epoch = int(self.resume_state.get('best_epoch', -1))
+        start_epoch = int(self.resume_state.get('start_epoch', 0))
         log_style = getattr(self.args, 'log_style', 'table')
         official = log_style == 'official'
         baseline_style = log_style == 'baseline'
@@ -900,9 +1091,15 @@ class Trainer:
             for line in epoch_header(topo_names):
                 console.print(line, style="bold")
             console.print(topo_legend(topo_names), style="dim")
+        if self._rank0:
+            self._write_history(
+                history, best_epoch, status='running',
+                last_epoch=(history[-1].get('epoch') if history else None))
 
+        run_status = 'running'
+        failure = None
         try:
-            for epoch in range(self.args.epochs):
+            for epoch in range(start_epoch, self.args.epochs):
                 t0 = time.time()
                 avg_train_loss, comps = self._train_epoch(epoch)
                 train_s = time.time() - t0
@@ -1045,6 +1242,34 @@ class Trainer:
                     print(f'Current learning rate: '
                           f'{self.optimizer.param_groups[0]["lr"]:.7f}',
                           flush=True)
+                # Save after the scheduler step so a resumed run restores the
+                # exact next-epoch LR; history is already appended above.
+                if self._rank0:
+                    self._save_last_checkpoint(
+                        history, best_epoch, epoch + 1)
+                    self._save_periodic_checkpoint(
+                        history, best_epoch, epoch + 1)
+                    self._write_history(
+                        history, best_epoch, status='running',
+                        last_epoch=epoch + 1)
+        except BaseException as exc:
+            run_status = 'failed'
+            failure = exc
+            if self._rank0:
+                self._write_history(
+                    history, best_epoch, status='failed',
+                    error=f'{type(exc).__name__}: {exc}')
+            raise
+        else:
+            run_status = 'done'
+            if self._rank0:
+                # Force a final last checkpoint even when the last epoch is
+                # not on the --save-last-every grid.
+                self._save_last_checkpoint(
+                    history, best_epoch, self.args.epochs, force=True)
+                self._write_history(
+                    history, best_epoch, status='done',
+                    last_epoch=(history[-1].get('epoch') if history else None))
         finally:
             if self._rank0:
                 if run is not None:
@@ -1057,7 +1282,6 @@ class Trainer:
                     except Exception:
                         pass
                 finish_run(run)
-                self._write_history(history, best_epoch)
             # fencing-algs 模式:训练结束统一收队,再各自退出
             if self.is_ddp:
                 dist.barrier()

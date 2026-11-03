@@ -53,6 +53,33 @@ It reads `train`/`val` only and writes `branch_stats.csv`,
 `results/diagnostics/a2sam_seed_0/`. The checkpoint/data/output paths can be
 overridden with `CHECKPOINT`, `DATA_ROOT`, and `OUTPUT`.
 
+### Prediction-vs-GT audit
+
+`pipeline/audit_predictions.py` is a read-only diagnostic after evaluation.
+It compares saved `*_result.png` predictions with GT masks at original
+resolution and reports pixel errors, precision/recall, component
+fragmentation, holes/Betti errors, skeleton errors, and failure flags:
+
+```bash
+python scripts/pipeline/audit_predictions.py \
+  --pred-root results/runs/sacm_x/full_typed/seed_0/eval \
+  --protocol data/sacm_3shot_seed0/protocol_manifest.csv \
+  --out results/audit/sacm_x_full_typed_seed0
+```
+
+It writes `per_image.csv`, `per_dataset.csv`, `macro_summary.csv`,
+`unmatched.csv`, `summary.json`, `report.md`, and (by default) comparison PNGs
+for the worst five images per dataset.  Set `--save-error-maps` to save all
+images.  Comparison PNGs show GT / prediction / pixel error (TP green, FP red,
+FN blue) / skeleton error (GT yellow, prediction cyan, overlap white).  This
+does not replace `evaluate.py` or change the paper table.
+
+When `evaluate.py` or the baseline runtime has written
+`prediction_index.csv`, the audit uses that exact prediction-to-GT mapping
+instead of guessing from filenames.  A training run's
+`provenance/data_manifest.json` can also supply test roots via
+`--data-manifest`.
+
 ## W&B
 
 Baseline training and evaluation default to W&B. `run_train.sh` and

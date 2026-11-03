@@ -96,3 +96,43 @@ bitwise guaranteed.
   deterministic settings.  `PAPER_METRICS_ONLY=1` computes the same Dice,
   IoU, clDice and HD95 definitions and only omits unrequested metrics.
   Both default to off; neither changes the seed or the canonical layout.
+
+## Training artifacts
+
+Every training run now writes, in addition to the selected checkpoint:
+
+- `last_model.pth` every epoch (model, optimizer, scheduler, epoch, best
+  score/epoch, metric history, Python/NumPy/Torch/CUDA RNG state, DataLoader
+  generator state);
+- `checkpoints/epoch_XXXX.pth` every `--save_every` epochs, retaining
+  `--keep_checkpoints` newest snapshots;
+- `train_config.json` with the full resolved args, git commit/dirty state,
+  environment versions, base-checkpoint SHA256 and data-manifest hash;
+- `provenance/data_manifest.json` with train/val/test paths, sizes, mtimes
+  and SHA256s (disable hashing with `--hash_data_files false`);
+- copies of `protocol_manifest.csv`, `split_manifest.csv` and
+  `protocol_summary.json` under `provenance/`;
+- `wandb_run.json` with the run id/name/project/entity/url;
+- incremental `metrics_history.json` and `run_info.json` after every epoch.
+
+`--resume last` (or `--resume best`) resumes at the next epoch boundary after
+restoring model, optimizer, scheduler, RNG, generator and history.  A resume
+refuses a different architecture configuration, seed, split hash or data
+manifest fingerprint.  Resume granularity is one epoch; mid-epoch DataLoader
+worker state is not persisted.
+
+The shared `baseline_zoo.runtime` path has the same last/periodic/provenance
+behavior.  Adapters with their own official training loop (nnU-Net, nnWNet,
+KnowSAM, MaskVSC) keep that framework's checkpointing; they still write the
+canonical run layout but do not claim shared-runtime resume semantics.
+
+`evaluate.py` writes `prediction_index.csv` and `eval_manifest.json` in every
+dataset output directory.  The index stores each prediction relative to its
+dataset directory and the absolute GT mask path, so it survives
+`finalize_run` moving the directory.  `audit_predictions.py` uses this index
+when present.
+
+These artifacts apply to runs started with this code.  A run trained before
+this change has no recoverable `last_model.pth` or periodic snapshots; its
+already-saved prediction PNGs can still be audited with filename matching or
+the original protocol manifest.
