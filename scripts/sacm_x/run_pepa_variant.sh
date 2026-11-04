@@ -16,6 +16,27 @@ cd "$REPO"
 
 PRESET="${1:-full_pepa}"
 MODE="${2:-full}"
+
+# Never inherit an audit/eval output root from a diagnostic shell.  A stale
+# OUTPUT_ROOT pointing at results/.../seed_0/eval makes the trainer write
+# its checkpoints into the audit tree and can silently poison finalizers.
+if [ -n "${OUTPUT_ROOT:-}" ]; then
+  case "$OUTPUT_ROOT" in
+    */eval|*selector_audit*|*audit*)
+      echo "WARNING: ignoring inherited OUTPUT_ROOT=$OUTPUT_ROOT" >&2
+      unset OUTPUT_ROOT
+      ;;
+  esac
+fi
+if [ -n "${CANONICAL_ROOT:-}" ]; then
+  case "$CANONICAL_ROOT" in
+    *selector_audit*|*audit*)
+      echo "WARNING: ignoring inherited CANONICAL_ROOT=$CANONICAL_ROOT" >&2
+      CANONICAL_ROOT=results/runs
+      ;;
+  esac
+fi
+
 GPU="${GPU:-0}"
 SEED="${SEED:-0}"
 EPOCHS="${EPOCHS:-800}"
@@ -76,7 +97,11 @@ echo " gpu:        $GPU"
 echo " seed:       $SEED"
 echo " epochs:     $EPOCHS"
 echo " geometry:   train=$INPUT_MODE eval=$EVAL_INPUT_MODE"
-echo " selection:  ${FIXED_HEAD:+fixed head $FIXED_HEAD}${FIXED_HEAD:-ranker/iou}"
+if [ -n "$FIXED_HEAD" ]; then
+  echo " selection:  fixed head $FIXED_HEAD"
+else
+  echo " selection:  ranker/iou"
+fi
 echo " tta:        $USE_TTA"
 echo " wandb:      $USE_WANDB"
 echo " skip test:  $SKIP_TEST"

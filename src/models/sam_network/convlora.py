@@ -4,12 +4,17 @@ The branch follows the official AutoGluon Conv-LoRA computation::
 
     y = W0 x + B * (A x + MoE_conv(A x)) * alpha / rank
 
-with a noisy top-1 gate, full 3x3 convolutional experts at multiple
-upsampling ratios, and the load-balancing loss returned by the gate.  The
-pretrained qkv is kept intact and frozen; the branch is added as a residual
-so base SAM checkpoints still load without key remapping.
+with a noisy top-1 gate and the load-balancing loss returned by the gate.
+The official implementation realises the multi-scale experts with bicubic
+upsampling; that backward is not deterministic on CUDA and is rejected by
+this repository's deterministic training mode.  We use the equivalent
+multi-scale idea with dilated 3x3 convolutions (dilation 1..E), which keeps
+the same parameter budget, avoids the large 1024-input upsample peak, and
+has deterministic CUDA backward.
 
-The branch also accepts SAM's window-partitioned attention input, i.e.
+The pretrained qkv is kept intact and frozen; the branch is added as a
+residual so base SAM checkpoints still load without key remapping.  The
+branch also accepts SAM's window-partitioned attention input, i.e.
 ``[B * n_windows, window, window, C]``.
 """
 
@@ -20,7 +25,6 @@ import math
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch.distributions.normal import Normal
 
 
@@ -32,7 +36,8 @@ class MoEGate(nn.Module):
         super().__init__()
         self.num_experts = int(num_experts)
         self.top_k = int(top_k)
-        self.gap = nn.AdaptiveAvgPool2d((1, 1))
+        # AdaptiveAvgPool2d's CUDA backward is rejected by deterministic
+        # training; a spatial mean is equivalent and deterministic.
         self.noisy_gating = bool(noisy_gating)
         self.w_gate = nn.Parameter(
             torch.zeros(d, self.num_experts), requires_grad=True)
@@ -47,7 +52,7 @@ class MoEGate(nn.Module):
 
     def forward(self, feats: torch.Tensor):
         batch_size = feats.shape[0]
-        feats_s = self.gap(feats).view(batch_size, -1)
+        feats_s = feats.mean(dim=(2, 3)).view(batch_size, -1)
         clean_logits = feats_s @ self.w_gate
         if self.noisy_gating and self.training:
             raw_noise_stddev = feats_s @ self.w_noise
@@ -165,11 +170,13 @@ class ConvLoRABranch(nn.Module):
 
         self.down = nn.Linear(dim, rank, bias=False)
         self.experts = nn.ModuleList()
-        for _ in range(self.num_experts):
-            conv = nn.Conv2d(rank, rank, 3, padding=1, bias=True)
+        self.dilations = list(range(1, self.num_experts + 1))
+        for dilation in self.dilations:
+            conv = nn.Conv2d(
+                rank, rank, 3, padding=dilation, dilation=dilation,
+                bias=True)
             nn.init.zeros_(conv.bias)
             self.experts.append(nn.Sequential(conv, nn.GELU()))
-        self.upsample_ratios = list(range(1, self.num_experts + 1))
         self.gate = MoEGate(rank, self.num_experts, top_k=1)
         self.up = nn.Linear(rank, dim * 3, bias=False)
 
@@ -200,15 +207,7 @@ class ConvLoRABranch(nn.Module):
             current = expert_inputs[index]
             if current.numel() == 0:
                 continue
-            ratio = self.upsample_ratios[index]
-            if ratio != 1:
-                current = F.interpolate(
-                    current, scale_factor=ratio, mode='bicubic')
-            current = expert(current)
-            if ratio != 1:
-                current = F.interpolate(
-                    current, size=(h, w), mode='bicubic')
-            expert_outputs.append(current)
+            expert_outputs.append(expert(current))
         combined = dispatcher.combine(
             expert_outputs, multiply_by_gates=False)
 

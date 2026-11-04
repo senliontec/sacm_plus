@@ -369,7 +369,44 @@ PRESETS["full_fixed2_lora_evp"] = {
     "evp_scale_factor": 32,
     "evp_zero_init": True,
     "moe_loss_weight": 1.0,
-    "use_detail_stem": True,
+    # Keep the comparison against full_fixed2_aux clean: no DetailStem,
+    # no 1024 refine.  EVP is the high-frequency branch in this ablation.
+    "use_detail_stem": False,
+    "high_res_output": True,
+    "high_res_size": 512,
+    "high_res_refine": False,
+}
+
+# Single-component controls for the CVPR-time ablation matrix.
+PRESETS["full_fixed2_evp"] = {
+    **PRESETS["full_fixed2_aux"],
+    "use_adapter": True,
+    "use_internal_adapter": True,
+    "collect_adapter_features": True,
+    "use_convlora": False,
+    "moe_loss_weight": 0.0,
+    "use_evp": True,
+    "evp_freq_nums": 0.25,
+    "evp_scale_factor": 32,
+    "evp_zero_init": True,
+    "use_detail_stem": False,
+    "high_res_output": True,
+    "high_res_size": 512,
+    "high_res_refine": False,
+}
+
+PRESETS["full_fixed2_convlora"] = {
+    **PRESETS["full_fixed2_aux"],
+    "use_adapter": True,
+    "use_internal_adapter": True,
+    "collect_adapter_features": True,
+    "use_evp": False,
+    "use_convlora": True,
+    "convlora_rank": 4,
+    "convlora_alpha": 32.0,
+    "convlora_experts": 8,
+    "moe_loss_weight": 1.0,
+    "use_detail_stem": False,
     "high_res_output": True,
     "high_res_size": 512,
     "high_res_refine": False,

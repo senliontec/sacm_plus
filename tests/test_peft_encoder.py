@@ -93,7 +93,7 @@ def test_full_fixed2_lora_evp_preset_fields():
     assert preset['moe_loss_weight'] == 1.0
     assert preset['use_multi_depth'] is True
     assert preset['use_coarse_to_fine'] is True
-    assert preset['use_detail_stem'] is True
+    assert preset['use_detail_stem'] is False
     assert preset['high_res_output'] is True
     assert preset['high_res_size'] == 512
     assert preset['fixed_head_loss_weight'] == 0.5
@@ -107,6 +107,18 @@ def test_full_fixed2_lora_evp_preset_fields():
     assert peft['use_fusion_v2'] is False
     assert peft['use_convlora'] is True
     assert peft['use_evp'] is True
+    assert peft['use_detail_stem'] is False
+
+    evp = PRESETS['full_fixed2_evp']
+    assert evp['use_convlora'] is False
+    assert evp['use_evp'] is True
+    assert evp['use_adapter'] is True
+    assert evp['use_internal_adapter'] is True
+
+    convlora = PRESETS['full_fixed2_convlora']
+    assert convlora['use_convlora'] is True
+    assert convlora['use_evp'] is False
+    assert convlora['use_adapter'] is True
 
 
 def test_hybrid_builder_keeps_external_adapters():

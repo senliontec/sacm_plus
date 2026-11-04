@@ -152,6 +152,38 @@ bash scripts/sacm_x/run_full_fixed2_peft_lora_evp.sh smoke
 bash scripts/sacm_x/run_full_fixed2_peft_lora_evp.sh
 ```
 
+CVPR-time single-component controls on top of `full_fixed2_aux`:
+
+```bash
+# EVP only (keep internal + external adapters + FusionV2)
+bash scripts/sacm_x/run_full_fixed2_evp.sh smoke
+
+# ConvLoRA only
+bash scripts/sacm_x/run_full_fixed2_convlora.sh smoke
+```
+
+The default hybrid removes only the duplicate block-internal adapter and
+sets `use_detail_stem=False`, so the comparison against `full_fixed2_aux`
+does not conflate DetailStem with ConvLoRA/EVP.  All runs reject an
+inherited audit `OUTPUT_ROOT`/`CANONICAL_ROOT` and write under
+`results/runs/sacm_x/<preset>/seed_<seed>`.
+
+One-click 8-GPU CVPR screen (5 seed-0 variants + seed-1 controls, train+val
+only; no 20-test eval).  300 epochs is the standard screening budget; only
+raise it if the validation curve is still clearly rising at 300:
+
+```bash
+# standard screen: 300 epochs, all 8 GPUs must be free
+bash scripts/sacm_x/run_cvpr_8gpu_screen.sh
+
+# optional, only for a winner whose val curve has not plateaued
+EPOCHS=800 bash scripts/sacm_x/run_cvpr_8gpu_screen.sh
+```
+
+Results go to `results/runs/cvpr8gpu_screen/sacm_x/<preset>/seed_<seed>/`;
+logs go to `results/ablation_logs/cvpr8gpu_*`.  Evaluate only the winning
+variant with `eval_sacm_x_20.sh`.
+
 One-click architecture decision run (two GPUs in parallel, 300 epochs,
 train + validation only, no test-set evaluation):
 
