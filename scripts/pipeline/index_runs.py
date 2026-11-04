@@ -22,6 +22,7 @@ from pathlib import Path
 FIELDS = [
     'family', 'method', 'variant', 'seed', 'status', 'checkpoint',
     'best_epoch', 'eval_root', 'metrics_csv', 'macro_csv', 'manifest',
+    'commit', 'code_fingerprint',
 ]
 
 
@@ -44,8 +45,32 @@ def _best_epoch(checkpoint: str | None) -> int | None:
     return int(value) if value is not None else None
 
 
+def _code_info(manifest: dict, path: Path) -> tuple[str | None, str | None]:
+    """Read commit/code_fingerprint from the run's provenance directory."""
+    candidates: list[Path] = []
+    checkpoint = manifest.get('checkpoint')
+    if checkpoint:
+        candidates.append(Path(checkpoint).parent)
+    eval_root = manifest.get('eval_root')
+    if eval_root:
+        candidates.append(Path(eval_root))
+        candidates.append(Path(eval_root).parent)
+    candidates.append(path.parent)
+    candidates.append(path.parent.parent)
+    for root in candidates:
+        for name in ('code_version.json', 'git.json'):
+            payload = _load(root / 'provenance' / name)
+            if payload:
+                return (
+                    payload.get('commit'),
+                    payload.get('code_fingerprint'),
+                )
+    return None, None
+
+
 def _baseline_row(manifest: dict, path: Path) -> dict:
     checkpoint = manifest.get('checkpoint')
+    code_commit, code_fp = _code_info(manifest, path)
     return {
         'family': 'baseline',
         'method': manifest.get('method', path.parent.name),
@@ -58,6 +83,8 @@ def _baseline_row(manifest: dict, path: Path) -> dict:
         'metrics_csv': manifest.get('paper_metrics'),
         'macro_csv': manifest.get('paper_macro'),
         'manifest': str(path),
+        'commit': code_commit,
+        'code_fingerprint': code_fp,
     }
 
 
@@ -65,6 +92,7 @@ def _canonical_row(manifest: dict, path: Path) -> dict:
     status = str(manifest.get('status', 'done'))
     if (path.parent / 'run_manifest.failed.json').is_file():
         status = 'failed'
+    code_commit, code_fp = _code_info(manifest, path)
     return {
         'family': manifest.get('family', ''),
         'method': manifest.get('method', ''),
@@ -77,6 +105,8 @@ def _canonical_row(manifest: dict, path: Path) -> dict:
         'metrics_csv': manifest.get('metrics_csv'),
         'macro_csv': manifest.get('macro_csv'),
         'manifest': str(path),
+        'commit': code_commit,
+        'code_fingerprint': code_fp,
     }
 
 
@@ -100,6 +130,7 @@ def _sacm_x_row(manifest: dict, path: Path) -> dict:
     metrics = Path(eval_root) / 'tables' / 'all_metrics.csv'
     macro = Path(eval_root) / 'tables' / 'macro_metrics.csv'
     presets = manifest.get('presets') or [manifest.get('variant', 'default')]
+    code_commit, code_fp = _code_info(manifest, path)
     return {
         'family': 'sacm_x',
         'method': 'sacm_x',
@@ -112,6 +143,8 @@ def _sacm_x_row(manifest: dict, path: Path) -> dict:
         'metrics_csv': str(metrics) if metrics.is_file() else None,
         'macro_csv': str(macro) if macro.is_file() else None,
         'manifest': str(path),
+        'commit': code_commit,
+        'code_fingerprint': code_fp,
     }
 
 
@@ -135,6 +168,7 @@ def _train_only_rows(root: Path) -> list[dict]:
         if not checkpoint.exists():
             continue
         failed = (run_dir / 'eval' / 'run_manifest.failed.json').is_file()
+        code_commit, code_fp = _code_info(payload, info_path)
         rows.append({
             'family': payload.get('family', ''),
             'method': payload.get('method', run_dir.parent.parent.name),
@@ -147,6 +181,8 @@ def _train_only_rows(root: Path) -> list[dict]:
             'metrics_csv': None,
             'macro_csv': None,
             'manifest': '',
+            'commit': code_commit,
+            'code_fingerprint': code_fp,
         })
     return rows
 
@@ -161,6 +197,7 @@ def _legacy_baseline_rows(root: Path) -> list[dict]:
             seed = int(seed_dir.name.rsplit('_', 1)[-1])
         except ValueError:
             continue
+        code_commit, code_fp = _code_info({}, checkpoint)
         rows.append({
             'family': 'baseline',
             'method': method_dir.name,
@@ -170,6 +207,8 @@ def _legacy_baseline_rows(root: Path) -> list[dict]:
             'checkpoint': str(checkpoint),
             'best_epoch': _best_epoch(str(checkpoint)),
             'eval_root': str(seed_dir),
+            'commit': code_commit,
+            'code_fingerprint': code_fp,
             'metrics_csv': str(seed_dir / 'paper_metrics.csv'),
             'macro_csv': str(seed_dir / 'paper_macro.csv'),
             'manifest': '',

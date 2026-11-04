@@ -45,6 +45,21 @@ _MANIFEST_NAMES = (
 _IMAGE_SUFFIXES = (
     '.png', '.jpg', '.jpeg', '.tif', '.tiff', '.bmp', '.ppm', '.pgm',
 )
+# Code provenance: hash source files, not datasets/results/checkpoints.
+_CODE_ROOTS = ('src', 'scripts', 'configs', 'tests')
+_CODE_SUFFIXES = frozenset({
+    '.py', '.sh', '.yaml', '.yml', '.json', '.toml', '.cfg', '.ini',
+    '.txt',
+})
+_CODE_ROOT_NAMES = frozenset({
+    'pyproject.toml', 'setup.py', 'setup.cfg', 'requirements.txt',
+    'requirements-dev.txt', 'environment.yml', 'Makefile',
+})
+_CODE_EXCLUDED_DIRS = frozenset({
+    '.git', '__pycache__', 'results', 'data', 'checkpoints', '3rd',
+    '.venv', 'venv', '.mypy_cache', '.pytest_cache',
+})
+_MAX_SNAPSHOT_BYTES = 5 * 1024 * 1024
 
 
 # ---------------------------------------------------------------------------
@@ -124,23 +139,43 @@ def _utc_now() -> str:
 # Environment / git / checkpoint provenance
 # ---------------------------------------------------------------------------
 
+def _git_output(root: Path, *args: str) -> str | None:
+    try:
+        completed = subprocess.run(
+            ['git', '-C', str(root), *args],
+            check=False, capture_output=True, text=True, timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return completed.stdout if completed.returncode == 0 else None
+
+
+def _git_diff_text(root: Path) -> str | None:
+    """Diff against HEAD, including staged and unstaged tracked changes."""
+    diff = _git_output(root, 'diff', '--no-ext-diff', 'HEAD')
+    if diff is None:
+        # Empty repository / no HEAD yet: keep a best-effort diff.
+        diff = _git_output(root, 'diff', '--no-ext-diff')
+    return diff
+
+
+def _is_code_path(rel: Path) -> bool:
+    if any(part in _CODE_EXCLUDED_DIRS for part in rel.parts):
+        return False
+    return rel.suffix.lower() in _CODE_SUFFIXES
+
+
 def git_info(repo_root: Path | str | None = None) -> dict[str, Any]:
     root = Path(repo_root or Path(__file__).resolve().parents[2])
 
     def run(*args: str) -> str | None:
-        try:
-            completed = subprocess.run(
-                ['git', '-C', str(root), *args],
-                check=False, capture_output=True, text=True, timeout=10,
-            )
-        except (OSError, subprocess.SubprocessError):
-            return None
-        return completed.stdout.strip() if completed.returncode == 0 else None
+        output = _git_output(root, *args)
+        return output.strip() if output is not None else None
 
     commit = run('rev-parse', 'HEAD')
     branch = run('rev-parse', '--abbrev-ref', 'HEAD')
     status = run('status', '--porcelain')
-    diff = run('diff', '--no-ext-diff')
+    diff = _git_diff_text(root)
     return {
         'repo_root': str(root),
         'commit': commit,
@@ -148,6 +183,156 @@ def git_info(repo_root: Path | str | None = None) -> dict[str, Any]:
         'dirty': bool(status),
         'porcelain': status,
         'diff_sha256': sha256_text(diff) if diff else None,
+    }
+
+
+def _write_text_atomic(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + '.tmp')
+    tmp.write_text(text)
+    os.replace(tmp, path)
+
+
+def _source_manifest(root: Path) -> dict[str, dict[str, Any]]:
+    manifest: dict[str, dict[str, Any]] = {}
+    roots = [root / name for name in _CODE_ROOTS]
+    for base in roots:
+        if not base.is_dir():
+            continue
+        for path in sorted(base.rglob('*')):
+            if not path.is_file():
+                continue
+            rel = path.relative_to(root)
+            if not _is_code_path(rel):
+                continue
+            try:
+                manifest[str(rel)] = {
+                    'sha256': sha256_file(path),
+                    'size': path.stat().st_size,
+                }
+            except OSError:
+                manifest[str(rel)] = {
+                    'sha256': None,
+                    'size': None,
+                    'error': 'unreadable',
+                }
+    for name in sorted(_CODE_ROOT_NAMES):
+        path = root / name
+        if not path.is_file():
+            continue
+        try:
+            manifest[name] = {
+                'sha256': sha256_file(path),
+                'size': path.stat().st_size,
+            }
+        except OSError:
+            manifest[name] = {
+                'sha256': None,
+                'size': None,
+                'error': 'unreadable',
+            }
+    return manifest
+
+
+def write_code_provenance(
+    provenance_dir: Path | str,
+    repo_root: Path | str | None = None,
+    git_data: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Persist a reconstructable code snapshot.
+
+    ``git diff HEAD`` covers staged and unstaged tracked changes.  Untracked
+    source files are hashed and, when small, copied under ``untracked_src/``.
+    A source manifest hashes every tracked/untracked source file under
+    ``src/ scripts/ configs/ tests/`` so an untracked content change cannot
+    masquerade as the same code version.
+    """
+    root = Path(repo_root or Path(__file__).resolve().parents[2])
+    prov = Path(provenance_dir)
+    prov.mkdir(parents=True, exist_ok=True)
+    git_data = dict(git_data or git_info(root))
+
+    diff = _git_diff_text(root)
+    diff_sha = sha256_text(diff) if diff else None
+    patch_path = None
+    if diff:
+        patch_path = prov / 'code.patch'
+        _write_text_atomic(patch_path, diff)
+
+    untracked: dict[str, dict[str, Any]] = {}
+    untracked_raw = _git_output(
+        root, 'ls-files', '--others', '--exclude-standard')
+    for rel in sorted({
+            line.strip() for line in (untracked_raw or '').splitlines()
+            if line.strip()}):
+        path = root / rel
+        if not path.is_file():
+            continue
+        is_code = _is_code_path(Path(rel))
+        entry: dict[str, Any] = {
+            'sha256': None,
+            'size': None,
+            'copied': False,
+            'kind': 'code' if is_code else 'non-code',
+        }
+        try:
+            entry['size'] = path.stat().st_size
+            if is_code:
+                entry['sha256'] = sha256_file(path)
+                if entry['size'] <= _MAX_SNAPSHOT_BYTES:
+                    target = prov / 'untracked_src' / rel
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(path, target)
+                    entry['copied'] = True
+            else:
+                entry['kind'] = 'non-code'
+        except OSError:
+            entry['error'] = 'unreadable'
+        untracked[rel] = entry
+
+    untracked_sha = sha256_text(json.dumps(
+        {k: v.get('sha256') for k, v in untracked.items() if v.get('sha256')},
+        sort_keys=True, separators=(',', ':')))
+
+    manifest = _source_manifest(root)
+    source_manifest_sha = sha256_text(json.dumps(
+        manifest, sort_keys=True, separators=(',', ':')))
+    source_path = prov / 'source_manifest.json'
+    write_json_atomic(source_path, manifest)
+    untracked_path = prov / 'untracked.json'
+    write_json_atomic(untracked_path, untracked)
+
+    fingerprint_payload = {
+        'commit': git_data.get('commit'),
+        'diff_sha256': diff_sha,
+        'untracked_sha256': untracked_sha,
+        'source_manifest_sha256': source_manifest_sha,
+    }
+    code_fingerprint = sha256_text(json.dumps(
+        fingerprint_payload, sort_keys=True, separators=(',', ':')))
+    summary = {
+        'commit': git_data.get('commit'),
+        'branch': git_data.get('branch'),
+        'dirty': git_data.get('dirty'),
+        'code_fingerprint': code_fingerprint,
+        'diff_sha256': diff_sha,
+        'untracked_sha256': untracked_sha,
+        'source_manifest_sha256': source_manifest_sha,
+        'code_patch': str(patch_path) if patch_path else None,
+        'untracked_manifest': str(untracked_path),
+        'source_manifest': str(source_path),
+        'untracked_files': untracked,
+    }
+    write_json_atomic(prov / 'code_version.json', summary)
+    return {
+        'code_fingerprint': code_fingerprint,
+        'diff_sha256': diff_sha,
+        'untracked_sha256': untracked_sha,
+        'source_manifest_sha256': source_manifest_sha,
+        'code_patch': str(patch_path) if patch_path else None,
+        'untracked_manifest': str(untracked_path),
+        'source_manifest': str(source_path),
+        'untracked_files': untracked,
     }
 
 
@@ -414,6 +599,12 @@ def prepare_training_artifacts(
 
     environment = environment_info()
     git = git_info(repo_root)
+    try:
+        git.update(write_code_provenance(
+            provenance_dir, repo_root, git_data=git))
+    except Exception as exc:  # noqa: BLE001 - provenance must not abort training
+        # Provenance must never abort training; record the failure instead.
+        git['code_provenance_error'] = str(exc)
     base = base_checkpoint_info(getattr(args, 'checkpoint', None))
     config_payload = {
         'artifact_version': ARTIFACT_VERSION,

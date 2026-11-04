@@ -391,7 +391,7 @@ python scripts/pipeline/index_runs.py
 ```
 
 Columns: `family,method,variant,seed,status,checkpoint,best_epoch,eval_root,
-metrics_csv,macro_csv,manifest`.
+metrics_csv,macro_csv,manifest,commit,code_fingerprint`.
 
 ## Reproducibility
 
@@ -401,6 +401,13 @@ Use the shell wrappers (`run_train.sh`, `run_eval.sh`,
 pipelines configure deterministic kernels; SACM-X uses strict mode by
 default, baselines use best-effort strict mode (`--deterministic-strict true`
 enables strict).
+
+Each run also writes `provenance/code_version.json`, `code.patch`,
+`untracked.json`, `untracked_src/` and `source_manifest.json`; the
+`code_fingerprint` covers commit, staged/unstaged diff and untracked source
+content.  See `docs/SACM_X_VARIANTS.md` section 12.  The 8-GPU screen
+requires a clean tree by default; use `ALLOW_DIRTY=1` only when a dirty
+snapshot is unavoidable.
 
 ## Legacy results
 

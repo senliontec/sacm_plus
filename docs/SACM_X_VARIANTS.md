@@ -298,7 +298,36 @@ Rules:
 
 ---
 
-## 10. How to add a new variant
+## 10. Current execution policy (architecture freeze)
+
+As of 2026-11-04, the architecture is frozen.  Do not add new modules or
+new backbones for the current CVPR push.
+
+Priorities:
+
+1. Run the 8-GPU 300-epoch screen exactly as defined in section 2.
+2. At epoch 100, only decide keep/kill; do not tune.
+3. After the screen, choose one winner plus one fallback.
+4. Tune at most 2-3 hyperparameters of the winner on validation only.
+5. Run seeds 1-4 of the winner; 800 epochs only if the 300-epoch
+   validation curve is still clearly rising.
+6. Spend remaining time on 5-seed stability, Seen/Unseen evaluation,
+   component/Betti analysis, and the XCAD/OCTA audits.
+7. Do not tune thresholds or select heads on the 20 test sets.
+
+Success criterion for the winner:
+
+- >= +0.5 Dice or >= +0.5 clDice over the 300-epoch fixed2 baseline;
+- no Unseen regression;
+- component/Betti improvement if Dice is flat;
+- direction consistent across seeds.
+
+If no candidate meets this, stop adding modules and pivot to the
+SCNP/topology story, XCAD/OCTA audits, and a systematic 3-shot analysis.
+
+---
+
+## 11. How to add a new variant
 
 1. Add the preset to `src/models/sacm_x/configs.py` with a new explicit
    key; inherit from the closest canonical parent.
@@ -309,3 +338,35 @@ Rules:
 5. Add it to the 8-GPU screen only if it is a current CANDIDATE; do not
    expand the screen with legacy presets.
 6. Never reuse a historical name with different semantics.
+
+---
+
+## 12. Code provenance
+
+Every training run writes:
+
+```text
+provenance/git.json              commit, branch, dirty, porcelain, diff_sha256
+provenance/code.patch            tracked diff against HEAD (staged + unstaged)
+provenance/untracked.json        untracked path -> sha256 / size / copied
+provenance/untracked_src/        small untracked source files, path-preserving
+provenance/source_manifest.json  sha256 of source files under src/scripts/configs/tests
+provenance/code_version.json     commit + code_fingerprint + paths
+```
+
+`code_fingerprint` covers the commit, the full `git diff HEAD`, untracked
+source content, and the source manifest.  Two runs with the same commit
+but different untracked code therefore have different fingerprints.
+
+The 8-GPU screen requires a clean tree by default.  `ALLOW_DIRTY=1`
+allows a dirty run; each job still writes the snapshot above, and the
+screen root gets `code_version.txt` plus `code.patch` /
+`untracked_files.txt`.
+
+After the screen, all runs must have the same `provenance/git.json`
+`commit` and `code_fingerprint`; otherwise the results mixed code
+versions and must not be placed in the same table.
+
+`python scripts/pipeline/index_runs.py` now adds `commit` and
+`code_fingerprint` columns to `results/runs_index.csv`, so each row can be
+traced back to a code version directly.

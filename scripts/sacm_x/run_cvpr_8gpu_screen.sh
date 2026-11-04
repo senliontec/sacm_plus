@@ -18,6 +18,8 @@
 # Usage:
 #   bash scripts/sacm_x/run_cvpr_8gpu_screen.sh
 #   EPOCHS=800 bash scripts/sacm_x/run_cvpr_8gpu_screen.sh
+#   ALLOW_DIRTY=1 bash scripts/sacm_x/run_cvpr_8gpu_screen.sh
+#     (dirty runs save code.patch/untracked snapshots but are less strict)
 set -uo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -42,8 +44,27 @@ LOG_DIR="${LOG_DIR:-results/ablation_logs}"
 USE_WANDB="${USE_WANDB:-true}"
 WANDB_MODE="${WANDB_MODE:-online}"
 NUM_WORKERS="${NUM_WORKERS:-4}"
+ALLOW_DIRTY="${ALLOW_DIRTY:-0}"
 STAMP="$(date +%Y%m%d_%H%M%S)"
 mkdir -p "$LOG_DIR"
+
+# Code-version guard: a screen with different code versions cannot be
+# compared.  Commit first, or explicitly allow a dirty snapshot.
+CODE_COMMIT="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
+CODE_STATUS="$(git status --porcelain 2>/dev/null || true)"
+if [ "$CODE_COMMIT" = "unknown" ]; then
+  echo "ERROR: git commit unknown; run from a git checkout with git available." >&2
+  exit 2
+fi
+if [ -n "$CODE_STATUS" ] && [ "$ALLOW_DIRTY" != "1" ]; then
+  echo "ERROR: working tree is dirty; commit/tag the exact code first." >&2
+  echo "       ALLOW_DIRTY=1 saves a per-run snapshot but is less strict." >&2
+  git status --porcelain >&2 || true
+  exit 2
+fi
+if [ -n "$CODE_STATUS" ]; then
+  echo "WARNING: ALLOW_DIRTY=1; each run will store code.patch/untracked snapshot." >&2
+fi
 
 # Never inherit a diagnostic/audit output root.
 unset OUTPUT_ROOT
@@ -116,8 +137,22 @@ echo " epochs:  $EPOCHS (train+val only; no 20-test eval)"
 echo " wandb:   $USE_WANDB ($WANDB_MODE)"
 echo " ckpt:    $CKPT"
 echo " python:  $PY"
-echo " git:     $(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
+echo " git:     $(printf '%s' "$CODE_COMMIT" | cut -c1-12) (dirty=$([ -n "$CODE_STATUS" ] && echo true || echo false))"
 echo "============================================================"
+
+mkdir -p "$SCREEN_ROOT"
+{
+  echo "commit=$CODE_COMMIT"
+  echo "dirty=$([ -n "$CODE_STATUS" ] && echo true || echo false)"
+  echo "started_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  echo "epochs=$EPOCHS"
+  echo "screen_root=$SCREEN_ROOT"
+} > "$SCREEN_ROOT/code_version.txt"
+if [ -n "$CODE_STATUS" ]; then
+  git diff --no-ext-diff HEAD > "$SCREEN_ROOT/code.patch" 2>/dev/null || true
+  git ls-files --others --exclude-standard \
+    > "$SCREEN_ROOT/untracked_files.txt" 2>/dev/null || true
+fi
 
 PIDS=()
 LABELS=()
@@ -160,6 +195,16 @@ for i in "${!PIDS[@]}"; do
     RC=1
   fi
 done
+
+END_COMMIT="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
+END_STATUS="$(git status --porcelain 2>/dev/null || true)"
+if [ "$END_COMMIT" != "$CODE_COMMIT" ]; then
+  echo "WARNING: HEAD changed during the screen; results may mix code versions." >&2
+  echo "start_commit=$CODE_COMMIT end_commit=$END_COMMIT" >&2
+fi
+if [ -z "$CODE_STATUS" ] && [ -n "$END_STATUS" ]; then
+  echo "WARNING: working tree became dirty during the screen; results may mix code versions." >&2
+fi
 
 echo
 echo "============================================================"
