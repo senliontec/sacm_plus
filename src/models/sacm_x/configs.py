@@ -372,6 +372,37 @@ PRESETS["full_fixed2_resmoe"] = {
     "res_ramp_epochs": 30,
 }
 
+# Gate-only supervision: the structural-error gate is trained, but the pixel
+# residual experts receive no repair loss (and therefore stay zero).  This is
+# the training preset for the component-repair pipeline: the gate localizes
+# errors, while the actual repair is support-calibrated component pruning.
+_GATE_ONLY = {
+    "use_res_moe": True,
+    "res_num_experts": 4,
+    "res_hidden": 24,
+    "res_gate_hidden": 32,
+    "res_gate_size": 512,
+    "res_gate_mode": "learned",
+    "res_use_head_disagreement": True,
+    "res_use_centerline": True,
+    "res_gate_input_norm": True,
+    "res_out_size": 512,
+    "res_head_index": 2,
+    "res_dropout": 0.0,
+    "res_disagreement_tau": 0.05,
+    "res_disagreement_scale": 0.10,
+    "res_loss_weight": 0.0,
+    "res_topology_weight": 0.0,
+    "res_gate_loss_weight": 0.3,
+    "res_sparsity_weight": 0.02,
+    "res_warmup_epochs": 0,
+    "res_ramp_epochs": 1,
+}
+PRESETS["full_fixed2_gate"] = {
+    **PRESETS["full_fixed2_aux"],
+    **_GATE_ONLY,
+}
+
 # Robust fallback: no learned gate; the four-head disagreement gates the
 # residual experts.  Useful for Unseen-domain checks.
 PRESETS["full_fixed2_resmoe_dg"] = {
@@ -462,6 +493,10 @@ PRESETS["full_fixed2_convlora"] = {
     "high_res_output": True,
     "high_res_size": 512,
     "high_res_refine": False,
+}
+PRESETS["full_fixed2_convlora_gate"] = {
+    **PRESETS["full_fixed2_convlora"],
+    **_GATE_ONLY,
 }
 
 # Replacement-style PEFT ablation: Conv-LoRA/EVP replace the SACM adapter
