@@ -1,26 +1,25 @@
 #!/usr/bin/env bash
-# One-click full pipeline on 8 GPUs:
-#   one training seed per GPU, from scratch, gate-only SACM-X,
-#   then support-calibrated component-repair evaluation on 20 datasets,
-#   plus a no-gate component-repair ablation.
+# One-click full pipeline (one training seed per GPU):
+#   from scratch, gate-only SACM-X, then support-calibrated component-repair
+#   evaluation on 20 datasets, plus a no-gate component-repair ablation.
 #
 # Usage:
-#   bash scripts/sacm_x/run_component_full_8gpu.sh
+#   bash scripts/sacm_x/run_component_full.sh
 #   EPOCHS=800 TRAIN_SEEDS="0 1 2 3 4 5 6 7" \
-#     bash scripts/sacm_x/run_component_full_8gpu.sh
-#   PER_GPU_DATA_SEED=1 bash scripts/sacm_x/run_component_full_8gpu.sh
-#   RUN_NO_GATE=0 bash scripts/sacm_x/run_component_full_8gpu.sh
+#     bash scripts/sacm_x/run_component_full.sh
+#   PER_GPU_DATA_SEED=1 bash scripts/sacm_x/run_component_full.sh
+#   RUN_NO_GATE=0 bash scripts/sacm_x/run_component_full.sh
 #
 # Defaults:
 #   PRESET=full_fixed2_gate (full_fixed2 + gate-only supervision)
-#   TRAIN_SEEDS="0 1 2 3 4" (one seed per GPU; 8 GPUs supported)
+#   TRAIN_SEEDS="0 1 2 3 4" (one seed per GPU; up to 8 supported)
 #   RUN_NO_GATE=0 (final-model run first; enable later for ablations)
 #   DATA_SEED=0 (shared data split; training seeds differ)
 #   NO_AUGMENT=1 (match SACM official: no train-time geometric/colour aug)
 #   EPOCHS=800, VAL_INTERVAL=1, SKIP_TEST=true during training
 #
 # Output:
-#   results/runs/component_full_8gpu_<timestamp>/
+#   results/runs/component_full_<timestamp>/
 #     train/                         canonical SACM-X checkpoints
 #     component_eval/seed_<s>/       gate + component prune
 #     component_eval_no_gate/seed_<s>/  no-gate feature ablation
@@ -57,7 +56,7 @@ RUN_NO_GATE="${RUN_NO_GATE:-0}"
 LIMIT="${LIMIT:-0}"
 SAM_CKPT="${SAM_CKPT:-checkpoints/sam_vit_l_0b3195.pth}"
 TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
-OUT_ROOT="${OUT_ROOT:-results/runs/component_full_8gpu_${TIMESTAMP}}"
+OUT_ROOT="${OUT_ROOT:-results/runs/component_full_${TIMESTAMP}}"
 TRAIN_OUT="$OUT_ROOT/train"
 EVAL_OUT="$OUT_ROOT/component_eval"
 EVAL_NO_GATE_OUT="$OUT_ROOT/component_eval_no_gate"
@@ -70,7 +69,7 @@ if [ ! -f "$SAM_CKPT" ]; then
 fi
 
 echo "============================================================"
-echo " full component pipeline, 8 GPUs"
+echo " full component pipeline, one seed per GPU"
 echo " preset:       $PRESET"
 echo " out:          $OUT_ROOT"
 echo " data seed:    $DATA_SEED (per_gpu=$PER_GPU_DATA_SEED)"
@@ -88,7 +87,7 @@ declare -a TRAIN_NAMES=()
 idx=0
 for seed in $TRAIN_SEEDS; do
   if [ "$idx" -ge 8 ]; then
-    echo "ERROR: more than 8 training seeds for 8 GPUs" >&2
+    echo "ERROR: more than 8 training seeds; this pipeline supports at most 8" >&2
     exit 2
   fi
   gpu="$idx"
@@ -104,7 +103,10 @@ for seed in $TRAIN_SEEDS; do
   log="$LOG_DIR/train_seed${seed}.log"
   echo "[gpu $gpu] train $PRESET seed $seed data=$data_root"
   (
-    export GPU=0
+    # run_experiments.py forwards this id by setting CUDA_VISIBLE_DEVICES
+    # for the trainer child, so it must be the physical GPU index.  Using
+    # GPU=0 here made every seed override its parent mask and train on GPU0.
+    export GPU="$gpu"
     export SEED="$seed"
     export PRESET="$PRESET"
     export EPOCHS="$EPOCHS"

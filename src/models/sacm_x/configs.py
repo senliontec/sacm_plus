@@ -372,9 +372,10 @@ PRESETS["full_fixed2_resmoe"] = {
     "res_ramp_epochs": 30,
 }
 
-# Gate-only supervision: the structural-error gate is trained, but the pixel
-# residual experts receive no repair loss (and therefore stay zero).  This is
-# the training preset for the component-repair pipeline: the gate localizes
+# Gate-only supervision: the structural-error gate is trained, while the
+# trainer freezes the pixel residual experts at exactly zero (the main mask
+# loss would otherwise train them through the fixed head).  This is the
+# training preset for the component-repair pipeline: the gate localizes
 # errors, while the actual repair is support-calibrated component pruning.
 _GATE_ONLY = {
     "use_res_moe": True,

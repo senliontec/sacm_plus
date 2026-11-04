@@ -10,6 +10,10 @@ on the OTHER seen support datasets and the delete threshold is calibrated on
 this dataset's three support images.  Unseen/Novel datasets have no support;
 they use the classifier and threshold fitted on all seen support images.
 No target labels are used.
+
+The summary's ``coarse_*`` fields mean the checkpoint's final head-2 output
+before component pruning; gate-only training freezes residual experts at
+zero, so this is also the pre-residual coarse output.
 """
 from __future__ import annotations
 
@@ -78,14 +82,27 @@ def forward(model, rm, image):
         sparse, dense = get_prompt_embeddings(model, image.shape[0])
         out = predict_all(model, x, sparse, dense, return_stage1=False)
         heads = out[0] if isinstance(out, (tuple, list)) else out
-        if rm is not None and rm.last_coarse_logits is not None:
+        # Evaluate the checkpoint's actual final head 2, after any residual
+        # correction.  Gate-only presets freeze the experts at zero, so this
+        # is numerically equivalent to the old pre-residual coarse path;
+        # other presets remain correct instead of silently dropping their
+        # residual correction.
+        if heads.shape[1] > 2:
+            p0 = torch.sigmoid(heads[:, 2:3])
+        elif rm is not None and rm.last_coarse_logits is not None:
             p0 = torch.sigmoid(rm.last_coarse_logits)
         else:
-            p0 = torch.sigmoid(heads[:, 2:3])
+            p0 = torch.sigmoid(heads[:, :1])
         gate = (rm.last_gate_mask if rm is not None
                 and rm.last_gate_mask is not None
                 else torch.zeros_like(p0))
-        other = torch.sigmoid(heads[:, [0, 1, 3]]).mean(1, keepdim=True)
+        if heads.shape[1] > 3:
+            other = torch.sigmoid(heads[:, [0, 1, 3]]).mean(
+                1, keepdim=True)
+        elif heads.shape[1] > 1:
+            other = torch.sigmoid(heads).mean(1, keepdim=True)
+        else:
+            other = torch.zeros_like(p0)
         if p0.shape[-2:] != (512, 512):
             p0 = F.interpolate(p0, (512, 512), mode='bilinear',
                                align_corners=False)

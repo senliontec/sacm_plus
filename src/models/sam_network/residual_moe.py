@@ -301,10 +301,30 @@ class TopoResidualMoE(nn.Module):
         self.last_gate_mask: Optional[torch.Tensor] = None
         self.last_routing: Optional[torch.Tensor] = None
         self.last_target_rate: float = 0.0
+        self.experts_frozen: bool = False
 
     @property
     def has_learned_gate(self) -> bool:
         return self.gate is not None
+
+    def freeze_experts(self) -> None:
+        """Freeze the residual experts at an exactly-zero correction.
+
+        Gate-only training needs the learned gate (and its localization
+        signal) but no pixel residual.  The main mask loss would otherwise
+        train the experts through ``fixed_head_loss_weight`` even when both
+        repair loss terms are zero, making the checkpoint's head 2 differ
+        from the coarse head that the component-repair evaluator consumes.
+        Zeroing the final expert convolution makes the residual exactly
+        zero, and freezing every expert parameter keeps it there.
+        """
+        for param in self.experts.parameters():
+            param.requires_grad = False
+        with torch.no_grad():
+            for expert in self.experts:
+                expert.out.weight.zero_()
+                expert.out.bias.zero_()
+        self.experts_frozen = True
 
     def _image_channels(self, image: torch.Tensor) -> torch.Tensor:
         if image.shape[1] == 3:

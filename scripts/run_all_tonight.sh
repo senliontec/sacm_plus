@@ -74,7 +74,7 @@ echo " wandb:    online"
 echo "============================================================"
 
 if [ "$DRY_RUN" = "1" ]; then
-  echo "[dry-run] final -> scripts/sacm_x/run_component_full_8gpu.sh"
+  echo "[dry-run] final -> scripts/sacm_x/run_component_full.sh"
   echo "[dry-run] official -> scripts/tools/run_sacm_official_5to7.sh"
   exit 0
 fi
@@ -89,7 +89,7 @@ fi
   export RUN_NO_GATE=0
   export USE_WANDB=true
   export NO_AUGMENT="$NO_AUGMENT"
-  bash scripts/sacm_x/run_component_full_8gpu.sh
+  bash scripts/sacm_x/run_component_full.sh
 ) > "$LOG_DIR/final_pipeline.log" 2>&1 &
 final_pid=$!
 
@@ -150,23 +150,37 @@ for seed in official_seeds:
             except (TypeError, ValueError):
                 pass
 
+FINAL_KEYS = ('coarse_dice', 'prune_dice',
+              'coarse_cldice', 'prune_cldice',
+              'coarse_hd95', 'prune_hd95',
+              'coarse_components', 'prune_components',
+              'coarse_cc_error', 'prune_cc_error')
+
+
+def aggregate(rows):
+    return {key: mean([r.get(key) for r in rows]) for key in FINAL_KEYS}
+
+
+all_final_seeds = sorted({r['seed'] for r in final_rows})
+matched_seeds = sorted(set(all_final_seeds) & set(official_seeds))
 summary = {
     'final_rc': final_rc,
     'official_rc': official_rc,
-    'final_seeds': sorted({r['seed'] for r in final_rows}),
+    'final_seeds': all_final_seeds,
     'official_seeds': official_seeds,
+    'final_vs_official_seeds': matched_seeds,
+    # Headline comparison: only seeds present in BOTH runs.
     'final': {},
+    # Full final run (may include extra seeds the official baseline lacks).
+    'final_all': {},
     'official': {},
 }
 if final_rows:
     gate = [r for r in final_rows
             if r.get('variant') == 'gate' and r.get('role') == 'All']
-    for key in ('coarse_dice', 'prune_dice',
-                'coarse_cldice', 'prune_cldice',
-                'coarse_hd95', 'prune_hd95',
-                'coarse_components', 'prune_components',
-                'coarse_cc_error', 'prune_cc_error'):
-        summary['final'][key] = mean([r.get(key) for r in gate])
+    summary['final_all'] = aggregate(gate)
+    summary['final'] = aggregate(
+        [r for r in gate if r['seed'] in matched_seeds])
 for metric in ('dice', 'cldice', 'hd95', 'iou'):
     vals = [r['mean'] for r in official if r['metric'] == metric]
     if vals:
@@ -174,6 +188,8 @@ for metric in ('dice', 'cldice', 'hd95', 'iou'):
 
 (out_root / 'comparison_summary.json').write_text(
     json.dumps(summary, indent=2) + '\n')
+print(f"headline final seeds: {matched_seeds} | "
+      f"final_all seeds: {all_final_seeds}")
 print(json.dumps(summary, indent=2))
 PY
 

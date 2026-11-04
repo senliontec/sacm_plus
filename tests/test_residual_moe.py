@@ -48,6 +48,29 @@ def test_residual_moe_is_identity_at_init_and_gets_gradients():
     assert module.gate.mask_head.weight.grad.abs().sum() > 0
 
 
+def test_freeze_experts_is_exact_zero_and_nontrainable():
+    module = _module()
+    # Simulate an old/partially trained checkpoint whose experts are nonzero.
+    with torch.no_grad():
+        for expert in module.experts:
+            expert.out.weight.fill_(0.3)
+            expert.out.bias.fill_(0.1)
+    module.freeze_experts()
+    image = torch.randn(1, 3, 32, 32)
+    coarse = torch.randn(1, 1, 32, 32)
+    heads = torch.randn(1, 4, 32, 32)
+    out = module(image, coarse, heads)
+    assert torch.equal(out, coarse)
+    assert all(not p.requires_grad for p in module.experts.parameters())
+    assert module.gate.mask_head.weight.requires_grad
+    loss = out.mean() + module.gate_loss(
+        (torch.rand(1, 1, 32, 32) > 0.5).float())
+    loss.backward()
+    assert all(p.grad is None for p in module.experts.parameters())
+    assert module.gate.mask_head.weight.grad is not None
+    assert module.gate.mask_head.weight.grad.abs().sum() > 0
+
+
 def test_res_scale_zero_is_exact_identity():
     module = _module()
     image = torch.randn(1, 3, 32, 32)

@@ -382,6 +382,22 @@ def train(args):
             'Resumed model weights from %s (completed epochs=%d)',
             resume_path, _completed_epoch(resume_payload))
 
+    # Gate-only supervision needs the learned gate, not the pixel residual.
+    # The main/fixed-head mask loss reaches head 2 through the residual
+    # branch even when both repair losses are zero, so freeze the experts
+    # and zero their output explicitly.  This makes the trained checkpoint's
+    # head 2 exactly equal to the coarse head consumed by component repair.
+    if (bool(getattr(args, 'use_res_moe', False))
+            and float(getattr(args, 'res_loss_weight', 0.0)) <= 0.0
+            and float(getattr(args, 'res_topology_weight', 0.0)) <= 0.0):
+        decoder = getattr(base_model, 'mask_decoder', None)
+        res_moe = getattr(decoder, 'residual_moe', None)
+        if res_moe is not None:
+            res_moe.freeze_experts()
+            logging.info(
+                'Gate-only residual branch: experts frozen at zero; '
+                'checkpoint head 2 equals the coarse head')
+
     if is_ddp:
         # Wrap the prompt-free forward, not just the bare Sam, so DDP's
         # reducer actually sees the training forward.  The optimizer must
