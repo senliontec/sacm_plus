@@ -116,6 +116,15 @@ bash scripts/sacm_x/run_full_v3.sh
 bash scripts/sacm_x/run_pepa_variant.sh full_v2_skel
 ```
 
+Hybrid `full_v2_skel_aux`: keep the pretrained prompt decoder and add
+training-only centerline / boundary / width heads on its 512 features.
+It targets the same structural errors as v3 with much faster few-shot
+convergence:
+
+```bash
+bash scripts/sacm_x/run_full_v2_skel_aux.sh
+```
+
 One-click architecture decision run (two GPUs in parallel, 300 epochs,
 train + validation only, no test-set evaluation):
 

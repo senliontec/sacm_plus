@@ -77,6 +77,15 @@ WANDB_MODE="${WANDB_MODE:-online}"
 DETERMINISTIC="${DETERMINISTIC:-true}"
 DETERMINISTIC_STRICT="${DETERMINISTIC_STRICT:-true}"
 NUM_WORKERS="${NUM_WORKERS:-4}"
+# W&B must not be initialized in the parent when DataLoader forks: the
+# worker inherits the W&B socket and raises ForkedError, failing every
+# dataset.  Evaluation does not need W&B; disable it when workers > 0.
+if { [ "$USE_WANDB" = "true" ] || [ "$USE_WANDB" = "1" ]; } \
+    && [ "${NUM_WORKERS:-0}" -gt 0 ]; then
+  echo "WARNING: disabling W&B for evaluation (DataLoader workers > 0);" \
+       "set NUM_WORKERS=0 to keep W&B." >&2
+  USE_WANDB=false
+fi
 TRAIN_ROOT="${TRAIN_ROOT:-data/sacm_3shot_seed${SEED}}"
 EVAL_INPUT_MODE="${EVAL_INPUT_MODE:-aspect_pad}"
 USE_TTA="${USE_TTA:-false}"

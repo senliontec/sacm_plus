@@ -455,8 +455,12 @@ class Trainer:
             loss_center = 0.0
             loss_width = 0.0
             loss_area = 0.0
-            if getattr(self.args, 'use_v3', False):
-                decoder = getattr(self.model, 'mask_decoder', None)
+            use_aux = bool(
+                getattr(self.args, 'use_v3', False)
+                or getattr(self.args, 'use_structural_aux', False))
+            if use_aux:
+                base_model = getattr(self.model, 'module', self.model)
+                decoder = getattr(base_model, 'mask_decoder', None)
                 aux = getattr(decoder, 'last_aux_outputs', None)
                 center_w = float(getattr(
                     self.args, 'v3_centerline_weight', 0.0))

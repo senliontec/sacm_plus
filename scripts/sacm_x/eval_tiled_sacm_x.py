@@ -80,6 +80,7 @@ def _build_model(args, device):
         high_res_refine_size=getattr(args, 'high_res_refine_size', 1024),
         single_head=getattr(args, 'single_head', False),
         use_v3=getattr(args, 'use_v3', False),
+        use_structural_aux=getattr(args, 'use_structural_aux', False),
         v3_feature_dim=getattr(args, 'v3_feature_dim', 128),
         v3_mid_dim=getattr(args, 'v3_mid_dim', 96),
         v3_fine_dim=getattr(args, 'v3_fine_dim', 64),
@@ -195,6 +196,7 @@ def main() -> int:
     parser.add_argument('--high-res-refine', type=str2bool, default=False)
     parser.add_argument('--single-head', type=str2bool, default=False)
     parser.add_argument('--use-v3', type=str2bool, default=False)
+    parser.add_argument('--use-structural-aux', type=str2bool, default=False)
     parser.add_argument('--v3-feature-dim', type=int, default=128)
     parser.add_argument('--v3-mid-dim', type=int, default=96)
     parser.add_argument('--v3-fine-dim', type=int, default=64)

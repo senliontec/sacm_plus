@@ -29,6 +29,7 @@ NEW_DECODER_PREFIXES = (
     'mask_decoder.detail_fuse_',
     'mask_decoder.final_refine',
     'mask_decoder.v3_',
+    'mask_decoder.structural_aux',
 )
 
 # Architecture switches shared by the whole SAM family (defaults = the
@@ -69,6 +70,8 @@ SAM_DEFAULTS = dict(
     single_head=False,
     # V3 dense structural decoder (opt-in via full_v3).
     use_v3=False,
+    # Training-only structural heads on the prompt decoder.
+    use_structural_aux=False,
     v3_feature_dim=128,
     v3_mid_dim=96,
     v3_fine_dim=64,

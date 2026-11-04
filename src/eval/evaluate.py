@@ -146,6 +146,7 @@ def _prepare_evaluation(args):
         high_res_refine_size=getattr(args, 'high_res_refine_size', 1024),
         single_head=getattr(args, 'single_head', False),
         use_v3=getattr(args, 'use_v3', False),
+        use_structural_aux=getattr(args, 'use_structural_aux', False),
         v3_feature_dim=getattr(args, 'v3_feature_dim', 128),
         v3_mid_dim=getattr(args, 'v3_mid_dim', 96),
         v3_fine_dim=getattr(args, 'v3_fine_dim', 64),
@@ -581,6 +582,9 @@ if __name__ == '__main__':
     parser.add_argument('--use_v3', type=str2bool, default=False,
                         help='Use the v3 dense structural decoder (must match '
                              'checkpoint; full_v3 enables it)')
+    parser.add_argument('--use_structural_aux', type=str2bool, default=False,
+                        help='Prompt-decoder structural aux heads (must match '
+                             'checkpoint; full_v2_skel_aux enables it)')
     parser.add_argument('--v3_feature_dim', type=int, default=128,
                         help='V3 FPN feature width')
     parser.add_argument('--v3_mid_dim', type=int, default=96,

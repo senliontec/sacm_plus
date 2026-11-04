@@ -65,6 +65,7 @@ class MaskDecoder(nn.Module):
         high_res_refine: bool = False,
         high_res_refine_size: int = 1024,
         single_head: bool = False,
+        use_structural_aux: bool = False,
     ) -> None:
         """
         Predicts masks given an image and prompt embeddings, using a
@@ -120,6 +121,8 @@ class MaskDecoder(nn.Module):
         # Filled by predict_masks when TADT / the ranker is enabled.
         self.last_tadt_threshold = None
         self.last_rank_scores = None
+        self.use_structural_aux = bool(use_structural_aux)
+        self.last_aux_outputs = None
 
         self.single_head = bool(single_head)
         if self.single_head and self.use_typed_heads:
@@ -214,6 +217,20 @@ class MaskDecoder(nn.Module):
                 self.num_mask_tokens + 3, self.num_mask_tokens, 3, padding=1)
             nn.init.zeros_(self.final_refine.weight)
             nn.init.zeros_(self.final_refine.bias)
+
+        # Training-only structural heads for the prompt-decoder hybrid.
+        self.structural_aux_conv = None
+        if self.use_structural_aux:
+            aux_dim = transformer_dim // 8
+            self.structural_aux_conv = nn.Sequential(
+                nn.Conv2d(aux_dim, aux_dim, 3, padding=1,
+                          groups=aux_dim, bias=False),
+                LayerNorm2d(aux_dim),
+                nn.GELU(),
+            )
+            self.structural_aux_centerline = nn.Conv2d(aux_dim, 1, 1)
+            self.structural_aux_boundary = nn.Conv2d(aux_dim, 1, 1)
+            self.structural_aux_width = nn.Conv2d(aux_dim, 1, 1)
 
         if self.use_adapter_skip:
             if use_fusion_v2:
@@ -515,6 +532,20 @@ class MaskDecoder(nn.Module):
                 mask_features = F.interpolate(
                     upscaled_embedding, size=target_size,
                     mode='bilinear', align_corners=False)
+
+        # Training-only structural heads on the post-C2F high-res features.
+        # They do not affect the mask logits; they add centerline/boundary/
+        # width supervision to the shared features.
+        if self.use_structural_aux:
+            aux_feat = self.structural_aux_conv(mask_features)
+            self.last_aux_outputs = {
+                'centerline': self.structural_aux_centerline(aux_feat),
+                'centerline_256': None,
+                'boundary': self.structural_aux_boundary(aux_feat),
+                'width': self.structural_aux_width(aux_feat),
+            }
+        else:
+            self.last_aux_outputs = None
 
         # --------------------- Stage 2: refined masks ---------------------
         # Typed variant: keep a stable slot -> structural-type binding.

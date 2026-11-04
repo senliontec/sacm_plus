@@ -297,6 +297,48 @@ PRESETS["full_v2_skel"] = {
     "tversky_beta": 0.7,
 }
 
+# Hybrid: keep the pretrained prompt decoder (fast few-shot convergence)
+# and add the v3 centerline/boundary/width supervision on its 1/2-res
+# features.  No candidate selector, no dense decoder rewrite.
+PRESETS["full_v2_skel_aux"] = {
+    **PRESETS["full_v2_skel"],
+    "use_structural_aux": True,
+    "v3_centerline_weight": 0.2,
+    "v3_boundary_weight": 0.1,
+    "v3_width_weight": 0.05,
+    "v3_area_weight": 0.05,
+}
+
+
+# Back to the proven full/fixed2 architecture.  Keep the 4 candidate heads,
+# FusionV2, multi-depth path and C2F; add only the validated structural
+# supervision (Skeleton Recall@512 + Tversky + training-only aux heads).
+# fixed head 2 is selected by the runner, not by the model.
+PRESETS["full_fixed2_aux"] = {
+    **FULL,
+    "use_structural_aux": True,
+    "topology_loss": "skeleton_recall",
+    "topology_loss_weight": 0.2,
+    "topology_resolution": 512,
+    "tversky_weight": 0.3,
+    "tversky_alpha": 0.3,
+    "tversky_beta": 0.7,
+    "v3_centerline_weight": 0.2,
+    "v3_boundary_weight": 0.1,
+    "v3_width_weight": 0.05,
+    "v3_area_weight": 0.05,
+}
+
+# Same fixed2 base plus the high-resolution detail path.  Needs ~24GB.
+PRESETS["full_fixed2_hr_aux"] = {
+    **PRESETS["full_fixed2_aux"],
+    "use_detail_stem": True,
+    "high_res_output": True,
+    "high_res_size": 512,
+    "high_res_refine": True,
+    "high_res_refine_size": 1024,
+}
+
 
 def apply_preset(args, preset):
     """Overlay a preset on the parsed argparse namespace."""
