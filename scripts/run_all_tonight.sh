@@ -7,6 +7,8 @@
 #            training + all-20-dataset test
 #
 # Both pipelines run concurrently; W&B is enabled (the server has it).
+# NO_AUGMENT=1 by default: SACM official's recipe has no train-time
+# augmentation, so the final model is trained on the same clean inputs.
 # After both finish, this script writes a compact final-vs-official summary.
 #
 # Usage:
@@ -34,6 +36,7 @@ OFFICIAL_SEEDS="${OFFICIAL_SEEDS:-0 1 2}"
 FINAL_GPUS="${FINAL_GPUS:-0,1,2,3,4}"
 OFFICIAL_GPUS="${OFFICIAL_GPUS:-5,6,7}"
 EPOCHS="${EPOCHS:-800}"
+NO_AUGMENT="${NO_AUGMENT:-1}"
 DRY_RUN="${DRY_RUN:-0}"
 STAMP="$(date +%Y%m%d_%H%M%S)"
 OUT_ROOT="${OUT_ROOT:-results/runs/tonight_all_${STAMP}}"
@@ -66,6 +69,7 @@ echo " overnight all-in-one"
 echo " final:    GPU $FINAL_GPUS | data seeds $FINAL_SEEDS | $EPOCHS epochs"
 echo " official: GPU $OFFICIAL_GPUS | data seeds $OFFICIAL_SEEDS | $EPOCHS epochs"
 echo " output:   $OUT_ROOT"
+echo " augment:  final=$([ "$NO_AUGMENT" = "1" ] && echo disabled || echo enabled) | official=disabled (official recipe)"
 echo " wandb:    online"
 echo "============================================================"
 
@@ -84,6 +88,7 @@ fi
   export EPOCHS="$EPOCHS"
   export RUN_NO_GATE=0
   export USE_WANDB=true
+  export NO_AUGMENT="$NO_AUGMENT"
   bash scripts/sacm_x/run_component_full_8gpu.sh
 ) > "$LOG_DIR/final_pipeline.log" 2>&1 &
 final_pid=$!

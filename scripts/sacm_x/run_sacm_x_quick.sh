@@ -19,6 +19,7 @@
 # Environment:
 #   PYTHON, GPU, PRESET, RUN_NAME, EPOCHS, VAL_INTERVAL, SEED, DATASETS, CKPT,
 #   TRAIN_ROOT, OUTPUT_ROOT, CANONICAL_ROOT, MONITOR, USE_WANDB, WANDB_MODE,
+#   NO_AUGMENT (1 disables all train-time flips/rotations/elastic/colour),
 #   WANDB_NAME, INIT_STAGE2_FROM_STAGE1, SKIP_TEST, SCNP, SCNP_WINDOW,
 #   SCNP_ORIGINAL_WEIGHT, REUSE_EVAL_MODEL, PAPER_METRICS_ONLY, RESUME,
 #   VAL_SELECTION (auto/iou/gating/quality/fixed), VAL_FIXED_HEAD,
@@ -81,6 +82,7 @@ if ! printf '%s\n' "$OUTPUT_ROOT" | grep -qE "seed[_-]?${SEED}([^0-9]|$)"; then
   echo "WARNING: OUTPUT_ROOT does not contain seed_${SEED} or seed${SEED}; different seeds can collide." >&2
 fi
 MONITOR="${MONITOR:-baseline}"
+NO_AUGMENT="${NO_AUGMENT:-0}"
 INIT_STAGE2_FROM_STAGE1="${INIT_STAGE2_FROM_STAGE1:-true}"
 INPUT_MODE="${INPUT_MODE:-aspect_pad}"
 EVAL_INPUT_MODE="${EVAL_INPUT_MODE:-aspect_pad}"
@@ -198,6 +200,11 @@ if [ -n "$DEEP_CLOSING_CKPT" ]; then
 fi
 
 TRAIN_EXTRA+=(--init_stage2_from_stage1 "$INIT_STAGE2_FROM_STAGE1")
+# Official SACM trains on clean resized images (no flips/rotations/elastic/
+# colour).  NO_AUGMENT=1 keeps SACM-X's training input distribution aligned.
+if [ "$NO_AUGMENT" = "1" ]; then
+  TRAIN_EXTRA+=(--no_augment)
+fi
 
 if [ ! -f "$CKPT" ]; then
   echo "ERROR: missing SAM ViT-L checkpoint: $CKPT" >&2
@@ -215,7 +222,7 @@ SPECS="$("$PYTHON" scripts/pipeline/protocol_specs.py \
   --datasets "$DATASETS")"
 read -r -a spec_array <<< "$SPECS"
 
-echo "seed=$SEED preset=$PRESET epochs=$EPOCHS gpu=$GPU monitor=$MONITOR val_interval=$VAL_INTERVAL init_stage2_from_stage1=$INIT_STAGE2_FROM_STAGE1 input_mode=$INPUT_MODE eval_input_mode=$EVAL_INPUT_MODE fg_crop_prob=$FG_CROP_PROB boundary_weight=$BOUNDARY_LOSS_WEIGHT val_selection=$VAL_SELECTION selection_metric=$SELECTION_METRIC val_fixed_head=$VAL_FIXED_HEAD val_empty_guard=$VAL_EMPTY_GUARD topology=${TOPOLOGY_LOSS:-<preset>}(${TOPOLOGY_LOSS_WEIGHT}) tta=$USE_TTA empty_guard=$EMPTY_GUARD scnp=$SCNP($SCNP_WINDOW) deep_closing=${DEEP_CLOSING_CKPT:-none} skip_test=$SKIP_TEST resume=${RESUME:-none}"
+echo "seed=$SEED preset=$PRESET epochs=$EPOCHS gpu=$GPU monitor=$MONITOR val_interval=$VAL_INTERVAL init_stage2_from_stage1=$INIT_STAGE2_FROM_STAGE1 input_mode=$INPUT_MODE eval_input_mode=$EVAL_INPUT_MODE fg_crop_prob=$FG_CROP_PROB no_augment=$NO_AUGMENT boundary_weight=$BOUNDARY_LOSS_WEIGHT val_selection=$VAL_SELECTION selection_metric=$SELECTION_METRIC val_fixed_head=$VAL_FIXED_HEAD val_empty_guard=$VAL_EMPTY_GUARD topology=${TOPOLOGY_LOSS:-<preset>}(${TOPOLOGY_LOSS_WEIGHT}) tta=$USE_TTA empty_guard=$EMPTY_GUARD scnp=$SCNP($SCNP_WINDOW) deep_closing=${DEEP_CLOSING_CKPT:-none} skip_test=$SKIP_TEST resume=${RESUME:-none}"
 echo "datasets=${#spec_array[@]}  output=$OUTPUT_ROOT"
 # Training only.  Evaluation is a separate stage so every seed has one
 # canonical checkpoint and one canonical eval tree.

@@ -16,6 +16,7 @@
 #   TRAIN_SEEDS="0 1 2 3 4" (one seed per GPU; 8 GPUs supported)
 #   RUN_NO_GATE=0 (final-model run first; enable later for ablations)
 #   DATA_SEED=0 (shared data split; training seeds differ)
+#   NO_AUGMENT=1 (match SACM official: no train-time geometric/colour aug)
 #   EPOCHS=800, VAL_INTERVAL=1, SKIP_TEST=true during training
 #
 # Output:
@@ -50,6 +51,7 @@ TRAIN_SEEDS="${TRAIN_SEEDS:-0 1 2 3 4}"
 EPOCHS="${EPOCHS:-800}"
 VAL_INTERVAL="${VAL_INTERVAL:-1}"
 USE_WANDB="${USE_WANDB:-true}"
+NO_AUGMENT="${NO_AUGMENT:-1}"
 SELECTION_METRIC="${SELECTION_METRIC:-dice}"
 RUN_NO_GATE="${RUN_NO_GATE:-0}"
 LIMIT="${LIMIT:-0}"
@@ -75,6 +77,7 @@ echo " data seed:    $DATA_SEED (per_gpu=$PER_GPU_DATA_SEED)"
 echo " train seeds:  $TRAIN_SEEDS"
 echo " epochs:       $EPOCHS"
 echo " wandb:        $USE_WANDB"
+echo " augmentation: $([ "$NO_AUGMENT" = "1" ] && echo disabled || echo enabled)"
 echo " selection:    fixed head 2 / $SELECTION_METRIC"
 echo " no-gate eval: $RUN_NO_GATE"
 echo " python:       $PY"
@@ -111,6 +114,7 @@ for seed in $TRAIN_SEEDS; do
     export RESUME=""
     export SKIP_TEST=true
     export USE_WANDB="$USE_WANDB"
+    export NO_AUGMENT="$NO_AUGMENT"
     export MONITOR=baseline
     export INPUT_MODE=resize
     export EVAL_INPUT_MODE=resize
