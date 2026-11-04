@@ -3,12 +3,12 @@
 #
 # Default: 300 epochs, train + validation only (no test-set evaluation),
 # same seed, two GPUs in parallel.  Choose the winner on validation macro
-# Dice / clDice, then run the 800-epoch x 5-seed full benchmark.
+# Dice / clDice, then run the 300-epoch x 5-seed full benchmark.
 #
 # Usage:
 #   bash scripts/sacm_x/run_v3_vs_v2_skel.sh
 #   GPU_V2=1 GPU_V3=2 EPOCHS=300 SEED=0 bash scripts/sacm_x/run_v3_vs_v2_skel.sh
-#   MODE=full bash scripts/sacm_x/run_v3_vs_v2_skel.sh   # 800 epochs + 20-test eval
+#   MODE=full bash scripts/sacm_x/run_v3_vs_v2_skel.sh   # 300 epochs + 20-test eval
 set -euo pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$REPO"
@@ -17,11 +17,7 @@ cd "$REPO"
 GPU_V2="${GPU_V2:-1}"
 GPU_V3="${GPU_V3:-2}"
 MODE="${MODE:-train}"          # train | full
-if [ "$MODE" = "full" ]; then
-  EPOCHS="${EPOCHS:-800}"
-else
-  EPOCHS="${EPOCHS:-300}"
-fi
+EPOCHS="${EPOCHS:-300}"
 SEED="${SEED:-0}"
 VAL_INTERVAL="${VAL_INTERVAL:-1}"
 # Dedicated root: never inherit CANONICAL_ROOT from an older audit shell.
@@ -40,7 +36,7 @@ WANDB_PREFIX="${ABLATION_WANDB_PREFIX:-sacm_x}"
 
 case "$MODE" in
   train) SKIP_TEST=true ;;
-  full)  EPOCHS="${EPOCHS:-800}"; SKIP_TEST=false ;;
+  full)  SKIP_TEST=false ;;
   *) echo "MODE must be train | full" >&2; exit 2 ;;
 esac
 

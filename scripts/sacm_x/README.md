@@ -210,10 +210,10 @@ clearly rising at 300:
 ```bash
 # standard screen: 300 epochs, all 8 GPUs must be free
 bash scripts/sacm_x/run_cvpr_8gpu_screen.sh
-
-# optional, only for a winner whose val curve has not plateaued
-EPOCHS=800 bash scripts/sacm_x/run_cvpr_8gpu_screen.sh
 ```
+
+300 epochs is the standard budget for the current push.  Do not mix
+800-epoch legacy rows into a 300-epoch comparison table.
 
 Results go to `results/runs/cvpr8gpu_screen/sacm_x/<preset>/seed_<seed>/`;
 logs go to `results/ablation_logs/cvpr8gpu_*`.  GPU 0-4 run the five baseline

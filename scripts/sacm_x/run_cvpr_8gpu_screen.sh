@@ -17,9 +17,11 @@
 #
 # Usage:
 #   bash scripts/sacm_x/run_cvpr_8gpu_screen.sh
-#   EPOCHS=800 bash scripts/sacm_x/run_cvpr_8gpu_screen.sh
 #   ALLOW_DIRTY=1 bash scripts/sacm_x/run_cvpr_8gpu_screen.sh
 #     (dirty runs save code.patch/untracked snapshots but are less strict)
+#
+# 300 epochs is the standard budget for this push.  Do not mix 800-epoch
+# legacy rows into a 300-epoch comparison table.
 set -uo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"

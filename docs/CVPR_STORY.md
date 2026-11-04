@@ -116,7 +116,8 @@ Allowed:
 - residual loss weights and Skeleton Recall weight;
 - SCNP window / weight / warm-up;
 - TTA / EMA / model soup;
-- 300 vs 800 epochs if validation is still rising;
+- 300 epochs is the standard budget; do not mix 800-epoch legacy rows
+  into a 300-epoch comparison;
 - learned gate vs disagreement gate.
 
 Forbidden:

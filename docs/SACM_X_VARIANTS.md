@@ -74,10 +74,13 @@ Common fixed2 settings:
 
 **Budget**
 
-- 300 epochs: current screen (baseline seeds 0-4 + one seed of each
-  candidate).
-- 800 epochs: legacy/full budget; only for a winner whose validation
-  curve is still rising at 300, and never mixed with 300-epoch rows.
+- 300 epochs: standard budget for all current SACM-X experiments
+  (baseline seeds 0-4 + one seed of each candidate).
+- 800 epochs: legacy budget only.  Do not mix 800-epoch rows with
+  300-epoch rows; historical 800-epoch numbers are not comparable.
+  `run_typed800_selector.sh` and `run_night_final.sh` intentionally
+  retain 800 because they are historical scripts; do not use them for
+  current comparisons.
 
 ---
 
