@@ -150,8 +150,8 @@ def _validate_resume(payload, args, artifact_info):
         'res_use_centerline', 'res_gate_input_norm', 'res_out_size',
         'res_head_index', 'res_dropout', 'res_disagreement_tau',
         'res_disagreement_scale', 'res_loss_weight',
-        'res_gate_loss_weight', 'res_sparsity_weight',
-        'res_warmup_epochs', 'res_ramp_epochs',
+        'res_topology_weight', 'res_gate_loss_weight',
+        'res_sparsity_weight', 'res_warmup_epochs', 'res_ramp_epochs',
     ):
         if key in config:
             current = getattr(args, key, None)
@@ -474,17 +474,20 @@ def train(args):
     logging.info(f"Validation dataset size: {len(val_dataset)}")
 
     # Losses
-    criterion = DiceBCELoss(bce_weight=args.bce_weight, dice_weight=args.dice_weight)
+    base_criterion = DiceBCELoss(
+        bce_weight=args.bce_weight, dice_weight=args.dice_weight)
+    criterion = base_criterion
     if args.scnp:
         criterion = SCNPCriterion(
-            criterion,
+            base_criterion,
             neighborhood_size=args.scnp_window,
             original_weight=args.scnp_original_weight,
         )
         logging.info(
             f"SCNP enabled: window={args.scnp_window}, "
             f"original_weight={args.scnp_original_weight} "
-            f"(main BCE/Dice and Stage-1 deep supervision use SCNP logits)")
+            f"(main BCE/Dice and Stage-1 deep supervision use SCNP logits; "
+            f"structural aux heads and residual repair use raw BCE/Dice)")
     soft_cl = SoftclDiceLoss(num_iter=args.cl_dice_iters)
     boundary_loss = None
     if args.boundary_loss_weight > 0:
@@ -547,7 +550,8 @@ def train(args):
 
     trainer = Trainer(
         model=sam, spec=spec, device=device,
-        criterion=criterion, soft_cl=soft_cl, topo_loss=topo_loss,
+        criterion=criterion, raw_criterion=base_criterion,
+        soft_cl=soft_cl, topo_loss=topo_loss,
         optimizer=optimizer, scheduler=scheduler,
         train_loader=train_loader, val_loader=val_loader,
         args=args, is_ddp=is_ddp, train_sampler=train_sampler,
@@ -802,6 +806,9 @@ if __name__ == '__main__':
                         help='Gate BCE+Dice weight')
     parser.add_argument('--res_sparsity_weight', type=float, default=0.02,
                         help='L1 penalty on the gate mask')
+    parser.add_argument('--res_topology_weight', type=float, default=0.0,
+                        help='Weight of Skeleton Recall + soft clDice on the '
+                             'corrected head (ResMoE only; 0 disables)')
     parser.add_argument('--res_warmup_epochs', type=int, default=30,
                         help='Epochs before the gate/residual losses start')
     parser.add_argument('--res_ramp_epochs', type=int, default=30,

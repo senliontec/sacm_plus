@@ -181,11 +181,16 @@ class Trainer:
                  optimizer, scheduler, train_loader, val_loader, args,
                  is_ddp=False, train_sampler=None, boundary_loss=None,
                  artifact_info=None, train_generator=None, val_generator=None,
-                 resume_state=None):
+                 resume_state=None, raw_criterion=None):
         self.model = model
         self.spec = spec
         self.device = device
         self.criterion = criterion
+        # SCNP wraps the mask criterion.  Auxiliary structural heads and the
+        # residual repair must keep the raw Dice/BCE objective; otherwise the
+        # same-class neighbour transform is applied to 1-px centerline and
+        # boundary targets, which is not the official SCNP objective.
+        self.raw_criterion = raw_criterion if raw_criterion is not None else criterion
         self.soft_cl = soft_cl
         self.topo_loss = topo_loss
         self.boundary_loss = boundary_loss
@@ -269,15 +274,40 @@ class Trainer:
         sparse, dense = self.spec.prompt_builder(model, images.shape[0])
         return self.spec.forward(model, images, sparse, dense, return_stage1=True)
 
+    def _res_scale_for_epoch(self, epoch):
+        """Residual-pathway activity for one epoch.
+
+        The old implementation only scaled the extra losses; the module itself
+        was still in the forward pass, so the gate/expert pathway was never
+        truly frozen.  The returned scale is also pushed into the module.
+        """
+        if not bool(getattr(self.args, 'use_res_moe', False)):
+            return 0.0
+        warm = int(getattr(self.args, 'res_warmup_epochs', 30))
+        ramp = max(1, int(getattr(self.args, 'res_ramp_epochs', 30)))
+        step = max(0, (epoch + 1) - warm)
+        return min(1.0, step / float(ramp))
+
+    def _set_res_scale(self, epoch):
+        if not bool(getattr(self.args, 'use_res_moe', False)):
+            return
+        base_model = unwrap_sam_model(self.model)
+        decoder = getattr(base_model, 'mask_decoder', None)
+        res_moe = getattr(decoder, 'residual_moe', None)
+        if res_moe is not None:
+            res_moe.res_scale = self._res_scale_for_epoch(epoch)
+
     def _train_epoch(self, epoch):
         self.model.train()
+        self._set_res_scale(epoch)
         if self.train_sampler is not None:
             self.train_sampler.set_epoch(epoch)  # DDP: 每 epoch 换采样顺序
         train_loss = 0.0
         comps_sum = {k: 0.0 for k in (
             'loss_main', 'loss_ds', 'loss_iou', 'loss_cl', 'loss_topo',
             'loss_boundary', 'loss_center', 'loss_width', 'loss_area',
-            'loss_moe', 'loss_res', 'loss_gate', 'loss_res_sparse')}
+            'loss_moe', 'loss_res', 'loss_res_topo', 'loss_gate',
+            'loss_res_sparse')}
         # 进度条已移除:逐 epoch 的 rich 宽表 + time 列取代进度反馈
         train_pbar = tqdm(self.train_loader, total=len(self.train_loader),
                           desc=f"Epoch {epoch+1}/{self.args.epochs} [Train]",
@@ -499,7 +529,9 @@ class Trainer:
                         masks, res,
                         width_max=float(getattr(decoder, 'width_max', 16.0)))
                     if center_w > 0 and aux.get('centerline') is not None:
-                        loss_center = self.criterion(
+                        # SCNP is for the segmentation mask, not for the
+                        # 1-px centerline auxiliary target.
+                        loss_center = self.raw_criterion(
                             aux['centerline'], targets['centerline'])
                         cl256 = aux.get('centerline_256')
                         if cl256 is not None:
@@ -507,10 +539,10 @@ class Trainer:
                                 targets['centerline'], cl256.shape[-1])
                             loss_center = 0.5 * (
                                 loss_center
-                                + self.criterion(cl256, t256))
+                                + self.raw_criterion(cl256, t256))
                     if (aux_boundary_w > 0
                             and aux.get('boundary') is not None):
-                        loss_aux_boundary = self.criterion(
+                        loss_aux_boundary = self.raw_criterion(
                             aux['boundary'], targets['boundary'])
                     if width_w > 0 and aux.get('width') is not None:
                         pred_width = torch.sigmoid(aux['width'])
@@ -540,6 +572,7 @@ class Trainer:
             # the residual pathway inactive while the coarse decoder
             # stabilises.
             loss_res = 0.0
+            loss_res_topo = 0.0
             loss_gate = 0.0
             loss_res_sparse = 0.0
             res_scale = 0.0
@@ -548,18 +581,25 @@ class Trainer:
                 decoder = getattr(base_model, 'mask_decoder', None)
                 res_moe = getattr(decoder, 'residual_moe', None)
                 if res_moe is not None:
-                    warm = int(getattr(
-                        self.args, 'res_warmup_epochs', 30))
-                    ramp = max(1, int(getattr(
-                        self.args, 'res_ramp_epochs', 30)))
-                    step = max(0, (epoch + 1) - warm)
-                    res_scale = min(1.0, step / float(ramp))
+                    res_scale = self._res_scale_for_epoch(epoch)
                     if res_scale > 0:
                         head = int(getattr(
                             self.args, 'res_head_index', 2))
+                        res_topo_w = float(getattr(
+                            self.args, 'res_topology_weight', 0.0))
                         if m2.shape[1] > head:
-                            loss_res = self.criterion(
-                                m2[:, head:head + 1], masks)
+                            head_logits = m2[:, head:head + 1]
+                            # Repair loss: raw Dice/BCE (SCNP must not leak
+                            # into the repair target) plus an explicit
+                            # topology objective on the corrected head.
+                            loss_res = self.raw_criterion(
+                                head_logits, masks)
+                            if res_topo_w > 0:
+                                if self.topo_loss is not None:
+                                    loss_res_topo = loss_res_topo + \
+                                        self.topo_loss(head_logits, masks)
+                                loss_res_topo = loss_res_topo + \
+                                    self.soft_cl(head_logits, masks)
                         if getattr(res_moe, 'has_learned_gate', False):
                             loss_gate = res_moe.gate_loss(masks)
                         loss_res_sparse = res_moe.sparsity_loss()
@@ -585,6 +625,8 @@ class Trainer:
                 * loss_area
                 + res_scale * float(getattr(
                     self.args, 'res_loss_weight', 0.5)) * loss_res
+                + res_scale * float(getattr(
+                    self.args, 'res_topology_weight', 0.0)) * loss_res_topo
                 + res_scale * float(getattr(
                     self.args, 'res_gate_loss_weight', 0.3)) * loss_gate
                 + res_scale * float(getattr(
@@ -623,6 +665,7 @@ class Trainer:
 
     def _validate(self, epoch):
         self.model.eval()
+        self._set_res_scale(epoch)
         # 验证期在训练缓存之上叠加前向/指标,先清碎片避免 OOM 峰
         # (epoch 5 实测出现过 2.5GB 分配失败)
         if self.device.type == 'cuda':
@@ -1071,6 +1114,35 @@ class Trainer:
             'use_coarse_to_fine': self.args.use_coarse_to_fine,
             'use_fusion_v2': self.args.use_fusion_v2,
             'use_multi_depth': self.args.use_multi_depth,
+            'use_res_moe': bool(getattr(self.args, 'use_res_moe', False)),
+            'res_num_experts': getattr(self.args, 'res_num_experts', 4),
+            'res_hidden': getattr(self.args, 'res_hidden', 24),
+            'res_gate_hidden': getattr(self.args, 'res_gate_hidden', 32),
+            'res_gate_size': getattr(self.args, 'res_gate_size', 512),
+            'res_gate_mode': getattr(self.args, 'res_gate_mode', 'learned'),
+            'res_use_head_disagreement': bool(getattr(
+                self.args, 'res_use_head_disagreement', True)),
+            'res_use_centerline': bool(getattr(
+                self.args, 'res_use_centerline', True)),
+            'res_gate_input_norm': bool(getattr(
+                self.args, 'res_gate_input_norm', True)),
+            'res_out_size': getattr(self.args, 'res_out_size', 512),
+            'res_head_index': getattr(self.args, 'res_head_index', 2),
+            'res_dropout': getattr(self.args, 'res_dropout', 0.0),
+            'res_disagreement_tau': getattr(
+                self.args, 'res_disagreement_tau', 0.05),
+            'res_disagreement_scale': getattr(
+                self.args, 'res_disagreement_scale', 0.10),
+            'res_loss_weight': getattr(self.args, 'res_loss_weight', 0.5),
+            'res_topology_weight': getattr(
+                self.args, 'res_topology_weight', 0.0),
+            'res_gate_loss_weight': getattr(
+                self.args, 'res_gate_loss_weight', 0.3),
+            'res_sparsity_weight': getattr(
+                self.args, 'res_sparsity_weight', 0.02),
+            'res_warmup_epochs': getattr(
+                self.args, 'res_warmup_epochs', 30),
+            'res_ramp_epochs': getattr(self.args, 'res_ramp_epochs', 30),
             'init_stage2_from_stage1': getattr(self.args, 'init_stage2_from_stage1', False),
             'val_auc': self.args.val_auc,
             'val_betti_matching': self.args.val_betti_matching,
@@ -1344,6 +1416,10 @@ class Trainer:
                     wm = {'epoch': epoch + 1,
                           'train/loss': avg_train_loss,
                           'lr': self.optimizer.param_groups[0]['lr']}
+                    # Keep per-term loss components visible in baseline-style
+                    # logs; otherwise SCNP/ResMoE tuning is blind.
+                    for k, v in comps.items():
+                        wm[f'train/{k}'] = v
                 else:
                     wm = {'epoch': epoch, 'train/loss': avg_train_loss,
                           'lr': self.optimizer.param_groups[0]['lr'],

@@ -85,6 +85,12 @@ INIT_STAGE2_FROM_STAGE1="${INIT_STAGE2_FROM_STAGE1:-true}"
 INPUT_MODE="${INPUT_MODE:-aspect_pad}"
 EVAL_INPUT_MODE="${EVAL_INPUT_MODE:-aspect_pad}"
 FG_CROP_PROB="${FG_CROP_PROB:-0.5}"
+# foreground_crop_prob is only implemented by native_crop.  Resize/aspect_pad
+# ignore it; record 0 so train_config does not claim a crop that never ran.
+if [ "$INPUT_MODE" != "native_crop" ] && [ "$FG_CROP_PROB" != "0" ]; then
+  echo "WARNING: foreground_crop_prob is ignored for input_mode=$INPUT_MODE; recording 0" >&2
+  FG_CROP_PROB=0
+fi
 BOUNDARY_LOSS_WEIGHT="${BOUNDARY_LOSS_WEIGHT:-0.0}"
 BOUNDARY_LOSS_RESOLUTION="${BOUNDARY_LOSS_RESOLUTION:-512}"
 BOUNDARY_LOSS_WARMUP="${BOUNDARY_LOSS_WARMUP:-10}"
@@ -93,6 +99,7 @@ USE_TTA="${USE_TTA:-false}"
 EMPTY_GUARD="${EMPTY_GUARD:-true}"
 SELECTION="${SELECTION:-}"
 FIXED_HEAD="${FIXED_HEAD:-}"
+SELECTION_METRIC="${SELECTION_METRIC:-dice}"
 VAL_SELECTION="${VAL_SELECTION:-auto}"
 VAL_FIXED_HEAD="${VAL_FIXED_HEAD:-2}"
 VAL_EMPTY_GUARD="${VAL_EMPTY_GUARD:-$EMPTY_GUARD}"
@@ -168,6 +175,7 @@ TRAIN_EXTRA+=(--wandb_name "${WANDB_NAME:-sacm_x_seed${SEED}_${PRESET}}")
 TRAIN_EXTRA+=(--scnp "$SCNP" --scnp_window "$SCNP_WINDOW" \
               --scnp_original_weight "$SCNP_ORIGINAL_WEIGHT")
 TRAIN_EXTRA+=(--val_selection "$VAL_SELECTION" \
+              --selection_metric "$SELECTION_METRIC" \
               --val_fixed_head "$VAL_FIXED_HEAD" \
               --val_empty_guard "$VAL_EMPTY_GUARD" \
               --quality_small_component_weight "$QUALITY_SMALL_COMPONENT_WEIGHT" \
@@ -207,7 +215,7 @@ SPECS="$("$PYTHON" scripts/pipeline/protocol_specs.py \
   --datasets "$DATASETS")"
 read -r -a spec_array <<< "$SPECS"
 
-echo "seed=$SEED preset=$PRESET epochs=$EPOCHS gpu=$GPU monitor=$MONITOR val_interval=$VAL_INTERVAL init_stage2_from_stage1=$INIT_STAGE2_FROM_STAGE1 input_mode=$INPUT_MODE eval_input_mode=$EVAL_INPUT_MODE fg_crop_prob=$FG_CROP_PROB boundary_weight=$BOUNDARY_LOSS_WEIGHT val_selection=$VAL_SELECTION val_fixed_head=$VAL_FIXED_HEAD val_empty_guard=$VAL_EMPTY_GUARD topology=${TOPOLOGY_LOSS:-<preset>}(${TOPOLOGY_LOSS_WEIGHT}) tta=$USE_TTA empty_guard=$EMPTY_GUARD scnp=$SCNP($SCNP_WINDOW) deep_closing=${DEEP_CLOSING_CKPT:-none} skip_test=$SKIP_TEST resume=${RESUME:-none}"
+echo "seed=$SEED preset=$PRESET epochs=$EPOCHS gpu=$GPU monitor=$MONITOR val_interval=$VAL_INTERVAL init_stage2_from_stage1=$INIT_STAGE2_FROM_STAGE1 input_mode=$INPUT_MODE eval_input_mode=$EVAL_INPUT_MODE fg_crop_prob=$FG_CROP_PROB boundary_weight=$BOUNDARY_LOSS_WEIGHT val_selection=$VAL_SELECTION selection_metric=$SELECTION_METRIC val_fixed_head=$VAL_FIXED_HEAD val_empty_guard=$VAL_EMPTY_GUARD topology=${TOPOLOGY_LOSS:-<preset>}(${TOPOLOGY_LOSS_WEIGHT}) tta=$USE_TTA empty_guard=$EMPTY_GUARD scnp=$SCNP($SCNP_WINDOW) deep_closing=${DEEP_CLOSING_CKPT:-none} skip_test=$SKIP_TEST resume=${RESUME:-none}"
 echo "datasets=${#spec_array[@]}  output=$OUTPUT_ROOT"
 # Training only.  Evaluation is a separate stage so every seed has one
 # canonical checkpoint and one canonical eval tree.

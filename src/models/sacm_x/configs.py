@@ -362,6 +362,10 @@ PRESETS["full_fixed2_resmoe"] = {
     "res_disagreement_tau": 0.05,
     "res_disagreement_scale": 0.10,
     "res_loss_weight": 0.5,
+    # Topology objective on the corrected head (Skeleton Recall + soft
+    # clDice).  Without this the repair branch optimises Dice/BCE only and
+    # can improve Dice while worsening clDice/HD95.
+    "res_topology_weight": 0.5,
     "res_gate_loss_weight": 0.3,
     "res_sparsity_weight": 0.02,
     "res_warmup_epochs": 30,
@@ -374,6 +378,14 @@ PRESETS["full_fixed2_resmoe_dg"] = {
     **PRESETS["full_fixed2_resmoe"],
     "res_gate_mode": "disagreement",
     "res_gate_loss_weight": 0.0,
+}
+
+# Combined prevention + repair arm.  SCNP wraps the main mask and Stage-1
+# deep-supervision criteria (matching the official SCNP nnU-Net trainer);
+# the repair branch keeps raw Dice/BCE + its topology objective.
+PRESETS["full_fixed2_scnp_resmoe"] = {
+    **PRESETS["full_fixed2_resmoe"],
+    "scnp": True,
 }
 
 # Same fixed2 base plus the high-resolution detail path.  Needs ~24GB.

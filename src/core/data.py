@@ -153,6 +153,11 @@ class SegmentationDataset(Dataset):
         self.foreground_crop_prob = float(foreground_crop_prob)
         self.image_dir = os.path.join(root_dir, split, 'images')
         self.mask_dir = os.path.join(root_dir, split, 'masks')
+        if self.input_mode != 'native_crop' and self.foreground_crop_prob > 0:
+            logging.warning(
+                "foreground_crop_prob=%s is ignored for input_mode=%s; "
+                "use input_mode='native_crop' to enable foreground cropping",
+                self.foreground_crop_prob, self.input_mode)
 
         self.image_files = _find_pairs(self.image_dir, self.mask_dir)
         if not self.image_files:

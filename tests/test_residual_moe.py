@@ -48,6 +48,18 @@ def test_residual_moe_is_identity_at_init_and_gets_gradients():
     assert module.gate.mask_head.weight.grad.abs().sum() > 0
 
 
+def test_res_scale_zero_is_exact_identity():
+    module = _module()
+    image = torch.randn(1, 3, 32, 32)
+    coarse = torch.randn(1, 1, 32, 32)
+    heads = torch.randn(1, 4, 32, 32)
+    module.res_scale = 0.0
+    out = module(image, coarse, heads)
+    assert torch.equal(out, coarse)
+    assert module.last_gate_logits is None
+    assert module.last_gate_mask is None
+
+
 def test_residual_moe_output_changes_after_expert_step():
     torch.manual_seed(1)
     module = _module()
@@ -127,6 +139,7 @@ def test_fixed2_resmoe_presets():
     assert preset['res_gate_mode'] == 'learned'
     assert preset['res_num_experts'] == 4
     assert preset['res_out_size'] == 512
+    assert preset['res_topology_weight'] == 0.5
     assert preset['res_warmup_epochs'] == 30
     assert preset['fixed_supervision_head'] == 2
     assert preset['topology_loss'] == 'skeleton_recall'
@@ -139,6 +152,12 @@ def test_fixed2_resmoe_presets():
     scnp = PRESETS['full_fixed2_scnp']
     assert scnp['scnp'] is True
     assert scnp.get('use_res_moe', False) is False
+
+    combined = PRESETS['full_fixed2_scnp_resmoe']
+    assert combined['scnp'] is True
+    assert combined['use_res_moe'] is True
+    assert combined['res_gate_mode'] == 'learned'
+    assert combined['res_topology_weight'] == 0.5
 
 
 def test_builder_constructs_trainable_resmoe():

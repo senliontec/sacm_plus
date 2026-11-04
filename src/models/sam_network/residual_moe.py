@@ -276,6 +276,9 @@ class TopoResidualMoE(nn.Module):
         self.disagreement_tau = float(disagreement_tau)
         self.disagreement_scale = float(disagreement_scale)
         self.expert_kinds = _expert_kinds(self.num_experts)
+        # Controlled by the trainer.  0 makes the module an exact identity
+        # during warm-up; 0<scale<1 ramps the residual correction in.
+        self.res_scale: float = 1.0
 
         gate_in = 3 + 1
         if self.use_head_disagreement:
@@ -390,6 +393,13 @@ class TopoResidualMoE(nn.Module):
         """
         if image is None or coarse_logits is None:
             return coarse_logits
+        if self.res_scale <= 0:
+            # Strict warm-up: do not build/apply the residual pathway at all.
+            self.last_coarse_logits = None
+            self.last_gate_logits = None
+            self.last_gate_mask = None
+            self.last_routing = None
+            return coarse_logits
         if coarse_logits.ndim != 4 or coarse_logits.shape[1] != 1:
             raise ValueError(
                 f'coarse_logits must be [B,1,H,W], got '
@@ -425,6 +435,8 @@ class TopoResidualMoE(nn.Module):
             gate_mask = _resize(
                 self._disagreement_mask(all_head_logits, coarse),
                 res_size)
+
+        gate_mask = gate_mask * float(self.res_scale)
 
         if route is None:
             weights = torch.full(

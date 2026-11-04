@@ -58,6 +58,10 @@ CKPT="${CKPT:-checkpoints/sam_vit_l_0b3195.pth}"
 USE_WANDB="${USE_WANDB:-true}"
 WANDB_MODE="${WANDB_MODE:-online}"
 NUM_WORKERS="${NUM_WORKERS:-4}"
+# Topology-oriented screen: select the best checkpoint by validation clDice
+# instead of Dice.  This prevents the reported model from being the one with
+# the best pixel overlap but worse topology.
+SELECTION_METRIC="${SELECTION_METRIC:-cldice}"
 ALLOW_DIRTY="${ALLOW_DIRTY:-0}"
 ALLOW_EXISTING="${ALLOW_EXISTING:-0}"
 WAIT_FOR_GPUS="${WAIT_FOR_GPUS:-1}"
@@ -131,9 +135,14 @@ fi
 # diff/untracked snapshot is written to the screen root either way.
 CODE_COMMIT="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
 CODE_STATUS="$(git status --porcelain 2>/dev/null || true)"
+GIT_AVAILABLE=1
 if [ "$CODE_COMMIT" = "unknown" ]; then
-  echo "ERROR: git commit unknown; run from a git checkout." >&2
-  exit 2
+  # The server copy may be an uploaded tree without .git.  Do not block the
+  # run: training provenance still hashes the complete source manifest.
+  echo "WARNING: git metadata unavailable; continuing without commit hash." >&2
+  echo "         provenance/source_manifest.json will still identify the code." >&2
+  GIT_AVAILABLE=0
+  CODE_STATUS=""
 fi
 if [ -n "$CODE_STATUS" ] && [ "$ALLOW_DIRTY" != "1" ]; then
   echo "ERROR: working tree is dirty; commit/tag the exact code first." >&2
@@ -211,6 +220,7 @@ fi
 mkdir -p "$SCREEN_ROOT"
 {
   echo "commit=$CODE_COMMIT"
+  echo "git_available=$GIT_AVAILABLE"
   echo "dirty=$([ -n "$CODE_STATUS" ] && echo true || echo false)"
   echo "started_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo "epochs=$EPOCHS"
@@ -230,6 +240,7 @@ echo "============================================================"
 echo " CVPR 8-GPU verification screen (new root)"
 echo " root:     $SCREEN_ROOT"
 echo " epochs:   $EPOCHS (train+val only; test sets untouched)"
+echo " selection: $SELECTION_METRIC"
 echo " wandb:    $USE_WANDB ($WANDB_MODE)"
 echo " python:   $PY"
 echo " git:      $(printf '%s' "$CODE_COMMIT" | cut -c1-12) (dirty=$([ -n "$CODE_STATUS" ] && echo true || echo false))"
@@ -262,6 +273,7 @@ for spec in "${JOB_SPECS[@]}"; do
   TRAIN_ROOT="data/sacm_3shot_seed${seed}" \
   CANONICAL_ROOT="$SCREEN_ROOT" OUTPUT_ROOT= SCNP=false \
   USE_WANDB="$USE_WANDB" WANDB_MODE="$WANDB_MODE" \
+  SELECTION_METRIC="$SELECTION_METRIC" \
   NUM_WORKERS="$NUM_WORKERS" \
   WANDB_NAME="sacm_x_cvpr8v2_${preset}_seed${seed}" \
     bash "scripts/sacm_x/run_${preset}.sh" train \
