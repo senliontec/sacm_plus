@@ -440,3 +440,104 @@ to SCNP/topology analysis or XCAD/OCTA.
 The backup is not "another module"; it is a better **error-localization
 principle**: measure structural inconsistency at inference instead of
 learning a training-error pattern from 18 images.
+
+### 13.7 Stronger backup: synthetic structural corruption critic
+
+If the cheap signals (head disagreement, entropy, TTA, topology
+suspicion) all have weak AUROC, the best remaining idea is to stop
+predicting the model's errors and instead learn **what a structurally
+valid curvilinear mask looks like**.
+
+Train a small image-conditioned **structural critic**:
+
+```text
+input: image + mask
+positive: image + ground-truth mask
+negative: image + corrupted GT mask
+target: |corrupted GT - GT| (dilated error map)
+```
+
+Corruptions should mimic the actual failure modes:
+
+- gap carving / random removal of skeleton segments;
+- thinning / erosion;
+- false-positive blobs / spurious components;
+- boundary dilation/erosion;
+- threshold jitter.
+
+At inference, run the critic on `(image, coarse mask)`; its output is a
+soft structural-error map, used as the ResMoE gate.
+
+Why this is stronger than a learned gate from 18 error maps:
+
+- supervision is abundant (synthetic corruptions are unlimited);
+- it learns structural validity, not the coarse model's idiosyncratic
+  training errors;
+- it is image-conditioned, so it can distinguish a real vessel gap from
+  background texture;
+- inference cost is one small forward (no TTA);
+- it is model-agnostic and can be reused with another coarse model.
+
+Risks:
+
+- synthetic-to-real gap: the critic may detect synthetic artifacts
+  rather than real coarse errors;
+- 18 GT masks may still overfit; use patch-level training and strong
+  augmentation;
+- corruption design matters; validate AUROC before using it.
+
+Variant: train the critic as a **mask denoiser** (corrupted GT -> GT)
+and apply it directly to the coarse mask. This is more aggressive and
+can hallucinate; the critic-as-gate is safer.
+
+Decision:
+
+```text
+learned gate / TTA / topology AUROC < 0.75
+        -> train synthetic critic (1 small CNN, 1 GPU)
+        -> critic AUROC >= 0.75 on val/Unseen?
+             yes -> use critic as gate; rerun repair ablation
+             no  -> stop repair; pivot to SCNP/analysis
+```
+
+This is the preferred backup if a new small module is acceptable. It is
+much smaller than a new backbone and directly addresses the 3-shot
+supervision problem.
+
+### 13.8 Reliability-first fallback: independent ensemble disagreement
+
+If the goal is **stability** rather than novelty, the most reliable
+error-localization signal is disagreement between independently trained
+models, not a learned gate or a synthetic critic.
+
+We already train five baseline seeds (the 8-GPU screen). Use their
+per-pixel prediction variance as the gate:
+
+```text
+m = normalize(Var_s( sigmoid(z_s) ))   # s = seed
+```
+
+Why it is the safest:
+
+- errors across independent seeds are less correlated than four heads
+  from one model;
+- no synthetic-to-real gap;
+- no gate training on 18 error maps;
+- no target-domain labels;
+- standard deep-ensemble uncertainty.
+
+Cost: 5x inference if all seeds are used; 2-3 seeds may be enough.
+If seed disagreement is weak, use a multi-architecture ensemble
+(SACM-X + a small task-specific model), but report the extra model and
+inference cost.
+
+Use this as a **reliability floor**:
+
+- if the ensemble itself improves val Dice/clDice, the repair method
+  must beat it;
+- if repair cannot beat the ensemble, the paper should not claim
+  "repair"; it should report the ensemble as a robust baseline or
+  narrow the claim.
+
+The ensemble is not the novelty; it is the control that prevents a
+fragile repair story.

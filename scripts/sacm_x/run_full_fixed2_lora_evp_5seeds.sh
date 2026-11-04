@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # Hybrid SACM + Conv-LoRA/EVP on the fixed2 decoder, 5 seeds on the 8x3090 server.
-# Seeds 0-4 on GPUs 1-5 (GPU 0 left free), 800 epochs + 20-test eval.
+# Seeds 0-4 on GPUs 1-5 (GPU 0 left free), 300 epochs + 20-test eval.
 #
 # Usage: bash scripts/sacm_x/run_full_fixed2_lora_evp_5seeds.sh
 set -euo pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$REPO"
 PY="${PYTHON:-/home/zkyd/anaconda3/envs/tsai/bin/python}"
-EPOCHS="${EPOCHS:-800}"
+EPOCHS="${EPOCHS:-300}"
 VAL_INTERVAL="${VAL_INTERVAL:-1}"
 BASE_GPU="${BASE_GPU:-1}"
 CKPT="${CKPT:-checkpoints/sam_vit_l_0b3195.pth}"

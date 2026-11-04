@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 8-GPU recipe matrix for SACM-X (seed 0 by default, 800 epochs).
+# 8-GPU recipe matrix for SACM-X (seed 0 by default, 300 epochs).
 #
 # Each recipe trains ONE preset with a specific recipe override on one GPU.
 # By default it only trains (SKIP_TEST=true); set SKIP_TEST=false to also
@@ -42,7 +42,7 @@ if [ "$USE_WANDB" = "true" ] && [ "$WANDB_MODE" != "offline" ] && [ "$WANDB_MODE
 fi
 
 SEED="${SEED:-0}"
-EPOCHS="${EPOCHS:-800}"
+EPOCHS="${EPOCHS:-300}"
 VAL_INTERVAL="${VAL_INTERVAL:-1}"
 TRAIN_ROOT="${TRAIN_ROOT:-data/sacm_3shot_seed${SEED}}"
 OUTPUT_ROOT="${OUTPUT_ROOT:-results/recipe_matrix}"

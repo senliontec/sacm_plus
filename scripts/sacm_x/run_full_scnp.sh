@@ -2,12 +2,12 @@
 # One-click full_scnp run. No environment variables are required.
 #
 # Usage:
-#   bash scripts/sacm_x/run_full_scnp.sh          # 800 epochs + 20-test eval
-#   bash scripts/sacm_x/run_full_scnp.sh train    # 800 epochs, train only
+#   bash scripts/sacm_x/run_full_scnp.sh          # 300 epochs + 20-test eval
+#   bash scripts/sacm_x/run_full_scnp.sh train    # 300 epochs, train only
 #   bash scripts/sacm_x/run_full_scnp.sh smoke    # 1 epoch, no W&B, no eval
 #
 # Optional overrides (defaults are the comparison protocol):
-#   GPU=0 SEED=0 EPOCHS=800 bash scripts/sacm_x/run_full_scnp.sh
+#   GPU=0 SEED=0 EPOCHS=300 bash scripts/sacm_x/run_full_scnp.sh
 #
 # This wrapper fixes the configuration that produced the current best SACM-X
 # result: fixed Stage-2 head 2, square resize for train and eval, no empty
@@ -20,13 +20,13 @@ cd "$REPO"
 MODE="${1:-full}"
 GPU="${GPU:-0}"
 SEED="${SEED:-0}"
-EPOCHS="${EPOCHS:-800}"
+EPOCHS="${EPOCHS:-300}"
 USE_WANDB="${USE_WANDB:-true}"
 
 case "$MODE" in
   smoke)
     # Isolated output root: a 1-epoch smoke must never touch the canonical
-    # 800-epoch checkpoint under results/runs/.
+    # 300-epoch checkpoint under results/runs/.
     EPOCHS=1
     USE_WANDB=false
     SKIP_TEST=true

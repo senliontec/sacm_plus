@@ -83,7 +83,7 @@ RUN_ROOT="results/runs/sacm_x/${PRESET}/seed_${SEED}"
 
 GPU=7 SEED="$SEED" PRESET="$PRESET" \
 TRAIN_ROOT="data/sacm_3shot_seed${SEED}" \
-OUTPUT_ROOT="$RUN_ROOT" EPOCHS=800 VAL_INTERVAL=1 SKIP_TEST=true \
+OUTPUT_ROOT="$RUN_ROOT" EPOCHS=300 VAL_INTERVAL=1 SKIP_TEST=true \
 bash scripts/sacm_x/run_sacm_x_quick.sh
 ```
 
@@ -91,7 +91,7 @@ For the optional PEPA post-encoder adapter (TCSU + TADT), use the
 one-click wrapper; it keeps the current fixed-head/resize comparison policy:
 
 ```bash
-# 800 epochs + 20-test eval
+# 300 epochs + 20-test eval
 bash scripts/sacm_x/run_full_pepa.sh
 
 # 1-epoch smoke, isolated output, no W&B
@@ -145,7 +145,7 @@ structural aux heads and Skeleton Recall are unchanged.
 # 1-epoch smoke
 bash scripts/sacm_x/run_full_fixed2_lora_evp.sh smoke
 
-# 800 epochs + 20-test eval
+# 300 epochs + 20-test eval
 bash scripts/sacm_x/run_full_fixed2_lora_evp.sh
 
 # 5 seeds on server GPUs 1-5
@@ -236,7 +236,7 @@ artifact is never mistaken for a raw SAM state dict.  Runs are written to
 `results/runs/ablation_v3_vs_v2_skel/` (override with `ABLATION_ROOT=...`),
 so an inherited `CANONICAL_ROOT` cannot redirect them.  Validation runs
 every epoch by default (`VAL_INTERVAL=1`), so W&B receives a val point for
-every epoch.  Set `MODE=full` for the 800-epoch + 20-test run after
+every epoch.  Set `MODE=full` for the 300-epoch + 20-test run after
 choosing the winner.
 
 **Topology target fix.** Skeleton Recall and Topograph now downsample the
@@ -317,7 +317,7 @@ python src/train/trainer.py --preset "$PRESET" \
   --data_root "data/sacm_3shot_seed${SEED}" \
   --checkpoint checkpoints/sam_vit_l_0b3195.pth \
   --save_path "results/runs/sacm_x/${PRESET}/seed_${SEED}/best_model.pth" \
-  --resume last --epochs 800 --seed "$SEED"
+  --resume last --epochs 300 --seed "$SEED"
 ```
 
 `--resume best` is also supported.  A resume refuses a different seed,

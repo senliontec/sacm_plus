@@ -2,12 +2,12 @@
 # One-click full_pepa run (PEPA TCSU + TADT on top of full SACM-X).
 #
 # Usage:
-#   bash scripts/sacm_x/run_full_pepa.sh          # 800 epochs + 20-test eval
-#   bash scripts/sacm_x/run_full_pepa.sh train    # 800 epochs, train only
+#   bash scripts/sacm_x/run_full_pepa.sh          # 300 epochs + 20-test eval
+#   bash scripts/sacm_x/run_full_pepa.sh train    # 300 epochs, train only
 #   bash scripts/sacm_x/run_full_pepa.sh smoke    # 1 epoch, no W&B, no eval
 #
 # Optional overrides:
-#   GPU=0 SEED=0 EPOCHS=800 bash scripts/sacm_x/run_full_pepa.sh
+#   GPU=0 SEED=0 EPOCHS=300 bash scripts/sacm_x/run_full_pepa.sh
 #
 # The wrapper keeps the same fixed-head/geometry policy as the current
 # SACM-X comparison: fixed Stage-2 head 2, square resize, no empty guard.
@@ -19,7 +19,7 @@ cd "$REPO"
 MODE="${1:-full}"
 GPU="${GPU:-0}"
 SEED="${SEED:-0}"
-EPOCHS="${EPOCHS:-800}"
+EPOCHS="${EPOCHS:-300}"
 USE_WANDB="${USE_WANDB:-true}"
 
 case "$MODE" in

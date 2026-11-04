@@ -9,9 +9,9 @@
 # writes the canonical eval/ tree.
 #
 # Usage:
-#   GPU=1 PRESET=full EPOCHS=800 SKIP_TEST=true \
+#   GPU=1 PRESET=full EPOCHS=300 SKIP_TEST=true \
 #     bash scripts/sacm_x/run_sacm_x_quick.sh
-#   GPU=1 PRESET=full EPOCHS=800 SKIP_TEST=false SEED=0 \
+#   GPU=1 PRESET=full EPOCHS=300 SKIP_TEST=false SEED=0 \
 #     bash scripts/sacm_x/run_sacm_x_quick.sh
 #   GPU=1 PRESET=sacm EPOCHS=20 MONITOR=official \
 #     bash scripts/sacm_x/run_sacm_x_quick.sh
@@ -55,7 +55,7 @@ GPU="${GPU:-0}"
 PRESET="${PRESET:-full}"
 RUN_NAME="${RUN_NAME:-${PRESET}}"
 source scripts/sacm_x/wandb_env.sh
-EPOCHS="${EPOCHS:-800}"
+EPOCHS="${EPOCHS:-300}"
 VAL_INTERVAL="${VAL_INTERVAL:-}"
 SEED="${SEED:-0}"
 DATASETS="${DATASETS:-}"
