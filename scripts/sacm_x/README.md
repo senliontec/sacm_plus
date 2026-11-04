@@ -221,6 +221,19 @@ seeds, GPU 5 SCNP, GPU 6 ResMoE and GPU 7 the ConvLoRA/EVP hybrid.  Evaluate
 only the winning variant with `eval_sacm_x_20.sh`; the second wave runs
 seeds 1-4 of the winner.
 
+To evaluate the **previous** encoder-side 8-GPU batch on all 20 test sets
+(one model per GPU, old `resize` / no-empty-guard / fixed-head-2 geometry):
+
+```bash
+bash scripts/sacm_x/eval_cvpr8gpu_20.sh
+```
+
+The script writes each run's `eval/` under its original run root and a
+combined `eval20_summary.csv` under `SCREEN_ROOT`.  These results are
+separate from the newer SCNP/ResMoE/hybrid screen.  If the old batch lives
+in another directory, set `SCREEN_ROOT=...`; use `DRY_RUN=1` to preflight
+without launching.
+
 One-click architecture decision run (two GPUs in parallel, 300 epochs,
 train + validation only, no test-set evaluation):
 
