@@ -22,8 +22,9 @@
 #   REMOTE_ROOT=~/code/sacm-plus/results/runs/cvpr8gpu_screen/sacm_x
 #   LOCAL_ROOT=results/runs/cvpr8gpu_screen/sacm_x
 #
-# rsync is used with whole-file mode, partial resume and no SSH compression:
-# the tree is dominated by .pth files, which do not compress.
+# rsync is used with partial resume and no SSH compression: the tree is
+# dominated by .pth files, which do not compress.  Do not combine
+# --whole-file with --append-verify; rsync rejects that combination.
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -95,7 +96,6 @@ RSYNC_OPTS=(
   -a
   --no-owner
   --no-group
-  --whole-file
   --partial
   --append-verify
   --info=progress2
