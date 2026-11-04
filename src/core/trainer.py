@@ -67,6 +67,14 @@ class ForwardWrapper(nn.Module):
             self.model, images, sparse, dense, return_stage1=True)
 
 
+def unwrap_sam_model(model):
+    """Return the inner Sam from DDP(ForwardWrapper(Sam)) or Sam."""
+    inner = getattr(model, 'module', model)
+    if isinstance(inner, ForwardWrapper):
+        inner = inner.model
+    return inner
+
+
 def calculate_f1_score(pred_masks, true_masks, threshold=0.0):
     """F1 on raw logits (0.0 = probability 0.5, SAM's mask_threshold)."""
     pred_masks = pred_masks.detach().cpu().numpy()
@@ -269,7 +277,7 @@ class Trainer:
         comps_sum = {k: 0.0 for k in (
             'loss_main', 'loss_ds', 'loss_iou', 'loss_cl', 'loss_topo',
             'loss_boundary', 'loss_center', 'loss_width', 'loss_area',
-            'loss_moe')}
+            'loss_moe', 'loss_res', 'loss_gate', 'loss_res_sparse')}
         # 进度条已移除:逐 epoch 的 rich 宽表 + time 列取代进度反馈
         train_pbar = tqdm(self.train_loader, total=len(self.train_loader),
                           desc=f"Epoch {epoch+1}/{self.args.epochs} [Train]",
@@ -474,7 +482,7 @@ class Trainer:
                 getattr(self.args, 'use_v3', False)
                 or getattr(self.args, 'use_structural_aux', False))
             if use_aux:
-                base_model = getattr(self.model, 'module', self.model)
+                base_model = unwrap_sam_model(self.model)
                 decoder = getattr(base_model, 'mask_decoder', None)
                 aux = getattr(decoder, 'last_aux_outputs', None)
                 center_w = float(getattr(
@@ -520,11 +528,41 @@ class Trainer:
             loss_moe = 0.0
             moe_weight = float(getattr(self.args, 'moe_loss_weight', 0.0))
             if moe_weight > 0:
-                base_model = getattr(self.model, 'module', self.model)
+                base_model = unwrap_sam_model(self.model)
                 encoder = getattr(base_model, 'image_encoder', None)
                 moe = getattr(encoder, 'last_moe_loss', None)
                 if moe is not None:
                     loss_moe = moe
+
+            # Topology-aware residual MoE.  The corrected head already
+            # receives the base fixed-head loss; this adds a direct
+            # residual term and the gate supervision.  Warm-up/ramp keeps
+            # the residual pathway inactive while the coarse decoder
+            # stabilises.
+            loss_res = 0.0
+            loss_gate = 0.0
+            loss_res_sparse = 0.0
+            res_scale = 0.0
+            if bool(getattr(self.args, 'use_res_moe', False)):
+                base_model = unwrap_sam_model(self.model)
+                decoder = getattr(base_model, 'mask_decoder', None)
+                res_moe = getattr(decoder, 'residual_moe', None)
+                if res_moe is not None:
+                    warm = int(getattr(
+                        self.args, 'res_warmup_epochs', 30))
+                    ramp = max(1, int(getattr(
+                        self.args, 'res_ramp_epochs', 30)))
+                    step = max(0, (epoch + 1) - warm)
+                    res_scale = min(1.0, step / float(ramp))
+                    if res_scale > 0:
+                        head = int(getattr(
+                            self.args, 'res_head_index', 2))
+                        if m2.shape[1] > head:
+                            loss_res = self.criterion(
+                                m2[:, head:head + 1], masks)
+                        if getattr(res_moe, 'has_learned_gate', False):
+                            loss_gate = res_moe.gate_loss(masks)
+                        loss_res_sparse = res_moe.sparsity_loss()
 
             loss = (
                 loss_main
@@ -545,6 +583,13 @@ class Trainer:
                 * loss_width
                 + float(getattr(self.args, 'v3_area_weight', 0.0))
                 * loss_area
+                + res_scale * float(getattr(
+                    self.args, 'res_loss_weight', 0.5)) * loss_res
+                + res_scale * float(getattr(
+                    self.args, 'res_gate_loss_weight', 0.3)) * loss_gate
+                + res_scale * float(getattr(
+                    self.args, 'res_sparsity_weight', 0.02))
+                * loss_res_sparse
             )
 
             loss.backward()

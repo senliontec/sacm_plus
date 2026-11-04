@@ -30,6 +30,7 @@ NEW_DECODER_PREFIXES = (
     'mask_decoder.final_refine',
     'mask_decoder.v3_',
     'mask_decoder.structural_aux',
+    'mask_decoder.residual_moe',
 )
 
 # Architecture switches shared by the whole SAM family (defaults = the
@@ -91,6 +92,20 @@ SAM_DEFAULTS = dict(
     evp_freq_nums=0.25,
     evp_scale_factor=32,
     evp_zero_init=True,
+    use_res_moe=False,
+    res_num_experts=4,
+    res_hidden=24,
+    res_gate_hidden=32,
+    res_gate_size=512,
+    res_gate_mode='learned',
+    res_use_head_disagreement=True,
+    res_use_centerline=True,
+    res_gate_input_norm=True,
+    res_out_size=512,
+    res_head_index=2,
+    res_dropout=0.0,
+    res_disagreement_tau=0.05,
+    res_disagreement_scale=0.10,
     # Default ON for SACM-X: the final masks come from the new Stage-2 heads,
     # so initialize them from SAM's pretrained Stage-1 heads instead of random.
     init_stage2_from_stage1=True,

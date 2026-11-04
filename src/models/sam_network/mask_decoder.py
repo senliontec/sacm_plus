@@ -17,6 +17,7 @@ from torch.nn import functional as F
 from typing import List, Tuple, Type
 
 from .common import LayerNorm2d
+from .residual_moe import TopoResidualMoE
 from .pepa import (
     CandidateRanker,
     SnakeUpsample2d,
@@ -66,6 +67,20 @@ class MaskDecoder(nn.Module):
         high_res_refine_size: int = 1024,
         single_head: bool = False,
         use_structural_aux: bool = False,
+        use_res_moe: bool = False,
+        res_num_experts: int = 4,
+        res_hidden: int = 24,
+        res_gate_hidden: int = 32,
+        res_gate_size: int = 512,
+        res_gate_mode: str = 'learned',
+        res_use_head_disagreement: bool = True,
+        res_use_centerline: bool = True,
+        res_gate_input_norm: bool = True,
+        res_out_size: int = 512,
+        res_head_index: int = 2,
+        res_dropout: float = 0.0,
+        res_disagreement_tau: float = 0.05,
+        res_disagreement_scale: float = 0.10,
     ) -> None:
         """
         Predicts masks given an image and prompt embeddings, using a
@@ -123,6 +138,9 @@ class MaskDecoder(nn.Module):
         self.last_rank_scores = None
         self.use_structural_aux = bool(use_structural_aux)
         self.last_aux_outputs = None
+        self.use_res_moe = bool(use_res_moe)
+        self.res_head_index = int(res_head_index)
+        self.residual_moe = None
 
         self.single_head = bool(single_head)
         if self.single_head and self.use_typed_heads:
@@ -140,6 +158,27 @@ class MaskDecoder(nn.Module):
             # slot->type binding instead of following the gating order.
             self.type_embeddings = nn.Parameter(
                 torch.zeros(self.num_mask_tokens, transformer_dim))
+
+        if self.use_res_moe:
+            if not 0 <= self.res_head_index < self.num_mask_tokens:
+                raise ValueError(
+                    f'res_head_index={self.res_head_index} outside '
+                    f'[0, {self.num_mask_tokens})')
+            self.residual_moe = TopoResidualMoE(
+                num_experts=res_num_experts,
+                hidden=res_hidden,
+                gate_hidden=res_gate_hidden,
+                gate_size=res_gate_size,
+                gate_mode=res_gate_mode,
+                use_head_disagreement=res_use_head_disagreement,
+                use_centerline=res_use_centerline,
+                gate_input_norm=res_gate_input_norm,
+                out_size=res_out_size,
+                head_index=self.res_head_index,
+                dropout=res_dropout,
+                disagreement_tau=res_disagreement_tau,
+                disagreement_scale=res_disagreement_scale,
+            )
 
         self.output_upscaling = nn.Sequential(
             nn.ConvTranspose2d(transformer_dim, transformer_dim // 4, kernel_size=2, stride=2),
@@ -296,6 +335,7 @@ class MaskDecoder(nn.Module):
         multimask_output: bool,
         adapter_features: List[torch.Tensor] = None,
         intermediate_features: List[torch.Tensor] = None,
+        image: torch.Tensor = None,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Predict masks given image and prompt embeddings.
@@ -310,6 +350,8 @@ class MaskDecoder(nn.Module):
           adapter_features (List[torch.Tensor]): adapter features from image encoder
           intermediate_features (List[torch.Tensor]): intermediate encoder
             features for the multi-depth path
+          image (torch.Tensor): preprocessed input image, used by the
+            optional residual-MoE refinement
 
         Returns:
           torch.Tensor: batched predicted masks
@@ -322,6 +364,7 @@ class MaskDecoder(nn.Module):
             dense_prompt_embeddings=dense_prompt_embeddings,
             adapter_features=adapter_features,
             intermediate_features=intermediate_features,
+            image=image,
         )
 
         if multimask_output:
@@ -388,6 +431,26 @@ class MaskDecoder(nn.Module):
         if image.shape[1] != 3:
             image = image[:, :3]
         return masks + self.final_refine(torch.cat([masks, image], dim=1))
+
+    def _apply_res_moe(
+        self,
+        masks: torch.Tensor,
+        image: torch.Tensor = None,
+        all_head_logits: torch.Tensor = None,
+    ) -> torch.Tensor:
+        """Refine one Stage-2 head with the optional residual MoE."""
+        if (self.residual_moe is None or image is None
+                or masks.shape[1] <= self.res_head_index):
+            return masks
+        h = self.res_head_index
+        corrected = self.residual_moe(
+            image,
+            masks[:, h:h + 1],
+            all_head_logits=all_head_logits,
+            aux=self.last_aux_outputs,
+        )
+        return torch.cat(
+            [masks[:, :h], corrected, masks[:, h + 1:]], dim=1)
 
     def predict_masks(
         self,
@@ -581,6 +644,8 @@ class MaskDecoder(nn.Module):
                 self.last_tadt_threshold = tadt_t.detach()
             else:
                 self.last_tadt_threshold = None
+            masks_stage2 = self._apply_res_moe(
+                masks_stage2, image, all_head_logits=masks_stage2)
             if return_stage1:
                 # Stage-1 and Stage-2 are both in stable type order.
                 return masks_stage2, iou_pred, masks_stage1
@@ -629,6 +694,10 @@ class MaskDecoder(nn.Module):
             self.last_tadt_threshold = tadt_t.detach()
         else:
             self.last_tadt_threshold = None
+
+        masks_stage2_ordered = self._apply_res_moe(
+            masks_stage2_ordered, image,
+            all_head_logits=masks_stage2_ordered)
 
         if return_stage1:
             gather_indices = sorted_indices.unsqueeze(-1).unsqueeze(

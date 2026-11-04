@@ -88,7 +88,15 @@ export PRESET MONITOR=baseline
 export VAL_SELECTION VAL_FIXED_HEAD FIXED_HEAD SELECTION
 export EMPTY_GUARD=false VAL_EMPTY_GUARD=false
 export INPUT_MODE EVAL_INPUT_MODE USE_TTA
-export SCNP=false
+# Preset-aware SCNP default: full_fixed2_scnp enables it unless the caller
+# explicitly overrides SCNP=true/false.
+if [ "${SCNP:-auto}" = "auto" ]; then
+  case "$PRESET" in
+    *scnp*) SCNP=true ;;
+    *) SCNP=false ;;
+  esac
+fi
+export SCNP
 
 echo "============================================================"
 echo " SACM-X PEPA variant: $PRESET"

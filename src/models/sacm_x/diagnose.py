@@ -121,6 +121,23 @@ def build_model(args, device):
         evp_freq_nums=getattr(args, 'evp_freq_nums', 0.25),
         evp_scale_factor=getattr(args, 'evp_scale_factor', 32),
         evp_zero_init=getattr(args, 'evp_zero_init', True),
+        use_res_moe=getattr(args, 'use_res_moe', False),
+        res_num_experts=getattr(args, 'res_num_experts', 4),
+        res_hidden=getattr(args, 'res_hidden', 24),
+        res_gate_hidden=getattr(args, 'res_gate_hidden', 32),
+        res_gate_size=getattr(args, 'res_gate_size', 512),
+        res_gate_mode=getattr(args, 'res_gate_mode', 'learned'),
+        res_use_head_disagreement=getattr(
+            args, 'res_use_head_disagreement', True),
+        res_use_centerline=getattr(args, 'res_use_centerline', True),
+        res_gate_input_norm=getattr(args, 'res_gate_input_norm', True),
+        res_out_size=getattr(args, 'res_out_size', 512),
+        res_head_index=getattr(args, 'res_head_index', 2),
+        res_dropout=getattr(args, 'res_dropout', 0.0),
+        res_disagreement_tau=getattr(
+            args, 'res_disagreement_tau', 0.05),
+        res_disagreement_scale=getattr(
+            args, 'res_disagreement_scale', 0.10),
     )
     sam.to(device)
     checkpoint = torch.load(args.trained_weights, map_location=device)
@@ -333,6 +350,22 @@ def main():
     parser.add_argument('--evp_freq_nums', type=float, default=0.25)
     parser.add_argument('--evp_scale_factor', type=int, default=32)
     parser.add_argument('--evp_zero_init', type=str2bool, default=True)
+    parser.add_argument('--use_res_moe', type=str2bool, default=False)
+    parser.add_argument('--res_num_experts', type=int, default=4)
+    parser.add_argument('--res_hidden', type=int, default=24)
+    parser.add_argument('--res_gate_hidden', type=int, default=32)
+    parser.add_argument('--res_gate_size', type=int, default=512)
+    parser.add_argument('--res_gate_mode', type=str, default='learned',
+                        choices=['learned', 'disagreement'])
+    parser.add_argument('--res_use_head_disagreement', type=str2bool,
+                        default=True)
+    parser.add_argument('--res_use_centerline', type=str2bool, default=True)
+    parser.add_argument('--res_gate_input_norm', type=str2bool, default=True)
+    parser.add_argument('--res_out_size', type=int, default=512)
+    parser.add_argument('--res_head_index', type=int, default=2)
+    parser.add_argument('--res_dropout', type=float, default=0.0)
+    parser.add_argument('--res_disagreement_tau', type=float, default=0.05)
+    parser.add_argument('--res_disagreement_scale', type=float, default=0.10)
     parser.add_argument('--use_geo_i', type=str2bool, default=True)
     parser.add_argument('--use_geo_e', type=str2bool, default=True)
     parser.add_argument('--geo_e_layers', type=str, default='all',

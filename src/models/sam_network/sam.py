@@ -140,6 +140,7 @@ class Sam(nn.Module):
                 multimask_output=multimask_output,
                 adapter_features=curr_adapter_features,
                 intermediate_features=curr_intermediate_features,
+                image=input_images[i:i + 1],
             )
             masks = self.postprocess_masks(
                 low_res_masks,

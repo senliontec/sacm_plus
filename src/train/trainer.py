@@ -145,6 +145,13 @@ def _validate_resume(payload, args, artifact_info):
         'geo_e_layers', 'use_coarse_to_fine', 'use_fusion_v2',
         'use_multi_depth', 'use_typed_heads', 'adapter_dim_ratio',
         'use_convlora', 'use_evp', 'evp_zero_init', 'moe_loss_weight',
+        'use_res_moe', 'res_num_experts', 'res_hidden', 'res_gate_hidden',
+        'res_gate_size', 'res_gate_mode', 'res_use_head_disagreement',
+        'res_use_centerline', 'res_gate_input_norm', 'res_out_size',
+        'res_head_index', 'res_dropout', 'res_disagreement_tau',
+        'res_disagreement_scale', 'res_loss_weight',
+        'res_gate_loss_weight', 'res_sparsity_weight',
+        'res_warmup_epochs', 'res_ramp_epochs',
     ):
         if key in config:
             current = getattr(args, key, None)
@@ -321,6 +328,23 @@ def train(args):
         evp_freq_nums=getattr(args, 'evp_freq_nums', 0.25),
         evp_scale_factor=getattr(args, 'evp_scale_factor', 32),
         evp_zero_init=getattr(args, 'evp_zero_init', True),
+        use_res_moe=getattr(args, 'use_res_moe', False),
+        res_num_experts=getattr(args, 'res_num_experts', 4),
+        res_hidden=getattr(args, 'res_hidden', 24),
+        res_gate_hidden=getattr(args, 'res_gate_hidden', 32),
+        res_gate_size=getattr(args, 'res_gate_size', 512),
+        res_gate_mode=getattr(args, 'res_gate_mode', 'learned'),
+        res_use_head_disagreement=getattr(
+            args, 'res_use_head_disagreement', True),
+        res_use_centerline=getattr(args, 'res_use_centerline', True),
+        res_gate_input_norm=getattr(args, 'res_gate_input_norm', True),
+        res_out_size=getattr(args, 'res_out_size', 512),
+        res_head_index=getattr(args, 'res_head_index', 2),
+        res_dropout=getattr(args, 'res_dropout', 0.0),
+        res_disagreement_tau=getattr(
+            args, 'res_disagreement_tau', 0.05),
+        res_disagreement_scale=getattr(
+            args, 'res_disagreement_scale', 0.10),
     )
     sam.to(device)
     if hasattr(sam.image_encoder, 'grad_checkpointing'):
@@ -737,6 +761,51 @@ if __name__ == '__main__':
     parser.add_argument('--moe_loss_weight', type=float, default=0.0,
                         help='Conv-LoRA noisy-gate load-balancing loss weight '
                              '(official gate loss is already scaled by 1e-2)')
+    # Topology-aware residual MoE (FineSAM++-style gate + residual experts).
+    parser.add_argument('--use_res_moe', type=str2bool, default=False,
+                        help='Add a gate + deterministic residual experts on '
+                             'one Stage-2 head (full_fixed2_resmoe)')
+    parser.add_argument('--res_num_experts', type=int, default=4,
+                        help='Number of residual experts')
+    parser.add_argument('--res_hidden', type=int, default=24,
+                        help='Residual expert hidden width')
+    parser.add_argument('--res_gate_hidden', type=int, default=32,
+                        help='Gate hidden width')
+    parser.add_argument('--res_gate_size', type=int, default=512,
+                        help='Gate working resolution')
+    parser.add_argument('--res_gate_mode', type=str, default='learned',
+                        choices=['learned', 'disagreement'],
+                        help='Learned gate or training-free head-disagreement '
+                             'gate')
+    parser.add_argument('--res_use_head_disagreement', type=str2bool,
+                        default=True,
+                        help='Feed four-head std to the learned gate')
+    parser.add_argument('--res_use_centerline', type=str2bool, default=True,
+                        help='Feed the structural centerline aux logits to '
+                             'the learned gate')
+    parser.add_argument('--res_gate_input_norm', type=str2bool, default=True,
+                        help='Instance-normalise the gate image channel')
+    parser.add_argument('--res_out_size', type=int, default=512,
+                        help='Residual working resolution (512 or 1024)')
+    parser.add_argument('--res_head_index', type=int, default=2,
+                        choices=[0, 1, 2, 3],
+                        help='Stage-2 slot corrected by the residual MoE')
+    parser.add_argument('--res_dropout', type=float, default=0.0,
+                        help='Dropout inside residual experts')
+    parser.add_argument('--res_disagreement_tau', type=float, default=0.05,
+                        help='Disagreement-gate centre')
+    parser.add_argument('--res_disagreement_scale', type=float, default=0.10,
+                        help='Disagreement-gate slope')
+    parser.add_argument('--res_loss_weight', type=float, default=1.0,
+                        help='Direct Dice/BCE weight on the corrected head')
+    parser.add_argument('--res_gate_loss_weight', type=float, default=0.3,
+                        help='Gate BCE+Dice weight')
+    parser.add_argument('--res_sparsity_weight', type=float, default=0.02,
+                        help='L1 penalty on the gate mask')
+    parser.add_argument('--res_warmup_epochs', type=int, default=30,
+                        help='Epochs before the gate/residual losses start')
+    parser.add_argument('--res_ramp_epochs', type=int, default=30,
+                        help='Epochs to ramp gate/residual losses to full')
     parser.add_argument('--init_stage2_from_stage1', type=str2bool, default=True,
                         help='Warm-start the new Stage-2 mask heads from the '
                              'loaded pretrained Stage-1 heads (applied after '

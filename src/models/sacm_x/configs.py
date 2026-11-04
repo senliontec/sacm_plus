@@ -336,6 +336,46 @@ PRESETS["full_fixed2_aux"] = {
     "v3_area_weight": 0.05,
 }
 
+# Training-only SCNP on top of fixed2_aux (CVPR 2026).  No inference cost.
+PRESETS["full_fixed2_scnp"] = {
+    **PRESETS["full_fixed2_aux"],
+    "scnp": True,
+}
+
+# Topology-aware residual MoE on the fixed deployment head (head 2).
+# FineSAM++-style gate + deterministic residual experts; the coarse fixed2
+# decoder and all SACM components stay unchanged.
+PRESETS["full_fixed2_resmoe"] = {
+    **PRESETS["full_fixed2_aux"],
+    "use_res_moe": True,
+    "res_num_experts": 4,
+    "res_hidden": 24,
+    "res_gate_hidden": 32,
+    "res_gate_size": 512,
+    "res_gate_mode": "learned",
+    "res_use_head_disagreement": True,
+    "res_use_centerline": True,
+    "res_gate_input_norm": True,
+    "res_out_size": 512,
+    "res_head_index": 2,
+    "res_dropout": 0.0,
+    "res_disagreement_tau": 0.05,
+    "res_disagreement_scale": 0.10,
+    "res_loss_weight": 0.5,
+    "res_gate_loss_weight": 0.3,
+    "res_sparsity_weight": 0.02,
+    "res_warmup_epochs": 30,
+    "res_ramp_epochs": 30,
+}
+
+# Robust fallback: no learned gate; the four-head disagreement gates the
+# residual experts.  Useful for Unseen-domain checks.
+PRESETS["full_fixed2_resmoe_dg"] = {
+    **PRESETS["full_fixed2_resmoe"],
+    "res_gate_mode": "disagreement",
+    "res_gate_loss_weight": 0.0,
+}
+
 # Same fixed2 base plus the high-resolution detail path.  Needs ~24GB.
 PRESETS["full_fixed2_hr_aux"] = {
     **PRESETS["full_fixed2_aux"],

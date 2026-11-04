@@ -168,9 +168,35 @@ does not conflate DetailStem with ConvLoRA/EVP.  All runs reject an
 inherited audit `OUTPUT_ROOT`/`CANONICAL_ROOT` and write under
 `results/runs/sacm_x/<preset>/seed_<seed>`.
 
-One-click 8-GPU CVPR screen (5 seed-0 variants + seed-1 controls, train+val
-only; no 20-test eval).  300 epochs is the standard screening budget; only
-raise it if the validation curve is still clearly rising at 300:
+Topology-aware residual MoE (`full_fixed2_resmoe`): keep all fixed2/SACM
+components and add a FineSAM++-style gate plus four deterministic residual
+experts on the deployment head (head 2).  The gate predicts a topology-aware
+error region; experts use opening/closing/threshold-jitter inputs, so the
+train and test degradations are identical.  The gate can consume the
+four-head disagreement and the structural centerline logits.
+
+```bash
+# 1-epoch smoke
+bash scripts/sacm_x/run_full_fixed2_resmoe.sh smoke
+
+# 300-epoch screen or full run
+bash scripts/sacm_x/run_full_fixed2_resmoe.sh train
+bash scripts/sacm_x/run_full_fixed2_resmoe.sh full
+
+# Robust fallback: no learned gate, only head disagreement
+bash scripts/sacm_x/run_full_fixed2_resmoe_dg.sh train
+```
+
+Training-only SCNP on fixed2_aux (`full_fixed2_scnp`, no inference cost):
+
+```bash
+bash scripts/sacm_x/run_full_fixed2_scnp.sh train
+```
+
+One-click 8-GPU CVPR screen (5-seed fixed2 baseline + SCNP + ResMoE +
+ConvLoRA/EVP hybrid; train+val only; no 20-test eval).  300 epochs is the
+standard screening budget; only raise it if the validation curve is still
+clearly rising at 300:
 
 ```bash
 # standard screen: 300 epochs, all 8 GPUs must be free
@@ -181,8 +207,10 @@ EPOCHS=800 bash scripts/sacm_x/run_cvpr_8gpu_screen.sh
 ```
 
 Results go to `results/runs/cvpr8gpu_screen/sacm_x/<preset>/seed_<seed>/`;
-logs go to `results/ablation_logs/cvpr8gpu_*`.  Evaluate only the winning
-variant with `eval_sacm_x_20.sh`.
+logs go to `results/ablation_logs/cvpr8gpu_*`.  GPU 0-4 run the five baseline
+seeds, GPU 5 SCNP, GPU 6 ResMoE and GPU 7 the ConvLoRA/EVP hybrid.  Evaluate
+only the winning variant with `eval_sacm_x_20.sh`; the second wave runs
+seeds 1-4 of the winner.
 
 One-click architecture decision run (two GPUs in parallel, 300 epochs,
 train + validation only, no test-set evaluation):

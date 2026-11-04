@@ -86,6 +86,9 @@ class SamPredictor:
         self.original_size = original_image_size
         self.input_size = tuple(transformed_image.shape[-2:])
         input_image = self.model.preprocess(transformed_image)
+        # Kept for the optional residual-MoE refinement, which conditions
+        # on the same preprocessed image as training/evaluation.
+        self.input_image = input_image
         encoder_out = self.model.image_encoder(
             input_image, return_features=True)
         if isinstance(encoder_out, tuple):
@@ -246,6 +249,7 @@ class SamPredictor:
             multimask_output=multimask_output,
             adapter_features=self.adapter_features,
             intermediate_features=self.intermediate_features,
+            image=self.input_image,
         )
 
         # Upscale the masks to the original image resolution
@@ -279,6 +283,7 @@ class SamPredictor:
         self.features = None
         self.adapter_features = None
         self.intermediate_features = None
+        self.input_image = None
         self.orig_h = None
         self.orig_w = None
         self.input_h = None
