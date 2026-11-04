@@ -4,6 +4,10 @@
 > for the canonical SACM-X preset names, parent lineage, status
 > (MAIN/CANDIDATE/CONTROL/LEGACY), result roots and epoch budgets.
 > Use only the canonical aliases there; old v2/v3/PEPA presets are legacy.
+>
+> **Story and iteration policy:** see
+> [`docs/CVPR_STORY.md`](../../docs/CVPR_STORY.md) for the current thesis,
+> falsification tests, allowed/forbidden iterations, and result-decision rules.
 
 Every run, baseline or SACM-X, lives in exactly one directory:
 
