@@ -17,6 +17,7 @@ current SACM-X variant.
 | `CONTROL` | attribution only; not the final method |
 | `ABLATION` | single-switch / historical check |
 | `LEGACY` | historical result; do not run for current comparisons |
+| `OPTIONAL` | optional extension/control; not in the first screen |
 | `INTERNAL` | no-op / debugging preset |
 
 **Global rules**
@@ -56,7 +57,8 @@ defined relative to it.
 
 Common fixed2 settings:
 
-- 4 Stage-2 heads; deployment head = index 2 (ranked order)
+- 4 Stage-2 heads; deployment head = slot 2 in the gating-ranked
+  output (a fixed slot, not a semantic type)
 - `fixed_head_loss_weight=0.5`, `fixed_supervision_head=2`
 - `high_res_output=True`, `high_res_size=512`
 - `high_res_refine=False` except `full_fixed2_hr_aux`
@@ -255,9 +257,12 @@ Only quote a result together with:
 
 Known historical anchors (do **not** mix with current 300-epoch results):
 
-- Old `full_fixed2` 800-epoch All Dice ~59.16 (legacy result).
-- `full_v2_skel_aux` local 800-epoch run: best validation score ~0.713
-  at epoch 286 (see its `metrics_history.json`; not a 20-test result).
+- The previously cited old `full_fixed2` 800-epoch All Dice ~59.16 is a
+  project-history reference; the source artifact is not present in the
+  current working tree.  Locate the run before quoting it.
+- `full_v2_skel_aux` local 800-epoch run: best validation F1 ~0.713 at
+  epoch 286; validation Dice at that epoch is ~0.669 (see its
+  `metrics_history.json`; not a 20-test result).
 - New `full_fixed2_scnp` / `full_fixed2_resmoe` /
   `full_fixed2_resmoe_dg` / `full_fixed2_lora_evp` have **no completed
   current result yet**.
