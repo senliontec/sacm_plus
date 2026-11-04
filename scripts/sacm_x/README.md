@@ -1,5 +1,10 @@
 # Unified runs: baselines and SACM-X
 
+> **Variant registry:** see [`docs/SACM_X_VARIANTS.md`](../../docs/SACM_X_VARIANTS.md)
+> for the canonical SACM-X preset names, parent lineage, status
+> (MAIN/CANDIDATE/CONTROL/LEGACY), result roots and epoch budgets.
+> Use only the canonical aliases there; old v2/v3/PEPA presets are legacy.
+
 Every run, baseline or SACM-X, lives in exactly one directory:
 
 ```text
