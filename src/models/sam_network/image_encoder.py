@@ -19,8 +19,10 @@ import torch.nn.functional as F
 from typing import Optional, Tuple, Type
 
 from .common import LayerNorm2d, MLPBlock
+from .convlora import ConvLoRABranch
 from .detail_stem import DetailStem
 from .dynamic_strip import DynamicStripBranch
+from .evp import EVPPromptGenerator
 
 
 # This class and its supporting functions below lightly adapted from the ViTDet backbone available at: https://github.com/facebookresearch/detectron2/blob/main/detectron2/modeling/backbone/vit.py # noqa
@@ -54,6 +56,14 @@ class ImageEncoderViT(nn.Module):
         use_detail_stem: bool = False,
         detail_channels: int = 32,
         detail_out_channels: int = 32,
+        use_convlora: bool = False,
+        convlora_rank: int = 4,
+        convlora_alpha: float = 32.0,
+        convlora_experts: int = 8,
+        use_evp: bool = False,
+        evp_freq_nums: float = 0.25,
+        evp_scale_factor: int = 32,
+        evp_zero_init: bool = True,
     ) -> None:
         """
         Args:
@@ -94,6 +104,9 @@ class ImageEncoderViT(nn.Module):
         self.collect_adapter_features = bool(collect_adapter_features)
         self.use_dynamic_strip = bool(use_dynamic_strip)
         self.use_detail_stem = bool(use_detail_stem)
+        self.use_convlora = bool(use_convlora)
+        self.use_evp = bool(use_evp)
+        self.embed_dim = embed_dim
         self.geo_e_indices = set(geo_e_indices) if use_geo_e and geo_e_indices is not None else None
         self.patch_size = patch_size
         self.depth = depth
@@ -133,6 +146,10 @@ class ImageEncoderViT(nn.Module):
                 adapter_dim_ratio=adapter_dim_ratio,
                 geo_adapter=use_geo_i,
                 dynamic_strip=use_dynamic_strip,
+                use_convlora=use_convlora,
+                convlora_rank=convlora_rank,
+                convlora_alpha=convlora_alpha,
+                convlora_experts=convlora_experts,
             )
             self.blocks.append(block)
 
@@ -153,6 +170,22 @@ class ImageEncoderViT(nn.Module):
             ),
             LayerNorm2d(out_chans),
         )
+
+        # EVP / SAM-Adapter high-frequency prompts, one per block.  Kept as
+        # a separate trainable branch; the frozen ViT weights are untouched.
+        self.evp = (
+            EVPPromptGenerator(
+                embed_dim=embed_dim,
+                depth=depth,
+                img_size=img_size,
+                patch_size=patch_size,
+                scale_factor=evp_scale_factor,
+                freq_nums=evp_freq_nums,
+                zero_init=evp_zero_init,
+            )
+            if use_evp else None
+        )
+        self.last_moe_loss = None
 
         # External adapters, one per block. With use_geo_e, global-attention
         # layers hold a placeholder AdapterModule that is skipped in forward
@@ -220,7 +253,11 @@ class ImageEncoderViT(nn.Module):
             unexpected_keys, error_msgs)
 
     def forward(self, x: torch.Tensor, return_features: bool = False) -> torch.Tensor:
+        image = x
         x = self.patch_embed(x)
+        evp_prompts = (
+            self.evp(image, x) if self.evp is not None else None
+        )
         if self.pos_embed is not None:
             x = x + self.pos_embed
 
@@ -230,14 +267,21 @@ class ImageEncoderViT(nn.Module):
         # Outputs of the external adapters, consumed by the fusion module.
         adapter_features = []
 
+        moe_losses = []
         # Process through blocks
         for i, blk in enumerate(self.blocks):
+            if evp_prompts is not None:
+                x = x + evp_prompts[i].reshape(
+                    x.shape[0], x.shape[1], x.shape[2], -1)
             # Process through block
             if self.grad_checkpointing and self.training:
                 x = torch.utils.checkpoint.checkpoint(
                     blk, x, use_reentrant=False)
             else:
                 x = blk(x)
+            lora = getattr(blk.attn, 'qkv_lora', None)
+            if lora is not None and lora.last_moe_loss is not None:
+                moe_losses.append(lora.last_moe_loss)
 
             # Save intermediate features for the multi-depth decoder path
             if return_features and i in [0, self.depth // 3, 2 * self.depth // 3, self.depth - 1]:
@@ -258,6 +302,11 @@ class ImageEncoderViT(nn.Module):
 
                 # Directly add the adapter output to the main branch
                 x = x + external_adapter_out
+
+        # Conv-LoRA's auxiliary load-balancing loss; the trainer adds it to
+        # the segmentation objective when moe_loss_weight > 0.
+        self.last_moe_loss = (
+            torch.stack(moe_losses).sum() if moe_losses else None)
 
         # Apply neck to get final output
         output = self.neck(x.permute(0, 3, 1, 2))
@@ -479,6 +528,10 @@ class Block(nn.Module):
         adapter_dim_ratio: float = 0.1,
         geo_adapter: bool = False,
         dynamic_strip: bool = False,
+        use_convlora: bool = False,
+        convlora_rank: int = 4,
+        convlora_alpha: float = 32.0,
+        convlora_experts: int = 8,
     ) -> None:
         """
         Args:
@@ -498,6 +551,8 @@ class Block(nn.Module):
             adapter_dim_ratio (float): Ratio of adapter dim to embedding dim.
             geo_adapter (bool): If True, the internal adapter gets a
                 strip-convolution branch (Adapter-I_geo).
+            use_convlora (bool): If True, add a Conv-LoRA residual branch to
+                the frozen qkv projection.
         """
         super().__init__()
         self.norm1 = norm_layer(dim)
@@ -508,6 +563,10 @@ class Block(nn.Module):
             use_rel_pos=use_rel_pos,
             rel_pos_zero_init=rel_pos_zero_init,
             input_size=input_size if window_size == 0 else (window_size, window_size),
+            use_convlora=use_convlora,
+            convlora_rank=convlora_rank,
+            convlora_alpha=convlora_alpha,
+            convlora_experts=convlora_experts,
         )
 
         self.norm2 = norm_layer(dim)
@@ -564,6 +623,10 @@ class Attention(nn.Module):
         use_rel_pos: bool = False,
         rel_pos_zero_init: bool = True,
         input_size: Optional[Tuple[int, int]] = None,
+        use_convlora: bool = False,
+        convlora_rank: int = 4,
+        convlora_alpha: float = 32.0,
+        convlora_experts: int = 8,
     ) -> None:
         """
         Args:
@@ -581,6 +644,15 @@ class Attention(nn.Module):
         self.scale = head_dim**-0.5
 
         self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias)
+        self.qkv_lora = (
+            ConvLoRABranch(
+                dim,
+                rank=convlora_rank,
+                alpha=convlora_alpha,
+                num_experts=convlora_experts,
+            )
+            if use_convlora else None
+        )
         self.proj = nn.Linear(dim, dim)
 
         self.use_rel_pos = use_rel_pos
@@ -594,8 +666,11 @@ class Attention(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         B, H, W, _ = x.shape
+        qkv = self.qkv(x)
+        if self.qkv_lora is not None:
+            qkv = qkv + self.qkv_lora(x)
         # qkv with shape (3, B, nHead, H * W, C)
-        qkv = self.qkv(x).reshape(B, H * W, 3, self.num_heads, -1).permute(2, 0, 3, 1, 4)
+        qkv = qkv.reshape(B, H * W, 3, self.num_heads, -1).permute(2, 0, 3, 1, 4)
         # q, k, v with shape (B * nHead, H * W, C)
         q, k, v = qkv.reshape(3, B * self.num_heads, H * W, -1).unbind(0)
 

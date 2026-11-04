@@ -125,6 +125,33 @@ convergence:
 bash scripts/sacm_x/run_full_v2_skel_aux.sh
 ```
 
+Hybrid SACM + Conv-LoRA/EVP (`full_fixed2_lora_evp`): keep the SACM
+external geometric adapter and FusionV2, drop the duplicate block-internal
+adapter, and add official-style Conv-LoRA qkv residuals (low-rank identity
+path + noisy top-1 multi-scale conv experts + load-balancing loss) plus
+EVP high-frequency FFT prompts.  The fixed2 decoder, C2F, multi-depth path,
+structural aux heads and Skeleton Recall are unchanged.
+
+```bash
+# 1-epoch smoke
+bash scripts/sacm_x/run_full_fixed2_lora_evp.sh smoke
+
+# 800 epochs + 20-test eval
+bash scripts/sacm_x/run_full_fixed2_lora_evp.sh
+
+# 5 seeds on server GPUs 1-5
+bash scripts/sacm_x/run_full_fixed2_lora_evp_5seeds.sh
+```
+
+Replacement-style PEFT ablation (`full_fixed2_peft_lora_evp`): Conv-LoRA/EVP
+replace the SACM adapter stack entirely (no internal/external adapters, no
+FusionV2).  Use it only to measure the contribution of the SACM adapters.
+
+```bash
+bash scripts/sacm_x/run_full_fixed2_peft_lora_evp.sh smoke
+bash scripts/sacm_x/run_full_fixed2_peft_lora_evp.sh
+```
+
 One-click architecture decision run (two GPUs in parallel, 300 epochs,
 train + validation only, no test-set evaluation):
 

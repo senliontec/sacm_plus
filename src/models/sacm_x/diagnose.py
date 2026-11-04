@@ -73,7 +73,7 @@ def hard_iou(logits, gt):
 def build_model(args, device):
     sam = build_sam_vit_l(
         checkpoint=None,
-        use_adapter=True,
+        use_adapter=getattr(args, 'use_adapter', True),
         adapter_dim_ratio=args.adapter_dim_ratio,
         use_geo_i=args.use_geo_i,
         use_geo_e=args.use_geo_e,
@@ -113,6 +113,14 @@ def build_model(args, device):
         use_internal_adapter=getattr(args, 'use_internal_adapter', True),
         collect_adapter_features=getattr(
             args, 'collect_adapter_features', True),
+        use_convlora=getattr(args, 'use_convlora', False),
+        convlora_rank=getattr(args, 'convlora_rank', 4),
+        convlora_alpha=getattr(args, 'convlora_alpha', 32.0),
+        convlora_experts=getattr(args, 'convlora_experts', 8),
+        use_evp=getattr(args, 'use_evp', False),
+        evp_freq_nums=getattr(args, 'evp_freq_nums', 0.25),
+        evp_scale_factor=getattr(args, 'evp_scale_factor', 32),
+        evp_zero_init=getattr(args, 'evp_zero_init', True),
     )
     sam.to(device)
     checkpoint = torch.load(args.trained_weights, map_location=device)
@@ -315,7 +323,16 @@ def main():
     parser.add_argument('--data_root', type=str, required=True)
     parser.add_argument('--trained_weights', type=str, required=True)
     parser.add_argument('--output_dir', type=str, required=True)
+    parser.add_argument('--use_adapter', type=str2bool, default=True)
     parser.add_argument('--adapter_dim_ratio', type=float, default=0.1)
+    parser.add_argument('--use_convlora', type=str2bool, default=False)
+    parser.add_argument('--convlora_rank', type=int, default=4)
+    parser.add_argument('--convlora_alpha', type=float, default=32.0)
+    parser.add_argument('--convlora_experts', type=int, default=8)
+    parser.add_argument('--use_evp', type=str2bool, default=False)
+    parser.add_argument('--evp_freq_nums', type=float, default=0.25)
+    parser.add_argument('--evp_scale_factor', type=int, default=32)
+    parser.add_argument('--evp_zero_init', type=str2bool, default=True)
     parser.add_argument('--use_geo_i', type=str2bool, default=True)
     parser.add_argument('--use_geo_e', type=str2bool, default=True)
     parser.add_argument('--geo_e_layers', type=str, default='all',

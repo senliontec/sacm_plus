@@ -64,6 +64,14 @@ def build_sam_vit_h(
     v3_aux_width=True,
     use_internal_adapter=True,
     collect_adapter_features=True,
+    use_convlora=False,
+    convlora_rank=4,
+    convlora_alpha=32.0,
+    convlora_experts=8,
+    use_evp=False,
+    evp_freq_nums=0.25,
+    evp_scale_factor=32,
+    evp_zero_init=True,
 ):
     return _build_sam(
         encoder_embed_dim=1280,
@@ -112,6 +120,14 @@ def build_sam_vit_h(
         v3_aux_width=v3_aux_width,
         use_internal_adapter=use_internal_adapter,
         collect_adapter_features=collect_adapter_features,
+        use_convlora=use_convlora,
+        convlora_rank=convlora_rank,
+        convlora_alpha=convlora_alpha,
+        convlora_experts=convlora_experts,
+        use_evp=use_evp,
+        evp_freq_nums=evp_freq_nums,
+        evp_scale_factor=evp_scale_factor,
+        evp_zero_init=evp_zero_init,
     )
 
 
@@ -161,6 +177,14 @@ def build_sam_vit_l(
     v3_aux_width=True,
     use_internal_adapter=True,
     collect_adapter_features=True,
+    use_convlora=False,
+    convlora_rank=4,
+    convlora_alpha=32.0,
+    convlora_experts=8,
+    use_evp=False,
+    evp_freq_nums=0.25,
+    evp_scale_factor=32,
+    evp_zero_init=True,
 ):
     return _build_sam(
         encoder_embed_dim=1024,
@@ -209,6 +233,14 @@ def build_sam_vit_l(
         v3_aux_width=v3_aux_width,
         use_internal_adapter=use_internal_adapter,
         collect_adapter_features=collect_adapter_features,
+        use_convlora=use_convlora,
+        convlora_rank=convlora_rank,
+        convlora_alpha=convlora_alpha,
+        convlora_experts=convlora_experts,
+        use_evp=use_evp,
+        evp_freq_nums=evp_freq_nums,
+        evp_scale_factor=evp_scale_factor,
+        evp_zero_init=evp_zero_init,
     )
 
 
@@ -255,6 +287,14 @@ def build_sam_vit_b(
     v3_aux_width=True,
     use_internal_adapter=True,
     collect_adapter_features=True,
+    use_convlora=False,
+    convlora_rank=4,
+    convlora_alpha=32.0,
+    convlora_experts=8,
+    use_evp=False,
+    evp_freq_nums=0.25,
+    evp_scale_factor=32,
+    evp_zero_init=True,
 ):
     return _build_sam(
         encoder_embed_dim=768,
@@ -303,6 +343,14 @@ def build_sam_vit_b(
         v3_aux_width=v3_aux_width,
         use_internal_adapter=use_internal_adapter,
         collect_adapter_features=collect_adapter_features,
+        use_convlora=use_convlora,
+        convlora_rank=convlora_rank,
+        convlora_alpha=convlora_alpha,
+        convlora_experts=convlora_experts,
+        use_evp=use_evp,
+        evp_freq_nums=evp_freq_nums,
+        evp_scale_factor=evp_scale_factor,
+        evp_zero_init=evp_zero_init,
     )
 
 
@@ -361,6 +409,14 @@ def _build_sam(
     v3_aux_width=True,
     use_internal_adapter=True,
     collect_adapter_features=True,
+    use_convlora=False,
+    convlora_rank=4,
+    convlora_alpha=32.0,
+    convlora_experts=8,
+    use_evp=False,
+    evp_freq_nums=0.25,
+    evp_scale_factor=32,
+    evp_zero_init=True,
 ):
     prompt_embed_dim = 256
     image_size = 1024
@@ -475,6 +531,14 @@ def _build_sam(
             use_detail_stem=use_detail_stem,
             detail_channels=detail_channels,
             detail_out_channels=detail_out_channels,
+            use_convlora=use_convlora,
+            convlora_rank=convlora_rank,
+            convlora_alpha=convlora_alpha,
+            convlora_experts=convlora_experts,
+            use_evp=use_evp,
+            evp_freq_nums=evp_freq_nums,
+            evp_scale_factor=evp_scale_factor,
+            evp_zero_init=evp_zero_init,
         ),
         prompt_encoder=PromptEncoder(
             embed_dim=prompt_embed_dim,

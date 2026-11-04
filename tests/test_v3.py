@@ -230,9 +230,15 @@ def test_full_fixed2_aux_preset_fields():
     assert preset['topology_loss'] == 'skeleton_recall'
     assert preset['topology_resolution'] == 512
     assert preset['tversky_weight'] == 0.3
+    assert preset['fixed_head_loss_weight'] == 0.5
+    assert preset['fixed_supervision_head'] == 2
+    assert preset['high_res_output'] is True
+    assert preset['high_res_size'] == 512
+    assert preset['high_res_refine'] is False
     assert preset.get('use_detail_stem', False) is False
 
     hr = PRESETS['full_fixed2_hr_aux']
     assert hr['use_detail_stem'] is True
     assert hr['high_res_size'] == 512
+    assert hr['high_res_refine'] is True
     assert hr['high_res_refine_size'] == 1024

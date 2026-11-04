@@ -141,9 +141,10 @@ def _validate_resume(payload, args, artifact_info):
     """Reject silent architecture/seed/data mismatches on resume."""
     config = payload.get('config') or {}
     for key in (
-        'model', 'preset', 'use_geo_i', 'use_geo_e', 'geo_e_layers',
-        'use_coarse_to_fine', 'use_fusion_v2', 'use_multi_depth',
-        'use_typed_heads', 'adapter_dim_ratio',
+        'model', 'preset', 'use_adapter', 'use_geo_i', 'use_geo_e',
+        'geo_e_layers', 'use_coarse_to_fine', 'use_fusion_v2',
+        'use_multi_depth', 'use_typed_heads', 'adapter_dim_ratio',
+        'use_convlora', 'use_evp', 'evp_zero_init', 'moe_loss_weight',
     ):
         if key in config:
             current = getattr(args, key, None)
@@ -270,6 +271,7 @@ def train(args):
     logging.info(f"Model: {args.model} — {spec.description}")
     sam = spec.build(
         checkpoint=args.checkpoint,
+        use_adapter=getattr(args, 'use_adapter', True),
         adapter_dim_ratio=args.adapter_dim_ratio,
         use_geo_i=args.use_geo_i,
         use_geo_e=args.use_geo_e,
@@ -311,6 +313,14 @@ def train(args):
         use_internal_adapter=getattr(args, 'use_internal_adapter', True),
         collect_adapter_features=getattr(
             args, 'collect_adapter_features', True),
+        use_convlora=getattr(args, 'use_convlora', False),
+        convlora_rank=getattr(args, 'convlora_rank', 4),
+        convlora_alpha=getattr(args, 'convlora_alpha', 32.0),
+        convlora_experts=getattr(args, 'convlora_experts', 8),
+        use_evp=getattr(args, 'use_evp', False),
+        evp_freq_nums=getattr(args, 'evp_freq_nums', 0.25),
+        evp_scale_factor=getattr(args, 'evp_scale_factor', 32),
+        evp_zero_init=getattr(args, 'evp_zero_init', True),
     )
     sam.to(device)
     if hasattr(sam.image_encoder, 'grad_checkpointing'):
@@ -539,6 +549,9 @@ if __name__ == '__main__':
     parser.add_argument('--model', type=str, default='sam_l', choices=sorted(MODEL_REGISTRY),
                         help='Model architecture from the model registry (see docs/MODEL_MANAGEMENT.md)')
     parser.add_argument('--batch_size', type=int, default=1, help='Batch size')
+    parser.add_argument('--use_adapter', type=str2bool, default=True,
+                        help='Build SACM internal/external adapters '
+                             '(full_fixed2_lora_evp disables them)')
     parser.add_argument('--adapter_dim_ratio', type=float, default=0.1, help='Ratio of adapter dimension to model dimension')
     parser.add_argument('--adapter_lr', type=float, default=3e-4, help='Learning rate for adapter modules')
     parser.add_argument('--new_module_lr', type=float, default=1e-4, help='Learning rate for newly added decoder modules')
@@ -702,6 +715,28 @@ if __name__ == '__main__':
                         default=True,
                         help='Collect all external-adapter outputs for the '
                              'decoder fusion. V3 disables it to save memory')
+    parser.add_argument('--use_convlora', type=str2bool, default=False,
+                        help='Add a Conv-LoRA residual branch to the frozen '
+                             'qkv projection (full_fixed2_lora_evp)')
+    parser.add_argument('--convlora_rank', type=int, default=4,
+                        help='Conv-LoRA low-rank width')
+    parser.add_argument('--convlora_alpha', type=float, default=32.0,
+                        help='Conv-LoRA residual scaling alpha')
+    parser.add_argument('--convlora_experts', type=int, default=8,
+                        help='Number of multi-scale conv experts')
+    parser.add_argument('--use_evp', type=str2bool, default=False,
+                        help='Add EVP/SAM-Adapter high-frequency prompts to '
+                             'every ViT block (full_fixed2_lora_evp)')
+    parser.add_argument('--evp_freq_nums', type=float, default=0.25,
+                        help='EVP FFT high-pass cutoff rate')
+    parser.add_argument('--evp_scale_factor', type=int, default=32,
+                        help='EVP prompt low-rank divisor')
+    parser.add_argument('--evp_zero_init', type=str2bool, default=True,
+                        help='Zero-initialise the EVP prompt output so the '
+                             'frozen SAM starts unchanged')
+    parser.add_argument('--moe_loss_weight', type=float, default=0.0,
+                        help='Conv-LoRA noisy-gate load-balancing loss weight '
+                             '(official gate loss is already scaled by 1e-2)')
     parser.add_argument('--init_stage2_from_stage1', type=str2bool, default=True,
                         help='Warm-start the new Stage-2 mask heads from the '
                              'loaded pretrained Stage-1 heads (applied after '
@@ -710,6 +745,13 @@ if __name__ == '__main__':
 
     # Auxiliary losses
     parser.add_argument('--deep_sup_weight', type=float, default=0.3, help='Weight of Stage-1 deep supervision (all heads)')
+    parser.add_argument('--fixed_head_loss_weight', type=float, default=0.0,
+                        help='Extra main Dice/BCE weight on the deployment '
+                             'fixed head; also routes clDice/topology/Tversky '
+                             'to that head. 0 disables (legacy behaviour).')
+    parser.add_argument('--fixed_supervision_head', type=int, default=2,
+                        choices=[0, 1, 2, 3],
+                        help='Stage-2 rank head supervised by fixed_head_loss')
     parser.add_argument('--stage2_supervision', type=str, default='soft',
                         choices=['wta', 'allhead', 'soft', 'typed'],
                         help='Stage-2 candidate supervision: soft (default D8 fix; '

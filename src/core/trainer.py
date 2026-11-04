@@ -268,7 +268,8 @@ class Trainer:
         train_loss = 0.0
         comps_sum = {k: 0.0 for k in (
             'loss_main', 'loss_ds', 'loss_iou', 'loss_cl', 'loss_topo',
-            'loss_boundary', 'loss_center', 'loss_width', 'loss_area')}
+            'loss_boundary', 'loss_center', 'loss_width', 'loss_area',
+            'loss_moe')}
         # 进度条已移除:逐 epoch 的 rich 宽表 + time 列取代进度反馈
         train_pbar = tqdm(self.train_loader, total=len(self.train_loader),
                           desc=f"Epoch {epoch+1}/{self.args.epochs} [Train]",
@@ -349,6 +350,19 @@ class Trainer:
                 raise ValueError(
                     f"Unknown stage2_supervision={stage2_mode!r}; "
                     "expected one of wta/allhead/soft/typed")
+
+            # Fixed-head supervision: the deployment head (fixed2) must
+            # receive the structural terms directly, not only through the
+            # soft mixture of four near-identical heads.
+            fixed_w = float(getattr(
+                self.args, 'fixed_head_loss_weight', 0.0))
+            if fixed_w > 0 and stage2_mode != 'typed' and m2.shape[1] > 2:
+                fixed_head = int(getattr(
+                    self.args, 'fixed_supervision_head', 2))
+                fixed_mask = m2[:, fixed_head:fixed_head + 1]
+                loss_main = loss_main + fixed_w * self.criterion(
+                    fixed_mask, masks)
+                aux_mask = fixed_mask
 
             # Stage-1 deep supervision: ALL heads vs GT. This is what makes
             # the gating scores meaningful in the first place.
@@ -455,6 +469,7 @@ class Trainer:
             loss_center = 0.0
             loss_width = 0.0
             loss_area = 0.0
+            loss_aux_boundary = 0.0
             use_aux = bool(
                 getattr(self.args, 'use_v3', False)
                 or getattr(self.args, 'use_structural_aux', False))
@@ -487,7 +502,7 @@ class Trainer:
                                 + self.criterion(cl256, t256))
                     if (aux_boundary_w > 0
                             and aux.get('boundary') is not None):
-                        loss_boundary = self.criterion(
+                        loss_aux_boundary = self.criterion(
                             aux['boundary'], targets['boundary'])
                     if width_w > 0 and aux.get('width') is not None:
                         pred_width = torch.sigmoid(aux['width'])
@@ -500,6 +515,17 @@ class Trainer:
                     gt_area = masks.mean(dim=(2, 3))
                     loss_area = (pred_area - gt_area).abs().mean()
 
+            # Conv-LoRA noisy-gate load-balancing loss.  The gate already
+            # scales its own loss by 1e-2; moe_loss_weight=0 disables it.
+            loss_moe = 0.0
+            moe_weight = float(getattr(self.args, 'moe_loss_weight', 0.0))
+            if moe_weight > 0:
+                base_model = getattr(self.model, 'module', self.model)
+                encoder = getattr(base_model, 'image_encoder', None)
+                moe = getattr(encoder, 'last_moe_loss', None)
+                if moe is not None:
+                    loss_moe = moe
+
             loss = (
                 loss_main
                 + self.args.deep_sup_weight * loss_ds
@@ -510,10 +536,11 @@ class Trainer:
                 + tversky_mu * loss_tversky
                 + tadt_weight * loss_tadt
                 + self.args.topology_loss_weight * loss_topo
+                + moe_weight * loss_moe
                 + float(getattr(self.args, 'v3_centerline_weight', 0.0))
                 * loss_center
                 + float(getattr(self.args, 'v3_boundary_weight', 0.0))
-                * loss_boundary
+                * loss_aux_boundary
                 + float(getattr(self.args, 'v3_width_weight', 0.0))
                 * loss_width
                 + float(getattr(self.args, 'v3_area_weight', 0.0))

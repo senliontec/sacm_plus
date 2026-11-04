@@ -317,6 +317,13 @@ PRESETS["full_v2_skel_aux"] = {
 PRESETS["full_fixed2_aux"] = {
     **FULL,
     "use_structural_aux": True,
+    # Direct supervision of the deployment head (fixed2), not only the
+    # soft mixture of four near-identical heads.
+    "fixed_head_loss_weight": 0.5,
+    "fixed_supervision_head": 2,
+    "high_res_output": True,
+    "high_res_size": 512,
+    "high_res_refine": False,
     "topology_loss": "skeleton_recall",
     "topology_loss_weight": 0.2,
     "topology_resolution": 512,
@@ -337,6 +344,49 @@ PRESETS["full_fixed2_hr_aux"] = {
     "high_res_size": 512,
     "high_res_refine": True,
     "high_res_refine_size": 1024,
+}
+
+# Hybrid SACM + Conv-LoRA/EVP: retain SACM's external geometric adapter and
+# FusionV2 (global cross-layer context), drop the duplicate block-internal
+# adapter, and add official-style Conv-LoRA qkv residuals plus EVP FFT prompts.
+# The fixed2 decoder, C2F, multi-depth path, structural aux heads and Skeleton
+# Recall supervision are unchanged.
+PRESETS["full_fixed2_lora_evp"] = {
+    **PRESETS["full_fixed2_aux"],
+    "use_adapter": True,
+    "use_geo_i": False,
+    "use_geo_e": True,
+    "use_internal_adapter": False,
+    "collect_adapter_features": True,
+    "use_fusion_v2": True,
+    "use_multi_depth": True,
+    "use_convlora": True,
+    "convlora_rank": 4,
+    "convlora_alpha": 32.0,
+    "convlora_experts": 8,
+    "use_evp": True,
+    "evp_freq_nums": 0.25,
+    "evp_scale_factor": 32,
+    "evp_zero_init": True,
+    "moe_loss_weight": 1.0,
+    "use_detail_stem": True,
+    "high_res_output": True,
+    "high_res_size": 512,
+    "high_res_refine": False,
+}
+
+# Replacement-style PEFT ablation: Conv-LoRA/EVP replace the SACM adapter
+# stack entirely (no internal/external adapters, no FusionV2).  The decoder
+# remains fixed2 + C2F + multi-depth + structural aux.
+PRESETS["full_fixed2_peft_lora_evp"] = {
+    **PRESETS["full_fixed2_lora_evp"],
+    "use_adapter": False,
+    "use_geo_i": False,
+    "use_geo_e": False,
+    "use_internal_adapter": False,
+    "collect_adapter_features": False,
+    "use_fusion_v2": False,
+    "use_multi_depth": True,
 }
 
 

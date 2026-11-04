@@ -117,6 +117,7 @@ def _prepare_evaluation(args):
     logging.info(f"Model: {args.model} — {spec.description}")
     sam = spec.build(
         checkpoint=None,
+        use_adapter=getattr(args, 'use_adapter', True),
         adapter_dim_ratio=args.adapter_dim_ratio,
         use_geo_i=args.use_geo_i,
         use_geo_e=args.use_geo_e,
@@ -157,6 +158,14 @@ def _prepare_evaluation(args):
         use_internal_adapter=getattr(args, 'use_internal_adapter', True),
         collect_adapter_features=getattr(
             args, 'collect_adapter_features', True),
+        use_convlora=getattr(args, 'use_convlora', False),
+        convlora_rank=getattr(args, 'convlora_rank', 4),
+        convlora_alpha=getattr(args, 'convlora_alpha', 32.0),
+        convlora_experts=getattr(args, 'convlora_experts', 8),
+        use_evp=getattr(args, 'use_evp', False),
+        evp_freq_nums=getattr(args, 'evp_freq_nums', 0.25),
+        evp_scale_factor=getattr(args, 'evp_scale_factor', 32),
+        evp_zero_init=getattr(args, 'evp_zero_init', True),
     )
     sam.to(device)
 
@@ -514,6 +523,9 @@ if __name__ == '__main__':
                              '<output_dir>/<NAME>')
     parser.add_argument('--trained_weights', type=str, default='best_model.pth', help='Path to trained weights')
     parser.add_argument('--output_dir', type=str, default='results/outputs/tyre', help='Directory to save test results (multi-dataset mode: output root)')
+    parser.add_argument('--use_adapter', type=str2bool, default=True,
+                        help='Build SACM adapters (must match checkpoint; '
+                             'full_fixed2_lora_evp disables them)')
     parser.add_argument('--adapter_dim_ratio', type=float, default=0.1, help='Ratio of adapter dimension to model dimension')
     parser.add_argument('--model', type=str, default='sam_l', choices=sorted(MODEL_REGISTRY),
                         help='Model architecture from the model registry (must match training)')
@@ -605,6 +617,25 @@ if __name__ == '__main__':
                         default=True,
                         help='Collect external-adapter outputs for decoder '
                              'fusion (v3 = False)')
+    parser.add_argument('--use_convlora', type=str2bool, default=False,
+                        help='Conv-LoRA qkv branch (must match checkpoint; '
+                             'full_fixed2_lora_evp enables it)')
+    parser.add_argument('--convlora_rank', type=int, default=4,
+                        help='Conv-LoRA low-rank width')
+    parser.add_argument('--convlora_alpha', type=float, default=32.0,
+                        help='Conv-LoRA residual scaling alpha')
+    parser.add_argument('--convlora_experts', type=int, default=8,
+                        help='Number of multi-scale conv experts')
+    parser.add_argument('--use_evp', type=str2bool, default=False,
+                        help='EVP high-frequency prompts (must match '
+                             'checkpoint; full_fixed2_lora_evp enables it)')
+    parser.add_argument('--evp_freq_nums', type=float, default=0.25,
+                        help='EVP FFT high-pass cutoff rate')
+    parser.add_argument('--evp_scale_factor', type=int, default=32,
+                        help='EVP prompt low-rank divisor')
+    parser.add_argument('--evp_zero_init', type=str2bool, default=True,
+                        help='Zero-initialise EVP prompt output (must match '
+                             'checkpoint)')
 
     # Inference options
     parser.add_argument('--selection', type=str, default='auto',

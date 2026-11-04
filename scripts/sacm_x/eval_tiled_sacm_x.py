@@ -52,6 +52,7 @@ def _build_model(args, device):
     spec = get_model_spec(args.model)
     build_kwargs = dict(
         checkpoint=None,
+        use_adapter=args.use_adapter,
         adapter_dim_ratio=args.adapter_dim_ratio,
         use_geo_i=args.use_geo_i,
         use_geo_e=args.use_geo_e,
@@ -91,6 +92,14 @@ def _build_model(args, device):
         use_internal_adapter=getattr(args, 'use_internal_adapter', True),
         collect_adapter_features=getattr(
             args, 'collect_adapter_features', True),
+        use_convlora=args.use_convlora,
+        convlora_rank=args.convlora_rank,
+        convlora_alpha=args.convlora_alpha,
+        convlora_experts=args.convlora_experts,
+        use_evp=args.use_evp,
+        evp_freq_nums=args.evp_freq_nums,
+        evp_scale_factor=args.evp_scale_factor,
+        evp_zero_init=args.evp_zero_init,
     )
     # Keep this script runnable against checkouts that do not yet contain
     # the optional dynamic-strip model code.  For the default `full` preset
@@ -207,6 +216,15 @@ def main() -> int:
     parser.add_argument('--use-internal-adapter', type=str2bool, default=True)
     parser.add_argument('--collect-adapter-features', type=str2bool,
                         default=True)
+    parser.add_argument('--use-adapter', type=str2bool, default=True)
+    parser.add_argument('--use-convlora', type=str2bool, default=False)
+    parser.add_argument('--convlora-rank', type=int, default=4)
+    parser.add_argument('--convlora-alpha', type=float, default=32.0)
+    parser.add_argument('--convlora-experts', type=int, default=8)
+    parser.add_argument('--use-evp', type=str2bool, default=False)
+    parser.add_argument('--evp-freq-nums', type=float, default=0.25)
+    parser.add_argument('--evp-scale-factor', type=int, default=32)
+    parser.add_argument('--evp-zero-init', type=str2bool, default=True)
     parser.add_argument('--fixed-head', type=int, default=2,
                         choices=[0, 1, 2, 3])
     parser.add_argument('--pred-threshold', type=float, default=0.0,

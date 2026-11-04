@@ -81,6 +81,16 @@ SAM_DEFAULTS = dict(
     v3_aux_width=True,
     use_internal_adapter=True,
     collect_adapter_features=True,
+    # Conv-LoRA qkv branch + EVP high-frequency prompts (opt-in, used as an
+    # alternative to the SACM adapters).
+    use_convlora=False,
+    convlora_rank=4,
+    convlora_alpha=32.0,
+    convlora_experts=8,
+    use_evp=False,
+    evp_freq_nums=0.25,
+    evp_scale_factor=32,
+    evp_zero_init=True,
     # Default ON for SACM-X: the final masks come from the new Stage-2 heads,
     # so initialize them from SAM's pretrained Stage-1 heads instead of random.
     init_stage2_from_stage1=True,
@@ -96,9 +106,10 @@ def freeze_sam(sam):
     """SAM freezing protocol (verbatim from train_sam.py)."""
     # Freeze image encoder parameters except for adapters
     for name, param in sam.image_encoder.named_parameters():
-        # Train adapters and the optional high-resolution detail stem; leave
-        # the pretrained ViT parameters frozen.
-        if 'adapter' not in name and 'detail_stem' not in name:
+        # Train adapters, Conv-LoRA/EVP branches and the optional
+        # high-resolution detail stem; leave the pretrained ViT frozen.
+        if ('adapter' not in name and 'detail_stem' not in name
+                and 'lora' not in name and 'evp' not in name):
             param.requires_grad = False
 
     # External adapters/norms on global-attention layers (and on layers
