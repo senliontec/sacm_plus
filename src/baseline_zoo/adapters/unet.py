@@ -1,28 +1,29 @@
 """U-Net baseline: vendored milesial/PyTorch-UNet architecture.
 
-The model, BCE+Dice objective, per-image scale preprocessing and
-logit-space bilinear upsampling are preserved from milesial/PyTorch-UNet.
-Training on the 18-image 3-shot split uses a task-adapted recipe modelled
-on the standard 2D supervised U-Net trainer in Mamba-UNet/SSL4MIS:
+The model graph and BCE+Dice objective are preserved from
+milesial/PyTorch-UNet.  The deployed baseline is a task adaptation for the
+pooled 18-image / 6-domain 3-shot protocol:
 
-* fixed-size 512x512 random patches.  Mamba-UNet resizes whole slices to
-  256x256 and trains with batch 24; native patches keep the thin
-  CREMI/CrackTree structures instead of downsampling them away,
-* half of the patches are centred on a foreground pixel, because protocol
-  foreground is only 0.25%-9% of the image,
-* batch 8 with eight patches per training image per epoch (~14.4k
-  optimizer steps over 800 epochs, the same order as Mamba-UNet's 10k
-  iterations),
+* full native-resolution images, batch 1, so training and validation see
+  the same spatial distribution and thin structures are not downsampled;
+* InstanceNorm instead of BatchNorm.  With pooled multi-domain training and
+  full-image evaluation, BatchNorm running statistics are a cross-domain
+  average that does not represent any individual image; local diagnostics
+  showed eval-mode predictions collapsing to all-background while batch-stat
+  predictions were sensible.  InstanceNorm normalizes each sample and
+  removes that train/eval gap;
 * joint flips / 90-degree rotations plus mild photometric jitter,
-* AdamW 1e-3 / wd 1e-4 with cosine over 800 epochs, gradient clipping 1.0.
+* AdamW lr 3e-4 / wd 1e-4, warmup + cosine, gradient clipping 1.0.
 
-Validation and prediction stay at native resolution with the official
-preprocessing and logit-space bilinear upsampling.  Label the row
-"3-shot U-Net (official architecture; adapted recipe)".
+`--unet-norm batch --unet-train-mode patch --batch-size 8` restores the
+earlier official-BN patch recipe.  Label the deployed row
+"3-shot U-Net (official architecture; task-adapted InstanceNorm/full-image
+recipe)", not an official U-Net reproduction.
 """
 
 from __future__ import annotations
 
+import math
 import random
 
 import numpy as np
@@ -32,6 +33,7 @@ from PIL import Image
 from torch import nn
 from torch.utils.data import Dataset
 
+from baseline_zoo.data import load_mask
 from baseline_zoo.models.unet import UNet
 from baseline_zoo.runtime import BaselineAdapter
 
@@ -69,6 +71,30 @@ class _RepeatedSampleDataset(Dataset):
         return self.samples[index % len(self.samples)]
 
 
+def _replace_batchnorm(model: nn.Module, kind: str) -> nn.Module:
+    """Swap the vendored BatchNorm layers for task-adapted normalization.
+
+    The official model file under ``models/unet`` stays byte-identical; the
+    adapter performs the replacement at construction time.  InstanceNorm is
+    per-sample and therefore has no cross-domain running statistics.
+    """
+    for name, child in list(model.named_children()):
+        if isinstance(child, nn.BatchNorm2d):
+            if kind == 'instance':
+                replacement = nn.InstanceNorm2d(
+                    child.num_features, affine=True,
+                    track_running_stats=False)
+            elif kind == 'group':
+                replacement = nn.GroupNorm(
+                    min(8, child.num_features), child.num_features)
+            else:
+                raise ValueError(f'unknown norm kind: {kind!r}')
+            setattr(model, name, replacement)
+        else:
+            _replace_batchnorm(child, kind)
+    return model
+
+
 class UNetAdapter(BaselineAdapter):
     id = 'unet'
     display_name = 'U-Net'
@@ -78,41 +104,47 @@ class UNetAdapter(BaselineAdapter):
     # is variable-size; 0 marks that this adapter does not use a fixed size.
     input_size = 0
     scale = 1.0
-    # Task-adapted 3-shot recipe; the official RMSprop recipe is 1e-5/1e-8.
-    official_lr = 1e-3
+    # Task-adapted 3-shot recipe; the official RMSprop recipe is 1e-5.
+    official_lr = 3e-4
     official_weight_decay = 1e-4
+    train_mode = 'full'
+    norm = 'instance'
     patch_size = 512
     crops_per_image = 8
     fg_crop_prob = 0.5
     photometric = True
-    train_batch_size = 8
+    train_batch_size = 1
     default_grad_clip = 1.0
     selection = 'dice'
     # The shared runtime steps the scheduler after validation; the override
     # below handles cosine and any future metric-based scheduler.
     scheduler_after_validation = True
     deviations = (
-        'Official milesial architecture, BCE+Dice loss, per-image scale '
-        'preprocessing machinery and logit-space bilinear upsampling are '
-        'preserved; the effective scale is 1.0 (upstream default 0.5), '
-        'which is a disclosed adaptation.',
-        'The literal official 5-epoch RMSprop lr=1e-5/ReduceLROnPlateau '
-        'recipe collapsed the LR to 1e-8 by epoch 19 on the 18-image split '
-        '(three groups of five non-improving epochs; PyTorch eps=1e-8 then '
-        'prevents further reductions).  The 3-shot recipe follows the '
-        'standard 2D supervised U-Net recipe used by Mamba-UNet/SSL4MIS: '
-        'fixed-size inputs, large batch, a long schedule, flips/rotation '
-        'and Dice+CE.  This port uses native 512x512 patches, batch 8, '
-        'eight patches per training image per epoch, AdamW lr=1e-3/'
-        'wd=1e-4, cosine over 800 epochs and gradient clipping 1.0.  Label '
-        'this row "3-shot U-Net (official architecture; adapted recipe)", '
-        'not an official U-Net reproduction.',
-        'Half of the training patches are centred on a foreground pixel '
-        '(protocol foreground is 0.25%-9%); patches receive joint flips, '
-        '0/90/180/270-degree rotations and mild photometric jitter.  '
-        'Mamba-UNet uses whole-image resize plus batch 24; native patches '
-        'keep the thin CREMI/CrackTree structures that downsampling to 256 '
-        'or 512 would destroy.',
+        'Official milesial architecture and BCE+Dice loss are preserved. '
+        'The deployed task adaptation trains full native-resolution images '
+        'with InstanceNorm, batch 1, AdamW lr=3e-4/wd=1e-4, a 20-epoch '
+        'warmup followed by cosine over the configured budget, and '
+        'flips/rot90/mild photometric jitter.',
+        'BatchNorm is not used in the deployed row.  Under pooled '
+        'six-domain 3-shot training, its running statistics are a '
+        'cross-domain average: local diagnostics showed eval-mode '
+        'predictions collapsing to all-background while batch-stat '
+        'predictions on the same weights were sensible.  InstanceNorm '
+        'normalizes each sample and removes the train/eval gap.  This is '
+        'an architectural adaptation, not the official BN model.',
+        'The official full-image recipe uses scale=0.5, batch 1, RMSprop '
+        '1e-5 and 5 epochs; the literal ReduceLROnPlateau recipe collapsed '
+        'the LR to 1e-8 by epoch 19 on the 18-image split.  This port uses '
+        'scale=1.0 to preserve thin curvilinear structures and a warmup + '
+        'cosine schedule over 300 epochs.  Label the row "3-shot U-Net '
+        '(official architecture; task-adapted InstanceNorm/full-image '
+        'recipe)", not an official U-Net reproduction.',
+        'Restore the earlier official-BN patch ablation with '
+        '`--unet-norm batch --unet-train-mode patch --batch-size 8`.  '
+        'That mode retains native 512x512 patches, half foreground-centred, '
+        'eight patches per training image per epoch and AdamW lr=1e-3; '
+        'its validation curve is expected to be less stable because of the '
+        'BN running-statistics issue above.',
         'A one-class (BCE + foreground Dice) head is used; upstream '
         'train.py defaults to two classes (CE + multiclass Dice), but its '
         '1-class branch is the official binary mode.',
@@ -121,10 +153,8 @@ class UNetAdapter(BaselineAdapter):
         'images single-channel and would assert.',
         'Validation and prediction use scale=1.0 (native resolution) so '
         'thin structures are preserved; upstream train.py/predict.py '
-        'default to scale=0.5, so this is an adapted inference setting, '
-        'not the official default.  Checkpoint selection is the 6-image '
-        'val Dice; upstream saves every epoch and evaluates a random 10% '
-        'split.',
+        'default to scale=0.5.  Checkpoint selection is the 6-image val '
+        'Dice; upstream evaluates a random 10% split.',
         'Official DataLoader workers=os.cpu_count(), shuffle=True and a '
         'global RNG; this port uses workers=0 and a per-epoch seeded RNG, '
         'so data order and floating-point accumulation are not bitwise '
@@ -138,29 +168,49 @@ class UNetAdapter(BaselineAdapter):
 
     def add_args(self, parser):
         parser.add_argument(
+            '--unet-train-mode', choices=['full', 'patch'],
+            default=self.train_mode,
+            help='full: one native-resolution image per batch; patch: '
+                 'random 512x512 crops with repeated samples')
+        parser.add_argument(
+            '--unet-norm', choices=['instance', 'batch', 'group'],
+            default=self.norm,
+            help='normalization: instance (task default), batch (official '
+                 'BN ablation) or group')
+        parser.add_argument(
             '--scale', type=float, default=self.scale,
-            help='Per-image resampling factor before patch cropping '
+            help='Per-image resampling factor before training '
                  '(default 1.0 = native)')
         parser.add_argument(
             '--unet-patch-size', type=int, default=self.patch_size,
-            help='Training patch size (native-resolution 512x512)')
+            help='Training patch size (patch mode only)')
         parser.add_argument(
             '--unet-crops-per-image', type=int, default=self.crops_per_image,
-            help='Random patches per training image per epoch')
+            help='Random patches per training image per epoch (patch mode)')
         parser.add_argument(
             '--unet-fg-crop-prob', type=float, default=self.fg_crop_prob,
-            help='Probability that a training patch is centred on a '
-                 'foreground pixel')
+            help='Probability that a patch is centred on foreground '
+                 '(patch mode)')
         parser.add_argument(
             '--unet-photometric', type=int, choices=[0, 1],
             default=int(self.photometric),
-            help='Apply mild brightness/contrast/gamma jitter to patches')
+            help='Apply mild brightness/contrast/gamma jitter')
 
     def build_model(self, args) -> nn.Module:
         self.scale = float(getattr(args, 'scale', self.scale))
         if self.scale <= 0:
             raise ValueError(
                 f'{self.id}: --scale must be > 0, got {self.scale}')
+        self.train_mode = str(getattr(
+            args, 'unet_train_mode', self.train_mode)).lower()
+        if self.train_mode not in ('full', 'patch'):
+            raise ValueError(
+                f'{self.id}: unknown --unet-train-mode '
+                f'{self.train_mode!r}')
+        self.norm = str(getattr(args, 'unet_norm', self.norm)).lower()
+        if self.norm not in ('instance', 'batch', 'group'):
+            raise ValueError(
+                f'{self.id}: unknown --unet-norm {self.norm!r}')
         self.patch_size = max(
             64, int(getattr(args, 'unet_patch_size', self.patch_size)))
         self.crops_per_image = max(
@@ -171,9 +221,16 @@ class UNetAdapter(BaselineAdapter):
                                self.fg_crop_prob))))
         self.photometric = bool(
             int(getattr(args, 'unet_photometric', int(self.photometric))))
-        return UNet(n_channels=3, n_classes=1)
+        model = UNet(n_channels=3, n_classes=1)
+        if self.norm != 'batch':
+            _replace_batchnorm(model, self.norm)
+        return model
 
     def make_train_dataset(self, samples, args):
+        if self.train_mode == 'full':
+            # One sample per optimizer step; full images have different
+            # sizes and are collated as a batch of one.
+            return None
         repeats = max(1, int(getattr(
             args, 'unet_crops_per_image', self.crops_per_image)))
         if repeats == 1:
@@ -186,8 +243,20 @@ class UNetAdapter(BaselineAdapter):
             lr=args.lr, weight_decay=args.weight_decay)
 
     def make_scheduler(self, optimizer, args):
-        return torch.optim.lr_scheduler.CosineAnnealingLR(
-            optimizer, T_max=max(int(getattr(args, 'epochs', 1)), 1))
+        epochs = max(int(getattr(args, 'epochs', 1)), 1)
+        warmup_raw = getattr(args, 'warmup_epochs', None)
+        warmup = 20 if warmup_raw is None else int(warmup_raw)
+        warmup = max(0, min(warmup, epochs - 1))
+
+        def lr_lambda(epoch: int) -> float:
+            if warmup > 0 and epoch < warmup:
+                return float(epoch + 1) / float(warmup)
+            progress = (epoch - warmup) / max(1, epochs - warmup)
+            progress = min(max(progress, 0.0), 1.0)
+            return 0.5 * (1.0 + math.cos(math.pi * progress))
+
+        return torch.optim.lr_scheduler.LambdaLR(
+            optimizer, lr_lambda=lr_lambda)
 
     def step_scheduler(self, scheduler, metrics: dict[str, float]) -> None:
         if scheduler is None:
@@ -222,10 +291,15 @@ class UNetAdapter(BaselineAdapter):
         return image_np, (width, height)
 
     # ------------------------------------------------------------------
-    # Task-adapted patch training
+    # Task-adapted training
     # ------------------------------------------------------------------
     def _read_pair(self, sample):
-        """Decode an image/mask pair once and cache the uint8 arrays."""
+        """Decode an image/mask pair once and cache the arrays.
+
+        The mask goes through ``load_mask`` rather than a local ``> 127``
+        test: some source masks are literal 0/1 PNGs, for which ``> 127``
+        would silently produce an all-background target.
+        """
         key = str(sample.image_path)
         cached = self._pair_cache.get(key)
         if cached is not None:
@@ -234,15 +308,13 @@ class UNetAdapter(BaselineAdapter):
             image = handle.convert('RGB')
             image_size = image.size
             image_np = np.asarray(image).copy()
-        with Image.open(sample.mask_path) as handle:
-            mask = handle.convert('L')
-            mask_size = mask.size
-            mask_np = np.asarray(mask).copy()
+        mask = load_mask(sample.mask_path)
+        mask_size = (mask.shape[1], mask.shape[0])
         if image_size != mask_size:
             raise RuntimeError(
                 f'{self.id}: image/mask size mismatch for '
                 f'{sample.image_path}: {image_size} vs {mask_size}')
-        entry = (image_np, mask_np)
+        entry = (image_np, mask)
         # 18 training images: at most ~100 MB of uint8 pixels for the
         # largest protocol image, and decoding then happens once.
         if len(self._pair_cache) < 64:
@@ -303,25 +375,11 @@ class UNetAdapter(BaselineAdapter):
         left = rng.randint(0, width - patch)
         return top, left
 
-    def _train_pair(self, sample, rng: random.Random):
-        image_np, mask_np = self._read_pair(sample)
-        if self.scale != 1.0:
-            height, width = mask_np.shape
-            new_w = max(1, int(self.scale * width))
-            new_h = max(1, int(self.scale * height))
-            image_np = np.asarray(Image.fromarray(image_np).resize(
-                (new_w, new_h), Image.BICUBIC))
-            mask_np = np.asarray(Image.fromarray(mask_np).resize(
-                (new_w, new_h), Image.NEAREST))
-        mask = mask_np > 127
-        image, mask = self._pad_to_patch(image_np, mask)
-        top, left = self._crop_origin(mask, rng)
-        patch = self.patch_size
-        image = image[top:top + patch, left:left + patch]
-        mask = mask[top:top + patch, left:left + patch]
-
-        image = image.astype(np.float32) / 255.0
-        mask = mask.astype(np.float32)
+    def _augment(self, image: np.ndarray, mask: np.ndarray,
+                 rng: random.Random):
+        """Joint flips/90-degree rotations and mild photometric jitter."""
+        image = image.astype(np.float32, copy=False)
+        mask = mask.astype(np.float32, copy=False)
         if rng.random() < 0.5:
             image = np.flip(image, axis=1)
             mask = np.flip(mask, axis=1)
@@ -341,12 +399,59 @@ class UNetAdapter(BaselineAdapter):
             image = np.clip(image * gain + bias, 0.0, 1.0)
         if self.photometric and rng.random() < 0.25:
             image = np.clip(image, 0.0, 1.0) ** rng.uniform(0.8, 1.25)
+        return image, mask
 
+    def _train_pair(self, sample, rng: random.Random):
+        """Random native patch for the legacy patch-mode ablation."""
+        image_np, mask = self._read_pair(sample)
+        if self.scale != 1.0:
+            height, width = mask.shape
+            new_w = max(1, int(self.scale * width))
+            new_h = max(1, int(self.scale * height))
+            image_np = np.asarray(Image.fromarray(image_np).resize(
+                (new_w, new_h), Image.BICUBIC))
+            mask = np.asarray(Image.fromarray(
+                mask.astype(np.uint8) * 255).resize(
+                    (new_w, new_h), Image.NEAREST)) > 127
+        image, mask = self._pad_to_patch(image_np, mask)
+        top, left = self._crop_origin(mask, rng)
+        patch = self.patch_size
+        image = image[top:top + patch, left:left + patch]
+        mask = mask[top:top + patch, left:left + patch]
+
+        image = image.astype(np.float32) / 255.0
+        image, mask = self._augment(image, mask, rng)
+        image_t = torch.from_numpy(image).permute(2, 0, 1)
+        mask_t = torch.from_numpy(mask).unsqueeze(0)
+        return image_t, mask_t
+
+    def _train_full_pair(self, sample, rng: random.Random):
+        """One full native-resolution image and its mask."""
+        image_np, _ = self._load_image(sample)
+        mask = load_mask(sample.mask_path)
+        target_shape = image_np.shape[:2]
+        if mask.shape != target_shape:
+            # Covers --scale != 1 and any source image/mask size mismatch.
+            mask = np.asarray(Image.fromarray(
+                mask.astype(np.uint8) * 255).resize(
+                    (target_shape[1], target_shape[0]),
+                    Image.NEAREST)) > 127
+        image, mask = self._augment(image_np, mask, rng)
         image_t = torch.from_numpy(image).permute(2, 0, 1)
         mask_t = torch.from_numpy(mask).unsqueeze(0)
         return image_t, mask_t
 
     def prepare_train_batch(self, samples, rng: random.Random):
+        if self.train_mode == 'full':
+            # Native images have different sizes; batch 1 keeps collation
+            # and activation memory bounded.  The CLI default is 1.
+            if len(samples) != 1:
+                raise ValueError(
+                    f'{self.id}: full-image training requires '
+                    f'--batch-size 1, got a batch of {len(samples)}')
+            image, mask = self._train_full_pair(samples[0], rng)
+            return (image.unsqueeze(0).to(self.device),
+                    mask.unsqueeze(0).to(self.device))
         images, masks = [], []
         for sample in samples:
             image, mask = self._train_pair(sample, rng)
@@ -381,6 +486,8 @@ class UNetAdapter(BaselineAdapter):
 
     def save_config(self, args):
         return {
+            'train_mode': str(self.train_mode),
+            'norm': str(self.norm),
             'scale': float(self.scale),
             'patch_size': int(self.patch_size),
             'crops_per_image': int(self.crops_per_image),
@@ -389,6 +496,32 @@ class UNetAdapter(BaselineAdapter):
         }
 
     def restore_config(self, args, config):
+        # Checkpoints written before this adaptation have no train_mode/norm
+        # keys; they were trained with the BatchNorm patch recipe, so infer
+        # that architecture when loading them for evaluation or resume.
+        if 'train_mode' not in config and 'norm' not in config:
+            self.train_mode = 'patch'
+            self.norm = 'batch'
+            if hasattr(args, 'unet_train_mode'):
+                args.unet_train_mode = self.train_mode
+            if hasattr(args, 'unet_norm'):
+                args.unet_norm = self.norm
+        if 'train_mode' in config:
+            mode = str(config['train_mode']).lower()
+            if mode not in ('full', 'patch'):
+                raise ValueError(
+                    f'{self.id}: unknown checkpoint train_mode {mode!r}')
+            self.train_mode = mode
+            if hasattr(args, 'unet_train_mode'):
+                args.unet_train_mode = mode
+        if 'norm' in config:
+            kind = str(config['norm']).lower()
+            if kind not in ('instance', 'batch', 'group'):
+                raise ValueError(
+                    f'{self.id}: unknown checkpoint norm {kind!r}')
+            self.norm = kind
+            if hasattr(args, 'unet_norm'):
+                args.unet_norm = kind
         if 'scale' in config:
             self.scale = float(config['scale'])
             if hasattr(args, 'scale'):
