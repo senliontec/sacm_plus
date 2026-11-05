@@ -26,7 +26,6 @@ cd "$(dirname "$0")/.." || exit 1
 REPO="$(pwd)"
 
 LOG_DIR="${LOG_DIR:-results/logs/table2_$(date +%Y%m%d_%H%M%S)}"
-mkdir -p "$LOG_DIR"
 SEEDS="${SEEDS:-0 1 2 3}"
 EXPECTED_DATASETS="${EXPECTED_DATASETS:-20}"
 RESUME="${RESUME:-0}"
@@ -36,6 +35,18 @@ SKEIN_GPUS="${SKEIN_GPUS:-0,1,2,3}"
 SACM_GPUS="${SACM_GPUS:-4,5,6,7}"
 export SEEDS EXPECTED_DATASETS RESUME SKIP_TRAIN SKIP_EVAL
 
+overlap="$(comm -12 \
+  <(printf '%s\n' "$SKEIN_GPUS" | tr ',' '\n' | tr -d '[:blank:]' |
+    sed '/^$/d' | sort -u) \
+  <(printf '%s\n' "$SACM_GPUS" | tr ',' '\n' | tr -d '[:blank:]' |
+    sed '/^$/d' | sort -u))"
+if [ -n "$overlap" ]; then
+  echo "ERROR: SKEIN_GPUS and SACM_GPUS overlap: $(echo "$overlap" | tr '\n' ' ')" >&2
+  echo "Use disjoint GPU sets, e.g. 0-3 and 4-7." >&2
+  exit 1
+fi
+
+mkdir -p "$LOG_DIR"
 echo "============================================================"
 echo " Skein vs official SACM, seeds $SEEDS"
 echo " Skein GPUs:  $SKEIN_GPUS"
