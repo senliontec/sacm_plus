@@ -100,8 +100,9 @@ def main() -> int:
             else Path(__file__).resolve().parents[2])
     seeds = sorted(dict.fromkeys(args.seeds))
     all_rows = []
-    reference_datasets = None
-    reference_roles = None
+    reference_datasets: set[str] = set()
+    reference_roles: dict[str, str] = {}
+    first_seed = True
 
     for seed in seeds:
         metrics_path = (repo / 'results' / 'runs' / args.model / args.variant /
@@ -111,9 +112,10 @@ def main() -> int:
         rows = _read_seed(metrics_path, args.expected_datasets)
         seed_datasets = {row['dataset'] for row in rows}
         seed_roles = {row['dataset']: row['role'] for row in rows}
-        if reference_datasets is None:
+        if first_seed:
             reference_datasets = seed_datasets
             reference_roles = seed_roles
+            first_seed = False
         else:
             if seed_datasets != reference_datasets:
                 raise SystemExit(
