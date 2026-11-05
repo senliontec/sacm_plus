@@ -67,6 +67,76 @@ message. Use `WANDB_MODE=offline` for local W&B files or
 `WANDB_MODE=disabled` to turn it off. Direct `run_one` also defaults to
 W&B; pass `--use_wandb false` to disable it for a single run.
 
+## Reproduction runs
+
+One command trains + evaluates both methods and builds Table 2:
+
+```bash
+bash scripts/run_skein_vs_sacm_seeds03.sh
+```
+
+It launches the two halves in parallel on disjoint GPUs (Skein 0-3, official
+SACM 4-7), waits for both, then calls `scripts/build_paper_table.sh`.  The
+individual halves are also available:
+
+```bash
+# Skein, seeds 0-3, GPUs 0-3 (one seed per GPU)
+bash scripts/run_skein_seeds03_gpu0123.sh
+
+# official SACM, seeds 0-3, GPUs 4-7
+bash scripts/run_sacm_official_seeds03_gpu4567.sh
+```
+
+Each half trains every seed first, then evaluates all seeds on the 20
+protocol test datasets with Dice/IoU/clDice/HD95.  The recorder writes
+`eval/tables/per_dataset_4metrics.csv` per seed, plus combined
+`results/reports/<model>_<variant>_seeds*_per_dataset.csv`,
+`..._mean_std.csv` and `..._mean_std.md`.  Useful overrides: `GPU_LIST=...`
+(individual scripts; the combined script uses `SKEIN_GPUS`/`SACM_GPUS`),
+`SEEDS="..."`, `RESUME=1` (skip completed jobs), `SKIP_TRAIN=1`,
+`SKIP_EVAL=1`, `EXPECTED_DATASETS=20`.
+
+## Paper Table 2 (all 20 datasets)
+
+After both runs have finished (the combined script above already does this),
+build the SACM-style per-dataset table with all four metrics:
+
+```bash
+bash scripts/build_paper_table.sh
+```
+
+Default methods are `skein:skein sacm_official:default`, seeds `0 1 2 3`.
+It aggregates mean/std across seeds per dataset and per Seen/Unseen/Novel/All
+role (macro computed per seed first), and writes to
+`results/reports/paper_table2/`:
+
+| File | Content |
+|---|---|
+| `table2.tex` | paper-ready LaTeX, means only, percent, best bold / second underlined |
+| `table2_with_std.tex` | LaTeX, mean ± std |
+| `table2.md` | Markdown, mean ± std |
+| `table2_means.md` | Markdown, means only, percent, best bold / second underlined |
+| `table2.csv` | long table: dataset, method, metric, mean, std, unit, n_seeds |
+| `table2_macro.csv` | Seen/Unseen/Novel/All macro rows |
+
+The display follows the SACM paper's Table 2: Dice/IoU/clDice are shown in
+percent (2 decimals) and HD95 in pixels; best is bold and second best is
+underlined.  `table2.csv` / `table2_macro.csv` keep the raw overlap
+fractions and mark the unit.  Pass `--no-percent` for [0,1] fractions and
+`--decimals N` to change precision.
+
+Overrides: `MODELS="..."`, `SEEDS="..."`, `OUT_DIR=...`,
+`EXPECTED_DATASETS=20`.  The table fails loudly if any seed is missing or a
+seed does not contain exactly the expected number of datasets.
+
+Metric conventions: clDice is the official clDice from `core.metrics`, and
+HD95 is medpy-style in pixels at the original evaluation resolution.  The
+SACM paper's "clDice" is closer to skeleton Dice, so do not compare clDice
+values numerically across the two papers.  Skein's evaluator currently
+excludes images whose clDice/HD95 are undefined (empty masks), while the
+baseline collector uses the `penalty` convention; align this before making
+fine-grained empty-mask claims.
+
 ## Removed helpers
 
 GPU cleanup, cue-ml queueing and Optuna HPO helpers were removed together
@@ -103,9 +173,15 @@ scripts/
 ├── run_eval.sh
 ├── run_report.sh
 ├── run_figures.sh
+├── run_skein_vs_sacm_seeds03.sh       # one command: both runs + Table 2
+├── run_skein_seeds03_gpu0123.sh       # reproduction: Skein seeds 0-3
+├── run_sacm_official_seeds03_gpu4567.sh  # reproduction: SACM seeds 0-3
+├── build_paper_table.sh    # Table 2 from recorded runs
 ├── pipeline/               # evaluation helpers used by the configs
 │   ├── run_baseline_test.py
 │   ├── collect_paper_metrics.py
+│   ├── record_4metrics.py  # per-dataset Dice/IoU/clDice/HD95 recorder
+│   ├── build_paper_table.py # SACM-style Table 2 builder
 │   ├── finalize_run.py
 │   ├── index_runs.py
 │   ├── metrics.py
