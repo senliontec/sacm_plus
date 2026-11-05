@@ -28,6 +28,7 @@ note: >-
   removes that train/eval gap. Label as "3-shot U-Net (official architecture;
   task-adapted InstanceNorm/full-image recipe)". The earlier
   BatchNorm/patch recipe is available as an ablation with
-  `--unet-norm batch --unet-train-mode patch --batch-size 8`.
+  `--unet-norm batch --unet-train-mode patch --batch-size 8 --lr 1e-3
+  --epochs 800 --warmup-epochs 0`.
 defaults:
   epochs: 300

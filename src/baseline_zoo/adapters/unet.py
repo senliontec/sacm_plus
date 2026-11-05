@@ -15,10 +15,11 @@ pooled 18-image / 6-domain 3-shot protocol:
 * joint flips / 90-degree rotations plus mild photometric jitter,
 * AdamW lr 3e-4 / wd 1e-4, warmup + cosine, gradient clipping 1.0.
 
-`--unet-norm batch --unet-train-mode patch --batch-size 8` restores the
-earlier official-BN patch recipe.  Label the deployed row
-"3-shot U-Net (official architecture; task-adapted InstanceNorm/full-image
-recipe)", not an official U-Net reproduction.
+`--unet-norm batch --unet-train-mode patch --batch-size 8 --lr 1e-3
+--epochs 800 --warmup-epochs 0` restores the earlier official-BN patch
+recipe.  Label the deployed row "3-shot U-Net (official architecture;
+task-adapted InstanceNorm/full-image recipe)", not an official U-Net
+reproduction.
 """
 
 from __future__ import annotations
@@ -141,11 +142,12 @@ class UNetAdapter(BaselineAdapter):
         '(official architecture; task-adapted InstanceNorm/full-image '
         'recipe)", not an official U-Net reproduction.',
         'Restore the earlier official-BN patch ablation with '
-        '`--unet-norm batch --unet-train-mode patch --batch-size 8`.  '
-        'That mode retains native 512x512 patches, half foreground-centred, '
-        'eight patches per training image per epoch and AdamW lr=1e-3; '
-        'its validation curve is expected to be less stable because of the '
-        'BN running-statistics issue above.',
+        '`--unet-norm batch --unet-train-mode patch --batch-size 8 '
+        '--lr 1e-3 --epochs 800 --warmup-epochs 0`.  That mode retains '
+        'native 512x512 patches, half foreground-centred, eight patches per '
+        'training image per epoch and AdamW lr=1e-3; its validation curve is '
+        'expected to be less stable because of the BN running-statistics '
+        'issue above.',
         'A one-class (BCE + foreground Dice) head is used; upstream '
         'train.py defaults to two classes (CE + multiclass Dice), but its '
         '1-class branch is the official binary mode.',
