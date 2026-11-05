@@ -7,7 +7,7 @@ configuration (presets, diagnostics).
 Current models:
   - sam_network: the SAM network implementation (Meta code vendored,
     with the SACM geometric adapters / closed-loop decoder switches).
-  - sacm_x: the SACM-X algorithm layer (prompt-free curvilinear
+  - skein: the Skein algorithm layer (prompt-free curvilinear
     segmentation: dual-level geometric adapters + closed-loop
     coarse-to-fine decoder + topology-aligned training); registers
     sam_l / sam_b / sam_h.
@@ -18,4 +18,4 @@ models.py registering its ModelSpecs, and its own configs; then add
 automatically via the shared MODEL_REGISTRY.
 """
 
-from . import sacm_x  # noqa: F401  (registers sam_l/sam_b/sam_h)
+from . import skein  # noqa: F401  (registers sam_l/sam_b/sam_h)

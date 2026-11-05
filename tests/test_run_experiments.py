@@ -4,7 +4,7 @@ import importlib.util
 import os
 from argparse import Namespace
 
-_SCRIPT = os.path.join(os.path.dirname(__file__), '..', 'scripts', 'sacm_x',
+_SCRIPT = os.path.join(os.path.dirname(__file__), '..', 'scripts', 'skein',
                        'run_experiments.py')
 _spec = importlib.util.spec_from_file_location('run_experiments', _SCRIPT)
 rex = importlib.util.module_from_spec(_spec)
@@ -22,6 +22,17 @@ def _args():
         extra_train_args='',
         output_root='results',
         tta=False,
+        train_input_mode='aspect_pad',
+        eval_input_mode='aspect_pad',
+        foreground_crop_prob=0.0,
+        boundary_loss_weight=0.0,
+        boundary_loss_resolution=512,
+        boundary_loss_warmup=10,
+        boundary_loss_ramp=5,
+        num_workers=0,
+        deterministic=False,
+        deterministic_strict=False,
+        empty_guard=False,
     )
 
 

@@ -1,4 +1,4 @@
-"""Tests for the P0 SACM-X improvements: geometry, boundary loss, empty guard."""
+"""Tests for the P0 Skein improvements: geometry, boundary loss, empty guard."""
 
 import random
 

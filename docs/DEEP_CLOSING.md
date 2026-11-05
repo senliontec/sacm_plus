@@ -22,88 +22,12 @@ Implementation/provenance: `src/core/postprocess/UPSTREAM.md`.
 4. The result is reported as `<method> + Deep Closing`.  It is not a new
    baseline architecture.
 
-## One-click shape-prior training
+## Historical status
 
-The shape prior is trained on the 18 protocol training masks; validation
-masks select the checkpoint.  Test masks are never read.
-
-```bash
-GPU=0 bash scripts/sacm_x/train_deep_closing.sh
-```
-
-Defaults: `TRAIN_ROOT=data/sacm_3shot_seed0`,
-`OUTPUT=results/deep_closing/seed0_shape_prior.pth`, 300 epochs, 512
-resolution.  Useful overrides:
-
-```bash
-GPU=0 TRAIN_ROOT=data/sacm_3shot_seed1 \
-  OUTPUT=results/deep_closing/seed1_shape_prior.pth \
-  EPOCHS=300 RESOLUTION=512 ALPHA=0.1 \
-  bash scripts/sacm_x/train_deep_closing.sh
-```
-
-Smoke test:
-
-```bash
-GPU=0 EPOCHS=1 RESOLUTION=128 CHANNELS=16,32,64 \
-  LIMIT_TRAIN=2 LIMIT_VAL=1 \
-  bash scripts/sacm_x/train_deep_closing.sh
-```
-
-## Evaluate SACM-X with Deep Closing
-
-Set the checkpoint without changing the model checkpoint:
-
-```bash
-GPU=0 PRESET=full \
-  DEEP_CLOSING_CKPT=results/deep_closing/seed0_shape_prior.pth \
-  bash scripts/sacm_x/eval_sacm_x_20.sh
-```
-
-The evaluator applies the refiner after FOV masking and before metrics. The
-reported segmentation loss remains the raw model loss; Dice/IoU/clDice/
-HD95/Betti and the saved `*_result.png` use the refined mask.  The output
-directory gains `Deep Closing: ...` in `results_summary.txt` and W&B records
-the checkpoint.
-
-Quick train+eval path:
-
-```bash
-GPU=0 PRESET=full \
-  DEEP_CLOSING_CKPT=results/deep_closing/seed0_shape_prior.pth \
-  bash scripts/sacm_x/run_sacm_x_quick.sh
-```
-
-Fully one-click (train the shape prior if it is missing, then run SACM-X):
-
-```bash
-SEED=0
-GPU=0 PRESET=full_typed SEED="$SEED" \
-  bash scripts/sacm_x/run_sacm_x_deep_closing.sh
-```
-
-Add `RETRAIN_DEEP_CLOSING=true` to force a new shape prior; use
-`DEEP_EPOCHS`, `DEEP_RESOLUTION`, `DEEP_CHANNELS` to override its recipe.
-
-## Apply to any existing prediction directory
-
-This works for baseline predictions and for SACM-X predictions after the
-fact:
-
-```bash
-SEED=0
-RUN_ROOT="results/runs/samed/default/seed_${SEED}"
-PYTHONPATH=src python scripts/tools/apply_deep_closing.py \
-  --input "$RUN_ROOT/predictions/samed" \
-  --output "$RUN_ROOT/predictions/samed_deep_closing" \
-  --checkpoint results/deep_closing/seed0_shape_prior.pth
-```
-
-Output is a 0/255 PNG tree with the same relative paths.  Use `--overwrite`
-to replace existing outputs; `--threshold` controls binarization of the
-input mask (default 0.5); `--dilation_threshold` overrides the shape-prior
-threshold; `--resolution` and `--max_iters` override checkpoint inference
-settings.
+The Deep Closing training and post-processing scripts were removed in the
+Skein cleanup.  Deep Closing is not part of the deployed Skein model.  The
+design description above is retained as a historical note; no runnable
+command is provided.
 
 ## Evaluation protocol
 

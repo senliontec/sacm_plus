@@ -543,7 +543,7 @@ def seed_everything(seed: int):
 
 
 def configure_baseline_determinism(args: argparse.Namespace) -> dict:
-    """Apply the same deterministic execution contract as SACM-X.
+    """Apply the same deterministic execution contract as Skein.
 
     Baseline adapters remain responsible for their official recipes; this
     only fixes RNGs, deterministic kernels, TF32 and DataLoader workers.

@@ -1,7 +1,7 @@
 # scripts/
 
 Top level contains only the one-click entry points.  Everything else lives
-in four subdirectories.
+in three subdirectories.
 
 ## 1. All experiments (train + evaluate + tables + figures)
 
@@ -10,7 +10,7 @@ bash scripts/run_paper.sh --model all --seeds all --gpus 0,1,2,3 --resume
 ```
 
 `--model all` resolves every `status: available` model in
-`configs/models/` (SACM-X plus the 41 official/reference baselines and two
+`configs/models/` (Skein plus the 41 official/reference baselines and two
 project extensions/variants: the CurvField extension and the corrected
 `sacm_plus` variant, including the
 appendix `sam2_unet`, the prompt-free `sam_adapter`/`samed`/`topolora`/
@@ -23,35 +23,13 @@ job it runs the config's
 `train_entrypoint`, then `eval_entrypoint`, and finally writes the
 cross-model tables and figures.
 
-Before training, `run_paper.sh` can clear compute processes on the GPUs
-selected by `--gpus` via `tools/clear_gpus.sh`. This is destructive and is
-opt-in: pass `--kill-gpu`. `--no-kill` is retained for backward
-compatibility; `--dry-run` and `--tables-only` never kill anything.
-`GPU=<indices>` is accepted when `--gpus` is omitted; setting both to
-different values fails before any cleanup.
-
 Subsets and short runs:
 
 ```bash
 bash scripts/run_paper.sh --model unet --seeds 0 --gpus 2
-bash scripts/run_paper.sh --model unet,sacm_x --seeds 0 1 --gpus 2,3
+bash scripts/run_paper.sh --model unet,skein --seeds 0 1 --gpus 2,3
 bash scripts/run_paper.sh --model all --seeds all --dry-run
 ```
-
-### A2SAM read-only triage
-
-After an A2SAM run, diagnose branch-cap saturation and DCA1 empty predictions
-without retraining:
-
-```bash
-GPU=0 bash scripts/tools/run_a2sam_triage.sh
-# optional: --a2sam-datasets all --splits val
-```
-
-It reads `train`/`val` only and writes `branch_stats.csv`,
-`branch_sweep.csv`, and `summary.json` under
-`results/diagnostics/a2sam_seed_0/`. The checkpoint/data/output paths can be
-overridden with `CHECKPOINT`, `DATA_ROOT`, and `OUTPUT`.
 
 ### Prediction-vs-GT audit
 
@@ -62,9 +40,9 @@ fragmentation, holes/Betti errors, skeleton errors, and failure flags:
 
 ```bash
 python scripts/pipeline/audit_predictions.py \
-  --pred-root results/runs/sacm_x/full_typed/seed_0/eval \
+  --pred-root results/runs/skein/full_typed/seed_0/eval \
   --protocol data/sacm_3shot_seed0/protocol_manifest.csv \
-  --out results/audit/sacm_x_full_typed_seed0
+  --out results/audit/skein_full_typed_seed0
 ```
 
 It writes `per_image.csv`, `per_dataset.csv`, `macro_summary.csv`,
@@ -83,105 +61,16 @@ instead of guessing from filenames.  A training run's
 ## W&B
 
 Baseline training and evaluation default to W&B. `run_train.sh` and
-`run_eval.sh` source `scripts/sacm_x/wandb_env.sh` and require credentials
+`run_eval.sh` source `scripts/skein/wandb_env.sh` and require credentials
 when `WANDB_MODE` is online; missing credentials fail fast with a clear
 message. Use `WANDB_MODE=offline` for local W&B files or
 `WANDB_MODE=disabled` to turn it off. Direct `run_one` also defaults to
 W&B; pass `--use_wandb false` to disable it for a single run.
 
-## cue-ml GPU queue
+## Removed helpers
 
-`tools/run_paper_cue.sh` is the dynamic-GPU alternative to the static
-round-robin in `run_paper.sh`.  It requires `pip install cue-ml` and an idle
-set of GPUs (cue does not detect existing VRAM users; the wrapper preflights
-`nvidia-smi` and refuses to start while compute processes exist).
-
-```bash
-# one-click train queue -> eval queue -> tables/figures
-bash scripts/tools/run_paper_cue.sh --seeds 0
-
-# force the two repaired models to rerun even though their old markers exist
-bash scripts/tools/run_paper_cue.sh --models samed,dscnet --seeds 0 --no-resume
-
-# generate/validate all YAML without running models
-bash scripts/tools/run_paper_cue.sh --seeds 0 --dry-run
-```
-
-Each cue job is dispatched through `tools/cue_job.py`, which uses the GPU
-assigned by `CUDA_VISIBLE_DEVICES` and maps it to `--device cuda:0`.
-
-## Optuna tuning
-
-`tools/tune_baselines.py` reads per-model sections from
-`configs/tuning/spaces.yaml`, runs validation-only trials in isolated
-`results/tuning/trials/` workdirs, and writes the best parameters to
-`results/tuning/<model>/best_<protocol>_seed<seed>_<selection>_ep<N>.json`
-(where `<N>` is the effective budget: `--epochs` if provided, otherwise the
-model config default).  Install with `pip install optuna`.
-
-```bash
-# inspect spaces without optuna / without running
-python scripts/tools/tune_baselines.py --models all --dry-run
-
-# screen a model on one GPU, then rerun the selected config at full budget
-python scripts/tools/tune_baselines.py --models dscnet --trials 8 --gpus 0
-
-# parallel trials on four GPUs, using a shorter search budget
-python scripts/tools/tune_baselines.py --models unet,samed --trials 12 \
-    --gpus 0,1,2,3 --epochs 50
-
-# batch seeds 0-4; each (model, seed) gets its own study/best file
-python scripts/tools/tune_baselines.py --models all --seeds 0 1 2 3 4 \
-    --trials 8 --gpus 0,1,2,3,4,5,6
-```
-
-### One-click batch HPO on GPU 0-6
-
-After uploading the code to the server:
-
-```bash
-bash scripts/tools/run_optuna_paper.sh
-```
-
-It defaults to all paper baselines, **seed `0`**, 8 trials per
-(model, seed), and physical GPUs `0,1,2,3,4,5,6`.  GPU 7 is reserved for
-SACM-X: the script never queries it or includes it in
-`CUDA_VISIBLE_DEVICES`.  It refuses to start if any selected GPU already
-has more than 512 MiB in use, and installs Optuna if it is missing.
-
-Useful overrides:
-
-```bash
-# one-click smoke / inspect the plan
-bash scripts/tools/run_optuna_paper.sh --dry-run
-
-# smaller search, then detach to a timestamped log
-bash scripts/tools/run_optuna_paper.sh --models dscnet,unet \
-    --seeds 0 --trials 4 --epochs 50 --detach
-
-# custom interpreter or storage; per-trial weights are deleted by default
-PYTHON=/path/to/tsai/bin/python STORAGE=results/tuning/optuna.db \
-    bash scripts/tools/run_optuna_paper.sh
-
-# keep trial weights for debugging and cap a stuck trial at 6 hours
-bash scripts/tools/run_optuna_paper.sh --keep-trial-checkpoints \
-    --trial-timeout 21600
-```
-
-The runner dynamically assigns each trial to the next free GPU in the
-selected pool.  `nnWNet` and `KnowSAM` are skipped because their custom
-official pipelines do not yet expose the shared scheduler/LR interface;
-`Matcher`, `PerSAM`, `RSRM` and `C2P` are training-free or zero-shot.
-Thus 24 of the 41 official/reference baselines are in the tuning harness.
-The CurvField project extension is intentionally not in the 41-baseline
-sweep or HPO lists; run it explicitly with `--model curvfield`. Newly added
-ports must be added to the explicit `BASELINE_MODELS` list and
-`configs/tuning/spaces.yaml` before `--models all` can tune them.  Trial
-`best_model*.pth` files are deleted after scoring unless
-`--keep-trial-checkpoints` is passed; the metrics history and trainer log
-are kept.  The selected configuration must be applied to a fresh
-full-budget run before reporting.  Test data is never used by the tuning
-runner.
+GPU cleanup, cue-ml queueing and Optuna HPO helpers were removed together
+with `scripts/tools/`.  Free the selected GPUs manually before a run.
 
 ## 2. Paper tables and figures only
 
@@ -217,32 +106,26 @@ scripts/
 ├── pipeline/               # evaluation helpers used by the configs
 │   ├── run_baseline_test.py
 │   ├── collect_paper_metrics.py
-│   ├── visualize_predictions.py
+│   ├── finalize_run.py
+│   ├── index_runs.py
 │   ├── metrics.py
 │   └── protocol_specs.py
-├── sacm_x/                 # SACM-X training/eval engine
-│   ├── run_sacm_x_quick.sh
-│   ├── eval_sacm_x_20.sh
-│   ├── run_experiments.py
-│   ├── aggregate_results.py
-│   ├── make_final_report.py
-│   ├── run_ablation.sh
-│   ├── metrics_report.py
-│   ├── kill_runs.sh
+├── skein/                  # Skein training/eval engine
+│   ├── run_skein_5seeds.sh
+│   ├── run_skein_quick.sh
+│   ├── eval_skein_20.sh
+│   ├── run_variant.sh
+│   ├── run_experiments.py / aggregate_results.py / make_final_report.py
 │   └── wandb_env.sh
-├── data/                   # one-time dataset/protocol construction
-│   ├── prepare_data.py
-│   ├── organize_datasets.py
-│   ├── group_datasets.py
-│   ├── build_protocol_manifest.py
-│   ├── make_shot3_split.sh
-│   └── datasets/           # per-dataset official converters
-└── tools/
-    ├── setup_baselines.sh
-    ├── clear_gpus.sh
-    ├── verify_against_official.py
-    └── clean_pycache.sh
+└── data/                   # one-time dataset/protocol construction
+    ├── prepare_data.py
+    ├── organize_datasets.py
+    ├── group_datasets.py
+    ├── build_protocol_manifest.py
+    ├── make_shot3_split.sh
+    └── datasets/           # per-dataset official converters
 ```
+
 
 ## Data preparation (one-time)
 
@@ -261,13 +144,15 @@ python scripts/data/build_protocol_manifest.py --split-root data/sacm_3shot \
 `prepare_data.py`, `make_shot3_split.sh` and `build_protocol_manifest.py`
 write the train/val/test manifests.
 
-## SACM-X specific
+## Skein specific
 
-`run_sacm_x_quick.sh` and `eval_sacm_x_20.sh` are the commands embedded in
-`configs/models/sacm_x.yaml`; they use the SACM-X training/evaluation engine
-(`run_experiments.py`) and its report path (`aggregate_results.py`,
-`make_final_report.py`).  `run_ablation.sh` runs the SACM-X preset ablation
-matrix and uses the same engine.
+Skein is trained and evaluated through `run_skein_quick.sh` and
+`eval_skein_20.sh`, the entry points embedded in `configs/models/skein.yaml`.
+`run_skein_5seeds.sh` launches five seeds through `run_variant.sh`.
+`run_experiments.py`, `aggregate_results.py` and `make_final_report.py` are
+the low-level train/eval/report helpers used by those entry points.  The
+export, matched-comparison and gate/repair diagnostic scripts were removed
+together with `scripts/tools/`.
 
 ## Notes
 
@@ -275,9 +160,4 @@ matrix and uses the same engine.
   a size-matched `.bin`/`.pth`/`.pt`/`.safetensors` file under
   `checkpoints/` (e.g. `checkpoints/dinov3/pytorch_model.bin`), so no
   environment variable is required.
-- `clear_gpus.sh` stops compute processes on the selected GPU(s);
-  `run_paper.sh` only invokes it with explicit `--kill-gpu`; `--no-kill`
-  is accepted for backward compatibility.
-- `setup_baselines.sh` installs every baseline extra;
-  `verify_against_official.py` is the `make verify` cross-check;
-  `clean_pycache.sh` is `make clean`.
+- `make clean` removes `__pycache__` and stray `.pyc`/`.pyo` files.

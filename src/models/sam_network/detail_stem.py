@@ -1,4 +1,4 @@
-"""Lightweight high-resolution detail stem for SACM-X.
+"""Lightweight high-resolution detail stem for Skein.
 
 The frozen ViT-L operates on 16x patches, so thin structures lose spatial
 detail before the decoder.  This stem runs in parallel on the 1024x1024

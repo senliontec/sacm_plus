@@ -21,6 +21,57 @@ from .structural_decoder import StructuralDecoderV3
 from .transformer import TwoWayTransformer
 
 
+def load_compatible_state_dict(model, state_dict, *, allow_truncate=False):
+    """Load a Skein checkpoint into a possibly different preset.
+
+    Drops parameters that the target architecture does not have (for example
+    the gate-only ``mask_decoder.residual_moe.*`` entries when loading the
+    deployed checkpoint with the canonical ``skein`` preset), while still
+    failing on any target key that receives no value.  This is deliberately
+    stricter than ``strict=False``: an architecture mismatch must not
+    silently leave a head randomly initialized.
+
+    By default a checkpoint tensor whose first dimension is *larger* than the
+    target is rejected as a shape mismatch.  Pass ``allow_truncate=True``
+    only for an intentional head-count reduction; otherwise a stale head
+    layout would be silently sliced.
+    """
+    target = model.state_dict()
+    compatible = {}
+    dropped = []
+    shape_skipped = []
+    for key, value in state_dict.items():
+        key = key[len('module.'):] if key.startswith('module.') else key
+        if key not in target:
+            dropped.append(key)
+            continue
+        target_shape = target[key].shape
+        if value.shape == target_shape:
+            compatible[key] = value
+        elif (allow_truncate
+              and value.ndim == len(target_shape)
+              and value.shape[1:] == tuple(target_shape[1:])
+              and value.shape[0] > target_shape[0]):
+            compatible[key] = value[:target_shape[0]]
+        else:
+            shape_skipped.append(key)
+    missing = [key for key in target if key not in compatible]
+    if missing or shape_skipped:
+        raise RuntimeError(
+            "checkpoint is incompatible with the target architecture: "
+            f"{len(missing)} missing keys, "
+            f"{len(shape_skipped)} shape-mismatched keys; "
+            f"missing (first 10)={missing[:10]}, "
+            f"shape-skipped (first 10)={shape_skipped[:10]}")
+    model.load_state_dict(compatible, strict=True)
+    return {
+        'dropped': dropped,
+        'shape_skipped': shape_skipped,
+        'loaded': len(compatible),
+        'target': len(target),
+    }
+
+
 def build_sam_vit_h(
     checkpoint=None,
     use_adapter=False,
@@ -724,7 +775,7 @@ def _build_sam(
             logging.info("  shape-skipped (first 10): %s", skipped[:10])
 
         # Stage-2 warm-start must happen AFTER the base checkpoint load.
-        # A full SACM-X checkpoint already contains Stage-2 weights; never
+        # A full Skein checkpoint already contains Stage-2 weights; never
         # overwrite those.  A base SAM checkpoint has no Stage-2 keys, so
         # copy the now-loaded Stage-1 heads into Stage-2.
         has_stage2 = any(

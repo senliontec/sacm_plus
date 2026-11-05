@@ -87,7 +87,7 @@ upstream recipe values where they describe official logic. Exceptions to
 the 800-epoch project budget are CS-Net (`cs2net`)/JTFN (1000), BLO-SAM
 (official 100), BCU-Net (paper 100), KnowSAM (50,000 iterations), and
 training-free Matcher/PerSAM (0).
-SACM-X is the proposed method, not a baseline, and is unchanged.
+Skein is the proposed method, not a baseline, and is unchanged.
 
 `sam_adapter` is a prompt-free main-table baseline: the official FFT
 high-pass prompt generator is injected into every ViT block, and the mask

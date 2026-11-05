@@ -48,7 +48,7 @@ from core.run_artifacts import (
 )
 from core.trainer import ForwardWrapper, Trainer
 from core.wandb_utils import WANDB_API_KEY_DEFAULT, redact_secrets
-from models.sacm_x.configs import PRESETS, apply_preset, str2bool
+from models.skein.configs import PRESETS, apply_preset, str2bool
 
 
 class DistributedEvalSampler(Sampler):
@@ -601,7 +601,7 @@ if __name__ == '__main__':
     parser.add_argument('--new_module_lr', type=float, default=1e-4, help='Learning rate for newly added decoder modules')
     parser.add_argument('--decoder_lr', type=float, default=1e-5, help='Learning rate for original mask decoder parameters (lowered to curb few-shot overfitting)')
     parser.add_argument('--weight_decay', type=float, default=0.01, help='Weight decay for optimizer')
-    parser.add_argument('--epochs', type=int, default=800, help='Number of training epochs (SACM-X default budget; explicit value overrides)')
+    parser.add_argument('--epochs', type=int, default=800, help='Number of training epochs (Skein default budget; explicit value overrides)')
     parser.add_argument('--val_interval', type=int, default=None,
                         help='Validation interval (epochs); default 1 for '
                              'log_style=baseline, 10 otherwise')
@@ -833,7 +833,7 @@ if __name__ == '__main__':
                         help='Warm-start the new Stage-2 mask heads from the '
                              'loaded pretrained Stage-1 heads (applied after '
                              'the base SAM checkpoint is loaded); default ON '
-                             'for SACM-X')
+                             'for Skein')
 
     # Auxiliary losses
     parser.add_argument('--deep_sup_weight', type=float, default=0.3, help='Weight of Stage-1 deep supervision (all heads)')
@@ -993,7 +993,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     apply_preset(args, args.preset)
     if args.config is not None:
-        from models.sacm_x.configs import apply_yaml_presets
+        from models.skein.configs import apply_yaml_presets
         apply_yaml_presets(args, args.config)
     if args.val_interval is None:
         args.val_interval = 1 if args.log_style == 'baseline' else 10

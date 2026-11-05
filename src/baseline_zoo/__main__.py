@@ -35,7 +35,7 @@ from .report import (
 )
 
 # Both families write the same canonical evaluation table.
-EVAL_ARTIFACTS = {'sacm_x': Path('eval') / 'tables' / 'all_metrics.csv'}
+EVAL_ARTIFACTS = {'skein': Path('eval') / 'tables' / 'all_metrics.csv'}
 DEFAULT_EVAL_ARTIFACT = Path('eval') / 'tables' / 'all_metrics.csv'
 
 
@@ -621,7 +621,7 @@ def build_parser() -> argparse.ArgumentParser:
     report.add_argument('--result-root', default='results/runs')
     report.add_argument('--out-dir', default='results/tables')
     report.add_argument('--preset', default=None,
-                        help='SACM-X preset table to read (default: every '
+                        help='Skein preset table to read (default: every '
                              'variant under results/runs)')
     report.add_argument('--allow-missing', action='store_true',
                         help='write a report even when some model/seed '

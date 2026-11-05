@@ -87,7 +87,7 @@ Release defects we intentionally do not reproduce:
 | Epochs | 800 shared (100 U-Net + 100 prior + 600 A2SAM) | n/a | project protocol |
 | Selection | validation Dice on 6-image val split; stage-3 checkpoints start at E202 | n/a | project protocol |
 | Stage snapshots | `stage0_unet.pt`, `stage1_prior.pt` at stage boundaries | n/a | diagnostics/recovery |
-| Diagnostics | `scripts/tools/a2sam_triage.py` (train/val only, no training) | n/a | triage tool |
+| Diagnostics | n/a (the one-off triage tool was removed) | n/a | historical |
 
 ## 4. Verification snapshot (2026-10-28)
 
@@ -116,11 +116,8 @@ Release defects we intentionally do not reproduce:
   before E202; the terminal LR now reports the active U-Net/prior optimizer LR
   rather than the idle main optimizer LR; `--a2sam-coarse-threshold` is used
   consistently by U-Net masks, F_MS and the prior cache.
-- Read-only triage: `scripts/tools/a2sam_triage.py` / one-click wrapper
-  `scripts/tools/run_a2sam_triage.sh` load a checkpoint and report p.max,
-  foreground counts, persistence bars, branch-cap hits, xi/u and optional
-  A2SAM predictions on train/val only. Outputs are `branch_stats.csv`,
-  `branch_sweep.csv` and `summary.json`.
+- The read-only triage tool used for this snapshot was removed in the Skein
+  cleanup; the CSV/JSON outputs above remain historical evidence.
 - These are smoke/integration checks, not a quality or paper-parity claim.
 
 ## 5. Fidelity boundaries

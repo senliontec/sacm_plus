@@ -1,16 +1,16 @@
-"""Canonical results layout shared by baselines and SACM-X.
+"""Canonical results layout shared by baselines and Skein.
 
 Every completed run has exactly one user-facing directory::
 
     results/runs/<method>/<variant>/seed_<seed>/
 
-``method`` is the baseline id or ``sacm_x``.  ``variant`` is ``default`` for
-baselines and the SACM-X preset (for example ``full_typed``).  The seed is
+``method`` is the baseline id or ``skein``.  ``variant`` is ``default`` for
+baselines and the Skein preset (for example ``full_typed``).  The seed is
 always part of the path so two seeds can never overwrite each other.
 
 The layout is intentionally free of pipeline-specific details.  Training and
 evaluation code should derive every output path from these helpers instead of
-hard-coding ``results/paper`` or ``results/sacm_x``.
+hard-coding ``results/paper`` or ``results/skein``.
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ def normalize_variant(variant: str | None) -> str:
 
 
 def default_variant(defaults: dict | None) -> str:
-    """Baseline configs use ``default``; SACM-X uses its configured preset."""
+    """Baseline configs use ``default``; Skein uses its configured preset."""
     return normalize_variant((defaults or {}).get('preset'))
 
 

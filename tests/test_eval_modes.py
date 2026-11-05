@@ -27,7 +27,7 @@ def evaluate_mod():
 @pytest.fixture(scope='module')
 def launcher_mod():
     return _load_module('sacm_launcher_under_test',
-                        'scripts/sacm_x/run_experiments.py')
+                        'scripts/skein/run_experiments.py')
 
 
 def test_parse_test_datasets_validates_names(evaluate_mod):

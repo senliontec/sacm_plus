@@ -1,4 +1,4 @@
-.PHONY: install test lint format verify registry smoke clean
+.PHONY: install test lint format registry smoke clean clean-dry
 
 # src layout: make the packages importable from the repo root.
 export PYTHONPATH := $(shell pwd)/src
@@ -20,11 +20,6 @@ lint:
 format:
 	ruff format .
 
-# Numerical cross-check of our strict ports against the official repos
-# (requires the locally pulled repos in ../segment/3rd; CPU only).
-verify:
-	python scripts/tools/verify_against_official.py
-
 # Print which topology losses and models are registered in this environment.
 registry:
 	python -c "from core.losses import TOPOLOGY_LOSS_REGISTRY; import models; from core.registry import MODEL_REGISTRY; print('losses:', sorted(TOPOLOGY_LOSS_REGISTRY)); print('models:', sorted(MODEL_REGISTRY))"
@@ -35,7 +30,9 @@ smoke:
 
 # Remove every __pycache__ dir and stray .pyc/.pyo file (dry-run: make clean-dry)
 clean:
-	bash scripts/tools/clean_pycache.sh
+	find src scripts tests docs configs -type d -name __pycache__ -not -path '*/baseline_zoo/*' -prune -exec rm -rf {} +
+	find src scripts tests docs configs -type f \( -name '*.pyc' -o -name '*.pyo' \) -not -path '*/baseline_zoo/*' -delete
 
 clean-dry:
-	bash scripts/tools/clean_pycache.sh -n
+	find src scripts tests docs configs -type d -name __pycache__ -not -path '*/baseline_zoo/*' -prune -print
+	find src scripts tests docs configs -type f \( -name '*.pyc' -o -name '*.pyo' \) -not -path '*/baseline_zoo/*' -print

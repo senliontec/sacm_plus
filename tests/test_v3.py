@@ -1,9 +1,11 @@
 """Tests for the v3 dense structural decoder."""
 
+import pytest
 import torch
 
 from core.losses.structural_targets import build_structural_targets
-from models.sacm_x.configs import PRESETS
+from models.skein.configs import PRESETS
+from models.sam_network import load_compatible_state_dict
 from models.sam_network.build_sam import build_sam_vit_b
 from models.sam_network.mask_decoder import MaskDecoder
 from models.sam_network.structural_decoder import StructuralDecoderV3
@@ -216,6 +218,43 @@ def test_prompt_decoder_fixed2_structural_aux_heads():
                  'structural_aux_width.weight'):
         grad = decoder.get_parameter(name).grad
         assert grad is not None and grad.abs().sum() > 0
+
+
+def test_skein_is_canonical_and_keeps_legacy_alias():
+    assert PRESETS['skein'] == PRESETS['full_fixed2_aux']
+    assert PRESETS['skein'] is not PRESETS['full_fixed2_aux']
+
+
+def test_skein_declares_a_clean_architecture():
+    preset = PRESETS['skein']
+    for key in (
+            'use_res_moe', 'use_typed_heads', 'use_tcsu', 'use_tadt',
+            'use_ranker', 'use_detail_stem', 'use_v3', 'single_head',
+            'use_dynamic_strip', 'use_convlora', 'use_evp'):
+        assert preset[key] is False, key
+    assert preset['use_structural_aux'] is True
+    assert preset['fixed_supervision_head'] == 2
+    assert preset['high_res_output'] is True
+    assert preset['high_res_size'] == 512
+
+
+def test_load_compatible_state_dict_drops_gate_only_keys():
+    model = torch.nn.Linear(2, 2)
+    x = torch.tensor([[1.0, 2.0]])
+    before = model(x).detach().clone()
+    state = {k: v.clone() for k, v in model.state_dict().items()}
+    state['mask_decoder.residual_moe.gate.weight'] = torch.zeros(1)
+    info = load_compatible_state_dict(model, state)
+    assert any('residual_moe' in k for k in info['dropped'])
+    assert torch.allclose(before, model(x))
+
+
+def test_load_compatible_state_dict_rejects_missing_keys():
+    model = torch.nn.Linear(2, 2)
+    state = {k: v.clone() for k, v in model.state_dict().items()}
+    state.pop('bias')
+    with pytest.raises(RuntimeError, match='missing keys'):
+        load_compatible_state_dict(model, state)
 
 
 def test_full_fixed2_aux_preset_fields():

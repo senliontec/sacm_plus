@@ -243,7 +243,7 @@ class TestDataset(Dataset):
         if not self.image_files:
             raise ValueError(f"No valid image-mask pairs found in {self.image_dir}")
 
-        # Dataset name per output stem, used by SACM-X validation to log
+        # Dataset name per output stem, used by Skein validation to log
         # the same per-dataset W&B keys as the baseline runner.  The
         # split manifest lives at the root (root/split_manifest.csv).
         self.dataset_by_output = {}

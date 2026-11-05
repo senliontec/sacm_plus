@@ -98,7 +98,7 @@ METHOD_META = {
     'topolora': ('TopoLoRA-SAM', '✓'),
     'tpsegformer': ('TPSegformer', '✗'),
     'ucs': ('UCS', '✓'),
-    'sacm_x': ('SACM-X', '✗'),
+    'skein': ('Skein', '✗'),
 }
 ROLE_ORDER = ['Seen', 'Unseen', 'Novel']
 

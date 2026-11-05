@@ -1,0 +1,24 @@
+# Model-level metadata for the unified experiment runner.  Commands are
+# templates: the planner fills split/seed/GPU/checkpoint placeholders.
+id: skein
+display_name: Skein
+family: sam
+status: available
+adapter: models.skein
+checkpoint: "{output_root}/best_model.pth"
+train_entrypoint: >-
+  GPU={gpu} TRAIN_ROOT={split_root} OUTPUT_ROOT={output_root}
+  SEED={seed} PRESET={preset} MONITOR={monitor} EPOCHS={epochs}
+  INIT_STAGE2_FROM_STAGE1={init_stage2_from_stage1}
+  NO_AUGMENT=1 VAL_INTERVAL=1
+  SKIP_TEST=true USE_WANDB=true bash scripts/skein/run_skein_quick.sh
+eval_entrypoint: >-
+  GPU={gpu} TRAIN_ROOT={split_root} TRAIN_OUT={output_root}
+  OUTPUT_ROOT={output_root}/eval SEED={seed} PRESET={preset}
+  USE_WANDB=true bash scripts/skein/eval_skein_20.sh
+protocols: [seeded5, fixed]
+defaults:
+  preset: skein
+  monitor: baseline
+  epochs: 800
+  init_stage2_from_stage1: true

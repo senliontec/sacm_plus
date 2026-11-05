@@ -49,7 +49,7 @@
 | `sam_adapter` | SAM-Adapter | `3rd/SAM-Adapter-PyTorch` | `parsing/[2023 iccvw] SAM-Adapter: Adapting Segment Anything in Underperformed Scenes` | 无作者训练权重，从 SAM ViT-L 训练 |
 | `topolora` | TopoLoRA-SAM | `3rd/Seglab` | `parsing/[2026 icpr] TopoLoRA-SAM: Topology-Aware Parameter-Efficient Adaptation of Foundation Segmenters for Thin-Structure and Cross-Domain Binary Semantic Segmentation` | 官方仓库是 Seglab，不是独立 TopoLoRA 目录；实现位于 `seglab/models/sam_peft/`；parsing 另有 arxiv 重复目录 |
 | `samed` | SAMed | `3rd/SAMed` | `parsing/[2023 arxiv] Customized Segment Anything Model for Medical Image Segmentation` | 官方 8 类权重未用于二值头；从 SAM ViT-B 训练 |
-| `sacm_official` | SACM (official) | `3rd/SACM` | `parsing/[2026 cvpr] Dual-level Adapter Boosting Prompt-free Curvilinear Structure Segmentation` | 官方 SACM baseline，不是 SACM-X |
+| `sacm_official` | SACM (official) | `3rd/SACM` | `parsing/[2026 cvpr] Dual-level Adapter Boosting Prompt-free Curvilinear Structure Segmentation` | 官方 SACM baseline，不是 Skein |
 | `sacm_plus` | SACM+（官方代码修复版） | `3rd/SACM` | `parsing/[2026 cvpr] Dual-level Adapter Boosting Prompt-free Curvilinear Structure Segmentation` | 独立分析变体：修复官方实现的归一化、Eq.6 融合权重、Eq.10 descriptor 重排、Stage-1/Stage-2/IoU 监督与 IoU 选头等；**不替换** `sacm_official` 主表；逐条修改见 `models/sacm_plus/UPSTREAM.md` |
 
 ### Training-free / semi-supervised

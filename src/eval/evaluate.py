@@ -46,7 +46,7 @@ from core.registry import MODEL_REGISTRY, get_model_spec
 from core.reproducibility import configure_determinism, seed_worker
 from core.run_artifacts import write_json_atomic, write_prediction_index
 from core.wandb_utils import WANDB_API_KEY_DEFAULT, redact_secrets
-from models.sacm_x.configs import PRESETS, apply_preset, str2bool
+from models.skein.configs import PRESETS, apply_preset, str2bool
 
 
 def setup_logging():
@@ -197,13 +197,21 @@ def _prepare_evaluation(args):
     # weights_only=False.
     checkpoint = torch.load(
         args.trained_weights, map_location=device, weights_only=False)
+    from models.sam_network import load_compatible_state_dict
     try:
-        sam.load_state_dict(checkpoint['model_state_dict'])
+        load_info = load_compatible_state_dict(
+            sam, checkpoint['model_state_dict'])
     except RuntimeError as e:
         raise RuntimeError(
             f"权重与当前架构不匹配(常见原因:训练/评测的 --preset 或 --geo_e_layers "
             f"不一致;checkpoint 记录的 config = {checkpoint.get('config')}): {e}"
         ) from e
+    if load_info['dropped']:
+        logging.info(
+            "Loaded with %d dropped extra keys (e.g. gate-only residual_moe); "
+            "%d/%d target keys loaded",
+            len(load_info['dropped']), load_info['loaded'],
+            load_info['target'])
     logging.info(f"Loaded trained weights from {args.trained_weights}")
     if 'f1_score' in checkpoint:
         logging.info(f"Checkpoint validation F1 score: {checkpoint['f1_score']:.4f}")
@@ -820,7 +828,7 @@ if __name__ == '__main__':
             parser.error(str(exc))
     apply_preset(args, args.preset)
     if args.config is not None:
-        from models.sacm_x.configs import apply_yaml_presets
+        from models.skein.configs import apply_yaml_presets
         apply_yaml_presets(args, args.config)
     if args.test_datasets:
         evaluate_many(args)

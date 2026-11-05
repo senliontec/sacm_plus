@@ -13,29 +13,10 @@ vendored under `src/core/postprocess/sam_refiner/`; the upstream tree under
 
 ## Apply to a prediction tree
 
-The CLI needs the source images because SAMRefiner uses them for prompts.
-It resolves them from the protocol manifest by `(dataset, stem)`:
-
-```bash
-SEED=0
-RUN_ROOT="results/runs/unet/default/seed_${SEED}"
-PYTHONPATH=src python scripts/tools/apply_sam_refiner.py \
-  --input "$RUN_ROOT/predictions/unet" \
-  --output "$RUN_ROOT/predictions/unet_samrefiner" \
-  --manifest "data/sacm_3shot_seed${SEED}/protocol_manifest.csv" \
-  --checkpoint checkpoints/sam_vit_h_4b8939.pth \
-  --device cuda:0
-```
-
-Use `--limit 5` for a first smoke test and `--overwrite` to replace existing
-outputs.  The defaults follow the paper: one refinement pass, box expansion
-`--margin 0.1`, Gaussian amplitude `--strength 15`, span `--gamma 4.0`.
-The released code defaults to `--iterations 5 --margin 0.0 --strength 30`;
-pass those explicitly to reproduce the code-default variant.
-
-For a single mask, pass `--image path/to/source.png` and point
-`--input`/`--output` at files.  The CLI accepts both 0/255 and 0/1 input
-masks (`--threshold` is applied in the corresponding value range).
+The one-click wrapper `scripts/tools/apply_sam_refiner.py` was removed in the
+Skein cleanup.  The vendored refiner under `src/core/postprocess/sam_refiner/`
+remains available programmatically; write a small wrapper if the post-hoc
+ablation is needed again.
 
 ## Evaluation protocol
 

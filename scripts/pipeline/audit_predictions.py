@@ -28,9 +28,9 @@ Prediction layout is auto-detected from one of::
 Typical use::
 
     python scripts/pipeline/audit_predictions.py \
-        --pred-root results/runs/sacm_x/full_typed/seed_0/eval \
+        --pred-root results/runs/skein/full_typed/seed_0/eval \
         --protocol data/sacm_3shot_seed0/protocol_manifest.csv \
-        --out results/audit/sacm_x_full_typed_seed0
+        --out results/audit/skein_full_typed_seed0
 
 The script is read-only with respect to the evaluation tree.  It never
 resizes a prediction to the GT shape; size mismatches are reported.
@@ -321,7 +321,7 @@ def _resolve_pred_dir(
         pred_root / 'eval' / dataset,
         pred_root / 'eval' / dataset / 'predictions',
     ]
-    # Raw SACM-X eval roots are <root>/<preset>/<DATASET>; accept one
+    # Raw Skein eval roots are <root>/<preset>/<DATASET>; accept one
     # intermediate directory (e.g. pass .../eval while a preset dir exists).
     if pred_root.is_dir():
         for child in sorted(pred_root.iterdir()):

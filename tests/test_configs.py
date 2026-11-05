@@ -4,7 +4,7 @@ import argparse
 
 import pytest
 
-from models.sacm_x.configs import (
+from models.skein.configs import (
     PRESETS,
     apply_preset,
     apply_yaml_presets,

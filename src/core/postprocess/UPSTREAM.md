@@ -93,6 +93,6 @@ documented every deviation.  No file under `3rd/` is imported or modified.
 
 Deep Closing is a **post-processing refiner**, not a segmentation
 backbone.  Train the shape prior once on the 18 train masks, then apply it
-to the predictions of any model (or to SACM-X via
+to the predictions of any model (or to Skein via
 `evaluate.py --deep_closing_checkpoint`).  Report it as
 `<method> + Deep Closing`, not as a standalone baseline.

@@ -1,7 +1,7 @@
 [project]
-name = "sacm-x"
+name = "skein"
 version = "0.1.0"
-description = "SACM-X: prompt-free curvilinear structure segmentation on SAM with dual-level geometric adapters, closed-loop coarse-to-fine decoding, topology-aligned training, and strict official ports of 14 topology losses and 20 evaluation metrics."
+description = "Skein: prompt-free curvilinear structure segmentation on SAM with dual-level geometric adapters, closed-loop coarse-to-fine decoding, topology-aligned training, and strict official ports of 14 topology losses and 20 evaluation metrics."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Apache-2.0" }

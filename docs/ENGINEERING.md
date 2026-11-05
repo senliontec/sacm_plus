@@ -26,9 +26,8 @@ SACM/                              # 项目 = 分割算法平台（框架 + 算�
 ├── scripts/                      # 一键入口 + 分组工具
 │   ├── run_paper.sh / run_train.sh / run_eval.sh / run_report.sh / run_figures.sh
 │   ├── pipeline/                 # 评测/指标/协议解析
-│   ├── sacm_x/                   # SACM-X 训练/评测/消融引擎
-│   ├── data/                     # 数据构建 + 各数据集转换器
-│   └── tools/                    # 安装/官方对拍/清理
+│   ├── skein/                   # Skein 训练/评测/消融引擎
+│   └── data/                     # 数据构建 + 各数据集转换器
 ├── configs/                       # YAML 配置（presets.yaml，--config 叠加覆盖）
 ├── datasets/                      # 协议数据: seen/unseen/novel（gitignored）
 ├── data/sacm_3shot/               # 6 域 x 3-shot = 18 图（主协议；.gitignore 已放行）
@@ -51,7 +50,6 @@ make test         # 全部单元测试（CPU，秒级）
 make test-slow    # 含"训练一步"端到端测试（CPU，约 1 分钟）
 make lint         # ruff 检查
 make smoke        # 构建完整模型 + 一次前向（新机器第一件事）
-make verify       # 与官方仓库数值对拍（需 ../segment/3rd 下的官方仓库）
 make registry     # 打印当前环境可用的拓扑损失清单
 ```
 
@@ -60,8 +58,7 @@ make registry     # 打印当前环境可用的拓扑损失清单
 ```bash
 make install && make smoke        # 1. 模型能建、张量流通
 make test                         # 2. 指标手算值 + 损失冒烟全过
-make verify                       # 3. 与官方代码数值对拍（严格一致）
-python src/train/trainer.py --preset sacm --data_root <root> --checkpoint <sam.pth>   # 4. 基线复现
+python src/train/trainer.py --preset sacm --data_root <root> --checkpoint <sam.pth>   # 3. 基线复现
 ```
 
 ## 4. 吸收新损失的标准流程
@@ -85,7 +82,7 @@ python src/train/trainer.py --preset sacm --data_root <root> --checkpoint <sam.p
 - **自带 Dice 的损失用小权重**：作为附加项时 `--topology_loss_weight` ≤ 0.1
 - **性能警告进 docstring**：纯 Python 引擎必须注明分辨率与耗时预期
 - **约定显式化**：每个非显然约定（阈值、平滑、聚合方式）写进 docstring——本项目的"严格一致"承诺靠此兑现
-- **改动必测试**：任何 losses/metrics 改动跑 `make test`；任何官方移植改动跑 `make verify`
+- **改动必测试**：任何 losses/metrics 改动跑 `make test`。
 
 ## 7. 已知技术债（有意的阶段划分）
 

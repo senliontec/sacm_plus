@@ -56,15 +56,15 @@ collector and report pipeline.
   markers now record the checkpoint identity and are invalidated when the
   checkpoint changes.
 - Added the missing `fixed` protocol config and forwarded `PRESET` to
-  SACM-X evaluation.
+  Skein evaluation.
 - Metric collection accepts 0/1 as well as 0/255 PNGs, includes GT files in
   the cache signature, and refuses to overwrite a complete table with a
   subset unless `--allow-partial-overwrite` is passed.
-- Reports select the requested SACM-X preset and fail on missing
+- Reports select the requested Skein preset and fail on missing
   model/seed runs unless `--allow-missing` is passed.
 - `run_paper.sh --dry-run` no longer regenerates figures.
 - Eval resume now also requires a non-empty eval artifact
-  (`paper_metrics.csv` or SACM-X `tables/all_metrics.csv`); a stale
+  (`paper_metrics.csv` or Skein `tables/all_metrics.csv`); a stale
   `.eval_done` can no longer hide deleted predictions/tables.
 - Per-dataset metric caches and report tables are written atomically
   (`.tmp` + `os.replace`), so an interrupted write cannot leave a
@@ -77,7 +77,7 @@ Unified interface:
 - **Data/protocol**: one `split_manifest.csv` membership check, 18 train /
   6 val, the same 20 frozen test roots and image stems for every model.
   Test roots come from a single parser (`scripts/pipeline/protocol_specs.py`);
-  `run_baseline_test.read_specs` delegates to it, so baseline and SACM-X
+  `run_baseline_test.read_specs` delegates to it, so baseline and Skein
   evaluation resolve the same roots and fail identically on a conflicting
   dataset root.
 - **Adapter input contract**: original-resolution PIL image plus boolean
@@ -529,8 +529,8 @@ from random initialization.  See
 ## SAMRefiner addendum (2026-10-27)
 
 `sam_refiner` is a model-agnostic binary-mask post-processor (ICLR 2025,
-MIT), vendored with its modified SAM package and exposed through
-`scripts/tools/apply_sam_refiner.py`.  It is not a backbone baseline and is
+MIT), vendored with its modified SAM package and the one-click wrapper was removed in
+the Skein cleanup; the vendored refiner remains under `src/core/postprocess/sam_refiner/`.  It is not a backbone baseline and is
 not part of the main table; compare it only as a post-processing ablation.
 Defaults now follow the paper (one refinement pass, box margin 0.1,
 Gaussian amplitude 15, span 4); the released code defaults (5/0.0/30) are

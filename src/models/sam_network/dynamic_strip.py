@@ -1,4 +1,4 @@
-"""Dynamic strip convolutions for the SACM-X geometric adapters.
+"""Dynamic strip convolutions for the Skein geometric adapters.
 
 The fixed strip branch in ``GeoAdapterModule`` / ``AdapterEGlobal`` uses
 axis-aligned ``(k, 1)`` and ``(1, k)`` depthwise convolutions.  Curvilinear

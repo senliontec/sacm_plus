@@ -139,9 +139,9 @@ def test_finalize_baseline_in_place(tmp_path):
     assert not (run_root / 'eval.log').exists()
 
 
-def test_finalize_sacm_x_promotes_and_flattens(tmp_path):
+def test_finalize_skein_promotes_and_flattens(tmp_path):
     out_root = tmp_path / 'runs'
-    run_root = out_root / 'sacm_x' / 'full_typed' / 'seed_0'
+    run_root = out_root / 'skein' / 'full_typed' / 'seed_0'
     run_root.mkdir(parents=True)
     # A previous finalize left an old checkpoint at the run root.  The fresh
     # per-preset training output must win.
@@ -149,8 +149,8 @@ def test_finalize_sacm_x_promotes_and_flattens(tmp_path):
     raw = run_root / 'full_typed'
     raw.mkdir(parents=True)
     (raw / 'best_model.pth').write_bytes(b'new-checkpoint')
-    _write_run_info(raw / 'run_info.json', family='sacm_x',
-                    method='sacm_x', preset='full_typed')
+    _write_run_info(raw / 'run_info.json', family='skein',
+                    method='skein', preset='full_typed')
     (raw / 'metrics_history.json').write_text('{"history": []}\n')
     (raw / 'run.log').write_text('train\n')
     eval_root = run_root / 'eval'
@@ -175,7 +175,7 @@ def test_finalize_sacm_x_promotes_and_flattens(tmp_path):
                [{'preset': 'full_typed', 'dataset': 'DRIVE', 'gpu': '0',
                  'status': 'done'}])
 
-    args = _default_args(family='sacm_x', method='sacm_x',
+    args = _default_args(family='skein', method='skein',
                          variant='full_typed', source_train=run_root,
                          source_eval=eval_root, out_root=out_root)
     target = finalize_run.finalize(args)
@@ -209,5 +209,5 @@ def test_explicit_missing_checkpoint_fails(tmp_path):
 
 def test_canonical_seed_spelling(tmp_path):
     path = finalize_run._run_root(
-        'sacm_x', 'full_typed', 0, root=tmp_path)
+        'skein', 'full_typed', 0, root=tmp_path)
     assert path.name == 'seed_0'

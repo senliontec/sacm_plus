@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build one seed-aware index over canonical baseline/SACM-X run manifests.
+"""Build one seed-aware index over canonical baseline/Skein run manifests.
 
 Every current run lives at ``results/runs/<method>/<variant>/seed_<seed>``.
 This script reads each ``eval/run_manifest.json`` (and legacy manifests when
@@ -8,7 +8,7 @@ method/variant/seed checkpoint and metrics table in one place.
 
 Usage:
     python scripts/pipeline/index_runs.py
-    # legacy migration: --roots results/runs results/paper results/sacm_x
+    # legacy migration: --roots results/runs results/paper
 """
 
 from __future__ import annotations
@@ -110,7 +110,7 @@ def _canonical_row(manifest: dict, path: Path) -> dict:
     }
 
 
-def _sacm_x_row(manifest: dict, path: Path) -> dict:
+def _skein_row(manifest: dict, path: Path) -> dict:
     eval_root = manifest.get('output_root', str(path.parent))
     checkpoints = manifest.get('checkpoints') or {}
     checkpoint = (
@@ -132,8 +132,8 @@ def _sacm_x_row(manifest: dict, path: Path) -> dict:
     presets = manifest.get('presets') or [manifest.get('variant', 'default')]
     code_commit, code_fp = _code_info(manifest, path)
     return {
-        'family': 'sacm_x',
-        'method': 'sacm_x',
+        'family': 'skein',
+        'method': 'skein',
         'variant': presets[0] if len(presets) == 1 else 'default',
         'seed': manifest.get('seed'),
         'status': status,
@@ -232,8 +232,8 @@ def collect(roots: list[Path]) -> list[dict]:
                 rows.append(_canonical_row(manifest, path))
             elif family == 'baseline':
                 rows.append(_baseline_row(manifest, path))
-            elif family in ('sacm_x', 'sacmx') or 'presets' in manifest:
-                rows.append(_sacm_x_row(manifest, path))
+            elif family == 'skein' or 'presets' in manifest:
+                rows.append(_skein_row(manifest, path))
             else:
                 print(f'[warn] unknown manifest family in {path}')
         rows.extend(_train_only_rows(root))

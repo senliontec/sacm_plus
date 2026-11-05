@@ -1,0 +1,587 @@
+"""Multi-GPU launcher: train once per preset, then evaluate every dataset.
+
+Each preset is trained ONCE on ``--train_root``.  The checkpoint is written
+to ``<output_root>/<preset>/best_model.pth`` and then evaluated on every
+``NAME:DIR`` entry in ``--test_datasets`` (sequentially on the same GPU).
+Results and logs live under ``<output_root>/<preset>/``.
+
+This replaces the old job model, which retrained the same preset once per
+test dataset (the training root never depended on the dataset).
+
+Usage:
+    python run_experiments.py \
+        --gpus 0 1 2 3 4 5 6 7 \
+        --checkpoint /path/sam_vit_l_0b3195.pth \
+        --train_root data/sacm_3shot \
+        --test_datasets DRIVE:data/sacm_3shot/test/DRIVE \
+                        CHASEDB1:data/sacm_3shot/test/CHASEDB1 \
+        --presets sacm stage1 stage2 full \
+        --output_root results --epochs 800 --tta
+
+Options:
+    --skip_train   only run evaluation; checkpoints must already exist
+    --skip_test    only run training
+    --selection    mask selection; default: 'iou' iff the preset trains the
+                   IoU head, else gating (original SACM behavior)
+    --reuse_eval_model   one evaluate.py process for all datasets (model
+                         loaded once); default is one process per dataset
+    --paper_metrics_only compute only Dice/IoU/clDice/HD95
+"""
+
+import argparse
+import csv
+import json
+import os
+import shlex
+import subprocess
+import sys
+import threading
+import time
+
+# Make the src packages importable without an editable install.
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+SRC_DIR = os.path.join(REPO_ROOT, 'src')
+sys.path.insert(0, SRC_DIR)
+
+from models.skein.configs import PRESETS, str2bool  # noqa: E402
+
+
+def resolve_selection(args, preset):
+    """Resolve the mask-selection policy for one preset."""
+    iou_weight = PRESETS.get(preset, {}).get('iou_loss_weight', 0.0)
+    return args.selection or (
+        'iou' if float(iou_weight or 0.0) > 0 else 'gating')
+
+
+def train_command(args, preset, ckpt_path, selection):
+    cmd = [
+        sys.executable, os.path.join(SRC_DIR, 'train', 'trainer.py'),
+        '--preset', preset,
+        '--data_root', args.train_root,
+        '--checkpoint', args.checkpoint,
+        '--epochs', str(args.epochs),
+        '--val_interval', str(args.val_interval),
+        '--seed', str(args.seed),
+        '--save_path', ckpt_path,
+        '--val_selection', selection,
+        '--pred_threshold', str(args.pred_threshold),
+        '--train_input_mode', args.train_input_mode,
+        '--eval_input_mode', args.eval_input_mode,
+        '--foreground_crop_prob', str(args.foreground_crop_prob),
+        '--boundary_loss_weight', str(args.boundary_loss_weight),
+        '--boundary_loss_resolution', str(args.boundary_loss_resolution),
+        '--boundary_loss_warmup', str(args.boundary_loss_warmup),
+        '--boundary_loss_ramp', str(args.boundary_loss_ramp),
+        '--num_workers', str(args.num_workers),
+        '--deterministic', str(bool(args.deterministic)).lower(),
+        '--deterministic_strict', str(bool(args.deterministic_strict)).lower(),
+    ]
+    if getattr(args, 'resume', None):
+        cmd += ['--resume', str(args.resume)]
+    if args.extra_train_args:
+        cmd += shlex.split(args.extra_train_args)
+    return cmd
+
+
+def test_command(args, preset, dataset, test_dir, ckpt_path, selection):
+    cmd = [
+        sys.executable, os.path.join(SRC_DIR, 'eval', 'evaluate.py'),
+        '--preset', preset,
+        '--data_root', test_dir,
+        '--trained_weights', ckpt_path,
+        '--output_dir', os.path.join(args.output_root, preset, dataset),
+        '--selection', selection,
+        '--pred_threshold', str(args.pred_threshold),
+        '--eval_input_mode', args.eval_input_mode,
+        '--seed', str(args.seed),
+        '--num_workers', str(args.num_workers),
+        '--deterministic', str(bool(args.deterministic)).lower(),
+        '--deterministic_strict', str(bool(args.deterministic_strict)).lower(),
+    ]
+    fixed_head = getattr(args, 'fixed_head', None)
+    if fixed_head is not None:
+        cmd += ['--fixed_head', str(fixed_head)]
+    if args.empty_guard:
+        cmd.append('--empty_guard')
+    if args.tta:
+        cmd.append('--tta')
+    if getattr(args, 'paper_metrics_only', False):
+        cmd.append('--paper_metrics_only')
+    if getattr(args, 'extra_eval_args', ''):
+        cmd += shlex.split(args.extra_eval_args)
+    return cmd
+
+
+def reused_test_command(args, preset, datasets, ckpt_path, selection):
+    """One evaluate.py process for all datasets (model loaded once)."""
+    cmd = [
+        sys.executable, os.path.join(SRC_DIR, 'eval', 'evaluate.py'),
+        '--preset', preset,
+        '--test_datasets',
+        *[f"{name}:{test_dir}" for name, test_dir in datasets],
+        '--trained_weights', ckpt_path,
+        '--output_dir', os.path.join(args.output_root, preset),
+        '--selection', selection,
+        '--pred_threshold', str(args.pred_threshold),
+        '--eval_input_mode', args.eval_input_mode,
+        '--seed', str(args.seed),
+        '--num_workers', str(args.num_workers),
+        '--deterministic', str(bool(args.deterministic)).lower(),
+        '--deterministic_strict', str(bool(args.deterministic_strict)).lower(),
+    ]
+    fixed_head = getattr(args, 'fixed_head', None)
+    if fixed_head is not None:
+        cmd += ['--fixed_head', str(fixed_head)]
+    if args.empty_guard:
+        cmd.append('--empty_guard')
+    if args.tta:
+        cmd.append('--tta')
+    if getattr(args, 'paper_metrics_only', False):
+        cmd.append('--paper_metrics_only')
+    if getattr(args, 'extra_eval_args', ''):
+        cmd += shlex.split(args.extra_eval_args)
+    return cmd
+
+
+def multi_eval_status_path(args, preset):
+    return os.path.join(args.output_root, preset, 'multi_eval_status.json')
+
+
+def load_multi_eval_status(args, preset):
+    """Read the per-dataset status written by evaluate.py --test_datasets."""
+    try:
+        with open(multi_eval_status_path(args, preset)) as f:
+            payload = json.load(f)
+        datasets = payload.get('datasets', {})
+        return datasets if isinstance(datasets, dict) else {}
+    except (OSError, ValueError, TypeError):
+        return {}
+
+
+def status_rows(slot, status):
+    """One jobs.csv row per (preset, dataset) for a terminal state."""
+    datasets = slot['datasets'] or ['']
+    return [
+        {'preset': slot['preset'], 'dataset': dataset,
+         'gpu': slot['gpu'], 'status': status}
+        for dataset, _test_dir in datasets
+    ]
+
+
+def _pump_output(proc, log_fh, prefix=''):
+    """Relay child stdout to the run log and the parent terminal.
+
+    The log file gets the raw line (preserving the one-line-per-epoch table);
+    ``prefix`` is only added to terminal output so multi-GPU jobs remain
+    distinguishable.
+    """
+    try:
+        for line in iter(proc.stdout.readline, ''):
+            # Keep draining the child pipe even if the terminal disconnects
+            # or the log file becomes unwritable; otherwise the child blocks
+            # on a full stdout pipe and the run appears hung.
+            try:
+                log_fh.write(line)
+                log_fh.flush()
+            except Exception:
+                pass
+            try:
+                sys.stdout.write(prefix + line if prefix else line)
+                sys.stdout.flush()
+            except Exception:
+                pass
+    except Exception:
+        pass
+    finally:
+        try:
+            proc.stdout.close()
+        except Exception:
+            pass
+
+
+def _launch(slot, cmd):
+    """Start a child process with stdout relayed to log + terminal."""
+    prefix = f"[gpu {slot['gpu']}] " if slot.get('multi_gpu') else ''
+    slot['proc'] = subprocess.Popen(
+        cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        env=slot['env'], text=True, bufsize=1)
+    slot['reader'] = threading.Thread(
+        target=_pump_output,
+        args=(slot['proc'], slot['log'], prefix),
+        daemon=True,
+    )
+    slot['reader'].start()
+
+
+def _join_reader(slot):
+    """Wait for the output relay before closing the shared log file."""
+    reader = slot.get('reader')
+    if reader is not None:
+        reader.join(timeout=10)
+        slot['reader'] = None
+
+
+def start_next_test(slot, args):
+    """Launch the next test command, or close the job when the queue is empty."""
+    if not slot['test_queue']:
+        slot['phase'] = 'done'
+        if slot['status'] == 'running':
+            statuses = [row['status'] for row in slot['rows']]
+            slot['status'] = (
+                'done' if statuses and all(s == 'done' for s in statuses)
+                else 'done_with_failures')
+        slot['log'].close()
+        return
+
+    dataset, test_dir = slot['test_queue'].pop(0)
+    slot['current_dataset'] = dataset
+    slot['phase'] = 'test'
+    cmd = test_command(
+        args, slot['preset'], dataset, test_dir,
+        slot['ckpt'], slot['selection'])
+    slot['log'].write(f"=== test {dataset} ===\n{' '.join(cmd)}\n")
+    slot['log'].flush()
+    _launch(slot, cmd)
+    print(f"[gpu {slot['gpu']}] {slot['preset']}/{dataset}: test started",
+          flush=True)
+
+
+def start_reuse_test(slot, args):
+    """Launch one evaluation process for every dataset in the slot."""
+    if not slot['datasets']:
+        slot['phase'] = 'done'
+        if slot['status'] == 'running':
+            slot['status'] = 'done'
+        slot['log'].close()
+        return
+    slot['phase'] = 'test_reuse'
+    slot['current_dataset'] = '*'
+    # Do not let a stale status from an earlier run masquerade as this run's
+    # result if the child dies before writing its own status.
+    try:
+        os.remove(multi_eval_status_path(args, slot['preset']))
+    except OSError:
+        pass
+    cmd = reused_test_command(
+        args, slot['preset'], slot['datasets'],
+        slot['ckpt'], slot['selection'])
+    slot['log'].write(
+        f"=== test all datasets (model reused) ===\n{' '.join(cmd)}\n")
+    slot['log'].flush()
+    _launch(slot, cmd)
+    print(f"[gpu {slot['gpu']}] {slot['preset']}: test started "
+          f"({len(slot['datasets'])} datasets, model reused)", flush=True)
+
+
+def start_job(gpu, preset, test_datasets, args):
+    """Start a preset job (train first, then all test datasets)."""
+    preset_dir = os.path.join(args.output_root, preset)
+    os.makedirs(preset_dir, exist_ok=True)
+    # An explicit checkpoint lets eval use the training directory without
+    # copying a 1.4 GiB best_model.pth into every eval root.
+    ckpt_path = (
+        args.trained_weights if args.trained_weights
+        else os.path.join(preset_dir, 'best_model.pth'))
+    log_name = 'run_eval.log' if args.skip_train else 'run.log'
+    log_fh = open(os.path.join(preset_dir, log_name), 'w')
+    env = dict(os.environ)
+    env['CUDA_VISIBLE_DEVICES'] = str(gpu)
+    # Child processes must inherit a deterministic hash seed and cuBLAS
+    # workspace; OMP/MKL single-threading avoids CPU reduction ordering
+    # differences in DataLoader workers.
+    env['PYTHONHASHSEED'] = '0'
+    env['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
+    env['OMP_NUM_THREADS'] = '1'
+    env['MKL_NUM_THREADS'] = '1'
+    selection = resolve_selection(args, preset)
+
+    slot = {
+        'gpu': gpu, 'preset': preset, 'datasets': list(test_datasets),
+        'test_queue': list(test_datasets), 'ckpt': ckpt_path,
+        'selection': selection, 'log': log_fh, 'env': env,
+        'phase': 'train', 'proc': None, 'status': 'running',
+        'current_dataset': None, 'rows': [],
+        'reader': None, 'multi_gpu': len(args.gpus) > 1,
+    }
+
+    if args.skip_train:
+        if not os.path.isfile(ckpt_path):
+            print(f"[gpu {gpu}] {preset}: MISSING checkpoint {ckpt_path}")
+            slot['status'] = 'missing_checkpoint'
+            slot['rows'] = status_rows(slot, 'missing_checkpoint')
+            slot['phase'] = 'done'
+            log_fh.close()
+            return slot
+        print(f"[gpu {gpu}] {preset}: train skipped")
+        if getattr(args, 'reuse_eval_model', False):
+            start_reuse_test(slot, args)
+        else:
+            start_next_test(slot, args)
+        return slot
+
+    cmd = train_command(args, preset, ckpt_path, selection)
+    log_fh.write(f"=== train ===\n{' '.join(cmd)}\n")
+    log_fh.flush()
+    _launch(slot, cmd)
+    print(f"[gpu {gpu}] {preset}: train started", flush=True)
+    return slot
+
+
+def advance(slot, args):
+    """Handle a finished phase. Returns True when the job is terminal."""
+    if slot['phase'] == 'done':
+        return True
+
+    _join_reader(slot)
+    preset, gpu = slot['preset'], slot['gpu']
+    rc = 0 if slot['proc'] is None else slot['proc'].returncode
+
+    if slot['phase'] == 'train':
+        if rc != 0:
+            print(f"[gpu {gpu}] {preset}: TRAIN FAILED (rc={rc})")
+            slot['status'] = 'train_failed'
+            slot['rows'] = status_rows(slot, 'train_failed')
+            slot['phase'] = 'done'
+            slot['log'].close()
+            return True
+        if args.skip_test:
+            print(f"[gpu {gpu}] {preset}: train done (test skipped)")
+            slot['status'] = 'train_only'
+            slot['rows'] = status_rows(slot, 'train_only')
+            slot['phase'] = 'done'
+            slot['log'].close()
+            return True
+        if getattr(args, 'reuse_eval_model', False):
+            start_reuse_test(slot, args)
+        else:
+            start_next_test(slot, args)
+        return slot['phase'] == 'done'
+
+    if slot['phase'] == 'test_reuse':
+        statuses = load_multi_eval_status(args, preset)
+        for dataset, _test_dir in slot['datasets']:
+            entry = statuses.get(dataset) or {}
+            state = entry.get('status')
+            if state == 'done':
+                status = 'done'
+            elif state in ('failed', 'running', 'pending'):
+                status = f'test_failed({state}, rc={rc})'
+            else:
+                # No status entry (older evaluate.py or early crash): only a
+                # summary produced by this run is evidence of success.
+                summary_path = os.path.join(
+                    args.output_root, preset, dataset, 'results_summary.txt')
+                status = (
+                    'done' if rc == 0 and os.path.isfile(summary_path)
+                    else f'test_failed(rc={rc})')
+            slot['rows'].append({
+                'preset': preset, 'dataset': dataset, 'gpu': gpu,
+                'status': status,
+            })
+            if status != 'done':
+                print(f"[gpu {gpu}] {preset}/{dataset}: {status}")
+        slot['phase'] = 'done'
+        slot['status'] = (
+            'done' if all(row['status'] == 'done' for row in slot['rows'])
+            else 'done_with_failures')
+        if slot['status'] == 'done':
+            print(f"[gpu {gpu}] {preset}: all datasets done (model reused)")
+        else:
+            print(f"[gpu {gpu}] {preset}: reused-model test finished with "
+                  f"failures (rc={rc})")
+        slot['log'].close()
+        return True
+
+    dataset = slot['current_dataset']
+    if rc == 0:
+        print(f"[gpu {gpu}] {preset}/{dataset}: done")
+        status = 'done'
+    else:
+        print(f"[gpu {gpu}] {preset}/{dataset}: TEST FAILED (rc={rc})")
+        status = f'test_failed(rc={rc})'
+    slot['rows'].append({
+        'preset': preset, 'dataset': dataset, 'gpu': gpu, 'status': status,
+    })
+    start_next_test(slot, args)
+    return slot['phase'] == 'done'
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description='Train once per preset, then evaluate all test datasets')
+    parser.add_argument('--gpus', nargs='+', type=int, required=True,
+                        help='GPU ids to use')
+    parser.add_argument('--checkpoint', type=str, required=True,
+                        help='Official SAM ViT-L checkpoint')
+    parser.add_argument('--train_root', type=str, required=True,
+                        help='Few-shot train/val split root')
+    parser.add_argument('--test_datasets', nargs='+', required=True,
+                        help='Name:dir pairs, e.g. DRIVE:data/.../test/DRIVE')
+    parser.add_argument('--presets', nargs='+',
+                        default=['sacm', 'stage1', 'stage2', 'full'],
+                        choices=[p for p in PRESETS if p != 'none'])
+    parser.add_argument('--output_root', type=str, default='outputs')
+    parser.add_argument('--epochs', type=int, default=800)
+    parser.add_argument('--val_interval', type=int, default=10)
+    parser.add_argument('--seed', type=int, default=0)
+    parser.add_argument('--selection', type=str, default=None,
+                        help="Override mask selection ('iou' or 'gating'); "
+                             "default: iou iff preset trains the IoU head")
+    parser.add_argument('--fixed_head', type=int, default=None,
+                        choices=[0, 1, 2, 3],
+                        help='Force one Stage-2 head for every image; '
+                             'overrides --selection in evaluate.py')
+    parser.add_argument('--pred_threshold', type=float, default=0.0,
+                        help='Logit binarization threshold; SACM fidelity uses 0.5')
+    parser.add_argument('--train_input_mode', type=str, default='aspect_pad',
+                        choices=['resize', 'aspect_pad', 'native_crop'],
+                        help='Training geometry (see train/trainer.py)')
+    parser.add_argument('--eval_input_mode', type=str, default='aspect_pad',
+                        choices=['resize', 'aspect_pad'],
+                        help='Validation/test geometry (see evaluate.py)')
+    parser.add_argument('--foreground_crop_prob', type=float, default=0.5,
+                        help='native_crop foreground-centred probability')
+    parser.add_argument('--boundary_loss_weight', type=float, default=0.0,
+                        help='Distance-transform boundary loss max weight')
+    parser.add_argument('--boundary_loss_resolution', type=int, default=512)
+    parser.add_argument('--boundary_loss_warmup', type=int, default=10)
+    parser.add_argument('--boundary_loss_ramp', type=int, default=5)
+    parser.add_argument('--empty_guard', action='store_true',
+                        help='Fallback to the non-empty candidate when the '
+                             'selected mask is empty')
+    parser.add_argument('--tta', action='store_true',
+                        help='Enable four-way flip TTA at test time')
+    parser.add_argument('--reuse_eval_model', action='store_true',
+                        help='Evaluate all test datasets in one process, '
+                             'loading the model/checkpoint once. Default: one '
+                             'process per dataset (unchanged).')
+    parser.add_argument('--paper_metrics_only', action='store_true',
+                        help='Compute only Dice/IoU/clDice/HD95 in every '
+                             'evaluate.py process. Values are identical to '
+                             'the full suite.')
+    parser.add_argument('--num_workers', type=int, default=4,
+                        help='DataLoader workers; keep fixed across runs')
+    parser.add_argument('--deterministic', type=str2bool, default=True,
+                        help='Enable deterministic RNG/kernel settings')
+    parser.add_argument('--deterministic_strict', type=str2bool,
+                        default=True,
+                        help='Fail on operators without deterministic CUDA '
+                             'implementations')
+    parser.add_argument('--skip_train', action='store_true')
+    parser.add_argument('--resume', type=str, default=None,
+                        help="Skein resume checkpoint path or 'last'/'best'; "
+                             'forwarded to src/train/trainer.py')
+    parser.add_argument('--trained_weights', type=str, default=None,
+                        help='Explicit trained checkpoint for --skip_train; '
+                             'omit to use <output_root>/<preset>/best_model.pth '
+                             '(legacy) or the canonical run-root checkpoint')
+    parser.add_argument('--skip_test', action='store_true')
+    parser.add_argument('--extra_eval_args', type=str, default='',
+                        help='extra args appended to every evaluate.py command')
+    parser.add_argument('--extra_train_args', type=str, default='',
+                        help='Extra flags appended to the train command')
+    args = parser.parse_args()
+
+    if args.skip_train and args.skip_test:
+        parser.error('--skip_train and --skip_test cannot be combined')
+    if args.trained_weights and not args.skip_train:
+        parser.error('--trained_weights requires --skip_train')
+    if args.trained_weights and len(args.presets) != 1:
+        parser.error('--trained_weights requires exactly one --presets value')
+
+    test_datasets = []
+    for spec in args.test_datasets:
+        name, _, path = spec.partition(':')
+        if not path:
+            raise ValueError(
+                f"--test_datasets entries must be NAME:DIR, got {spec!r}")
+        test_datasets.append((name, path))
+
+    jobs = [(preset, test_datasets) for preset in args.presets]
+    print(f"Total presets: {len(jobs)}; datasets per preset: "
+          f"{len(test_datasets)}; GPUs {args.gpus}")
+
+    os.makedirs(args.output_root, exist_ok=True)
+    slots = {gpu: None for gpu in args.gpus}
+    queue = list(jobs)
+    status_rows_all = []
+
+    for gpu in args.gpus:
+        if queue:
+            preset, datasets = queue.pop(0)
+            slots[gpu] = start_job(gpu, preset, datasets, args)
+
+    while queue or any(slot is not None for slot in slots.values()):
+        for gpu in args.gpus:
+            slot = slots[gpu]
+            if slot is None:
+                continue
+            if slot['proc'] is not None and slot['proc'].poll() is None:
+                continue
+            if advance(slot, args):
+                status_rows_all.extend(slot['rows'])
+                slots[gpu] = None
+        for gpu in args.gpus:
+            if queue and slots[gpu] is None:
+                preset, datasets = queue.pop(0)
+                slots[gpu] = start_job(gpu, preset, datasets, args)
+        time.sleep(2)
+
+    jobs_name = 'jobs_eval.csv' if args.skip_train else 'jobs.csv'
+    jobs_path = os.path.join(args.output_root, jobs_name)
+    with open(jobs_path, 'w', newline='') as f:
+        writer = csv.DictWriter(
+            f, fieldnames=['preset', 'dataset', 'gpu', 'status'])
+        writer.writeheader()
+        writer.writerows(status_rows_all)
+
+    checkpoints = {
+        preset: os.path.abspath(
+            args.trained_weights if args.trained_weights
+            else os.path.join(args.output_root, preset, 'best_model.pth'))
+        for preset in args.presets
+    }
+    manifest = {
+        'output_root': os.path.abspath(args.output_root),
+        'seed': int(args.seed),
+        'presets': list(args.presets),
+        'trained_weights': (
+            None if args.trained_weights is None
+            else os.path.abspath(args.trained_weights)),
+        'checkpoints': checkpoints,
+        'test_datasets': [
+            {'name': name, 'root': root}
+            for name, root in test_datasets
+        ],
+        'selection': {
+            preset: resolve_selection(args, preset)
+            for preset in args.presets
+        },
+        'eval_input_mode': args.eval_input_mode,
+        'reuse_eval_model': bool(getattr(args, 'reuse_eval_model', False)),
+        'paper_metrics_only': bool(
+            getattr(args, 'paper_metrics_only', False)),
+        'resume': getattr(args, 'resume', None),
+        'skip_train': bool(args.skip_train),
+        'jobs_csv': os.path.abspath(jobs_path),
+        'jobs': status_rows_all,
+        'generated_at': time.strftime('%Y-%m-%dT%H:%M:%S'),
+    }
+    manifest_path = os.path.join(args.output_root, 'run_manifest.json')
+    with open(manifest_path, 'w') as f:
+        json.dump(manifest, f, indent=2)
+    print(f"Manifest: {manifest_path}")
+
+    failed = [row for row in status_rows_all
+              if row['status'] not in ('done', 'train_only')]
+    if failed:
+        print(f"FAILED jobs ({len(failed)}):")
+        for row in failed:
+            print(f"  {row['preset']}/{row['dataset']}: {row['status']}")
+        print(f"Status table: {jobs_path}")
+        raise SystemExit(1)
+    print(f"All jobs finished. Status table: {jobs_path}")
+
+
+if __name__ == '__main__':
+    main()

@@ -99,7 +99,9 @@ def test_scrwkv_threshold_uses_uint8_scale(tmp_path):
     adapter.args = SimpleNamespace(scrwkv_threshold=0.2 / 255.0)
     sample = SimpleNamespace(mask_path=mask_path)
     pred = adapter.predict_sample(
-        Dummy(), {'image': torch.zeros(1, 3, 2, 2)}, sample)
+        Dummy(),
+        {'image': torch.zeros(1, 3, 2, 2), 'size': (2, 2)},
+        sample)
     # With the official 0.2/255 ratio, the 0.1 and 1.0 logits are positive;
     # the old 0.2-of-max interpretation would keep only 1.0.
     assert pred.shape == (2, 2)
@@ -145,7 +147,7 @@ def test_tpsegformer_main_head_gets_dice_term():
 
 def test_method_groups_cover_every_registered_model():
     assert validate_groups(load_models()) == []
-    assert group_for('sacm_x') == 'proposed'
+    assert group_for('skein') == 'proposed'
     assert group_for('ucs') == 'oracle'
     assert group_for('fssam') == 'support'
     assert group_for('c2p') == 'zero_shot'
@@ -172,13 +174,13 @@ def _write_metrics(run_root: Path, *, status: str | None = None):
 
 
 def test_report_skips_partial_manifest_and_separates_groups(tmp_path):
-    partial = tmp_path / 'unet' / 'default' / 'seed_0'
+    partial = tmp_path / 'unet' / 'partial' / 'seed_0'
     _write_metrics(partial, status='partial')
     assert load_run(partial, 'unet', 0) == []
     assert load_run(partial, 'unet', 0, allow_partial=True)
 
     rows = []
-    for model, variant in (('unet', 'default'), ('sacm_x', 'full')):
+    for model, variant in (('unet', 'default'), ('skein', 'full')):
         root = tmp_path / model / variant / 'seed_0'
         _write_metrics(root, status='done')
         rows.extend(load_run(root, model, 0))
@@ -187,4 +189,4 @@ def test_report_skips_partial_manifest_and_separates_groups(tmp_path):
     text = out['main_results'].read_text()
     assert '## Prompt-free supervised' in text
     assert '## Proposed method' in text
-    assert 'unet' in text and 'sacm_x' in text
+    assert 'unet' in text and 'skein' in text

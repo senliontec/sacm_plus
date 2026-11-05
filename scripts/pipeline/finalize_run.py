@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Promote one baseline/SACM-X run into the canonical results layout.
+"""Promote one baseline/Skein run into the canonical results layout.
 
 The only user-facing tree is::
 
@@ -1049,7 +1049,7 @@ def finalize(args: argparse.Namespace) -> Path:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--family', required=True,
-                        choices=['baseline', 'sacm_x'])
+                        choices=['baseline', 'skein'])
     parser.add_argument('--method', required=True)
     parser.add_argument('--variant', default='default')
     parser.add_argument('--seed', type=int, required=True)

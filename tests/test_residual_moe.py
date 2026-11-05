@@ -2,8 +2,8 @@
 
 import torch
 
-from models.sacm_x.configs import PRESETS
-from models.sacm_x.specs import freeze_sam
+from models.skein.configs import PRESETS
+from models.skein.specs import freeze_sam
 from models.sam_network.build_sam import build_sam_vit_b
 from models.sam_network.mask_decoder import MaskDecoder
 from models.sam_network.residual_moe import (

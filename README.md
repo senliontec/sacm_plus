@@ -1,8 +1,10 @@
-# SACM-X
+# Skein
 
-SACM-X is a PyTorch-based research framework for prompt-free curvilinear structure segmentation, built on the SACM baseline and the Segment Anything Model (SAM). The project provides custom training and testing scripts, and wraps SAM for easy extension and application.
+Skein is a PyTorch-based research framework for prompt-free curvilinear structure segmentation, built on the SACM baseline and the Segment Anything Model (SAM). The project provides custom training and testing scripts, and wraps SAM for easy extension and application.
 
-> SACM-X is the working name for the improved framework. The official SACM baseline is self-contained under `src/baseline_zoo/models/sacm_official/` (registry id `sacm_official`); `--preset sacm` is the SACM-equivalent preset inside SACM-X. The corrected analysis variant is `src/baseline_zoo/models/sacm_plus/` (registry id `sacm_plus`, see `UPSTREAM.md`); it never replaces the official main-table entry. The local checkout/server directory may still be named `sacm_plus`/`sacm-plus`.
+> Skein is the working name for the improved framework. The official SACM baseline is self-contained under `src/baseline_zoo/models/sacm_official/` (registry id `sacm_official`); `--preset sacm` is the SACM-equivalent preset inside Skein. The corrected analysis variant is `src/baseline_zoo/models/sacm_plus/` (registry id `sacm_plus`, see `UPSTREAM.md`); it never replaces the official main-table entry. The local checkout/server directory may still be named `sacm_plus`/`sacm-plus`.
+>
+> **Model name: Skein.** Canonical preset `skein`; `full_fixed2_aux` is a compatibility alias. **Skein** is both the project/framework name and the deployed model name. The final deployment checkpoints are tagged `full_fixed2_gate`; their residual experts are frozen at exactly zero, so their forward output is the structural Skein model. Gate/residual-MoE and post-hoc repair are experimental diagnostics, not the deployed method.
 
 ## Features
 
@@ -67,7 +69,6 @@ rebuild one dataset independently; see `scripts/data/datasets/README.md`.
 make install   # pip install -e ".[dev]"
 make smoke     # build the full model + one forward (first thing on a new machine)
 make test      # unit tests: hand-computed metrics, loss smoke tests, configs, augmentation
-make verify    # numerical cross-check against the official repos (CPU only)
 make registry  # print the available topology-loss registry
 ```
 
@@ -135,9 +136,9 @@ deterministic kernels, DataLoader workers, and environment manifests:
    `--selection gating` replicates the original SACM head-0 selection;
    `--selection iou` uses the trained IoU head.
 
-## Unified results (baselines + SACM-X)
+## Unified results (baselines + Skein)
 
-Use the wrappers for paper runs.  Every run, baseline or SACM-X, writes one
+Use the wrappers for paper runs.  Every run, baseline or Skein, writes one
 canonical directory:
 
 ```text
@@ -161,13 +162,13 @@ results/runs/<method>/<variant>/seed_<seed>/
 
 - baselines: `bash scripts/run_train.sh --model unet --seeds 0` then
   `bash scripts/run_eval.sh --model unet --seeds 0`
-- SACM-X: `SEED=0 PRESET=full_typed SKIP_TEST=true bash scripts/sacm_x/run_sacm_x_quick.sh`
+- Skein: `SEED=0 PRESET=full_typed SKIP_TEST=true bash scripts/skein/run_skein_quick.sh`
   trains and promotes the best checkpoint; run
-  `bash scripts/sacm_x/eval_sacm_x_20.sh` for the 20-dataset eval.
+  `bash scripts/skein/eval_skein_20.sh` for the 20-dataset eval.
 - index every run: `python scripts/pipeline/index_runs.py` →
   `results/runs_index.csv`
 
-See `scripts/sacm_x/README.md` for the complete commands.  The low-level
+See `scripts/skein/README.md` for the complete commands.  The low-level
 `src/train/trainer.py` / `src/eval/evaluate.py` examples below are direct
 architecture entrypoints; they do not promote results into the canonical tree.
 
@@ -234,10 +235,10 @@ supervision (0.3), IoU-head supervision (1.0) and soft-clDice (0.5, with
 a 10-epoch warmup) on top of the same base loss — report these exact
 weights when writing up the method.
 
-## P0 SACM-X improvements (2026-11)
+## P0 Skein improvements (2026-11)
 
 The first high-ROI improvement pass is implemented as opt-in/controlled
-switches in the SACM-X training/evaluation path:
+switches in the Skein training/evaluation path:
 
 - `--train_input_mode {resize,aspect_pad,native_crop}` / `--eval_input_mode {resize,aspect_pad}`:
   `aspect_pad` preserves the source aspect ratio and pads (no square
@@ -246,7 +247,7 @@ switches in the SACM-X training/evaluation path:
   so training and evaluation use the same geometry.
 - `--boundary_loss_weight W --boundary_loss_resolution R --boundary_loss_warmup N --boundary_loss_ramp N`:
   distance-transform boundary term targeting HD95/boundary outliers.
-  The default is `0` (legacy); the SACM-X launcher enables `0.05`.
+  The default is `0` (legacy); the Skein launcher enables `0.05`.
 - `--empty_guard`: if the selected candidate is empty, fall back to the
   candidate with the largest foreground area (label-free; helps
   thick/dense domains where a head collapses).  The launcher enables it.
@@ -256,7 +257,7 @@ switches in the SACM-X training/evaluation path:
   currently use `aspect_pad`; native-resolution tiled inference is the next
   planned step, otherwise train/test pixel scale differs on high-res data.
 
-The SACM-X launcher defaults are now:
+The Skein launcher defaults are now:
 `INPUT_MODE=aspect_pad`, `EVAL_INPUT_MODE=aspect_pad`, `FG_CROP_PROB=0.5`,
 `BOUNDARY_LOSS_WEIGHT=0.05`, `EMPTY_GUARD=true`, `USE_TTA=false`.
 
@@ -286,21 +287,16 @@ Minimal validation-first loop (no test tuning):
 
 ```bash
 SEED=0
-RUN_ROOT="results/runs/sacm_x/full_typed/seed_${SEED}"
+RUN_ROOT="results/runs/skein/full_typed/seed_${SEED}"
 
 GPU=7 PRESET=full_typed EPOCHS=100 SEED="$SEED" \
 OUTPUT_ROOT="$RUN_ROOT" SKIP_TEST=true \
-bash scripts/sacm_x/run_sacm_x_quick.sh
-
-GPU=7 PRESET=full_typed SEED="$SEED" OUTPUT_ROOT="$RUN_ROOT" \
-bash scripts/sacm_x/audit_heads_full_val.sh
+bash scripts/skein/run_skein_quick.sh
 ```
 
-The first command trains/validates only; the second compares the four typed
-heads with the full metric suite. Keep `full` as the untyped control.
-When evaluating a typed checkpoint, pass the same `--preset full_typed`
-(or the launcher's `PRESET=full_typed`); the type embeddings are part of the
-checkpoint and must match the architecture.
+The one-click head-audit helpers were removed in the Skein cleanup.  Use
+`eval_skein_20.sh` with `AUDIT_HEADS=true` / `AUDIT_THRESHOLDS=...` on a
+validation split when you need those diagnostics.
 
 ### Fragmentation / candidate audit
 
@@ -335,61 +331,21 @@ variables, e.g.:
 
 ```bash
 SEED=0
-RUN_ROOT="results/runs/sacm_x/full_typed/seed_${SEED}"
+RUN_ROOT="results/runs/skein/full_typed/seed_${SEED}"
 DATASETS="CREMI ROAD DeepGlobe TopoMortar OCTA-500 TYRE WIRE" \
 AUDIT_HEADS=true COMPONENT_METRICS=true SAVE_CANDIDATE_MASKS=true \
 AUDIT_THRESHOLDS="-2 -1 0 1 2" \
 TRAIN_OUT="$RUN_ROOT" OUTPUT_ROOT="$RUN_ROOT/eval" \
 PRESET=full_typed SEED="$SEED" GPU=7 \
-bash scripts/sacm_x/eval_sacm_x_20.sh
+bash scripts/skein/eval_skein_20.sh
 ```
 
-For **validation calibration only**, the one-click script runs the full
-head × threshold grid and writes a per-dataset report:
-
-```bash
-SEED=0
-GPU=7 SEED="$SEED" PRESET=full \
-bash scripts/sacm_x/calibrate_heads_val.sh
-# val = 6 seen images (1 per seen dataset); train/support = 18 seen images
-SPLITS="val train" GPU=7 SEED="$SEED" \
-bash scripts/sacm_x/calibrate_heads_val.sh
-```
-
-The val split has only one image per seen dataset, so its per-dataset
-winners are noisy; treat the macro table and the fixed-head reference as
-evidence, not as an oracle. Do not run this script on a test split.
-
-For the topology question (does a less-fragmented head win clDice/HD95?),
-run the full per-head audit instead of the quick grid:
-
-```bash
-SEED=0
-GPU=7 SEED="$SEED" PRESET=full \
-bash scripts/sacm_x/audit_heads_full_val.sh
-# report: results/runs/sacm_x/full/seed_${SEED}/eval/head_full_audit/val/head_full_report.txt
-```
-
-It writes `head_full_audit.csv` with the full metric suite for each head
-and aggregates Dice/clDice/HD95/ASSD/NSD per dataset and macro. It uses one
-forward pass per image; the flag `--audit_heads_full` is diagnostic-only.
-As above, val is only six seen images; this cannot calibrate unseen/novel
-datasets.
-
-To check whether the `quality` component penalty actually selects the
-topology-friendly head without losing Dice, compare all selectors on the
-same split:
-
-```bash
-SEED=0
-GPU=7 SEED="$SEED" PRESET=full \
-bash scripts/sacm_x/compare_selectors_val.sh
-# report: results/runs/sacm_x/full/seed_${SEED}/eval/selector_audit/val/selector_report.txt
-```
-
-It runs `iou`, `gating`, three `quality` weight settings, fixed head2 and
-fixed head0, then reports macro Dice/clDice/HD95/ASSD/NSD and the selected
-head distribution. Use it only on val/support, never on test.
+For validation calibration, use the diagnostic flags above on the
+val/support split (`AUDIT_THRESHOLDS`, `AUDIT_HEAD_THRESHOLDS`).  The
+one-click calibration and selector-comparison helpers were removed in the
+Skein cleanup.  The val split has only one image per seen dataset, so its
+per-dataset winners are noisy; treat the macro table and the fixed-head
+reference as evidence, not as an oracle.  Do not tune on the test split.
 
 ## Experiment tooling
 
@@ -405,21 +361,8 @@ python scripts/data/prepare_data.py \
     --shots 3 --val_shots 1 --make_test \
     --out_dir data/sacm_3shot --seed 42
 
-# 2. Legacy multi-preset ablation matrix (not the canonical paper pipeline).
-#    It writes results/ablation/<preset>/; use the one-click wrappers above
-#    for canonical runs.
-python scripts/sacm_x/run_experiments.py --gpus 0 1 2 3 4 5 6 7 \
-    --checkpoint /path/sam_vit_l_0b3195.pth --train_root data/sacm_3shot \
-    --test_datasets DRIVE:/data/DRIVE CHASEDB1:/data/CHASEDB1 \
-    --presets sacm stage1 stage2 full --output_root results/ablation \
-    --epochs 50 --tta
-
-# 3. Aggregate per-job summaries into CSV + LaTeX tables
-python scripts/sacm_x/aggregate_results.py \
-    --root results/ablation --out results/ablation/tables
-
-# 4. Motivation diagnostics (head supervision + gating quality evidence)
-python -m models.sacm_x.diagnose --preset sacm --data_root /data/DRIVE \
+# 2. Motivation diagnostics# 4. Motivation diagnostics (head supervision + gating quality evidence)
+python -m models.skein.diagnose --preset sacm --data_root /data/DRIVE \
     --trained_weights results/ablation/sacm/best_model.pth \
     --output_dir diagnosis/sacm_drive
 ```
@@ -437,15 +380,10 @@ Example for the U-Net adapter:
 
 ```bash
 # One-click every available model/seed: train -> eval -> tables -> figures
-# GPU cleanup is opt-in with --kill-gpu; --no-kill is accepted for backward
-# compatibility.  GPU=... is supported when --gpus is omitted; conflicting
-# GPU=.../--gpus values fail before cleanup.
+# GPU=... is supported when --gpus is omitted; conflicting values fail early.
 # --model all includes the appendix sam2_unet, which needs
 # checkpoints/sam2_hiera_large.pt.
 bash scripts/run_paper.sh --model all --seeds all --gpus 0,1,2,3 --resume
-
-# One-click Optuna HPO on GPU 0-6, seed 0; GPU 7 stays free for SACM-X.
-bash scripts/tools/run_optuna_paper.sh
 
 # One model/seed through the same registry
 bash scripts/run_train.sh --model unet --seeds 0 --gpus 1
@@ -531,7 +469,7 @@ manifest and writes per-image `eval/<dataset>/metrics.csv`, per-dataset
 `<run-root>/visualizations/<method>/<dataset>/<stem>.png` and `grid.png`
 with input, GT, prediction, and TP/FP/FN error panels.
 
-`src/models/sacm_x/diagnose.py` produces the paper's motivation evidence:
+`src/models/skein/diagnose.py` produces the paper's motivation evidence:
 per-head gradient norms under the original winner-take-all loss vs the
 full loss (showing 3/4 Stage-2 heads were unsupervised), and the gating
 rank vs ground-truth IoU correlation.
