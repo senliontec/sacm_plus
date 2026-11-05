@@ -109,6 +109,7 @@ class UNetAdapter(BaselineAdapter):
     official_weight_decay = 1e-4
     train_mode = 'full'
     norm = 'instance'
+    warmup_epochs = 20
     patch_size = 512
     crops_per_image = 8
     fg_crop_prob = 0.5
@@ -245,7 +246,8 @@ class UNetAdapter(BaselineAdapter):
     def make_scheduler(self, optimizer, args):
         epochs = max(int(getattr(args, 'epochs', 1)), 1)
         warmup_raw = getattr(args, 'warmup_epochs', None)
-        warmup = 20 if warmup_raw is None else int(warmup_raw)
+        warmup = (self.warmup_epochs if warmup_raw is None
+                  else int(warmup_raw))
         warmup = max(0, min(warmup, epochs - 1))
 
         def lr_lambda(epoch: int) -> float:

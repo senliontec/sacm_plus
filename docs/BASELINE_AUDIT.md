@@ -24,7 +24,7 @@ collector and report pipeline.
 
 | Model | Status after audit | Main fixes |
 |---|---|---|
-| U-Net (`unet`) | OK with documented 3-shot adapted recipe | official milesial architecture, BCE+Dice, per-image scale preprocessing and logit-space upsample; 3-shot recipe: scale=1.0 native, batch 1, AdamW 1e-3/wd 1e-4, cosine 800, flips/rot90; the literal official RMSprop 1e-5/ReduceLROnPlateau recipe collapsed LR to 1e-8 by epoch 19; 1-class/RGB/6-image val documented |
+| U-Net (`unet`) | OK with documented 3-shot task adaptation | official milesial architecture, BCE+Dice, per-image scale preprocessing and logit-space upsample; 3-shot recipe: full native-resolution images (batch 1), InstanceNorm replacing BatchNorm (pooled six-domain running statistics collapsed eval-mode predictions to background), AdamW 3e-4/wd 1e-4, 20-epoch warmup + cosine 300, flips/rot90/photometric; the literal official RMSprop 1e-5/ReduceLROnPlateau recipe collapsed LR to 1e-8 by epoch 19; 1-class/RGB/6-image val documented; legacy BN patch recipe retained as an ablation |
 | CS2Net-2D (`cs2net`) | OK, identity clarified | official 2D branch `model/csnet.py` + `train.py`; `model/csnet_3d.py` is the separate 3D CS2Net extension and is not applicable to 2D protocol images; LambdaLR one-epoch offset matches upstream |
 | BCUNet (`bcunet`) | OK, paper profile | MRL/RecallCE on ConvNeXt/U-Net/fused, 0.5/0.5 fusion, bilinear U-Net (broken release branch repaired), 18× offline augmentation reconstruction, 100 epochs/batch 2; CE/0.4-0.6/no-aug ablations; OutConv 1×1 logits |
 | MaskVSC (`maskvsc`) | OK, full two-stage release main | stage-1 UNet + stage-2 ViG completion (`ViG(Seg(image))`); official patch16 token-fold decode, soft GCN labels, ViG 23.84M/full 31.61M; main baseline release L_C/flip-only/dot-product KNN; paper L_C/rotation/Euclidean are ablations because paper L_C overweights sparse domains (10-100× BCE) and collapsed CORN/CrackTree/DCA1 (100-epoch seed-0 A/B: release 0.4612/0.4726 vs paper 0.1133/0.1636); patch32 `coherent` ablation; pooled 512 / 600+200 |
@@ -127,9 +127,12 @@ Not unified, by design or documented exception:
   `--dino-ckpt` or `HF_TOKEN`. Prediction no longer downloads them.
 - **U-Net**: official milesial architecture/BCE+Dice/per-image scale
   preprocessing/logit upsample; the training recipe is adapted for 3-shot
-  (scale=1.0, batch 1, AdamW 1e-3/cosine, flips/rot90) because the literal
+  (full native images, batch 1, InstanceNorm instead of BatchNorm, AdamW
+  3e-4/warmup+cosine over 300, flips/rot90/photometric) because the literal
   official RMSprop 1e-5/ReduceLROnPlateau recipe collapsed the LR to 1e-8
-  by epoch 19 on 18 images.
+  by epoch 19 on 18 images, and pooled six-domain BatchNorm running
+  statistics collapsed eval-mode predictions.  The legacy BatchNorm patch
+  recipe remains available as an ablation.
 - Full 5-seed × 20-dataset training has not been run; this audit covers
   source-level correctness and one-step/short smoke tests.
 

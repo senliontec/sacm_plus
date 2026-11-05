@@ -4,6 +4,8 @@ import argparse
 import random
 from pathlib import Path
 
+import numpy as np
+import pytest
 import torch
 from PIL import Image
 
@@ -12,11 +14,15 @@ from baseline_zoo.data import Sample
 from baseline_zoo.runtime import build_parser
 
 
-def _adapter() -> UNetAdapter:
+def _adapter(patch: bool = True) -> UNetAdapter:
     adapter = UNetAdapter()
     adapter.device = torch.device('cpu')
+    if patch:
+        # The preprocessing tests below exercise the legacy patch ablation;
+        # the deployed default is full native-resolution training.
+        adapter.train_mode = 'patch'
     adapter.args = argparse.Namespace(
-        selection='dice', lr=1e-3, weight_decay=1e-4)
+        selection='dice', lr=3e-4, weight_decay=1e-4)
     return adapter
 
 
@@ -63,11 +69,19 @@ def test_dice_loss_is_global_over_batch():
 
 def test_default_recipe_matches_3shot():
     args = build_parser(UNetAdapter()).parse_args(['--stage', 'train'])
-    assert args.lr == 1e-3
+    assert args.lr == 3e-4
     assert args.weight_decay == 1e-4
     assert args.scale == 1.0
-    assert args.batch_size == 8
+    assert args.batch_size == 1
     assert args.grad_clip == 1.0
+    assert args.epochs == 300
+    # The shared flag defaults to None; the adapter's official warmup is 20,
+    # and configs/models/unet.yaml also passes --warmup-epochs 20.
+    assert args.warmup_epochs is None
+    assert UNetAdapter.warmup_epochs == 20
+    assert args.unet_train_mode == 'full'
+    assert args.unet_norm == 'instance'
+    # Patch parameters remain parsed for the documented ablation.
     assert args.unet_patch_size == 512
     assert args.unet_crops_per_image == 8
     assert args.unet_fg_crop_prob == 0.5
@@ -80,19 +94,28 @@ def test_optimizer_is_adamw():
     optimizer = adapter.make_optimizer(torch.nn.Linear(2, 2), args)
     assert isinstance(optimizer, torch.optim.AdamW)
     group = optimizer.param_groups[0]
-    assert group['lr'] == 1e-3
+    assert group['lr'] == 3e-4
     assert group['weight_decay'] == 1e-4
 
 
-def test_scheduler_is_cosine():
+def test_scheduler_is_warmup_then_cosine():
     adapter = UNetAdapter()
     args = build_parser(adapter).parse_args(['--stage', 'train'])
     optimizer = adapter.make_optimizer(torch.nn.Linear(2, 2), args)
     scheduler = adapter.make_scheduler(optimizer, args)
-    assert isinstance(scheduler,
-                      torch.optim.lr_scheduler.CosineAnnealingLR)
-    assert scheduler.T_max == args.epochs
+    assert isinstance(scheduler, torch.optim.lr_scheduler.LambdaLR)
     assert adapter.scheduler_after_validation is True
+
+    warmup = UNetAdapter.warmup_epochs
+    lrs = []
+    for _ in range(args.epochs):
+        lrs.append(optimizer.param_groups[0]['lr'])
+        optimizer.step()
+        scheduler.step()
+    assert lrs[0] == pytest.approx(args.lr / warmup)
+    assert lrs[warmup - 1] == pytest.approx(args.lr)
+    assert lrs[warmup] <= args.lr
+    assert lrs[-1] < 1e-6
 
 
 def test_step_scheduler_receives_validation_dice():
@@ -208,3 +231,59 @@ def test_scale_config_roundtrip():
 def test_default_grad_clip_matches_official():
     args = build_parser(UNetAdapter()).parse_args(['--stage', 'train'])
     assert args.grad_clip == 1.0
+
+
+def test_full_mode_uses_instance_norm_and_native_images(tmp_path):
+    adapter = _adapter(patch=False)
+    args = build_parser(UNetAdapter()).parse_args(['--stage', 'train'])
+    model = adapter.build_model(args)
+    assert not any(isinstance(module, torch.nn.BatchNorm2d)
+                   for module in model.modules())
+    assert any(isinstance(module, torch.nn.InstanceNorm2d)
+               for module in model.modules())
+
+    sample = _sample(tmp_path, 200, 100)
+    images, masks = adapter.prepare_train_batch(
+        [sample], random.Random(0))
+    assert images.shape[0] == 1
+    assert tuple(images.shape[1:]) in ((3, 100, 200), (3, 200, 100))
+    assert tuple(masks.shape) == (1, 1) + tuple(images.shape[2:])
+    # The 4x4 foreground block survives flips/90-degree rotations.
+    assert masks.sum().item() == 16.0
+    with pytest.raises(ValueError, match='--batch-size 1'):
+        adapter.prepare_train_batch([sample, sample], random.Random(1))
+
+
+def test_literal_binary_mask_is_foreground(tmp_path):
+    sample = _sample(tmp_path, 80, 64)
+    with Image.open(sample.mask_path) as mask:
+        values = (np.asarray(mask) > 0).astype(np.uint8)
+    Image.fromarray(values).save(sample.mask_path)
+
+    adapter = _adapter()
+    _, masks = adapter.prepare_train_batch(
+        [sample], random.Random(0))
+    assert masks.sum().item() == 16.0
+
+
+def test_legacy_checkpoint_infers_batch_patch_recipe(tmp_path):
+    args = build_parser(UNetAdapter()).parse_args(['--stage', 'predict'])
+    adapter = UNetAdapter()
+    adapter.restore_config(args, {'scale': 0.5})
+    assert adapter.train_mode == 'patch'
+    assert adapter.norm == 'batch'
+    assert args.unet_train_mode == 'patch'
+    assert args.unet_norm == 'batch'
+    assert adapter.scale == 0.5
+
+
+def test_patch_batch_ablation_builds_batchnorm(tmp_path):
+    adapter = UNetAdapter()
+    args = build_parser(adapter).parse_args([
+        '--stage', 'train', '--unet-train-mode', 'patch',
+        '--unet-norm', 'batch'])
+    model = adapter.build_model(args)
+    assert any(isinstance(module, torch.nn.BatchNorm2d)
+               for module in model.modules())
+    assert not any(isinstance(module, torch.nn.InstanceNorm2d)
+                   for module in model.modules())
