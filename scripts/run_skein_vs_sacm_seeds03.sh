@@ -31,6 +31,21 @@ EXPECTED_DATASETS="${EXPECTED_DATASETS:-20}"
 RESUME="${RESUME:-0}"
 SKIP_TRAIN="${SKIP_TRAIN:-0}"
 SKIP_EVAL="${SKIP_EVAL:-0}"
+case "$RESUME" in
+  0|false|False|FALSE) RESUME=0 ;;
+  1|true|True|TRUE) RESUME=1 ;;
+  *) echo "ERROR: RESUME must be 0 or 1" >&2; exit 2 ;;
+esac
+case "$SKIP_TRAIN" in
+  0|false|False|FALSE) SKIP_TRAIN=0 ;;
+  1|true|True|TRUE) SKIP_TRAIN=1 ;;
+  *) echo "ERROR: SKIP_TRAIN must be 0 or 1" >&2; exit 2 ;;
+esac
+case "$SKIP_EVAL" in
+  0|false|False|FALSE) SKIP_EVAL=0 ;;
+  1|true|True|TRUE) SKIP_EVAL=1 ;;
+  *) echo "ERROR: SKIP_EVAL must be 0 or 1" >&2; exit 2 ;;
+esac
 SKEIN_GPUS="${SKEIN_GPUS:-0,1,2,3}"
 SACM_GPUS="${SACM_GPUS:-4,5,6,7}"
 export SEEDS EXPECTED_DATASETS RESUME SKIP_TRAIN SKIP_EVAL

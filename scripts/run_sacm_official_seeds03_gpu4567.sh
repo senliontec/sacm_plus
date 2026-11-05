@@ -36,6 +36,21 @@ GPU_LIST="${GPU_LIST:-4,5,6,7}"
 RESUME="${RESUME:-0}"
 SKIP_TRAIN="${SKIP_TRAIN:-0}"
 SKIP_EVAL="${SKIP_EVAL:-0}"
+case "$RESUME" in
+  0|false|False|FALSE) RESUME=0 ;;
+  1|true|True|TRUE) RESUME=1 ;;
+  *) echo "ERROR: RESUME must be 0 or 1" >&2; exit 2 ;;
+esac
+case "$SKIP_TRAIN" in
+  0|false|False|FALSE) SKIP_TRAIN=0 ;;
+  1|true|True|TRUE) SKIP_TRAIN=1 ;;
+  *) echo "ERROR: SKIP_TRAIN must be 0 or 1" >&2; exit 2 ;;
+esac
+case "$SKIP_EVAL" in
+  0|false|False|FALSE) SKIP_EVAL=0 ;;
+  1|true|True|TRUE) SKIP_EVAL=1 ;;
+  *) echo "ERROR: SKIP_EVAL must be 0 or 1" >&2; exit 2 ;;
+esac
 EXPECTED_DATASETS="${EXPECTED_DATASETS:-20}"
 MAX_USED_MIB="${MAX_USED_MIB:-2000}"
 ALLOW_BUSY="${ALLOW_BUSY:-0}"
@@ -160,14 +175,14 @@ fi
 
 if [ "$SKIP_TRAIN" != "1" ]; then
   echo "[1/2] training official SACM seeds ${SEEDS_STR} on GPUs ${GPU_LIST}"
-  bash scripts/run_train.sh "${COMMON_ARGS[@]}"
+  env -u RESUME bash scripts/run_train.sh "${COMMON_ARGS[@]}"
 else
   echo "[1/2] training skipped (SKIP_TRAIN=1)"
 fi
 
 if [ "$SKIP_EVAL" != "1" ]; then
   echo "[2/2] evaluating official SACM seeds ${SEEDS_STR} on 20 datasets"
-  bash scripts/run_eval.sh "${COMMON_ARGS[@]}"
+  env -u RESUME bash scripts/run_eval.sh "${COMMON_ARGS[@]}"
 else
   echo "[2/2] evaluation skipped (SKIP_EVAL=1)"
 fi
