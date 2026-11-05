@@ -184,6 +184,8 @@ for seed in $TRAIN_SEEDS; do
       --preset "$PRESET" \
       --checkpoint "$ckpt" \
       --data-root "$data_root" \
+      --protocol "$data_root/protocol_manifest.csv" \
+      --expected-datasets 20 \
       --test-root "$data_root/test" \
       --output-dir "$gate_out" \
       --device cuda:0 \
@@ -194,6 +196,8 @@ for seed in $TRAIN_SEEDS; do
         --preset "$PRESET" \
         --checkpoint "$ckpt" \
         --data-root "$data_root" \
+        --protocol "$data_root/protocol_manifest.csv" \
+        --expected-datasets 20 \
         --test-root "$data_root/test" \
         --output-dir "$no_gate_out" \
         --device cuda:0 \
@@ -238,11 +242,17 @@ for variant, base in (('gate', root / 'component_eval'),
             rows.append({'variant': variant, 'seed': seed, 'role': role,
                          **{k: m.get(k, float('nan')) for k in (
                              'n_datasets', 'coarse_dice', 'prune_dice',
+                             'coarse_iou', 'prune_iou',
                              'coarse_cldice', 'prune_cldice',
                              'coarse_hd95', 'prune_hd95',
                              'coarse_components', 'prune_components',
                              'coarse_cc_error', 'prune_cc_error',
-                             'gate_auc')}})
+                             'gate_auc', 'gate_auprc',
+                             'gate_f1_0_5', 'gate_precision_0_5',
+                             'gate_recall_0_5', 'gate_iou_0_5',
+                             'gate_best_f1', 'gate_best_iou',
+                             'gate_best_threshold', 'gate_auc_topo',
+                             'gate_auprc_topo', 'gate_f1_0_5_topo')}})
 out = root / 'summary_seeds.csv'
 with out.open('w', newline='') as f:
     w = csv.DictWriter(f, fieldnames=list(rows[0]) if rows else [])

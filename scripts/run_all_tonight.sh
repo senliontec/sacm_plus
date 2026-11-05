@@ -151,6 +151,7 @@ for seed in official_seeds:
                 pass
 
 FINAL_KEYS = ('coarse_dice', 'prune_dice',
+              'coarse_iou', 'prune_iou',
               'coarse_cldice', 'prune_cldice',
               'coarse_hd95', 'prune_hd95',
               'coarse_components', 'prune_components',

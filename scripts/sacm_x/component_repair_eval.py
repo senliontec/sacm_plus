@@ -31,7 +31,7 @@ import torch.nn.functional as F
 from scipy.ndimage import label
 from skimage.morphology import skeletonize
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import roc_auc_score
+from sklearn.metrics import average_precision_score, roc_auc_score
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
@@ -42,6 +42,7 @@ from core.metrics.components import component_metrics
 from models.sacm_x.configs import PRESETS
 from models.sacm_x.specs import sam_preprocess
 from models.sam_network import build_sam_vit_l
+from models.sam_network.residual_moe import build_topo_gate_target
 
 TAUS = np.round(np.arange(0.05, 0.96, 0.05), 2)
 FEATURE_NAMES = [
@@ -53,6 +54,46 @@ FEATURE_NAMES = [
 GATE_FEATURES = {'mean_gate', 'gate_mass', 'gate_pos_frac'}
 EPS_DICE = 0.002
 EPS_HD = 0.05
+PROTOCOL_TEST_SPLITS = {
+    'seen_test': 'Seen',
+    'unseen_test': 'Unseen',
+    'novel_test': 'Novel',
+}
+ROLE_ORDER = ('Seen', 'Unseen', 'Novel')
+
+
+def protocol_test_specs(protocol_path: Path):
+    """Resolve every test dataset's actual root from a protocol manifest.
+
+    The seeded split root only contains the six Seen test directories; the
+    Unseen and Novel roots live under ``datasets/unseen`` and
+    ``datasets/novel`` in the manifest.  Scanning ``data_root/test`` silently
+    drops 14 datasets, so protocol-driven evaluation is required for the
+    final 20-dataset result.
+    """
+    rows = list(csv.DictReader(open(protocol_path, newline='')))
+    specs = {}
+    for row in rows:
+        split = str(row.get('split', '')).strip()
+        if split not in PROTOCOL_TEST_SPLITS:
+            continue
+        dataset = str(row.get('dataset', '')).strip()
+        image_path = str(row.get('image_path', '')).strip()
+        if not dataset or not image_path:
+            continue
+        role = PROTOCOL_TEST_SPLITS[split]
+        root = Path(image_path).parent.parent
+        previous = specs.get(dataset)
+        if previous is not None:
+            if previous['root'] != root or previous['role'] != role:
+                raise ValueError(
+                    f'inconsistent protocol rows for {dataset}: '
+                    f'{previous} vs root={root}, role={role}')
+            continue
+        specs[dataset] = {'dataset': dataset, 'root': root, 'role': role}
+    order = {role: i for i, role in enumerate(ROLE_ORDER)}
+    return sorted(specs.values(),
+                  key=lambda item: (order[item['role']], item['dataset']))
 
 
 def load_model(preset: str, checkpoint: Path, device: torch.device):
@@ -241,24 +282,136 @@ def auc_score(score, target):
         return float('nan')
 
 
+def _binary_gate_metrics(score, target, threshold):
+    s = score.detach().reshape(-1).float().cpu().numpy()
+    t = target.detach().reshape(-1).bool().cpu().numpy()
+    pred = s >= threshold
+    tp = float(np.logical_and(pred, t).sum())
+    fp = float(np.logical_and(pred, ~t).sum())
+    fn = float(np.logical_and(~pred, t).sum())
+    precision = tp / (tp + fp) if tp + fp else float('nan')
+    recall = tp / (tp + fn) if tp + fn else float('nan')
+    f1 = (2 * tp / (2 * tp + fp + fn)
+          if 2 * tp + fp + fn else float('nan'))
+    dice = (2 * tp / (2 * tp + fp + fn)
+            if 2 * tp + fp + fn else float('nan'))
+    iou = (tp / (tp + fp + fn) if tp + fp + fn else float('nan'))
+    return {'precision': precision, 'recall': recall, 'f1': f1,
+            'dice': dice, 'iou': iou, 'threshold': float(threshold)}
+
+
+def gate_localization_scores(gate, target):
+    """Pixel-level localization diagnostics for one image.
+
+    AUC/AP are threshold-free; the 0.5 metrics and best-F1 threshold show
+    whether the ranking can be converted into an actual error mask.  The
+    best threshold is an oracle diagnostic, not a deployable threshold.
+    """
+    s = gate.detach().reshape(-1).float().cpu().numpy()
+    t = target.detach().reshape(-1).bool().cpu().numpy()
+    out = {'auc': float('nan'), 'auprc': float('nan')}
+    if t.sum() and (~t).sum():
+        try:
+            out['auc'] = float(roc_auc_score(t, s))
+            out['auprc'] = float(average_precision_score(t, s))
+        except Exception:
+            pass
+    fixed = _binary_gate_metrics(gate, target, 0.5)
+    for key, value in fixed.items():
+        out[f'{key}_0_5'] = value
+    best = None
+    for tau in TAUS:
+        cur = _binary_gate_metrics(gate, target, float(tau))
+        if not math.isfinite(cur['f1']):
+            continue
+        if best is None or cur['f1'] > best['f1']:
+            best = cur
+    if best is None:
+        best = {key: float('nan') for key in (
+            'precision', 'recall', 'f1', 'dice', 'iou', 'threshold')}
+    for key, value in best.items():
+        out[f'best_{key}'] = value
+    return out
+
+
+def topology_gate_target(p0, gt512):
+    z = torch.logit(p0.clamp(1e-6, 1 - 1e-6))
+    return build_topo_gate_target(z, gt512)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--preset', required=True)
     ap.add_argument('--checkpoint', type=Path, required=True)
     ap.add_argument('--data-root', type=Path,
                     default=Path('data/sacm_3shot_seed0'))
-    ap.add_argument('--test-root', type=Path, default=None)
+    ap.add_argument('--protocol', type=Path, default=None,
+                    help='protocol_manifest.csv; default: '
+                         'data_root/protocol_manifest.csv when present')
+    ap.add_argument('--expected-datasets', type=int, default=20,
+                    help='require exactly N protocol test datasets; '
+                         '0 disables the check')
+    ap.add_argument('--test-root', type=Path, default=None,
+                    help='legacy fallback when no protocol is available')
     ap.add_argument('--output-dir', type=Path, required=True)
     ap.add_argument('--device', default='cuda:0')
     ap.add_argument('--limit', type=int, default=0)
     ap.add_argument('--drop-gate-features', action='store_true')
     ap.add_argument('--run-name', default=None)
+    ap.add_argument('--datasets', default='',
+                    help='comma-separated dataset subset; the full protocol '
+                         'is checked before filtering')
     args = ap.parse_args()
 
     device = torch.device(args.device)
-    test_root = args.test_root or (args.data_root / 'test')
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    roles = role_map(args.data_root)
+    protocol = args.protocol or (args.data_root / 'protocol_manifest.csv')
+    roles = {}
+    if protocol.is_file():
+        test_specs = protocol_test_specs(protocol)
+        if (args.expected_datasets
+                and len(test_specs) != args.expected_datasets):
+            raise SystemExit(
+                f'protocol {protocol} contains {len(test_specs)} test '
+                f'datasets, expected {args.expected_datasets}; refusing to '
+                'silently evaluate a subset')
+        for spec in test_specs:
+            if (not (spec['root'] / 'images').is_dir()
+                    or not (spec['root'] / 'masks').is_dir()):
+                raise SystemExit(
+                    f"missing images/masks for {spec['dataset']} at "
+                    f"{spec['root']}")
+        print(
+            f'protocol={protocol} datasets={len(test_specs)} '
+            f'roles='
+            f'{[spec["role"] for spec in test_specs]}',
+            flush=True)
+    else:
+        if args.protocol is not None:
+            raise SystemExit(f'protocol not found: {args.protocol}')
+        test_root = args.test_root or (args.data_root / 'test')
+        roles = role_map(args.data_root)
+        test_specs = [
+            {'dataset': d.name, 'root': d,
+             'role': roles.get(d.name,
+                               'Seen' if d.name in roles else 'Other')}
+            for d in sorted(test_root.iterdir())
+            if d.is_dir() and (d / 'images').is_dir()]
+        print(f'protocol absent; legacy test-root={test_root} '
+              f'datasets={len(test_specs)}', flush=True)
+
+    if args.datasets:
+        wanted = {name.strip() for name in args.datasets.split(',')
+                  if name.strip()}
+        available = {spec['dataset'] for spec in test_specs}
+        unknown = sorted(wanted - available)
+        if unknown:
+            raise SystemExit(f'unknown --datasets entries: {unknown}')
+        test_specs = [spec for spec in test_specs
+                      if spec['dataset'] in wanted]
+        print(f'dataset filter: {len(test_specs)}/{len(available)} '
+              f'{[spec["dataset"] for spec in test_specs]}', flush=True)
+
     model, rm, payload = load_model(args.preset, args.checkpoint, device)
     has_gate = rm is not None
     use_gate = has_gate and not args.drop_gate_features
@@ -278,13 +431,14 @@ def main():
         torch.cuda.empty_cache()
     print('support', {k: len(v) for k, v in support.items()}, flush=True)
 
-    test_dirs = [d for d in sorted(test_root.iterdir())
-                 if d.is_dir() and (d / 'images').is_dir()]
     rows = []
     classifiers = {}
-    for ddir in test_dirs:
-        target = ddir.name
-        role = roles.get(target, 'Seen' if target in support else 'Other')
+    per_dataset_handle = None
+    per_dataset_writer = None
+    for spec in test_specs:
+        target = spec['dataset']
+        ddir = spec['root']
+        role = spec['role']
         seen_target = target in support
         train_items = [it for ds, items in support.items()
                        if ds != target for it in items]
@@ -322,7 +476,7 @@ def main():
         base = [metric_from_prob(it['p0'], it['gt_orig'])
                 for it in support_items]
         base_m = {k: mean([b[k] for b in base])
-                  for k in ('dice', 'cldice', 'hd95')}
+                  for k in ('dice', 'iou', 'cldice', 'hd95')}
         base_m['gate_auc'] = mean(
             [it.get('gate_auc', float('nan')) for it in support_items])
         base_cc = [comp_stats(it['p0'], it['gt_orig'])
@@ -337,7 +491,7 @@ def main():
                     vals.append(metric_from_prob(p2, it['gt_orig']))
                     comps.append(comp_stats(p2, it['gt_orig']))
                 m = {k: mean([v[k] for v in vals])
-                     for k in ('dice', 'cldice', 'hd95')}
+                     for k in ('dice', 'iou', 'cldice', 'hd95')}
                 valid = (
                     m['dice'] >= base_m['dice'] - EPS_DICE
                     and (m['cldice'] > base_m['cldice'] + 1e-4
@@ -361,7 +515,7 @@ def main():
         loader = torch.utils.data.DataLoader(
             ds, batch_size=1, shuffle=False, num_workers=0)
         coarse_vals, prune_vals, coarse_comps, prune_comps = [], [], [], []
-        gate_aucs = []
+        gate_metrics, gate_topo_metrics = [], []
         removed_n = 0
         total_n = 0
         for i, (image, gt, _, name, _) in enumerate(loader):
@@ -370,8 +524,11 @@ def main():
             image = image.to(device)
             p0, gate, other = forward(model, rm, image)
             gt512 = F.adaptive_max_pool2d(gt.to(device), (512, 512))
-            gate_aucs.append(auc_score(
-                gate[0, 0], (p0[0, 0] - gt512[0, 0]).abs() > 0.5))
+            hard_target = (p0[0, 0] - gt512[0, 0]).abs() > 0.5
+            gate_metrics.append(
+                gate_localization_scores(gate[0, 0], hard_target))
+            gate_topo_metrics.append(gate_localization_scores(
+                gate[0, 0], topology_gate_target(p0, gt512)))
             rows_i = features(
                 p0[0, 0].float().cpu().numpy() > 0.5,
                 p0[0, 0].float().cpu().numpy(),
@@ -402,6 +559,8 @@ def main():
             'support_source': support_source,
             'support_coarse_dice': base_m['dice'],
             'support_prune_dice': sup_m['dice'],
+            'support_coarse_iou': base_m['iou'],
+            'support_prune_iou': sup_m['iou'],
             'support_coarse_cldice': base_m['cldice'],
             'support_prune_cldice': sup_m['cldice'],
             'support_coarse_hd95': base_m['hd95'],
@@ -409,11 +568,32 @@ def main():
             'support_gate_auc': base_m.get('gate_auc', float('nan')),
             'test_coarse_dice': mv(coarse_vals, 'dice'),
             'test_prune_dice': mv(prune_vals, 'dice'),
+            'test_coarse_iou': mv(coarse_vals, 'iou'),
+            'test_prune_iou': mv(prune_vals, 'iou'),
             'test_coarse_cldice': mv(coarse_vals, 'cldice'),
             'test_prune_cldice': mv(prune_vals, 'cldice'),
             'test_coarse_hd95': mv(coarse_vals, 'hd95'),
             'test_prune_hd95': mv(prune_vals, 'hd95'),
-            'test_gate_auc': mean(gate_aucs),
+            'test_gate_auc': mean([m['auc'] for m in gate_metrics]),
+            'test_gate_auprc': mean([m['auprc'] for m in gate_metrics]),
+            'test_gate_f1_0_5': mean([m['f1_0_5'] for m in gate_metrics]),
+            'test_gate_precision_0_5': mean(
+                [m['precision_0_5'] for m in gate_metrics]),
+            'test_gate_recall_0_5': mean(
+                [m['recall_0_5'] for m in gate_metrics]),
+            'test_gate_iou_0_5': mean([m['iou_0_5'] for m in gate_metrics]),
+            'test_gate_best_f1': mean(
+                [m['best_f1'] for m in gate_metrics]),
+            'test_gate_best_iou': mean(
+                [m['best_iou'] for m in gate_metrics]),
+            'test_gate_best_threshold': mean(
+                [m['best_threshold'] for m in gate_metrics]),
+            'test_gate_auc_topo': mean(
+                [m['auc'] for m in gate_topo_metrics]),
+            'test_gate_auprc_topo': mean(
+                [m['auprc'] for m in gate_topo_metrics]),
+            'test_gate_f1_0_5_topo': mean(
+                [m['f1_0_5'] for m in gate_topo_metrics]),
             'test_coarse_components': mean(
                 [c['components_pred'] for c in coarse_comps]),
             'test_prune_components': mean(
@@ -426,11 +606,17 @@ def main():
         }
         rows.append(row)
         print(json.dumps(row), flush=True)
+        if per_dataset_writer is None:
+            per_dataset_handle = (
+                args.output_dir / 'per_dataset.csv').open('w', newline='')
+            per_dataset_writer = csv.DictWriter(
+                per_dataset_handle, fieldnames=list(row))
+            per_dataset_writer.writeheader()
+        per_dataset_writer.writerow(row)
+        per_dataset_handle.flush()
 
-    with open(args.output_dir / 'per_dataset.csv', 'w', newline='') as f:
-        w = csv.DictWriter(f, fieldnames=list(rows[0]))
-        w.writeheader()
-        w.writerows(rows)
+    if per_dataset_handle is not None:
+        per_dataset_handle.close()
     (args.output_dir / 'classifier.json').write_text(
         json.dumps(classifiers, indent=2) + '\n')
     summary = {}
@@ -442,6 +628,8 @@ def main():
             'n_datasets': len(sub),
             'coarse_dice': mean([r['test_coarse_dice'] for r in sub]),
             'prune_dice': mean([r['test_prune_dice'] for r in sub]),
+            'coarse_iou': mean([r['test_coarse_iou'] for r in sub]),
+            'prune_iou': mean([r['test_prune_iou'] for r in sub]),
             'coarse_cldice': mean([r['test_coarse_cldice'] for r in sub]),
             'prune_cldice': mean([r['test_prune_cldice'] for r in sub]),
             'coarse_hd95': mean([r['test_coarse_hd95'] for r in sub]),
@@ -455,11 +643,32 @@ def main():
             'prune_cc_error': mean(
                 [r['test_prune_cc_error'] for r in sub]),
             'gate_auc': mean([r['test_gate_auc'] for r in sub]),
+            'gate_auprc': mean([r['test_gate_auprc'] for r in sub]),
+            'gate_f1_0_5': mean([r['test_gate_f1_0_5'] for r in sub]),
+            'gate_precision_0_5': mean(
+                [r['test_gate_precision_0_5'] for r in sub]),
+            'gate_recall_0_5': mean(
+                [r['test_gate_recall_0_5'] for r in sub]),
+            'gate_iou_0_5': mean([r['test_gate_iou_0_5'] for r in sub]),
+            'gate_best_f1': mean(
+                [r['test_gate_best_f1'] for r in sub]),
+            'gate_best_iou': mean(
+                [r['test_gate_best_iou'] for r in sub]),
+            'gate_best_threshold': mean(
+                [r['test_gate_best_threshold'] for r in sub]),
+            'gate_auc_topo': mean(
+                [r['test_gate_auc_topo'] for r in sub]),
+            'gate_auprc_topo': mean(
+                [r['test_gate_auprc_topo'] for r in sub]),
+            'gate_f1_0_5_topo': mean(
+                [r['test_gate_f1_0_5_topo'] for r in sub]),
         }
     summary['All'] = {
         'n_datasets': len(rows),
         'coarse_dice': mean([r['test_coarse_dice'] for r in rows]),
         'prune_dice': mean([r['test_prune_dice'] for r in rows]),
+        'coarse_iou': mean([r['test_coarse_iou'] for r in rows]),
+        'prune_iou': mean([r['test_prune_iou'] for r in rows]),
         'coarse_cldice': mean([r['test_coarse_cldice'] for r in rows]),
         'prune_cldice': mean([r['test_prune_cldice'] for r in rows]),
         'coarse_hd95': mean([r['test_coarse_hd95'] for r in rows]),
@@ -473,6 +682,21 @@ def main():
         'prune_cc_error': mean(
             [r['test_prune_cc_error'] for r in rows]),
         'gate_auc': mean([r['test_gate_auc'] for r in rows]),
+        'gate_auprc': mean([r['test_gate_auprc'] for r in rows]),
+        'gate_f1_0_5': mean([r['test_gate_f1_0_5'] for r in rows]),
+        'gate_precision_0_5': mean(
+            [r['test_gate_precision_0_5'] for r in rows]),
+        'gate_recall_0_5': mean(
+            [r['test_gate_recall_0_5'] for r in rows]),
+        'gate_iou_0_5': mean([r['test_gate_iou_0_5'] for r in rows]),
+        'gate_best_f1': mean([r['test_gate_best_f1'] for r in rows]),
+        'gate_best_iou': mean([r['test_gate_best_iou'] for r in rows]),
+        'gate_best_threshold': mean(
+            [r['test_gate_best_threshold'] for r in rows]),
+        'gate_auc_topo': mean([r['test_gate_auc_topo'] for r in rows]),
+        'gate_auprc_topo': mean([r['test_gate_auprc_topo'] for r in rows]),
+        'gate_f1_0_5_topo': mean(
+            [r['test_gate_f1_0_5_topo'] for r in rows]),
     }
     (args.output_dir / 'summary.json').write_text(
         json.dumps(summary, indent=2) + '\n')
