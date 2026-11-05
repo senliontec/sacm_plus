@@ -57,9 +57,14 @@ def _read_seed(path: Path, expected: int):
         raise SystemExit(
             f'{path}: found {len(raw)} dataset rows, expected {expected}')
     rows = []
+    seen = set()
     for row in raw:
+        dataset = row['dataset'].strip()
+        if dataset in seen:
+            raise SystemExit(f'{path}: duplicate dataset row {dataset}')
+        seen.add(dataset)
         rows.append({
-            'dataset': row['dataset'].strip(),
+            'dataset': dataset,
             'role': (row.get('role') or '').strip(),
             **{name: _metric(row, name) for name in METRICS},
         })
@@ -95,7 +100,8 @@ def main() -> int:
             else Path(__file__).resolve().parents[2])
     seeds = sorted(dict.fromkeys(args.seeds))
     all_rows = []
-    per_seed = {}
+    reference_datasets = None
+    reference_roles = None
 
     for seed in seeds:
         metrics_path = (repo / 'results' / 'runs' / args.model / args.variant /
@@ -103,7 +109,23 @@ def main() -> int:
         if not metrics_path.is_file():
             raise SystemExit(f'missing metrics file: {metrics_path}')
         rows = _read_seed(metrics_path, args.expected_datasets)
-        per_seed[seed] = rows
+        seed_datasets = {row['dataset'] for row in rows}
+        seed_roles = {row['dataset']: row['role'] for row in rows}
+        if reference_datasets is None:
+            reference_datasets = seed_datasets
+            reference_roles = seed_roles
+        else:
+            if seed_datasets != reference_datasets:
+                raise SystemExit(
+                    f'seed {seed}: dataset set differs from seed {seeds[0]}; '
+                    f'missing={sorted(reference_datasets - seed_datasets)}, '
+                    f'extra={sorted(seed_datasets - reference_datasets)}')
+            for dataset in reference_datasets:
+                if seed_roles[dataset] != reference_roles[dataset]:
+                    raise SystemExit(
+                        f'seed {seed}: role for {dataset} is '
+                        f'{seed_roles[dataset]!r}, expected '
+                        f'{reference_roles[dataset]!r}')
         _write_csv(
             metrics_path.parent / 'per_dataset_4metrics.csv',
             ['dataset', 'role', *METRICS], rows)

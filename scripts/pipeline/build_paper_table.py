@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Build a SACM-Table-2-style per-dataset paper table.
 
-Reads the canonical per-seed records produced by ``record_4metrics.py``:
-  results/runs/<model>/<variant>/seed_<s>/eval/tables/per_dataset_4metrics.csv
-with a fallback to the evaluator's ``all_metrics.csv``.
+Reads the evaluator's canonical per-seed table first:
+  results/runs/<model>/<variant>/seed_<s>/eval/tables/all_metrics.csv
+with a fallback to the recorder's derived copy ``per_dataset_4metrics.csv``.
+Preferring the canonical file avoids stale derived data after a re-evaluation.
 
 Outputs (default ``results/reports/paper_table2``):
   table2.csv          long table: dataset, method, metric, mean, std, unit
@@ -32,7 +33,6 @@ from pathlib import Path
 METRICS = ('dice', 'iou', 'cldice', 'hd95')
 METRIC_LABEL = {'dice': 'Dice', 'iou': 'IoU',
                 'cldice': 'clDice', 'hd95': 'HD95'}
-METRIC_UNIT = {'dice': '%', 'iou': '%', 'cldice': '%', 'hd95': 'px'}
 LOWER_BETTER = {'hd95'}
 ROLE_ORDER = {'Seen': 0, 'Unseen': 1, 'Novel': 2}
 LABELS = {
@@ -69,7 +69,10 @@ def _parse_models(values):
         if ':' in value:
             model, variant = value.split(':', 1)
         else:
-            model, variant = value, 'default'
+            model = value
+            # The canonical run layout uses preset=skein for Skein; every
+            # baseline uses variant=default.
+            variant = 'skein' if model == 'skein' else 'default'
         parsed.append((model, variant))
     return parsed
 
@@ -100,9 +103,9 @@ def _load_method(repo, model, variant, seeds, expected):
     for seed in seeds:
         tables = (repo / 'results' / 'runs' / model / variant /
                   f'seed_{seed}' / 'eval' / 'tables')
-        path = tables / 'per_dataset_4metrics.csv'
+        path = tables / 'all_metrics.csv'
         if not path.is_file():
-            path = tables / 'all_metrics.csv'
+            path = tables / 'per_dataset_4metrics.csv'
         if not path.is_file():
             raise SystemExit(f'missing metrics for {model}/{variant} '
                              f'seed {seed}: tried {tables}')
@@ -112,7 +115,27 @@ def _load_method(repo, model, variant, seeds, expected):
         if set(data[seed]) != datasets:
             raise SystemExit(
                 f'{model}/{variant}: dataset set differs for seed {seed}')
+        for dataset in datasets:
+            if data[seed][dataset]['role'] != data[seeds[0]][dataset]['role']:
+                raise SystemExit(
+                    f'{model}/{variant}: role for {dataset} differs '
+                    f'between seed {seeds[0]} and seed {seed}')
     return data
+
+
+def _protocol_roles(path: Path):
+    """Return {test_dataset: role} from a protocol_manifest.csv."""
+    with path.open(newline='') as handle:
+        rows = list(csv.DictReader(handle))
+    roles = {}
+    for row in rows:
+        if not (row.get('split') or '').strip().endswith('_test'):
+            continue
+        dataset = (row.get('dataset') or '').strip()
+        role = (row.get('role') or '').strip().capitalize()
+        if dataset and role:
+            roles[dataset] = role
+    return roles
 
 
 def _mean_std(values):
@@ -195,14 +218,18 @@ def _decorate(text, rank, latex=False):
     return text
 
 
-def _legend(percent, markdown=False):
-    unit = ('Dice/IoU/clDice: %; HD95: px'
-            if percent else 'Dice/IoU/clDice: fraction in [0,1]; HD95: px')
+def _legend(percent, markdown=False, bold=True):
+    if percent:
+        unit = ('Dice/IoU/clDice: %; HD95: px' if markdown
+                else 'Dice/IoU/clDice: \\%; HD95: px')
+    else:
+        unit = 'Dice/IoU/clDice: fraction in [0,1]; HD95: px'
+    marks = ('best in bold, second best underlined.' if bold
+             else 'no ranking marks.')
     if markdown:
-        return (f'_{unit}. ↑/↓ mark the better direction; best in bold, '
-                f'second best underlined._')
+        return f'_{unit}. ↑/↓ mark the better direction; {marks}_'
     return (f'{unit}. $\\uparrow$/$\\downarrow$ mark the better direction; '
-            f'best in bold, second best underlined.')
+            f'{marks}')
 
 
 def _markdown(datasets, macro_roles, methods, roles, per, macro,
@@ -215,7 +242,7 @@ def _markdown(datasets, macro_roles, methods, roles, per, macro,
         for metric in METRICS:
             arrow = '↓' if metric in LOWER_BETTER else '↑'
             header.append(f'{label} {METRIC_LABEL[metric]}{arrow}')
-    lines = [_legend(percent, markdown=True), '',
+    lines = [_legend(percent, markdown=True, bold=bold_best), '',
              '| ' + ' | '.join(header) + ' |',
              '|' + '|'.join(['---'] * len(header)) + '|']
 
@@ -301,8 +328,9 @@ def _latex(datasets, macro_roles, methods, roles, per, macro,
     lines.extend([
         '\\bottomrule',
         '\\end{tabular}}',
-        '\\caption{Per-dataset 3-shot segmentation results on the 20-dataset '
-        'protocol.  ' + _legend(percent) + '}',
+        f'\\caption{{Per-dataset 3-shot segmentation results on the '
+        f'{len(datasets)}-dataset protocol.  '
+        + _legend(percent, bold=bold_best) + '}',
         '\\label{tab:per-dataset}',
         '\\end{table*}',
     ])
@@ -322,10 +350,13 @@ def main() -> int:
     parser.add_argument('--decimals', type=int, default=None,
                         help='display decimals (default: 2 for percent, '
                              '4 for fractions)')
-    parser.add_argument('--percent', action=argparse.BooleanOptionalAction,
-                        default=True,
-                        help='display Dice/IoU/clDice in percent (default); '
-                             'use --no-percent for [0,1] fractions')
+    display = parser.add_mutually_exclusive_group()
+    display.add_argument('--percent', dest='percent', action='store_true',
+                         default=True,
+                         help='display Dice/IoU/clDice in percent (default)')
+    display.add_argument('--no-percent', dest='percent',
+                         action='store_false',
+                         help='display Dice/IoU/clDice as [0,1] fractions')
     parser.add_argument('--no-bold', action='store_true')
     args = parser.parse_args()
 
@@ -338,6 +369,9 @@ def main() -> int:
                 else (2 if args.percent else 4))
     specs = _parse_models(args.models)
     labels = [_model_label(model, variant) for model, variant in specs]
+    if len(set(labels)) != len(labels):
+        raise SystemExit(f'duplicate method labels: {labels}; '
+                         'pass each model:variant once')
 
     method_data = {}
     roles = {}
@@ -356,6 +390,41 @@ def main() -> int:
                 f'{label}: dataset set differs from {labels[0]}; '
                 f'missing={sorted(datasets - current)}, '
                 f'extra={sorted(current - datasets)}')
+        else:
+            for dataset in datasets:
+                if data[seeds[0]][dataset]['role'] != roles[dataset]:
+                    raise SystemExit(
+                        f'{label}: role for {dataset} differs from '
+                        f'{labels[0]}')
+
+    unknown_roles = sorted({role for role in roles.values()
+                            if role not in ROLE_ORDER})
+    if unknown_roles:
+        raise SystemExit(
+            f'unknown or missing dataset roles {unknown_roles}; expected '
+            f'{sorted(ROLE_ORDER)}')
+
+    protocol = (repo / 'data' / f'sacm_3shot_seed{seeds[0]}' /
+                'protocol_manifest.csv')
+    if protocol.is_file():
+        expected_roles = _protocol_roles(protocol)
+        if expected_roles:
+            if set(expected_roles) != set(datasets):
+                raise SystemExit(
+                    f'{protocol}: test dataset set differs; '
+                    f'missing={sorted(set(expected_roles) - set(datasets))}, '
+                    f'extra={sorted(set(datasets) - set(expected_roles))}')
+            for dataset in datasets:
+                if expected_roles[dataset] != roles[dataset]:
+                    raise SystemExit(
+                        f'{protocol}: role for {dataset} is '
+                        f'{roles[dataset]!r}, protocol says '
+                        f'{expected_roles[dataset]!r}')
+        else:
+            print(f'[warn] {protocol}: no *_test rows; skipping name check')
+    else:
+        print(f'[warn] protocol manifest not found: {protocol}; '
+              'skipping dataset-name check')
 
     datasets = sorted(
         datasets,

@@ -106,9 +106,10 @@ bash scripts/build_paper_table.sh
 ```
 
 Default methods are `skein:skein sacm_official:default`, seeds `0 1 2 3`.
-It aggregates mean/std across seeds per dataset and per Seen/Unseen/Novel/All
-role (macro computed per seed first), and writes to
-`results/reports/paper_table2/`:
+It reads each run's canonical `eval/tables/all_metrics.csv` and falls back to
+`per_dataset_4metrics.csv` only when that is absent.  It aggregates mean/std
+across seeds per dataset and per Seen/Unseen/Novel/All role (macro computed
+per seed first), and writes to `results/reports/paper_table2/`:
 
 | File | Content |
 |---|---|
@@ -122,8 +123,14 @@ role (macro computed per seed first), and writes to
 The display follows the SACM paper's Table 2: Dice/IoU/clDice are shown in
 percent (2 decimals) and HD95 in pixels; best is bold and second best is
 underlined.  `table2.csv` / `table2_macro.csv` keep the raw overlap
-fractions and mark the unit.  Pass `--no-percent` for [0,1] fractions and
-`--decimals N` to change precision.
+fractions and mark the unit.  Pass `--no-percent` for [0,1] fractions,
+`--no-bold` to disable ranking marks, and `--decimals N` to change precision.
+
+The builder fails loudly if a seed is missing, a seed has the wrong number of
+datasets, dataset sets or roles differ across seeds/methods, or the dataset
+names/roles disagree with `data/sacm_3shot_seed<s>/protocol_manifest.csv`
+(when that manifest is present).  This prevents a silently wrong 20-dataset
+table.
 
 Overrides: `MODELS="..."`, `SEEDS="..."`, `OUT_DIR=...`,
 `EXPECTED_DATASETS=20`.  The table fails loudly if any seed is missing or a

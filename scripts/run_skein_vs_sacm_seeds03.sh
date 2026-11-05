@@ -27,23 +27,29 @@ REPO="$(pwd)"
 
 LOG_DIR="${LOG_DIR:-results/logs/table2_$(date +%Y%m%d_%H%M%S)}"
 mkdir -p "$LOG_DIR"
+SEEDS="${SEEDS:-0 1 2 3}"
+EXPECTED_DATASETS="${EXPECTED_DATASETS:-20}"
+RESUME="${RESUME:-0}"
 SKIP_TRAIN="${SKIP_TRAIN:-0}"
 SKIP_EVAL="${SKIP_EVAL:-0}"
 SKEIN_GPUS="${SKEIN_GPUS:-0,1,2,3}"
 SACM_GPUS="${SACM_GPUS:-4,5,6,7}"
+export SEEDS EXPECTED_DATASETS RESUME SKIP_TRAIN SKIP_EVAL
 
 echo "============================================================"
-echo " Skein vs official SACM, seeds ${SEEDS:-0 1 2 3}"
+echo " Skein vs official SACM, seeds $SEEDS"
 echo " Skein GPUs:  $SKEIN_GPUS"
 echo " SACM  GPUs:  $SACM_GPUS"
 echo " logs:        $LOG_DIR"
 echo "============================================================"
 
-GPU_LIST="$SKEIN_GPUS" bash scripts/run_skein_seeds03_gpu0123.sh \
+LOG_DIR="$LOG_DIR/skein" GPU_LIST="$SKEIN_GPUS" \
+  bash scripts/run_skein_seeds03_gpu0123.sh \
   > >(tee "$LOG_DIR/skein.log") 2>&1 &
 skein_pid=$!
 
-GPU_LIST="$SACM_GPUS" bash scripts/run_sacm_official_seeds03_gpu4567.sh \
+LOG_DIR="$LOG_DIR/sacm" GPU_LIST="$SACM_GPUS" \
+  bash scripts/run_sacm_official_seeds03_gpu4567.sh \
   > >(tee "$LOG_DIR/sacm.log") 2>&1 &
 sacm_pid=$!
 
@@ -70,7 +76,7 @@ fi
 bash scripts/build_paper_table.sh
 
 echo "============================================================"
-echo " Done. Paper table: results/reports/paper_table2/table2.tex"
-echo " Preview:         results/reports/paper_table2/table2_means.md"
+echo " Done. Paper table: ${OUT_DIR:-results/reports/paper_table2}/table2.tex"
+echo " Preview:         ${OUT_DIR:-results/reports/paper_table2}/table2_means.md"
 echo " Combined logs:   $LOG_DIR"
 echo "============================================================"

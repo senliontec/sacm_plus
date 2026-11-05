@@ -83,6 +83,8 @@ config = repo / sys.argv[6]
 requested = [item.strip() for item in gpu_csv.split(',') if item.strip()]
 if not requested:
     sys.exit('ERROR: GPU_LIST is empty')
+if len(set(requested)) != len(requested):
+    sys.exit(f'ERROR: duplicate GPU indices in GPU_LIST: {requested}')
 
 try:
     out = subprocess.check_output(
@@ -132,7 +134,10 @@ if busy and not allow_busy:
 
 for seed in seeds:
     root = repo / f'data/sacm_3shot_seed{seed}'
-    for name in ('protocol_manifest.csv', 'split_manifest.csv'):
+    # protocol_summary.json supplies the Seen/Unseen/Novel roles used by
+    # aggregate_results.py; without it the paper table cannot group rows.
+    for name in ('protocol_manifest.csv', 'split_manifest.csv',
+                 'protocol_summary.json'):
         path = root / name
         if not path.is_file():
             sys.exit(f'ERROR: missing {path}')
@@ -180,6 +185,6 @@ echo " per-run logs: results/runs/$MODEL/$VARIANT/seed_*/train.log"
 echo "               results/runs/$MODEL/$VARIANT/seed_*/eval/eval.log"
 echo " metrics:      results/runs/$MODEL/$VARIANT/seed_*/eval/tables/macro_metrics.csv"
 echo " per-dataset:  results/runs/$MODEL/$VARIANT/seed_*/eval/tables/per_dataset_4metrics.csv"
-echo " combined:     results/reports/${MODEL}_${VARIANT}_seeds*_per_dataset.csv"
-echo "               results/reports/${MODEL}_${VARIANT}_seeds*_mean_std.csv/.md"
+echo " combined:     results/reports/${MODEL}_${VARIANT}_seed*_per_dataset.csv"
+echo "               results/reports/${MODEL}_${VARIANT}_seed*_mean_std.csv/.md"
 echo "============================================================"
