@@ -11,7 +11,7 @@ From this file's directory: `../../../../3rd`
 `3rd` is a read-only upstream reference. Do not import from it at runtime.
 
 ```text
-└── unet                  -> 3rd/Pytorch-UNet
+└── unet                  -> 3rd/Pytorch-UNet 已经正确, 实验曲线优秀
 ├── cs2net                -> 3rd/CS-Net
 ├── bcunet                -> 3rd/BCU-Net
 ├── maskvsc               -> 3rd/MaskVSC
