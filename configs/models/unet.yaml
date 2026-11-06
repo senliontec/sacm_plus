@@ -22,7 +22,7 @@ note: >-
   3-shot task-adapted recipe: official milesial U-Net architecture + BCE/Dice
   loss, trained on full native-resolution images (batch 1, no patch
   downsampling), InstanceNorm in place of BatchNorm, AdamW lr=3e-4/wd=1e-4,
-  20-epoch warmup + cosine over 300 epochs, joint flips/90-degree rotations
+  20-epoch warmup + cosine over the shared 800-epoch budget, joint flips/90-degree rotations
   and mild photometric jitter. BatchNorm's pooled six-domain running
   statistics collapsed eval-mode predictions to all-background; InstanceNorm
   removes that train/eval gap. Label as "3-shot U-Net (official architecture;
@@ -31,4 +31,4 @@ note: >-
   `--unet-norm batch --unet-train-mode patch --batch-size 8 --lr 1e-3
   --epochs 800 --warmup-epochs 0`.
 defaults:
-  epochs: 300
+  epochs: 800

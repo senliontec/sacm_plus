@@ -74,7 +74,7 @@ def test_default_recipe_matches_3shot():
     assert args.scale == 1.0
     assert args.batch_size == 1
     assert args.grad_clip == 1.0
-    assert args.epochs == 300
+    assert args.epochs == 800
     # The shared flag defaults to None; the adapter's official warmup is 20,
     # and configs/models/unet.yaml also passes --warmup-epochs 20.
     assert args.warmup_epochs is None

@@ -175,10 +175,13 @@ These need a method/paper decision rather than a mechanical patch:
   now cover every model config.
 
 
-- **Epoch budgets are not uniform**: BLO-SAM=100; CS-Net/JTFN=1000;
-  KnowSAM=50000 iterations; c2p/matcher/persam/rsrm=0 (training-free);
-  others mostly 800. The one-click 40-baseline run uses each config default,
-  not a global 800.
+- **Epoch budgets are uniform for trainable baselines**: all non-exempt
+  configs use `defaults.epochs: 800`, including U-Net (was 300), BCU-Net and
+  BLO-SAM (paper 100), and CS-Net/JTFN (official 1000). KnowSAM retains
+  50,000 iterations because its `--epochs` flag is an iteration budget;
+  c2p/matcher/persam/rsrm remain 0 (training-free). The one-click
+  40-baseline run uses each config default, so the trainable comparison is
+  now 800 epochs.
 - **5 models still have no dedicated end-to-end test file**: cs2net,
   knowsam, nnwnet (only incidental runtime tests), sacm_official,
   sam_med2d (only an init test).

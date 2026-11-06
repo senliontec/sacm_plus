@@ -55,7 +55,8 @@
 5. The official code constructs a `OneCycleLR` for the network optimizer
    but never calls its `step()`; the effective schedule is the manual
    polynomial assignment.  This port implements the effective schedule and
-   also uses the shared 100-epoch config (the official `max_epochs=100`).
+   also uses the shared 800-epoch config; pass `--epochs 100` to restore the
+   official `max_epochs=100`.
 6. The upstream `utils.py` evaluation helpers (SimpleITK/medpy/imageio) are
    not vendored; only the Dice loss used by the prompt optimizer is copied.
 7. The paper reports test Dice from the 64x64 low-resolution logits.  This

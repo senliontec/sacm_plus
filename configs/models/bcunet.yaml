@@ -20,12 +20,13 @@ eval_entrypoint: >-
   --device cuda:{gpu} --use_wandb true --skip-visualize
 protocols: [seeded5, fixed]
 defaults:
-  epochs: 100
+  epochs: 800
 note: >-
   Paper-faithful BCU-Net (CBM 2023): ConvNeXt + U-Net, MRL loss
   (L1 ConvNeXt + L2 average-fused + L3 U-Net, all RecallCE), fused output
   0.5*U-Net + 0.5*ConvNeXt, bilinear U-Net upsampling, raw logits, Adam
-  1.5e-4, batch 2, 100 epochs, and 18x offline augmentation. The paper does
+  1.5e-4, batch 2, the paper's 100-epoch recipe extended to the shared
+  800-epoch comparison budget, and 18x offline augmentation. The paper does
   not give augmentation amplitudes; the 18-variant recipe is documented as
   a reconstruction. The paper scopes these transforms to retinal vessel
   datasets; the default retinal scope applies them to CHASEDB1/DRIVE/STARE/

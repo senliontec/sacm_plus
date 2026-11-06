@@ -18,7 +18,7 @@ eval_entrypoint: >-
   --device cuda:{gpu} --use_wandb true --skip-visualize
 protocols: [seeded5, fixed]
 defaults:
-  epochs: 100
+  epochs: 800
 note: >-
   Self-contained BLO-SAM port (limited-data bilevel LoRA SAM). SAM ViT-B
   with a frozen image encoder, rank-4 LoRA on the mask-decoder attention
@@ -29,5 +29,6 @@ note: >-
   9/9 D1/D2 subsets, stratified across the six pooled domains; prompt
   updates use D2. Checkpoint selection defaults to the shared 6-image
   validation Dice; --blo-sam-selection d2 restores the official D2
-  criterion. Official 100-epoch budget. No official BLO-SAM weights; starts
-  from sam_vit_b_01ec64.pth.
+  criterion. The paper's 100-epoch budget is extended to the shared
+  800-epoch comparison budget. No official BLO-SAM weights; starts from
+  sam_vit_b_01ec64.pth.

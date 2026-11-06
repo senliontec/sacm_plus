@@ -81,13 +81,13 @@ prints them at the start of training and stores them in every checkpoint.
 | SACM+ (`sacm_plus`) | official zero-prompt ViT-L + adapters with correctness fixes: SAM input normalization, `no_mask_embed`, per-block Adapter-E LN, Eq.6 softmax-over-FFN fusion weights, Eq.10 Stage-2 descriptor reorder, all-head Stage-1/Stage-2 + per-head IoU supervision, IoU-head selection, AdamW 3e-4 excluding norm/bias from decay, cosine 1e-6, BCE 0.7+Dice 0.3, grad clip 1.0 | separate analysis variant, **not** the main-table SACM; 1024×1024 resize, no augmentation and the 800 shared epochs are preserved; GT-size export; prediction-mode skips the base checkpoint; full list in `src/baseline_zoo/models/sacm_plus/UPSTREAM.md` |
 
 The shared 3-shot project budget in `configs/models/` is now **800 epochs**
-for every baseline whose previous budget was 200 or 400, including DSCNet's
-official 400-epoch recipe. The epoch numbers in the table above remain the
-upstream recipe values where they describe official logic. Exceptions to
-the 800-epoch project budget are CS-Net (`cs2net`)/JTFN (1000), BLO-SAM
-(official 100), BCU-Net (paper 100), KnowSAM (50,000 iterations), and
-training-free Matcher/PerSAM (0).
-Skein is the proposed method, not a baseline, and is unchanged.
+for every trainable baseline, including methods whose upstream recipe used
+100, 300, 400, or 1000 epochs. The epoch numbers in the table above remain
+upstream recipe values where they describe official logic. Exceptions:
+KnowSAM uses 50,000 iterations because its `--epochs` flag is an iteration
+budget in the official semi-supervised loop; training-free C2P, Matcher,
+PerSAM, and RSRM keep 0. Skein is the proposed method, not a baseline, and
+is unchanged.
 
 `sam_adapter` is a prompt-free main-table baseline: the official FFT
 high-pass prompt generator is injected into every ViT block, and the mask

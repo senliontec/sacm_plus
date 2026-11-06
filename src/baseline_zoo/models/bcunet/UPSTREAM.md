@@ -28,7 +28,8 @@
 - U-Net upsampling: bilinear, as described in §3/Fig. 2.
 - Both branches return raw 2-class logits; the paper's MRL uses
   softmax/RecallCE.
-- Training: Adam 1.5e-4, batch 2, 100 epochs (paper §4.1/§4.5.3).
+- Training: Adam 1.5e-4, batch 2, 100 epochs (paper §4.1/§4.5.3); the
+  project config extends this to the shared 800-epoch comparison budget.
 - Augmentation: 18 deterministic offline variants per training image,
   including the identity variant (rotation, flips, brightness, Gaussian
   noise, Gaussian blur, and combinations). The paper does not say whether

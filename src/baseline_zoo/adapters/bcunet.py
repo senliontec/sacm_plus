@@ -99,7 +99,9 @@ class BCUNetAdapter(BaselineAdapter):
         'OutConv applied Sigmoid but is unrunnable (undefined upconv2x2 and '
         'missing warmlearnrate.py). The paper MRL uses softmax/RecallCE, so '
         'this port keeps logits and a 1x1 projection reconstruction.',
-        'The paper uses 100 epochs, batch 2 and Adam lr 1.5e-4. The shared '
+        'The paper uses 100 epochs, batch 2 and Adam lr 1.5e-4; the model '
+        'config extends this to the shared 800-epoch comparison budget. The '
+        'shared '
         '3-shot protocol still replaces the paper data split with 18 train / '
         '6 val images and selects the checkpoint by validation Dice; the '
         'paper reports five-fold cross-validation and test metrics.',

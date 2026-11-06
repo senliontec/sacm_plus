@@ -53,7 +53,8 @@ class BLOSAMAdapter(BaselineAdapter):
         'Official optimizer is AdamW lr 5e-3, prompt lr 5e-3, weight decay '
         '0.1, rank 4, batch 1 and lr_i = lr_0 (1 - i / Iter_max)^0.9. This '
         'port follows that per-step polynomial schedule; the epoch budget '
-        'remains configurable (the model config uses the official 100).',
+        'remains configurable; the model config uses the shared 800-epoch '
+        'budget, and --epochs 100 restores the official budget.',
         'The official image preprocessing uses the model pixel_mean=0 / '
         'pixel_std=1 with RGB images; this port follows that setting and '
         'adds flips/90-degree rotations for the tiny 3-shot split.',

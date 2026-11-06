@@ -58,8 +58,8 @@ adapter/runtime provides those responsibilities.
 - The official validation uses the dataset test split and selects by F1;
   the port selects by the shared validation Dice to match the other
   baselines.
-- The official 1000-epoch DRIVE recipe is kept as the default; users can
-  override `--epochs` for a shorter 3-shot run.
+- The model config uses the shared 800-epoch 3-shot budget; `--epochs 1000`
+  restores the official DRIVE recipe.
 - The official arbitrary-angle/color augmentation is simplified to random
   flips, 90° rotations, ±20° in-plane rotations and brightness/contrast
   jitter applied before the 256 crop.  The boundary target is generated
