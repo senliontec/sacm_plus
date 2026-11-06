@@ -116,7 +116,7 @@ closure = 19/19。G3 的三项主要缺口是 D-jt-05/D-jt-06/D-jt-09。
 
 ## 03. 数值证据
 
-命令（在 `sacm_plus/` 下；无下载、无训练）：
+命令（在 `sacm_stc/` 下；无下载、无训练）：
 
 ```bash
 /home/dev/anaconda3/envs/tsai/bin/python 'cod reviewer/audits/_shared/03_same_state_probes.py'

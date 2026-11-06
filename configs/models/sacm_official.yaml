@@ -23,5 +23,5 @@ note: >-
   correctness defects: no SAM pixel normalization, an all-zero dense prompt
   instead of no_mask_embed, sigmoid-before-softmax fusion, and a 60->800
   stretched schedule. Use this row as the official-code behavior, not as a
-  strong method baseline; use sacm_plus or a minimal-fix variant for the
-  corrected comparison.
+  strong method baseline; `sacm_stc` is the separate proposed method,
+  not a replacement for this official row.

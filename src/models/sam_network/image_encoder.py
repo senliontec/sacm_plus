@@ -111,7 +111,7 @@ class ImageEncoderViT(nn.Module):
         self.patch_size = patch_size
         self.depth = depth
         self.global_attn_indexes = tuple(global_attn_indexes)
-        # Matches official SACM / sacm_plus: recompute block activations in
+        # Matches official SACM / sacm_stc: recompute block activations in
         # backward instead of retaining the full ViT-L activation graph.
         self.grad_checkpointing = False
 

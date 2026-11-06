@@ -15,7 +15,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 ROOT = Path('/home/dev/mywork/project/segment')
-PROJ = ROOT / 'sacm_plus'
+PROJ = ROOT / 'sacm_stc'
 THIRD = ROOT / '3rd'
 sys.path.insert(0, str(PROJ / 'src'))
 DEV = torch.device('cuda' if torch.cuda.is_available() else 'cpu')

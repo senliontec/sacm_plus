@@ -38,7 +38,7 @@ ROLE_ORDER = {'Seen': 0, 'Unseen': 1, 'Novel': 2}
 LABELS = {
     ('skein', 'skein'): 'Skein',
     ('sacm_official', 'default'): 'SACM (official)',
-    ('sacm_plus', 'default'): 'SACM+',
+    ('sacm_stc', 'default'): 'SACM-STC',
 }
 
 

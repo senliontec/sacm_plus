@@ -48,7 +48,7 @@ PORTED = set(available_adapters())
 # carries the unified split-hash field.
 CUSTOM_CHECKPOINTS = {'nnunet2d', 'nnwnet', 'knowsam'}
 SAM_CHECKPOINT_METHODS = {
-    'cwsam', 'sacm_official', 'sacm_plus', 'sam_adapter', 'sam_med2d',
+    'cwsam', 'sacm_official', 'sacm_stc', 'sam_adapter', 'sam_med2d',
     'sam_octa', 'sam_vit_l_unet', 'ucs'}
 
 

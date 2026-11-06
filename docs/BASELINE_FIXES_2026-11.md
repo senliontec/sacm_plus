@@ -60,7 +60,7 @@ These are protocol/fidelity limitations, not silent bugs:
 
 - SACM official preserves the upstream lack of SAM normalization, zero dense
   prompt, and stretched 60→800 schedule.  It is an official-code row, not a
-  strong method baseline.  SACM+ fixes correctness but also adds all-head
+  strong method baseline.  SACM-STC fixes correctness but also adds all-head
   supervision, deep supervision and IoU-head selection; it is not a pure bug
   fix.
 - Support-based methods use own-domain train shots for Seen and a donor for

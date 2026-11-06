@@ -12,7 +12,7 @@ bash scripts/run_paper.sh --model all --seeds all --gpus 0,1,2,3 --resume
 `--model all` resolves every `status: available` model in
 `configs/models/` (Skein plus the 41 official/reference baselines and two
 project extensions/variants: the CurvField extension and the corrected
-`sacm_plus` variant, including the
+`sacm_stc` variant, including the
 appendix `sam2_unet`, the prompt-free `sam_adapter`/`samed`/`topolora`/
 `convlora`/`c2p`/`a2sam`/`kprism`, the non-SAM `jtfn`/`dscnet`/`rsrm`/`dka`/
 `scrwkv`/`flowsdf`/`tpsegformer`/`s2mnet`/`csunet`/`liot`/`dconnnet`,

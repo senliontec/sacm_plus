@@ -28,6 +28,7 @@ class MaskDecoder(nn.Module):
         adapter_num_layers: int = 24,
         adapter_proj_dim: int = 32,
         adapter_hidden: int = 128,
+        stable_stage2: bool = False,
     ) -> None:
         """
         Predicts masks given an image and prompt embeddings, using a
@@ -56,6 +57,7 @@ class MaskDecoder(nn.Module):
         self.transformer_dim = transformer_dim
         self.transformer = transformer
         self.use_adapter_skip = use_adapter_skip
+        self.stable_stage2 = bool(stable_stage2)
 
         self.num_multimask_outputs = num_multimask_outputs
 
@@ -92,6 +94,31 @@ class MaskDecoder(nn.Module):
         self.iou_prediction_head = MLP(
             transformer_dim, iou_head_hidden_dim, self.num_mask_tokens, iou_head_depth
         )
+
+        if self.stable_stage2:
+            # Stable task heads need a head-specific token offset; otherwise
+            # the four MLPs see interchangeable SAM mask tokens.
+            self.stage2_type_emb = nn.Parameter(
+                torch.zeros(self.num_mask_tokens, transformer_dim))
+            # Give Stage-1 a real inference role: its four coarse masks are
+            # fused into the Stage-2 mask substrate instead of only providing
+            # gating scores that stable heads no longer consume.
+            self.stage1_prior = nn.Sequential(
+                nn.Conv2d(self.num_mask_tokens, transformer_dim // 8, 3,
+                          padding=1),
+                LayerNorm2d(transformer_dim // 8),
+                nn.GELU(),
+                nn.Conv2d(transformer_dim // 8, transformer_dim // 8, 1),
+            )
+            nn.init.zeros_(self.stage1_prior[-1].weight)
+            nn.init.zeros_(self.stage1_prior[-1].bias)
+            # The width head regresses a bounded pixel width.  A random last
+            # layer can emit saturated logits, and under the official
+            # learning rate such a head never leaves saturation.  Start it
+            # from a neutral zero logit instead.
+            width_mlp = self.output_hypernetworks_mlps_stage2[-1]
+            nn.init.zeros_(width_mlp.layers[-1].weight)
+            nn.init.zeros_(width_mlp.layers[-1].bias)
 
         if self.use_adapter_skip:
             # Eq. 6: alpha = Softmax(FFN(Concat(z_1, ..., z_L))).
@@ -266,8 +293,19 @@ class MaskDecoder(nn.Module):
         gating_scores = masks_stage1.view(
             b, self.num_mask_tokens, -1).max(dim=-1).values
         gating_weights = F.softmax(gating_scores, dim=1)
-        sorted_indices = torch.argsort(
-            gating_weights, dim=1, descending=True)
+        if self.stable_stage2:
+            sorted_indices = torch.arange(
+                self.num_mask_tokens, device=gating_weights.device
+            ).unsqueeze(0).expand(b, -1)
+        else:
+            sorted_indices = torch.argsort(
+                gating_weights, dim=1, descending=True)
+
+        # Stage-1 now contributes a coarse spatial prior to Stage-2.  The
+        # final 1x1 conv is zero-initialised, so this is an identity start.
+        if self.stable_stage2:
+            upscaled_embedding = (
+                upscaled_embedding + self.stage1_prior(masks_stage1))
 
         # --------------------- Stage 2: refined masks ---------------------
         # Eq. 10: MLP2 consumes the descriptors reordered by s.  The masks
@@ -278,6 +316,8 @@ class MaskDecoder(nn.Module):
             mask_tokens_out, 1,
             sorted_indices.unsqueeze(-1).expand(
                 -1, -1, mask_tokens_out.shape[-1]))
+        if self.stable_stage2:
+            sorted_tokens = sorted_tokens + self.stage2_type_emb.unsqueeze(0)
         hyper_in_list_stage2: List[torch.Tensor] = []
         for i in range(self.num_mask_tokens):
             hyper_in_list_stage2.append(

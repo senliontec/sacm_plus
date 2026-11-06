@@ -1,6 +1,6 @@
 import sys, json, torch, torch.nn as nn
 from pathlib import Path
-ROOT=Path('/home/dev/mywork/project/segment'); sys.path.insert(0,str(ROOT/'sacm_plus/src'))
+ROOT=Path('/home/dev/mywork/project/segment'); sys.path.insert(0,str(ROOT/'sacm_stc/src'))
 from baseline_zoo.models.unet import UNet as PortUNet
 from baseline_zoo.adapters.unet import dice_loss as port_dice
 sys.path.insert(0,str(ROOT/'3rd/Pytorch-UNet'))

@@ -1,0 +1,29 @@
+id: sacm_stc
+display_name: SACM-STC
+family: sam
+status: available
+checkpoint: "{output_root}/best_model.pth"
+train_entrypoint: >-
+  python -m baseline_zoo.run_one --model sacm_stc --stage train
+  --data-root {split_root} --workdir {output_root}
+  --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
+  --use-typed-stage2 1 --typed-resolution 512 --iou-loss-weight 0
+eval_entrypoint: >-
+  python scripts/pipeline/run_baseline_test.py --method sacm_stc
+  --protocol {test_manifest}
+  --seed {seed}
+  --checkpoint {output_root}/best_model.pth
+  --pred-root {output_root}/predictions
+  --paper-root {output_root}
+  --device cuda:{gpu} --use_wandb true --skip-visualize
+protocols: [seeded5, fixed]
+defaults:
+  epochs: 800
+note: >-
+  SACM-STC: a structural multi-task extension of the SACM prompt-free decoder.
+  The four native Stage-2 heads have fixed roles: dense mask, centerline,
+  boundary, and normalized distance/width. Stage-2 uses a stable head order
+  (no gating reorder), Stage-1 keeps dense deep supervision, and a lightweight
+  composer turns the four task outputs into one mask. No test-time head
+  selector and no fixed deployment head are used. The faithful official SACM
+  remains the main-table baseline (`sacm_official`).

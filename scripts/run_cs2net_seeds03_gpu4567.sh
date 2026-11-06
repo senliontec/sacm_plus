@@ -52,6 +52,11 @@ if [ "${#SEED_ARGS[@]}" -eq 0 ]; then
 fi
 FIRST_SEED="${SEED_ARGS[0]}"
 LAST_SEED="${SEED_ARGS[${#SEED_ARGS[@]}-1]}"
+if [ "${#SEED_ARGS[@]}" -eq 1 ]; then
+  REPORT_TAG="seed${FIRST_SEED}"
+else
+  REPORT_TAG="seeds${FIRST_SEED}_${LAST_SEED}"
+fi
 
 if [ -z "${PYTHON:-}" ]; then
   if [ -x /home/zkyd/anaconda3/envs/tsai/bin/python ]; then
@@ -194,6 +199,6 @@ echo " per-run logs: results/runs/$MODEL/$VARIANT/seed_*/train.log"
 echo "               results/runs/$MODEL/$VARIANT/seed_*/eval/eval.log"
 echo " metrics:      results/runs/$MODEL/$VARIANT/seed_*/eval/tables/macro_metrics.csv"
 echo " per-dataset:  results/runs/$MODEL/$VARIANT/seed_*/eval/tables/per_dataset_4metrics.csv"
-echo " combined:     results/reports/${MODEL}_${VARIANT}_seeds${FIRST_SEED}_${LAST_SEED}_per_dataset.csv"
-echo "               results/reports/${MODEL}_${VARIANT}_seeds${FIRST_SEED}_${LAST_SEED}_mean_std.csv/.md"
+echo " combined:     results/reports/${MODEL}_${VARIANT}_${REPORT_TAG}_per_dataset.csv"
+echo "               results/reports/${MODEL}_${VARIANT}_${REPORT_TAG}_mean_std.csv/.md"
 echo "============================================================"

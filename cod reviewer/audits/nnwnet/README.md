@@ -105,7 +105,7 @@ closure = 16/16。D-nnw-03 是协议 fail，不是普通 adaptation；D-nnw-05 �
 
 ## 03. 数值证据
 
-命令（在 `sacm_plus/` 下；只构造模型，不训练、不下载）：
+命令（在 `sacm_stc/` 下；只构造模型，不训练、不下载）：
 
 ```bash
 /home/dev/anaconda3/envs/tsai/bin/python 'cod reviewer/audits/_shared/03_same_state_probes.py'

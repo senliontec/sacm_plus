@@ -31,7 +31,7 @@ def test_registry_contains_all_self_contained_models():
         'nnunet2d',
         'nnwnet',
         'persam',
-        'rsrm', 's2mnet', 'sacm_official', 'sacm_plus', 'skein',
+        'rsrm', 's2mnet', 'sacm_official', 'sacm_stc', 'skein',
         'sam2_unet',
         'sam_adapter', 'sam_med2d', 'sam_octa', 'sam_vit_l_unet', 'samed',
         'sansa',

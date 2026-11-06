@@ -1,4 +1,4 @@
-# SACM+ (fixed official SACM)
+# SACM-STC (Structure-Task Composition)
 
 ## Source
 
@@ -8,17 +8,50 @@
 - Snapshot commit: `986504957e3f41f7fc02e610e2ad9ad27c43300f`
 - Derived from the faithful port:
   `src/baseline_zoo/models/sacm_official/segment_anything/`
-- Vendored path: `src/baseline_zoo/models/sacm_plus/segment_anything/`
+- Vendored path: `src/baseline_zoo/models/sacm_stc/segment_anything/`
 - License: the upstream snapshot has no `LICENSE` file. Do not redistribute
   the vendored copy without obtaining a license from the authors.
 
-## Why this copy exists
+## What this method is
 
-`sacm_official` preserves upstream behaviour verbatim (including its bugs)
-and remains the main-table SACM baseline.  `sacm_plus` fixes the correctness
-defects so that the paper's algorithm can be evaluated as intended.  The two
-checkpoints are not interchangeable (`runtime.py` rejects a mismatched
-`adapter` id).
+SACM-STC extends the SACM prompt-free decoder by assigning the four native
+Stage-2 heads to fixed tasks: dense mask, centerline, boundary and normalized
+distance/width.  Stage-1 keeps dense deep supervision; Stage-2 uses a stable
+order (no gating reorder); a lightweight composer produces the final mask.
+Inference uses the composed mask only: no head selector and no fixed
+deployment head.  `sacm_official` remains the main-table baseline and is not
+modified.
+
+Both additions start as neutral operations.  Zero-initialized type
+embeddings (`stage2_type_emb`) let the four heads specialize without changing
+their initial SAM behaviour, and a zero-initialized `stage1_prior` branch
+fuses the four coarse Stage-1 masks into the Stage-2 substrate, giving Stage-1
+an inference role beyond deep supervision.  Structural losses
+(centerline/boundary/width/composition/gate) are off for
+`--typed-structure-warmup-epochs` epochs and then ramp in linearly.  The gate
+is supervised only on foreground and on pixels where dense and structural
+branches disagree, so the background cannot dominate it into the permanently
+closed state.  Its inputs are bounded probabilities (not raw logits) and it
+starts neutral, so a single saturated head cannot control it.
+
+Width is parameterised in pixels as
+`0.5 + 13.5 * sigmoid(logit)` and supervised in logit space against the
+inverse-sigmoid of the GT distance transform.  The bound matches the largest
+composition radius (14 px at the typed resolution), so thick roads and
+membranes remain representable.  Supervising the logit keeps a constant
+gradient when the head starts far from the target; the earlier
+`softplus(normalized_width)` form saturated and permanently killed the width
+head.  The composer detaches the four task heads for its own losses, so
+composition cannot collapse a head's scale.
+
+The gate sees bounded probabilities, an explicit dense/structure
+disagreement channel, and is trained with a soft target
+`sigmoid((dense_err - structure_err) / T)` on foreground/disagreement
+pixels.  Gate and edge use their own `--typed-composer-lr` parameter group:
+the official 3e-4 budget cannot move their neutral initialisation into a
+discriminative regime within 800 epochs.  The boundary head uses BCE plus a
+Dice term, because BCE alone on a one-pixel contour collapses to a near-zero
+map.
 
 ## Fixes (all differ from `sacm_official`)
 
@@ -52,10 +85,14 @@ checkpoints are not interchangeable (`runtime.py` rejects a mismatched
    in `reset_image`.
 10. **Dead code removed** — encoder `adapter_fusion` (about 2.1M unused
     trainable parameters), decoder `gating_mlp`, `adapter_stack`.
-11. **Head supervision** (adapter-side) — all four Stage-2 heads, all four
-    Stage-1 heads (deep supervision, weight 0.3) and the per-head IoU
-    predictions (MSE, weight 1.0) are trained.  Upstream trained only the
-    gating-champion Stage-2 head and never trained Stage-1/IoU.
+11. **Head supervision** (adapter-side) — the typed default trains Stage-2
+    head 0 with BCE+Dice and heads 1-3 as centerline, boundary and
+    normalized distance/width; all four Stage-1 heads keep dense deep
+    supervision (weight 0.3).  The legacy non-typed path additionally trains
+    per-head IoU predictions (MSE); the typed run sets
+    `--iou-loss-weight 0` because no test-time selector consumes them.
+    Upstream trained only the gating-champion Stage-2 head and never trained
+    Stage-1/IoU.
 12. **Binary GT masks** — the adapter bilinearly resizes then binarizes at
     0.5; upstream trained on soft resized masks.
 13. **Weight decay** — the adapter excludes LayerNorm/bias parameters;
@@ -83,4 +120,4 @@ checkpoints are not interchangeable (`runtime.py` rejects a mismatched
 
 ## Runtime consumer
 
-`baseline_zoo.adapters.sacm_plus.SACMPlusAdapter`
+`baseline_zoo.adapters.sacm_stc.SACMSTCAdapter`

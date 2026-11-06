@@ -219,8 +219,8 @@
   <p>目录分工：</p>
   <ul>
     <li><code>segment/datasets/</code>：原始数据仓库，保持原始格式；</li>
-    <li><code>sacm_plus/datasets/</code>：统一格式的标准源池，每个数据集包含 <code>images/</code>、<code>masks/</code>、可选 <code>fov/</code>、<code>manifest.csv</code>；</li>
-    <li><code>sacm_plus/data/sacm_3shot/</code>：当前论文实际使用的固定 split；</li>
+    <li><code>sacm_stc/datasets/</code>：统一格式的标准源池，每个数据集包含 <code>images/</code>、<code>masks/</code>、可选 <code>fov/</code>、<code>manifest.csv</code>；</li>
+    <li><code>sacm_stc/data/sacm_3shot/</code>：当前论文实际使用的固定 split；</li>
     <li><code>docs/DATASET_PROTOCOL_REPORT.html</code>：本报告。</li>
   </ul>
   <p>
@@ -606,7 +606,7 @@
 <section id="reproduce">
   <h2>11. 复现命令与产物</h2>
   <h3>11.1 生成 split</h3>
-  <pre><code>cd /home/dev/mywork/project/segment/sacm_plus
+  <pre><code>cd /home/dev/mywork/project/segment/sacm_stc
 
 /home/dev/anaconda3/envs/tsai/bin/python scripts/data/prepare_data.py \
   --train_dirs \

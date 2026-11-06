@@ -2,7 +2,7 @@
 
 Skein is a PyTorch-based research framework for prompt-free curvilinear structure segmentation, built on the SACM baseline and the Segment Anything Model (SAM). The project provides custom training and testing scripts, and wraps SAM for easy extension and application.
 
-> Skein is the working name for the improved framework. The official SACM baseline is self-contained under `src/baseline_zoo/models/sacm_official/` (registry id `sacm_official`); `--preset sacm` is the SACM-equivalent preset inside Skein. The corrected analysis variant is `src/baseline_zoo/models/sacm_plus/` (registry id `sacm_plus`, see `UPSTREAM.md`); it never replaces the official main-table entry. The local checkout/server directory may still be named `sacm_plus`/`sacm-plus`.
+> Skein is the working name for the improved framework. The official SACM baseline is self-contained under `src/baseline_zoo/models/sacm_official/` (registry id `sacm_official`); `--preset sacm` is the SACM-equivalent preset inside Skein. The new method is `src/baseline_zoo/models/sacm_stc/` (registry id `sacm_stc`, see `SACM_STC.md`); it never replaces the official main-table entry. The local checkout/server directory may still be named `sacm_stc`/`sacm-stc`.
 >
 > **Model name: Skein.** Canonical preset `skein`; `full_fixed2_aux` is a compatibility alias. **Skein** is both the project/framework name and the deployed model name. The final deployment checkpoints are tagged `full_fixed2_gate`; their residual experts are frozen at exactly zero, so their forward output is the structural Skein model. Gate/residual-MoE and post-hoc repair are experimental diagnostics, not the deployed method.
 

@@ -11,7 +11,8 @@ from functools import partial
 from .modeling import ImageEncoderViT, MaskDecoder, PromptEncoder, Sam, TwoWayTransformer
 
 
-def build_sam_vit_h(checkpoint=None, use_adapter=False, adapter_dim_ratio=0.1):
+def build_sam_vit_h(checkpoint=None, use_adapter=False, adapter_dim_ratio=0.1,
+                    stable_stage2=False):
     return _build_sam(
         encoder_embed_dim=1280,
         encoder_depth=32,
@@ -20,13 +21,15 @@ def build_sam_vit_h(checkpoint=None, use_adapter=False, adapter_dim_ratio=0.1):
         checkpoint=checkpoint,
         use_adapter=use_adapter,
         adapter_dim_ratio=adapter_dim_ratio,
+        stable_stage2=stable_stage2,
     )
 
 
 build_sam = build_sam_vit_h
 
 
-def build_sam_vit_l(checkpoint=None, use_adapter=False, adapter_dim_ratio=0.1):
+def build_sam_vit_l(checkpoint=None, use_adapter=False, adapter_dim_ratio=0.1,
+                    stable_stage2=False):
     return _build_sam(
         encoder_embed_dim=1024,
         encoder_depth=24,
@@ -35,10 +38,12 @@ def build_sam_vit_l(checkpoint=None, use_adapter=False, adapter_dim_ratio=0.1):
         checkpoint=checkpoint,
         use_adapter=use_adapter,
         adapter_dim_ratio=adapter_dim_ratio,
+        stable_stage2=stable_stage2,
     )
 
 
-def build_sam_vit_b(checkpoint=None, use_adapter=False, adapter_dim_ratio=0.1):
+def build_sam_vit_b(checkpoint=None, use_adapter=False, adapter_dim_ratio=0.1,
+                    stable_stage2=False):
     return _build_sam(
         encoder_embed_dim=768,
         encoder_depth=12,
@@ -47,6 +52,7 @@ def build_sam_vit_b(checkpoint=None, use_adapter=False, adapter_dim_ratio=0.1):
         checkpoint=checkpoint,
         use_adapter=use_adapter,
         adapter_dim_ratio=adapter_dim_ratio,
+        stable_stage2=stable_stage2,
     )
 
 
@@ -66,6 +72,7 @@ def _build_sam(
     checkpoint=None,
     use_adapter=False,
     adapter_dim_ratio=0.1,
+    stable_stage2=False,
 ):
     prompt_embed_dim = 256
     image_size = 1024
@@ -110,6 +117,7 @@ def _build_sam(
             # One Adapter-E feature per transformer block; the Eq. 6 fusion
             # consumes all of them.
             adapter_num_layers=encoder_depth,
+            stable_stage2=stable_stage2,
         ),
         pixel_mean=[123.675, 116.28, 103.53],
         pixel_std=[58.395, 57.12, 57.375],

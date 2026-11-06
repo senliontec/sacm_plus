@@ -35,7 +35,7 @@ _PROMPT_FREE = frozenset({
     'dconnnet', 'scrwkv', 'kprism', 'segdino', 'segdino_v2',
     'sam_adapter', 'topolora', 'samed', 'convlora', 'blo_sam', 'cwsam',
     'tpsegformer', 'aco_moe_lora', 'curvfield',
-    'sacm_official', 'sacm_plus',
+    'sacm_official',
 })
 
 _SUPPORT = frozenset({'persam', 'matcher', 'fssam', 'sansa', 'rsrm'})
@@ -47,7 +47,7 @@ _RECONSTRUCTED = frozenset({'a2sam', 'dka'})
 
 _TRAINING_FREE = frozenset({'persam', 'matcher', 'rsrm', 'c2p'})
 _PROJECT_EXTENSION = frozenset({'sam2_unet', 'sam_vit_l_unet'})
-_ANALYSIS_VARIANT = frozenset({'sacm_plus'})
+_ANALYSIS_VARIANT = frozenset()
 
 _GROUP_NAMES = (
     ('prompt_free', _PROMPT_FREE),
@@ -63,7 +63,7 @@ _GROUP_NAMES = (
 def group_for(model: str) -> str:
     """Return the primary task group for a model id."""
     model = str(model)
-    if model == 'skein':
+    if model in ('skein', 'sacm_stc'):
         return 'proposed'
     for name, members in _GROUP_NAMES:
         if model in members:

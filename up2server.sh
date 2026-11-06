@@ -8,8 +8,9 @@ set -euo pipefail
 
 SERVER="zkyd@172.16.1.7"
 # The server checkout keeps its historical name so existing data, checkpoints
-# and workdirs remain addressable; Skein is the framework/method name.
-TARGET="/home/zkyd/code/sacm-plus"
+# and workdirs remain addressable.  SACM-STC is the method name; the server
+# directory itself does not need to be renamed.
+TARGET="${TARGET:-/home/zkyd/code/sacm-plus}"
 SRC="$(cd "$(dirname "$0")" && pwd)"
 
 # Reuse one SSH connection for all rsync calls: ask for the password once.

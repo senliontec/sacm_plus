@@ -77,7 +77,7 @@ METHOD_META = {
     'segdino': ('SegDINO', '✓'),
     'segdino_v2': ('SegDINO v2', '✓'),
     'sacm_official': ('SACM (official)', '✗'),
-    'sacm_plus': ('SACM+ (fixed official)', '✗'),
+    'sacm_stc': ('SACM-STC', '✗'),
     'skein': ('Skein', '✗'),
     'sam_adapter': ('SAM-Adapter', '✓'),
     'samed': ('SAMed', '✓'),

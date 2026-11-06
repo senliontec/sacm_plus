@@ -13,7 +13,7 @@
     "repo": "SegDINO",
     "commit": "c078ca0e2c7578304e80eaa4e9d3f7c6dd0f3c41"
   },
-  "local_ckpt": "/home/dev/mywork/project/segment/sacm_plus/checkpoints/dinov3/pytorch_model.bin",
+  "local_ckpt": "/home/dev/mywork/project/segment/sacm_stc/checkpoints/dinov3/pytorch_model.bin",
   "local_ckpt_bytes": 86407250,
   "port_build_with_local_ckpt": true,
   "port_param_count": 24062881,

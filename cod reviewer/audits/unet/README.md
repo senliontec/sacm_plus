@@ -111,7 +111,7 @@ closure = 16/16。D-unet-03 是实质未披露偏差；D-unet-09 未披露 RNG/w
 
 ## 03. 数值证据
 
-命令（在 `sacm_plus/` 下；无下载、无训练，仅一次 forward/backward）：
+命令（在 `sacm_stc/` 下；无下载、无训练，仅一次 forward/backward）：
 
 ```bash
 /home/dev/anaconda3/envs/tsai/bin/python 'cod reviewer/audits/_shared/03_same_state_probes.py'
