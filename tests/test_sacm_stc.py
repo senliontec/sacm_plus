@@ -402,6 +402,29 @@ def test_sacm_stc_composer_has_its_own_lr_group():
     assert all(group['lr'] == 3e-4 for group in other_groups)
 
 
+def test_sacm_stc_composer_lr_requires_official_scheduler():
+    adapter = load_adapter('sacm_stc')
+
+    class TinyModel(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.trunk = torch.nn.Linear(4, 4)
+            self.typed_composer = TypedComposer()
+
+    model = TinyModel()
+    args = argparse.Namespace(
+        lr=3e-4, weight_decay=0.01, typed_composer_lr=3e-3,
+        scheduler='constant')
+    # Generic scheduler overrides reset every group to args.lr; refuse to
+    # silently drop the composer LR.
+    with pytest.raises(SystemExit):
+        adapter.make_optimizer(model, args)
+    # Explicitly opting into the base rate is allowed.
+    args.typed_composer_lr = 3e-4
+    optimizer = adapter.make_optimizer(model, args)
+    assert any(group['lr'] == 3e-4 for group in optimizer.param_groups)
+
+
 def test_sacm_stc_typed_composer_neutral_gate():
     torch.manual_seed(0)
     composer = TypedComposer()

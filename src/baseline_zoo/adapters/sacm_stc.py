@@ -354,6 +354,19 @@ class SACMSTCAdapter(BaselineAdapter):
                 no_decay.append(parameter)
             else:
                 decay.append(parameter)
+        composer_lr = float(getattr(args, 'typed_composer_lr', 3e-3))
+        scheduler = getattr(args, 'scheduler', 'official') or 'official'
+        if composer and scheduler != 'official' and composer_lr != args.lr:
+            # The shared runtime's generic scheduler overrides reset every
+            # parameter group to args.lr.  That silently erases the composer
+            # LR and makes the gate learn at the base rate again, so fail
+            # loudly instead of producing an invalid experiment.
+            raise SystemExit(
+                'SACM-STC composer LR requires --scheduler official: generic '
+                'scheduler overrides reset all parameter groups to --lr and '
+                f'would drop --typed-composer-lr={composer_lr:g}. Use '
+                '--scheduler official, or pass --typed-composer-lr '
+                f'{float(args.lr):g} explicitly.')
         groups = [
             {'params': decay, 'lr': args.lr,
              'weight_decay': args.weight_decay},
@@ -363,9 +376,7 @@ class SACMSTCAdapter(BaselineAdapter):
             # The gate/edge composer has only a few thousand parameters and
             # has to move from its neutral initialisation during training;
             # the official 3e-4 budget cannot do that within 800 epochs.
-            groups.append({'params': composer,
-                           'lr': float(getattr(args, 'typed_composer_lr',
-                                               3e-3)),
+            groups.append({'params': composer, 'lr': composer_lr,
                            'weight_decay': 0.0})
         return torch.optim.AdamW([g for g in groups if g['params']])
 

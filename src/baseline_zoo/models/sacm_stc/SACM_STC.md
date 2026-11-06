@@ -49,9 +49,12 @@ disagreement channel, and is trained with a soft target
 `sigmoid((dense_err - structure_err) / T)` on foreground/disagreement
 pixels.  Gate and edge use their own `--typed-composer-lr` parameter group:
 the official 3e-4 budget cannot move their neutral initialisation into a
-discriminative regime within 800 epochs.  The boundary head uses BCE plus a
-Dice term, because BCE alone on a one-pixel contour collapses to a near-zero
-map.
+discriminative regime within 800 epochs.  This requires
+`--scheduler official`; the shared runtime's generic scheduler overrides
+(`constant`, `cosine`, ...) reset every parameter group to `--lr`, so the
+adapter refuses that combination instead of silently training an invalid
+experiment.  The boundary head uses BCE plus a Dice term, because BCE alone
+on a one-pixel contour collapses to a near-zero map.
 
 ## Fixes (all differ from `sacm_official`)
 
