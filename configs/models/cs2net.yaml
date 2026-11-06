@@ -17,12 +17,11 @@ eval_entrypoint: >-
   --device cuda:{gpu} --use_wandb true --skip-visualize
 protocols: [seeded5, fixed]
 defaults:
-  epochs: 800
+  epochs: 1000
 note: >-
   Legacy model id `cs2net`; this row is the official 2D branch
   (`model/csnet.py`, `train.py`) of iMED-Lab/CS-Net, shared by the CS-Net
   MICCAI 2019 and CS2Net MedIA 2021 2D experiments. The 3D extension
   (`model/csnet_3d.py`, `train3d.py`, Conv3d) is a separate network and is
-  not applicable to the 2D protocol images. The shared comparison uses the
-  800-epoch budget; `--epochs 1000` restores the official recipe. Checkpoint
-  selection uses the shared validation Dice.
+  not applicable to the 2D protocol images. The official 1000-epoch recipe
+  is retained; checkpoint selection uses the shared validation Dice.

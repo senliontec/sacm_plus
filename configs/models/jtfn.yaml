@@ -17,12 +17,12 @@ eval_entrypoint: >-
   --device cuda:{gpu} --use_wandb true --skip-visualize
 protocols: [seeded5, fixed]
 defaults:
-  epochs: 800
+  epochs: 1000
 note: >-
   Self-contained JTFN port (non-SAM, from scratch). Official DRIVE
   configuration: base64 5-stage backbone, three mask/boundary refinement
   steps, 256 crop, batch 2, Adam 1e-3/5e-4, mask BCE + boundary BCE over
-  four scales, StepLR 500/0.9 approximated per epoch. The shared comparison
-  uses the 800-epoch budget; `--epochs 1000` restores the official DRIVE
-  recipe. The repository has no license file; see models/jtfn/UPSTREAM.md.
-  Official JTFN weights are not present; training starts from scratch.
+  four scales, StepLR 500/0.9 approximated per epoch. The official
+  1000-epoch DRIVE recipe is retained. The repository has no license file;
+  see models/jtfn/UPSTREAM.md. Official JTFN weights are not present;
+  training starts from scratch.

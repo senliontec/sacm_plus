@@ -42,8 +42,8 @@ class JTFNAdapter(BaselineAdapter):
         '--jtfn-steps expose the alternatives.',
         'The official validation uses the dataset test split and selects by '
         'F1; this port selects on the shared 6-image validation Dice.',
-        'The model config uses the shared 800-epoch budget; --epochs 1000 '
-        'restores the official DRIVE recipe. The per-iteration StepLR '
+        'The official 1000-epoch DRIVE recipe is kept as the default; users '
+        'can override --epochs for shorter runs. The per-iteration StepLR '
         '(500, gamma 0.9) is approximated per epoch from the 18-image '
         'iterations-per-epoch.',
         'The official arbitrary-angle/color augmentation is simplified to '
