@@ -8,7 +8,7 @@ train_entrypoint: >-
   --data-root {split_root} --workdir {output_root}
   --batch-size 2 --accum-steps 1
   --bcunet-loss mrl --bcunet-augment-variants 18
-  --bcunet-augment-scope retinal
+  --bcunet-augment-scope retinal --bcunet-norm instance
   --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
 eval_entrypoint: >-
   python scripts/pipeline/run_baseline_test.py --method bcunet
@@ -37,3 +37,9 @@ note: >-
   that ablation, together with --bcunet-convtranspose. OutConv is a 1x1
   logits reconstruction because the released upconv2x2/warmlearnrate are
   missing; the official Sigmoid head remains unavailable.
+  Task adaptation: pooled six-domain 3-shot training with batch 2 makes
+  BatchNorm running statistics cross-domain. The deployed default replaces
+  the U-Net/fusion BN layers with per-sample InstanceNorm
+  (--bcunet-norm instance); the ConvNeXt branch keeps its LayerNorm.
+  --bcunet-norm batch restores the official BN ablation. Label the row
+  "BCU-Net (paper architecture; task-adapted InstanceNorm recipe)".

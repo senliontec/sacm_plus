@@ -20,6 +20,7 @@ from pathlib import Path
 import numpy as np
 import torch
 from PIL import Image
+from torch import nn
 
 from baseline_zoo.data import RawPairDataset, load_mask, load_rgb, load_split_samples
 from baseline_zoo.runtime import BaselineAdapter, binary_metrics, file_sha256
@@ -32,6 +33,84 @@ from core.wandb_utils import (
 
 DATASET_ID = 501
 DATASET_NAME = f'Dataset{DATASET_ID}_Curvilinear3Shot'
+NORM_CHOICES = ('batch', 'instance')
+
+
+def _replace_batchnorm(model: nn.Module) -> nn.Module:
+    """Replace WNet2D's local BatchNorm layers with InstanceNorm2d.
+
+    The global WNet blocks already use GroupNorm.  The local blocks are the
+    only running-statistics layers; pooled multi-domain patches with batch 2
+    make their running statistics a cross-domain average.  The official
+    trainer/model files stay untouched; the adapter installs this
+    replacement through a builder wrapper.
+    """
+    for name, child in list(model.named_children()):
+        if isinstance(child, nn.BatchNorm2d):
+            setattr(model, name, nn.InstanceNorm2d(
+                child.num_features, affine=True,
+                track_running_stats=False))
+        else:
+            _replace_batchnorm(child)
+    return model
+
+
+def _install_norm_architecture(norm: str):
+    """Install a WNet2D builder that optionally swaps BN for IN.
+
+    nnU-Net constructs the network from the trainer class both in training
+    and in ``nnUNetPredictor.initialize_from_trained_model_folder``.  The
+    adapter wraps the vendored trainer's builder instead of editing the
+    official model file.
+    """
+    if norm not in NORM_CHOICES:
+        raise ValueError(f'unknown nnWNet norm: {norm!r}')
+    from baseline_zoo.models.nnwnet import get_trainer_class
+
+    trainer_class = get_trainer_class()
+    if not getattr(trainer_class, '_adapter_norm_builder', False):
+        original = trainer_class.build_network_architecture
+
+        def build_network_architecture(*args, **kwargs):
+            model = original(*args, **kwargs)
+            mode = getattr(trainer_class, '_adapter_norm_mode', 'batch')
+            if mode == 'instance':
+                _replace_batchnorm(model)
+            return model
+
+        trainer_class.build_network_architecture = staticmethod(
+            build_network_architecture)
+        trainer_class._adapter_norm_builder = True
+        trainer_class._adapter_norm_original = original
+    trainer_class._adapter_norm_mode = norm
+    return trainer_class
+
+
+def _infer_checkpoint_norm(checkpoint_path: Path) -> str:
+    """Infer BN vs IN from nnU-Net network weights.
+
+    BatchNorm stores ``running_mean``/``num_batches_tracked`` buffers;
+    InstanceNorm has neither.  This makes prediction robust when an old
+    model folder has no norm sidecar.
+    """
+    payload = torch.load(
+        checkpoint_path, map_location='cpu', weights_only=False)
+    state = payload.get('network_weights', payload)
+    if not isinstance(state, dict):
+        raise SystemExit(
+            f'unexpected nnU-Net checkpoint payload: {checkpoint_path}')
+    has_bn = any(
+        'running_mean' in key or 'num_batches_tracked' in key
+        for key in state)
+    return 'batch' if has_bn else 'instance'
+
+
+def _patch_predictor_trainer_lookup(trainer_class) -> None:
+    """Make nnUNetPredictor resolve the adapter's patched trainer class."""
+    import nnunetv2.inference.predict_from_raw_data as predict_module
+
+    predict_module.recursive_find_trainer_class_by_name = (
+        lambda _name: trainer_class)
 
 
 def _resolve_device(spec: str) -> torch.device:
@@ -69,6 +148,7 @@ class NNWNetAdapter(BaselineAdapter):
     official_weight_decay = 3e-5
     train_batch_size = 1
     selection = 'dice'
+    norm = 'instance'
     custom_pipeline = True
     deviations = (
         'One pooled 18-image train / 6-image val model replaces the official '
@@ -100,6 +180,16 @@ class NNWNetAdapter(BaselineAdapter):
         '--nnwnet-channels grayscale converts every case to one channel for '
         'all-grayscale protocols. The policy is recorded and reused at '
         'prediction; mixed 1/3-channel datasets are not supported.',
+        'Task adaptation for pooled six-domain 3-shot training: WNet2D '
+        'local BatchNorm layers are replaced with per-sample InstanceNorm '
+        'by default (--nnwnet-norm instance); the global WNet blocks keep '
+        'their official GroupNorm. A short fixed-budget diagnostic showed '
+        'eval Dice 0.092 vs 0.155 with BN batch statistics at 640 input, '
+        'while InstanceNorm gave 0.271. Use --nnwnet-norm batch for the '
+        'official BN ablation. The norm mode is recorded in the model '
+        'sidecar and also inferred from the checkpoint buffers at '
+        'prediction. Label the deployed row "nnWNet (official WNet2D '
+        'architecture; task-adapted InstanceNorm recipe)".',
     )
 
     def build_model(self, args):
@@ -118,6 +208,12 @@ class NNWNetAdapter(BaselineAdapter):
         raise RuntimeError('nnWNet uses the nnU-Net custom pipeline')
 
     def add_args(self, parser):
+        parser.add_argument(
+            '--nnwnet-norm', choices=list(NORM_CHOICES),
+            default=self.norm,
+            help='WNet2D normalization: instance (task default, no '
+                 'cross-domain running statistics) or batch (official BN '
+                 'ablation)')
         parser.add_argument(
             '--nnwnet-channels', choices=['rgb', 'grayscale'],
             default='rgb',
@@ -376,12 +472,20 @@ class NNWNetAdapter(BaselineAdapter):
         if channels not in ('rgb', 'grayscale'):
             raise SystemExit(
                 f'unsupported --nnwnet-channels: {channels!r}')
+        norm = str(getattr(args, 'nnwnet_norm', self.norm)).lower()
+        if norm not in NORM_CHOICES:
+            raise SystemExit(
+                f'unsupported --nnwnet-norm: {norm!r}')
         val_interval = int(getattr(args, 'nnwnet_val_interval', 1))
         if val_interval < 1:
             raise SystemExit(
                 '--nnwnet-val-interval must be >= 1')
         (workdir / 'nnunet_channels.txt').write_text(channels + '\n')
+        (workdir / 'nnunet_norm.txt').write_text(norm + '\n')
         nn_root, env = self._init_env(workdir)
+        # Install the builder wrapper before nnU-Net constructs WNet2D.
+        self.norm = norm
+        _install_norm_architecture(norm)
         # A reused workdir must not mix old results/checkpoints, raw PNGs or
         # preprocessed arrays from a different protocol.
         self._clear_stale_results(nn_root)
@@ -499,6 +603,7 @@ class NNWNetAdapter(BaselineAdapter):
             'input_size': list(plan_config.get('patch_size', [])),
             'adapter_config': {
                 'channels': channels,
+                'norm': norm,
                 'val_interval': val_interval,
             },
             'selection': args.selection,
@@ -681,6 +786,7 @@ class NNWNetAdapter(BaselineAdapter):
 
         (workdir / 'nnunet_model_dir.txt').write_text(str(model_dir) + '\n')
         (model_dir / 'benchmark_channels.txt').write_text(channels + '\n')
+        (model_dir / 'benchmark_norm.txt').write_text(norm + '\n')
         (model_dir / 'benchmark_run_config.json').write_text(
             json.dumps(run_config, indent=2) + '\n')
         return model_dir
@@ -739,6 +845,22 @@ class NNWNetAdapter(BaselineAdapter):
                 'nnUNetPredictor expects .pth checkpoints; install the '
                 'declared nnunetv2 2.8.1 runtime instead of the vendored '
                 'safetensors fork')
+        # The checkpoint buffers are authoritative: old BN checkpoints have
+        # running_mean/num_batches_tracked, new InstanceNorm checkpoints do
+        # not.  Install the same architecture before nnUNetPredictor builds
+        # the network.
+        norm = _infer_checkpoint_norm(resolved)
+        sidecar_norm = None
+        for sidecar in (workdir / 'nnunet_norm.txt',
+                        model_dir / 'benchmark_norm.txt'):
+            if sidecar.is_file():
+                sidecar_norm = sidecar.read_text().strip() or None
+                break
+        if sidecar_norm and sidecar_norm != norm:
+            print(f'[nnwnet] checkpoint norm={norm!r} overrides sidecar '
+                  f'norm={sidecar_norm!r}', flush=True)
+        trainer_class = _install_norm_architecture(norm)
+        _patch_predictor_trainer_lookup(trainer_class)
         predictor.initialize_from_trained_model_folder(
             str(model_dir), use_folds=(0,), checkpoint_name=checkpoint_name)
 
@@ -791,6 +913,7 @@ class NNWNetAdapter(BaselineAdapter):
             'checkpoint': str(model_dir),
             'checkpoint_name': checkpoint_name,
             'channel_mode': channels,
+            'norm': norm,
             'split_manifest_sha256': (file_sha256(split_manifest)
                                       if split_manifest.is_file() else None),
             'datasets': [spec.split(':', 1)[0]

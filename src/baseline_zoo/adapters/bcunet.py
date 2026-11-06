@@ -29,6 +29,25 @@ from baseline_zoo.runtime import BaselineAdapter
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
+def _replace_batchnorm(model: nn.Module) -> nn.Module:
+    """Replace BN2d with per-sample InstanceNorm2d.
+
+    BCU-Net's U-Net/fusion branches contain BatchNorm; the ConvNeXt branch
+    uses LayerNorm and is unaffected.  Pooled multi-domain three-shot
+    training with batch 2 makes the BN running statistics a cross-domain
+    average; the adapter offers this replacement for the task-adapted
+    recipe while ``--bcunet-norm batch`` preserves the official BN variant.
+    """
+    for name, child in list(model.named_children()):
+        if isinstance(child, nn.BatchNorm2d):
+            setattr(model, name, nn.InstanceNorm2d(
+                child.num_features, affine=True,
+                track_running_stats=False))
+        else:
+            _replace_batchnorm(child)
+    return model
+
+
 class BCUNetAdapter(BaselineAdapter):
     id = 'bcunet'
     display_name = 'BCUNet'
@@ -40,6 +59,7 @@ class BCUNetAdapter(BaselineAdapter):
     train_batch_size = 2
     accumulation_steps = 1
     selection = 'dice'
+    norm = 'instance'
     deviations = (
         'Paper profile: multilabel recall loss (MRL). L1 supervises the '
         'ConvNeXt output, L3 the U-Net output, and L2 the average-fused '
@@ -94,9 +114,25 @@ class BCUNetAdapter(BaselineAdapter):
         'unseeded global RNG; this port uses one GPU per job, workers=0 and '
         'the shared protocol seed, so floating-point accumulation and data '
         'order are not bitwise identical.',
+        'Task adaptation for pooled six-domain 3-shot training: the '
+        'U-Net/fusion BatchNorm layers are replaced with per-sample '
+        'InstanceNorm by default.  With batch 2, BN running statistics are '
+        'a cross-domain average; a short fixed-budget diagnostic showed '
+        'eval Dice 0.126 vs 0.165 with BN batch statistics at 512 input '
+        '(0.125 vs 0.261 at 256), while InstanceNorm gave 0.265.  The '
+        'ConvNeXt branch keeps its official LayerNorm.  Use '
+        '--bcunet-norm batch to restore the official BN ablation; label '
+        'the deployed row "BCU-Net (paper architecture; task-adapted '
+        'InstanceNorm recipe)".',
     )
 
     def add_args(self, parser):
+        parser.add_argument(
+            '--bcunet-norm', choices=['batch', 'instance'],
+            default=self.norm,
+            help='U-Net/fusion normalization: instance (task default, no '
+                 'cross-domain running statistics) or batch (official BN '
+                 'ablation)')
         parser.add_argument(
             '--no-pretrained', dest='pretrained', action='store_false',
             help='do not load ImageNet-22k ConvNeXt weights')
@@ -140,6 +176,10 @@ class BCUNetAdapter(BaselineAdapter):
         return unet, convnext
 
     def build_model(self, args) -> nn.Module:
+        self.norm = str(getattr(args, 'bcunet_norm', self.norm)).lower()
+        if self.norm not in ('batch', 'instance'):
+            raise ValueError(
+                f'{self.id}: unknown --bcunet-norm {self.norm!r}')
         predicting = bool(
             getattr(self, 'prediction_mode', False)
             or getattr(args, 'stage', None) == 'predict'
@@ -155,6 +195,8 @@ class BCUNetAdapter(BaselineAdapter):
         )
         if load_pretrained:
             self._load_local_convnext(model, args)
+        if self.norm == 'instance' and isinstance(model, nn.Module):
+            _replace_batchnorm(model)
         return model
 
     def _load_local_convnext(self, model: nn.Module, args) -> None:
@@ -279,6 +321,7 @@ class BCUNetAdapter(BaselineAdapter):
     def save_config(self, args):
         unet_weight, convnext_weight = self._fusion_weights(args)
         return {
+            'norm': str(self.norm),
             'input_size': int(self.input_size),
             'loss': str(getattr(args, 'bcunet_loss', 'mrl')),
             'augment_variants': int(
@@ -294,6 +337,20 @@ class BCUNetAdapter(BaselineAdapter):
         }
 
     def restore_config(self, args, config):
+        # Checkpoints written before this task adaptation have no norm key;
+        # they were trained with the official BatchNorm architecture.
+        if 'norm' not in config:
+            self.norm = 'batch'
+            if hasattr(args, 'bcunet_norm'):
+                args.bcunet_norm = self.norm
+        else:
+            kind = str(config['norm']).lower()
+            if kind not in ('batch', 'instance'):
+                raise ValueError(
+                    f'{self.id}: unknown checkpoint norm {kind!r}')
+            self.norm = kind
+            if hasattr(args, 'bcunet_norm'):
+                args.bcunet_norm = kind
         if 'input_size' in config:
             self.input_size = int(config['input_size'])
         for key, attribute in (

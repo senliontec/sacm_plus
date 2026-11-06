@@ -8,6 +8,7 @@ import torch
 import torch.nn.functional as F
 from PIL import Image
 
+from baseline_zoo.adapters.bcunet import BCUNetAdapter
 from baseline_zoo.data import Sample
 from baseline_zoo.models.bcunet import (
     BCUNet,
@@ -15,6 +16,7 @@ from baseline_zoo.models.bcunet import (
     RecallCrossEntropy,
 )
 from baseline_zoo.models.bcunet.unet_parts import Up
+from baseline_zoo.runtime import build_parser
 
 
 def test_recall_ce_matches_paper_equation():
@@ -53,6 +55,47 @@ def test_bilinear_up_uses_concatenated_channel_width():
     x2 = torch.randn(1, 256, 16, 16)
     output = up(x1, x2)
     assert output.shape == (1, 256, 16, 16)
+
+
+def test_adapter_default_uses_instance_norm():
+    adapter = BCUNetAdapter()
+    args = build_parser(adapter).parse_args(
+        ['--stage', 'train', '--no-pretrained'])
+    assert args.bcunet_norm == 'instance'
+    model = adapter.build_model(args)
+    assert not any(isinstance(module, torch.nn.BatchNorm2d)
+                   for module in model.modules())
+    assert any(isinstance(module, torch.nn.InstanceNorm2d)
+               for module in model.modules())
+
+
+def test_adapter_batch_ablation_keeps_batchnorm():
+    adapter = BCUNetAdapter()
+    args = build_parser(adapter).parse_args([
+        '--stage', 'train', '--no-pretrained', '--bcunet-norm', 'batch'])
+    model = adapter.build_model(args)
+    assert any(isinstance(module, torch.nn.BatchNorm2d)
+               for module in model.modules())
+    assert not any(isinstance(module, torch.nn.InstanceNorm2d)
+                   for module in model.modules())
+
+
+def test_adapter_norm_config_roundtrip_and_legacy_inference():
+    adapter = BCUNetAdapter()
+    args = build_parser(adapter).parse_args(
+        ['--stage', 'predict', '--bcunet-norm', 'instance'])
+    adapter.norm = 'instance'
+    config = adapter.save_config(args)
+    assert config['norm'] == 'instance'
+    restored = BCUNetAdapter()
+    restored.restore_config(args, config)
+    assert restored.norm == 'instance'
+    assert args.bcunet_norm == 'instance'
+
+    legacy = BCUNetAdapter()
+    legacy.restore_config(args, {'input_size': 512})
+    assert legacy.norm == 'batch'
+    assert args.bcunet_norm == 'batch'
 
 
 def test_model_uses_paper_average_fusion():
