@@ -45,7 +45,7 @@ be applied to existing checkpoints.
 
 | Model | Fix | Retrain? |
 |---|---|---|
-| CS2Net | Default `--cs2net-geometry padded` preserves the full field of view with aspect-preserving black padding; `center` restores the official min-side centre crop that zeroes outside the square. | Yes (geometry changed) |
+| CS2Net | Default task adaptation: `--cs2net-geometry full` keeps native resolution capped at 1024 with /16 padding, `--cs2net-norm instance` replaces BatchNorm, batch 1, `--cs2net-augment mild`, and `--cs2net-threshold fixed`; the official 512 centre crop/BatchNorm/official augmentation/Otsu recipe is selectable with `center`/`batch`/`official`/`otsu`. The official 512 recipe underfits the mixed-domain 18-image pool (1000-epoch best 0.4185 Dice at E256; the 100-epoch check was 0.17); the adapted 100-epoch seed-0 check reached 0.5867 Dice / 0.6496 clDice / 25.69 HD95. | Yes (recipe and checkpoint schema changed) |
 | BCU-Net | Default mask resize is NEAREST so 1-px labels are not erased by INTER_AREA; `--bcunet-mask-resize area` restores the official label path. Applied both to the offline augmentation dataset and the direct loader. | Yes |
 | JTFN | Default `--jtfn-eval-mode tile` uses native-resolution overlapping 512-pixel tiles; `downscale` restores the old 1024 longest-side cap. | No (prediction-only) |
 | LIOT | Default `--liot-eval-mode tile` uses 128×128 patches with averaging (stride 64 for 20-dataset throughput; `--liot-eval-stride 8` is release-exact). `whole` restores the old whole-image forward. | No (prediction-only) |

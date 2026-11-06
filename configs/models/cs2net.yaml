@@ -7,6 +7,11 @@ train_entrypoint: >-
   python -m baseline_zoo.run_one --model cs2net --stage train
   --data-root {split_root} --workdir {output_root}
   --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
+  --batch-size 1 --lr 3e-4 --weight-decay 1e-4
+  --scheduler cosine --warmup-epochs 20
+  --cs2net-geometry full --cs2net-max-side 1024
+  --cs2net-norm instance --cs2net-augment mild
+  --cs2net-threshold fixed
 eval_entrypoint: >-
   python scripts/pipeline/run_baseline_test.py --method cs2net
   --protocol {test_manifest}
@@ -23,5 +28,11 @@ note: >-
   (`model/csnet.py`, `train.py`) of iMED-Lab/CS-Net, shared by the CS-Net
   MICCAI 2019 and CS2Net MedIA 2021 2D experiments. The 3D extension
   (`model/csnet_3d.py`, `train3d.py`, Conv3d) is a separate network and is
-  not applicable to the 2D protocol images. The official 1000-epoch recipe
-  is retained; checkpoint selection uses the shared validation Dice.
+  not applicable to the 2D protocol images. The network and training losses
+  are unchanged; the default recipe is task-adapted to the pooled 18-image
+  six-domain protocol: full native resolution capped at 1024 with /16
+  padding, InstanceNorm instead of BatchNorm, batch 1, mild augmentation,
+  Adam 3e-4/1e-4 with cosine + 20-epoch warmup, and a fixed 0.5 threshold.
+  The official 512 centre-crop / BatchNorm / official augmentation / Otsu
+  recipe remains selectable via flags (see the adapter deviations).
+  Checkpoint selection uses the shared validation Dice.

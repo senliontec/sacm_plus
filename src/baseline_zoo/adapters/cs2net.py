@@ -51,6 +51,66 @@ def _restore_center_square(pred: np.ndarray, width: int, height: int):
     return out
 
 
+CS2NET_MULTIPLE = 16
+
+
+def _full_meta(width: int, height: int, max_side: int):
+    """Geometry metadata for full-resolution, multiple-of-16 padded input."""
+    scale = 1.0
+    if max_side and max(width, height) > max_side:
+        scale = float(max_side) / float(max(width, height))
+    new_w = max(1, int(round(width * scale)))
+    new_h = max(1, int(round(height * scale)))
+    return {
+        'width': int(width),
+        'height': int(height),
+        'new_w': new_w,
+        'new_h': new_h,
+        'pad_w': (-new_w) % CS2NET_MULTIPLE,
+        'pad_h': (-new_h) % CS2NET_MULTIPLE,
+        'scale': scale,
+    }
+
+
+def _full_transform(image: Image.Image, mask: Image.Image, max_side: int):
+    """Keep native resolution (capped at max_side), pad to /16, no crop."""
+    meta = _full_meta(image.size[0], image.size[1], max_side)
+    image = image.resize((meta['new_w'], meta['new_h']), Image.BILINEAR)
+    mask = mask.resize((meta['new_w'], meta['new_h']), Image.NEAREST)
+    if meta['pad_w'] or meta['pad_h']:
+        size = (meta['new_w'] + meta['pad_w'],
+                meta['new_h'] + meta['pad_h'])
+        canvas = Image.new('RGB', size, (0, 0, 0))
+        canvas.paste(image, (0, 0))
+        image = canvas
+        mask_canvas = Image.new('L', size, 0)
+        mask_canvas.paste(mask, (0, 0))
+        mask = mask_canvas
+    return image, mask, meta
+
+
+def _restore_full(pred: np.ndarray, meta: dict):
+    """Crop the /16 padding and restore the original image size."""
+    cropped = pred[:meta['new_h'], :meta['new_w']]
+    resized = Image.fromarray((cropped.astype(np.uint8) * 255)).resize(
+        (meta['width'], meta['height']), Image.NEAREST)
+    return np.asarray(resized) > 127
+
+
+def _replace_batchnorm(module: nn.Module, kind: str) -> nn.Module:
+    """Task adaptation: per-sample norm for pooled multi-domain 3-shot data."""
+    if kind != 'instance':
+        return module
+    for name, child in list(module.named_children()):
+        if isinstance(child, nn.BatchNorm2d):
+            setattr(module, name, nn.InstanceNorm2d(
+                child.num_features, affine=True,
+                track_running_stats=False))
+        else:
+            _replace_batchnorm(child, kind)
+    return module
+
+
 def _pad_square(image: Image.Image, mask: Image.Image, size: int):
     """Aspect-preserving pad to a square, then resize to ``size``.
 
@@ -125,23 +185,84 @@ class CS2NetAdapter(BaselineAdapter):
         'Official train.py uses nn.DataParallel on two GPUs, DataLoader workers=2 '
         'and an unseeded global RNG; this port runs one GPU, workers=0 and a '
         'seeded runtime RNG. Training trajectories are not bitwise identical.',
+        'Task adaptation (default with the shipped config): full native '
+        'resolution capped at --cs2net-max-side, multiple-of-16 padding, '
+        'InstanceNorm instead of BatchNorm, batch 1, mild flips/rot90/'
+        'photometric augmentation, Adam 3e-4/1e-4 with cosine+warmup, and a '
+        'fixed 0.5 threshold. These changes target the pooled 18-image '
+        'six-domain protocol; the official 512 center-crop, BatchNorm, '
+        'official augmentation and Otsu recipe remains selectable with '
+        '--cs2net-geometry center --cs2net-norm batch '
+        '--cs2net-augment official --cs2net-threshold otsu.',
     )
 
     def add_args(self, parser):
         parser.add_argument(
-            '--cs2net-geometry', choices=['padded', 'center'],
+            '--cs2net-geometry', choices=['padded', 'center', 'full'],
             default='padded',
-            help='padded (default) preserves the full field of view with '
+            help='padded preserves the full field of view with '
                  'aspect-preserving black padding; center reproduces the '
-                 'official min-side centre crop that zeroes everything '
-                 'outside the centre square')
+                 'official min-side centre crop; full keeps native resolution '
+                 '(capped at --cs2net-max-side) and pads to a multiple of 16')
+        parser.add_argument(
+            '--cs2net-max-side', type=int, default=1024,
+            help='long-side cap for --cs2net-geometry full (0 = native)')
+        parser.add_argument(
+            '--cs2net-norm', choices=['batch', 'instance'],
+            default='batch',
+            help='batch = official BatchNorm; instance = task-adapted '
+                 'InstanceNorm for pooled multi-domain data')
+        parser.add_argument(
+            '--cs2net-augment', choices=['official', 'mild'],
+            default='official',
+            help='official = upstream +-40deg/ImageEnhance/crop/flip; mild = '
+                 'flips, 90-degree rotations, mild brightness/contrast')
+        parser.add_argument(
+            '--cs2net-threshold', choices=['otsu', 'fixed'],
+            default='otsu',
+            help='otsu = official test threshold; fixed = probability 0.5')
+        parser.add_argument(
+            '--cs2net-threshold-value', type=float, default=0.5)
+
+    def save_config(self, args):
+        return {
+            'cs2net_geometry': getattr(args, 'cs2net_geometry', 'padded'),
+            'cs2net_max_side': int(getattr(args, 'cs2net_max_side', 1024)),
+            'cs2net_norm': getattr(args, 'cs2net_norm', 'batch'),
+            'cs2net_augment': getattr(args, 'cs2net_augment', 'official'),
+            'cs2net_threshold': getattr(
+                args, 'cs2net_threshold', 'otsu'),
+            'cs2net_threshold_value': float(getattr(
+                args, 'cs2net_threshold_value', 0.5)),
+        }
+
+    def restore_config(self, args, config):
+        for key in ('cs2net_geometry', 'cs2net_max_side', 'cs2net_norm',
+                    'cs2net_augment', 'cs2net_threshold',
+                    'cs2net_threshold_value'):
+            if key in config:
+                setattr(args, key, config[key])
 
     def _geometry_mode(self) -> str:
         args = getattr(self, 'args', None)
         return str(getattr(args, 'cs2net_geometry', 'padded'))
 
+    def _augment_mode(self) -> str:
+        args = getattr(self, 'args', None)
+        return str(getattr(args, 'cs2net_augment', 'official'))
+
+    def _threshold_mode(self) -> str:
+        args = getattr(self, 'args', None)
+        return str(getattr(args, 'cs2net_threshold', 'otsu'))
+
+    def _max_side(self) -> int:
+        args = getattr(self, 'args', None)
+        return int(getattr(args, 'cs2net_max_side', 1024))
+
     def build_model(self, args) -> nn.Module:
-        return CSNet(classes=1, channels=3)
+        model = CSNet(classes=1, channels=3)
+        norm = str(getattr(args, 'cs2net_norm', 'batch'))
+        return _replace_batchnorm(model, norm)
 
     def make_optimizer(self, model, args):
         return torch.optim.Adam(
@@ -173,34 +294,67 @@ class CS2NetAdapter(BaselineAdapter):
         }[choice]
         return enhancer(image).enhance(value)
 
+    @staticmethod
+    def _mild_augment(image: Image.Image, mask: Image.Image,
+                      rng: random.Random):
+        """Task-adapted augmentation: geometry-preserving, no negative gain."""
+        if rng.random() > 0.5:
+            image = image.transpose(Image.FLIP_LEFT_RIGHT)
+            mask = mask.transpose(Image.FLIP_LEFT_RIGHT)
+        if rng.random() > 0.5:
+            image = image.transpose(Image.FLIP_TOP_BOTTOM)
+            mask = mask.transpose(Image.FLIP_TOP_BOTTOM)
+        rotation = rng.choice((0, 90, 180, 270))
+        if rotation:
+            op = {
+                90: Image.ROTATE_90,
+                180: Image.ROTATE_180,
+                270: Image.ROTATE_270,
+            }[rotation]
+            image = image.transpose(op)
+            mask = mask.transpose(op)
+        if rng.random() > 0.5:
+            factor = rng.uniform(0.8, 1.2)
+            enhancer = rng.choice(
+                (ImageEnhance.Brightness, ImageEnhance.Contrast))
+            image = enhancer(image).enhance(factor)
+        return image, mask
+
     def prepare_train_batch(self, samples, rng: random.Random):
         images, masks = [], []
+        geometry = self._geometry_mode()
         for sample in samples:
             image = load_rgb(sample.image_path)
             mask = Image.open(sample.mask_path).convert('L')
-            if self._geometry_mode() == 'padded':
+            if geometry == 'full':
+                image, mask, _ = _full_transform(
+                    image, mask, self._max_side())
+            elif geometry == 'padded':
                 image, mask = _pad_square(image, mask, self.input_size)
             else:
                 image, mask = _center_square(image, mask, self.input_size)
 
-            angle = rng.randint(-40, 40)
-            image = image.rotate(angle)
-            mask = mask.rotate(angle)
-            if rng.random() > 0.5:
-                image = self._enhance(image, rng)
+            if self._augment_mode() == 'official' and geometry != 'full':
+                angle = rng.randint(-40, 40)
+                image = image.rotate(angle)
+                mask = mask.rotate(angle)
+                if rng.random() > 0.5:
+                    image = self._enhance(image, rng)
 
-            # Upstream RandomCrop(512,512) after the 512 resize: a no-op kept
-            # for exact sequencing of the random stream.
-            side = self.input_size
-            width, height = image.size
-            left = rng.randint(0, width - side)
-            top = rng.randint(0, height - side)
-            image = image.crop((left, top, left + side, top + side))
-            mask = mask.crop((left, top, left + side, top + side))
+                # Upstream RandomCrop(512,512) after the 512 resize: a no-op
+                # kept for exact sequencing of the random stream.
+                side = self.input_size
+                width, height = image.size
+                left = rng.randint(0, width - side)
+                top = rng.randint(0, height - side)
+                image = image.crop((left, top, left + side, top + side))
+                mask = mask.crop((left, top, left + side, top + side))
 
-            if rng.random() > 0.5:
-                image = image.transpose(Image.FLIP_LEFT_RIGHT)
-                mask = mask.transpose(Image.FLIP_LEFT_RIGHT)
+                if rng.random() > 0.5:
+                    image = image.transpose(Image.FLIP_LEFT_RIGHT)
+                    mask = mask.transpose(Image.FLIP_LEFT_RIGHT)
+            else:
+                image, mask = self._mild_augment(image, mask, rng)
 
             image_t = torch.from_numpy(
                 np.asarray(image, dtype=np.float32).copy()
@@ -210,6 +364,11 @@ class CS2NetAdapter(BaselineAdapter):
             ).unsqueeze(0) / 255.0
             images.append(image_t)
             masks.append(mask_t)
+        shapes = {tuple(item.shape) for item in images}
+        if geometry == 'full' and len(shapes) > 1:
+            raise SystemExit(
+                'cs2net full geometry produces variable shapes; use '
+                '--batch-size 1')
         return (torch.stack(images).to(self.device),
                 torch.stack(masks).to(self.device))
 
@@ -222,7 +381,10 @@ class CS2NetAdapter(BaselineAdapter):
     def prepare_eval_sample(self, sample, device):
         image = load_rgb(sample.image_path)
         mask = Image.open(sample.mask_path).convert('L')
-        if self._geometry_mode() == 'padded':
+        geometry = self._geometry_mode()
+        if geometry == 'full':
+            image, _, _ = _full_transform(image, mask, self._max_side())
+        elif geometry == 'padded':
             image, _ = _pad_square(image, mask, self.input_size)
         else:
             image, _ = _center_square(image, mask, self.input_size)
@@ -233,14 +395,22 @@ class CS2NetAdapter(BaselineAdapter):
 
     def predict_sample(self, model, prepared, sample):
         pred = model(prepared)[0, 0].detach().cpu().numpy()
-        arr = np.clip(pred * 255.0, 0, 255).astype(np.uint8)
-        if arr.min() == arr.max():
-            threshold = 0.0  # cv2 THRESH_OTSU returns 0 for constant images
+        if self._threshold_mode() == 'fixed':
+            value = float(getattr(self.args, 'cs2net_threshold_value', 0.5))
+            binary = pred > value
         else:
-            threshold = float(threshold_otsu(arr))
-        binary = arr > threshold
-        with Image.open(sample.mask_path) as mask:
-            width, height = mask.size
-        if self._geometry_mode() == 'padded':
+            arr = np.clip(pred * 255.0, 0, 255).astype(np.uint8)
+            if arr.min() == arr.max():
+                threshold = 0.0  # cv2 THRESH_OTSU returns 0 for constants
+            else:
+                threshold = float(threshold_otsu(arr))
+            binary = arr > threshold
+        with Image.open(sample.image_path) as image:
+            width, height = image.size
+        geometry = self._geometry_mode()
+        if geometry == 'full':
+            return _restore_full(
+                binary, _full_meta(width, height, self._max_side()))
+        if geometry == 'padded':
             return _restore_padded_square(binary, width, height)
         return _restore_center_square(binary, width, height)

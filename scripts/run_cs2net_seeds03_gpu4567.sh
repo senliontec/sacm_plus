@@ -7,9 +7,14 @@
 #   bash scripts/run_cs2net_seeds03_gpu4567.sh
 #
 # CS2Net is the official 2D CS-Net/CS2Net branch from configs/models/cs2net.yaml.
-# Its default budget is the official 1000 epochs; this script does not override
-# it.  The unified baseline runner assigns one seed per GPU.  Training must
-# finish for all seeds before evaluation starts.
+# The network and losses are official; the shipped recipe is task-adapted to
+# the pooled 18-image six-domain protocol: full native resolution capped at
+# 1024, InstanceNorm, batch 1, mild augmentation, Adam 3e-4 with cosine +
+# warmup, fixed 0.5 threshold.  The official 512/BatchNorm/Otsu recipe remains
+# selectable via the cs2net adapter flags.  The budget stays at the official
+# 1000 epochs; this script does not override it.  The unified baseline runner
+# assigns one seed per GPU.  Training must finish for all seeds before
+# evaluation starts.
 #
 # Env overrides:
 #   GPU_LIST=4,5,6,7      SEEDS="0 1 2 3"
@@ -82,7 +87,7 @@ exec > >(tee -a "$LOG_DIR/driver.log") 2>&1
 
 echo "============================================================"
 echo " CS2Net baseline: seeds $SEEDS_STR on GPUs $GPU_LIST"
-echo " train: official 2D CS-Net/CS2Net recipe, 1000 epochs"
+echo " train: CS2Net network + task-adapted full-res recipe, 1000 epochs"
 echo " eval:  20 protocol datasets, Dice/IoU/clDice/HD95"
 echo " repo:  $REPO"
 echo " log:   $LOG_DIR/driver.log"
