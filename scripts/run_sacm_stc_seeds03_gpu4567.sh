@@ -78,7 +78,7 @@ exec > >(tee -a "$LOG_DIR/driver.log") 2>&1
 
 echo "============================================================"
 echo " SACM-STC: seeds $SEEDS_STR on GPUs $GPU_LIST"
-echo " train: 800 epochs, typed Stage-2 + structural composition"
+echo " train: 800 epochs, dense output + geometry consistency"
 echo " eval:  20 protocol datasets, Dice/IoU/clDice/HD95"
 echo " note:  method run; sacm_official remains the comparison baseline"
 echo " repo:  $REPO"

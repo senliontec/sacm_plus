@@ -12,6 +12,8 @@ turns the four task outputs into one deployment mask.
 
 from __future__ import annotations
 
+import math
+
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -83,17 +85,24 @@ class TypedComposer(nn.Module):
         # Small fusion only; no additional semantic task heads.
         # Inputs: dense prob, centerline prob, boundary prob, normalized
         # width, and explicit dense/structure disagreement.
-        self.gate = nn.Conv2d(5, 1, 1)
+        self.gate = nn.Conv2d(5, 1, 1)       # low-rank spatial residual
         self.edge = nn.Conv2d(5, 1, 1)
+        # Per-image blend: 5 masked-mean features plus the informative-pixel
+        # fraction.  Global average pooling over all pixels is dominated by
+        # background and cannot see thin-structure statistics.
+        self.global_gate = nn.Linear(6, 1)
         nn.init.zeros_(self.gate.weight)
-        # Neutral start: the gate can open or close within the official LR
-        # budget.  A closed (-8) start cannot reach the open regime because
-        # Adam moves each parameter by at most ~lr per step.
         nn.init.zeros_(self.gate.bias)
         nn.init.zeros_(self.edge.weight)
         nn.init.zeros_(self.edge.bias)
+        # Start from a neutral 0.4 blend, close to the oracle mean measured
+        # on validation; the zero spatial residual leaves the global gate in
+        # charge until it learns something useful.
+        nn.init.zeros_(self.global_gate.weight)
+        nn.init.constant_(self.global_gate.bias, math.log(0.4 / 0.6))
 
-    def forward(self, dense, centerline, boundary, width, resolution):
+    def forward(self, dense, centerline, boundary, width, resolution,
+                blend_override=None):
         # width logits -> bounded pixel width (never softplus-saturated).
         width_px = width_to_pixels(width)
         kernels = (1, 3, 5, 7, 11, 15)
@@ -126,9 +135,42 @@ class TypedComposer(nn.Module):
             (dense_prob - structure).abs(),
         ], dim=1)
         gate_logits = self.gate(features)
-        gate = torch.sigmoid(gate_logits)
+        spatial_gate = torch.sigmoid(gate_logits)
+        # Pool only over informative pixels (foreground / boundary / branch
+        # disagreement); otherwise background dominates and every image looks
+        # identical to the global gate.
+        informative = (
+            (dense_prob > 0.1)
+            | (center > 0.1)
+            | (boundary_prob > 0.1)
+            | ((dense_prob - structure).abs() > 0.05)
+        ).float()
+        denom = informative.sum(dim=(2, 3), keepdim=True).clamp_min(1.0)
+        masked_mean = (features * informative).sum(
+            dim=(2, 3), keepdim=True) / denom
+        fallback = F.adaptive_avg_pool2d(features, 1)
+        pooled = torch.where(
+            informative.sum(dim=(2, 3), keepdim=True) > 0,
+            masked_mean, fallback).flatten(1)
+        informative_fraction = informative.mean(
+            dim=(2, 3), keepdim=True).flatten(1)
+        global_input = torch.cat([pooled, informative_fraction], dim=1)
+        global_gate = torch.sigmoid(
+            self.global_gate(global_input)).view(-1, 1, 1, 1)
+        # The spatial branch is a bounded residual around the image-level
+        # blend; if it learns nothing, the model is a safe global ensemble.
+        if blend_override is not None:
+            if isinstance(blend_override, torch.Tensor):
+                gate = blend_override.to(structure.device).clamp(0.0, 1.0)
+            else:
+                gate = torch.full_like(structure, float(blend_override))
+        else:
+            gate = (global_gate + 0.3 * (spatial_gate - 0.5)).clamp(0.0, 1.0)
         edge = self.edge(features) * boundary_prob
-        final = dense + gate * (structure_logits - dense) + edge
+        # The edge residual is kept for diagnostics but is not used in the
+        # deployment mask: audits at GT resolution showed it consistently
+        # hurt Dice.  Boundary supervision still shapes the shared features.
+        final = dense + gate * (structure_logits - dense)
         return {
             'dense': dense,
             'centerline': centerline,
@@ -136,7 +178,10 @@ class TypedComposer(nn.Module):
             'width': width,
             'structure': structure,
             'gate': gate,
+            'global_gate': global_gate,
+            'spatial_gate': spatial_gate,
             'gate_logits': gate_logits,
+            'edge': edge,
             'final': final,
         }
 

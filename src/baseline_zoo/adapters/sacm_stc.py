@@ -169,8 +169,24 @@ class SACMSTCAdapter(BaselineAdapter):
                  'state within 800 epochs')
         parser.add_argument(
             '--typed-gate-temperature', type=float, default=0.02,
-            help='temperature of the soft gate target derived from the '
-                 'dense/structure error difference')
+            help='legacy pixel-gate temperature (unused by the oracle '
+                 'distillation path)')
+        parser.add_argument(
+            '--typed-gate-distill-weight', type=float, default=0.2,
+            help='weight of the GT-oracle blend distillation for the '
+                 'image-level composer gate')
+        parser.add_argument(
+            '--typed-output', choices=['dense', 'compose'], default='compose',
+            help='deployment output: dense head alone or the composed mask')
+        parser.add_argument(
+            '--typed-dense-skeleton-weight', type=float, default=0.0,
+            help='Skeleton Recall on the dense head (0 disables)')
+        parser.add_argument(
+            '--typed-dense-cldice-weight', type=float, default=0.0,
+            help='soft-clDice on the dense head (0 disables)')
+        parser.add_argument(
+            '--typed-dense-boundary-weight', type=float, default=0.0,
+            help='soft contour boundary loss on the dense head (0 disables)')
         # Official train_sam.py clips by 1.0.  The shared runtime reads
         # ``grad_clip``; this alias keeps the upstream option name and sets
         # the effective default instead of being a silent no-op.
@@ -304,6 +320,15 @@ class SACMSTCAdapter(BaselineAdapter):
                 getattr(args, 'typed_composer_lr', 3e-3)),
             'typed_gate_temperature': float(
                 getattr(args, 'typed_gate_temperature', 0.02)),
+            'typed_gate_distill_weight': float(
+                getattr(args, 'typed_gate_distill_weight', 0.2)),
+            'typed_output': getattr(args, 'typed_output', 'compose'),
+            'typed_dense_skeleton_weight': float(
+                getattr(args, 'typed_dense_skeleton_weight', 0.0)),
+            'typed_dense_cldice_weight': float(
+                getattr(args, 'typed_dense_cldice_weight', 0.0)),
+            'typed_dense_boundary_weight': float(
+                getattr(args, 'typed_dense_boundary_weight', 0.0)),
         }
 
     def restore_config(self, args, config):
@@ -322,7 +347,10 @@ class SACMSTCAdapter(BaselineAdapter):
                     'typed_boundary_weight', 'typed_width_weight',
                     'typed_compose_weight', 'typed_gate_weight',
                     'typed_structure_warmup_epochs', 'typed_composer_lr',
-                    'typed_gate_temperature'):
+                    'typed_gate_temperature', 'typed_gate_distill_weight',
+                    'typed_output', 'typed_dense_skeleton_weight',
+                    'typed_dense_cldice_weight', 'typed_dense_boundary_weight',
+                    'calibrated_blend_g'):
             if key in config:
                 setattr(args, key, config[key])
         saved_size = config.get('input_size')
@@ -453,6 +481,41 @@ class SACMSTCAdapter(BaselineAdapter):
         return bce_weight * bce + dice_weight * dice.mean()
 
     @staticmethod
+    def _oracle_gate_target(dense_logits, structure, target, grid_size=11):
+        """Return the best constant dense/structure blend under GT Dice.
+
+        The oracle is computed only from current predictions and GT; it is a
+        training teacher for the image-level gate, never used at inference.
+        """
+        if grid_size < 2:
+            raise ValueError('grid_size must be >= 2')
+        with torch.no_grad():
+            dense_logits = dense_logits.detach()
+            structure = structure.detach().clamp(1e-4, 1.0 - 1e-4)
+            structure_logits = torch.logit(structure)
+            target = target.detach().float()
+            grid = torch.linspace(0.0, 1.0, grid_size,
+                                  device=dense_logits.device)
+            dices = []
+            for gate in grid:
+                pred = torch.sigmoid(
+                    dense_logits + gate * (structure_logits - dense_logits))
+                pred = (pred > 0.5).float()
+                dims = (1, 2, 3)
+                inter = (pred * target).sum(dim=dims)
+                denom = pred.sum(dim=dims) + target.sum(dim=dims)
+                dices.append((2.0 * inter + 1e-6) / (denom + 1e-6))
+            dices = torch.stack(dices, dim=1)  # [B, grid]
+            # Use the mean of the whole Dice plateau instead of argmax: a
+            # hard argmax breaks ties toward g=0 and systematically teaches
+            # the gate to close when several blends are equally good.
+            best_value = dices.max(dim=1, keepdim=True).values
+            plateau = (dices >= best_value - 1e-9).float()
+            best_gate = (grid[None, :] * plateau).sum(dim=1) / (
+                plateau.sum(dim=1).clamp_min(1.0))
+        return best_gate, dices
+
+    @staticmethod
     def _gate_loss(gate_logits, dense_prob, structure, target,
                    temperature=0.02):
         """Gate BCE restricted to foreground and dense/structure disagreements.
@@ -568,6 +631,39 @@ class SACMSTCAdapter(BaselineAdapter):
             loss = loss + ramp * width_w * (
                 width_l1[:, 0] * fg).sum() / denom
 
+        # Geometry-consistency supervision on the deployment head.  The
+        # auxiliary heads act as geometry teachers, but the topology and
+        # boundary losses are applied directly to the dense output so they
+        # improve the mask that is actually evaluated.
+        dense_skel_w = float(getattr(
+            args, 'typed_dense_skeleton_weight', 0.0))
+        if dense_skel_w > 0:
+            if self._skeleton_recall_loss is None:
+                self._skeleton_recall_loss = SkeletonRecallLoss()
+            loss = loss + ramp * dense_skel_w * (
+                self._skeleton_recall_loss(dense, target))
+        dense_cl_w = float(getattr(args, 'typed_dense_cldice_weight', 0.0))
+        if dense_cl_w > 0:
+            if self._cl_loss is None:
+                self._cl_loss = SoftclDiceLoss()
+            loss = loss + ramp * dense_cl_w * self._cl_loss(dense, target)
+        dense_bnd_w = float(getattr(
+            args, 'typed_dense_boundary_weight', 0.0))
+        if dense_bnd_w > 0:
+            dense_prob = torch.sigmoid(dense)
+            eroded = -F.max_pool2d(-dense_prob, 3, 1, 1)
+            boundary_pred = (dense_prob - eroded).clamp(1e-4, 1.0 - 1e-4)
+            boundary_bce = F.binary_cross_entropy(
+                boundary_pred, boundary_gt)
+            dims = tuple(range(1, boundary_pred.ndim))
+            inter = (boundary_pred * boundary_gt).sum(dim=dims)
+            denom = (boundary_pred.sum(dim=dims)
+                     + boundary_gt.sum(dim=dims))
+            boundary_dice = (
+                1.0 - (2.0 * inter + 1e-6) / (denom + 1e-6)).mean()
+            loss = loss + ramp * dense_bnd_w * (
+                boundary_bce + boundary_dice)
+
         # The task heads are trained by their own losses.  Detaching them
         # here stops the composer from collapsing a head into a degenerate
         # scale (the old differentiable width path did exactly that).
@@ -580,13 +676,15 @@ class SACMSTCAdapter(BaselineAdapter):
                 outputs['final'], target, bce_w, dice_w)
             loss = loss + ramp * compose_w * compose
 
-        gate_w = float(getattr(args, 'typed_gate_weight', 0.05))
-        if gate_w > 0:
-            gate_loss = self._gate_loss(
-                outputs['gate_logits'], torch.sigmoid(dense),
-                outputs['structure'], target,
-                float(getattr(args, 'typed_gate_temperature', 0.02)))
-            loss = loss + ramp * gate_w * gate_loss
+        distill_w = float(getattr(
+            args, 'typed_gate_distill_weight', 0.2))
+        if distill_w > 0:
+            best_gate, _ = self._oracle_gate_target(
+                dense, outputs['structure'], target)
+            predicted = outputs['global_gate'].reshape(-1)
+            gate_loss = F.smooth_l1_loss(
+                predicted, best_gate.to(predicted.dtype), beta=0.1)
+            loss = loss + ramp * distill_w * gate_loss
         return loss
 
     def _stc_loss(self, model, images, masks, stage2, iou_pred):
@@ -728,13 +826,18 @@ class SACMSTCAdapter(BaselineAdapter):
             model, images, return_stage1=True)
         masks = F.interpolate(masks, (1024, 1024), mode='bilinear',
                               align_corners=False)
-        stage2 = F.interpolate(stage2, (1024, 1024), mode='bilinear',
-                               align_corners=False)
         stage1 = F.interpolate(stage1, (1024, 1024), mode='bilinear',
                                align_corners=False)
 
         if int(getattr(self.args, 'use_typed_stage2', 0)) == 1:
+            # Keep Stage-2 logits at their native 256 resolution.  _typed_loss
+            # resamples them directly to typed_resolution, matching
+            # predict_sample; going 256 -> 1024 -> 512 would blur the heads
+            # and create a train/inference mismatch.
             return self._typed_loss(model, masks, stage2, stage1)
+
+        stage2 = F.interpolate(stage2, (1024, 1024), mode='bilinear',
+                               align_corners=False)
 
         bce_weight = float(self.args.bce_weight)
         dice_weight = float(self.args.dice_weight)
@@ -795,13 +898,22 @@ class SACMSTCAdapter(BaselineAdapter):
                 raise RuntimeError(
                     'typed Stage-2 requires model.typed_composer')
             resolution = int(getattr(self.args, 'typed_resolution', 512))
-            heads = [
-                F.interpolate(
-                    stage2[:, k:k + 1], (resolution, resolution),
+            output = getattr(self.args, 'typed_output', 'compose')
+            if output == 'dense':
+                logits = F.interpolate(
+                    stage2[:, 0:1], (resolution, resolution),
                     mode='bilinear', align_corners=False)
-                for k in range(4)
-            ]
-            logits = composer(*heads, resolution)['final']
+            else:
+                heads = [
+                    F.interpolate(
+                        stage2[:, k:k + 1], (resolution, resolution),
+                        mode='bilinear', align_corners=False)
+                    for k in range(4)
+                ]
+                blend = getattr(
+                    self.args, 'calibrated_blend_g', None)
+                logits = composer(
+                    *heads, resolution, blend_override=blend)['final']
         elif int(getattr(self.args, 'use_stc', 0)) == 1:
             head = getattr(model, 'stc_head', None)
             if head is None:

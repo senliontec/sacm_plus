@@ -15,24 +15,31 @@
 ## What this method is
 
 SACM-STC extends the SACM prompt-free decoder by assigning the four native
-Stage-2 heads to fixed tasks: dense mask, centerline, boundary and normalized
-distance/width.  Stage-1 keeps dense deep supervision; Stage-2 uses a stable
-order (no gating reorder); a lightweight composer produces the final mask.
-Inference uses the composed mask only: no head selector and no fixed
-deployment head.  `sacm_official` remains the main-table baseline and is not
-modified.
+Stage-2 heads to fixed geometric roles: dense mask, centerline, boundary and
+normalized distance/width.  Stage-1 keeps dense deep supervision; Stage-2
+uses a stable order (no gating reorder).  The **dense head is the default
+deployment output**.  The centerline/width branch is an optional structural
+ensemble: a post-hoc per-checkpoint calibration on the validation split
+chooses between dense alone (g=0) and a fixed blend
+`dense + g * (structure - dense)`; g=0 is a legal and often optimal choice.
+No learned test-time gate or head selector is required for deployment.
+`sacm_official` remains the main-table baseline and is not modified.
+
+Geometry consistency is applied directly to the dense output, not only to
+the auxiliary heads: Skeleton Recall, soft-clDice and a soft-contour
+boundary loss supervise the dense logits.  The auxiliary heads remain
+directly supervised as geometric teachers.  This targets the topology,
+connectivity and boundary metrics without adding inference-time parameters.
 
 Both additions start as neutral operations.  Zero-initialized type
 embeddings (`stage2_type_emb`) let the four heads specialize without changing
 their initial SAM behaviour, and a zero-initialized `stage1_prior` branch
 fuses the four coarse Stage-1 masks into the Stage-2 substrate, giving Stage-1
-an inference role beyond deep supervision.  Structural losses
-(centerline/boundary/width/composition/gate) are off for
-`--typed-structure-warmup-epochs` epochs and then ramp in linearly.  The gate
-is supervised only on foreground and on pixels where dense and structural
-branches disagree, so the background cannot dominate it into the permanently
-closed state.  Its inputs are bounded probabilities (not raw logits) and it
-starts neutral, so a single saturated head cannot control it.
+an inference role beyond deep supervision.  Structural and geometry losses
+(centerline/boundary/width, dense topology and boundary consistency) are off
+for `--typed-structure-warmup-epochs` epochs and then ramp in linearly.  The
+learned gate/oracle distillation remains available as an ablation path, but
+deployment uses a fixed/calibrated blend or dense alone.
 
 Width is parameterised in pixels as
 `0.5 + 13.5 * sigmoid(logit)` and supervised in logit space against the
@@ -44,17 +51,30 @@ gradient when the head starts far from the target; the earlier
 head.  The composer detaches the four task heads for its own losses, so
 composition cannot collapse a head's scale.
 
-The gate sees bounded probabilities, an explicit dense/structure
-disagreement channel, and is trained with a soft target
-`sigmoid((dense_err - structure_err) / T)` on foreground/disagreement
-pixels.  Gate and edge use their own `--typed-composer-lr` parameter group:
-the official 3e-4 budget cannot move their neutral initialisation into a
-discriminative regime within 800 epochs.  This requires
-`--scheduler official`; the shared runtime's generic scheduler overrides
-(`constant`, `cosine`, ...) reset every parameter group to `--lr`, so the
-adapter refuses that combination instead of silently training an invalid
-experiment.  The boundary head uses BCE plus a Dice term, because BCE alone
-on a one-pixel contour collapses to a near-zero map.
+The optional structural ensemble uses the bounded width-based structure
+prior and a **fixed or validation-calibrated** blend; the learned
+global/spatial gate and GT-oracle distillation are retained only as ablation
+paths, not as deployment requirements.  The boundary edge residual is not
+used in deployment: GT-resolution audits showed it consistently hurt Dice.
+The boundary head uses BCE plus a Dice term, because BCE alone on a
+one-pixel contour collapses to a near-zero map.
+
+## Calibration
+
+`scripts/calibrate_sacm_stc.py` evaluates every saved checkpoint at GT
+resolution with
+
+```
+dense + g * (structure - dense),   g in {0, 0.1, 0.2, 0.3, 0.4}
+```
+
+It selects the best (checkpoint, g) pair on the validation split and can
+write a `calibrated_model.pth` whose `config.adapter_config.calibrated_blend_g`
+is consumed by `predict_sample`.  `g=0` means the dense head alone; this is
+the most common choice at the best checkpoint, while later/degraded
+checkpoints often benefit from `g≈0.4`.  The learned composer LR guard still
+applies when the composer is trained: generic scheduler overrides reset all
+parameter groups to `--lr`, so the adapter refuses that combination.
 
 ## Fixes (all differ from `sacm_official`)
 

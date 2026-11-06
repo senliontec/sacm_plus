@@ -8,6 +8,11 @@ train_entrypoint: >-
   --data-root {split_root} --workdir {output_root}
   --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
   --use-typed-stage2 1 --typed-resolution 512 --iou-loss-weight 0
+  --typed-output dense --typed-compose-weight 0
+  --typed-gate-distill-weight 0
+  --typed-dense-skeleton-weight 0.1
+  --typed-dense-cldice-weight 0.1
+  --typed-dense-boundary-weight 0.05
 eval_entrypoint: >-
   python scripts/pipeline/run_baseline_test.py --method sacm_stc
   --protocol {test_manifest}
@@ -20,10 +25,14 @@ protocols: [seeded5, fixed]
 defaults:
   epochs: 800
 note: >-
-  SACM-STC: a structural multi-task extension of the SACM prompt-free decoder.
-  The four native Stage-2 heads have fixed roles: dense mask, centerline,
-  boundary, and normalized distance/width. Stage-2 uses a stable head order
-  (no gating reorder), Stage-1 keeps dense deep supervision, and a lightweight
-  composer turns the four task outputs into one mask. No test-time head
-  selector and no fixed deployment head are used. The faithful official SACM
-  remains the main-table baseline (`sacm_official`).
+  SACM-STC: a geometry-consistent multi-task extension of the SACM prompt-free
+  decoder. The four native Stage-2 heads have fixed roles: dense mask,
+  centerline, boundary, and normalized distance/width. Stage-2 uses a stable
+  head order (no gating reorder); Stage-1 keeps dense deep supervision. The
+  deployment output is the dense head; the centerline/width branch is an
+  optional validation-calibrated structural ensemble. Skeleton Recall,
+  soft-clDice and a soft-contour boundary loss are applied directly to the
+  dense output, so topology and boundary supervision improve the evaluated
+  mask. No test-time head selector and no fixed deployment head are used.
+  The faithful official SACM remains the main-table baseline
+  (`sacm_official`).

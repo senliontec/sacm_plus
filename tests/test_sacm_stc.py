@@ -249,7 +249,9 @@ def test_sacm_stc_config_roundtrip():
         typed_boundary_weight=0.2, typed_width_weight=0.06,
         typed_compose_weight=0.4, typed_gate_weight=0.07,
         typed_structure_warmup_epochs=3, typed_composer_lr=5e-3,
-        typed_gate_temperature=0.03)
+        typed_gate_temperature=0.03, typed_gate_distill_weight=0.3,
+        typed_output='compose', typed_dense_skeleton_weight=0.1,
+        typed_dense_cldice_weight=0.2, typed_dense_boundary_weight=0.05)
     config = adapter.save_config(args)
     restored = argparse.Namespace(head_select=None)
     adapter.restore_config(restored, config)
@@ -289,6 +291,11 @@ def test_sacm_stc_config_roundtrip():
     assert restored.typed_structure_warmup_epochs == 3
     assert restored.typed_composer_lr == 5e-3
     assert restored.typed_gate_temperature == 0.03
+    assert restored.typed_gate_distill_weight == 0.3
+    assert restored.typed_output == 'compose'
+    assert restored.typed_dense_skeleton_weight == 0.1
+    assert restored.typed_dense_cldice_weight == 0.2
+    assert restored.typed_dense_boundary_weight == 0.05
     assert restored.input_size == 1024
 
 
@@ -425,7 +432,7 @@ def test_sacm_stc_composer_lr_requires_official_scheduler():
     assert any(group['lr'] == 3e-4 for group in optimizer.param_groups)
 
 
-def test_sacm_stc_typed_composer_neutral_gate():
+def test_sacm_stc_typed_composer_initial_blend():
     torch.manual_seed(0)
     composer = TypedComposer()
     dense = torch.randn(1, 1, 32, 32)
@@ -434,12 +441,55 @@ def test_sacm_stc_typed_composer_neutral_gate():
     width = torch.randn(1, 1, 32, 32)
     out = composer(dense, center, boundary, width, 32)
     assert out['final'].shape == dense.shape
-    # Zero weight + neutral bias means the gate starts at 0.5 and can move
-    # both ways under the official learning rate.
-    assert torch.allclose(out['gate'], torch.full_like(out['gate'], 0.5))
+    # The global gate starts at 0.4; the zero spatial residual leaves it
+    # unchanged.  This is close to the validation oracle mean and avoids
+    # both the closed-gate and the arbitrary 0.5 blend.
+    assert torch.allclose(
+        out['global_gate'], torch.full_like(out['global_gate'], 0.4))
+    assert torch.allclose(
+        out['spatial_gate'], torch.full_like(out['spatial_gate'], 0.5))
+    assert torch.allclose(out['gate'], torch.full_like(out['gate'], 0.4))
     width_px = width_to_pixels(width)
     assert float(width_px.min()) >= WIDTH_MIN_PX
     assert float(width_px.max()) <= WIDTH_MAX_PX
+
+
+def test_sacm_stc_oracle_gate_target():
+    adapter = load_adapter('sacm_stc')
+    target = torch.zeros(1, 1, 32, 32)
+    target[..., 8:24, 8:24] = 1.0
+    empty_logits = torch.full_like(target, -10.0)
+    perfect_dense = target * 20.0 - 10.0
+    # Structure is perfect and dense is empty -> oracle gate opens fully.
+    best_gate, dices = adapter._oracle_gate_target(
+        empty_logits, target, target)
+    # 0.6 is the first grid point where foreground crosses the threshold;
+    # ties are broken toward the smallest (most conservative) blend.
+    assert float(best_gate[0]) >= 0.6 - 1e-6
+    assert abs(float(dices.max()) - 1.0) < 1e-6
+    # Dense is perfect and structure is empty -> the Dice plateau spans the
+    # low-gate region, so the mean plateau target stays on the dense side.
+    best_gate, _ = adapter._oracle_gate_target(
+        perfect_dense, torch.zeros_like(target), target)
+    assert float(best_gate[0]) <= 0.5
+    assert tuple(dices.shape) == (1, 11)
+
+
+def test_sacm_stc_composer_blend_override():
+    torch.manual_seed(0)
+    composer = TypedComposer()
+    dense = torch.randn(1, 1, 32, 32)
+    center = torch.randn(1, 1, 32, 32)
+    boundary = torch.randn(1, 1, 32, 32)
+    width = torch.randn(1, 1, 32, 32)
+    out_dense = composer(
+        dense, center, boundary, width, 32, blend_override=0.0)
+    assert torch.allclose(out_dense['final'], dense)
+    out_struct = composer(
+        dense, center, boundary, width, 32, blend_override=1.0)
+    structure_logits = torch.logit(
+        out_struct['structure'].clamp(1e-4, 1.0 - 1e-4))
+    assert torch.allclose(out_struct['final'], structure_logits, atol=1e-5)
 
 
 def test_sacm_stc_width_parameterisation_is_bounded():
@@ -478,7 +528,9 @@ def test_sacm_stc_typed_train_step(monkeypatch):
         typed_centerline_weight=0.2, typed_cl_dice_weight=0.2,
         typed_boundary_weight=0.1, typed_width_weight=0.05,
         typed_compose_weight=0.5, typed_gate_weight=0.05,
-        typed_structure_warmup_epochs=0)
+        typed_structure_warmup_epochs=0,
+        typed_dense_skeleton_weight=0.1, typed_dense_cldice_weight=0.1,
+        typed_dense_boundary_weight=0.1)
     adapter.head_select = 'iou'
     adapter.deployment_head = 2
     adapter._epoch = 10
@@ -505,6 +557,34 @@ def test_sacm_stc_typed_train_step(monkeypatch):
     loss.backward()
     assert any(p.grad is not None
                for p in model.typed_composer.parameters())
+
+
+def test_sacm_stc_typed_train_step_keeps_native_stage2(monkeypatch):
+    adapter = load_adapter('sacm_stc')
+    adapter.args = argparse.Namespace(use_typed_stage2=1)
+    captured = {}
+
+    def fake_forward(model, images, return_stage1=True):
+        del model, images, return_stage1
+        stage2 = torch.randn(1, 4, 256, 256, requires_grad=True)
+        stage1 = torch.randn(1, 4, 256, 256, requires_grad=True)
+        return stage2, torch.rand(1, 4), stage1
+
+    def fake_typed_loss(model, masks, stage2, stage1):
+        del model, masks
+        captured['stage2'] = tuple(stage2.shape)
+        captured['stage1'] = tuple(stage1.shape)
+        return stage2.sum() * 0.0
+
+    monkeypatch.setattr(adapter, '_forward', fake_forward)
+    monkeypatch.setattr(adapter, '_typed_loss', fake_typed_loss)
+    loss = adapter.train_step(
+        None, (torch.zeros(1, 3, 8, 8), torch.zeros(1, 1, 256, 256)))
+    # Stage-2 stays at 256 and is resampled once inside _typed_loss; only the
+    # Stage-1 deep-supervision stream goes to 1024.
+    assert captured['stage2'] == (1, 4, 256, 256)
+    assert captured['stage1'] == (1, 4, 1024, 1024)
+    assert torch.isfinite(loss)
 
 
 def test_sacm_stc_typed_structure_warmup(monkeypatch):
