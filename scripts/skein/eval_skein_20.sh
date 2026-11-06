@@ -87,9 +87,22 @@ if { [ "$USE_WANDB" = "true" ] || [ "$USE_WANDB" = "1" ]; } \
   USE_WANDB=false
 fi
 TRAIN_ROOT="${TRAIN_ROOT:-data/sacm_3shot_seed${SEED}}"
-EVAL_INPUT_MODE="${EVAL_INPUT_MODE:-aspect_pad}"
+# Canonical Skein defaults reproduce the old fixed2 operating point:
+# resize geometry, fixed head 2, no empty guard.  Other presets keep the
+# legacy aspect_pad / IoU-selector defaults.
+case "$PRESET" in
+  skein|full_fixed2_aux)
+    EVAL_INPUT_MODE="${EVAL_INPUT_MODE:-resize}"
+    EMPTY_GUARD="${EMPTY_GUARD:-false}"
+    FIXED_HEAD="${FIXED_HEAD:-2}"
+    ;;
+  *)
+    EVAL_INPUT_MODE="${EVAL_INPUT_MODE:-aspect_pad}"
+    EMPTY_GUARD="${EMPTY_GUARD:-true}"
+    FIXED_HEAD="${FIXED_HEAD:-}"
+    ;;
+esac
 USE_TTA="${USE_TTA:-false}"
-EMPTY_GUARD="${EMPTY_GUARD:-true}"
 # Optional speed-ups; both default to the previous behavior.
 #   REUSE_EVAL_MODEL=1  load the model/checkpoint once for all datasets
 #   PAPER_METRICS_ONLY=1 compute only Dice/IoU/clDice/HD95
@@ -104,7 +117,6 @@ if [ "$MATCH_BASELINE_GEOMETRY" = "1" ]; then
   EMPTY_GUARD=false
 fi
 SELECTION="${SELECTION:-}"
-FIXED_HEAD="${FIXED_HEAD:-}"
 QUALITY_SMALL_COMPONENT_WEIGHT="${QUALITY_SMALL_COMPONENT_WEIGHT:-0.5}"
 QUALITY_COMPONENT_WEIGHT="${QUALITY_COMPONENT_WEIGHT:-0.05}"
 AUDIT_HEADS="${AUDIT_HEADS:-false}"

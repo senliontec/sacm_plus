@@ -19,7 +19,8 @@
 # Environment:
 #   PYTHON, GPU, PRESET, RUN_NAME, EPOCHS, VAL_INTERVAL, SEED, DATASETS, CKPT,
 #   TRAIN_ROOT, OUTPUT_ROOT, CANONICAL_ROOT, MONITOR, USE_WANDB, WANDB_MODE,
-#   NO_AUGMENT (1 disables all train-time flips/rotations/elastic/colour),
+#   NO_AUGMENT (1 disables all train-time flips/rotations/elastic/colour;
+#   default 1 = augmentation off)
 #   WANDB_NAME, INIT_STAGE2_FROM_STAGE1, SKIP_TEST, SCNP, SCNP_WINDOW,
 #   SCNP_ORIGINAL_WEIGHT, REUSE_EVAL_MODEL, PAPER_METRICS_ONLY, RESUME,
 #   VAL_SELECTION (auto/iou/gating/quality/fixed), VAL_FIXED_HEAD,
@@ -82,10 +83,31 @@ if ! printf '%s\n' "$OUTPUT_ROOT" | grep -qE "seed[_-]?${SEED}([^0-9]|$)"; then
   echo "WARNING: OUTPUT_ROOT does not contain seed_${SEED} or seed${SEED}; different seeds can collide." >&2
 fi
 MONITOR="${MONITOR:-baseline}"
-NO_AUGMENT="${NO_AUGMENT:-0}"
+NO_AUGMENT="${NO_AUGMENT:-1}"
 INIT_STAGE2_FROM_STAGE1="${INIT_STAGE2_FROM_STAGE1:-true}"
-INPUT_MODE="${INPUT_MODE:-aspect_pad}"
-EVAL_INPUT_MODE="${EVAL_INPUT_MODE:-aspect_pad}"
+# Canonical Skein defaults reproduce the old fixed2 operating point:
+# resize geometry, fixed head 2, no empty guard.  Other presets keep the
+# legacy aspect_pad/IoU-selector defaults.
+case "$PRESET" in
+  skein|full_fixed2_aux)
+    INPUT_MODE="${INPUT_MODE:-resize}"
+    EVAL_INPUT_MODE="${EVAL_INPUT_MODE:-resize}"
+    EMPTY_GUARD="${EMPTY_GUARD:-false}"
+    SELECTION="${SELECTION:-}"
+    FIXED_HEAD="${FIXED_HEAD:-2}"
+    VAL_SELECTION="${VAL_SELECTION:-fixed}"
+    VAL_FIXED_HEAD="${VAL_FIXED_HEAD:-2}"
+    ;;
+  *)
+    INPUT_MODE="${INPUT_MODE:-aspect_pad}"
+    EVAL_INPUT_MODE="${EVAL_INPUT_MODE:-aspect_pad}"
+    EMPTY_GUARD="${EMPTY_GUARD:-true}"
+    SELECTION="${SELECTION:-}"
+    FIXED_HEAD="${FIXED_HEAD:-}"
+    VAL_SELECTION="${VAL_SELECTION:-auto}"
+    VAL_FIXED_HEAD="${VAL_FIXED_HEAD:-2}"
+    ;;
+esac
 FG_CROP_PROB="${FG_CROP_PROB:-0.5}"
 # foreground_crop_prob is only implemented by native_crop.  Resize/aspect_pad
 # ignore it; record 0 so train_config does not claim a crop that never ran.
@@ -98,12 +120,7 @@ BOUNDARY_LOSS_RESOLUTION="${BOUNDARY_LOSS_RESOLUTION:-512}"
 BOUNDARY_LOSS_WARMUP="${BOUNDARY_LOSS_WARMUP:-10}"
 BOUNDARY_LOSS_RAMP="${BOUNDARY_LOSS_RAMP:-5}"
 USE_TTA="${USE_TTA:-false}"
-EMPTY_GUARD="${EMPTY_GUARD:-true}"
-SELECTION="${SELECTION:-}"
-FIXED_HEAD="${FIXED_HEAD:-}"
 SELECTION_METRIC="${SELECTION_METRIC:-dice}"
-VAL_SELECTION="${VAL_SELECTION:-auto}"
-VAL_FIXED_HEAD="${VAL_FIXED_HEAD:-2}"
 VAL_EMPTY_GUARD="${VAL_EMPTY_GUARD:-$EMPTY_GUARD}"
 QUALITY_SMALL_COMPONENT_WEIGHT="${QUALITY_SMALL_COMPONENT_WEIGHT:-0.5}"
 QUALITY_COMPONENT_WEIGHT="${QUALITY_COMPONENT_WEIGHT:-0.05}"

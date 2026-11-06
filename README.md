@@ -243,8 +243,10 @@ switches in the Skein training/evaluation path:
 - `--train_input_mode {resize,aspect_pad,native_crop}` / `--eval_input_mode {resize,aspect_pad}`:
   `aspect_pad` preserves the source aspect ratio and pads (no square
   stretch); `native_crop` keeps native pixel scale for large images via
-  foreground-biased 1024x1024 crops.  Defaults are `aspect_pad` for both
-  so training and evaluation use the same geometry.
+  foreground-biased 1024x1024 crops.  The core trainer default is
+  `aspect_pad`; the canonical Skein config (`configs/models/skein.yaml`)
+  uses `resize` for both training and evaluation to match the historical
+  fixed2 recipe.
 - `--boundary_loss_weight W --boundary_loss_resolution R --boundary_loss_warmup N --boundary_loss_ramp N`:
   distance-transform boundary term targeting HD95/boundary outliers.
   The default is `0` (legacy); the Skein launcher enables `0.05`.
@@ -253,13 +255,16 @@ switches in the Skein training/evaluation path:
   thick/dense domains where a head collapses).  The launcher enables it.
 - `--tta`: existing four-way flip TTA.  Off by default for fair comparison;
   set `USE_TTA=true` for an X+TTA run and report it separately.
-- `native_crop` is available for experiments, but final evaluation should
-  currently use `aspect_pad`; native-resolution tiled inference is the next
-  planned step, otherwise train/test pixel scale differs on high-res data.
+- `native_crop` is available for experiments, but final canonical
+  evaluation uses the historical fixed2 `resize` geometry; native-resolution
+  tiled inference is the next planned step, otherwise train/test pixel scale
+  differs on high-res data.
 
-The Skein launcher defaults are now:
-`INPUT_MODE=aspect_pad`, `EVAL_INPUT_MODE=aspect_pad`, `FG_CROP_PROB=0.5`,
-`BOUNDARY_LOSS_WEIGHT=0.05`, `EMPTY_GUARD=true`, `USE_TTA=false`.
+The canonical Skein launcher defaults are now:
+`INPUT_MODE=resize`, `EVAL_INPUT_MODE=resize`, `VAL_SELECTION=fixed`,
+`FIXED_HEAD=2`, `VAL_EMPTY_GUARD=false`, `EMPTY_GUARD=false`,
+`NO_AUGMENT=1`, `FG_CROP_PROB=0.5`, `USE_TTA=false`.
+Other presets keep the legacy `aspect_pad` / IoU-selector defaults.
 
 ### Typed structural heads (B prototype)
 

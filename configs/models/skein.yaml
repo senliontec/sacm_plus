@@ -10,11 +10,15 @@ train_entrypoint: >-
   GPU={gpu} TRAIN_ROOT={split_root} OUTPUT_ROOT={output_root}
   SEED={seed} PRESET={preset} MONITOR={monitor} EPOCHS={epochs}
   INIT_STAGE2_FROM_STAGE1={init_stage2_from_stage1}
+  INPUT_MODE=resize EVAL_INPUT_MODE=resize
+  VAL_SELECTION=fixed VAL_FIXED_HEAD=2 VAL_EMPTY_GUARD=false
+  EMPTY_GUARD=false
   NO_AUGMENT=1 VAL_INTERVAL=1
   SKIP_TEST=true USE_WANDB=true bash scripts/skein/run_skein_quick.sh
 eval_entrypoint: >-
   GPU={gpu} TRAIN_ROOT={split_root} TRAIN_OUT={output_root}
   OUTPUT_ROOT={output_root}/eval SEED={seed} PRESET={preset}
+  EVAL_INPUT_MODE=resize EMPTY_GUARD=false FIXED_HEAD=2
   USE_WANDB=true bash scripts/skein/eval_skein_20.sh
 protocols: [seeded5, fixed]
 defaults:
@@ -22,3 +26,6 @@ defaults:
   monitor: baseline
   epochs: 800
   init_stage2_from_stage1: true
+note: >-
+  Canonical fixed2 defaults: resize train/eval geometry, fixed head 2 for
+  validation and test, no empty guard, and augmentation off.
