@@ -1,28 +1,206 @@
 #!/usr/bin/env bash
-# One-click MaskVSC 3-shot baseline: seeds 0-3 on four GPUs, then 20-dataset eval.
-#
-# Uses the deployed task-adapted 600+200 recipe from configs/models/maskvsc.yaml:
-# InstanceNorm, batch 1, mild augmentation, BCE+Connect_Loss+soft Dice (1.0)
-# for stage 1; clean-input BCE + zero-initialised residual ViG for stage 2.
+# One-click MaskVSC baseline: train seeds 0-3 on GPUs 0-3, then evaluate every
+# seed on the 20 protocol test datasets (Dice/IoU/clDice/HD95) and record the
+# per-dataset reports.
 #
 # Usage (server, repo root):
 #   bash scripts/run_maskvsc_seeds03_gpu0123.sh
-#   GPUS=4,5,6,7 bash scripts/run_maskvsc_seeds03_gpu0123.sh
-#   SEEDS="0 1" GPUS=0,1 bash scripts/run_maskvsc_seeds03_gpu0123.sh
+#
+# Deployed recipe (configs/models/maskvsc.yaml): official MaskVSC two-stage
+# architecture with the pooled 3-shot task adaptation -- stage 1 for 600
+# epochs (InstanceNorm, batch 1, mild augmentation, BCE + released
+# Connect_Loss + soft Dice 1.0), stage 2 for 200 epochs (released clean-input
+# BCE, zero-initialised residual ViG, batch 1), with the released fallback to
+# stage 1 when the ViG does not beat it.  No official baseline model code is
+# modified by this script.  The unified runner assigns one seed per GPU;
+# training must finish for all seeds before evaluation starts.
+#
+# Env overrides:
+#   GPU_LIST=0,1,2,3      SEEDS="0 1 2 3"
+#   RESUME=1              skip jobs whose completion marker is valid
+#   SKIP_TRAIN=1          evaluate only
+#   SKIP_EVAL=1           train only
+#   EXPECTED_DATASETS=20  per-seed dataset-count check
+#   MAX_USED_MIB=2000     fail if a selected GPU already uses more memory
+#   ALLOW_BUSY=1          do not fail on busy GPUs
+#   LOG_DIR=...           driver log directory
+#   PYTHON=...            interpreter (server default: /home/zkyd/.../tsai)
+#   WANDB_MODE=online     offline | disabled are passed through
 set -euo pipefail
 cd "$(dirname "$0")/.." || exit 1
+REPO="$(pwd)"
 
-GPUS="${GPUS:-0,1,2,3}"
-SEEDS="${SEEDS:-0 1 2 3}"
+MODEL="maskvsc"
+VARIANT="default"
+CONFIG="configs/models/maskvsc.yaml"
+SEEDS_STR="${SEEDS:-0 1 2 3}"
+GPU_LIST="${GPU_LIST:-0,1,2,3}"
+RESUME="${RESUME:-0}"
+SKIP_TRAIN="${SKIP_TRAIN:-0}"
+SKIP_EVAL="${SKIP_EVAL:-0}"
+ALLOW_BUSY="${ALLOW_BUSY:-0}"
+for name in RESUME SKIP_TRAIN SKIP_EVAL ALLOW_BUSY; do
+  value="${!name}"
+  case "$value" in
+    0|false|False|FALSE) printf -v "$name" '%s' 0 ;;
+    1|true|True|TRUE) printf -v "$name" '%s' 1 ;;
+    *) echo "ERROR: $name must be 0 or 1" >&2; exit 2 ;;
+  esac
+done
+EXPECTED_DATASETS="${EXPECTED_DATASETS:-20}"
+MAX_USED_MIB="${MAX_USED_MIB:-2000}"
+read -r -a SEED_ARGS <<< "$SEEDS_STR"
+if [ "${#SEED_ARGS[@]}" -eq 0 ]; then
+  echo "ERROR: SEEDS is empty" >&2
+  exit 2
+fi
+FIRST_SEED="${SEED_ARGS[0]}"
+LAST_SEED="${SEED_ARGS[${#SEED_ARGS[@]}-1]}"
+if [ "${#SEED_ARGS[@]}" -eq 1 ]; then
+  REPORT_TAG="seed${FIRST_SEED}"
+else
+  REPORT_TAG="seeds${FIRST_SEED}_${LAST_SEED}"
+fi
 
-echo "[maskvsc] stage 1: 600 epochs, stage 2: 200 epochs"
-echo "[maskvsc] training seeds: $SEEDS on GPUs $GPUS"
-# shellcheck disable=SC2086
-bash scripts/run_train.sh --model maskvsc --seeds $SEEDS --gpus "$GPUS"
+if [ -z "${PYTHON:-}" ]; then
+  if [ -x /home/zkyd/anaconda3/envs/tsai/bin/python ]; then
+    PYTHON=/home/zkyd/anaconda3/envs/tsai/bin/python
+  elif [ -x /home/dev/anaconda3/envs/tsai/bin/python ]; then
+    PYTHON=/home/dev/anaconda3/envs/tsai/bin/python
+  else
+    PYTHON=python
+  fi
+fi
+export PYTHON
+export PYTHONPATH="$REPO/src${PYTHONPATH:+:$PYTHONPATH}"
 
-echo "[maskvsc] evaluating seeds: $SEEDS on GPUs $GPUS"
-# shellcheck disable=SC2086
-bash scripts/run_eval.sh --model maskvsc --seeds $SEEDS --gpus "$GPUS"
+source "$REPO/scripts/wandb_env.sh"
+export WANDB_MODE="${WANDB_MODE:-online}"
 
-echo "[maskvsc] done."
-echo "[maskvsc] build the paper table with: bash scripts/build_paper_table.sh"
+STAMP="$(date +%Y%m%d_%H%M%S)"
+LOG_DIR="${LOG_DIR:-$REPO/results/logs/maskvsc_seeds03_gpu0123_${STAMP}}"
+mkdir -p "$LOG_DIR"
+exec > >(tee -a "$LOG_DIR/driver.log") 2>&1
+
+echo "============================================================"
+echo " MaskVSC baseline: seeds $SEEDS_STR on GPUs $GPU_LIST"
+echo " train: stage1 600 + stage2 200 (task-adapted 3-shot recipe)"
+echo " eval:  20 protocol datasets, Dice/IoU/clDice/HD95"
+echo " note:  InstanceNorm, batch1, mild aug, BCE+L_C+Dice; residual ViG"
+echo " repo:  $REPO"
+echo " log:   $LOG_DIR/driver.log"
+echo "============================================================"
+
+"$PYTHON" - "$REPO" "$GPU_LIST" "$SEEDS_STR" "$MAX_USED_MIB" \
+  "$ALLOW_BUSY" "$CONFIG" <<'PY'
+import subprocess
+import sys
+from pathlib import Path
+
+repo = Path(sys.argv[1]).resolve()
+gpu_csv = sys.argv[2]
+seeds = sys.argv[3].split()
+max_used = int(sys.argv[4])
+allow_busy = sys.argv[5] == '1'
+config = repo / sys.argv[6]
+
+requested = [item.strip() for item in gpu_csv.split(',') if item.strip()]
+if not requested:
+    sys.exit('ERROR: GPU_LIST is empty')
+if len(set(requested)) != len(requested):
+    sys.exit(f'ERROR: duplicate GPU indices in GPU_LIST: {requested}')
+
+try:
+    out = subprocess.check_output(
+        ['nvidia-smi', '--query-gpu=index,name,memory.used',
+         '--format=csv,noheader,nounits'],
+        text=True, stderr=subprocess.STDOUT)
+except (OSError, subprocess.CalledProcessError) as exc:
+    sys.exit(f'ERROR: nvidia-smi failed: {exc}')
+
+available = {}
+for line in out.strip().splitlines():
+    parts = [item.strip() for item in line.split(',')]
+    if len(parts) < 3:
+        continue
+    index, name, used = parts[:3]
+    try:
+        used_mib = int(float(used))
+    except ValueError:
+        used_mib = 0
+    available[index] = (name, used_mib)
+
+missing = [gpu for gpu in requested if gpu not in available]
+if missing:
+    print(f'ERROR: requested GPU(s) not present: {missing}', file=sys.stderr)
+    print(f'Available GPU indices: '
+          f'{sorted(available, key=lambda value: int(value) if value.isdigit() else value)}',
+          file=sys.stderr)
+    print('Set GPU_LIST=... (comma-separated) and re-run.', file=sys.stderr)
+    sys.exit(2)
+
+busy = [(gpu, available[gpu]) for gpu in requested
+        if available[gpu][1] > max_used]
+if busy and not allow_busy:
+    print('ERROR: selected GPU(s) are already in use:', file=sys.stderr)
+    for gpu, (name, used) in busy:
+        print(f'  GPU {gpu} ({name}): {used} MiB', file=sys.stderr)
+    try:
+        procs = subprocess.check_output(
+            ['nvidia-smi', '--query-compute-apps=gpu_uuid,pid,process_name,'
+                           'used_memory', '--format=csv,noheader'],
+            text=True, stderr=subprocess.STDOUT)
+        print(procs, file=sys.stderr)
+    except (OSError, subprocess.CalledProcessError):
+        pass
+    print('Free the GPUs or set ALLOW_BUSY=1 to override.', file=sys.stderr)
+    sys.exit(3)
+
+for seed in seeds:
+    root = repo / f'data/sacm_3shot_seed{seed}'
+    for name in ('protocol_manifest.csv', 'split_manifest.csv'):
+        path = root / name
+        if not path.is_file():
+            sys.exit(f'ERROR: missing {path}')
+
+if not config.is_file():
+    sys.exit(f'ERROR: missing {config}')
+
+print(f'preflight OK: GPUs {requested}, seeds {seeds}')
+PY
+
+COMMON_ARGS=(--model "$MODEL" --seeds "${SEED_ARGS[@]}" --gpus "$GPU_LIST")
+if [ "$RESUME" = "1" ]; then
+  COMMON_ARGS+=(--resume)
+fi
+
+if [ "$SKIP_TRAIN" != "1" ]; then
+  echo "[1/2] training MaskVSC seeds ${SEEDS_STR} on GPUs ${GPU_LIST}"
+  env -u RESUME bash scripts/run_train.sh "${COMMON_ARGS[@]}"
+else
+  echo "[1/2] training skipped (SKIP_TRAIN=1)"
+fi
+
+if [ "$SKIP_EVAL" != "1" ]; then
+  echo "[2/2] evaluating MaskVSC seeds ${SEEDS_STR} on 20 datasets"
+  env -u RESUME bash scripts/run_eval.sh "${COMMON_ARGS[@]}"
+
+  "$PYTHON" scripts/pipeline/record_4metrics.py \
+    --repo-root "$REPO" \
+    --model "$MODEL" --variant "$VARIANT" \
+    --seeds "${SEED_ARGS[@]}" \
+    --expected-datasets "$EXPECTED_DATASETS"
+else
+  echo "[2/2] evaluation skipped (SKIP_EVAL=1)"
+fi
+
+echo "============================================================"
+echo " Done."
+echo " driver log: $LOG_DIR/driver.log"
+echo " per-run logs: results/runs/$MODEL/$VARIANT/seed_*/train.log"
+echo "               results/runs/$MODEL/$VARIANT/seed_*/eval/eval.log"
+echo " metrics:      results/runs/$MODEL/$VARIANT/seed_*/eval/tables/macro_metrics.csv"
+echo " per-dataset:  results/runs/$MODEL/$VARIANT/seed_*/eval/tables/per_dataset_4metrics.csv"
+echo " combined:     results/reports/${MODEL}_${VARIANT}_${REPORT_TAG}_per_dataset.csv"
+echo "               results/reports/${MODEL}_${VARIANT}_${REPORT_TAG}_mean_std.csv/.md"
+echo "============================================================"
