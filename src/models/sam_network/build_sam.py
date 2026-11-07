@@ -22,11 +22,11 @@ from .transformer import TwoWayTransformer
 
 
 def load_compatible_state_dict(model, state_dict, *, allow_truncate=False):
-    """Load a Skein checkpoint into a possibly different preset.
+    """Load a SAM checkpoint into a possibly different configuration.
 
     Drops parameters that the target architecture does not have (for example
     the gate-only ``mask_decoder.residual_moe.*`` entries when loading the
-    deployed checkpoint with the canonical ``skein`` preset), while still
+    deployed checkpoint with the canonical configuration), while still
     failing on any target key that receives no value.  This is deliberately
     stricter than ``strict=False``: an architecture mismatch must not
     silently leave a head randomly initialized.
@@ -775,7 +775,7 @@ def _build_sam(
             logging.info("  shape-skipped (first 10): %s", skipped[:10])
 
         # Stage-2 warm-start must happen AFTER the base checkpoint load.
-        # A full Skein checkpoint already contains Stage-2 weights; never
+        # A full SAM checkpoint already contains Stage-2 weights; never
         # overwrite those.  A base SAM checkpoint has no Stage-2 keys, so
         # copy the now-loaded Stage-1 heads into Stage-2.
         has_stage2 = any(

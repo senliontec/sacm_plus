@@ -25,7 +25,7 @@ Implementation/provenance: `src/core/postprocess/UPSTREAM.md`.
 ## Historical status
 
 The Deep Closing training and post-processing scripts were removed in the
-Skein cleanup.  Deep Closing is not part of the deployed Skein model.  The
+SACM-STC cleanup.  Deep Closing is not part of the deployed SACM-STC model.  The
 design description above is retained as a historical note; no runnable
 command is provided.
 

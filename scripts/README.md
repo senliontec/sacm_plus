@@ -10,7 +10,7 @@ bash scripts/run_paper.sh --model all --seeds all --gpus 0,1,2,3 --resume
 ```
 
 `--model all` resolves every `status: available` model in
-`configs/models/` (Skein plus the 41 official/reference baselines and two
+`configs/models/` (the 41 official/reference baselines plus SACM-STC and two
 project extensions/variants: the CurvField extension and the corrected
 `sacm_stc` variant, including the
 appendix `sam2_unet`, the prompt-free `sam_adapter`/`samed`/`topolora`/
@@ -27,7 +27,7 @@ Subsets and short runs:
 
 ```bash
 bash scripts/run_paper.sh --model unet --seeds 0 --gpus 2
-bash scripts/run_paper.sh --model unet,skein --seeds 0 1 --gpus 2,3
+bash scripts/run_paper.sh --model unet,sacm_stc --seeds 0 1 --gpus 2,3
 bash scripts/run_paper.sh --model all --seeds all --dry-run
 ```
 
@@ -40,9 +40,9 @@ fragmentation, holes/Betti errors, skeleton errors, and failure flags:
 
 ```bash
 python scripts/pipeline/audit_predictions.py \
-  --pred-root results/runs/skein/full_typed/seed_0/eval \
+  --pred-root results/runs/sacm_stc/all_dense/seed_0/eval \
   --protocol data/sacm_3shot_seed0/protocol_manifest.csv \
-  --out results/audit/skein_full_typed_seed0
+  --out results/audit/sacm_stc_all_dense_seed0
 ```
 
 It writes `per_image.csv`, `per_dataset.csv`, `macro_summary.csv`,
@@ -61,7 +61,7 @@ instead of guessing from filenames.  A training run's
 ## W&B
 
 Baseline training and evaluation default to W&B. `run_train.sh` and
-`run_eval.sh` source `scripts/skein/wandb_env.sh` and require credentials
+`run_eval.sh` source `scripts/wandb_env.sh` and require credentials
 when `WANDB_MODE` is online; missing credentials fail fast with a clear
 message. Use `WANDB_MODE=offline` for local W&B files or
 `WANDB_MODE=disabled` to turn it off. Direct `run_one` also defaults to
@@ -69,30 +69,25 @@ W&B; pass `--use_wandb false` to disable it for a single run.
 
 ## Reproduction runs
 
-One command trains + evaluates both methods and builds Table 2:
+Train and evaluate the proposed method and the official baseline separately,
+then build Table 2:
 
 ```bash
-bash scripts/run_skein_vs_sacm_seeds03.sh
-```
+# SACM-STC, seeds 0-3, GPUs 0-3 (one seed per GPU)
+bash scripts/run_sacm_stc_seeds03_gpu0123.sh
 
-It launches the two halves in parallel on disjoint GPUs (Skein 0-3, official
-SACM 4-7), waits for both, then calls `scripts/build_paper_table.sh`.  The
-individual halves are also available:
-
-```bash
-# Skein, seeds 0-3, GPUs 0-3 (one seed per GPU)
-bash scripts/run_skein_seeds03_gpu0123.sh
+# SACM-STC, seeds 0-3, GPUs 4-7
+bash scripts/run_sacm_stc_seeds03_gpu4567.sh
 
 # official SACM, seeds 0-3, GPUs 4-7
 bash scripts/run_sacm_official_seeds03_gpu4567.sh
 ```
 
-Each half trains every seed first, then evaluates all seeds on the 20
+Each script trains every seed first, then evaluates all seeds on the 20
 protocol test datasets with Dice/IoU/clDice/HD95.  The recorder writes
 `eval/tables/per_dataset_4metrics.csv` per seed, plus combined
 `results/reports/<model>_<variant>_seeds*_per_dataset.csv`,
-`..._mean_std.csv` and `..._mean_std.md`.  Useful overrides: `GPU_LIST=...`
-(individual scripts; the combined script uses `SKEIN_GPUS`/`SACM_GPUS`),
+`..._mean_std.csv` and `..._mean_std.md`.  Useful overrides: `GPU_LIST=...`,
 `SEEDS="..."`, `RESUME=1` (skip completed jobs), `SKIP_TRAIN=1`,
 `SKIP_EVAL=1`, `EXPECTED_DATASETS=20`.
 
@@ -105,7 +100,7 @@ build the SACM-style per-dataset table with all four metrics:
 bash scripts/build_paper_table.sh
 ```
 
-Default methods are `skein:skein sacm_official:default`, seeds `0 1 2 3`.
+Default methods are `sacm_stc:all_dense sacm_official:default`, seeds `0 1 2 3`.
 It reads each run's canonical `eval/tables/all_metrics.csv` and falls back to
 `per_dataset_4metrics.csv` only when that is absent.  It aggregates mean/std
 across seeds per dataset and per Seen/Unseen/Novel/All role (macro computed
@@ -139,9 +134,8 @@ seed does not contain exactly the expected number of datasets.
 Metric conventions: clDice is the official clDice from `core.metrics`, and
 HD95 is medpy-style in pixels at the original evaluation resolution.  The
 SACM paper's "clDice" is closer to skeleton Dice, so do not compare clDice
-values numerically across the two papers.  Skein's evaluator currently
-excludes images whose clDice/HD95 are undefined (empty masks), while the
-baseline collector uses the `penalty` convention; align this before making
+values numerically across the two papers.  The collector uses the explicit
+`penalty` convention for empty masks; state this convention before making
 fine-grained empty-mask claims.
 
 ## Removed helpers
@@ -180,8 +174,8 @@ scripts/
 ├── run_eval.sh
 ├── run_report.sh
 ├── run_figures.sh
-├── run_skein_vs_sacm_seeds03.sh       # one command: both runs + Table 2
-├── run_skein_seeds03_gpu0123.sh       # reproduction: Skein seeds 0-3
+├── run_sacm_stc_seeds03_gpu0123.sh    # reproduction: SACM-STC seeds 0-3 (GPUs 0-3)
+├── run_sacm_stc_seeds03_gpu4567.sh    # reproduction: SACM-STC seeds 0-3 (GPUs 4-7)
 ├── run_sacm_official_seeds03_gpu4567.sh  # reproduction: SACM seeds 0-3
 ├── build_paper_table.sh    # Table 2 from recorded runs
 ├── pipeline/               # evaluation helpers used by the configs
@@ -193,13 +187,7 @@ scripts/
 │   ├── index_runs.py
 │   ├── metrics.py
 │   └── protocol_specs.py
-├── skein/                  # Skein training/eval engine
-│   ├── run_skein_5seeds.sh
-│   ├── run_skein_quick.sh
-│   ├── eval_skein_20.sh
-│   ├── run_variant.sh
-│   ├── run_experiments.py / aggregate_results.py / make_final_report.py
-│   └── wandb_env.sh
+├── wandb_env.sh            # shared self-hosted W&B environment
 └── data/                   # one-time dataset/protocol construction
     ├── prepare_data.py
     ├── organize_datasets.py
@@ -226,16 +214,6 @@ python scripts/data/build_protocol_manifest.py --split-root data/sacm_3shot \
 `scripts/data/datasets/prepare_*.py` build individual official test pools;
 `prepare_data.py`, `make_shot3_split.sh` and `build_protocol_manifest.py`
 write the train/val/test manifests.
-
-## Skein specific
-
-Skein is trained and evaluated through `run_skein_quick.sh` and
-`eval_skein_20.sh`, the entry points embedded in `configs/models/skein.yaml`.
-`run_skein_5seeds.sh` launches five seeds through `run_variant.sh`.
-`run_experiments.py`, `aggregate_results.py` and `make_final_report.py` are
-the low-level train/eval/report helpers used by those entry points.  The
-export, matched-comparison and gate/repair diagnostic scripts were removed
-together with `scripts/tools/`.
 
 ## Notes
 

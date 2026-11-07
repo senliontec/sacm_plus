@@ -56,7 +56,7 @@ fi
 export PYTHON
 export PYTHONPATH="$REPO/src${PYTHONPATH:+:$PYTHONPATH}"
 
-source "$REPO/scripts/skein/wandb_env.sh"
+source "$REPO/scripts/wandb_env.sh"
 export WANDB_MODE="${WANDB_MODE:-online}"
 
 STAMP="$(date +%Y%m%d_%H%M%S)"

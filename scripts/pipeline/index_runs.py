@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build one seed-aware index over canonical baseline/Skein run manifests.
+"""Build one seed-aware index over canonical baseline run manifests.
 
 Every current run lives at ``results/runs/<method>/<variant>/seed_<seed>``.
 This script reads each ``eval/run_manifest.json`` (and legacy manifests when
@@ -110,44 +110,6 @@ def _canonical_row(manifest: dict, path: Path) -> dict:
     }
 
 
-def _skein_row(manifest: dict, path: Path) -> dict:
-    eval_root = manifest.get('output_root', str(path.parent))
-    checkpoints = manifest.get('checkpoints') or {}
-    checkpoint = (
-        next(iter(checkpoints.values())) if len(checkpoints) == 1 else None)
-    jobs = manifest.get('jobs') or []
-    statuses = {str(row.get('status', '')) for row in jobs}
-    if statuses and statuses == {'done'}:
-        status = 'done'
-    elif statuses and statuses <= {'done', 'train_only'}:
-        status = 'train_only'
-    elif 'missing_checkpoint' in statuses:
-        status = 'missing_checkpoint'
-    elif 'failed' in ' '.join(statuses).lower():
-        status = 'failed'
-    else:
-        status = 'unknown'
-    metrics = Path(eval_root) / 'tables' / 'all_metrics.csv'
-    macro = Path(eval_root) / 'tables' / 'macro_metrics.csv'
-    presets = manifest.get('presets') or [manifest.get('variant', 'default')]
-    code_commit, code_fp = _code_info(manifest, path)
-    return {
-        'family': 'skein',
-        'method': 'skein',
-        'variant': presets[0] if len(presets) == 1 else 'default',
-        'seed': manifest.get('seed'),
-        'status': status,
-        'checkpoint': checkpoint,
-        'best_epoch': _best_epoch(checkpoint),
-        'eval_root': eval_root,
-        'metrics_csv': str(metrics) if metrics.is_file() else None,
-        'macro_csv': str(macro) if macro.is_file() else None,
-        'manifest': str(path),
-        'commit': code_commit,
-        'code_fingerprint': code_fp,
-    }
-
-
 def _train_only_rows(root: Path) -> list[dict]:
     """Index canonical runs that have a checkpoint but no eval manifest yet."""
     rows: list[dict] = []
@@ -232,8 +194,6 @@ def collect(roots: list[Path]) -> list[dict]:
                 rows.append(_canonical_row(manifest, path))
             elif family == 'baseline':
                 rows.append(_baseline_row(manifest, path))
-            elif family == 'skein' or 'presets' in manifest:
-                rows.append(_skein_row(manifest, path))
             else:
                 print(f'[warn] unknown manifest family in {path}')
         rows.extend(_train_only_rows(root))

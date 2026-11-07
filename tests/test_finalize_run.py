@@ -139,64 +139,6 @@ def test_finalize_baseline_in_place(tmp_path):
     assert not (run_root / 'eval.log').exists()
 
 
-def test_finalize_skein_promotes_and_flattens(tmp_path):
-    out_root = tmp_path / 'runs'
-    run_root = out_root / 'skein' / 'full_typed' / 'seed_0'
-    run_root.mkdir(parents=True)
-    # A previous finalize left an old checkpoint at the run root.  The fresh
-    # per-preset training output must win.
-    (run_root / 'best_model.pth').write_bytes(b'old-checkpoint')
-    raw = run_root / 'full_typed'
-    raw.mkdir(parents=True)
-    (raw / 'best_model.pth').write_bytes(b'new-checkpoint')
-    _write_run_info(raw / 'run_info.json', family='skein',
-                    method='skein', preset='full_typed')
-    (raw / 'metrics_history.json').write_text('{"history": []}\n')
-    (raw / 'run.log').write_text('train\n')
-    eval_root = run_root / 'eval'
-    (eval_root / 'full_typed' / 'DRIVE').mkdir(parents=True)
-    (eval_root / 'full_typed' / 'DRIVE' / 'metrics.csv').write_text(
-        'image,dice,iou,cldice,hd95\na,0.8,0.7,0.82,5.0\n')
-    (eval_root / 'full_typed' / 'DRIVE' / 'results_summary.txt').write_text(
-        'Num Samples: 1\n')
-    (eval_root / 'full_typed' / 'run_eval.log').write_text('eval\n')
-    _write_csv(
-        eval_root / 'tables' / 'all_metrics.csv',
-        ['preset', 'dataset', 'role', 'dice_mean', 'dice_std',
-         'iou_mean', 'iou_std', 'cldice_mean', 'cldice_std',
-         'hd95_mean', 'hd95_std'],
-        [{'preset': 'full_typed', 'dataset': 'DRIVE', 'role': 'Seen',
-          'dice_mean': 0.8, 'dice_std': 0.0,
-          'iou_mean': 0.7, 'iou_std': 0.0,
-          'cldice_mean': 0.82, 'cldice_std': 0.0,
-          'hd95_mean': 5.0, 'hd95_std': 0.0}])
-    _write_csv(eval_root / 'jobs_eval.csv',
-               ['preset', 'dataset', 'gpu', 'status'],
-               [{'preset': 'full_typed', 'dataset': 'DRIVE', 'gpu': '0',
-                 'status': 'done'}])
-
-    args = _default_args(family='skein', method='skein',
-                         variant='full_typed', source_train=run_root,
-                         source_eval=eval_root, out_root=out_root)
-    target = finalize_run.finalize(args)
-
-    assert target == run_root
-    assert (target / 'best_model.pth').read_bytes() == b'new-checkpoint'
-    assert (target / 'train.log').is_file()
-    assert (target / 'eval' / 'DRIVE' / 'metrics.csv').is_file()
-    assert (target / 'eval' / 'DRIVE' / 'summary.csv').is_file()
-    assert (target / 'eval' / 'eval.log').is_file()
-    assert (target / 'eval' / 'jobs.csv').is_file()
-    assert not raw.exists()
-    assert not (eval_root / 'full_typed').exists()
-    assert not (eval_root / 'jobs_eval.csv').exists()
-
-    with open(target / 'eval' / 'DRIVE' / 'metrics.csv', newline='') as f:
-        row = next(csv.DictReader(f))
-    assert row['dataset'] == 'DRIVE'
-    assert row['role'] == 'Seen'
-
-
 def test_explicit_missing_checkpoint_fails(tmp_path):
     run_root, eval_root = _write_baseline_source(tmp_path / 'runs')
     missing = tmp_path / 'does-not-exist.pth'
@@ -209,5 +151,5 @@ def test_explicit_missing_checkpoint_fails(tmp_path):
 
 def test_canonical_seed_spelling(tmp_path):
     path = finalize_run._run_root(
-        'skein', 'full_typed', 0, root=tmp_path)
+        'sacm_stc', 'all_dense', 0, root=tmp_path)
     assert path.name == 'seed_0'

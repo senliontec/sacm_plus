@@ -2,7 +2,7 @@
 ModelSpec — a self-describing bundle of build/freeze/param-groups/
 preprocess/prompt/forward functions. The Trainer and Evaluator only
 speak ModelSpec; model modules register their specs (see
-models/skein/specs.py for the reference implementation).
+the model specification modules for reference implementations).
 
 See docs/MODEL_MANAGEMENT.md for the full design and the step-by-step
 recipe for adding a model.

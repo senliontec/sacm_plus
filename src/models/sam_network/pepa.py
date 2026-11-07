@@ -22,7 +22,7 @@ deterministic on CUDA, while this project runs with
 This is a research adapter, not a full reproduction of the paper.  The
 paper's exact sub-pixel initialization and hyper-parameters are in its
 supplementary material; the public paper dump used here does not include
-that supplement.  The wrapper keeps the existing Skein path unchanged when
+that supplement.  The wrapper keeps the existing default path unchanged when
 the flags are off, and the new preset is opt-in.
 """
 

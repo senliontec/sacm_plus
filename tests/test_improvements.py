@@ -1,4 +1,4 @@
-"""Tests for the P0 Skein improvements: geometry, boundary loss, empty guard."""
+"""Tests for geometry, boundary loss and the empty-prediction guard."""
 
 import random
 
@@ -80,14 +80,14 @@ def test_segmentation_dataset_native_crop_shapes(tmp_path):
 
 
 def test_select_mask_fixed_uses_requested_head():
-    masks = torch.tensor([[[[0.0]]], [[[1.0]]], [[[2.0]]], [[[3.0]]]])
+    masks = torch.tensor([0.0, 1.0, 2.0, 3.0]).view(1, 4, 1, 1)
     chosen, head = select_mask_fixed(masks, 2)
     assert head == 2
     assert torch.equal(chosen, masks[:, 2:3])
 
 
 def test_select_mask_fixed_empty_guard_redirects_to_nonempty_head():
-    masks = torch.tensor([[[[-1.0]]], [[[1.0]]], [[[-2.0]]], [[[-3.0]]]])
+    masks = torch.tensor([-1.0, 1.0, -2.0, -3.0]).view(1, 4, 1, 1)
     chosen, head = select_mask_fixed(masks, 0, empty_guard=True)
     assert head == 1
     assert torch.equal(chosen, masks[:, 1:2])

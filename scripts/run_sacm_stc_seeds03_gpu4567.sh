@@ -68,7 +68,7 @@ export PYTHONPATH="$REPO/src${PYTHONPATH:+:$PYTHONPATH}"
 export HF_HUB_OFFLINE="${HF_HUB_OFFLINE:-1}"
 export TRANSFORMERS_OFFLINE="${TRANSFORMERS_OFFLINE:-1}"
 
-source "$REPO/scripts/skein/wandb_env.sh"
+source "$REPO/scripts/wandb_env.sh"
 export WANDB_MODE="${WANDB_MODE:-online}"
 
 STAMP="$(date +%Y%m%d_%H%M%S)"

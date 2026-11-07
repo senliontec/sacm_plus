@@ -631,56 +631,6 @@ def test_sam_vit_l_unet_rejects_changed_base_sha(tmp_path):
     assert restored.input_size == 1024
 
 
-def _load_tuning_module():
-    path = (Path(__file__).resolve().parents[1] /
-            'scripts' / 'tools' / 'tune_baselines.py')
-    spec = importlib.util.spec_from_file_location(
-        'tune_baselines_regression', path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-def test_tuning_seed_and_gpu_parsing():
-    tune = _load_tuning_module()
-    protocol = load_protocols()['seeded5']
-    assert tune._parse_seeds(['0,1', '2'], None, protocol) == [0, 1, 2]
-    assert tune._parse_seeds(['all'], None, protocol) == [0, 1, 2, 3, 4]
-    with pytest.raises(SystemExit):
-        tune._parse_seeds(['9'], None, protocol)
-    with pytest.raises(SystemExit):
-        tune._parse_gpus('0,0')
-
-
-def test_tuning_trial_command_passes_selection_and_seed():
-    tune = _load_tuning_module()
-    model = load_models()['unet']
-    protocol = load_protocols()['seeded5']
-    command = tune._trial_command(
-        model=model,
-        model_id='unet',
-        protocol=protocol,
-        seed=3,
-        gpu='2',
-        trial_dir=Path('/tmp/tune_trial'),
-        params={
-            'lr': 1e-3,
-            'weight_decay': 1e-4,
-            'scheduler': 'cosine',
-            'warmup_epochs': 5,
-            '_trial_number': 7,
-        },
-        epochs=50,
-        selection='iou',
-        train_entrypoint=model.train_entrypoint,
-    )
-    assert '--device cuda:2' in command
-    assert '--selection iou' in command
-    assert '--scheduler cosine' in command
-    assert '--warmup-epochs 5' in command
-    assert '--wandb_name unet-seed3-trial7' in command
-
-
 def test_compact_log_table_puts_cldice_next_to_dice():
     from baseline_zoo.runtime import LOG_COLS, LOG_WIDTHS
     assert LOG_COLS == ('ep', 'tr_loss', 'Dice↑', 'clDice↑', 'IoU↑',

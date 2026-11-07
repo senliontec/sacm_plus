@@ -1,16 +1,16 @@
-"""Canonical results layout shared by baselines and Skein.
+"""Canonical results layout shared by baselines and proposed methods.
 
 Every completed run has exactly one user-facing directory::
 
     results/runs/<method>/<variant>/seed_<seed>/
 
-``method`` is the baseline id or ``skein``.  ``variant`` is ``default`` for
-baselines and the Skein preset (for example ``full_typed``).  The seed is
+``method`` is the baseline or method id.  ``variant`` is ``default`` for
+baselines and the configured model variant (for example ``all_dense``).  The seed is
 always part of the path so two seeds can never overwrite each other.
 
 The layout is intentionally free of pipeline-specific details.  Training and
 evaluation code should derive every output path from these helpers instead of
-hard-coding ``results/paper`` or ``results/skein``.
+hard-coding ``results/paper`` or ``results/runs``.
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ def normalize_variant(variant: str | None) -> str:
 
 
 def default_variant(defaults: dict | None) -> str:
-    """Baseline configs use ``default``; Skein uses its configured preset."""
+    """Baseline configs use ``default``; methods use their configured preset."""
     return normalize_variant((defaults or {}).get('preset'))
 
 

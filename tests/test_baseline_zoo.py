@@ -31,7 +31,7 @@ def test_registry_contains_all_self_contained_models():
         'nnunet2d',
         'nnwnet',
         'persam',
-        'rsrm', 's2mnet', 'sacm_official', 'sacm_stc', 'skein',
+        'rsrm', 's2mnet', 'sacm_official', 'sacm_stc',
         'sam2_unet',
         'sam_adapter', 'sam_med2d', 'sam_octa', 'sam_vit_l_unet', 'samed',
         'sansa',
@@ -47,7 +47,6 @@ def test_registry_contains_all_self_contained_models():
     assert models['cwsam'].status == 'available'
     assert models['sam_med2d'].status == 'available'
     assert 'prompt' in models['sam_med2d'].note.lower()
-    assert 'scripts/skein/run_skein_quick.sh' in models['skein'].train_entrypoint
     assert 'scripts/pipeline/run_baseline_test.py' in models['unet'].eval_entrypoint
     assert models['unet'].checkpoint_template == '{output_root}/best_model.pth'
     assert 'run_one' in models['unet'].train_entrypoint
@@ -121,8 +120,6 @@ def test_eval_artifact_paths(tmp_path):
 
     assert _eval_artifact(SimpleNamespace(id='unet'), tmp_path) == \
         tmp_path / 'eval' / 'tables' / 'all_metrics.csv'
-    assert _eval_artifact(SimpleNamespace(id='skein'), tmp_path) == \
-        tmp_path / 'eval' / 'tables' / 'all_metrics.csv'
 
 
 def test_resolve_models_all_returns_only_available():
@@ -142,15 +139,13 @@ def test_seeded_protocol_expands_five_splits():
 
 
 def test_plan_uses_seed_specific_train_and_test_roots(capsys):
-    rc = main(['plan', '--model', 'skein', '--seeds', '0', '1'])
+    rc = main(['plan', '--model', 'sacm_stc', '--seeds', '0', '1'])
     output = capsys.readouterr().out
     assert rc == 0
     assert 'data/sacm_3shot_seed0' in output
     assert 'data/sacm_3shot_seed1' in output
-    assert 'results/runs/skein/skein/seed_0' in output
-    assert 'results/runs/skein/skein/seed_1' in output
-    assert 'TRAIN_ROOT=data/sacm_3shot_seed0' in output
-    assert 'TRAIN_ROOT=data/sacm_3shot_seed1' in output
+    assert 'results/runs/sacm_stc/all_dense/seed_0' in output
+    assert 'results/runs/sacm_stc/all_dense/seed_1' in output
 
 
 def test_plan_expands_unet_seed_paths(capsys):
@@ -163,17 +158,16 @@ def test_plan_expands_unet_seed_paths(capsys):
 
 
 def test_train_dry_run_does_not_create_marker(capsys):
-    rc = main(['train', '--model', 'skein', '--seeds', '0', '--dry-run'])
+    rc = main(['train', '--model', 'sacm_stc', '--seeds', '0', '--dry-run'])
     output = capsys.readouterr().out
     assert rc == 0
     assert 'dry-run:' in output
-    assert 'TRAIN_ROOT=data/sacm_3shot_seed0' in output
 
 
 def test_doctor_reports_self_contained_models(capsys):
     main(['doctor'])
     output = capsys.readouterr().out
-    assert 'models: 44  available: 44' in output
+    assert 'models: 43  available: 43' in output
     assert 'sam2_hiera_large.pt' in output
     assert 'SAM2 Hiera-L download' in output
     assert 'DINOv3' in output or 'segdino' in output
@@ -192,7 +186,7 @@ def test_select_cuda_device_targets_job_gpu(monkeypatch):
 
 
 def test_plan_rejects_unknown_seed(capsys):
-    rc = main(['plan', '--model', 'skein', '--seeds', '9'])
+    rc = main(['plan', '--model', 'sacm_stc', '--seeds', '9'])
     assert rc == 2
     assert 'unknown' in capsys.readouterr().err
 

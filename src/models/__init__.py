@@ -1,21 +1,8 @@
-"""Model implementations: one module per segmentation model/family.
+"""Model implementations shared by the baseline zoo.
 
-Importing a model module registers its ModelSpecs into the framework's
-MODEL_REGISTRY (core.registry) and exposes the model-specific
-configuration (presets, diagnostics).
-
-Current models:
-  - sam_network: the SAM network implementation (Meta code vendored,
-    with the SACM geometric adapters / closed-loop decoder switches).
-  - skein: the Skein algorithm layer (prompt-free curvilinear
-    segmentation: dual-level geometric adapters + closed-loop
-    coarse-to-fine decoder + topology-aligned training); registers
-    sam_l / sam_b / sam_h.
-
-Adding a new model: create models/<name>/ with the architecture code, a
-models.py registering its ModelSpecs, and its own configs; then add
-`from . import <name>` below. The framework scripts pick it up
-automatically via the shared MODEL_REGISTRY.
+The SAM network implementation (Meta SAM code plus the project adapters) lives
+in ``models.sam_network`` and is consumed directly by the baseline adapters
+(for example ``sam_vit_l_unet``).  The former algorithm layer has been
+removed; the proposed method is implemented under
+``baseline_zoo.models.sacm_stc`` and registered through ``baseline_zoo``.
 """
-
-from . import skein  # noqa: F401  (registers sam_l/sam_b/sam_h)

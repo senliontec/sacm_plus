@@ -431,9 +431,9 @@ def main() -> int:
         '--audit', action='append', required=True, metavar='NAME=DIR',
         help='audit output directory; repeat for each model')
     parser.add_argument(
-        '--primary', default='skein',
+        '--primary', default='sacm_stc',
         help='model used for the failure profile and delta tables '
-             '(default: skein)')
+             '(default: sacm_stc)')
     parser.add_argument(
         '--out', type=Path, required=True,
         help='output directory for comparison.md/CSV/JSON')

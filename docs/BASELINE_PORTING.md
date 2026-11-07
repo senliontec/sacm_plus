@@ -87,7 +87,7 @@ upstream recipe values where they describe official logic. Exceptions:
 CS-Net (`cs2net`) and JTFN retain their official **1000 epochs**; KnowSAM
 uses 50,000 iterations because its `--epochs` flag is an iteration budget
 in the official semi-supervised loop; training-free C2P, Matcher, PerSAM,
-and RSRM keep 0. Skein is the proposed method, not a baseline, and is
+and RSRM keep 0. SACM-STC is the proposed method, not a baseline, and is
 unchanged.
 
 `sam_adapter` is a prompt-free main-table baseline: the official FFT

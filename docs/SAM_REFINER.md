@@ -14,7 +14,7 @@ vendored under `src/core/postprocess/sam_refiner/`; the upstream tree under
 ## Apply to a prediction tree
 
 The one-click wrapper `scripts/tools/apply_sam_refiner.py` was removed in the
-Skein cleanup.  The vendored refiner under `src/core/postprocess/sam_refiner/`
+SACM-STC cleanup.  The vendored refiner under `src/core/postprocess/sam_refiner/`
 remains available programmatically; write a small wrapper if the post-hoc
 ablation is needed again.
 

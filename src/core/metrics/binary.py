@@ -2,7 +2,7 @@
 
 This is the exact metric set used by the baseline runner
 (``src/baseline_zoo/runtime.py::binary_metrics``): Dice/IoU/clDice/HD95
-on the binarized prediction plus an empty-prediction flag.  Skein calls
+on the binarized prediction plus an empty-prediction flag.  The metric helpers use
 this module and then macro-averages over the validation images, so its
 W&B ``val/*`` keys and checkpoint-selection rule match the baselines.
 

@@ -15,7 +15,7 @@ Design differences from FineSAM++ (NeurIPS 2025, "Gate to the Vessel"):
   closing, threshold jitter) at both train and test time.  This removes
   FineSAM++'s train/test degradation mismatch.
 * The gate may also consume the disagreement of the four Stage-2 heads,
-  which Skein already computes, and the training-only centerline aux
+  which the network already computes, and the training-only centerline aux
   logits.
 * The residual loss can be Dice/BCE plus Skeleton Recall instead of MSE.
 

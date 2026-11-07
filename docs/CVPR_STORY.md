@@ -5,7 +5,6 @@ changes until the screen is complete. This file records the intended
 logic so later iterations cannot silently drift into "we tried many
 modules until the numbers moved".
 
-Related registry: [`docs/SKEIN_VARIANTS.md`](SKEIN_VARIANTS.md).
 
 ---
 
@@ -54,8 +53,8 @@ If P5 fails, choose the stronger single mechanism; do not claim
 | Training-time topology control | Skeleton Recall + centerline/boundary/width aux; optional SCNP (`full_fixed2_scnp`) | Skeleton/aux integration is ours; **SCNP is existing CVPR 2026 work, cite it** |
 | Inference-time repair (diagnostic only) | `TopoResidualMoE` (`full_fixed2_resmoe`, `_dg`) on head 2 | **NOT a novelty claim**: Gate 0 + prune verifier v2 are negative under 3-shot (4/6 train domains have zero prune positives); keep as analysis of localization vs repair, not as the deployed method |
 
-**2026-11 decision:** The deployed model is **Skein** (preset `skein`,
-aliases `skein` / `full_fixed2_aux`).  **Skein** is the internal
+**2026-11 decision:** The deployed model is **SACM-STC** (preset `sacm_stc`,
+aliases `sacm_stc` / `full_fixed2_aux`).  **SACM-STC** is the internal
 framework/benchmark name.  Gate/residual-MoE and post-hoc repair are
 stopped.  The method claim is structural supervision plus the 20-dataset
 3-shot benchmark/analysis, not gate + repair.
@@ -63,7 +62,7 @@ stopped.  The method claim is structural supervision plus the 20-dataset
 Historical first-screen notation (repair rows are no longer pursued):
 
 ```text
-B          = Skein (skein, alias full_fixed2_aux)
+B          = SACM-STC (sacm_stc, alias full_fixed2_aux)
 B+SCNP     = full_fixed2_scnp
 B+Repair   = full_fixed2_resmoe   (rejected / diagnostic)
 B+Hybrid   = full_fixed2_lora_evp
@@ -194,7 +193,7 @@ If not met after two rounds: stop architecture work. Pivot to:
 - **Prevent and Repair: Error-Aware Topology for Few-Shot Curvilinear
   Segmentation** (only if SCNP+ResMoE are complementary)
 
-Do not use "Skein + FineSAM++" or a benchmark-report title.
+Do not use "SACM-STC + FineSAM++" or a benchmark-report title.
 
 ## 9. Current state
 
@@ -206,7 +205,6 @@ Do not use "Skein + FineSAM++" or a benchmark-report title.
   (source artifact not in the current tree); `full_v2_skel_aux` local
   800-epoch best validation F1 ~0.713 at epoch 286, val Dice ~0.669.
 - 8-GPU allocation and canonical names: see
-  [`docs/SKEIN_VARIANTS.md`](SKEIN_VARIANTS.md).
 
 ## 10. Experiment log template
 
@@ -535,7 +533,7 @@ Why it is the safest:
 
 Cost: 5x inference if all seeds are used; 2-3 seeds may be enough.
 If seed disagreement is weak, use a multi-architecture ensemble
-(Skein + a small task-specific model), but report the extra model and
+(SACM-STC + a small task-specific model), but report the extra model and
 inference cost.
 
 Use this as a **reliability floor**:

@@ -11,7 +11,7 @@ Outputs:
   results/reports/<model>_<variant>_seeds<a>_<b>_mean_std.md
 
 The helper is deliberately model-agnostic: the same all_metrics.csv schema is
-used by the Skein evaluator and by the official-baseline evaluator.
+used by the baseline and proposed-method evaluators.
 """
 from __future__ import annotations
 

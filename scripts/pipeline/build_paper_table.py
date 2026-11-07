@@ -36,9 +36,9 @@ METRIC_LABEL = {'dice': 'Dice', 'iou': 'IoU',
 LOWER_BETTER = {'hd95'}
 ROLE_ORDER = {'Seen': 0, 'Unseen': 1, 'Novel': 2}
 LABELS = {
-    ('skein', 'skein'): 'Skein',
     ('sacm_official', 'default'): 'SACM (official)',
     ('sacm_stc', 'default'): 'SACM-STC',
+    ('sacm_stc', 'all_dense'): 'SACM-STC',
 }
 
 
@@ -70,9 +70,9 @@ def _parse_models(values):
             model, variant = value.split(':', 1)
         else:
             model = value
-            # The canonical run layout uses preset=skein for Skein; every
-            # baseline uses variant=default.
-            variant = 'skein' if model == 'skein' else 'default'
+            # Most rows use variant=default; non-default method variants
+            # (for example SACM-STC all_dense) should be passed explicitly.
+            variant = 'all_dense' if model == 'sacm_stc' else 'default'
         parsed.append((model, variant))
     return parsed
 
@@ -341,7 +341,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--repo-root', type=Path, default=None)
     parser.add_argument('--models', nargs='+', required=True,
-                        help='model:variant specs, e.g. skein:skein '
+                        help='model:variant specs, e.g. sacm_stc:all_dense '
                              'sacm_official:default')
     parser.add_argument('--seeds', nargs='+', type=int, default=[0, 1, 2, 3])
     parser.add_argument('--expected-datasets', type=int, default=20)

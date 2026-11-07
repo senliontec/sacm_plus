@@ -151,7 +151,7 @@ class MaskDecoder(nn.Module):
         self.mask_tokens = nn.Embedding(self.num_mask_tokens, transformer_dim)
         if self.use_typed_heads:
             # Each Stage-2 slot is a structural type.  Zero-initialized so
-            # the typed preset starts from the exact Skein behaviour; the
+            # the typed preset starts from the exact default behaviour; the
             # type-specific losses (clDice/boundary/Tversky) differentiate
             # the slots during training.  Typed heads keep a stable
             # slot->type binding instead of following the gating order.
@@ -160,7 +160,7 @@ class MaskDecoder(nn.Module):
 
         if self.use_res_moe:
             # Legacy diagnostic only: keep the residual-MoE import out of the
-            # clean Skein path.
+            # clean default path.
             from .residual_moe import TopoResidualMoE
 
             if not 0 <= self.res_head_index < self.num_mask_tokens:
@@ -215,7 +215,7 @@ class MaskDecoder(nn.Module):
         )
 
         # Optional PEPA-style post-encoder adapters.  Both are opt-in so the
-        # default Skein graph and all existing checkpoints are unchanged.
+        # default graph and all existing checkpoints are unchanged.
         self.tcsu = None
         if self.use_tcsu:
             self.tcsu = SnakeUpsample2d(
@@ -371,7 +371,7 @@ class MaskDecoder(nn.Module):
         )
 
         if multimask_output:
-            # Skein returns all heads in gating-ranked order; index 0 is
+            # The default decoder returns all heads in gating-ranked order; index 0 is
             # the best candidate.  Unlike vanilla SAM, token 0 is not a
             # separate single-mask token, so do not discard it.
             mask_slice = slice(0, self.num_multimask_outputs)
@@ -601,7 +601,7 @@ class MaskDecoder(nn.Module):
 
         # Structural aux heads on the post-C2F high-res features.  They do not
         # affect the mask logits; training uses them as losses, and the
-        # optional residual-MoE gate consumes them.  A clean Skein eval
+        # optional residual-MoE gate consumes them.  A clean default eval
         # forward (no residual MoE) skips them entirely.
         if self.use_structural_aux and (self.training or self.use_res_moe):
             aux_feat = self.structural_aux_conv(mask_features)
@@ -616,7 +616,7 @@ class MaskDecoder(nn.Module):
 
         # --------------------- Stage 2: refined masks ---------------------
         # Typed variant: keep a stable slot -> structural-type binding.
-        # Unlike the gating-ranked Skein path, slot i always receives
+        # Unlike the gating-ranked default path, slot i always receives
         # mask token i plus its type embedding, so head i can specialize as
         # thin/blob/boundary/recall without chasing the gating permutation.
         if self.use_typed_heads:

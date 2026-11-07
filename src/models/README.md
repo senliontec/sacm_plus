@@ -3,21 +3,18 @@
 | Directory | Role | Change here when... |
 |---|---|---|
 | `sam_network/` | SAM network implementation: ViT encoder, prompt encoder, mask decoder, geometric adapters, Fusion v2, coarse-to-fine, multi-depth path | changing the network architecture |
-| `skein/` | Skein algorithm layer: registry (`specs.py`), freezing, parameter groups, preprocessing, presets (`configs.py`), diagnostics | changing training protocol, presets or registered model variants |
 
-Import examples:
+Import example:
 
 ```python
 from models.sam_network import build_sam_vit_l
-from models.skein.configs import PRESETS
 ```
 
-`models/skein` imports `models/sam_network`; the network package does not
-import the algorithm layer. Model registry names remain `sam_l`, `sam_b`,
-`sam_h`, and checkpoints are independent of these directory names.
+`models.sam_network` is consumed directly by the baseline adapters (for
+example `sam_vit_l_unet`). The former algorithm layer has been removed.
 
 The official SACM baseline is self-contained at
 `src/baseline_zoo/models/sacm_official/`; `baselines/sacm/` is only a
-development reference snapshot and may be deleted.  The corrected variant
-`src/baseline_zoo/models/sacm_stc/` (registry id `sacm_stc`) is a separate
-analysis baseline and does not replace the official entry.
+development reference snapshot and may be deleted. The proposed method
+`src/baseline_zoo/models/sacm_stc/` (registry id `sacm_stc`) is the current
+SACM-STC implementation and does not replace the official entry.

@@ -134,7 +134,7 @@ def test_persistence_metrics_are_finite():
 
 
 def test_binary_metrics_matches_baseline_definition():
-    """Skein val must use the exact baseline per-image metric set."""
+    """Validation must use the exact baseline per-image metric set."""
     pred = np.array([[1, 0], [0, 0]], dtype=np.uint8)
     gt = np.array([[1, 1], [0, 0]], dtype=np.uint8)
     m = binary_metrics(pred, gt)

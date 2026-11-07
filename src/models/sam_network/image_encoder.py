@@ -230,7 +230,7 @@ class ImageEncoderViT(nn.Module):
                               error_msgs):
         """Migrate pre-fix checkpoints that stored one shared adapter norm.
 
-        Old Skein checkpoints have ``image_encoder.adapter_norm.weight/bias``;
+        Older checkpoints have ``image_encoder.adapter_norm.weight/bias``;
         the fixed model stores one norm per block.  Expand the legacy values
         to every block and drop the legacy keys so strict checkpoint loads
         remain possible.

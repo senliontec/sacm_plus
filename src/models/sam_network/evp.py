@@ -1,7 +1,7 @@
 """EVP / SAM-Adapter visual prompt generator.
 
 Ported from the official SAM-Adapter ``PromptGenerator`` (EVP: high-frequency
-FFT prompt) so Skein does not import the disposable baseline_zoo package.
+FFT prompt) so the network does not import the disposable baseline_zoo package.
 The generator is a tiny trainable branch: FFT high-pass -> patch embedding ->
 shared low-rank MLP -> one lightweight MLP per ViT block.  Prompts are added
 to the block input before attention/MLP, leaving the frozen ViT untouched.

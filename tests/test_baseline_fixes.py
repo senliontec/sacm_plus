@@ -147,7 +147,7 @@ def test_tpsegformer_main_head_gets_dice_term():
 
 def test_method_groups_cover_every_registered_model():
     assert validate_groups(load_models()) == []
-    assert group_for('skein') == 'proposed'
+    assert group_for('sacm_stc') == 'proposed'
     assert group_for('ucs') == 'oracle'
     assert group_for('fssam') == 'support'
     assert group_for('c2p') == 'zero_shot'
@@ -180,7 +180,7 @@ def test_report_skips_partial_manifest_and_separates_groups(tmp_path):
     assert load_run(partial, 'unet', 0, allow_partial=True)
 
     rows = []
-    for model, variant in (('unet', 'default'), ('skein', 'full')):
+    for model, variant in (('unet', 'default'), ('sacm_stc', 'all_dense')):
         root = tmp_path / model / variant / 'seed_0'
         _write_metrics(root, status='done')
         rows.extend(load_run(root, model, 0))
@@ -189,4 +189,4 @@ def test_report_skips_partial_manifest_and_separates_groups(tmp_path):
     text = out['main_results'].read_text()
     assert '## Prompt-free supervised' in text
     assert '## Proposed method' in text
-    assert 'unet' in text and 'skein' in text
+    assert 'unet' in text and 'sacm_stc' in text

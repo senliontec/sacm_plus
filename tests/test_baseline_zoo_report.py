@@ -19,8 +19,8 @@ FIELDS = ['dice_mean', 'dice_std', 'iou_mean', 'iou_std',
           'cldice_mean', 'cldice_std', 'hd95_mean', 'hd95_std']
 
 
-def _write_skein(root, seed):
-    path = (root / 'skein' / 'full' / f'seed_{seed}' /
+def _write_sacm_stc(root, seed):
+    path = (root / 'sacm_stc' / 'all_dense' / f'seed_{seed}' /
             'eval' / 'tables')
     path.mkdir(parents=True)
     rows = [
@@ -68,37 +68,37 @@ def test_write_csv_is_atomic_on_failure(tmp_path):
 
 
 def test_load_runs_reads_both_schemas(tmp_path):
-    _write_skein(tmp_path, 0)
+    _write_sacm_stc(tmp_path, 0)
     _write_baseline(tmp_path, 0)
-    rows, missing = load_runs(['skein', 'unet'], [0], tmp_path)
+    rows, missing = load_runs(['sacm_stc', 'unet'], [0], tmp_path)
     assert missing == []
     assert len(rows) == 12  # 3 datasets × 4 metrics
     assert {(row.model, row.role) for row in rows} == {
-        ('skein', 'Seen'), ('skein', 'Novel'), ('unet', 'Seen')}
+        ('sacm_stc', 'Seen'), ('sacm_stc', 'Novel'), ('unet', 'Seen')}
 
 
-def test_explicit_preset_applies_only_to_skein(tmp_path):
-    _write_skein(tmp_path, 0)
+def test_explicit_preset_selects_sacm_stc_variant(tmp_path):
+    _write_sacm_stc(tmp_path, 0)
     _write_baseline(tmp_path, 0)
-    rows, missing = load_runs(['skein', 'unet'], [0], tmp_path,
-                              preset='full')
+    rows, missing = load_runs(['sacm_stc'], [0], tmp_path,
+                              preset='all_dense')
     assert missing == []
-    assert {row.model for row in rows} == {'skein', 'unet'}
+    assert {row.model for row in rows} == {'sacm_stc'}
 
 
 def test_write_report_outputs_tables(tmp_path):
-    _write_skein(tmp_path, 0)
+    _write_sacm_stc(tmp_path, 0)
     _write_baseline(tmp_path, 0)
-    rows, _ = load_runs(['skein', 'unet'], [0], tmp_path)
+    rows, _ = load_runs(['sacm_stc', 'unet'], [0], tmp_path)
     out = tmp_path / 'tables'
     paths = write_report(rows, out)
 
     assert all(path.is_file() for path in paths.values())
     text = paths['main_results'].read_text()
-    assert 'skein' in text and 'unet' in text
+    assert 'sacm_stc' in text and 'unet' in text
     assert '80.00' in text
 
     with open(paths['macro_metrics'], newline='') as f:
         macro = list(csv.DictReader(f))
     assert len(macro) == 12
-    assert {'skein', 'unet'} == {row['model'] for row in macro}
+    assert {'sacm_stc', 'unet'} == {row['model'] for row in macro}

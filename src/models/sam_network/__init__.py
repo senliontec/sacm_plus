@@ -4,12 +4,12 @@
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""SAM network implementation used by Skein.
+"""SAM network implementation used by the SAM baselines.
 
 This package contains only the network modules (encoder, prompt encoder,
 mask decoder, adapters, fusion, predictor).  The algorithm layer — model
 registration, freezing, parameter groups and presets — lives in
-``models.skein``.
+``models.sam_network``.
 """
 
 # SACM re-exports: the builders live in build_sam.py; specs.py and

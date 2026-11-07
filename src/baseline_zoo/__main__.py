@@ -34,8 +34,8 @@ from .report import (
     write_report,
 )
 
-# Both families write the same canonical evaluation table.
-EVAL_ARTIFACTS = {'skein': Path('eval') / 'tables' / 'all_metrics.csv'}
+# Every model writes the same canonical evaluation table.
+EVAL_ARTIFACTS: dict[str, Path] = {}
 DEFAULT_EVAL_ARTIFACT = Path('eval') / 'tables' / 'all_metrics.csv'
 
 
@@ -621,8 +621,8 @@ def build_parser() -> argparse.ArgumentParser:
     report.add_argument('--result-root', default='results/runs')
     report.add_argument('--out-dir', default='results/tables')
     report.add_argument('--preset', default=None,
-                        help='Skein preset table to read (default: every '
-                             'variant under results/runs)')
+                        help='result variant to read (default: the model '
+                             'config default or every available variant)')
     report.add_argument('--allow-missing', action='store_true',
                         help='write a report even when some model/seed '
                              'runs are missing')

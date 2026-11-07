@@ -2,7 +2,7 @@
 # Build the SACM-Table-2-style per-dataset paper table from recorded runs.
 #
 # Run after both one-click reproduction scripts have finished:
-#   bash scripts/run_skein_seeds03_gpu0123.sh
+#   bash scripts/run_sacm_stc_seeds03_gpu0123.sh
 #   bash scripts/run_sacm_official_seeds03_gpu4567.sh
 #   bash scripts/build_paper_table.sh
 #   bash scripts/build_paper_table.sh --no-percent --decimals 4
@@ -16,7 +16,7 @@
 #   table2_macro.csv     Seen/Unseen/Novel/All macro rows
 #
 # Env overrides:
-#   MODELS="skein:skein sacm_official:default"
+#   MODELS="sacm_stc:all_dense sacm_official:default"
 #   SEEDS="0 1 2 3"
 #   OUT_DIR=results/reports/paper_table2
 #   EXPECTED_DATASETS=20
@@ -25,7 +25,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.." || exit 1
 REPO="$(pwd)"
 
-MODELS="${MODELS:-skein:skein sacm_official:default}"
+MODELS="${MODELS:-sacm_stc:all_dense sacm_official:default}"
 SEEDS="${SEEDS:-0 1 2 3}"
 OUT_DIR="${OUT_DIR:-results/reports/paper_table2}"
 EXPECTED_DATASETS="${EXPECTED_DATASETS:-20}"

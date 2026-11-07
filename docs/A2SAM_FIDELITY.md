@@ -116,7 +116,7 @@ Release defects we intentionally do not reproduce:
   before E202; the terminal LR now reports the active U-Net/prior optimizer LR
   rather than the idle main optimizer LR; `--a2sam-coarse-threshold` is used
   consistently by U-Net masks, F_MS and the prior cache.
-- The read-only triage tool used for this snapshot was removed in the Skein
+- The read-only triage tool used for this snapshot was removed in the SACM-STC
   cleanup; the CSV/JSON outputs above remain historical evidence.
 - These are smoke/integration checks, not a quality or paper-parity claim.
 

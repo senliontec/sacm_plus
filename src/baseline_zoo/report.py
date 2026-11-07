@@ -102,9 +102,9 @@ def load_run(run_root: Path, model: str, seed: int,
         return []
 
     rows: list[MetricRow] = []
-    # A preset only selects an Skein variant.  Baselines always live under
-    # variant=default, so applying --preset to them would drop every row.
-    filter_preset = preset if model == 'skein' else None
+    # A preset selects one model variant (for example SACM-STC's all_dense
+    # run).  Rows without a variant field remain eligible.
+    filter_preset = preset
     with open(path, newline='') as f:
         for raw in csv.DictReader(f):
             if (filter_preset is not None
@@ -140,7 +140,7 @@ def _run_variant(model: str, preset: str | None) -> str:
     if preset:
         return preset
     # Use the model config's default variant so a bare report does not mix
-    # several Skein presets or several baseline ablations.
+    # several model variants or baseline ablations.
     try:
         from .registry import load_models
         config = load_models().get(model)
@@ -162,15 +162,13 @@ def load_runs(models: Iterable[str], seeds: Iterable[int],
         print(f'[warn] unclassified method group(s): {unknown}; '
               'add them to method_groups.py before a paper table')
     for model in models:
-        # --preset selects Skein's variant; baseline variants are always
-        # default regardless of the requested Skein preset.
-        variant = (preset if model == 'skein' and preset
-                   else _run_variant(model, None))
+        # --preset selects a model variant; otherwise use the config default.
+        variant = preset or _run_variant(model, None)
         for seed in seeds:
             run_root = result_root / model / variant / f'seed_{seed}'
             if not run_root.is_dir():
-                # A run may use a non-default preset (e.g. Skein
-                # full_typed).  With no explicit --preset, accept the only
+                # A run may use a non-default preset (e.g. SACM-STC's
+                # all_dense).  With no explicit --preset, accept the only
                 # available variant instead of silently reporting it missing.
                 matches = sorted((result_root / model).glob(
                     f'*/seed_{seed}'))
