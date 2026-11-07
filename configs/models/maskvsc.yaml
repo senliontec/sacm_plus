@@ -6,10 +6,13 @@ checkpoint: "{output_root}/best_model.pth"
 train_entrypoint: >-
   python -m baseline_zoo.run_one --model maskvsc --stage train
   --data-root {split_root} --workdir {output_root}
-  --maskvsc-stage2-epochs 200
+  --maskvsc-stage1-epochs 600 --maskvsc-stage2-epochs 200
   --maskvsc-vig-patch-size 16 --maskvsc-vig-decode release
   --maskvsc-vig-graph release --maskvsc-connect-loss release
-  --maskvsc-rotation-degrees 0
+  --maskvsc-rotation-degrees 30 --maskvsc-norm instance
+  --maskvsc-augment mild --maskvsc-stage1-dice-weight 1.0
+  --maskvsc-vig-residual 1 --maskvsc-vig-lr 2e-4
+  --batch-size 1 --lr 3e-4
   --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
 eval_entrypoint: >-
   python scripts/pipeline/run_baseline_test.py --method maskvsc
@@ -50,3 +53,14 @@ note: >-
   token-grid reconstruction
   (371.6M ViG), ablation only. No official ViG weights. The MaskVSC paper is
   in parsing/; see UPSTREAM.md for the full paper-code conflict ledger.
+  Task adaptation (2026-11-07, deployed): stage 1 uses InstanceNorm, batch
+  1, mild flips/90-degree rotations/±30-degree rotation/photometric jitter,
+  Adam lr 3e-4 and an added soft-Dice term (weight 1.0) on the released
+  BCE+Connect_Loss objective; stage 2 keeps the released clean-input BCE at
+  lr 2e-4 with batch 1 and a zero-initialised logit-space residual, and the
+  checkpoint still falls back to the stage-1 UNet when the ViG does not beat
+  it on validation. The released BN/batch-4/BCE-only stage-1 recipe reached
+  only 0.4962 best validation Dice at 200 epochs and 0.5459 at 600 epochs;
+  the task-adapted recipe reached 0.6225 at 200 epochs and 0.6431 by epoch
+  314 of the 600-epoch run. Label the row "MaskVSC (official architecture;
+  task-adapted pooled 3-shot recipe)", not an exact official reproduction.

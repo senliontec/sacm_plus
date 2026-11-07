@@ -19,7 +19,8 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from PIL import Image
+import torch.nn.functional as F
+from PIL import Image, ImageEnhance
 from torch import nn
 from torch.utils.data import DataLoader
 
@@ -31,6 +32,10 @@ from baseline_zoo.models.maskvsc import (
     ViGSeg_Fundus,
     initialize_weights,
     mask_vessel_corrupt,
+)
+from baseline_zoo.models.maskvsc.gcn import (
+    _release_tokens_to_feature_map,
+    _tokens_to_feature_map,
 )
 from baseline_zoo.runtime import (
     BaselineAdapter,
@@ -67,7 +72,8 @@ def _load_pair(sample):
 
 
 def _augment_pair(image: Image.Image, label: Image.Image,
-                  rng: random.Random, rotation_degrees: float):
+                  rng: random.Random, rotation_degrees: float,
+                  augment: str = 'release'):
     """Paper training augmentation: random rotation + horizontal flip.
 
     The paper gives ±30° but not probabilities or interpolation.  Rotation is
@@ -75,6 +81,33 @@ def _augment_pair(image: Image.Image, label: Image.Image,
     interpolation and masks use nearest so binary labels stay binary.
     ``rotation_degrees=0`` reproduces the release (flip only) path.
     """
+    if augment == 'mild':
+        if rng.random() < 0.5:
+            image = image.transpose(Image.FLIP_LEFT_RIGHT)
+            label = label.transpose(Image.FLIP_LEFT_RIGHT)
+        if rng.random() < 0.5:
+            image = image.transpose(Image.FLIP_TOP_BOTTOM)
+            label = label.transpose(Image.FLIP_TOP_BOTTOM)
+        rotation = rng.choice((0, 90, 180, 270))
+        if rotation:
+            op = {90: Image.ROTATE_90, 180: Image.ROTATE_180,
+                  270: Image.ROTATE_270}[rotation]
+            image = image.transpose(op)
+            label = label.transpose(op)
+        if rotation_degrees > 0:
+            angle = rng.uniform(-rotation_degrees, rotation_degrees)
+            image = image.rotate(
+                angle, resample=Image.BILINEAR, expand=False,
+                fillcolor=(0, 0, 0))
+            label = label.rotate(
+                angle, resample=Image.NEAREST, expand=False, fillcolor=0)
+        if rng.random() < 0.5:
+            factor = rng.uniform(0.8, 1.2)
+            enhancer = rng.choice(
+                (ImageEnhance.Brightness, ImageEnhance.Contrast))
+            image = enhancer(image).enhance(factor)
+        return image, label
+
     if rotation_degrees > 0:
         angle = rng.uniform(-rotation_degrees, rotation_degrees)
         image = image.rotate(
@@ -86,6 +119,62 @@ def _augment_pair(image: Image.Image, label: Image.Image,
         image = image.transpose(Image.FLIP_LEFT_RIGHT)
         label = label.transpose(Image.FLIP_LEFT_RIGHT)
     return image, label
+
+
+def _replace_batchnorm(module: nn.Module, kind: str) -> nn.Module:
+    """Task adaptation: replace BatchNorm with per-sample InstanceNorm.
+
+    The official MaskVSC networks use BatchNorm throughout.  With only 18
+    training images and batch 4, the running statistics are noisy and the
+    second-stage ViG can alternate between very different predictions.  The
+    default keeps BatchNorm; ``--maskvsc-norm instance`` is an explicit
+    pooled-protocol ablation/adaptation.
+    """
+    if kind != 'instance':
+        return module
+    for name, child in list(module.named_children()):
+        if isinstance(child, nn.BatchNorm2d):
+            setattr(module, name, nn.InstanceNorm2d(
+                child.num_features, affine=True,
+                track_running_stats=False))
+        else:
+            _replace_batchnorm(child, kind)
+    return module
+
+
+class _ResidualViGSeg(ViGSeg_Fundus):
+    """ViG completion with a zero-initialised residual over the stage-1 mask.
+
+    The released ``ViGSeg_Fundus.forward`` learns a fresh mask from
+    ``concat(ViG_logits, stage1_probability)``.  With only 18 training images
+    the released head is hard to optimise and can start far below stage 1.
+    This optional wrapper keeps every official layer and parameter but makes
+    the head predict a logit-space correction to the frozen stage-1 mask::
+
+        output = sigmoid(logit(stage1_probability) + delta)
+
+    The final 1x1 convolution is zero-initialised, so the first forward is
+    exactly the stage-1 prediction.  ``--maskvsc-vig-residual 0`` keeps the
+    released forward unchanged.
+    """
+
+    def forward(self, x):
+        input = x
+        features = self.backbone(x)
+        if self.decode == 'release':
+            x = _release_tokens_to_feature_map(features, self.patch_size)
+        else:
+            x = _tokens_to_feature_map(features)
+        x = self.predictor(x)
+        for i in range(int(math.log2(self.img_size / self.patch_size))):
+            temp_size = (self.patch_size << 1) << i
+            x = F.interpolate(x, size=(temp_size, temp_size), mode='bilinear')
+        x = F.interpolate(
+            x, size=(input.shape[2], input.shape[3]), mode='bilinear')
+        x = torch.sigmoid(x)
+        delta = self.final(torch.cat((x, input), dim=1))
+        base = input.clamp(1e-4, 1.0 - 1e-4)
+        return torch.sigmoid(torch.logit(base) + delta)
 
 
 class MaskVSCAdapter(BaselineAdapter):
@@ -133,6 +222,25 @@ class MaskVSCAdapter(BaselineAdapter):
         'freezes step 1; this port forces eval() and requires_grad=False. '
         'The release does not call eval() and would update its BatchNorm '
         'statistics and accumulate unused gradients.',
+        'Task adaptation for the pooled 18-image protocol: the deployed '
+        'stage-1 recipe uses InstanceNorm, mild flips/90-degree rotations/'
+        'a +/-30-degree rotation/photometric jitter, batch 1, Adam lr 3e-4 '
+        'and an added soft-Dice term (weight 1.0) on the released '
+        'BCE+Connect_Loss objective. A controlled 200-epoch seed-0 screen '
+        'gave best validation Dice 0.4962 for the released BN/batch-4 BCE '
+        'recipe, 0.5647 for batch-1/IN/mild augmentation without Dice, and '
+        '0.6225 with Dice; the 600-epoch Dice run reached 0.6545 at stage-1 '
+        'epoch 502 and the residual ViG reached 0.6554 at epoch 646. The '
+        'released BCE-only stage 1 underfits the pooled 3-shot data; the '
+        'forward and loss ports remain numerically identical to upstream, '
+        'so this is a recipe/regime issue, not a porting bug.',
+        'Stage 2 keeps the released BCE and clean stage-1 inputs. The '
+        'deployed task adaptation uses the zero-initialised logit-space '
+        'residual (--maskvsc-vig-residual 1) and batch 1 (18 optimizer '
+        'steps per epoch instead of 5), which starts as an exact identity '
+        'over the stage-1 probability map; the release fallback still '
+        'selects stage 1 whenever the ViG does not beat the stage-1 '
+        'validation best.',
         'Checkpoint selection uses the 6-image validation split by Dice and '
         'compares the stage-1 and stage-2 best scores. Upstream evaluates the '
         'test split every epoch and selects the best ViG by test Dice, which '
@@ -184,6 +292,15 @@ class MaskVSCAdapter(BaselineAdapter):
         self._vig_patch_size = 16
         self._vig_decode = 'release'
         self._vig_graph = 'release'
+        self._vig_residual = 0
+        self._vig_grad_clip = 0.0
+        self._norm = 'batch'
+        self._stage2_corrupt_ratio = 0.0
+        self._normalize = 'minmax'
+        self._stage2_pos_weight = 1.0
+        self._augment = 'release'
+        self._stage1_dice_weight = 0.0
+        self._stage2_dice_weight = 0.0
         self._connect_loss_mode = 'release'
         self._connect_cap = 0.0
         self._rotation_degrees = 0.0
@@ -224,6 +341,48 @@ class MaskVSCAdapter(BaselineAdapter):
             default='release',
             help='release: dot-product top-k from the released gcn.py '
                  '(main baseline); paper: Euclidean KNN ablation')
+        parser.add_argument(
+            '--maskvsc-vig-residual', type=int, choices=[0, 1], default=0,
+            help='1: zero-initialised logit-space residual over the frozen '
+                 'stage-1 mask (task adaptation for the 18-image protocol); '
+                 '0: released ViG forward (main baseline)')
+        parser.add_argument(
+            '--maskvsc-vig-grad-clip', type=float, default=0.0,
+            help='stage-2 gradient clipping norm; 0 disables (release)')
+        parser.add_argument(
+            '--maskvsc-norm', choices=['batch', 'instance'], default='batch',
+            help='batch = official BatchNorm; instance = per-sample '
+                 'InstanceNorm for the pooled 18-image protocol')
+        parser.add_argument(
+            '--maskvsc-stage2-corrupt-ratio', type=float, default=0.0,
+            help='optional masked-vessel corruption of stage-2 inputs; 0 '
+                 'keeps the released clean-input completion training. A '
+                 'positive value exposes the frozen stage-1 segmenter to '
+                 'masked vessels so the ViG learns completion rather than '
+                 'copying already-clean stage-1 masks.')
+        parser.add_argument(
+            '--maskvsc-normalize', choices=['minmax', 'none'],
+            default='minmax',
+            help='minmax = official per-image min-max normalization before '
+                 'the 0.5 threshold; none = threshold the raw sigmoid '
+                 'output (diagnostic)')
+        parser.add_argument(
+            '--maskvsc-stage2-pos-weight', type=float, default=1.0,
+            help='foreground weight for the stage-2 completion BCE; 1 is '
+                 'the released unweighted loss')
+        parser.add_argument(
+            '--maskvsc-augment', choices=['release', 'mild'],
+            default='release',
+            help='release = horizontal flip only; mild = flips, 90-degree '
+                 'rotations and mild photometric jitter (task adaptation)')
+        parser.add_argument(
+            '--maskvsc-stage1-dice-weight', type=float, default=0.0,
+            help='task adaptation: add soft Dice to the released stage-1 '
+                 'BCE+L_C objective; 0 keeps the official objective')
+        parser.add_argument(
+            '--maskvsc-stage2-dice-weight', type=float, default=0.0,
+            help='task adaptation: add soft Dice to the stage-2 BCE; '
+                 '0 keeps the released objective')
         parser.add_argument(
             '--maskvsc-connect-loss', choices=['paper', 'release'],
             default='release',
@@ -281,6 +440,44 @@ class MaskVSCAdapter(BaselineAdapter):
         if self._vig_graph not in ('paper', 'release'):
             raise SystemExit(
                 '--maskvsc-vig-graph must be paper or release')
+        self._vig_residual = int(
+            getattr(args, 'maskvsc_vig_residual', 0))
+        if self._vig_residual not in (0, 1):
+            raise SystemExit('--maskvsc-vig-residual must be 0 or 1')
+        self._vig_grad_clip = float(
+            getattr(args, 'maskvsc_vig_grad_clip', 0.0))
+        if self._vig_grad_clip < 0:
+            raise SystemExit('--maskvsc-vig-grad-clip must be >= 0')
+        self._norm = str(getattr(args, 'maskvsc_norm', 'batch'))
+        if self._norm not in ('batch', 'instance'):
+            raise SystemExit('--maskvsc-norm must be batch or instance')
+        self._stage2_corrupt_ratio = float(
+            getattr(args, 'maskvsc_stage2_corrupt_ratio', 0.0))
+        if not 0.0 <= self._stage2_corrupt_ratio <= 0.9:
+            raise SystemExit(
+                '--maskvsc-stage2-corrupt-ratio must be in [0, 0.9]')
+        self._normalize = str(
+            getattr(args, 'maskvsc_normalize', 'minmax'))
+        if self._normalize not in ('minmax', 'none'):
+            raise SystemExit('--maskvsc-normalize must be minmax or none')
+        self._stage2_pos_weight = float(
+            getattr(args, 'maskvsc_stage2_pos_weight', 1.0))
+        if self._stage2_pos_weight <= 0:
+            raise SystemExit(
+                '--maskvsc-stage2-pos-weight must be positive')
+        self._augment = str(getattr(args, 'maskvsc_augment', 'release'))
+        if self._augment not in ('release', 'mild'):
+            raise SystemExit('--maskvsc-augment must be release or mild')
+        self._stage1_dice_weight = float(
+            getattr(args, 'maskvsc_stage1_dice_weight', 0.0))
+        if self._stage1_dice_weight < 0:
+            raise SystemExit(
+                '--maskvsc-stage1-dice-weight must be >= 0')
+        self._stage2_dice_weight = float(
+            getattr(args, 'maskvsc_stage2_dice_weight', 0.0))
+        if self._stage2_dice_weight < 0:
+            raise SystemExit(
+                '--maskvsc-stage2-dice-weight must be >= 0')
         self._connect_loss_mode = str(
             getattr(args, 'maskvsc_connect_loss', 'release'))
         if self._connect_loss_mode not in ('paper', 'release'):
@@ -309,7 +506,8 @@ class MaskVSCAdapter(BaselineAdapter):
         self._apply_arch(args)
         seg = UNet(n_channels=3, n_classes=1)
         initialize_weights(seg)
-        vig = ViGSeg_Fundus(
+        vig_class = _ResidualViGSeg if self._vig_residual else ViGSeg_Fundus
+        vig = vig_class(
             num_channels=1,
             img_size=self.input_size,
             patch_size=self._vig_patch_size,
@@ -320,6 +518,12 @@ class MaskVSCAdapter(BaselineAdapter):
             graph_metric=self._vig_graph,
         )
         initialize_weights(vig)
+        if self._vig_residual:
+            # Identity start: sigmoid(logit(stage1) + 0) == stage1.
+            nn.init.zeros_(vig.final.weight)
+            nn.init.zeros_(vig.final.bias)
+        seg = _replace_batchnorm(seg, self._norm)
+        vig = _replace_batchnorm(vig, self._norm)
         model = MaskVSCFull(seg, vig)
         predicting = bool(
             getattr(self, 'prediction_mode', False)
@@ -346,7 +550,7 @@ class MaskVSCAdapter(BaselineAdapter):
         for sample in samples:
             image, label = _load_pair(sample)
             image, label = _augment_pair(
-                image, label, rng, self._rotation_degrees)
+                image, label, rng, self._rotation_degrees, self._augment)
             image_np = np.array(image.resize([self.input_size,
                                               self.input_size]))
             label_np = np.array(label.resize([self.input_size,
@@ -370,7 +574,7 @@ class MaskVSCAdapter(BaselineAdapter):
         return (torch.stack(images).to(self.device),
                 torch.stack(labels).to(self.device))
 
-    def _prepare_clean_batch(self, samples, device):
+    def _prepare_clean_batch(self, samples, device, corrupt_ratio=0.0):
         images, labels = [], []
         for sample in samples:
             image, label = _load_pair(sample)
@@ -381,6 +585,10 @@ class MaskVSCAdapter(BaselineAdapter):
             label_np = np.asarray(
                 label.resize([self.input_size, self.input_size]),
                 dtype=np.float32) / 255.0
+            if corrupt_ratio > 0:
+                binary = (label_np > 0.5).astype(np.uint8) * 255
+                image_np = mask_vessel_corrupt(
+                    image_np, binary, float(corrupt_ratio))
             image_t = torch.from_numpy(
                 image_np.astype(np.float32).copy()
             ).permute(2, 0, 1) / 255.0
@@ -397,6 +605,12 @@ class MaskVSCAdapter(BaselineAdapter):
         if getattr(model, 'stage', 'stage1') == 'stage1':
             loss = loss + Connect_Loss(mode=self._connect_loss_mode,
                                     cap=self._connect_cap)(pred, labels)
+            if self._stage1_dice_weight:
+                loss = loss + self._stage1_dice_weight * self._soft_dice(
+                    pred, labels)
+        elif self._stage2_dice_weight:
+            loss = loss + self._stage2_dice_weight * self._soft_dice(
+                pred, labels)
         return loss
 
     def prepare_eval_sample(self, sample, device):
@@ -414,8 +628,9 @@ class MaskVSCAdapter(BaselineAdapter):
     def predict_sample(self, model, prepared, sample):
         with torch.no_grad():
             pred = model(prepared)[0, 0].cpu().numpy()
-        value_range = pred.max() - pred.min()
-        pred = (pred - pred.min()) / (value_range + 1e-10)
+        if self._normalize == 'minmax':
+            value_range = pred.max() - pred.min()
+            pred = (pred - pred.min()) / (value_range + 1e-10)
         binary = pred >= 0.5
         with Image.open(sample.mask_path) as mask:
             width, height = mask.size
@@ -436,6 +651,9 @@ class MaskVSCAdapter(BaselineAdapter):
             loss = (nn.BCELoss()(pred, labels)
                     + Connect_Loss(mode=self._connect_loss_mode,
                                     cap=self._connect_cap)(pred, labels))
+            if self._stage1_dice_weight:
+                loss = loss + self._stage1_dice_weight * self._soft_dice(
+                    pred, labels)
             optimizer.zero_grad(set_to_none=True)
             loss.backward()
             optimizer.step()
@@ -443,17 +661,44 @@ class MaskVSCAdapter(BaselineAdapter):
             seen += len(samples)
         return running / max(seen, 1)
 
+    @staticmethod
+    def _soft_dice(pred, labels, eps=1.0):
+        """Batch-global soft Dice (empty masks count as a perfect match)."""
+        inter = 2.0 * (pred * labels).sum()
+        denominator = pred.sum() + labels.sum()
+        denominator = torch.where(
+            denominator == 0, inter, denominator)
+        return 1.0 - (inter + eps) / (denominator + eps)
+
+    @staticmethod
+    def _bce(pred, labels, pos_weight):
+        if pos_weight == 1.0:
+            return nn.BCELoss()(pred, labels)
+        eps = 1e-6
+        p = pred.clamp(eps, 1.0 - eps)
+        return -(
+            pos_weight * labels * torch.log(p)
+            + (1.0 - labels) * torch.log(1.0 - p)
+        ).mean()
+
     def _train_stage2_epoch(self, model, loader, optimizer, args):
         model.set_stage('stage2')
         model.train()
         running = 0.0
         seen = 0
         for samples in loader:
-            images, labels = self._prepare_clean_batch(samples, self.device)
+            images, labels = self._prepare_clean_batch(
+                samples, self.device, self._stage2_corrupt_ratio)
             pred = model(images)
-            loss = nn.BCELoss()(pred, labels)
+            loss = self._bce(pred, labels, self._stage2_pos_weight)
+            if self._stage2_dice_weight:
+                loss = loss + self._stage2_dice_weight * self._soft_dice(
+                    pred, labels)
             optimizer.zero_grad(set_to_none=True)
             loss.backward()
+            if self._vig_grad_clip > 0:
+                nn.utils.clip_grad_norm_(
+                    model.vig.parameters(), self._vig_grad_clip)
             optimizer.step()
             running += float(loss.detach()) * len(samples)
             seen += len(samples)
@@ -622,6 +867,15 @@ class MaskVSCAdapter(BaselineAdapter):
             'rotation_degrees': self._rotation_degrees,
             'stage2_augmentation': False,
             'vig_graph': self._vig_graph,
+            'vig_residual': int(self._vig_residual),
+            'vig_grad_clip': float(self._vig_grad_clip),
+            'norm': str(self._norm),
+            'stage2_corrupt_ratio': float(self._stage2_corrupt_ratio),
+            'normalize': str(self._normalize),
+            'stage2_pos_weight': float(self._stage2_pos_weight),
+            'augment': str(self._augment),
+            'stage1_dice_weight': float(self._stage1_dice_weight),
+            'stage2_dice_weight': float(self._stage2_dice_weight),
             'adapter_config': self.save_config(args),
             'selection': args.selection,
             'seed': int(args.seed),
@@ -775,6 +1029,15 @@ class MaskVSCAdapter(BaselineAdapter):
                     best2_per_dataset = per_dataset
                     run_config['stage2_best_epoch'] = best2_epoch
                     run_config['stage2_best_score'] = self._json_value(best2)
+                    # Keep the stage-2 best even when it does not beat stage
+                    # 1, so the completion head can be inspected later.
+                    previous_use_vig = self._use_vig
+                    self._use_vig = True
+                    self._save_checkpoint(
+                        workdir / 'stage2_best.pth', model, args,
+                        run_config, split_sha, epoch, best2, metrics,
+                        per_dataset)
+                    self._use_vig = previous_use_vig
                     # Stage-2 "improvement" is only stage-local.  Do not
                     # overwrite the stage-1 checkpoint unless the ViG also
                     # beats the stage-1 best on the shared validation split.
@@ -878,6 +1141,15 @@ class MaskVSCAdapter(BaselineAdapter):
             'vig_patch_size': int(self._vig_patch_size),
             'vig_decode': str(self._vig_decode),
             'vig_graph': str(self._vig_graph),
+            'vig_residual': int(self._vig_residual),
+            'vig_grad_clip': float(self._vig_grad_clip),
+            'norm': str(self._norm),
+            'stage2_corrupt_ratio': float(self._stage2_corrupt_ratio),
+            'normalize': str(self._normalize),
+            'stage2_pos_weight': float(self._stage2_pos_weight),
+            'augment': str(self._augment),
+            'stage1_dice_weight': float(self._stage1_dice_weight),
+            'stage2_dice_weight': float(self._stage2_dice_weight),
             'connect_loss': str(self._connect_loss_mode),
             'connect_cap': float(self._connect_cap),
             'rotation_degrees': float(self._rotation_degrees),
@@ -908,6 +1180,32 @@ class MaskVSCAdapter(BaselineAdapter):
             # Old checkpoints were trained/evaluated with the released
             # dot-product graph.
             self._vig_graph = 'release'
+        self._vig_residual = int(config.get('vig_residual', 0))
+        self._vig_grad_clip = float(config.get('vig_grad_clip', 0.0))
+        self._norm = str(config.get('norm', 'batch'))
+        self._stage2_corrupt_ratio = float(
+            config.get('stage2_corrupt_ratio', 0.0))
+        self._normalize = str(config.get('normalize', 'minmax'))
+        self._stage2_pos_weight = float(
+            config.get('stage2_pos_weight', 1.0))
+        self._augment = str(config.get('augment', 'release'))
+        self._stage1_dice_weight = float(
+            config.get('stage1_dice_weight', 0.0))
+        self._stage2_dice_weight = float(
+            config.get('stage2_dice_weight', 0.0))
+        setattr(args, 'maskvsc_stage1_dice_weight',
+                self._stage1_dice_weight)
+        setattr(args, 'maskvsc_stage2_dice_weight',
+                self._stage2_dice_weight)
+        setattr(args, 'maskvsc_vig_residual', self._vig_residual)
+        setattr(args, 'maskvsc_vig_grad_clip', self._vig_grad_clip)
+        setattr(args, 'maskvsc_norm', self._norm)
+        setattr(args, 'maskvsc_stage2_corrupt_ratio',
+                self._stage2_corrupt_ratio)
+        setattr(args, 'maskvsc_normalize', self._normalize)
+        setattr(args, 'maskvsc_stage2_pos_weight',
+                self._stage2_pos_weight)
+        setattr(args, 'maskvsc_augment', self._augment)
         if 'connect_loss' in config:
             self._connect_loss_mode = str(config['connect_loss'])
         else:

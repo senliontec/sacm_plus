@@ -540,3 +540,39 @@ def test_legacy_patch32_checkpoint_infers_coherent_decode():
     config = adapter.save_config(args)
     assert config['vig_decode'] == 'coherent'
     assert config['vig_graph'] == 'release'
+
+
+def test_soft_dice_supports_empty_and_perfect_masks():
+    empty = torch.zeros(1, 1, 8, 8)
+    assert MaskVSCAdapter._soft_dice(empty, empty).item() == pytest.approx(0.0)
+    foreground = empty.clone()
+    foreground[:, :, 2:6, 2:6] = 1.0
+    assert MaskVSCAdapter._soft_dice(
+        foreground, foreground).item() == pytest.approx(0.0, abs=1e-6)
+    # A missed foreground must cost ~1; an empty prediction is not free.
+    assert MaskVSCAdapter._soft_dice(
+        torch.zeros_like(foreground), foreground).item() > 0.9
+    half = foreground * 0.5
+    assert 0.0 < MaskVSCAdapter._soft_dice(half, foreground).item() < 0.5
+
+
+def test_dice_weight_defaults_and_config_roundtrip():
+    parser = argparse.ArgumentParser()
+    MaskVSCAdapter().add_args(parser)
+    args = parser.parse_args([])
+    assert args.maskvsc_stage1_dice_weight == 0.0
+    assert args.maskvsc_stage2_dice_weight == 0.0
+
+    adapter = MaskVSCAdapter()
+    configured = _training_args(None, None)
+    configured.maskvsc_stage1_dice_weight = 1.0
+    configured.maskvsc_stage2_dice_weight = 0.25
+    adapter._apply_arch(configured)
+    config = adapter.save_config(configured)
+    assert config['stage1_dice_weight'] == 1.0
+    assert config['stage2_dice_weight'] == 0.25
+
+    restored = _training_args(None, None)
+    MaskVSCAdapter().restore_config(restored, config)
+    assert restored.maskvsc_stage1_dice_weight == 1.0
+    assert restored.maskvsc_stage2_dice_weight == 0.25
