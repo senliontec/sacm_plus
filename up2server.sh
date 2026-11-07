@@ -14,7 +14,7 @@ TARGET="${TARGET:-/home/zkyd/code/sacm-plus}"
 SRC="$(cd "$(dirname "$0")" && pwd)"
 
 # Reuse one SSH connection for all rsync calls: ask for the password once.
-CONTROL_DIR="${TMPDIR:-/tmp}/skein-ssh-$(id -u)"
+CONTROL_DIR="${TMPDIR:-/tmp}/sacm-plus-ssh-$(id -u)"
 mkdir -p "$CONTROL_DIR"
 chmod 700 "$CONTROL_DIR"
 CONTROL_PATH="$CONTROL_DIR/%C"
