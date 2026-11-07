@@ -300,6 +300,10 @@ class MaskDecoder(nn.Module):
         else:
             sorted_indices = torch.argsort(
                 gating_weights, dim=1, descending=True)
+        # Keep the Stage-1 confidence of each Stage-2 slot in its ranked
+        # order so the adapter can form a soft gated ensemble.
+        self.last_gating_weights = torch.gather(
+            gating_weights, 1, sorted_indices).detach()
 
         # Stage-1 now contributes a coarse spatial prior to Stage-2.  The
         # final 1x1 conv is zero-initialised, so this is an identity start.

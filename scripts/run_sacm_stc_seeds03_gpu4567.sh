@@ -28,7 +28,7 @@ cd "$(dirname "$0")/.." || exit 1
 REPO="$(pwd)"
 
 MODEL="sacm_stc"
-VARIANT="default"
+VARIANT="all_dense"
 SEEDS_STR="${SEEDS:-0 1 2 3}"
 GPU_LIST="${GPU_LIST:-4,5,6,7}"
 RESUME="${RESUME:-0}"
@@ -78,7 +78,7 @@ exec > >(tee -a "$LOG_DIR/driver.log") 2>&1
 
 echo "============================================================"
 echo " SACM-STC: seeds $SEEDS_STR on GPUs $GPU_LIST"
-echo " train: 800 epochs, dense output + geometry consistency"
+echo " train: 800 epochs, four dense candidates + geometry consistency"
 echo " eval:  20 protocol datasets, Dice/IoU/clDice/HD95"
 echo " note:  method run; sacm_official remains the comparison baseline"
 echo " repo:  $REPO"

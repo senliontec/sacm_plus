@@ -7,12 +7,12 @@ train_entrypoint: >-
   python -m baseline_zoo.run_one --model sacm_stc --stage train
   --data-root {split_root} --workdir {output_root}
   --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
-  --use-typed-stage2 1 --typed-resolution 512 --iou-loss-weight 0
-  --typed-output dense --typed-compose-weight 0
-  --typed-gate-distill-weight 0
-  --typed-dense-skeleton-weight 0.1
-  --typed-dense-cldice-weight 0.1
-  --typed-dense-boundary-weight 0.05
+  --use-typed-stage2 0 --use-stc 0
+  --deep-sup-weight 0.3 --iou-loss-weight 0
+  --head-select gating
+  --skeleton-recall-weight 0.1 --cl-dice-weight 0.1
+  --topology-head all --topology-warmup-epochs 5
+  --binary-targets 0 --bce-pos-weight 2
 eval_entrypoint: >-
   python scripts/pipeline/run_baseline_test.py --method sacm_stc
   --protocol {test_manifest}
@@ -24,15 +24,18 @@ eval_entrypoint: >-
 protocols: [seeded5, fixed]
 defaults:
   epochs: 800
+  preset: all_dense
 note: >-
-  SACM-STC: a geometry-consistent multi-task extension of the SACM prompt-free
-  decoder. The four native Stage-2 heads have fixed roles: dense mask,
-  centerline, boundary, and normalized distance/width. Stage-2 uses a stable
-  head order (no gating reorder); Stage-1 keeps dense deep supervision. The
-  deployment output is the dense head; the centerline/width branch is an
-  optional validation-calibrated structural ensemble. Skeleton Recall,
-  soft-clDice and a soft-contour boundary loss are applied directly to the
-  dense output, so topology and boundary supervision improve the evaluated
-  mask. No test-time head selector and no fixed deployment head are used.
+  SACM-STC (all-dense geometry variant): keeps the official four-candidate
+  Stage-2 structure, where every native mask token predicts a dense mask and
+  the Stage-1 gating order selects the deployment candidate. On top of that
+  it adds (1) dense deep supervision on the four Stage-1 coarse heads,
+  (2) Skeleton Recall and soft-clDice consistency on all four Stage-2 dense
+  candidates, (3) soft bilinear targets and (4) foreground-weighted BCE.
+  The network and the official SACM row are unchanged; the geometry losses
+  are consistency terms on the evaluated dense masks, not a test-time head
+  selector. This replaces the earlier typed-head prototype because the
+  specialized heads removed the official multi-candidate robustness; see
+  the local A/B evidence in the adapter deviations and results/diagnostics.
   The faithful official SACM remains the main-table baseline
   (`sacm_official`).

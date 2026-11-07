@@ -737,3 +737,75 @@ def test_sacm_stc_optional_topology_train_step(monkeypatch):
     loss = adapter.train_step(None, (images, masks))
     assert torch.isfinite(loss)
     loss.backward()
+
+
+def test_sacm_stc_bce_pos_weight_changes_mask_criterion():
+    adapter = load_adapter('sacm_stc')
+    logits = torch.randn(1, 1, 8, 8, requires_grad=True)
+    target = (torch.rand(1, 1, 8, 8) > 0.6).float()
+
+    adapter.args = argparse.Namespace(bce_pos_weight=1.0)
+    unweighted = adapter._mask_criterion(logits, target, 0.7, 0.3)
+    adapter.args = argparse.Namespace(bce_pos_weight=2.0)
+    weighted = adapter._mask_criterion(logits, target, 0.7, 0.3)
+
+    assert torch.isfinite(unweighted) and torch.isfinite(weighted)
+    assert weighted > unweighted
+    weighted.backward()
+    assert logits.grad is not None
+
+
+def test_sacm_stc_all_dense_config_roundtrip():
+    adapter = load_adapter('sacm_stc')
+    args = argparse.Namespace(
+        bce_weight=0.7, dice_weight=0.3, bce_pos_weight=2.0,
+        binary_targets=0, deploy_threshold=0.4,
+        head_select='mean', adapter_dim_ratio=0.1,
+        deep_sup_weight=0.3, iou_loss_weight=0.0,
+        cl_dice_weight=0.1, tversky_weight=0.0,
+        skeleton_recall_weight=0.1, topology_resolution=512,
+        topology_head='all', topology_warmup_epochs=5,
+        tversky_alpha=0.3, tversky_beta=0.7, use_stc=0,
+        stc_resolution=512, stc_width=32, stc_dense_weight=1.0,
+        stc_centerline_weight=0.2, stc_cl_dice_weight=0.2,
+        stc_boundary_weight=0.1, stc_width_weight=0.05,
+        stc_compose_weight=0.5, stc_gate_weight=0.05,
+        use_typed_stage2=0, typed_resolution=512,
+        typed_centerline_weight=0.2, typed_cl_dice_weight=0.2,
+        typed_boundary_weight=0.1, typed_width_weight=0.05,
+        typed_compose_weight=0.0, typed_gate_weight=0.05,
+        typed_structure_warmup_epochs=10, typed_composer_lr=3e-3,
+        typed_gate_temperature=0.02, typed_gate_distill_weight=0.0,
+        typed_output='dense', typed_dense_skeleton_weight=0.0,
+        typed_dense_cldice_weight=0.0, typed_dense_boundary_weight=0.0,
+        deployment_head=2)
+    adapter.head_select = 'mean'
+    config = adapter.save_config(args)
+
+    target = argparse.Namespace(
+        **{key: value for key, value in vars(args).items()})
+    target.bce_pos_weight = 1.0
+    target.binary_targets = 1
+    target.deploy_threshold = 0.5
+    target.head_select = None
+    adapter.restore_config(target, config)
+
+    assert target.bce_pos_weight == 2.0
+    assert target.binary_targets == 0
+    assert target.deploy_threshold == 0.4
+    assert target.head_select == 'mean'
+
+
+def test_sacm_stc_new_cli_choices_parse():
+    adapter = load_adapter('sacm_stc')
+    parser = argparse.ArgumentParser()
+    adapter.add_args(parser)
+    for choice in ('gating', 'gating_soft', 'mean', 'iou', 'fixed'):
+        args = parser.parse_args(['--head-select', choice])
+        assert args.head_select == choice
+    args = parser.parse_args(
+        ['--binary-targets', '0', '--bce-pos-weight', '2',
+         '--deploy-threshold', '0.4'])
+    assert args.binary_targets == 0
+    assert args.bce_pos_weight == 2.0
+    assert args.deploy_threshold == 0.4

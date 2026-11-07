@@ -1,17 +1,20 @@
-"""SACM-STC: structure-task composition on the SACM prompt-free decoder.
+"""SACM-STC: geometry-consistent multi-candidate SACM prompt-free decoder.
 
-The four native Stage-2 heads have fixed roles:
+The shipped method keeps the official Stage-2 structure: all four native mask
+tokens predict dense masks, and the Stage-1 gating order selects the
+deployment candidate.  SACM-STC adds structural consistency to those dense
+candidates: Skeleton Recall and soft-clDice are applied to every Stage-2 head,
+the four Stage-1 coarse heads receive dense deep supervision, training uses
+soft bilinear targets and a foreground-weighted BCE.  The geometry terms
+regularize the masks that are actually evaluated; there is no auxiliary
+centerline/boundary head and no test-time selector.
 
-* head 0 -> dense mask
-* head 1 -> centerline
-* head 2 -> boundary
-* head 3 -> normalized distance/width
-
-Stage-1 keeps the four dense coarse heads and deep supervision.  Stage-2 uses
-a stable head order (no gating reorder), the four task losses are applied
-directly, and a lightweight composer turns the four outputs into one mask.
-Inference uses the composed mask only: no head selector, no fixed deployment
-head.  ``sacm_official`` remains the baseline and is not modified.
+An earlier prototype instead specialized the four heads to dense, centerline,
+boundary and width, with a typed composer.  That path remains available for
+ablation (``--use-typed-stage2 1``) but is not the shipped configuration: the
+specialized heads removed the official four-candidate robustness and lost on
+the 20-dataset transfer check.  ``sacm_official`` remains an independent
+baseline and is not modified.
 """
 
 from __future__ import annotations
@@ -67,13 +70,16 @@ class SACMSTCAdapter(BaselineAdapter):
         'and is not gathered back; per-head IoU predictions are computed '
         'from the ranked descriptors so output slot j is bound to Stage-2 '
         'head j.',
-        'SACM-STC fixes the four native Stage-2 heads to dense, centerline, '
-        'boundary and normalized distance/width tasks, with a stable head order '
-        '(no gating reorder). Stage-1 keeps four dense coarse heads with deep '
-        'supervision. A lightweight composer produces the final mask without a '
-        'test-time selector or fixed deployment head.',
-        'Ground-truth masks are binarized at 0.5 after the bilinear resize; '
-        'upstream trained on soft resized masks.',
+        'SACM-STC keeps the official four dense Stage-2 candidates and the '
+        'Stage-1 gating order, then adds dense deep supervision on the four '
+        'Stage-1 coarse heads and Skeleton Recall plus soft-clDice '
+        'consistency on all four Stage-2 dense candidates. These are '
+        'consistency terms on the evaluated masks, not auxiliary typed heads.',
+        'Training uses the official soft bilinear targets by default; '
+        'foreground-weighted BCE (pos_weight 2) compensates the 0.3-8% '
+        'foreground ratio of the curvilinear datasets. Binary targets and '
+        'unweighted BCE remain selectable (--binary-targets 1, '
+        '--bce-pos-weight 1).',
         'AdamW excludes LayerNorm and bias parameters from weight decay; '
         'upstream applied 0.01 to every parameter.',
         'The 1024x1024 resize, no augmentation, 3e-4 learning rate, cosine '
@@ -83,8 +89,10 @@ class SACMSTCAdapter(BaselineAdapter):
         'upstream selected by validation F1 on raw logits at 0.5.',
         'Predictions are exported at GT resolution and thresholded after '
         'sigmoid (> 0.5); upstream thresholded raw logits at 0.5.',
-        'The typed Stage-2 path is the SACM-STC method. The official SACM '
-        'remains an independent baseline row and is not modified.',
+        'The typed Stage-2 path (stable type embeddings, auxiliary '
+        'centerline/boundary/width heads, typed composer) remains available '
+        'as an ablation but is not the shipped configuration. The official '
+        'SACM remains an independent baseline row and is not modified.',
     )
 
     def __init__(self):
@@ -102,16 +110,39 @@ class SACMSTCAdapter(BaselineAdapter):
         parser.add_argument('--bce-weight', type=float, default=0.7)
         parser.add_argument('--dice-weight', type=float, default=0.3)
         parser.add_argument(
+            '--bce-pos-weight', type=float, default=1.0,
+            help='foreground weight for BCE in the mask criterion '
+                 '(1.0 is the official unweighted loss)')
+        parser.add_argument(
+            '--binary-targets', type=int, choices=[0, 1], default=1,
+            help='binarize resized training masks at 0.5 (1, default) or '
+                 'keep the official soft bilinear targets (0)')
+        parser.add_argument(
+            '--deploy-threshold', type=float, default=0.5,
+            help='probability threshold used to export the mask; can be '
+                 'calibrated on the validation split after training')
+        parser.add_argument(
+            '--stage1-fusion-weight', type=float, default=0.0,
+            help='optional logit-space blend of the deep-supervised Stage-1 '
+                 'coarse prediction into the Stage-2 deployment logits')
+        parser.add_argument(
+            '--stage1-fusion-mode', choices=['gated', 'mean'], default='gated',
+            help='gated = the Stage-1 head in the same gating slot; mean = '
+                 'average the four deep-supervised Stage-1 heads')
+        parser.add_argument(
             '--deep-sup-weight', type=float, default=0.3,
             help='weight of the Stage-1 all-head mask loss')
         parser.add_argument(
             '--iou-loss-weight', type=float, default=1.0,
             help='weight of the per-head IoU MSE')
         parser.add_argument(
-            '--head-select', choices=['auto', 'iou', 'gating', 'fixed'],
+            '--head-select',
+            choices=['auto', 'iou', 'gating', 'gating_soft', 'fixed', 'mean'],
             default=None,
             help='mask-head selection: auto -> iou when iou-loss-weight > 0, '
-                 'otherwise gating; fixed -> deployment-head')
+                 'otherwise gating; fixed -> deployment-head; mean -> average '
+                 'the four native dense-head logits; gating_soft -> average '
+                 'weighted by the Stage-1 gating confidences')
         parser.add_argument(
             '--deployment-head', type=int, default=2,
             help='Stage-2 head used by fixed deployment and topology losses')
@@ -266,6 +297,14 @@ class SACMSTCAdapter(BaselineAdapter):
                 getattr(args, 'adapter_dim_ratio', 0.1)),
             'bce_weight': float(getattr(args, 'bce_weight', 0.7)),
             'dice_weight': float(getattr(args, 'dice_weight', 0.3)),
+            'bce_pos_weight': float(getattr(args, 'bce_pos_weight', 1.0)),
+            'binary_targets': int(getattr(args, 'binary_targets', 1)),
+            'deploy_threshold': float(
+                getattr(args, 'deploy_threshold', 0.5)),
+            'stage1_fusion_weight': float(
+                getattr(args, 'stage1_fusion_weight', 0.0)),
+            'stage1_fusion_mode': getattr(
+                args, 'stage1_fusion_mode', 'gated'),
             'deep_sup_weight': float(getattr(args, 'deep_sup_weight', 0.3)),
             'iou_loss_weight': float(getattr(args, 'iou_loss_weight', 1.0)),
             'head_select': getattr(
@@ -333,6 +372,8 @@ class SACMSTCAdapter(BaselineAdapter):
 
     def restore_config(self, args, config):
         for key in ('adapter_dim_ratio', 'bce_weight', 'dice_weight',
+                    'bce_pos_weight', 'binary_targets', 'deploy_threshold',
+                    'stage1_fusion_weight', 'stage1_fusion_mode',
                     'deep_sup_weight', 'iou_loss_weight',
                     'deployment_head', 'cl_dice_weight', 'tversky_weight',
                     'skeleton_recall_weight', 'topology_resolution',
@@ -359,7 +400,8 @@ class SACMSTCAdapter(BaselineAdapter):
             args.input_size = self.input_size
         # Only override the CLI selection when it was left at "auto".
         if (getattr(args, 'head_select', None) is None
-                and config.get('head_select') in ('iou', 'gating', 'fixed')):
+                and config.get('head_select')
+                in ('iou', 'gating', 'gating_soft', 'fixed', 'mean')):
             args.head_select = config['head_select']
 
     def configure_trainable(self, model):
@@ -466,13 +508,21 @@ class SACMSTCAdapter(BaselineAdapter):
             mask_tensor = torch.from_numpy(
                 np.asarray(mask, dtype=np.float32).copy()
             ).unsqueeze(0) / 255.0
-            masks.append((mask_tensor > 0.5).float())
+            if int(getattr(self.args, 'binary_targets', 1)) == 1:
+                mask_tensor = (mask_tensor > 0.5).float()
+            masks.append(mask_tensor)
         return (torch.stack(images).to(self.device),
                 torch.stack(masks).to(self.device))
 
-    @staticmethod
-    def _mask_criterion(logits, target, bce_weight, dice_weight):
-        bce = F.binary_cross_entropy_with_logits(logits, target)
+    def _mask_criterion(self, logits, target, bce_weight, dice_weight):
+        pos_weight = float(getattr(
+            getattr(self, 'args', None), 'bce_pos_weight', 1.0))
+        if pos_weight > 0 and pos_weight != 1.0:
+            bce = F.binary_cross_entropy_with_logits(
+                logits, target,
+                pos_weight=logits.new_tensor(pos_weight))
+        else:
+            bce = F.binary_cross_entropy_with_logits(logits, target)
         prob = torch.sigmoid(logits)
         dims = tuple(range(1, prob.ndim))
         intersection = (prob * target).sum(dim=dims)
@@ -890,9 +940,18 @@ class SACMSTCAdapter(BaselineAdapter):
         return tensor.unsqueeze(0).to(device)
 
     def predict_sample(self, model, prepared, sample):
-        stage2, iou_pred = self._forward(
-            model, prepared, return_stage1=False)
-        if int(getattr(self.args, 'use_typed_stage2', 0)) == 1:
+        stage1 = None
+        stage1_weight = float(getattr(
+            self.args, 'stage1_fusion_weight', 0.0))
+        use_typed = int(getattr(self.args, 'use_typed_stage2', 0)) == 1
+        use_stc = int(getattr(self.args, 'use_stc', 0)) == 1
+        if stage1_weight > 0 and not use_typed and not use_stc:
+            stage2, iou_pred, stage1 = self._forward(
+                model, prepared, return_stage1=True)
+        else:
+            stage2, iou_pred = self._forward(
+                model, prepared, return_stage1=False)
+        if use_typed:
             composer = getattr(model, 'typed_composer', None)
             if composer is None:
                 raise RuntimeError(
@@ -914,7 +973,7 @@ class SACMSTCAdapter(BaselineAdapter):
                     self.args, 'calibrated_blend_g', None)
                 logits = composer(
                     *heads, resolution, blend_override=blend)['final']
-        elif int(getattr(self.args, 'use_stc', 0)) == 1:
+        elif use_stc:
             head = getattr(model, 'stc_head', None)
             if head is None:
                 raise RuntimeError('use_stc=1 but model.stc_head is missing')
@@ -931,15 +990,42 @@ class SACMSTCAdapter(BaselineAdapter):
                     'STC requires SAM adapter/intermediate features')
             logits = head(anchor, image, sam_features)['final']
         else:
-            if self.head_select == 'iou':
+            if self.head_select == 'mean':
+                # The four native Stage-2 heads are all dense candidates.
+                # Averaging their logits is permutation-invariant, so it also
+                # works if the official gating order changes per image.
+                logits = stage2.mean(dim=1, keepdim=True)
+            elif self.head_select == 'gating_soft':
+                weights = getattr(
+                    model.mask_decoder, 'last_gating_weights', None)
+                if weights is None:
+                    logits = stage2.mean(dim=1, keepdim=True)
+                else:
+                    weights = weights.to(stage2.dtype)
+                    weights = weights / weights.sum(
+                        dim=1, keepdim=True).clamp_min(1e-6)
+                    logits = (stage2 * weights[:, :, None, None]).sum(
+                        dim=1, keepdim=True)
+            elif self.head_select == 'iou':
                 index = int(iou_pred.argmax(dim=1)[0].item())
+                logits = stage2[:, index:index + 1]
             elif self.head_select == 'fixed':
-                index = self.deployment_head
+                logits = stage2[:, self.deployment_head:
+                                self.deployment_head + 1]
             else:
-                index = 0
-            logits = stage2[:, index:index + 1]
+                # Official gating order: slot 0 is the top-gated candidate.
+                logits = stage2[:, 0:1]
+            if stage1_weight > 0 and stage1 is not None:
+                if getattr(self.args, 'stage1_fusion_mode',
+                           'gated') == 'mean':
+                    stage1_logits = stage1.mean(dim=1, keepdim=True)
+                else:
+                    stage1_logits = stage1[:, 0:1]
+                logits = ((1.0 - stage1_weight) * logits
+                          + stage1_weight * stage1_logits)
         with Image.open(sample.mask_path) as mask:
             width, height = mask.size
         logits = F.interpolate(logits, size=(height, width),
                                mode='bilinear', align_corners=False)
-        return (torch.sigmoid(logits)[0, 0].cpu().numpy() > 0.5)
+        threshold = float(getattr(self.args, 'deploy_threshold', 0.5))
+        return (torch.sigmoid(logits)[0, 0].cpu().numpy() > threshold)
