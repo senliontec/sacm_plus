@@ -23,6 +23,22 @@ from baseline_zoo.runtime import REPO_ROOT, BaselineAdapter, file_sha256
 PIXEL_MEAN = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
 PIXEL_STD = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
 
+# CWSAM moved these two SAM prompt-encoder modules to the top-level model
+# without renaming their checkpoint entries.  Leaving them unloaded silently
+# re-initialises ``no_mask_embed`` with N(0, 1) instead of SAM's trained
+# N(0, 1/sqrt(256)) embedding, which makes the initial decoder logits ~50x
+# too large and training collapses to an all-background solution.
+SAM_KEY_REMAP = {
+    'prompt_encoder.no_mask_embed.weight': 'no_mask_embed.weight',
+    'prompt_encoder.pe_layer.positional_encoding_gaussian_matrix':
+        'pe_layer.positional_encoding_gaussian_matrix',
+}
+
+
+def _remap_sam_state(state):
+    return {SAM_KEY_REMAP.get(key, key): value
+            for key, value in state.items()}
+
 
 class CWSAMAdapter(BaselineAdapter):
     id = 'cwsam'
@@ -57,6 +73,16 @@ class CWSAMAdapter(BaselineAdapter):
         'batch 2), workers=8 and DistributedSampler; this port uses one '
         'GPU, batch 1, workers=0 and the shared seed. Optimizer steps per '
         'epoch and the RNG stream therefore differ.',
+        'Upstream moved SAM no_mask_embed and the positional-encoding '
+        'buffer out of prompt_encoder but still loads the base SAM '
+        'checkpoint with strict=False; those two keys are therefore left '
+        'at PyTorch defaults upstream (no_mask_embed N(0,1) instead of the '
+        'SAM-trained N(0,1/sqrt(256))). This port remaps the checkpoint '
+        'keys so the pretrained SAM values load. Without the remap the '
+        'initial decoder logits are >50x larger and 3-shot training '
+        'collapses to an all-background solution. This is a deliberate '
+        'numerical deviation from the upstream script, restoring the '
+        'intended SAM initialization.',
     )
 
     def add_args(self, parser):
@@ -103,15 +129,12 @@ class CWSAMAdapter(BaselineAdapter):
                 'download the matching SAM base checkpoint first')
         payload = torch.load(checkpoint, map_location='cpu',
                              weights_only=False)
-        state = payload.get('model', payload)
+        state = _remap_sam_state(payload.get('model', payload))
         missing, unexpected = model.load_state_dict(state, strict=False)
         def allowed_missing(key):
             if key.startswith('image_encoder.prompt_generator.'):
                 return True
             if key.startswith('mask_decoder.cls_upscaling.'):
-                return True
-            if key in ('pe_layer.positional_encoding_gaussian_matrix',
-                       'no_mask_embed.weight'):
                 return True
             return (key.startswith('image_encoder.blocks.')
                     and any(tag in key for tag in (
@@ -156,6 +179,9 @@ class CWSAMAdapter(BaselineAdapter):
             'encoder': str(getattr(self, 'encoder', 'vit_b')),
             'sam_checkpoint': str(checkpoint) if checkpoint else None,
             'sam_checkpoint_sha256': sha,
+            'bg_weight': float(getattr(args, 'cwsam_bg_weight', 0.1)),
+            'fg_weight': float(getattr(args, 'cwsam_fg_weight', 1.0)),
+            'dice_weight': float(getattr(args, 'cwsam_dice_weight', 0.5)),
         }
 
     def restore_config(self, args, config):
@@ -167,6 +193,12 @@ class CWSAMAdapter(BaselineAdapter):
             self.encoder = args.cwsam_encoder
         if config.get('sam_checkpoint'):
             args.sam_checkpoint = Path(config['sam_checkpoint'])
+        if 'bg_weight' in config:
+            args.cwsam_bg_weight = float(config['bg_weight'])
+        if 'fg_weight' in config:
+            args.cwsam_fg_weight = float(config['fg_weight'])
+        if 'dice_weight' in config:
+            args.cwsam_dice_weight = float(config['dice_weight'])
 
     def _preprocess(self, sample, device):
         image = load_rgb(sample.image_path).resize(

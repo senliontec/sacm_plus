@@ -7,7 +7,7 @@ import pytest
 import torch
 from PIL import Image
 
-from baseline_zoo.adapters.cwsam import CWSAMAdapter
+from baseline_zoo.adapters.cwsam import CWSAMAdapter, _remap_sam_state
 from baseline_zoo.models.cwsam import build_cwsam
 
 
@@ -30,11 +30,35 @@ def test_encoder_config_roundtrip(tmp_path):
     config = adapter.save_config(args)
     assert config['encoder'] == 'vit_l'
     assert config['sam_checkpoint_sha256'] is None
+    assert config['bg_weight'] == 0.1
+    assert config['fg_weight'] == 1.0
+    assert config['dice_weight'] == 0.5
 
     restored = SimpleNamespace()
     adapter.restore_config(restored, config)
     assert restored.cwsam_encoder == 'vit_l'
     assert restored.input_size == 1024
+    assert restored.cwsam_bg_weight == 0.1
+    assert restored.cwsam_fg_weight == 1.0
+    assert restored.cwsam_dice_weight == 0.5
+
+
+def test_sam_prompt_encoder_keys_are_remapped():
+    state = {
+        'prompt_encoder.no_mask_embed.weight': torch.full((1,), 0.05),
+        'prompt_encoder.pe_layer.positional_encoding_gaussian_matrix':
+            torch.full((1,), 0.9),
+        'prompt_encoder.point_embeddings.0.weight': torch.zeros(1),
+        'image_encoder.blocks.0.Attention.qkv.weight': torch.ones(1),
+    }
+    remapped = _remap_sam_state(state)
+    assert remapped['no_mask_embed.weight'].item() == pytest.approx(0.05)
+    assert remapped[
+        'pe_layer.positional_encoding_gaussian_matrix'].item() == \
+        pytest.approx(0.9)
+    assert 'prompt_encoder.point_embeddings.0.weight' in remapped
+    assert 'image_encoder.blocks.0.Attention.qkv.weight' in remapped
+    assert 'no_mask_embed.weight' not in state
 
 
 def test_unknown_encoder_rejected():
