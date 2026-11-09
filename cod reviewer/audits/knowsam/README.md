@@ -179,3 +179,76 @@ argmax/nearest zoom 路径，或完整披露替代协议；把 workers/seed/3+3 
 - Post-fix unlabeled pool: CHASEDB1 4, CREMI 246, CORN 134; DRIVE/DCA1/CrackTree200 have no non-test unlabeled images.
 - Post-fix gates: G0 pass, G1 pass, G2 unverified, G3 unverified, G4 unverified, G5 pass, G6a unverified, G6b N/A, G6c unverified.
 - `main_table=blocked`: no post-fix numerical probes and G6c.
+
+## Live training/monitoring audit (2026-11-09)
+
+### Confirmed port bug: canonical metrics artifacts were never written
+
+`KnowSAMAdapter.run_training` bypasses the shared `runtime.run_training`.
+Before this audit it wrote only `SGDL_best_model.pth`, `sam_best_model.pth`,
+`knowsam_model.txt` and `knowsam_config.json`. It did **not** write
+`metrics_history.json`, `val_metrics_by_dataset.csv`, `run_info.json` or
+`train_config.json`; the shared validation metrics were computed only inside
+the W&B branch. With `--use_wandb false` there was therefore no way to
+monitor per-validation Dice/IoU/clDice/HD95, and the run was invisible to the
+canonical analysis pipeline.
+
+Fix: the custom loop now writes the same canonical artifacts as other
+baselines, computes the shared four-metric validation regardless of W&B, and
+prints per-log-interval loss components. Training logic, losses, optimizer,
+sampler and checkpoint selection are unchanged.
+
+### Local diagnostic (seed 0, 3-shot, 2000 iterations)
+
+Command used:
+
+```bash
+PYTHONPATH=src python -m baseline_zoo.run_one --model knowsam --stage train \
+  --data-root data/sacm_3shot_seed0 --workdir /home/dev/knowsam_audit/run2000 \
+  --epochs 2000 --max-iterations 2000 --seed 0 --device cuda:0 \
+  --use_wandb false --val-interval 100 --log-interval 50
+```
+
+Validation trajectory (shared GT-resolution metrics; official SGDL metric in
+parentheses):
+
+| iteration | Dice | IoU | clDice | HD95 | official SGDL Dice |
+|---|---|---|---|---|---|
+| 100 | 0.0000 | 0.0000 | 0.0000 | 988.9 | 0.0000 |
+| 200 | 0.0000 | 0.0000 | 0.0000 | 988.9 | 0.0000 |
+| 300 | 0.0955 | 0.0530 | 0.1261 | 447.8 | 0.0989 |
+| 400 | 0.1714 | 0.1027 | 0.1470 | 278.7 | 0.1903 |
+| 600 | 0.3162 | 0.2164 | 0.3048 | 493.0 | 0.3632 |
+| 1200 | 0.3643 | 0.2597 | 0.3639 | 397.2 | 0.4116 |
+| 1700 | 0.3653 | 0.2601 | 0.3595 | 247.0 | 0.4182 |
+| 2000 | 0.3440 | 0.2395 | 0.3366 | 249.1 | 0.3966 |
+
+The early all-background phase is expected for the official 50k-iteration
+semi-supervised loop with 3+3 labeled/unlabeled batches; the SGDL branch
+starts learning after ~300 iterations and reaches val Dice ~0.42 (official
+SGDL metric) by 1700. This is **not** a convergence claim: 2000 iterations
+are only 4% of the official 50,000 budget.
+
+20-dataset test evaluation of the 1700-iteration `SGDL_best_model.pth`:
+
+| role | Dice | IoU | clDice | HD95 |
+|---|---|---|---|---|
+| All | 0.2658 | 0.1840 | 0.2674 | 257.09 |
+| Seen | 0.3337 | 0.2378 | 0.3364 | 295.01 |
+| Unseen | 0.3776 | 0.2612 | 0.3796 | 166.88 |
+| Novel | 0.0487 | 0.0274 | 0.0488 | 339.47 |
+
+The end-to-end train → 20-dataset prediction → four-metric evaluation path
+works. Full 50k training is required before using KnowSAM in the main table.
+
+### Remaining limitations (not code bugs)
+
+- 3+3 batch vs official 12+12; effective labeled supervision is 4x smaller.
+  `--batch-size 12 --labeled-batch 6` fits an 11 GiB local card (peak ~10.3
+  GiB) but did not change the early trajectory in a 200-iteration probe.
+- The 384 unlabeled cap is still dominated by CORN/CREMI after group
+  exclusion; DRIVE/DCA1/CrackTree200 contribute no non-test unlabeled images.
+- No official KnowSAM checkpoint and no 50k-iteration run; G2/G6a/G6c remain
+  unverified for official parity.
+- `G6c=partial`: local 2000-iteration training + 20-dataset eval completed,
+  but the official 50k budget was not run.
