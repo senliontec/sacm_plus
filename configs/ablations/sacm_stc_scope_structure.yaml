@@ -20,17 +20,20 @@
 #
 # All arms keep Stage-1 deep supervision, soft targets, foreground-weighted
 # BCE, gating deployment, the 1024 input, and the official optimizer/schedule
-# identical.  The ablation budget is 200 epochs; the 800-epoch all_dense runs
-# remain the main-table results, and Aa at 200 epochs is the budget control.
+# identical.  The ablation budget is 300 epochs; the 800-epoch all_dense runs
+# remain the main-table results, and Aa at 300 epochs is the budget control.
 schema_version: 1
 name: sacm_stc_scope_structure
 description: >-
   2x3 SACM-STC dense-scope × structure-scope factorial at a matched
-  200-epoch budget (seeds 0-3).
+  300-epoch budget (seeds 0-3).
 protocol: seeded5
 method: sacm_stc
 seeds: [0, 1, 2, 3]
-epochs: 200
+epochs: 300
+# Evaluate the final epoch-300 checkpoint after training ends.  Set to
+# best_model.pth to use the val-Dice-selected checkpoint instead.
+eval_checkpoint: last_model.pth
 expected_datasets: 20
 output_root: results/runs/sacm_stc
 wandb:

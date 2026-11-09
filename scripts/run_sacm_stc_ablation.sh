@@ -7,10 +7,13 @@
 # the generic Python runner.
 #
 # Usage (server, repo root):
-#   bash scripts/run_sacm_stc_ablation.sh --stage audit --gpus 0,1,2,3
-#   bash scripts/run_sacm_stc_ablation.sh --stage all --gpus 0,1,2,3,4,5,6,7
-#   bash scripts/run_sacm_stc_ablation.sh --stage eval --gpus 0,1 --arms b3_all_dense_all_structure
+#   bash scripts/run_sacm_stc_ablation.sh --stage audit --gpus 4,5,6,7
+#   bash scripts/run_sacm_stc_ablation.sh --stage all --gpus 4,5,6,7
+#   bash scripts/run_sacm_stc_ablation.sh --stage eval --gpus 4,5 --arms b3_all_dense_all_structure
 #   bash scripts/run_sacm_stc_ablation.sh --stage all --dry-run
+#
+# When --gpus is omitted the default is GPU_LIST=4,5,6,7 (the server's
+# ablation cards); pass --gpus explicitly to use a different set.
 #
 # Stages: audit | train | eval | diagnose | all | analyze.  The default is
 # the safe candidate audit; training starts only when --stage train/all is
@@ -48,6 +51,16 @@ for arg in "$@"; do
   if [ "$arg" = "--dry-run" ]; then DRY_RUN=1; fi
   prev="$arg"
 done
+HAS_GPUS=0
+for arg in "$@"; do
+  case "$arg" in
+    --gpus|--gpus=*) HAS_GPUS=1 ;;
+  esac
+done
+if [ "$HAS_GPUS" -eq 0 ]; then
+  set -- "$@" --gpus "${GPU_LIST:-4,5,6,7}"
+fi
+
 case "$STAGE" in
   train|eval|all)
     source "$REPO/scripts/wandb_env.sh"

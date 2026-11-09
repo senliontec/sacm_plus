@@ -148,7 +148,9 @@ def test_resume_does_not_reuse_eval_when_training_will_rerun(tmp_path):
     _write_csv(table, [{'dataset': f'D{i}'} for i in range(20)],
                ['dataset'])
     (run / 'eval').mkdir(parents=True, exist_ok=True)
-    (run / 'eval' / 'run_manifest.json').write_text('{"status": "done"}')
+    (run / 'eval' / 'run_manifest.json').write_text(
+        '{"status": "done", "checkpoint": "'
+        + str(run / 'last_model.pth') + '"}')
 
     jobs = RUNNER.build_jobs(
         config, protocol, 'all', [arm], [0], 200, True)
@@ -158,10 +160,11 @@ def test_resume_does_not_reuse_eval_when_training_will_rerun(tmp_path):
     assert commands[1]['skip'] is None
     assert commands[2]['skip'] is None
 
-    (run / 'run_info.json').write_text('{"status": "done"}')
+    (run / 'run_info.json').write_text(
+        '{"status": "done", "epochs": 200}')
     (tmp_path / 'diagnostics' / arm / 'seed_0').mkdir(parents=True)
     (tmp_path / 'diagnostics' / arm / 'seed_0' / 'summary.json').write_text(
-        '{}')
+        '{"checkpoint": "' + str(run / 'last_model.pth') + '"}')
     jobs = RUNNER.build_jobs(
         config, protocol, 'all', [arm], [0], 200, True)
     commands = jobs[0]['commands']
@@ -178,6 +181,71 @@ def test_resume_does_not_reuse_eval_when_training_will_rerun(tmp_path):
     assert commands[0]['skip'] is not None
     assert commands[1]['skip'] is None
     assert commands[2]['skip'] is None
+
+
+def test_resume_requires_matching_epoch_budget(tmp_path):
+    import copy
+
+    config = copy.deepcopy(RUNNER.load_config(CONFIG))
+    config['output_root'] = str(tmp_path / 'runs')
+    config['diagnostics']['output_root'] = str(tmp_path / 'diagnostics')
+    from baseline_zoo.protocols import load_protocol
+    protocol = load_protocol('seeded5')
+    arm = 'b0_selected_base'
+    run = tmp_path / 'runs' / arm / 'seed_0'
+    run.mkdir(parents=True)
+    (run / 'run_info.json').write_text(
+        '{"status": "done", "epochs": 200}')
+
+    # A completed 200-epoch run must not satisfy a 300-epoch request.
+    jobs = RUNNER.build_jobs(
+        config, protocol, 'all', [arm], [0], 300, True)
+    assert jobs[0]['commands'][0]['skip'] is None
+
+    # The same run is reusable when the budget matches.
+    jobs = RUNNER.build_jobs(
+        config, protocol, 'all', [arm], [0], 200, True)
+    assert jobs[0]['commands'][0]['skip'] is not None
+
+
+def test_resume_rejects_partial_run_with_other_epoch_budget(tmp_path):
+    import copy
+
+    config = copy.deepcopy(RUNNER.load_config(CONFIG))
+    config['output_root'] = str(tmp_path / 'runs')
+    config['diagnostics']['output_root'] = str(tmp_path / 'diagnostics')
+    from baseline_zoo.protocols import load_protocol
+    protocol = load_protocol('seeded5')
+    arm = 'b1_all_dense_base'
+    run = tmp_path / 'runs' / arm / 'seed_1'
+    run.mkdir(parents=True)
+    (run / 'last_model.pth').write_bytes(b'partial')
+    (run / 'train_config.json').write_text(
+        '{"args": {"epochs": 200}}')
+
+    jobs = RUNNER.build_jobs(
+        config, protocol, 'all', [arm], [1], 300, True)
+    assert '--resume' not in jobs[0]['commands'][0]['command']
+
+    jobs = RUNNER.build_jobs(
+        config, protocol, 'all', [arm], [1], 200, True)
+    assert '--resume' in jobs[0]['commands'][0]['command']
+
+
+def test_matrix_evaluates_the_configured_final_checkpoint():
+    config = RUNNER.load_config(CONFIG)
+    assert config['eval_checkpoint'] == 'last_model.pth'
+    from baseline_zoo.protocols import load_protocol
+    protocol = load_protocol('seeded5')
+    jobs = RUNNER.build_jobs(
+        config, protocol, 'all', ['b0_selected_base'], [0], 300, True)
+    commands = jobs[0]['commands']
+    eval_command = commands[1]['command']
+    diagnose_command = commands[2]['command']
+    assert 'last_model.pth' in eval_command[
+        eval_command.index('--checkpoint') + 1]
+    assert 'last_model.pth' in diagnose_command[
+        diagnose_command.index('--checkpoint') + 1]
 
 
 def test_diagnostic_helpers_are_deterministic():

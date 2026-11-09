@@ -3,17 +3,19 @@
 #
 # It self-daemonizes, then:
 #   1. audits the existing 800-epoch all_dense checkpoints (no training);
-#   2. runs the 6-arm x 4-seed x 200-epoch matrix on the requested GPUs;
-#   3. each run is followed by its 20-dataset evaluation and candidate audit;
+#   2. runs the 6-arm x 4-seed x 300-epoch matrix on the requested GPUs;
+#   3. each 300-epoch run is evaluated on its final last_model.pth over the
+#      20 test datasets, then candidate diagnostics run;
 #   4. the generic runner writes the paired analysis report at the end.
 #
 # Usage (server, repo root):
 #   bash scripts/run_sacm_stc_ablation_overnight.sh
-#   bash scripts/run_sacm_stc_ablation_overnight.sh --gpus 0,1,2,3,4,5,6,7
+#   bash scripts/run_sacm_stc_ablation_overnight.sh --gpus 4,5,6,7
 #   bash scripts/run_sacm_stc_ablation_overnight.sh --skip-audit
 #
 # Defaults:
-#   --gpus 0,1,2,3,4,5,6,7
+#   --gpus 4,5,6,7
+#   seeds 0,1,2,3 (all six arms)
 #   config configs/ablations/sacm_stc_scope_structure.yaml
 #
 # Result separation:
@@ -32,7 +34,10 @@ SCRIPT_PATH="$SCRIPT_DIR/$(basename "$0")"
 cd "$REPO"
 
 CONFIG="configs/ablations/sacm_stc_scope_structure.yaml"
-GPU_LIST="0,1,2,3,4,5,6,7"
+# Server defaults for the ablation queue: only GPUs 4-7 are reserved for
+# this matrix; GPUs 0-3 may be busy with other jobs.  --gpus still overrides.
+GPU_LIST="${GPU_LIST:-4,5,6,7}"
+SEEDS=(0 1 2 3)
 SKIP_AUDIT=0
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -114,6 +119,37 @@ STAMP="$(date +%Y%m%d_%H%M%S)"
 LOG="$LOG_DIR/overnight_${STAMP}.log"
 PID_FILE="$LOG_DIR/overnight_${STAMP}.pid"
 
+# Refuse a second simultaneous overnight matrix: two drivers on the same
+# four GPUs would OOM or silently overwrite each other's logs.  The lock FD
+# is inherited by the daemon child and released when that child exits.
+LOCK_FILE="$LOG_DIR/overnight.lock"
+LOCKED=0
+if command -v flock >/dev/null 2>&1; then
+  if [ "${SACM_ABLATION_LOCKED:-0}" = "1" ]; then
+    # The daemon child inherits FD 9 and the parent's flock; reopening the
+    # lock file here would race the parent and could fail before it exits.
+    LOCKED=1
+  else
+    exec 9>"$LOCK_FILE"
+    if ! flock -n 9; then
+      echo "ERROR: another overnight ablation is already running." >&2
+      echo "       lock: $LOCK_FILE" >&2
+      exit 2
+    fi
+    printf '%s\n' "$$" >&9
+    LOCKED=1
+    export SACM_ABLATION_LOCKED=1
+  fi
+fi
+
+CONFIG_EPOCHS="$(sed -n \
+  's/^epochs:[[:space:]]*\([0-9][0-9]*\).*/\1/p' "$CONFIG" | head -n 1)"
+if [ "${CONFIG_EPOCHS:-}" != "300" ]; then
+  echo "ERROR: config epochs=${CONFIG_EPOCHS:-unknown}; this launcher" \
+       "requires exactly 300." >&2
+  exit 2
+fi
+
 # Use the same interpreter discovery as the one-click runners before sourcing
 # W&B, so wandb_auth_ok() checks the environment that will actually train.
 if [ -z "${PYTHON:-}" ]; then
@@ -165,6 +201,7 @@ echo " SACM-STC overnight ablation"
 echo " start: $(date -Is)"
 echo " host:  $(hostname)"
 echo " gpus:  $GPU_LIST"
+echo " seeds: ${SEEDS[*]}"
 echo " config: $CONFIG"
 echo " audit: $([ "$SKIP_AUDIT" -eq 1 ] && echo skipped || echo enabled)"
 echo " log:   $LOG"
@@ -181,7 +218,8 @@ if [ "$SKIP_AUDIT" -eq 0 ]; then
   # The audit is diagnostic.  A missing/old audit checkpoint must not block
   # the actual training matrix; record the failure and continue.
   if ! bash scripts/run_sacm_stc_ablation.sh \
-      --config "$CONFIG" --stage audit --gpus "$GPU_LIST"; then
+      --config "$CONFIG" --stage audit \
+      --seeds "${SEEDS[@]}" --gpus "$GPU_LIST"; then
     echo "[warn] candidate audit failed; continuing with the full matrix"
     echo "[warn] inspect results/ablations/sacm_stc/candidate_audit/"
   fi
@@ -190,11 +228,21 @@ else
 fi
 
 echo "[2/2] training + 20-dataset eval + candidate diagnostics"
-bash scripts/run_sacm_stc_ablation.sh \
-  --config "$CONFIG" --stage all --gpus "$GPU_LIST"
+if bash scripts/run_sacm_stc_ablation.sh \
+    --config "$CONFIG" --stage all \
+    --seeds "${SEEDS[@]}" --gpus "$GPU_LIST"; then
+  MATRIX_STATUS=0
+else
+  MATRIX_STATUS=$?
+  echo "[warn] matrix exited with status ${MATRIX_STATUS}; completed pairs" \
+       "were still analyzed. Inspect per-job logs below." >&2
+fi
 
 echo "============================================================"
 echo " SACM-STC overnight ablation finished"
 echo " end: $(date -Is)"
+echo " status: ${MATRIX_STATUS} (0 = all jobs complete)"
+echo " logs: results/logs/sacm_stc_ablation/"
 echo " report: results/ablations/sacm_stc/analysis/ablation_report.md"
 echo "============================================================"
+exit "$MATRIX_STATUS"

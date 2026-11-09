@@ -27,8 +27,8 @@ scope effect depends on the all-dense base.
 
 All arms fix Stage-1 deep supervision at 0.3, soft targets, foreground BCE
 weight 2, gating deployment, the 1024 input, and the official optimizer.  The
-ablation uses 200 epochs and seeds 0-3 for the fast validation pass; Aa at
-200 epochs is the budget control for the main 800-epoch result.  If the
+ablation uses 300 epochs and seeds 0-3 for the fast validation pass; Aa at
+300 epochs is the budget control for the main 800-epoch result.  If the
 factorial pattern is promising but a key contrast is borderline, add seed 4
 for the key arms rather than rerunning the whole matrix.
 
@@ -37,7 +37,10 @@ for the key arms rather than rerunning the whole matrix.
 ### Overnight one-command
 
 The launcher self-daemonizes, runs the candidate audit, then launches all 24
-short runs. Each run automatically gets its 20-dataset evaluation and
+short runs. Each run trains for 300 epochs, then automatically gets its
+20-dataset evaluation and candidate diagnostics on the final
+`last_model.pth` (set `eval_checkpoint: best_model.pth` in the YAML to use
+the val-selected checkpoint instead), and
 candidate diagnostics; the paired analysis is written after all jobs finish.
 
 ```bash
@@ -46,15 +49,15 @@ bash scripts/run_sacm_stc_ablation_overnight.sh
 ```
 
 It prints the PID and log path and returns immediately; closing the SSH
-session does not stop it. Use `--skip-audit` to omit Step 0, or
-`--gpus 0,1,...` to select cards.
+session does not stop it. The default GPU set is `4,5,6,7`; use
+`--gpus 0,1,...` only to override it. Use `--skip-audit` to omit Step 0.
 
 ### Manual stages
 
 Step 0, audit the existing 800-epoch full checkpoints (no training):
 
 ```bash
-bash scripts/run_sacm_stc_ablation.sh --stage audit --gpus 0,1,2,3
+bash scripts/run_sacm_stc_ablation.sh --stage audit --gpus 4,5,6,7
 ```
 
 If the candidates are nearly identical / oracle regret is negligible, do
@@ -63,14 +66,14 @@ not spend the full matrix budget; reconsider the framing first.
 Full controlled run (24 short runs = 6 arms × 4 seeds):
 
 ```bash
-bash scripts/run_sacm_stc_ablation.sh --stage all --gpus 0,1,2,3,4,5,6,7
+bash scripts/run_sacm_stc_ablation.sh --stage all --gpus 4,5,6,7
 ```
 
 Useful variants:
 
 ```bash
 # only the two all-dense structural-scope arms (As/Aa) on four seeds
-bash scripts/run_sacm_stc_ablation.sh --stage all --gpus 0,1,2,3 \
+bash scripts/run_sacm_stc_ablation.sh --stage all --gpus 4,5,6,7 \
   --arms b2_all_dense_selected_structure,b3_all_dense_all_structure --seeds 0 1 2 3
 
 # inspect commands without launching anything

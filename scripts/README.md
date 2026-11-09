@@ -113,8 +113,9 @@ The dense-scope × structure-scope factorial is configured in
 `configs/ablations/sacm_stc_scope_structure.yaml`; the runner contains no
 arm names or model hyperparameters.  The one-command overnight launcher
 audits the existing full checkpoints, then runs all 24 controlled jobs
-automatically on 8 GPUs; each job is followed by its 20-dataset evaluation
-and candidate diagnostics:
+automatically on GPUs 4–7 (the overnight default; seeds 0–3, all six arms,
+300 epochs each); each job is followed by its 20-dataset evaluation and
+candidate diagnostics on the final `last_model.pth`:
 
 ```bash
 # one command; self-daemonizes and prints PID/log
@@ -124,8 +125,8 @@ bash scripts/run_sacm_stc_ablation_overnight.sh
 Manual stages are also available:
 
 ```bash
-bash scripts/run_sacm_stc_ablation.sh --stage audit --gpus 0,1,2,3
-bash scripts/run_sacm_stc_ablation.sh --stage all --gpus 0,1,2,3,4,5,6,7
+bash scripts/run_sacm_stc_ablation.sh --stage audit --gpus 4,5,6,7
+bash scripts/run_sacm_stc_ablation.sh --stage all --gpus 4,5,6,7
 ```
 
 Ablation runs use distinct `<arm>` variants under

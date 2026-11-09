@@ -23,8 +23,8 @@ Stages:
     analyze   paired contrast tables only
 
 Example (server):
-    bash scripts/run_sacm_stc_ablation.sh --stage audit --gpus 0,1,2,3
-    bash scripts/run_sacm_stc_ablation.sh --stage all --gpus 0,1,2,3,4,5,6,7
+    bash scripts/run_sacm_stc_ablation.sh --stage audit --gpus 4,5,6,7
+    bash scripts/run_sacm_stc_ablation.sh --stage all --gpus 4,5,6,7
 """
 
 from __future__ import annotations
@@ -202,6 +202,16 @@ def _train_command(config, arm: str, seed: int, gpu: str,
     return command
 
 
+def _eval_checkpoint(config) -> str:
+    """Checkpoint evaluated after the fixed training budget.
+
+    The ablation default is the final epoch checkpoint, so "300 epochs then
+    test" is literal; set ``eval_checkpoint: best_model.pth`` to use the
+    val-Dice-selected checkpoint instead.
+    """
+    return str(config.get('eval_checkpoint', 'best_model.pth'))
+
+
 def _eval_command(config, arm: str, seed: int, gpu: str,
                   protocol_path: Path, run_root: Path) -> list[str]:
     wandb = config.get('wandb') or {}
@@ -213,7 +223,7 @@ def _eval_command(config, arm: str, seed: int, gpu: str,
         '--protocol', str(protocol_path),
         '--seed', str(seed),
         '--variant', arm,
-        '--checkpoint', str(run_root / 'best_model.pth'),
+        '--checkpoint', str(run_root / _eval_checkpoint(config)),
         '--pred-root', str(run_root / 'predictions'),
         '--paper-root', str(run_root),
         '--device', f'cuda:{gpu}',
@@ -259,6 +269,38 @@ def _run_info_done(path: Path) -> bool:
         return False
 
 
+def _train_complete(path: Path, epochs: int) -> bool:
+    """Treat a run as complete only if it used the requested epoch budget.
+
+    A previous 200-epoch run must not satisfy a 300-epoch ablation: its
+    ``run_info.json`` says done, but its checkpoint is not the requested
+    budget.  Requiring the recorded epochs makes the resume safe when the
+    YAML budget changes.
+    """
+    try:
+        payload = json.loads(path.read_text())
+        recorded = int(payload.get('epochs'))
+    except (OSError, ValueError, TypeError):
+        return False
+    return payload.get('status') == 'done' and recorded == int(epochs)
+
+
+def _resume_epochs_match(run_root: Path, epochs: int) -> bool:
+    """Only resume a partial run started with the same epoch budget.
+
+    The optimizer/scheduler checkpoint stores a cosine schedule built for the
+    old budget.  Resuming a 200-epoch partial run under ``--epochs 300``
+    would silently keep the old schedule, so a budget change starts fresh.
+    """
+    try:
+        payload = json.loads(
+            (run_root / 'train_config.json').read_text())
+        recorded = int((payload.get('args') or {}).get('epochs'))
+    except (OSError, ValueError, TypeError):
+        return False
+    return recorded == int(epochs)
+
+
 def _artifact_nonempty(path: Path) -> bool:
     try:
         return path.is_file() and path.stat().st_size > 0
@@ -266,12 +308,17 @@ def _artifact_nonempty(path: Path) -> bool:
         return False
 
 
-def _eval_complete(run_root: Path, expected_datasets: int) -> bool:
+def _eval_complete(run_root: Path, expected_datasets: int,
+                   checkpoint_name: str | None = None) -> bool:
     """Require a completed 20-dataset table, not merely a non-empty file.
 
     A crashed eval can leave a header/partial table.  Checking only file size
     would make a later resume skip the missing datasets and poison the
     analysis.  The canonical table has one row per test dataset.
+
+    When ``checkpoint_name`` is supplied, the eval manifest must record that
+    checkpoint.  This prevents a stale best_model evaluation from satisfying
+    a new last_model (epoch-300) evaluation.
     """
     table = run_root / 'eval' / 'tables' / 'all_metrics.csv'
     if not _artifact_nonempty(table):
@@ -279,11 +326,20 @@ def _eval_complete(run_root: Path, expected_datasets: int) -> bool:
     manifest = run_root / 'eval' / 'run_manifest.json'
     if manifest.is_file():
         try:
-            status = json.loads(manifest.read_text()).get('status')
+            payload = json.loads(manifest.read_text())
+            status = payload.get('status')
             if status not in (None, 'done'):
                 return False
+            if checkpoint_name is not None:
+                recorded = payload.get('checkpoint')
+                if (not recorded
+                        or Path(recorded).name != checkpoint_name):
+                    return False
         except (OSError, ValueError, TypeError):
             return False
+    elif checkpoint_name is not None:
+        # Without a manifest we cannot prove which checkpoint was scored.
+        return False
     try:
         with open(table, newline='') as handle:
             datasets = {
@@ -292,6 +348,16 @@ def _eval_complete(run_root: Path, expected_datasets: int) -> bool:
     except (OSError, csv.Error):
         return False
     return len(datasets) >= int(expected_datasets)
+
+
+def _diagnostics_complete(path: Path, checkpoint_name: str) -> bool:
+    """Require diagnostics for the same checkpoint as the requested eval."""
+    try:
+        payload = json.loads(path.read_text())
+        recorded = payload.get('checkpoint')
+    except (OSError, ValueError, TypeError):
+        return False
+    return bool(recorded) and Path(recorded).name == checkpoint_name
 
 
 def _job_label(stage: str, job_id: str) -> str:
@@ -433,10 +499,12 @@ def build_jobs(config: dict, protocol, stage: str, arms: list[str],
             train_skip = False
             if stage in ('train', 'all'):
                 done = run_root / 'run_info.json'
-                train_skip = bool(resume and _run_info_done(done))
+                train_skip = bool(
+                    resume and _train_complete(done, epochs))
                 train_resume = bool(
                     resume and not train_skip
-                    and (run_root / 'last_model.pth').is_file())
+                    and (run_root / 'last_model.pth').is_file()
+                    and _resume_epochs_match(run_root, epochs))
                 commands.append({
                     'stage': 'train',
                     'command': _train_command(
@@ -447,16 +515,19 @@ def build_jobs(config: dict, protocol, stage: str, arms: list[str],
                 })
             eval_skip = False
             expected = int(config.get('expected_datasets', 20))
+            checkpoint_name = _eval_checkpoint(config)
             if stage in ('eval', 'all'):
                 done = run_root / 'eval' / 'tables' / 'all_metrics.csv'
                 if stage == 'all':
                     # If training is about to run, any old eval table belongs
                     # to the old checkpoint and must not be reused.
                     eval_skip = bool(
-                        train_skip and _eval_complete(run_root, expected))
+                        train_skip and _eval_complete(
+                            run_root, expected, checkpoint_name))
                 else:
                     eval_skip = bool(
-                        resume and _eval_complete(run_root, expected))
+                        resume and _eval_complete(
+                            run_root, expected, checkpoint_name))
                 commands.append({
                     'stage': 'eval',
                     'command': _eval_command(
@@ -466,16 +537,18 @@ def build_jobs(config: dict, protocol, stage: str, arms: list[str],
                 })
             if stage in ('diagnose', 'all'):
                 done = diag_root / arm / f'seed_{seed}' / 'summary.json'
+                diag_done = _diagnostics_complete(done, checkpoint_name)
                 if stage == 'all':
                     diag_skip = bool(
-                        train_skip and eval_skip and done.is_file())
+                        train_skip and eval_skip and diag_done)
                 else:
-                    diag_skip = bool(resume and done.is_file())
+                    diag_skip = bool(resume and diag_done)
                 commands.append({
                     'stage': 'diagnose',
                     'command': _diagnose_command(
-                        config, run_root / 'best_model.pth', protocol_path,
-                        seed, '{gpu}', diag_root / arm / f'seed_{seed}',
+                        config, run_root / _eval_checkpoint(config),
+                        protocol_path, seed, '{gpu}',
+                        diag_root / arm / f'seed_{seed}',
                         diag_splits, diag_limit, diag_policy),
                     'skip': (f'diagnostics complete ({_repo_text(done)})'
                              if diag_skip else None),
@@ -526,8 +599,10 @@ def main(argv: list[str] | None = None) -> int:
                         help='arm ids or comma-separated list; default all')
     parser.add_argument('--seeds', nargs='*', default=None,
                         help='seed ids or comma-separated list')
-    parser.add_argument('--gpus', default=os.environ.get('GPU_LIST', '0'),
-                        help='comma-separated GPU ids')
+    parser.add_argument('--gpus',
+                        default=os.environ.get('GPU_LIST', '4,5,6,7'),
+                        help='comma-separated GPU ids (default: the '
+                             'server ablation cards 4,5,6,7)')
     parser.add_argument('--epochs', type=int, default=None,
                         help='override config epochs (default: config)')
     parser.add_argument('--resume', action=argparse.BooleanOptionalAction,
