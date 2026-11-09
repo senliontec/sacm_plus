@@ -12,7 +12,7 @@ From this file's directory: `../../../../3rd`
 
 ```text
 └── unet                  -> 3rd/Pytorch-UNet 已经正确, 实验曲线优秀
-├── cs2net                -> 3rd/CS-Net
+├── cs2net                -> 3rd/CS-Net 曲线基本正常
 ├── bcunet                -> 3rd/BCU-Net
 ├── maskvsc               -> 3rd/MaskVSC
 ├── nnwnet                -> 3rd/nnWNet 强的离谱
@@ -21,8 +21,8 @@ From this file's directory: `../../../../3rd`
 ├── cwsam                 -> 3rd/CWSAM
 ├── knowsam               -> 3rd/KnowSAM
 ├── segdino               -> 3rd/segdino
-├── sacm_official         -> 3rd/SACM
-├── sacm_stc             -> 3rd/SACM (corrected derivative of sacm_official)
+├── sacm_official         -> 3rd/SACM 曲线正常
+├── sacm_stc             -> 3rd/SACM (corrected derivative of sacm_official) 曲线正常
 
 
 .
