@@ -30,6 +30,7 @@ Example (server):
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import os
 import subprocess
@@ -265,6 +266,34 @@ def _artifact_nonempty(path: Path) -> bool:
         return False
 
 
+def _eval_complete(run_root: Path, expected_datasets: int) -> bool:
+    """Require a completed 20-dataset table, not merely a non-empty file.
+
+    A crashed eval can leave a header/partial table.  Checking only file size
+    would make a later resume skip the missing datasets and poison the
+    analysis.  The canonical table has one row per test dataset.
+    """
+    table = run_root / 'eval' / 'tables' / 'all_metrics.csv'
+    if not _artifact_nonempty(table):
+        return False
+    manifest = run_root / 'eval' / 'run_manifest.json'
+    if manifest.is_file():
+        try:
+            status = json.loads(manifest.read_text()).get('status')
+            if status not in (None, 'done'):
+                return False
+        except (OSError, ValueError, TypeError):
+            return False
+    try:
+        with open(table, newline='') as handle:
+            datasets = {
+                row.get('dataset') for row in csv.DictReader(handle)
+                if row.get('dataset')}
+    except (OSError, csv.Error):
+        return False
+    return len(datasets) >= int(expected_datasets)
+
+
 def _job_label(stage: str, job_id: str) -> str:
     return f'{stage}:{job_id}'
 
@@ -312,8 +341,11 @@ def _run_gpu_jobs(gpu: str, jobs: list[dict], log_root: Path,
                         f'{job["id"]}_{stamp}.log')
             if not _run_command(command_spec['command'], log_path, label):
                 ok = False
-                # Stop this GPU's queue after a failure; other GPUs continue.
-                return ok
+                # Skip the remaining stages of this arm/seed, but continue
+                # with the next independent job on this GPU.  An overnight
+                # run should maximize completed pairs, not stop an entire
+                # GPU queue because one run failed.
+                break
     return ok
 
 
@@ -398,29 +430,47 @@ def build_jobs(config: dict, protocol, stage: str, arms: list[str],
             split_root = protocol.split_for(seed).split_root
             protocol_path = protocol.split_for(seed).test_manifest
             commands = []
+            train_skip = False
             if stage in ('train', 'all'):
                 done = run_root / 'run_info.json'
+                train_skip = bool(resume and _run_info_done(done))
                 train_resume = bool(
-                    resume and (run_root / 'last_model.pth').is_file())
+                    resume and not train_skip
+                    and (run_root / 'last_model.pth').is_file())
                 commands.append({
                     'stage': 'train',
                     'command': _train_command(
                         config, arm, seed, '{gpu}', split_root, run_root,
                         epochs, train_resume),
                     'skip': (f'training complete ({_repo_text(done)})'
-                             if resume and _run_info_done(done) else None),
+                             if train_skip else None),
                 })
+            eval_skip = False
+            expected = int(config.get('expected_datasets', 20))
             if stage in ('eval', 'all'):
                 done = run_root / 'eval' / 'tables' / 'all_metrics.csv'
+                if stage == 'all':
+                    # If training is about to run, any old eval table belongs
+                    # to the old checkpoint and must not be reused.
+                    eval_skip = bool(
+                        train_skip and _eval_complete(run_root, expected))
+                else:
+                    eval_skip = bool(
+                        resume and _eval_complete(run_root, expected))
                 commands.append({
                     'stage': 'eval',
                     'command': _eval_command(
                         config, arm, seed, '{gpu}', protocol_path, run_root),
                     'skip': (f'evaluation complete ({_repo_text(done)})'
-                             if resume and _artifact_nonempty(done) else None),
+                             if eval_skip else None),
                 })
             if stage in ('diagnose', 'all'):
                 done = diag_root / arm / f'seed_{seed}' / 'summary.json'
+                if stage == 'all':
+                    diag_skip = bool(
+                        train_skip and eval_skip and done.is_file())
+                else:
+                    diag_skip = bool(resume and done.is_file())
                 commands.append({
                     'stage': 'diagnose',
                     'command': _diagnose_command(
@@ -428,7 +478,7 @@ def build_jobs(config: dict, protocol, stage: str, arms: list[str],
                         seed, '{gpu}', diag_root / arm / f'seed_{seed}',
                         diag_splits, diag_limit, diag_policy),
                     'skip': (f'diagnostics complete ({_repo_text(done)})'
-                             if resume and done.is_file() else None),
+                             if diag_skip else None),
                 })
             jobs.append({
                 'id': f'{arm}_seed{seed}',
@@ -538,7 +588,10 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     status = _dispatch_with_gpu_placeholders(
         jobs, gpus, log_root, args.dry_run, stamp)
-    if status == 0 and args.stage == 'all' and not args.dry_run:
+    # Always attempt the analysis after `all`, even if some jobs failed.  It
+    # reports missing pairs explicitly, so a morning operator still gets the
+    # completed subset instead of only a failed driver log.
+    if args.stage == 'all' and not args.dry_run:
         command = [
             sys.executable,
             str(REPO_ROOT / 'scripts' / 'pipeline' /

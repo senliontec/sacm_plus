@@ -31,6 +31,7 @@ protocol: seeded5
 method: sacm_stc
 seeds: [0, 1, 2, 3]
 epochs: 200
+expected_datasets: 20
 output_root: results/runs/sacm_stc
 wandb:
   project: sacm

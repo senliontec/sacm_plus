@@ -32,8 +32,18 @@ ANALYZER = _load_module(
 DIAGNOSTICS = _load_module(
     'sacm_stc_candidate_diagnostics',
     'scripts/pipeline/diagnose_sacm_stc_candidates.py')
+PAPER_TABLE = _load_module(
+    'sacm_stc_paper_table',
+    'scripts/pipeline/build_paper_table.py')
 CONFIG = REPO_ROOT / 'configs' / 'ablations' / \
     'sacm_stc_scope_structure.yaml'
+
+
+def test_sacm_stc_default_alias_is_rejected():
+    assert PAPER_TABLE._parse_models(['sacm_stc']) == [
+        ('sacm_stc', 'all_dense')]
+    with pytest.raises(SystemExit):
+        PAPER_TABLE._parse_models(['sacm_stc:default'])
 
 
 def test_ablation_config_and_train_command_parse():
@@ -90,6 +100,84 @@ def test_audit_jobs_build_diagnostic_commands():
         assert f'seed_{seed}/best_model.pth' in command[command.index(
             '--checkpoint') + 1]
         assert command[command.index('--max-per-dataset') + 1] == '20'
+
+
+def test_full_matrix_has_24_jobs_and_each_has_three_stages():
+    config = RUNNER.load_config(CONFIG)
+    from baseline_zoo.protocols import load_protocol
+    protocol = load_protocol('seeded5')
+    jobs = RUNNER.build_jobs(
+        config, protocol, 'all', list(config['arms']),
+        config['seeds'], 200, False)
+    assert len(jobs) == 6 * 4
+    assert all([spec['stage'] for spec in job['commands']]
+               == ['train', 'eval', 'diagnose'] for job in jobs)
+
+
+def test_eval_completion_requires_all_datasets(tmp_path):
+    run = tmp_path / 'run'
+    table = run / 'eval' / 'tables' / 'all_metrics.csv'
+    table.parent.mkdir(parents=True)
+    with open(table, 'w', newline='') as handle:
+        writer = csv.DictWriter(handle, fieldnames=['dataset'])
+        writer.writeheader()
+        writer.writerows([{'dataset': f'D{i}'} for i in range(20)])
+    assert RUNNER._eval_complete(run, 20) is True
+    assert RUNNER._eval_complete(run, 21) is False
+    with open(table, 'w', newline='') as handle:
+        writer = csv.DictWriter(handle, fieldnames=['dataset'])
+        writer.writeheader()
+        writer.writerows([{'dataset': f'D{i}'} for i in range(19)])
+    assert RUNNER._eval_complete(run, 20) is False
+    manifest = run / 'eval' / 'run_manifest.json'
+    manifest.write_text('{"status": "partial"}')
+    assert RUNNER._eval_complete(run, 19) is False
+
+
+def test_resume_does_not_reuse_eval_when_training_will_rerun(tmp_path):
+    import copy
+
+    config = copy.deepcopy(RUNNER.load_config(CONFIG))
+    config['output_root'] = str(tmp_path / 'runs')
+    config['diagnostics']['output_root'] = str(tmp_path / 'diagnostics')
+    from baseline_zoo.protocols import load_protocol
+    protocol = load_protocol('seeded5')
+    arm = 'b0_selected_base'
+    run = tmp_path / 'runs' / arm / 'seed_0'
+    table = run / 'eval' / 'tables' / 'all_metrics.csv'
+    _write_csv(table, [{'dataset': f'D{i}'} for i in range(20)],
+               ['dataset'])
+    (run / 'eval').mkdir(parents=True, exist_ok=True)
+    (run / 'eval' / 'run_manifest.json').write_text('{"status": "done"}')
+
+    jobs = RUNNER.build_jobs(
+        config, protocol, 'all', [arm], [0], 200, True)
+    commands = jobs[0]['commands']
+    # No run_info => training runs; the old complete eval must not be reused.
+    assert commands[0]['skip'] is None
+    assert commands[1]['skip'] is None
+    assert commands[2]['skip'] is None
+
+    (run / 'run_info.json').write_text('{"status": "done"}')
+    (tmp_path / 'diagnostics' / arm / 'seed_0').mkdir(parents=True)
+    (tmp_path / 'diagnostics' / arm / 'seed_0' / 'summary.json').write_text(
+        '{}')
+    jobs = RUNNER.build_jobs(
+        config, protocol, 'all', [arm], [0], 200, True)
+    commands = jobs[0]['commands']
+    assert commands[0]['skip'] is not None
+    assert commands[1]['skip'] is not None
+    assert commands[2]['skip'] is not None
+
+    # A partial old eval table must also be rerun.
+    _write_csv(table, [{'dataset': f'D{i}'} for i in range(19)],
+               ['dataset'])
+    jobs = RUNNER.build_jobs(
+        config, protocol, 'all', [arm], [0], 200, True)
+    commands = jobs[0]['commands']
+    assert commands[0]['skip'] is not None
+    assert commands[1]['skip'] is None
+    assert commands[2]['skip'] is None
 
 
 def test_diagnostic_helpers_are_deterministic():
@@ -201,6 +289,13 @@ def test_analysis_paired_contrasts_from_canonical_tables(tmp_path):
     assert float(b3_b2['mean_diff']) == pytest.approx(0.01)
     assert int(b3_b2['n']) == 2
     assert int(b3_b2['win']) == 2
+    arm_rows = list(csv.DictReader(
+        open(tmp_path / 'analysis' / 'arm_summary.csv')))
+    assert any(row['arm'] == 'b3_all_dense_all_structure'
+               and row['role'] == 'All'
+               and row['metric'] == 'dice'
+               and int(row['n_seeds']) == 2
+               for row in arm_rows)
     candidate_rows = list(csv.DictReader(
         open(tmp_path / 'analysis' / 'candidate_contrast_summary.csv')))
     candidate = [row for row in candidate_rows

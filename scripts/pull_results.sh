@@ -40,12 +40,11 @@ SERVER="${SERVER:-zkyd@172.16.1.7}"
 TARGET="${TARGET:-/home/zkyd/code/sacm-plus}"
 EXPECTED_DATASETS="${EXPECTED_DATASETS:-20}"
 
-# sacm_stc:default currently evaluates the all_dense checkpoint (its
-# run_info.json points best_checkpoint at all_dense), so it is an alias, not a
-# separate method.  Keep it in the default pull set for provenance, but leave
-# it out of the paper table command printed at the end.  --status marks such
-# runs with alias_of=<variant>.
-DEFAULT_MODELS=(sacm_stc:all_dense sacm_stc:default sacm_official:default unet:default cs2net:default maskvsc:default)
+# SACM-STC has one canonical main variant, all_dense.  The historical
+# default/ tree was only an eval alias of the all_dense checkpoint; it is
+# archived by scripts/archive_sacm_stc_main.sh and must not be pulled or
+# presented as a separate method.
+DEFAULT_MODELS=(sacm_stc:all_dense sacm_official:default unet:default cs2net:default maskvsc:default)
 DEFAULT_SEEDS=(0 1 2 3)
 
 MODEL_FILTERS=()

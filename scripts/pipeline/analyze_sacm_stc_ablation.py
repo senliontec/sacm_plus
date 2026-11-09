@@ -260,9 +260,41 @@ def _write_csv(path: Path, rows: list[dict], fields: list[str]) -> None:
         writer.writerows(rows)
 
 
+def _arm_summary_rows(config, macro: dict, arms: list[str],
+                      seeds: list[int]) -> list[dict]:
+    """Mean/std of each arm's own test metrics across seeds."""
+    rows = []
+    for arm in arms:
+        display = str(
+            (config.get('arms', {}).get(arm) or {}).get(
+                'display_name', arm))
+        for role in ROLES:
+            for metric in METRICS:
+                values = []
+                for seed in seeds:
+                    value = macro.get(arm, {}).get(seed, {}).get(
+                        (role, metric))
+                    if value is not None and math.isfinite(value):
+                        values.append(value)
+                if not values:
+                    continue
+                rows.append({
+                    'arm': arm,
+                    'display_name': display,
+                    'role': role,
+                    'metric': metric,
+                    'n_seeds': len(values),
+                    'mean': float(np.mean(values)),
+                    'std': (float(np.std(values, ddof=1))
+                            if len(values) > 1 else float('nan')),
+                })
+    return rows
+
+
 def _markdown_report(config, contrast_summaries: list[dict],
                      dataset_summaries: list[dict],
                      candidate_summaries: list[dict],
+                     arm_summaries: list[dict],
                      missing: list[str]) -> str:
     primary_metric = str((config.get('analysis') or {}).get(
         'primary_metric', 'dice'))
@@ -282,6 +314,25 @@ def _markdown_report(config, contrast_summaries: list[dict],
     if missing:
         lines += ['## Missing runs', '']
         lines += [f'- {item}' for item in missing]
+        lines.append('')
+    if arm_summaries:
+        lines += [
+            '',
+            f'## Arm test results ({primary_role} '
+            f'{DISPLAY.get(primary_metric, primary_metric)})',
+            '',
+            '| arm | description | mean | std | seeds |',
+            '|---|---|---:|---:|---:|',
+        ]
+        for row in arm_summaries:
+            if (row['role'] == primary_role
+                    and row['metric'] == primary_metric):
+                lines.append(
+                    f"| {row['arm']} | {row['display_name']} | "
+                    f"{_fmt(row['mean'], primary_metric)} "
+                    f"{_metric_suffix(primary_metric)} | "
+                    f"{_fmt(row['std'], primary_metric)} | "
+                    f"{row['n_seeds']} |")
         lines.append('')
     lines += [
         f'## Primary ({primary_role} '
@@ -412,6 +463,7 @@ def main(argv: list[str] | None = None) -> int:
             if values is not None:
                 candidate.setdefault(arm, {})[seed] = values
 
+    arm_summaries = _arm_summary_rows(config, macro, arms, seeds)
     contrast_summaries = []
     by_seed_rows = []
     dataset_rows = []
@@ -524,6 +576,9 @@ def main(argv: list[str] | None = None) -> int:
 
     output_root.mkdir(parents=True, exist_ok=True)
     _write_csv(
+        output_root / 'arm_summary.csv', arm_summaries,
+        ['arm', 'display_name', 'role', 'metric', 'n_seeds', 'mean', 'std'])
+    _write_csv(
         output_root / 'contrasts_by_seed.csv', by_seed_rows,
         ['contrast', 'label', 'role', 'metric', 'seed', 'left', 'right',
          'diff'])
@@ -545,11 +600,12 @@ def main(argv: list[str] | None = None) -> int:
          'ci_low', 'ci_high', 't', 'p', 'sign_test_p', 'win', 'loss', 'tie'])
     (output_root / 'ablation_report.md').write_text(
         _markdown_report(config, contrast_summaries, dataset_summaries,
-                         candidate_summaries, missing))
+                         candidate_summaries, arm_summaries, missing))
     (output_root / 'summary.json').write_text(json.dumps({
         'config': str(config_path),
         'arms': arms,
         'seeds': seeds,
+        'n_arm_rows': len(arm_summaries),
         'n_contrasts': len(config.get('contrasts', [])),
         'n_contrast_rows': len(contrast_summaries),
         'n_dataset_rows': len(dataset_rows),
@@ -559,7 +615,8 @@ def main(argv: list[str] | None = None) -> int:
     }, indent=2) + '\n')
 
     print(f'wrote ablation analysis to {output_root}')
-    print(f'  contrasts={len(contrast_summaries)} '
+    print(f'  arms={len(arm_summaries)} '
+          f'contrasts={len(contrast_summaries)} '
           f'dataset_rows={len(dataset_rows)} '
           f'candidate_rows={len(candidate_summaries)}')
     if missing:

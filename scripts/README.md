@@ -66,6 +66,23 @@ message. Use `WANDB_MODE=offline` for local W&B files or
 `WANDB_MODE=disabled` to turn it off. Direct `run_one` also defaults to
 W&B; pass `--use_wandb false` to disable it for a single run.
 
+## SACM-STC canonical result layout
+
+SACM-STC has one canonical main variant: `all_dense`.  The historical
+`sacm_stc/default/` tree was only an evaluation alias of the `all_dense`
+checkpoint and has been archived.  Do not pull or build a separate
+`sacm_stc:default` row.  A clean main rerun writes both training and eval
+tables under:
+
+```text
+results/runs/sacm_stc/all_dense/seed_<s>/
+```
+
+Ablation runs use their own `<arm>` variants and diagnostics/analysis live
+under `results/ablations/sacm_stc/`.  Use
+`bash scripts/archive_sacm_stc_main.sh` to preserve and move an old
+`all_dense` + `default` pair before rerunning.
+
 ## Reproduction runs
 
 Train and evaluate the proposed method and the official baseline separately,
@@ -94,19 +111,27 @@ protocol test datasets with Dice/IoU/clDice/HD95.  The recorder writes
 
 The dense-scope × structure-scope factorial is configured in
 `configs/ablations/sacm_stc_scope_structure.yaml`; the runner contains no
-arm names or model hyperparameters.  First audit the existing full
-checkpoints (no training), then launch the controlled matrix:
+arm names or model hyperparameters.  The one-command overnight launcher
+audits the existing full checkpoints, then runs all 24 controlled jobs
+automatically on 8 GPUs; each job is followed by its 20-dataset evaluation
+and candidate diagnostics:
 
 ```bash
-# Step 0: candidate-head audit of the existing all_dense runs
-bash scripts/run_sacm_stc_ablation.sh --stage audit --gpus 0,1,2,3
+# one command; self-daemonizes and prints PID/log
+bash scripts/run_sacm_stc_ablation_overnight.sh
+```
 
-# Controlled run: 6 arms x 4 seeds x 200 epochs (24 short runs)
+Manual stages are also available:
+
+```bash
+bash scripts/run_sacm_stc_ablation.sh --stage audit --gpus 0,1,2,3
 bash scripts/run_sacm_stc_ablation.sh --stage all --gpus 0,1,2,3,4,5,6,7
 ```
 
-The full method's 800-epoch `all_dense` results remain the main table; Aa
-at 200 epochs is the budget control.  See
+Ablation runs use distinct `<arm>` variants under
+`results/runs/sacm_stc/`; diagnostics/analysis live under
+`results/ablations/sacm_stc/`, and the existing 800-epoch `all_dense` main
+result is not modified.  See
 [`../configs/ablations/README.md`](../configs/ablations/README.md) for the
 arm definitions, Aa−As / Sa−Ss decision rules, outputs, and diagnostics.
 

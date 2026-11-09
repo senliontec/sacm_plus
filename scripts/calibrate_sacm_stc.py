@@ -13,10 +13,10 @@ the dense head alone is sometimes stronger than any composition.
 
 Usage:
   PYTHONPATH=src python scripts/calibrate_sacm_stc.py \
-    --checkpoint results/runs/sacm_stc/default/seed_0/best_model.pth \
-                 results/runs/sacm_stc/default/seed_0/checkpoints/epoch_0300.pth \
+    --checkpoint results/runs/sacm_stc/all_dense/seed_0/best_model.pth \
+                 results/runs/sacm_stc/all_dense/seed_0/checkpoints/epoch_0300.pth \
     --data-root data/sacm_3shot_seed0 --device cuda:0 \
-    --metric dice --save-calibrated results/runs/sacm_stc/default/seed_0/calibrated_model.pth
+    --metric dice --save-calibrated results/runs/sacm_stc/all_dense/seed_0/calibrated_model.pth
 """
 from __future__ import annotations
 

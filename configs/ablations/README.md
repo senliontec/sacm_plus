@@ -34,6 +34,23 @@ for the key arms rather than rerunning the whole matrix.
 
 ## Commands
 
+### Overnight one-command
+
+The launcher self-daemonizes, runs the candidate audit, then launches all 24
+short runs. Each run automatically gets its 20-dataset evaluation and
+candidate diagnostics; the paired analysis is written after all jobs finish.
+
+```bash
+# server, repo root
+bash scripts/run_sacm_stc_ablation_overnight.sh
+```
+
+It prints the PID and log path and returns immediately; closing the SSH
+session does not stop it. Use `--skip-audit` to omit Step 0, or
+`--gpus 0,1,...` to select cards.
+
+### Manual stages
+
 Step 0, audit the existing 800-epoch full checkpoints (no training):
 
 ```bash
@@ -66,21 +83,47 @@ bash scripts/run_sacm_stc_ablation.sh --stage all --no-resume
 `--resume` is on by default.  Training/eval stages source
 `scripts/wandb_env.sh`; audit/diagnose/analyze do not require W&B.
 
-## Outputs
+## Outputs and separation from the main runs
 
 ```text
 results/runs/sacm_stc/<arm>/seed_<s>/                 # training + eval
+results/runs/sacm_stc/<arm>/seed_<s>/eval/tables/     # 20-dataset results
 results/ablations/sacm_stc/candidate_diagnostics/<arm>/seed_<s>/
 results/ablations/sacm_stc/candidate_audit/seed_<s>/  # Step 0, full runs
-results/ablations/sacm_stc/analysis/                  # paired contrasts
-results/logs/sacm_stc_ablation/<config-name>/         # driver logs
+results/ablations/sacm_stc/analysis/                  # arm summary + contrasts
+results/ablations/sacm_stc/config_snapshot_<stamp>.yaml
+results/logs/sacm_stc_ablation/                       # driver/child logs
 ```
 
-The analysis report is `results/ablations/sacm_stc/analysis/ablation_report.md`.
-It reports paired seed differences, seed-level 95% CI and win/loss, a
-dataset-level paired bootstrap, and candidate-head diagnostics when present.
-All Dice/IoU/clDice/HD95 values are retained; the primary endpoint is
-pre-specified in the YAML (`analysis.primary_metric/primary_role`).
+`results/runs/sacm_stc/all_dense/` is the existing 800-epoch main result; the
+audit only reads it. Ablation runs use distinct arm variants, and W&B uses the
+`sacm_stc_scope_structure` group, so they cannot be confused with the main
+row.
+
+Morning checks:
+
+```bash
+cat results/ablations/sacm_stc/analysis/ablation_report.md
+cat results/ablations/sacm_stc/analysis/arm_summary.csv
+find results/ablations/sacm_stc/candidate_diagnostics -name summary.json | wc -l
+```
+
+The analysis report contains the arm-wise mean/std, paired seed differences,
+seed-level 95% CI and win/loss, a dataset-level paired bootstrap, and
+candidate-head diagnostics when present. All Dice/IoU/clDice/HD95 values are
+retained; the primary endpoint is pre-specified in the YAML
+(`analysis.primary_metric/primary_role`).
+
+### Overnight execution details
+
+- 6 arms × 4 seeds = 24 jobs; each job runs train → 20-dataset eval →
+  candidate diagnostics.
+- 8 GPUs: round-robin assignment, 3 jobs per GPU, at most 8 concurrent jobs;
+  jobs on one GPU run sequentially.
+- Default `--resume` skips completed stages. A failed GPU queue stops while
+  other GPUs continue; rerun the same command to fill missing results.
+- The launcher writes a timestamped driver log and config snapshot; the
+  existing `all_dense` tree is untouched.
 
 ## Decision rules
 

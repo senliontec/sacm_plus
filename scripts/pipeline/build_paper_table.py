@@ -37,7 +37,6 @@ LOWER_BETTER = {'hd95'}
 ROLE_ORDER = {'Seen': 0, 'Unseen': 1, 'Novel': 2}
 LABELS = {
     ('sacm_official', 'default'): 'SACM (official)',
-    ('sacm_stc', 'default'): 'SACM-STC',
     ('sacm_stc', 'all_dense'): 'SACM-STC',
 }
 
@@ -70,9 +69,12 @@ def _parse_models(values):
             model, variant = value.split(':', 1)
         else:
             model = value
-            # Most rows use variant=default; non-default method variants
-            # (for example SACM-STC all_dense) should be passed explicitly.
+            # Most rows use variant=default; SACM-STC has only its method
+            # variant all_dense and must never be treated as a baseline alias.
             variant = 'all_dense' if model == 'sacm_stc' else 'default'
+        if model == 'sacm_stc' and variant == 'default':
+            raise SystemExit(
+                'SACM-STC has no default variant; use sacm_stc:all_dense')
         parsed.append((model, variant))
     return parsed
 

@@ -449,6 +449,11 @@ def main():
         args.data_root = args.protocol.parent
     args.variant = resolve_variant(
         args.method, args.checkpoint, args.variant)
+    if args.method == 'sacm_stc' and args.variant == 'default':
+        raise SystemExit(
+            'SACM-STC has one canonical main variant: all_dense. '
+            'The historical default/ tree was an eval alias and is archived; '
+            'pass --variant all_dense or use the current run root.')
     canonical_run = run_root(args.method, args.variant, args.seed)
     if args.checkpoint is None:
         custom = {
