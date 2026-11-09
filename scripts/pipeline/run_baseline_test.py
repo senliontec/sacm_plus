@@ -109,6 +109,60 @@ def checkpoint_split_hash(path: Path):
         return None
 
 
+def _resolve_checkpoint_pointer(path: Path) -> Path | None:
+    """Resolve nnU-Net/KnowSAM ``*.txt`` model pointers."""
+    candidate = Path(path)
+    if candidate.suffix == '.txt':
+        if not candidate.is_file():
+            return None
+        try:
+            text = candidate.read_text().strip()
+        except OSError:
+            return None
+        if not text:
+            return None
+        candidate = Path(text)
+    return candidate
+
+
+def checkpoint_fingerprint(path: Path) -> str | None:
+    """Hash the checkpoint that prediction will actually deploy.
+
+    Custom pipelines expose a model-folder pointer (nnU-Net) or a pointer to
+    a state dict (KnowSAM).  Hashing the pointer file itself does not detect a
+    retrained model, so resolve it and hash the deployed checkpoint file.
+    """
+    candidate = _resolve_checkpoint_pointer(path)
+    if candidate is None:
+        return None
+    if candidate.is_file():
+        try:
+            return file_sha256(candidate)
+        except OSError:
+            return None
+    if candidate.is_dir():
+        names = (
+            'checkpoint_benchmark_best.pth',
+            'checkpoint_best.pth',
+            'checkpoint_final.pth',
+            'checkpoint_latest.pth',
+            'checkpoint_benchmark_best.safetensors',
+            'checkpoint_best.safetensors',
+            'checkpoint_final.safetensors',
+            'SGDL_best_model.pth',
+            'best_model.pth',
+        )
+        for base in (candidate / 'fold_0', candidate):
+            for name in names:
+                target = base / name
+                if target.is_file():
+                    try:
+                        return file_sha256(target)
+                    except OSError:
+                        return None
+    return None
+
+
 def resolve_variant(method: str, checkpoint: Path | None,
                     explicit: str | None) -> str:
     """Resolve the run variant without silently defaulting to ``default``.
@@ -470,9 +524,20 @@ def main():
                 split = resolve_split_manifest(args.protocol, args.seed)
                 expected_split = file_sha256(split)
                 custom_checkpoint = args.method in CUSTOM_CHECKPOINTS
-                expected_ckpt = (None if custom_checkpoint
-                                 else (file_sha256(args.checkpoint)
-                                       if args.checkpoint.is_file() else None))
+                if custom_checkpoint:
+                    expected_ckpt = checkpoint_fingerprint(args.checkpoint)
+                    if (expected_ckpt is not None
+                            and not meta.get('checkpoint_sha256')):
+                        # Legacy custom metadata predates checkpoint hashes;
+                        # warn instead of reporting a false stale mismatch.
+                        print('[warn] --skip-predict: custom prediction '
+                              'metadata has no checkpoint_sha256; cannot '
+                              'prove it matches the current model')
+                        expected_ckpt = None
+                else:
+                    expected_ckpt = (
+                        file_sha256(args.checkpoint)
+                        if args.checkpoint.is_file() else None)
                 if custom_checkpoint and not meta.get(
                         'split_manifest_sha256'):
                     # Custom nnU-Net/KnowSAM metadata predates the unified
@@ -624,6 +689,7 @@ def main():
         status_value = ('done' if preserve_manifest
                         else 'train_only' if args.skip_paper
                         else 'done' if full_eval else 'partial')
+        checkpoint_hash = checkpoint_fingerprint(args.checkpoint)
         manifest = {
             'family': 'baseline',
             'method': args.method,
@@ -631,9 +697,7 @@ def main():
             'seed': int(args.seed),
             'run_root': str(args.run_root),
             'checkpoint': str(args.checkpoint.resolve()),
-            'checkpoint_sha256': (
-                file_sha256(args.checkpoint)
-                if args.checkpoint.is_file() else None),
+            'checkpoint_sha256': checkpoint_hash,
             'protocol': str(args.protocol),
             'datasets': [name for name, _ in specs],
             'pred_root': str(method_pred_root),
@@ -671,6 +735,8 @@ def main():
                 '--pred-root', str(method_pred_root),
                 '--status', status_value,
                 '--cleanup']
+            if checkpoint_hash:
+                finalize_cmd += ['--checkpoint-sha256', checkpoint_hash]
             finalized = subprocess.run(finalize_cmd, cwd=REPO_ROOT,
                                        check=False)
             if finalized.returncode != 0:

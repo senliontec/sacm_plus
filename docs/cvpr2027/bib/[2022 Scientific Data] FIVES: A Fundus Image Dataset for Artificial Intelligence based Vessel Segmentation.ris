@@ -1,0 +1,23 @@
+TY  - JOUR
+AU  - Jin, Kai
+AU  - Huang, Xingru
+AU  - Zhou, Jingxing
+AU  - Li, Yunxiang
+AU  - Yan, Yan
+AU  - Sun, Yibao
+AU  - Zhang, Qianni
+AU  - Wang, Yaqi
+AU  - Ye, Juan
+PY  - 2022
+DA  - 2022/08/04
+TI  - FIVES: A Fundus Image Dataset for Artificial Intelligence based Vessel Segmentation
+JO  - Scientific Data
+SP  - 475
+VL  - 9
+IS  - 1
+AB  - Retinal vasculature provides an opportunity for direct observation of vessel morphology, which is linked to multiple clinical conditions. However, objective and quantitative interpretation of the retinal vasculature relies on precise vessel segmentation, which is time consuming and labor intensive. Artificial intelligence (AI) has demonstrated great promise in retinal vessel segmentation. The development and evaluation of AI-based models require large numbers of annotated retinal images. However, the public datasets that are usable for this task are scarce. In this paper, we collected a color fundus image vessel segmentation (FIVES) dataset. The FIVES dataset consists of 800 high-resolution multi-disease color fundus photographs with pixelwise manual annotation. The annotation process was standardized through crowdsourcing among medical experts. The quality of each image was also evaluated. To the best of our knowledge, this is the largest retinal vessel segmentation dataset for which we believe this work will be beneficial to the further development of retinal vessel segmentation.
+SN  - 2052-4463
+UR  - https://doi.org/10.1038/s41597-022-01564-3
+DO  - 10.1038/s41597-022-01564-3
+ID  - Jin2022
+ER  - 

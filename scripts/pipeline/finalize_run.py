@@ -983,6 +983,7 @@ def finalize(args: argparse.Namespace) -> Path:
         'variant': args.variant,
         'seed': int(args.seed),
         'checkpoint': str(canonical_checkpoint.resolve()),
+        'checkpoint_sha256': getattr(args, 'checkpoint_sha256', None),
         'checkpoint_kind': checkpoint.kind,
         'native_checkpoint': str(checkpoint.native.resolve()),
         'run_root': str(run_root.resolve()),
@@ -1018,6 +1019,7 @@ def finalize(args: argparse.Namespace) -> Path:
         'status': run_info['status'],
         'run_root': str(run_root.resolve()),
         'checkpoint': str(canonical_checkpoint.resolve()),
+        'checkpoint_sha256': getattr(args, 'checkpoint_sha256', None),
         'checkpoint_kind': checkpoint.kind,
         'native_checkpoint': str(checkpoint.native.resolve()),
         'last_checkpoint': extra_artifacts.get('last_checkpoint'),
@@ -1061,6 +1063,10 @@ def main() -> int:
     parser.add_argument('--source-train', type=Path, required=True)
     parser.add_argument('--source-eval', type=Path, required=True)
     parser.add_argument('--checkpoint', type=Path, default=None)
+    parser.add_argument(
+        '--checkpoint-sha256', default=None,
+        help='fingerprint of the deployed checkpoint file, recorded in the '
+             'canonical eval manifest')
     parser.add_argument('--out-root', type=Path, default=RUNS_ROOT)
     parser.add_argument('--cleanup', action='store_true',
                         help='remove pipeline-specific intermediates after '

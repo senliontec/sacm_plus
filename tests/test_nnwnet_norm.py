@@ -2,7 +2,13 @@
 
 from __future__ import annotations
 
+import csv
+import json
+from pathlib import Path
+
+import numpy as np
 import torch
+from PIL import Image
 from torch import nn
 
 from baseline_zoo.adapters.nnwnet import (
@@ -58,6 +64,65 @@ def test_checkpoint_norm_is_inferred_from_buffers(tmp_path):
         }
     }, instance)
     assert _infer_checkpoint_norm(instance) == 'instance'
+
+
+def _write_split(root: Path, split: str, stems: list[str]) -> None:
+    image_dir = root / split / 'images'
+    mask_dir = root / split / 'masks'
+    image_dir.mkdir(parents=True)
+    mask_dir.mkdir(parents=True)
+    for index, stem in enumerate(stems):
+        image = np.full((12, 16, 3), 40 + index, dtype=np.uint8)
+        Image.fromarray(image).save(image_dir / f'{stem}.png')
+        mask = np.zeros((12, 16), dtype=np.uint8)
+        mask[4:8, 3:12] = 255
+        Image.fromarray(mask).save(mask_dir / f'{stem}.png')
+    manifest = root / 'split_manifest.csv'
+    write_header = not manifest.is_file()
+    with manifest.open('a', newline='') as handle:
+        writer = csv.DictWriter(
+            handle, fieldnames=['dataset', 'split', 'output', 'group'])
+        if write_header:
+            writer.writeheader()
+        for stem in stems:
+            writer.writerow({
+                'dataset': 'DRIVE', 'split': split,
+                'output': stem, 'group': 'DRIVE'})
+
+
+def test_stage_raw_writes_binary_labels_and_fixed_split(tmp_path):
+    """nnU-Net labels must be 0/1 and the 18/6 split must stay explicit."""
+    data_root = tmp_path / 'data'
+    _write_split(data_root, 'train', ['DRIVE_1', 'DRIVE_2'])
+    _write_split(data_root, 'val', ['DRIVE_3'])
+    adapter = load_adapter('nnwnet')
+    raw = tmp_path / 'nnunet' / 'raw'
+
+    train_cases, _ = adapter._stage_raw(
+        raw, data_root, include_val=False, channels='grayscale')
+    train_cases, val_cases = adapter._stage_raw(
+        raw, data_root, include_val=True, channels='grayscale')
+
+    assert train_cases == ['DRIVE_1', 'DRIVE_2']
+    assert val_cases == ['DRIVE_3']
+    labels = np.asarray(Image.open(
+        raw / adapter_dataset_dir(raw) / 'labelsTr' / 'DRIVE_1.png'))
+    assert set(np.unique(labels)) <= {0, 1}
+    dataset_json = json.loads(
+        (raw / adapter_dataset_dir(raw) / 'dataset.json').read_text())
+    assert dataset_json['numTraining'] == 3
+    assert dataset_json['labels'] == {'background': 0, 'foreground': 1}
+    assert dataset_json['channel_names'] == {'0': 'grayscale'}
+
+    preprocessed = tmp_path / 'nnunet' / 'preprocessed'
+    adapter._write_splits(preprocessed, train_cases, val_cases)
+    splits = json.loads((preprocessed / 'splits_final.json').read_text())
+    assert splits == [{'train': train_cases, 'val': val_cases}]
+
+
+def adapter_dataset_dir(raw: Path) -> str:
+    from baseline_zoo.adapters.nnwnet import DATASET_NAME
+    return DATASET_NAME
 
 
 def test_trainer_builder_installs_instance_norm():

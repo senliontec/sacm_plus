@@ -154,6 +154,24 @@ def test_eval_root_stays_in_checkpoint_variant_run(tmp_path):
         copied / 'eval')
 
 
+def test_checkpoint_fingerprint_resolves_nnunet_model_pointer(tmp_path):
+    script = _load(
+        'run_baseline_test_under_test',
+        'scripts/pipeline/run_baseline_test.py')
+    model_dir = tmp_path / 'model'
+    fold = model_dir / 'fold_0'
+    fold.mkdir(parents=True)
+    checkpoint = fold / 'checkpoint_benchmark_best.pth'
+    checkpoint.write_bytes(b'nnunet-benchmark-weights')
+    pointer = tmp_path / 'nnunet_model_dir.txt'
+    pointer.write_text(str(model_dir) + '\n')
+
+    expected = script.file_sha256(checkpoint)
+    assert script.checkpoint_fingerprint(pointer) == expected
+    assert script.checkpoint_fingerprint(checkpoint) == expected
+    assert script.checkpoint_fingerprint(tmp_path / 'missing.txt') is None
+
+
 def test_finalizer_promotes_extra_artifacts(tmp_path):
     finalizer = _load('finalize_run_under_test',
                       'scripts/pipeline/finalize_run.py')

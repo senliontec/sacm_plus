@@ -1,0 +1,87 @@
+PMID- 19324866
+OWN - NLM
+STAT- MEDLINE
+DCOM- 20090512
+LR  - 20191210
+IS  - 1552-5783 (Electronic)
+IS  - 0146-0404 (Linking)
+VI  - 50
+IP  - 5
+DP  - 2009 May
+TI  - Measuring retinal vessel tortuosity in 10-year-old children: validation of the 
+      Computer-Assisted Image Analysis of the Retina (CAIAR) program.
+PG  - 2004-10
+LID - 10.1167/iovs.08-3018 [doi]
+AB  - PURPOSE: To examine the agreement of a novel computer program measuring retinal 
+      vessel tortuosity with subjective assessment of tortuosity in school-aged 
+      children. METHODS: Cross-sectional study of 387 retinal vessels (193 arterioles, 
+      194 veins) from 28 eyes of 14 children (aged 10 years). Retinal digital images 
+      were analyzed using the Computer Assisted Image Analysis of the Retina (CAIAR) 
+      program, including 14 measures of tortuosity. Vessels were graded (from 0 = none; 
+      to 5 = tortuous) independently by two observers. Interobserver agreement was 
+      assessed by using kappa statistics. Agreement with all 14 objective measures was 
+      assessed with correlation/regression analyses. Intersession repeatability 
+      (comparing morning and afternoon sessions) of tortuosity indices was calculated. 
+      RESULTS: Interobserver agreement of vessel tortuosity within one grade was high 
+      (kappa = 0.97), with total agreement in 56% of grades and 42% differing by +/-1 
+      grade. Tortuosity indices based on subdivided chord length methods showed strong 
+      log-linear associations with agreed subjective grades (typically r > 0.6; P < 
+      0.001). An approach that averages the distance from the vessel to chord length 
+      along the length of the vessel showed best agreement (r = 0.8; P < 0.0001). 
+      Tortuosity measures based on curvature performed less well. Intersession 
+      repeatability of the vessel to chord technique was good, differing by values 
+      equivalent to <1 in subjective grade. CONCLUSIONS: Tortuosity indices based on 
+      changes in subdivided chord lengths showed optimal agreement with subjective 
+      assessment. The relation of these indices to ethnicity and cardiovascular risk 
+      factors in childhood should be examined further, as these indices may be a useful 
+      indicator of early vascular function.
+FAU - Owen, Christopher G
+AU  - Owen CG
+AD  - Division of Community Health Sciences, St. George's, University of London, 
+      London, United Kingdom. cowen@sgul.ac.uk
+FAU - Rudnicka, Alicja R
+AU  - Rudnicka AR
+FAU - Mullen, Robert
+AU  - Mullen R
+FAU - Barman, Sarah A
+AU  - Barman SA
+FAU - Monekosso, Dorothy
+AU  - Monekosso D
+FAU - Whincup, Peter H
+AU  - Whincup PH
+FAU - Ng, Jeffrey
+AU  - Ng J
+FAU - Paterson, Carl
+AU  - Paterson C
+LA  - eng
+GR  - 068362/Z/02/Z/Wellcome Trust/United Kingdom
+PT  - Journal Article
+PT  - Research Support, Non-U.S. Gov't
+PT  - Validation Study
+DEP - 20090325
+PL  - United States
+TA  - Invest Ophthalmol Vis Sci
+JT  - Investigative ophthalmology & visual science
+JID - 7703701
+SB  - IM
+MH  - Arterioles/pathology
+MH  - Child
+MH  - Cross-Sectional Studies
+MH  - Humans
+MH  - Image Processing, Computer-Assisted/*methods
+MH  - Observer Variation
+MH  - Reproducibility of Results
+MH  - Retinal Diseases/*diagnosis
+MH  - Retinal Vessels/*pathology
+MH  - Venules/pathology
+EDAT- 2009/03/28 09:00
+MHDA- 2009/05/13 09:00
+CRDT- 2009/03/28 09:00
+PHST- 2009/03/28 09:00 [entrez]
+PHST- 2009/03/28 09:00 [pubmed]
+PHST- 2009/05/13 09:00 [medline]
+AID - iovs.08-3018 [pii]
+AID - 10.1167/iovs.08-3018 [doi]
+PST - ppublish
+SO  - Invest Ophthalmol Vis Sci. 2009 May;50(5):2004-10. doi: 10.1167/iovs.08-3018. 
+      Epub 2009 Mar 25.

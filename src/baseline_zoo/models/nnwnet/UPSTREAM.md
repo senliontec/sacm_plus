@@ -48,6 +48,14 @@ The training W&B run now uses the shared run_config fields and the same
   `nnunet/*`; it is not used for selection;
 - off-interval epochs log `train/loss`, `lr` and `nnunet/*`; the final epoch
   is always fully validated.
+- The custom pipeline writes the same canonical training artifacts as the
+  shared runtime: `train_config.json`, `provenance/`, `metrics_history.json`,
+  `run_info.json`, `wandb_run.json` and `val_metrics_by_dataset.csv`.
+- Prediction metadata records the deployed checkpoint SHA256. `--skip-predict`
+  validates it, and prediction warns when the shared-Dice benchmark
+  checkpoint is missing and it falls back to nnU-Net's EMA checkpoint.
+- The shared determinism contract is applied before training; nnU-Net may
+  still use internal RNGs, so `--seed` is not a bitwise guarantee.
 
 Full validation adds nnU-Net inference time every N epochs. The default
 `--nnwnet-val-interval 1` matches the per-epoch schema of other baselines;
