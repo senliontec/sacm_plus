@@ -13,9 +13,8 @@ from pathlib import Path
 import albumentations as A
 import numpy as np
 import torch
-from PIL import Image
 
-from baseline_zoo.data import load_rgb
+from baseline_zoo.data import load_mask, load_rgb
 from baseline_zoo.models.sam_octa import (
     DiceLoss,
     build_sam_octa,
@@ -55,7 +54,9 @@ class SAMOCTAAdapter(BaselineAdapter):
         'zero-pad inside Sam.preprocess. The pre-pad shape is recorded as '
         'input_size so postprocess crops the padding before GT resize.',
         'ViT-L is used as the shared SAM backbone (paper requirement); the '
-        'upstream default is ViT-H.',
+        'upstream default is ViT-H. ViT-B keeps the upstream '
+        'ResizeLongestSide(224); ViT-L/H use 1024. The checkpoint records '
+        'the selected input size.',
         'Checkpoint selection uses the 6-image validation split by Dice. '
         'Upstream saves every 10 epochs and selects manually. The official '
         '100-epoch budget is replaced by 800 epochs for the 18-image 3-shot '
@@ -73,11 +74,13 @@ class SAMOCTAAdapter(BaselineAdapter):
         'calibration. Official '
         'train_sam_octa.py uses an unseeded global RNG and DataParallel on one '
         'visible GPU; this port uses the shared protocol seed and a single '
-        'module, so data/augmentation order is not bitwise identical. Final '
-        'prediction prompt sampling is seeded from --seed before the first '
-        'eval sample; upstream leaves it unseeded. Official metrics are '
-        'Dice/Jaccard/Hausdorff; the shared evaluator reports '
-        'Dice/IoU/clDice/HD95.',
+        'module, so data/augmentation order is not bitwise identical. '
+        'Validation prompt sampling is reseeded from --seed at the start of '
+        'every validation pass so val-Dice checkpoint selection compares '
+        'epochs on the same prompts; upstream leaves it unseeded. Final '
+        'prediction prompt sampling is seeded before the first eval sample. '
+        'Official metrics are Dice/Jaccard/Hausdorff; the shared evaluator '
+        'reports Dice/IoU/clDice/HD95.',
     )
 
     def add_args(self, parser):
@@ -103,9 +106,18 @@ class SAMOCTAAdapter(BaselineAdapter):
         }
         return REPO_ROOT / 'checkpoints' / names[model_type]
 
+    @staticmethod
+    def _input_size_for_model(model_type: str) -> int:
+        """Match the official longest-side resize for the selected backbone."""
+        return 224 if model_type == 'vit_b' else 1024
+
     def build_model(self, args):
         self.model_type = str(getattr(
             args, 'sam_octa_model_type', 'vit_l'))
+        stored_input = getattr(args, 'input_size', None)
+        self.input_size = (
+            int(stored_input) if stored_input is not None
+            else self._input_size_for_model(self.model_type))
         checkpoint = getattr(args, 'sam_checkpoint', None)
         if checkpoint is None:
             checkpoint = self._default_checkpoint(self.model_type)
@@ -152,6 +164,8 @@ class SAMOCTAAdapter(BaselineAdapter):
                 getattr(args, 'sam_octa_model_type', 'vit_l'))),
             'sam_checkpoint': str(checkpoint) if checkpoint else None,
             'sam_checkpoint_sha256': sha,
+            'sam_octa_threshold': float(getattr(
+                args, 'sam_octa_threshold', 0.8)),
         }
 
     def restore_config(self, args, config):
@@ -163,6 +177,8 @@ class SAMOCTAAdapter(BaselineAdapter):
             self.model_type = args.sam_octa_model_type
         if config.get('sam_checkpoint'):
             args.sam_checkpoint = Path(config['sam_checkpoint'])
+        if 'sam_octa_threshold' in config:
+            args.sam_octa_threshold = float(config['sam_octa_threshold'])
 
     def _augment(self, image: np.ndarray, label: np.ndarray):
         transform = A.Compose([
@@ -180,11 +196,30 @@ class SAMOCTAAdapter(BaselineAdapter):
         return np.asarray(image, dtype=np.uint8)
 
     def _load_label(self, sample):
-        with Image.open(sample.mask_path) as mask:
-            label = np.asarray(mask.convert('L'))
-        return (label > 127).astype(np.uint8)
+        # Shared loader accepts 0/255 and literal 0/1 masks; a bare >127
+        # threshold would silently turn 0/1 masks into all background.
+        return load_mask(sample.mask_path).astype(np.uint8)
 
-    def _prepare(self, sample, augment_rng: random.Random | None, device):
+    def _prompt_points(self, label, validation: bool):
+        """Sample GT prompts, optionally from a per-validation RNG.
+
+        Training and final prediction keep the official global-RNG prompt
+        order.  Validation uses a dedicated RNG so every epoch sees the same
+        prompts and val-Dice selection is not dominated by prompt noise.
+        """
+        rng = getattr(self, '_validation_prompt_rng', None)
+        if not validation or rng is None:
+            return label_to_point_prompt_global(label, 1, 1)
+        state = random.getstate()
+        random.setstate(rng.getstate())
+        try:
+            return label_to_point_prompt_global(label, 1, 1)
+        finally:
+            rng.setstate(random.getstate())
+            random.setstate(state)
+
+    def _prepare(self, sample, augment_rng: random.Random | None, device,
+                 validation: bool = False):
         image = self._load_image(sample)
         label = self._load_label(sample)
         if augment_rng is not None:
@@ -199,7 +234,7 @@ class SAMOCTAAdapter(BaselineAdapter):
         # the model makes that crop a no-op and shifts predictions.
         tensor = resize.apply_image_torch(tensor)
 
-        _, pos, neg = label_to_point_prompt_global(label, 1, 1)
+        _, pos, neg = self._prompt_points(label, validation)
         points = np.array(pos + neg, dtype=np.float32).reshape(-1, 2)
         labels = np.array([1] * len(pos) + [0] * len(neg), dtype=np.int64)
         coords = torch.from_numpy(points).unsqueeze(0)
@@ -227,13 +262,25 @@ class SAMOCTAAdapter(BaselineAdapter):
         seed_everything(int(getattr(self.args, 'seed', 0) or 0))
         self._prediction_seeded = True
 
+    def begin_validation(self):
+        """Reseed validation prompts once per validation pass."""
+        args = getattr(self, 'args', None)
+        seed = int(getattr(args, 'seed', 0) or 0)
+        self._validation_prompt_rng = random.Random(seed)
+
+    def begin_prediction(self):
+        super().begin_prediction()
+        # Final prediction uses the official global-RNG sequence, not the
+        # per-validation prompt RNG.
+        self._validation_prompt_rng = None
+
     def prepare_train_batch(self, samples, rng: random.Random):
         # The official prompt encoder handles one variable-length prompt list;
         # silently dropping extra samples would under-train the batch.
         if len(samples) != 1:
             raise RuntimeError(
                 'SAM-OCTA requires --batch-size 1 (official prompt encoder)')
-        return self._prepare(samples[0], rng, self.device)
+        return self._prepare(samples[0], rng, self.device, validation=False)
 
     def train_step(self, model, batch):
         pred = model(batch['image'], batch['original_size'],
@@ -243,7 +290,9 @@ class SAMOCTAAdapter(BaselineAdapter):
 
     def prepare_eval_sample(self, sample, device):
         self._seed_prediction_rng()
-        return self._prepare(sample, None, device)
+        validation = getattr(
+            self, '_validation_prompt_rng', None) is not None
+        return self._prepare(sample, None, device, validation=validation)
 
     def predict_sample(self, model, prepared, sample):
         self._seed_prediction_rng()

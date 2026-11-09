@@ -117,6 +117,15 @@ class BaselineAdapter(ABC):
         self.prediction_mode = True
         self._prediction_seeded = False
 
+    def begin_validation(self) -> None:
+        """Reset per-validation sampling state before a validation pass.
+
+        The default is a no-op.  Adapters whose official evaluation samples
+        prompts randomly can override this to make per-epoch validation
+        deterministic, so checkpoint selection compares epochs on the same
+        prompts instead of prompt noise.
+        """
+
     # ---- construction -------------------------------------------------
     @abstractmethod
     def build_model(self, args: argparse.Namespace) -> nn.Module:
@@ -305,6 +314,7 @@ def evaluate(adapter: BaselineAdapter, model: nn.Module,
              empty_policy: str = 'penalty'
              ) -> tuple[dict[str, float], dict[str, dict[str, float]]]:
     model.eval()
+    adapter.begin_validation()
     overall = {key: [] for key in (*METRIC_NAMES, 'empty')}
     per_dataset: dict[str, dict[str, list[float]]] = {}
     for sample in samples:
