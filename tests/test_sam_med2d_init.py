@@ -6,12 +6,17 @@ Regression for the official ``load_from`` behaviour that excluded
 256-input SAM-Med2D model and must be inherited, not random-initialised.
 """
 
+import random
 from pathlib import Path
+from types import SimpleNamespace
 
+import numpy as np
 import pytest
 import torch
+from PIL import Image
 
 from baseline_zoo.adapters.sam_med2d import SamMed2DAdapter
+from baseline_zoo.data import Sample
 from baseline_zoo.models.sam_med2d import build_sam_med2d
 from baseline_zoo.models.sam_med2d.segment_anything.build_sam import (
     _checkpoint_coverage,
@@ -70,6 +75,36 @@ def test_sam_med2d_inherits_full_sam_decoder():
 
     # Adapters have no SAM checkpoint tensors; they remain trainable/random.
     assert any('Adapter' in key for key in target)
+
+
+def test_empty_mask_uses_full_image_box():
+    empty = torch.zeros(8, 16, dtype=torch.int64)
+    boxes = SamMed2DAdapter._prompt_boxes(empty)
+    assert boxes.shape == (1, 4)
+    assert boxes.tolist() == [[0.0, 0.0, 15.0, 7.0]]
+
+
+def test_empty_mask_train_and_eval_preparation(tmp_path):
+    image_path = tmp_path / 'EMPTY_0.png'
+    mask_path = tmp_path / 'EMPTY_0_mask.png'
+    Image.fromarray(np.zeros((12, 16, 3), dtype=np.uint8)).save(image_path)
+    Image.fromarray(np.zeros((12, 16), dtype=np.uint8)).save(mask_path)
+    sample = Sample(image_path, mask_path, 'EMPTY', 'EMPTY_0')
+
+    adapter = SamMed2DAdapter()
+    adapter.args = SimpleNamespace(mask_num=1)
+
+    prepared = adapter.prepare_eval_sample(sample, 'cpu')
+    assert prepared['image'].shape == (1, 3, 256, 256)
+    assert prepared['boxes'].shape == (1, 4)
+    assert prepared['original_size'] == (12, 16)
+
+    batch = adapter.prepare_train_batch([sample], random.Random(0))
+    assert batch['image'].shape == (1, 3, 256, 256)
+    assert batch['label'].shape == (1, 1, 256, 256)
+    assert int(batch['label'].sum()) == 0
+    assert batch['boxes'].shape == (1, 1, 4)
+    assert batch['point_coords'].shape == (1, 1, 2)
 
 
 def test_default_checkpoint_matches_model_type():

@@ -74,9 +74,13 @@ class SamMed2DAdapter(BaselineAdapter):
         'Official train.py uses workers=4 and unseeded global random/NumPy; '
         'this port uses workers=0 and the shared seeded runtime. The decoder '
         'initialization difference is documented above.',
-        'The official Adapter has ~646M trainable parameters, whose Adam '
-        'state plus the ViT-L model exceeds 11 GiB; official training needs '
-        'a >=24 GiB GPU (e.g. RTX 3090). Prediction fits in 11 GiB.',
+        'The default ViT-B policy trains ~185M parameters (271M total). '
+        'The ViT-L comparison trains ~646M (950M total), whose Adam state '
+        'plus the model exceeds 11 GiB; use >=24 GiB for ViT-L/H. ViT-B '
+        'prediction fits in 11 GiB.',
+        'An all-background GT has no GT box; training/evaluation fall back '
+        'to a full-image box prompt instead of crashing. The current 20-'
+        'dataset protocol has no empty masks, but external datasets may.',
         'Per-block activation checkpointing is enabled for memory; it is '
         'disabled in eval and does not change numerics.',
     )
@@ -186,6 +190,24 @@ class SamMed2DAdapter(BaselineAdapter):
         return (augmented['image'], augmented['mask'].to(torch.int64),
                 height, width)
 
+    @staticmethod
+    def _prompt_boxes(mask, max_pixel: int = 5):
+        """Return GT boxes, using a full-image box for an empty GT mask.
+
+        ``get_boxes_from_mask`` correctly returns ``[]`` when a mask has no
+        foreground, but SAM-Med2D's prompt encoder needs a box tensor.  A
+        full-image box is a neutral prompt for the degenerate empty-mask
+        case; the shared evaluator still scores the resulting prediction
+        against the empty GT.
+        """
+        boxes = get_boxes_from_mask(mask, max_pixel=max_pixel)
+        if isinstance(boxes, torch.Tensor) and boxes.numel() > 0:
+            return boxes
+        height, width = int(mask.shape[-2]), int(mask.shape[-1])
+        return torch.tensor(
+            [[0.0, 0.0, max(width - 1, 0), max(height - 1, 0)]],
+            dtype=torch.float32)
+
     def prepare_train_batch(self, samples, rng: random.Random):
         images, labels, boxes, coords, point_labels = [], [], [], [], []
         mask_num = self.args.mask_num
@@ -194,7 +216,7 @@ class SamMed2DAdapter(BaselineAdapter):
             images.append(image)
             for _ in range(mask_num):
                 labels.append(mask.unsqueeze(0))
-                boxes.append(get_boxes_from_mask(mask))
+                boxes.append(self._prompt_boxes(mask))
                 pc, pl = init_point_sampling(mask, 1)
                 coords.append(pc)
                 point_labels.append(pl)
@@ -332,7 +354,7 @@ class SamMed2DAdapter(BaselineAdapter):
 
     def prepare_eval_sample(self, sample, device):
         image, mask, height, width = self._load(sample)
-        boxes = get_boxes_from_mask(mask, max_pixel=0)
+        boxes = self._prompt_boxes(mask, max_pixel=0)
         return {
             'image': image.unsqueeze(0).to(device),
             'boxes': boxes.to(device),
