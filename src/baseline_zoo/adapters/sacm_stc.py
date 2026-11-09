@@ -9,6 +9,11 @@ soft bilinear targets and a foreground-weighted BCE.  The geometry terms
 regularize the masks that are actually evaluated; there is no auxiliary
 centerline/boundary head and no test-time selector.
 
+For controlled ablations, ``--stage2-loss-scope`` and
+``--topology-head selected`` can restrict the dense or structural loss to the
+deployed Stage-2 slot.  Defaults remain all-candidate dense loss and the
+legacy topology target, so the shipped recipe is unchanged.
+
 An earlier prototype instead specialized the four heads to dense, centerline,
 boundary and width, with a typed composer.  That path remains available for
 ablation (``--use-typed-stage2 1``) but is not the shipped configuration: the
@@ -147,6 +152,13 @@ class SACMSTCAdapter(BaselineAdapter):
             '--deployment-head', type=int, default=2,
             help='Stage-2 head used by fixed deployment and topology losses')
         parser.add_argument(
+            '--stage2-loss-scope', choices=['all', 'selected'],
+            default='all',
+            help='Stage-2 dense mask loss: all = mean over the four native '
+                 'candidates (shipped default); selected = only the '
+                 'deployment-selected slot (gating slot 0, or deployment-head '
+                 'when head-select=fixed)')
+        parser.add_argument(
             '--cl-dice-weight', type=float, default=0.0,
             help='binary soft-clDice weight on the topology head (0 disables)')
         parser.add_argument(
@@ -159,9 +171,10 @@ class SACMSTCAdapter(BaselineAdapter):
             '--topology-resolution', type=int, default=512,
             help='resolution used to compute optional topology losses')
         parser.add_argument(
-            '--topology-head', choices=['deployment', 'all'],
+            '--topology-head', choices=['deployment', 'selected', 'all'],
             default='deployment',
-            help='apply topology losses to the deployment head or all heads')
+            help='apply topology losses to one fixed deployment head, the '
+                 'deployment-selected slot (selected), or all four heads')
         parser.add_argument(
             '--topology-warmup-epochs', type=int, default=5,
             help='linearly ramp topology losses in over this many epochs')
@@ -234,6 +247,59 @@ class SACMSTCAdapter(BaselineAdapter):
                     if float(getattr(args, 'iou_loss_weight', 0.0)) > 0
                     else 'gating')
         return requested
+
+    def _selected_stage2_index(self):
+        """Return the post-gating Stage-2 slot used for deployment.
+
+        ``gating`` deploys slot 0 after the decoder reorders the candidates.
+        ``fixed`` uses ``deployment-head``.  ``gating_soft`` and ``mean``
+        deploy an aggregate, and ``iou`` selects a different slot per image;
+        those selectors have no single supervised candidate and are rejected
+        rather than silently mapping to slot 0.
+        """
+        if self.head_select == 'gating':
+            return 0
+        if self.head_select == 'fixed':
+            return int(self.deployment_head)
+        raise ValueError(
+            'selected candidate scope requires head-select=gating or fixed; '
+            f'got {self.head_select!r}')
+
+    def _stage2_loss_indices(self, num_heads):
+        """Indices of Stage-2 candidates receiving the dense mask loss."""
+        scope = str(getattr(
+            getattr(self, 'args', None), 'stage2_loss_scope', 'all'))
+        if scope == 'all':
+            return list(range(int(num_heads)))
+        if scope == 'selected':
+            index = self._selected_stage2_index()
+            if not 0 <= index < int(num_heads):
+                raise ValueError(
+                    f'selected Stage-2 index {index} outside [0, '
+                    f'{num_heads})')
+            return [index]
+        raise ValueError(f'unknown stage2-loss-scope: {scope!r}')
+
+    def _topology_indices(self, num_heads):
+        """Indices of Stage-2 candidates receiving structural losses."""
+        head = str(getattr(
+            getattr(self, 'args', None), 'topology_head', 'deployment'))
+        if head == 'all':
+            return list(range(int(num_heads)))
+        if head == 'selected':
+            index = self._selected_stage2_index()
+        elif head == 'deployment':
+            index = int(self.deployment_head)
+        else:
+            raise ValueError(f'unknown topology-head: {head!r}')
+        if not 0 <= index < int(num_heads):
+            raise ValueError(
+                f'topology index {index} outside [0, {num_heads})')
+        return [index]
+
+    def selected_candidate_index(self):
+        """Public deployment-slot index for candidate diagnostics."""
+        return self._selected_stage2_index()
 
     def build_model(self, args):
         # The prediction phase loads a full SACM-STC state dict.  Upstream
@@ -323,6 +389,8 @@ class SACMSTCAdapter(BaselineAdapter):
             'head_select': getattr(
                 self, 'head_select', self._resolved_head_select(args)),
             'deployment_head': int(getattr(args, 'deployment_head', 2)),
+            'stage2_loss_scope': getattr(
+                args, 'stage2_loss_scope', 'all'),
             'cl_dice_weight': float(getattr(args, 'cl_dice_weight', 0.0)),
             'tversky_weight': float(getattr(args, 'tversky_weight', 0.0)),
             'skeleton_recall_weight': float(
@@ -388,7 +456,8 @@ class SACMSTCAdapter(BaselineAdapter):
                     'bce_pos_weight', 'binary_targets', 'deploy_threshold',
                     'stage1_fusion_weight', 'stage1_fusion_mode',
                     'deep_sup_weight', 'iou_loss_weight',
-                    'deployment_head', 'cl_dice_weight', 'tversky_weight',
+                    'deployment_head', 'stage2_loss_scope',
+                    'cl_dice_weight', 'tversky_weight',
                     'skeleton_recall_weight', 'topology_resolution',
                     'topology_head', 'topology_warmup_epochs',
                     'tversky_alpha', 'tversky_beta', 'use_stc',
@@ -869,10 +938,7 @@ class SACMSTCAdapter(BaselineAdapter):
             raise ValueError('topology-resolution must be positive')
         target = F.interpolate(
             masks, size=(resolution, resolution), mode='nearest')
-        if getattr(args, 'topology_head', 'deployment') == 'all':
-            indices = list(range(stage2.shape[1]))
-        else:
-            indices = [self.deployment_head]
+        indices = self._topology_indices(stage2.shape[1])
 
         total = stage2.new_zeros(())
         for index in indices:
@@ -920,10 +986,11 @@ class SACMSTCAdapter(BaselineAdapter):
 
         bce_weight = float(self.args.bce_weight)
         dice_weight = float(self.args.dice_weight)
+        head_indices = self._stage2_loss_indices(stage2.shape[1])
         head_losses = [
             self._mask_criterion(stage2[:, k:k + 1], masks,
                                  bce_weight, dice_weight)
-            for k in range(stage2.shape[1])
+            for k in head_indices
         ]
         loss_main = torch.stack(head_losses).mean()
 
@@ -1058,3 +1125,40 @@ class SACMSTCAdapter(BaselineAdapter):
                                mode='bilinear', align_corners=False)
         threshold = float(getattr(self.args, 'deploy_threshold', 0.5))
         return (torch.sigmoid(logits)[0, 0].cpu().numpy() > threshold)
+
+    @torch.no_grad()
+    def predict_candidates(self, model, prepared, sample):
+        """Return all four post-gating Stage-2 candidates at GT resolution.
+
+        This is an analysis-only helper used by the candidate-head audit.  It
+        deliberately rejects typed/STC/fused deployments because their
+        deployed mask is not one of the four native Stage-2 candidates.
+        ``candidate 0`` is the deployment slot for the shipped gating recipe;
+        callers should use :meth:`selected_candidate_index` rather than
+        assuming index 0 for other selectors.
+        """
+        if not sample.mask_path:
+            raise ValueError('candidate diagnostics require a GT mask')
+        if int(getattr(self.args, 'use_typed_stage2', 0)) == 1:
+            raise RuntimeError(
+                'candidate diagnostics do not support typed Stage-2')
+        if int(getattr(self.args, 'use_stc', 0)) == 1:
+            raise RuntimeError(
+                'candidate diagnostics do not support the STC branch')
+        if float(getattr(self.args, 'stage1_fusion_weight', 0.0)) > 0:
+            raise RuntimeError(
+                'candidate diagnostics require stage1-fusion-weight=0')
+
+        stage2, _ = self._forward(
+            model, prepared, return_stage1=False)
+        if stage2.shape[1] != 4:
+            raise RuntimeError(
+                f'expected four Stage-2 candidates, got {stage2.shape[1]}')
+        with Image.open(sample.mask_path) as mask:
+            width, height = mask.size
+        logits = F.interpolate(
+            stage2, size=(height, width), mode='bilinear',
+            align_corners=False)
+        threshold = float(getattr(self.args, 'deploy_threshold', 0.5))
+        probs = torch.sigmoid(logits)[0].detach().cpu().numpy()
+        return probs > threshold

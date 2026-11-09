@@ -90,6 +90,26 @@ protocol test datasets with Dice/IoU/clDice/HD95.  The recorder writes
 `SEEDS="..."`, `RESUME=1` (skip completed jobs), `SKIP_TRAIN=1`,
 `SKIP_EVAL=1`, `EXPECTED_DATASETS=20`.
 
+## SACM-STC scope/structure ablation
+
+The dense-scope × structure-scope factorial is configured in
+`configs/ablations/sacm_stc_scope_structure.yaml`; the runner contains no
+arm names or model hyperparameters.  First audit the existing full
+checkpoints (no training), then launch the controlled matrix:
+
+```bash
+# Step 0: candidate-head audit of the existing all_dense runs
+bash scripts/run_sacm_stc_ablation.sh --stage audit --gpus 0,1,2,3
+
+# Controlled run: 6 arms x 4 seeds x 200 epochs (24 short runs)
+bash scripts/run_sacm_stc_ablation.sh --stage all --gpus 0,1,2,3,4,5,6,7
+```
+
+The full method's 800-epoch `all_dense` results remain the main table; Aa
+at 200 epochs is the budget control.  See
+[`../configs/ablations/README.md`](../configs/ablations/README.md) for the
+arm definitions, Aa−As / Sa−Ss decision rules, outputs, and diagnostics.
+
 ## Paper Table 2 (all 20 datasets)
 
 After both runs have finished (the combined script above already does this),

@@ -1,0 +1,98 @@
+# SACM-STC ablation configs
+
+`configs/ablations/sacm_stc_scope_structure.yaml` is the single source of
+truth for the dense-scope × structure-scope factorial.  The runner does not
+contain arm names or hyperparameters; edit the YAML and rerun.
+
+## Why these six arms
+
+The paper claim is **all-candidate structural supervision**, so both dense
+and structural scope must be varied independently:
+
+| arm | dense Stage-2 loss | structural loss | purpose |
+|---|---|---|---|
+| `b0_selected_base` (S0) | deployed slot only | none | clean selected-only base |
+| `b1_all_dense_base` (A0) | all four candidates | none | all-candidate dense supervision |
+| `ss_selected_dense_selected_structure` (Ss) | deployed slot only | deployed slot only | structure on the deployed candidate |
+| `sa_selected_dense_all_structure` (Sa) | deployed slot only | all four candidates | structure scope with selected-dense base |
+| `b2_all_dense_selected_structure` (As) | all four candidates | deployed slot only | dense scope with selected structure |
+| `b3_all_dense_all_structure` (Aa) | all four candidates | all four candidates | shipped full method |
+
+The two key structural-scope contrasts are **Aa - As** and **Sa - Ss**.
+Each holds dense supervision fixed and holds the total structural-loss
+budget equal (the topology loss averages over its selected heads), so only
+the structure scope changes.  The dense-scope contrasts are **As - Ss** and
+**Aa - Sa**.  A 2x2 that omits Ss/Sa cannot answer whether the structure
+scope effect depends on the all-dense base.
+
+All arms fix Stage-1 deep supervision at 0.3, soft targets, foreground BCE
+weight 2, gating deployment, the 1024 input, and the official optimizer.  The
+ablation uses 200 epochs and seeds 0-3 for the fast validation pass; Aa at
+200 epochs is the budget control for the main 800-epoch result.  If the
+factorial pattern is promising but a key contrast is borderline, add seed 4
+for the key arms rather than rerunning the whole matrix.
+
+## Commands
+
+Step 0, audit the existing 800-epoch full checkpoints (no training):
+
+```bash
+bash scripts/run_sacm_stc_ablation.sh --stage audit --gpus 0,1,2,3
+```
+
+If the candidates are nearly identical / oracle regret is negligible, do
+not spend the full matrix budget; reconsider the framing first.
+
+Full controlled run (24 short runs = 6 arms × 4 seeds):
+
+```bash
+bash scripts/run_sacm_stc_ablation.sh --stage all --gpus 0,1,2,3,4,5,6,7
+```
+
+Useful variants:
+
+```bash
+# only the two all-dense structural-scope arms (As/Aa) on four seeds
+bash scripts/run_sacm_stc_ablation.sh --stage all --gpus 0,1,2,3 \
+  --arms b2_all_dense_selected_structure,b3_all_dense_all_structure --seeds 0 1 2 3
+
+# inspect commands without launching anything
+bash scripts/run_sacm_stc_ablation.sh --stage all --dry-run
+
+# re-run completed stages
+bash scripts/run_sacm_stc_ablation.sh --stage all --no-resume
+```
+
+`--resume` is on by default.  Training/eval stages source
+`scripts/wandb_env.sh`; audit/diagnose/analyze do not require W&B.
+
+## Outputs
+
+```text
+results/runs/sacm_stc/<arm>/seed_<s>/                 # training + eval
+results/ablations/sacm_stc/candidate_diagnostics/<arm>/seed_<s>/
+results/ablations/sacm_stc/candidate_audit/seed_<s>/  # Step 0, full runs
+results/ablations/sacm_stc/analysis/                  # paired contrasts
+results/logs/sacm_stc_ablation/<config-name>/         # driver logs
+```
+
+The analysis report is `results/ablations/sacm_stc/analysis/ablation_report.md`.
+It reports paired seed differences, seed-level 95% CI and win/loss, a
+dataset-level paired bootstrap, and candidate-head diagnostics when present.
+All Dice/IoU/clDice/HD95 values are retained; the primary endpoint is
+pre-specified in the YAML (`analysis.primary_metric/primary_role`).
+
+## Decision rules
+
+Do not claim the all-candidate structural contribution unless **Aa - As** is
+consistent on the deployed slot and, preferably, the candidate diagnostics
+show a corresponding improvement.  A positive **Sa - Ss** strengthens the
+claim by showing the structure-scope effect is not specific to the all-dense
+base; a null Sa - Ss means the all-candidate effect is conditional and must
+be phrased that way.  If Aa ~ As, the structural loss may still help
+(Ss - S0 or As - A0), but it is not evidence for the all-candidate scope;
+adjust the paper claim/name accordingly.  If A0 ~ S0, all-candidate dense
+supervision is not supported.  A null component is reported as null, not
+rescued by changing the primary endpoint or adding seeds until a p-value
+appears.  Four seeds are an exploratory screen; promote only the key arms to
+five seeds if the factorial pattern is promising.

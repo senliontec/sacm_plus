@@ -236,7 +236,8 @@ def test_sacm_stc_config_roundtrip():
     args = argparse.Namespace(
         adapter_dim_ratio=0.25, bce_weight=0.6, dice_weight=0.4,
         deep_sup_weight=0.1, iou_loss_weight=0.5, head_select='fixed',
-        input_size=1024, deployment_head=3, cl_dice_weight=0.2,
+        input_size=1024, deployment_head=3, stage2_loss_scope='selected',
+        cl_dice_weight=0.2,
         tversky_weight=0.3, skeleton_recall_weight=0.1,
         topology_resolution=512, topology_head='deployment',
         topology_warmup_epochs=4, tversky_alpha=0.4, tversky_beta=0.6,
@@ -262,6 +263,7 @@ def test_sacm_stc_config_roundtrip():
     assert restored.iou_loss_weight == 0.5
     assert restored.head_select == 'fixed'
     assert restored.deployment_head == 3
+    assert restored.stage2_loss_scope == 'selected'
     assert restored.cl_dice_weight == 0.2
     assert restored.tversky_weight == 0.3
     assert restored.skeleton_recall_weight == 0.1
@@ -323,6 +325,108 @@ def test_sacm_stc_fixed_head_selection_resolution():
     assert SACMSTCAdapter._resolved_head_select(args) == 'fixed'
     args = argparse.Namespace(head_select='auto', iou_loss_weight=0.0)
     assert SACMSTCAdapter._resolved_head_select(args) == 'gating'
+
+
+def test_sacm_stc_candidate_scope_indices():
+    adapter = load_adapter('sacm_stc')
+    adapter.head_select = 'gating'
+    adapter.deployment_head = 2
+    adapter.args = argparse.Namespace(
+        stage2_loss_scope='all', topology_head='all')
+    assert adapter._stage2_loss_indices(4) == [0, 1, 2, 3]
+    assert adapter._topology_indices(4) == [0, 1, 2, 3]
+
+    adapter.args.stage2_loss_scope = 'selected'
+    adapter.args.topology_head = 'selected'
+    assert adapter._stage2_loss_indices(4) == [0]
+    assert adapter._topology_indices(4) == [0]
+    assert adapter.selected_candidate_index() == 0
+
+    adapter.head_select = 'fixed'
+    adapter.deployment_head = 2
+    assert adapter._stage2_loss_indices(4) == [2]
+    assert adapter._topology_indices(4) == [2]
+    assert adapter.selected_candidate_index() == 2
+
+    adapter.args.topology_head = 'deployment'
+    assert adapter._topology_indices(4) == [2]
+
+    adapter.head_select = 'mean'
+    with pytest.raises(ValueError):
+        adapter.selected_candidate_index()
+    adapter.head_select = 'gating_soft'
+    with pytest.raises(ValueError):
+        adapter.selected_candidate_index()
+
+
+def test_sacm_stc_selected_loss_scope_uses_only_deployed_slot(monkeypatch):
+    adapter = load_adapter('sacm_stc')
+    adapter.head_select = 'gating'
+    adapter.deployment_head = 2
+    adapter.args = argparse.Namespace(
+        bce_weight=0.7, dice_weight=0.3, deep_sup_weight=0.0,
+        iou_loss_weight=0.0, use_typed_stage2=0, use_stc=0,
+        stage2_loss_scope='selected', cl_dice_weight=0.0,
+        tversky_weight=0.0, skeleton_recall_weight=0.0,
+        topology_head='all', topology_warmup_epochs=0,
+        topology_resolution=32)
+
+    def fake_forward(model, images, return_stage1=True):
+        del model, images, return_stage1
+        stage2 = torch.arange(4, dtype=torch.float32).view(1, 4, 1, 1)
+        stage2 = stage2.expand(1, 4, 256, 256).clone()
+        stage1 = torch.zeros(1, 4, 256, 256)
+        return stage2, torch.zeros(1, 4), stage1
+
+    calls = []
+
+    def fake_criterion(logits, target, bce_weight, dice_weight):
+        del target, bce_weight, dice_weight
+        calls.append(float(logits.mean().item()))
+        return logits.mean()
+
+    monkeypatch.setattr(adapter, '_forward', fake_forward)
+    monkeypatch.setattr(adapter, '_mask_criterion', fake_criterion)
+    model = torch.nn.Module()
+    images = torch.zeros(1, 3, 8, 8)
+    masks = torch.zeros(1, 1, 256, 256)
+
+    loss = adapter.train_step(model, (images, masks))
+    assert calls == [0.0]
+    assert float(loss) == 0.0
+
+    calls.clear()
+    adapter.args.stage2_loss_scope = 'all'
+    loss = adapter.train_step(model, (images, masks))
+    assert calls == [0.0, 1.0, 2.0, 3.0]
+    assert abs(float(loss) - 1.5) < 1e-6
+
+
+def test_sacm_stc_predict_candidates(tmp_path):
+    from PIL import Image
+
+    mask_path = tmp_path / 'mask.png'
+    Image.fromarray(np.zeros((3, 4), dtype=np.uint8)).save(mask_path)
+    adapter = load_adapter('sacm_stc')
+    adapter.head_select = 'gating'
+    adapter.args = argparse.Namespace(
+        use_typed_stage2=0, use_stc=0, stage1_fusion_weight=0.0,
+        deploy_threshold=0.5)
+
+    def fake_forward(model, prepared, return_stage1=False):
+        del model, prepared, return_stage1
+        stage2 = torch.full((1, 4, 2, 2), -10.0)
+        stage2[:, 0] = 10.0
+        return stage2, torch.zeros(1, 4)
+
+    adapter._forward = fake_forward
+    sample = argparse.Namespace(mask_path=mask_path)
+    candidates = adapter.predict_candidates(
+        torch.nn.Module(), torch.zeros(1, 3, 1024, 1024), sample)
+    assert candidates.shape == (4, 3, 4)
+    assert candidates[0].all()
+    assert not candidates[1:].any()
+    assert adapter.selected_candidate_index() == 0
 
 
 def test_sacm_stc_stable_stage2_builder():

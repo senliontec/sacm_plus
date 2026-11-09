@@ -1,0 +1,172 @@
+# SACM-STC dense-scope × structure-scope factorial ablation.
+#
+# Six arms are the full 2 x 3 factorial:
+#
+#   dense scope ∈ {selected, all}
+#   structure scope ∈ {none, selected, all}
+#
+#   S0  b0_selected_base                    selected dense, no structure
+#   A0  b1_all_dense_base                   all-candidate dense, no structure
+#   Ss  ss_selected_dense_selected_structure selected dense + selected structure
+#   Sa  sa_selected_dense_all_structure      selected dense + all structure
+#   As  b2_all_dense_selected_structure      all dense + selected structure
+#   Aa  b3_all_dense_all_structure           all dense + all structure (full)
+#
+# The key structural-scope contrasts are Aa-As and Sa-Ss: each holds dense
+# supervision fixed and holds the total structural-loss budget equal, so only
+# the structure scope changes.  The dense-scope contrasts are As-Ss and Aa-Sa.
+# This lets the paper separate dense scope from structure scope instead of
+# confounding them in a single Aa-Ss contrast.
+#
+# All arms keep Stage-1 deep supervision, soft targets, foreground-weighted
+# BCE, gating deployment, the 1024 input, and the official optimizer/schedule
+# identical.  The ablation budget is 200 epochs; the 800-epoch all_dense runs
+# remain the main-table results, and Aa at 200 epochs is the budget control.
+schema_version: 1
+name: sacm_stc_scope_structure
+description: >-
+  2x3 SACM-STC dense-scope × structure-scope factorial at a matched
+  200-epoch budget (seeds 0-3).
+protocol: seeded5
+method: sacm_stc
+seeds: [0, 1, 2, 3]
+epochs: 200
+output_root: results/runs/sacm_stc
+wandb:
+  project: sacm
+  entity: buaazqk
+  group: sacm_stc_scope_structure
+  tags: sacm_stc,ablation,scope_structure
+  use_wandb: true
+
+# Applied to every arm.  Arm-specific args override these values.
+common_train_args:
+  sam-checkpoint: checkpoints/sam_vit_l_0b3195.pth
+  bce-weight: 0.7
+  dice-weight: 0.3
+  bce-pos-weight: 2
+  binary-targets: 0
+  deploy-threshold: 0.5
+  deep-sup-weight: 0.3
+  iou-loss-weight: 0
+  head-select: gating
+  deployment-head: 2
+  topology-resolution: 512
+  topology-warmup-epochs: 5
+  use-stc: 0
+  use-typed-stage2: 0
+  save-every: 0
+  num-workers: 0
+
+arms:
+  b0_selected_base:
+    display_name: B0 selected dense, no structure
+    args:
+      stage2-loss-scope: selected
+      topology-head: selected
+      cl-dice-weight: 0.0
+      skeleton-recall-weight: 0.0
+
+  b1_all_dense_base:
+    display_name: B1 all-candidate dense, no structure
+    args:
+      stage2-loss-scope: all
+      topology-head: selected
+      cl-dice-weight: 0.0
+      skeleton-recall-weight: 0.0
+
+  ss_selected_dense_selected_structure:
+    display_name: Ss selected dense + selected-slot structure
+    args:
+      stage2-loss-scope: selected
+      topology-head: selected
+      cl-dice-weight: 0.1
+      skeleton-recall-weight: 0.1
+
+  sa_selected_dense_all_structure:
+    display_name: Sa selected dense + all-candidate structure
+    args:
+      stage2-loss-scope: selected
+      topology-head: all
+      cl-dice-weight: 0.1
+      skeleton-recall-weight: 0.1
+
+  b2_all_dense_selected_structure:
+    display_name: As all-candidate dense + selected-slot structure
+    args:
+      stage2-loss-scope: all
+      topology-head: selected
+      cl-dice-weight: 0.1
+      skeleton-recall-weight: 0.1
+
+  b3_all_dense_all_structure:
+    display_name: Aa all-candidate dense + all-candidate structure (full)
+    args:
+      stage2-loss-scope: all
+      topology-head: all
+      cl-dice-weight: 0.1
+      skeleton-recall-weight: 0.1
+
+contrasts:
+  - id: b1_minus_b0
+    left: b1_all_dense_base
+    right: b0_selected_base
+    label: dense scope selected -> all, no structure
+  - id: ss_minus_b0
+    left: ss_selected_dense_selected_structure
+    right: b0_selected_base
+    label: add structure to deployed slot, selected dense
+  - id: sa_minus_ss
+    left: sa_selected_dense_all_structure
+    right: ss_selected_dense_selected_structure
+    label: structure scope selected -> all, selected dense (key)
+  - id: b2_minus_b1
+    left: b2_all_dense_selected_structure
+    right: b1_all_dense_base
+    label: add structure to deployed slot, all dense
+  - id: b2_minus_ss
+    left: b2_all_dense_selected_structure
+    right: ss_selected_dense_selected_structure
+    label: dense scope selected -> all, selected structure
+  - id: b3_minus_b1
+    left: b3_all_dense_all_structure
+    right: b1_all_dense_base
+    label: add all-candidate structure, all dense
+  - id: b3_minus_sa
+    left: b3_all_dense_all_structure
+    right: sa_selected_dense_all_structure
+    label: dense scope selected -> all, all structure
+  - id: b3_minus_b2
+    left: b3_all_dense_all_structure
+    right: b2_all_dense_selected_structure
+    label: structure scope selected -> all, all dense (key)
+  - id: b3_minus_b0
+    left: b3_all_dense_all_structure
+    right: b0_selected_base
+    label: full recipe vs selected-only base
+
+diagnostics:
+  splits: [val, test]
+  max_per_dataset: 20
+  empty_metric_policy: penalty
+  output_root: results/ablations/sacm_stc/candidate_diagnostics
+
+# Step 0: audit the existing 800-epoch full checkpoints before launching any
+# training.  Local checkpoints are not present; run this on the server where
+# results/runs/sacm_stc/all_dense/seed_<s>/best_model.pth exists.
+audit:
+  variant: all_dense
+  seeds: [0, 1, 2, 3]
+  checkpoint_name: best_model.pth
+  splits: [val, test]
+  max_per_dataset: 20
+  empty_metric_policy: penalty
+  output_root: results/ablations/sacm_stc/candidate_audit
+
+analysis:
+  output_root: results/ablations/sacm_stc/analysis
+  primary_metric: dice
+  primary_role: All
+  metrics: [dice, iou, cldice, hd95]
+  bootstrap_samples: 2000
+  seed: 20261109
