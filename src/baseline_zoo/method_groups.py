@@ -34,7 +34,7 @@ _PROMPT_FREE = frozenset({
     'jtfn', 'dscnet', 'flowsdf', 'medcagd', 's2mnet', 'csunet', 'liot',
     'dconnnet', 'scrwkv', 'kprism', 'segdino', 'segdino_v2',
     'sam_adapter', 'topolora', 'samed', 'convlora', 'blo_sam', 'cwsam',
-    'tpsegformer', 'aco_moe_lora', 'curvfield',
+    'tpsegformer', 'aco_moe_lora',
     'sacm_official',
 })
 

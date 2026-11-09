@@ -144,6 +144,7 @@ def _git_output(root: Path, *args: str) -> str | None:
         completed = subprocess.run(
             ['git', '-C', str(root), *args],
             check=False, capture_output=True, text=True, timeout=30,
+            errors='replace',
         )
     except (OSError, subprocess.SubprocessError):
         return None

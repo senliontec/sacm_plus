@@ -10,8 +10,7 @@ bash scripts/run_paper.sh --model all --seeds all --gpus 0,1,2,3 --resume
 ```
 
 `--model all` resolves every `status: available` model in
-`configs/models/` (the 41 official/reference baselines plus SACM-STC and two
-project extensions/variants: the CurvField extension and the corrected
+`configs/models/` (the 41 official/reference baselines plus the corrected
 `sacm_stc` variant, including the
 appendix `sam2_unet`, the prompt-free `sam_adapter`/`samed`/`topolora`/
 `convlora`/`c2p`/`a2sam`/`kprism`, the non-SAM `jtfn`/`dscnet`/`rsrm`/`dka`/

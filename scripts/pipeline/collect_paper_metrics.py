@@ -83,7 +83,6 @@ METHOD_META = {
     'sam_octa': ('SAM-OCTA', '✓'),
     'sansa': ('SANSA', '✓'),
     'scrwkv': ('SCRWKV', '✗'),
-    'curvfield': ('CurvField', '✗'),
     'cwsam': ('CWSAM', '✓'),
     'knowsam': ('KnowSAM', '✓'),
     'kprism': ('K-Prism (ICLR 2026)', '✗'),

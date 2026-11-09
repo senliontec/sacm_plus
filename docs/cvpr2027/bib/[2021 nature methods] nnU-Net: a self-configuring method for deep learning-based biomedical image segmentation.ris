@@ -1,0 +1,20 @@
+TY  - JOUR
+AU  - Isensee, Fabian
+AU  - Jaeger, Paul F.
+AU  - Kohl, Simon A. A.
+AU  - Petersen, Jens
+AU  - Maier-Hein, Klaus H.
+PY  - 2021
+DA  - 2021/02/01
+TI  - nnU-Net: a self-configuring method for deep learning-based biomedical image segmentation
+JO  - Nature Methods
+SP  - 203
+EP  - 211
+VL  - 18
+IS  - 2
+AB  - Biomedical imaging is a driver of scientific discovery and a core component of medical care and is being stimulated by the field of deep learning. While semantic segmentation algorithms enable image analysis and quantification in many applications, the design of respective specialized solutions is non-trivial and highly dependent on dataset properties and hardware conditions. We developed nnU-Net, a deep learning-based segmentation method that automatically configures itself, including preprocessing, network architecture, training and post-processing for any new task. The key design choices in this process are modeled as a set of fixed parameters, interdependent rules and empirical decisions. Without manual intervention, nnU-Net surpasses most existing approaches, including highly specialized solutions on 23 public datasets used in international biomedical segmentation competitions. We make nnU-Net publicly available as an out-of-the-box tool, rendering state-of-the-art segmentation accessible to a broad audience by requiring neither expert knowledge nor computing resources beyond standard network training.
+SN  - 1548-7105
+UR  - https://doi.org/10.1038/s41592-020-01008-z
+DO  - 10.1038/s41592-020-01008-z
+ID  - Isensee2021
+ER  - 

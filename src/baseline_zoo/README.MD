@@ -11,8 +11,8 @@
   `layout.json`、`content_list*.json` 和 `images/` 是版面/图片解析结果。
 - **未收录** 表示 `parsing/` 中没有对应论文目录；不是链接失效。
 - 同一篇论文在 `parsing/` 中可能存在大小写不同的重复目录，表中列主目录，并在备注中标出重复项。
-- 当前覆盖：43 个 adapter（41 个官方/参考 baseline + 2 个项目扩展/修复变体
-  CurvField、SACM-STC）中，19 个在 `parsing/` 有论文目录，其余标记为“未收录”。
+- 当前覆盖：42 个 adapter（41 个官方/参考 baseline + 1 个项目变体
+  SACM-STC）中，19 个在 `parsing/` 有论文目录，其余标记为“未收录”。
 
 ## Baseline ↔ 3rd 代码 ↔ parsing 论文
 
@@ -67,13 +67,12 @@
 |---|---|---|---|---|
 | `sam2_unet` | SAM2-UNet | `3rd/SAM2-UNet` | `parsing/[2024 arxiv] SAM2-UNet: Segment Anything 2 Makes Strong Encoder for Natural and Medical Image Segmentation` | 附录扩展 baseline；需 SAM2 Hiera-L 权重 |
 | `sam_vit_l_unet` | SAM ViT-L + U-Net | `3rd/segment-anything` | `parsing/[2023 iccv] Segment Anything` | 本项目扩展，不是论文 baseline；3rd 仅提供 SAM 基座，U-Net decoder 为自包含实现 |
-| `curvfield` | CurvField | 基于 Conv-LoRA（已有内部实现） | 未收录 | 本项目扩展：共享曲线结构场（中心线/半径/方向/分叉）+ 零初始化场条件化 adapter；不是官方 Conv-LoRA/SACM baseline；见 `models/curvfield/` |
 | `ucs` | UCS | `3rd/UCS` | `parsing/[2023 iccv] UCS: A Universal Model for Curvilinear Structure Segmentation` | oracle-prompted reference，不是 prompt-free |
 
 ## 未集成 / 已排除（不属于 registry 的方法）
 
 以下方法的 `3rd/` 代码和 `parsing/` 论文都在本地，但未进入 `baseline_zoo` 的 adapter 列表，
-不计入上表 43 个 adapter。
+不计入上表 42 个 adapter。
 
 | 方法 | 3rd 代码目录 | parsing 论文目录 | 状态 |
 |---|---|---|---|

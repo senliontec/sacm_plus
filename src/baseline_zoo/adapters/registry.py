@@ -15,7 +15,6 @@ _ADAPTERS = {
     'csunet': ('baseline_zoo.adapters.csunet', 'CSUNetAdapter'),
     'c2p': ('baseline_zoo.adapters.c2p', 'C2PAdapter'),
     'cwsam': ('baseline_zoo.adapters.cwsam', 'CWSAMAdapter'),
-    'curvfield': ('baseline_zoo.adapters.curvfield', 'CurvFieldAdapter'),
     'dconnnet': ('baseline_zoo.adapters.dconnnet', 'DconnNetAdapter'),
     'dka': ('baseline_zoo.adapters.dka', 'DKAAdapter'),
     'dscnet': ('baseline_zoo.adapters.dscnet', 'DSCNetAdapter'),

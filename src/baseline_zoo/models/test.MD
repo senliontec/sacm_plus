@@ -54,7 +54,6 @@ From this file's directory: `../../../../3rd`
 ├── scrwkv                -> 3rd/SCRWKV
 ├── segdino_v2            -> 3rd/segdino_v2
 ├── topolora              -> 3rd/Seglab
-├── curvfield             -> (no 3rd; project extension built on Conv-LoRA)
 ├── tpsegformer           -> 3rd/TPSegformer
 ├── ucs                   -> 3rd/UCS
 ```

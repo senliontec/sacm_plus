@@ -1,0 +1,3497 @@
+[
+    [
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "FreeCOS: Self-Supervised Learning from Fractals and Unlabeled Images for Curvilinear Object Segmentation"
+                    }
+                ],
+                "level": 1
+            },
+            "bbox": [
+                98,
+                128,
+                870,
+                174
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Tianyi Shi, Xiaohuan Ding, Liang Zhang, Xin Yang† School of EIC, Huazhong University of Science & Technology {shitianyihust, dingxiaohuan, liangz, xinyang2014}@hust.edu.cn"
+                    }
+                ]
+            },
+            "bbox": [
+                210,
+                203,
+                759,
+                257
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "Abstract"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                233,
+                290,
+                313,
+                308
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Curvilinear object segmentation is critical for many applications. However, manually annotating curvilinear objects is very time-consuming and error-prone, yielding insufficiently available annotated datasets for existing supervised methods and domain adaptation methods. This paper proposes a self-supervised curvilinear object segmentation method (FreeCOS) that learns robust and distinctive features from fractals and unlabeled images. The key contributions include a novel Fractal-FDA synthesis (FFS) module and a geometric information alignment (GIA) approach. FFS generates curvilinear structures based on the parametric Fractal L-system and integrates the generated structures into unlabeled images to obtain synthetic training images via Fourier Domain Adaptation. GIA reduces the intensity differences between the synthetic and unlabeled images by comparing the intensity order of a given pixel to the values of its nearby neighbors. Such image alignment can explicitly remove the dependency on absolute intensity values and enhance the inherent geometric characteristics which are common in both synthetic and real images. In addition, GIA aligns features of synthetic and real images via the prediction space adaptation loss (PSAL) and the curvilinear mask contrastive loss (CMCL). Extensive experimental results on four public datasets, i.e., XCAD, DRIVE, STARE and CrackTree demonstrate that our method outperforms the state-of-the-art unsupervised methods, self-supervised methods and traditional methods by a large margin. The source code of this work is available at https://github.com/TY-Shi/FreeCOS."
+                    }
+                ]
+            },
+            "bbox": [
+                75,
+                321,
+                470,
+                762
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "1. Introduction"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                76,
+                790,
+                209,
+                808
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Automatically segmenting curvilinear structures (such as vascular trees in medical images and road systems in aerial photography) is critical for many applications, including retinal fundus disease screening [2, 14], diagnosing coronary artery disease [38], road condition evaluation and maintenance [51]. Despite a plethora of research works in the literature, accurately segmenting curvilinear objects remains challenging due to their complex structures with numerous tiny branches, tortuosity shapes, ambiguous boundaries due to imaging issues and noisy backgrounds."
+                    }
+                ]
+            },
+            "bbox": [
+                75,
+                816,
+                470,
+                878
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": []
+            },
+            "bbox": [
+                496,
+                292,
+                893,
+                383
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Most recent methods [39, 10, 36, 42, 18, 29, 7, 28, 6, 35] leverage supervised deep learning for curvilinear object segmentation and have achieved encouraging results. However, those methods require a large number of pixel-wise manual annotations for training which are very expensive to obtain and error-prone due to poor image quality, annotator's fatigue and lack of experience. Although, there are several publically available annotated datasets for curvilinear object segmentation [37, 17, 51, 25], the large appearance variations between different curvilinear object images, e.g., Xray coronary angiography images vs. retinal fundus images, yields significant performance degradation for supervised models across different types of images (even across the same type of images acquired using different equipments). As a result, expensive manual annotations are inevitably demanded to tune the segmentation model for a particular application. Potential solutions to alleviate the annotation burden include domain adaption [8, 32] and unsupervised segmentation [9, 19, 24, 11, 9, 1]. However, the effectiveness of domain adaptation is largely dependent on the quality of annotated data in the source domain and constrained by the gap between the source and target domain. Existing unsupervised segmentation methods [9, 19] can hardly achieve satisfactory performance for curvilinear objects due to their thin, long, and tortuosity shapes, complex branching structures, and confusing background artifacts."
+                    }
+                ]
+            },
+            "bbox": [
+                496,
+                385,
+                893,
+                779
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Despite the high complexity and great variety of curvilinear structures in different applications, they share some common characteristics (i.e., the tube-like shape and the branching structure). Thus, existing studies [47, 46, 48] have demonstrated that several curvilinear structures (e.g., arterial trees of the circulation system) can be generated via the fractal systems with proper branching parameters to mimic the fractal and physiological characteristics, and some observed variability. These results motivate us to use the generated curvilinear objects via the fractal systems to explicitly encode geometric properties and varieties (i.e., different diameters and lengths of branches, and different branching angles) into training samples and to assist feature learning of a curvilinear structure segmentation model. However, such formulas generated training samples can hardly mimic the appearance patterns within curvilinear objects, the transition regions between curvilinear objects and backgrounds, which are also key information for learning a segmentation model and contained in easily-obtained unlabeled target images. This paper asks the question, how to combine fractals and unlabeled target images to encode sufficient and comprehensive visual cues for learning robust and distinctive features of curvilinear structures?"
+                    }
+                ]
+            },
+            "bbox": [
+                496,
+                780,
+                895,
+                901
+            ]
+        },
+        {
+            "type": "page_header",
+            "content": {
+                "page_header_content": [
+                    {
+                        "type": "text",
+                        "content": "CvF"
+                    }
+                ]
+            },
+            "bbox": [
+                104,
+                2,
+                181,
+                41
+            ]
+        },
+        {
+            "type": "page_header",
+            "content": {
+                "page_header_content": [
+                    {
+                        "type": "text",
+                        "content": "This ICCV paper is the Open Access version, provided by the Computer Vision Foundation. Except for this watermark, it is identical to the accepted version; the final published version of the proceedings is available on IEEE Xplore."
+                    }
+                ]
+            },
+            "bbox": [
+                236,
+                0,
+                808,
+                46
+            ]
+        },
+        {
+            "type": "page_footnote",
+            "content": {
+                "page_footnote_content": [
+                    {
+                        "type": "text",
+                        "content": "†Corresponding author."
+                    }
+                ]
+            },
+            "bbox": [
+                94,
+                886,
+                223,
+                901
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "876"
+                    }
+                ]
+            },
+            "bbox": [
+                485,
+                944,
+                511,
+                958
+            ]
+        }
+    ],
+    [
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": []
+            },
+            "bbox": [
+                75,
+                92,
+                472,
+                319
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "The main contribution of this paper is a self-supervised segmentation method based on a novel Fractal-FDA synthesis (FFS) module and a geometric information alignment (GIA) approach. Specifically, curvilinear structures are synthesized by the parametric fractal L-Systems [47]and serve as segmentation labels of synthetic training samples. To simulate appearance patterns in the object-background transition regions and background regions, we apply Fourier Domain Adaptation [45] (FDA) to fuse synthetic curvilinear structures and unlabeled target images. The synthetic images via our FFS module can effectively guide learning distinctive features to distinguish curvilinear objects and backgrounds. To further improve the robustness to differences between intensity distributions of synthetic and real target images, we design a novel geometric information alignment (GIA) approach which aligns information of synthetic and target images at both image and feature levels. Specifically, GIA first converts each training image (synthetic and target images) into four geometry-enhanced images by comparing the intensity order of a given pixel to the values of its nearby neighbors (i.e., along with the up, down, left and right directions). In this way, the four converted images do not depend on the absolute intensity values but the relative intensity in order to capture the inherent geometric characteristic of the curvilinear structure, reducing the intensity differences between synthetic and target images. Then, we extract features from the 4-channel converted images and propose two loss functions, i.e., a prediction space adaptation loss (PSAL) and a curvilinear mask contrastive loss (CMCL), to align the geometric features of synthetic and target images. The PSAL minimizes the distance between the segmentation masks of the target images and synthetic curvilinear objects and the CMCL minimizes the distance between features of segmented masks and synthetic objects."
+                    }
+                ]
+            },
+            "bbox": [
+                75,
+                321,
+                472,
+                837
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "The FreeCOS based on FFS and GIA approaches applies to several public curvilinear object datasets, including XCAD [25], DRIVE [37], STARE [17] and CrackTree [51]. Extensive experimental results demonstrate that FreeCOS outperforms the state-of-the-art self-supervised [25, 21], unsupervised [9, 19], and traditional methods [13, 22]. To summarize, the main contributions of this work are as follows:"
+                    }
+                ]
+            },
+            "bbox": [
+                75,
+                839,
+                470,
+                901
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": []
+            },
+            "bbox": [
+                496,
+                92,
+                893,
+                151
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "• We propose a novel self-supervised curvilinear feature learning method which intelligently combines tree-like fractals and unlabeled images to assist in learning robust and distinctive feature representations."
+                    }
+                ]
+            },
+            "bbox": [
+                517,
+                161,
+                893,
+                223
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "• We propose Fractal-FDA synthesis (FFS) and geometric information alignment (GIA), which are the two key enabling modules of our method. FFS integrates the synthetic curvilinear structures into unlabeled images to guide learning distinctive features to distinguish foregrounds and backgrounds. GIA enhances geometric features and meanwhile improves the feature robustness to intensity differences between synthetic and target unlabeled images."
+                    }
+                ]
+            },
+            "bbox": [
+                517,
+                231,
+                893,
+                368
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "• We develop a novel self-supervised segmentation network that can be trained using only target images and fractal synthetic curvilinear objects. Our network performs significantly better than state-of-the-art selfsupervised/unsupervised methods on multiple public datasets with various curvilinear objects."
+                    }
+                ]
+            },
+            "bbox": [
+                517,
+                376,
+                893,
+                468
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "2. Related Work"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                500,
+                488,
+                642,
+                505
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "2.1. Traditional Methods"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                500,
+                512,
+                696,
+                529
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Traditional curvilinear object segmentation methods [20, 26, 13, 40, 22] design heuristic rules and/or filters to capture features of the target curvilinear objects. For instance, Frangi et al. introduce the vesselness filter [13] based on the Hessian matrix to represent and enhance tube-like curvilinear objects. Khan et al. [20] further design B-COSFIRE filters to denoise retinal images and segment retinal vessels. Memari et al. [26] enhance image contrast via contrastlimited adaptive histogram equalization and then segment retinal vessels based on hand-crafted filters. In [40, 22], the authors propose optimally oriented flux (OOF) to enhance curvilinear tube-like objects. OOF exhibits better performance for segmenting adjacent curvilinear objects yet is sensitive to different sizes of curvilinear objects."
+                    }
+                ]
+            },
+            "bbox": [
+                496,
+                536,
+                893,
+                748
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Traditional methods based on hand-crafted filters do not require any training yet they require careful parameter tuning for optimized performance. And the optimized parameter settings are usually data-dependent or even regiondependent, limiting their convenience in segmenting a wide variety of curvilinear objects."
+                    }
+                ]
+            },
+            "bbox": [
+                496,
+                748,
+                893,
+                840
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "2.2. Unsupervised Segmentation Methods"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                500,
+                847,
+                823,
+                863
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Unsupervised segmentation methods can be generally divided into two classes: clustering based [19, 24, 11] and adversarial learning based [9, 1]. Xu et al. [19] propose Invariant Information Clustering (IIC) which automatically partitions input images into regions of different semantic classes by optimizing mutual information between related region pairs. Such a clustering-based method is more suitable for segmenting objects with aspect ratios close to one while becoming ineffective for curvilinear objects due to their thin, long, tortuous shapes. Redo [9] is based on an adversarial architecture where the generator is guided by an image and extracts the object mask, then redraws a new object at the same location with different textures/colors. However, this adversarial learning-based unsupervised method only performs well for objects which are visually distinguishable from backgrounds. For the segmentation of curvilinear objects with complex and numerous tiny branching structures, embedded in confusing and cluttered backgrounds, the efficacy of such a method degrades significantly."
+                    }
+                ]
+            },
+            "bbox": [
+                498,
+                869,
+                892,
+                901
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "877"
+                    }
+                ]
+            },
+            "bbox": [
+                485,
+                944,
+                511,
+                957
+            ]
+        }
+    ],
+    [
+        {
+            "type": "image",
+            "content": {
+                "image_source": {
+                    "path": "images/7d51bca6679048e8a32ca43e522cb35fe8198cfa74054ab61b45ad8cff74b205.jpg"
+                },
+                "image_caption": [
+                    {
+                        "type": "text",
+                        "content": "Figure 1. The pipeline of Self-Supervised Learning from Fractals and Unlabeled Images for Curvilinear Object Segmentation (FreeCOS)."
+                    }
+                ],
+                "image_footnote": []
+            },
+            "bbox": [
+                83,
+                88,
+                887,
+                303
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": []
+            },
+            "bbox": [
+                75,
+                347,
+                472,
+                604
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "In contrast to unsupervised methods, our method explicitly encodes geometric and photometric characteristics, as well as some observed varieties of curvilinear objects in target application into synthetic images. Those synthetic images provide labels to effectively guide the model to learn robust and distinctive features and thus yield superior performance to state-of-the-art unsupervised methods [9, 19]."
+                    }
+                ]
+            },
+            "bbox": [
+                75,
+                606,
+                470,
+                713
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "2.3. Self-supervised Learning Methods"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                76,
+                724,
+                379,
+                741
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Self-supervised learning methods construct pretexts from large-scale unsupervised data and utilize contrastive learning losses to measure the similarities of sample pairs in the representation space. To this end, various pretext tasks have been designed, including jigsaw [12], hole-fill [31] and transformation invariance [16]. Although existing selfsupervised methods have achieved outstanding performance in classification [27, 4], detection [44, 5], and image translation [30, 43], few of them provide a suitable pretext task for curvilinear object segmentation. A potential solution is the pixel-level contrastive-based method [41, 3, 49], while it requires heavy manual annotations to prepare pixellevel positive and negative samples. Similar work to ours is [25, 21] which designs a self-supervised vessel segmentation method via adversarial learning and fractals. But this method requires clean background images as input (i.e., the first frame of the angiography sequence) for synthesis which greatly limits its applications. In addition, adversarial learning cannot explicitly and precisely enforce visual cues, which are important for learning segmentation-oriented features, being encoded in the synthetic images. As a result, although their synthetic images visually look similar to the target images, the segmentation accuracy is also quite low."
+                    }
+                ]
+            },
+            "bbox": [
+                75,
+                750,
+                472,
+                901
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": []
+            },
+            "bbox": [
+                496,
+                347,
+                893,
+                545
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "3. Method"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                500,
+                558,
+                591,
+                574
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Figure. 1 shows the framework of FreeCOS which consists of two main modules, i.e., Fractal-FDA Synthesis (FFS) and Geometric Information Alignment (GIA). In FFS, we generate synthetic curvilinear structures via the parametric Fractal L-Systems and use the generated structures as segmentation maps to guide self-supervised training of a segmentation network. The synthetic curvilinear structures are then integrated into unlabeled images via FDA to form synthetic images of curvilinear structures. The intensity distributions of synthetic images could deviate from those of real target images and hence yield poor feature robustness. To address this problem, our GIA module first reduces image-level differences between the synthetic and target images by converting intensity images into four-channel intensity order images. The converted images of both synthetic images and target images are then input into U-Net to extract feature representations. Our GIA further aligns features of synthetic images and target images via the prediction space adaptation loss (PSAL) and the curvilinear mask contrastive loss (CMCL). In the following, we present the details of FFS and GIA."
+                    }
+                ]
+            },
+            "bbox": [
+                496,
+                583,
+                895,
+                901
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "878"
+                    }
+                ]
+            },
+            "bbox": [
+                485,
+                944,
+                513,
+                957
+            ]
+        }
+    ],
+    [
+        {
+            "type": "image",
+            "content": {
+                "image_source": {
+                    "path": "images/a10dd9f7a327ea9afce41e2c7f8a775631cb75cbbdfab539604037ea605759d8.jpg"
+                },
+                "image_caption": [
+                    {
+                        "type": "text",
+                        "content": "Figure 2. Exemplar results of the generated curvilinear structures from the basic and parametric Fractal L-system."
+                    }
+                ],
+                "image_footnote": []
+            },
+            "bbox": [
+                89,
+                87,
+                468,
+                272
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "3.1. Fractal-FDA Synthesis"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                76,
+                330,
+                289,
+                347
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "We first generate curvilinear structures via the parametric Fractal L-Systems and then integrate the synthetic objects into unlabeled target images to obtain synthetic training samples via FDA."
+                    }
+                ]
+            },
+            "bbox": [
+                75,
+                354,
+                468,
+                415
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Fractal-based curvilinear structure generation. Fractals are simple graphic patterns rendered by mathematical formulas. In this work, we adopt the parametric Fractal L-systems proposed by Zamir et al. [47] to generate fractal tree structures and meanwhile select proper branching parameters according to physiological laws of curvilinear objects in target applications. Specifically, “grammar\"for generating curvilinear structures with repeated bifurcations based on Fractal L-systems method is defined as follows:"
+                    }
+                ]
+            },
+            "bbox": [
+                75,
+                415,
+                470,
+                551
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "\\begin{array} { r } { \\begin{array} { r l } { \\omega : } & { { } F } \\\\ { r u l e : } & { { } F  F [ - F ] [ + F ] } \\end{array} } \\end{array}\\tag{1}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/d5e20adbbedd3c143960cc10225d2260304277ea0a3b89666c7f4b8a4d65248c.jpg"
+                }
+            },
+            "bbox": [
+                179,
+                559,
+                366,
+                594
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "The generated object by iteration iter:"
+                    }
+                ]
+            },
+            "bbox": [
+                76,
+                602,
+                334,
+                618
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "\\mathrm { D r a w } ( i t e r , F , r u l e )\\tag{2}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/a2bda56edb736c3586d3f419852855ef15e070a21a154f641c8f723b3b156e75.jpg"
+                }
+            },
+            "bbox": [
+                202,
+                626,
+                341,
+                642
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "where F represents a line of unit length in the horizontal direction, ω denotes an axiom, iter denotes the iteration and rule denotes the production rule. The square brackets represent the departure from ([) and return to (]) a branch point. The plus and minus signs represent turns through a given angle δ in the clockwise and anticlockwise directions, respectively. For example, the first three stages of a tree produced by the basic Fractal L-system, denoted by iter=1 ~ 3, are given by the:"
+                    }
+                ]
+            },
+            "bbox": [
+                75,
+                650,
+                470,
+                787
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "\\begin{array} { r l } { i t e r = 1 } & { { } F } \\\\ { i t e r = 2 } & { { } F [ - F ] [ + F ] } \\\\ { i t e r = 3 } & { { } F [ - F ] [ + F ] [ - F [ - F ] [ + F ] ] [ + F [ - F ] [ + F ] ] . } \\end{array}\\tag{3}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/a4546b1ad20092133f365f7596dca1c3e851439456e2f6cb9538346e781084c9.jpg"
+                }
+            },
+            "bbox": [
+                88,
+                795,
+                459,
+                843
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "The left part of Figure. 2 illustrates exemplar results of the generated curvilinear structures based on the basic Fractal system."
+                    }
+                ]
+            },
+            "bbox": [
+                75,
+                854,
+                470,
+                901
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "To synthesize curvilinear structures with various widths and lengths, we replace "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "F"
+                    },
+                    {
+                        "type": "text",
+                        "content": "using "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "F _ { r a n d o m } \\left( w _ { i } , l _ { i } , c _ { i } \\right)"
+                    },
+                    {
+                        "type": "text",
+                        "content": "which represents a line of width "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "w _ { i }"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", length "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "l _ { i }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "and intensity "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "c _ { i }"
+                    },
+                    {
+                        "type": "text",
+                        "content": ". We set the initial width "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "w _ { i n i t }"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", length "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "l _ { i n i t }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "and decreased parameter γ by the repeated "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "F _ { r a n d o m }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "in the Draw grammar. For the index number i of "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "F _ { r a n d o m } , w _ { i }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "and "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "l _ { i }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "are given by:"
+                    }
+                ]
+            },
+            "bbox": [
+                498,
+                90,
+                893,
+                183
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "\\begin{array} { r } { w _ { i } = w _ { i n i t } \\cdot \\gamma ^ { i - 1 } } \\\\ { l _ { i } = l _ { i n i t } \\cdot \\gamma ^ { i - 1 } } \\end{array}\\tag{4}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/29aba926301f45726e9bb3d1be25feb2d9e029f969b59e59057d53331e321067.jpg"
+                }
+            },
+            "bbox": [
+                633,
+                191,
+                754,
+                229
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "We randomly choose a value within the range of "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "( 0 ,"
+                    },
+                    {
+                        "type": "text",
+                        "content": "255) and set this value as the intensity "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "c _ { i }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "for the index i of "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "F _ { r a n d o m }"
+                    },
+                    {
+                        "type": "text",
+                        "content": ". For the branching angle δ, we replace δ using "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\delta _ { r a n d o m }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "(defined by "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\delta _ { i n i t } \\pm \\delta _ { d e l t a } , \\delta _ { i n i t }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "within the range of "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "( 2 0 ^ { \\circ } , 1 2 0 ^ { \\circ } ) )"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", in which "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\delta _ { d e l t a }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "is a random angle ranging from "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "1 0 ^ { \\circ }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "to 40°."
+                    }
+                ]
+            },
+            "bbox": [
+                498,
+                239,
+                893,
+                330
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "To mimic the geometric characteristics of a target application, we incorporate the above-mentioned parameters into the L-Systems. Specifically, we design a set of rules ruleset : "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "( r u l e _ { 1 } , \\cdot \\cdot \\cdot , \\ r u l e _ { n } )"
+                    },
+                    {
+                        "type": "text",
+                        "content": "for different fractal structures, like "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "F _ { r a n d o m }  F _ { r a n d o m } - F _ { r a n d o m } \\ : [ + F _ { r a n d o m } -"
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "F _ { r a n d o m } ] \\left[ - F _ { r a n d o m } + F _ { r a n d o m } \\right]"
+                    },
+                    {
+                        "type": "text",
+                        "content": ". For each iteration iter, we randomly select a rule from the ruleset as the production rule. In this way, we can increase the diversity of structures. The generated fractal curvilinear object "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "X _ { f r a c } \\in"
+                    },
+                    {
+                        "type": "text",
+                        "content": "R "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\cdot ^ { H \\times W }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "by iteration is given by:"
+                    }
+                ]
+            },
+            "bbox": [
+                498,
+                332,
+                893,
+                482
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "X _ { f r a c } = \\mathrm { D r a w } ( i t e r , F _ { r a n d o m } , r u l e s e t , w _ { i } , l _ { i } , c _ { i } )\\tag{5}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/0bc0c4037d1d9c18eee9893ba90dbf55e34058c3cf4963d8b1949891dc7f1205.jpg"
+                }
+            },
+            "bbox": [
+                521,
+                493,
+                851,
+                511
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "FDA-based curvilinear object image synthesis. We further incorporate synthetic curvilinear objects into the target unlabeled images via FDA [45]. We define the target images as "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "X _ { t } \\in \\bar { \\mathbb { R } ^ { H \\times W } }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "and the synthetic images of fractal curvilinear object as "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "X _ { f r a c } ."
+                    },
+                    {
+                        "type": "text",
+                        "content": "Let "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathcal { F } ^ { A } : \\in \\ \\bar { \\mathbb { R } ^ { H \\times W } } \\ \\to \\in"
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathbb { R } ^ { H \\times W }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "be the amplitude component of the Fourier transform "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathcal { F }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "of a grayscale image. We define a "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\beta \\in ( 0 , 1 )"
+                    },
+                    {
+                        "type": "text",
+                        "content": "to select the center region of the amplitude map."
+                    }
+                ]
+            },
+            "bbox": [
+                498,
+                521,
+                892,
+                641
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Given two randomly sampled synthetic image "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "X _ { f r a c }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "and target image "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "X _ { t } ,"
+                    },
+                    {
+                        "type": "text",
+                        "content": "we follow FDA [45] to replace the low-frequency part in the amplitude map of "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "X _ { f r a c }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "by the FFT [15], denotes as "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathcal { F } ^ { A } \\left( X _ { f r a c } \\right)"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", with that of the target image "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "X _ { t } ,"
+                    },
+                    {
+                        "type": "text",
+                        "content": "denoted as "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathcal { F } ^ { A } \\left( X _ { t } \\right)"
+                    },
+                    {
+                        "type": "text",
+                        "content": ". Then, the modified spectral representation of "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "X _ { f r a c } { \\mathrm { , } }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "with its phase component unaltered, is mapped back to image "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "X _ { f r a c  t }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "by the inverse FFT [15], whose content is the same as "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "X _ { f r a c } ,"
+                    },
+                    {
+                        "type": "text",
+                        "content": "but will resemble the appearance of a sample "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "X _ { t }"
+                    },
+                    {
+                        "type": "text",
+                        "content": ". After that, we apply a Gaussian blur to the output synthetic image of FDA to obtain synthetic images from FFS, denoted as "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "X _ { F }"
+                    }
+                ]
+            },
+            "bbox": [
+                496,
+                642,
+                893,
+                809
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "3.2. Geometric Information Alignment"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                500,
+                816,
+                802,
+                833
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Synthetic images generated by FFS could still have nontrivial intensity differences from that of real images. To address this problem, we further align synthetic images and real target images at both image and feature levels."
+                    }
+                ]
+            },
+            "bbox": [
+                496,
+                839,
+                893,
+                901
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "879"
+                    }
+                ]
+            },
+            "bbox": [
+                485,
+                944,
+                511,
+                957
+            ]
+        }
+    ],
+    [
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Image-level Alignment. We aim to explicitly remove the dependency on raw intensity values for both synthetic and real images and meanwhile enhance the geometric characteristics of curvilinear structures. To this end, for each image pixel j we compare its intensity value "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "X ( j )"
+                    },
+                    {
+                        "type": "text",
+                        "content": "with its 8 neighboring pixels "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\{ n _ { d } ^ { m } | m = 1 , \\dots , 8 \\}"
+                    },
+                    {
+                        "type": "text",
+                        "content": "(yellow box in Figure. 1) lying perpendicular to j (red box in Figure. 1), where directional d denotes left, right, top, and bottom side of "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "j ."
+                    },
+                    {
+                        "type": "text",
+                        "content": "If "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "X ( j ) > X \\left( n _ { d } ^ { m } \\right)"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", we set the corresponding value for "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "n _ { d } ^ { m }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "to 0. Otherwise, we set the value for "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "n _ { d } ^ { m }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "to 1. Such operation produces four 8-bit images for each input image, where the m-th bit on the d-th image denotes the relative intensity order between j and its neighbor m along the d-th direction. For each input image X (denote as "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "X _ { F }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "and "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "X _ { t } )"
+                    },
+                    {
+                        "type": "text",
+                        "content": "we concatenate four 8-bit images "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\left( X _ { I A } ^ { 1 } , \\cdots , X _ { I A } ^ { d } \\right)"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", where "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "X _ { I A } ^ { d } ( j )"
+                    },
+                    {
+                        "type": "text",
+                        "content": "is represented as"
+                    }
+                ]
+            },
+            "bbox": [
+                75,
+                90,
+                470,
+                334
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "X _ { I A } ^ { d } ( j ) = \\sum _ { m = 1 } ^ { 8 } \\left[ X ( j ) > X ( n _ { d } ^ { m } ) \\right] \\times 2 ^ { m - 1 }\\tag{6}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/3631174c29d61544890a2b77e8d61f6c8020938dd0302dd3406bb32cb3495044.jpg"
+                }
+            },
+            "bbox": [
+                130,
+                344,
+                415,
+                386
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Such local intensity order transformation [34] can capture the intrinsic of the curvilinear object and meanwhile reduces the intensity gap between synthetic and real images."
+                    }
+                ]
+            },
+            "bbox": [
+                75,
+                396,
+                468,
+                441
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Feature-level Alignment. Given the 4-channel transformed images, we utilize U-Net [33] to extract features. We align curvilinear objects’features of synthetic images and unlabeled target images based on two loss functions, i.e., the prediction space adaptation loss (PSAL) and the curvilinear mask contrastive loss (CMCL)."
+                    }
+                ]
+            },
+            "bbox": [
+                75,
+                441,
+                470,
+                531
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "1) Prediction space adaptation loss. We utilize adversarial learning to explicitly align the prediction space distribution of target images and synthetic images. We denote the prediction segmentation masks of the target images and the synthetic images as "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "Y _ { t a r g e t } ~ \\in ~ \\mathbb { R } ^ { H \\times \\mathbf { \\breve { W } } }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "and "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\breve { Y _ { s y n } } \\in \\mathbb { R } ^ { H \\times \\bar { W } }"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", respectively. We input "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "Y _ { t a r g e t }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "and "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "Y _ { s y n }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "into a fully-convolutional discriminator D as [50] trained via a binary cross-entropy loss "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathcal { L } _ { d } \\colon"
+                    }
+                ]
+            },
+            "bbox": [
+                75,
+                532,
+                470,
+                655
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "\\mathcal { L } _ { d } = \\mathbb { E } \\left[ \\log \\left( D \\left( Y _ { s y n } \\right) \\right) \\right] + \\mathbb { E } \\left[ \\log \\left( 1 - D \\left( Y _ { t a r g e t } \\right) \\right) \\right]\\tag{7}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/620f3123035e21415e9aa7a947931acd410f3806c4413d44c69ca7257bc618b9.jpg"
+                }
+            },
+            "bbox": [
+                88,
+                665,
+                437,
+                683
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Accordingly, the PSAL is computed as:"
+                    }
+                ]
+            },
+            "bbox": [
+                76,
+                694,
+                341,
+                709
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "\\mathcal { L } _ { P S A L } = \\mathbb { E } \\left[ \\log \\left( D \\left( Y _ { t a r g e t } \\right) \\right) \\right]\\tag{8}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/ced5fa0e237fd2dd2ed5ae1b519295f0b125920603f712e1df8631d55d7a3457.jpg"
+                }
+            },
+            "bbox": [
+                166,
+                720,
+                379,
+                738
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "2) Curvilinear mask contrastive loss. The CMCL aims to reduce the distance between features of synthetic images and true target images, and meanwhile to improve the feature distinctiveness between curvilinear objects and backgrounds. To this end, we take the feature maps (denoted as "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\breve { f } \\in \\mathbb { R } ^ { H \\times W \\times C } )"
+                    },
+                    {
+                        "type": "text",
+                        "content": "from the final decoder layer of U-Net, the mask of synthetic image (denoted as "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\overrightharpoon { G _ { s y n } } { \\in \\ \\{ 0 , 1 \\} ^ { H \\times W } ) }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "and prediction mask of target image (denoted "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "Y _ { t a r g e t } \\in"
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "[ 0 , 1 ] ^ { \\mathbf { \\hat { H } } \\times W } )"
+                    },
+                    {
+                        "type": "text",
+                        "content": "as input. We process f using a lightweight contrastive encoder and a contrastive projector as [41] to map "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "f"
+                    },
+                    {
+                        "type": "text",
+                        "content": "to the feature space where the pixel-level contrastive loss is applied for "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\boldsymbol { Z } \\in \\mathbb { R } ^ { H \\times W \\times C }"
+                    }
+                ]
+            },
+            "bbox": [
+                75,
+                750,
+                470,
+                901
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": []
+            },
+            "bbox": [
+                498,
+                90,
+                892,
+                121
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "We denote I as "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "H \\times W"
+                    },
+                    {
+                        "type": "text",
+                        "content": "spatial location of the projected feature maps "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "Z ,"
+                    },
+                    {
+                        "type": "text",
+                        "content": "then for a location "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\textit { i } \\in \\textit { I }"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", we can obtain a feature vector "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "z _ { i }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "at location i from feature map "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "Z ,"
+                    },
+                    {
+                        "type": "text",
+                        "content": "label values "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "g _ { i }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "and "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "y _ { i }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "at i from the mask of synthetic image "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "G _ { s y n }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "and the prediction mask "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "Y _ { t a r g e t }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "respectively. We partition pixels of I into two groups: curvilinear object locations "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "I ^ { + }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "and background locations "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "I ^ { - }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "For synthetic images, we perform the partition directly based on the mask "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "G _ { s y n }"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", i.e., "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "I _ { s y n } ^ { + } = \\{ i \\in I _ { s y n } \\mid g _ { i } = 1 \\}"
+                    },
+                    {
+                        "type": "text",
+                        "content": "and "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "{ \\cal I } _ { s y n } ^ { - } ~ = ~ \\{ i \\in { \\cal I } _ { s y n } \\mid g _ { i } = 0 \\}"
+                    },
+                    {
+                        "type": "text",
+                        "content": "For target images, as the ground-truth mask is not available, we alternatively perform the partition based on the prediction probability mask "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "Y _ { t a r g e t } , { \\mathrm { i . e . , } } I _ { t a r g e t } ^ { + } = \\left\\{ i \\in I _ { t a r g e t } \\mid y _ { i } \\geq 1 - \\alpha \\right\\}"
+                    },
+                    {
+                        "type": "text",
+                        "content": "and "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "I _ { t a r q e t } ^ { - } = \\{ i \\in I _ { t a r g e t } \\mid y _ { i } \\leq \\alpha \\}"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", where "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\alpha { = } 0 . 1"
+                    },
+                    {
+                        "type": "text",
+                        "content": "is a small threshold and is fixed in our method."
+                    }
+                ]
+            },
+            "bbox": [
+                496,
+                122,
+                893,
+                348
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "We let "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\begin{array} { r } { q _ { s y n } ^ { + } ~ = ~ \\left\\{ \\mathbf { z } _ { i } ~ | ~ i \\in \\ S \\left( I _ { s y n } ^ { + } , \\sigma \\right) \\right\\} } \\end{array}"
+                    },
+                    {
+                        "type": "text",
+                        "content": "and "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "k _ { t a r g e t } ^ { + } ~ ="
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\{ \\mathbf { z } _ { i } \\mid i \\in \\ S \\left( \\bar { I _ { t a r g e t } ^ { + } } , \\sigma \\right) \\}"
+                    },
+                    {
+                        "type": "text",
+                        "content": "denote the curvilinear keys of synthetic and target images respectively. Similarly, we define "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\begin{array} { r l r } { k _ { s y n } ^ { - } } & { { } = } & { \\left\\{ { \\bf z } _ { i } \\mid i \\in \\ S \\left( I _ { s y n } ^ { - } , \\sigma \\right) \\right\\} } \\end{array}"
+                    },
+                    {
+                        "type": "text",
+                        "content": "and "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\begin{array} { r l } { k _ { t a r g e t } ^ { - } } & { { } = } \\end{array}"
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\left\\{ \\mathbf { z } _ { i } \\mid i \\in \\bar { \\mathfrak { f } } \\left( I _ { t a r g e t } ^ { - } , \\sigma \\right) \\right\\}"
+                    },
+                    {
+                        "type": "text",
+                        "content": "as the background keys of synthetic and target images, where "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\ S ( \\bullet , \\sigma )"
+                    },
+                    {
+                        "type": "text",
+                        "content": "is a random sampling operator which samples a subset from a set randomly with a proportion ratio "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\sigma ."
+                    },
+                    {
+                        "type": "text",
+                        "content": "We combine N negative queries of the features of synthetic and target images to form a negative set "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "k ^ { - } = \\big ( \\hat { k _ { s y n } ^ { - } } , k _ { t a r g e t } ^ { - } \\big )"
+                    },
+                    {
+                        "type": "text",
+                        "content": ". The CMCL is defined as:"
+                    }
+                ]
+            },
+            "bbox": [
+                498,
+                348,
+                893,
+                501
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "\\begin{array} { l } { { \\displaystyle { \\mathcal { L } } _ { C M C L } = - \\log \\left( \\exp \\left( q _ { s y n } ^ { + } \\cdot k _ { t a r g e t } ^ { + } / \\tau \\right) \\right) + } \\ ~ } \\\\ { { \\displaystyle \\log \\left( \\exp \\left( q _ { s y n } ^ { + } \\cdot k _ { t a r g e t } ^ { + } / \\tau \\right) + \\sum _ { i = 0 } ^ { N } \\exp \\left( q _ { s y n } ^ { + } \\cdot k _ { i } ^ { - } / \\tau \\right) \\right) } } \\end{array}\\tag{9}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/a3614f62d8aab24f63b2e1d9a5293f4854730ceaecf3ea71d59f1704745b0af7.jpg"
+                }
+            },
+            "bbox": [
+                513,
+                518,
+                857,
+                577
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "where "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\tau"
+                    },
+                    {
+                        "type": "text",
+                        "content": "is a temperature hyper-parameter."
+                    }
+                ]
+            },
+            "bbox": [
+                503,
+                587,
+                785,
+                602
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "3) Final Loss. The final loss is a combination of the segmentation loss, the PSAL and CMCL as:"
+                    }
+                ]
+            },
+            "bbox": [
+                498,
+                602,
+                892,
+                633
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "\\mathcal { L } _ { s e g } = \\mathbb { E } \\left[ G _ { s y n } \\cdot \\log \\left( Y _ { s y n } \\right) \\right]\\tag{10}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/0155129549272f940f5d579b69a432c1bc5a873fed2afaf66dc2a55fa742b39b.jpg"
+                }
+            },
+            "bbox": [
+                598,
+                645,
+                794,
+                662
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "\\mathcal { L } = \\mathcal { L } _ { s e g } + \\mathcal { L } _ { P S A L } + \\lambda \\mathcal { L } _ { C M C L }\\tag{11}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/05dd1df8342ac42ae43cfd12afc7845ac19e0bbedfe9d5a24b77022a598ef42a.jpg"
+                }
+            },
+            "bbox": [
+                583,
+                693,
+                807,
+                708
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "4. Experiments"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                500,
+                722,
+                632,
+                739
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "XCAD dataset. The X-ray angiography coronary artery disease (XCAD) dataset [25] is obtained during stent placement using a General Electric Innova IGS 520 system. Each image has a resolution of "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "5 1 2 \\times 5 1 2"
+                    },
+                    {
+                        "type": "text",
+                        "content": "pixels with one channel. The training set contains 1621 coronary angiograms without annotations as target images. The testing set contains 126 independent coronary angiograms with vessel segmentation maps annotated by experienced radiologists."
+                    }
+                ]
+            },
+            "bbox": [
+                496,
+                748,
+                893,
+                869
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Retinal dataset. We also employ two public retinal datasets to validate the effectiveness of the proposed method. The DRIVE dataset [37] consists of 40 color retinal images of size 565 × 584 pixels. We use 20 images as target images and 20 remaining as test images. The STARE dataset [17] contains 20 color retinal images of size 700 × 605 pixels with annotations as test images. There are 377 images without annotation which are used as target images."
+                    }
+                ]
+            },
+            "bbox": [
+                498,
+                869,
+                893,
+                901
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "880"
+                    }
+                ]
+            },
+            "bbox": [
+                485,
+                944,
+                513,
+                957
+            ]
+        }
+    ],
+    [
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": []
+            },
+            "bbox": [
+                75,
+                90,
+                470,
+                181
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "CrackTree dataset. The CrackTree dataset [51] contains 206 800×600 pavement images with different kinds of cracks with curvilinear structures. The whole dataset is split into 160 target images and 46 test images by [34] setting. Following [34], we dilate the annotated centerlines by 4 pixels to form the ground-truth segmentation."
+                    }
+                ]
+            },
+            "bbox": [
+                75,
+                183,
+                470,
+                273
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "4.1. Evaluation Metrics"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                76,
+                282,
+                261,
+                299
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "For XCAD and CrackTree, we follow [25, 34] to use the following widely-used metrics in our evaluation, i.e., Jaccard Index (Jaccard), Dice Coefficient (Dice), accuracy (Acc.), sensitivity (Sn.) and specificity (Sp.). For the DRIVE and STARE datasets, we follow the state-of-the-art works for retina vessel segmentation [25] to report accuracy (Acc.), sensitivity (Sn.) specificity (Sp.) and area under curve (AUC) in our evaluation."
+                    }
+                ]
+            },
+            "bbox": [
+                75,
+                305,
+                470,
+                428
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "4.2. Implementation Details"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                76,
+                438,
+                295,
+                453
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "For FFS, we set the ruleset as "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "( r u l e _ { 1 } , \\cdot \\cdot \\cdot , r u l e _ { 4 } )"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", such as:"
+                    }
+                ]
+            },
+            "bbox": [
+                76,
+                460,
+                470,
+                491
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "\\begin{array} { r l } & { r u l e _ { 1 } : F _ { r a n d o m }  F _ { r a n d o m }  F _ { r a n d o m }  F _ { r a n d o m } \\mathrm { . } } \\\\ & { r u l e _ { 2 } : F _ { r a n d o m }  F _ { r a n d o m } [ - F _ { r a n d o m } - F _ { r a n d o m } ] . } \\\\ & { r u l e _ { 3 } : F _ { r a n d o m }  F _ { r a n d o m } - F _ { r a n d o m } - F _ { r a n d o m } . } \\\\ & { r u l e _ { 4 } : F _ { r a n d o m }  F _ { r a n d o m } + F _ { r a n d o m } + F _ { r a n d o m } . } \\end{array}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/9f5d9c2e2ed7b45e4eb45b1d2f8af7983de868ab2def48250f132adba28fb4a4.jpg"
+                }
+            },
+            "bbox": [
+                94,
+                491,
+                449,
+                554
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "We set the initial parameters of the Fractal system as follows. For all four datasets, the angle is randomly selected from (20°, 120°), the initial length is randomly selected from (120px, 200px), the decreased parameter γ is randomly selected from (0.7, 1). The initial width "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "w _ { i n i t }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "is ranging from (8px, 14px) for XCAD, DRIVE and STARE. For CrackTree, the "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "w _ { i n i t }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "is selected from (2px, 6px). The kernel size of Gaussian blur for FFS is 13. We generate 150, 150, 600 synthetic fractal images "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "X _ { f r a c }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "for XCAD, CrackTree, and retinal datasets, respectively."
+                    }
+                ]
+            },
+            "bbox": [
+                75,
+                554,
+                470,
+                704
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "We apply data augmentation including horizontal flipping, random brightness and contrast changes ranging from (1.0, 2.1), random saturation ranging from (0.5, 1.5), and random rotation with 90°, 180°, and 270°. The standard deviation for Gaussian noise is set to a random value within (-5, +5). All images are cropped to 256×256 pixels for training. All the data-augmented operations are applied before the GIA module. The segmentation network is trained using the SGD with a momentum of 0.9 for optimization and the initial learning rate is 0.01. The discriminator network is trained using an Adam optimizer with an initial learning rate of "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "1 0 ^ { - 3 }"
+                    },
+                    {
+                        "type": "text",
+                        "content": ". We employ a batch size of 8 to train the network for 600 epochs. The number of negative queries "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "q _ { s y n } ^ { + }"
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "k _ { t a r g e t } ^ { + }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "and "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "k ^ { - }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "per batch is taken up to 500, 500 and 1000. The amplitude map center region selection parameter of "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\beta"
+                    },
+                    {
+                        "type": "text",
+                        "content": "is set to 0.3. the sampling ratio is 0.3, the hyper-parameter λ is 0.4 and the temperature hyper-parameter τ is 0.1."
+                    }
+                ]
+            },
+            "bbox": [
+                75,
+                704,
+                470,
+                902
+            ]
+        },
+        {
+            "type": "table",
+            "content": {
+                "image_source": {
+                    "path": "images/2e3229d03babbf01da79068b69a9095bf2a19dfa9c80ab97e72ef73807555e8e.jpg"
+                },
+                "table_caption": [
+                    {
+                        "type": "text",
+                        "content": "Table 1. Quantitative evaluation of FreeCOS compared with different methods on the XCAD dataset."
+                    }
+                ],
+                "table_footnote": [],
+                "html": "<table><tr><td></td><td>Methods</td><td>Jaccard</td><td>Dice</td><td>Acc.</td><td> $\\mathrm { { S n . } }$ </td><td>Sp.</td></tr><tr><td>Upper bound</td><td>U-Net [33]</td><td>0.571</td><td>0.724</td><td>0.981</td><td>0.868</td><td>0.996</td></tr><tr><td rowspan=\"3\">Domain Adaptation</td><td>U-Net [33]</td><td>0.228</td><td>0.365</td><td>0.831</td><td>0.444</td><td>0.906</td></tr><tr><td>MMD [8]</td><td>0.262</td><td>0.416</td><td>0.873</td><td>0.553</td><td>0.920</td></tr><tr><td>YNet [32]</td><td>0.287</td><td>0.434</td><td>0.891</td><td>0.523</td><td>0.935</td></tr><tr><td rowspan=\"2\">Traditional</td><td>Hessian [13]</td><td>0.307</td><td>0.465</td><td>0.948</td><td>0.406</td><td>0.981</td></tr><tr><td>OOF [22]</td><td>0.241</td><td>0.386</td><td>0.899</td><td>0.566</td><td>0.920</td></tr><tr><td rowspan=\"2\">Unsupervised</td><td>IIC [19]</td><td>0.124</td><td>0.178</td><td>0.738</td><td>0.487</td><td>0.754</td></tr><tr><td>ReDO [9]</td><td>0.151</td><td>0.261</td><td>0.753</td><td>0.392</td><td>0.923</td></tr><tr><td rowspan=\"3\">Self-supervised</td><td>SSVS [25]</td><td>0.389</td><td>0.557</td><td>0.945</td><td>0.583</td><td>0.972</td></tr><tr><td>DARL [21]</td><td>0.471</td><td>0.636</td><td>0.962</td><td>0.597</td><td>0.985</td></tr><tr><td>Ours</td><td>0.499</td><td>0.661</td><td>0.960</td><td>0.687</td><td>0.977</td></tr></table>",
+                "table_type": "complex_table",
+                "table_nest_level": 1
+            },
+            "bbox": [
+                503,
+                89,
+                887,
+                250
+            ]
+        },
+        {
+            "type": "table",
+            "content": {
+                "image_source": {
+                    "path": "images/fef77474ba95f8fa8a72d33f70366a260d67f8ed731e9ea3ca60e7a4830ff1a9.jpg"
+                },
+                "table_caption": [
+                    {
+                        "type": "text",
+                        "content": "Table 2. Quantitative evaluation of FreeCOS compared with different methods on the retinal dataset."
+                    }
+                ],
+                "table_footnote": [],
+                "html": "<table><tr><td rowspan=\"2\"></td><td rowspan=\"2\">Methods</td><td colspan=\"4\">DRIVE</td><td colspan=\"4\">STARE</td></tr><tr><td> $\\operatorname { A c c } .$ </td><td> $\\mathrm { S n . }$ </td><td> $\\mathbf { S p . }$ </td><td>AUC</td><td> $\\operatorname { A c c } .$ </td><td> $\\mathrm { S n . }$ </td><td>Sp.</td><td>AUC</td></tr><tr><td rowspan=\"4\">Traditional</td><td>Hessian [13]</td><td>0.941</td><td>0.644</td><td>0.97</td><td>0.847</td><td>0.938</td><td>0.690</td><td>0.957</td><td>0.858</td></tr><tr><td>OOF [22]</td><td>0.936</td><td>0.688</td><td>0.959</td><td>0.920</td><td>0.920</td><td>0.770</td><td>0.932</td><td>0.955</td></tr><tr><td>Memari [26]</td><td>0.961</td><td>0.761</td><td>0.981</td><td>0.871</td><td>0.951</td><td>0.782</td><td>0.965</td><td>0.783</td></tr><tr><td>Khan [20]</td><td>0.958</td><td>0.797</td><td>0.973</td><td>0.885</td><td>0.996</td><td>0.792</td><td>0.998</td><td>0.895</td></tr><tr><td rowspan=\"2\">Unsupervised</td><td>IIC [19]</td><td>0.738</td><td>0.632</td><td>0.840</td><td>0.736</td><td>0.710</td><td>0.586</td><td>0.832</td><td>0.709</td></tr><tr><td>ReDO [9]</td><td>0.761</td><td>0.593</td><td>0.927</td><td>0.760</td><td>0.756</td><td>0.567</td><td>0.899</td><td>0.733</td></tr><tr><td rowspan=\"3\">Self-supervised</td><td>SSVS [25]</td><td>0.913</td><td>0.794</td><td>0.982</td><td>0.888</td><td>0.910</td><td>0.774</td><td>0.980</td><td>0.877</td></tr><tr><td>DARL [21]</td><td></td><td>0.456</td><td></td><td></td><td></td><td>0.480</td><td></td><td></td></tr><tr><td>Ours</td><td>0.921</td><td>0.810</td><td>0.932</td><td>0.941</td><td>0.952</td><td>0.797</td><td>0.964</td><td>0.971</td></tr></table>",
+                "table_type": "complex_table",
+                "table_nest_level": 1
+            },
+            "bbox": [
+                503,
+                289,
+                888,
+                398
+            ]
+        },
+        {
+            "type": "table",
+            "content": {
+                "image_source": {
+                    "path": "images/91a7f0c3f7ae81d144686ada67845c5820440c67e48ccf46be805e379e1a0d78.jpg"
+                },
+                "table_caption": [
+                    {
+                        "type": "text",
+                        "content": "Table 3. Quantitative evaluation of FreeCOS compared with different methods on the CrackTree dataset."
+                    }
+                ],
+                "table_footnote": [],
+                "html": "<table><tr><td></td><td>Methods</td><td>AUC</td><td>Dice</td><td> $\\operatorname { A c c } .$ </td><td> $\\mathrm { { S n . } }$ </td><td> $\\mathrm { { S p . } }$ </td></tr><tr><td rowspan=\"2\">Traditional</td><td>Hessian [13]</td><td>0.780</td><td>0.122</td><td>0.935</td><td>0.310</td><td>0.945</td></tr><tr><td>OOF [22]</td><td>0.482</td><td>0.031</td><td>0.770</td><td>0.244</td><td>0.778</td></tr><tr><td>Unsupervised</td><td>ReDO [9]</td><td>0.422</td><td>0.035</td><td>0.632</td><td>0.450</td><td>0.635</td></tr><tr><td rowspan=\"3\">Self-supervised</td><td>SSVS [25]</td><td>0.477</td><td>0.078</td><td>0.299</td><td>0.042</td><td>0.912</td></tr><tr><td>DARL [21]</td><td>0.888</td><td>0.395</td><td>0.974</td><td>0.542</td><td>0.981</td></tr><tr><td>Ours</td><td>0.920</td><td>0.525</td><td>0.974</td><td>0.576</td><td>0.979</td></tr></table>",
+                "table_type": "complex_table",
+                "table_nest_level": 1
+            },
+            "bbox": [
+                503,
+                438,
+                887,
+                532
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": []
+            },
+            "bbox": [
+                500,
+                583,
+                893,
+                646
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "4.3. Experimental Results"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                500,
+                655,
+                702,
+                671
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "4.3.1 Comparison with State-of-the-art"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                500,
+                679,
+                789,
+                695
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Table. 1 compares the performance of vessel segmentation on XCAD between FreeCOS and the state-of-the-art methods, including the unsupervised methods [9, 19], the self-supervised methods [25, 21], domain adaptation methods [8, 32] and the traditional methods [13, 22]. The results in the 1st row are based on supervised U-Net as [25] (i.e., identical segmentation network trained using real images with manual labels) which are the upper bound."
+                    }
+                ]
+            },
+            "bbox": [
+                496,
+                704,
+                893,
+                825
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "For domain adaption methods, we pretrain a vessel segmentation model based on U-Net using training images of DRIVE. Then we adapt the pre-trained model to XCAD using MMD [8] and Ynet [32]. Even with supervised information in the annotated source domain, the performance of"
+                    }
+                ]
+            },
+            "bbox": [
+                498,
+                825,
+                893,
+                901
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "881"
+                    }
+                ]
+            },
+            "bbox": [
+                485,
+                945,
+                511,
+                957
+            ]
+        }
+    ],
+    [
+        {
+            "type": "table",
+            "content": {
+                "image_source": {
+                    "path": "images/7dc23dc226d3e1f1d90c15e3ecb1a4d58d473af791755d8f05859baeb70890e5.jpg"
+                },
+                "table_caption": [
+                    {
+                        "type": "text",
+                        "content": "Table 4. Ablation study for modules."
+                    }
+                ],
+                "table_footnote": [],
+                "html": "<table><tr><td>Jaccard</td><td>Dice</td><td>Acc.</td><td>Sn.</td><td>Sp.</td></tr><tr><td>FFS</td><td>0.450 0.615</td><td>0.955</td><td>0.664</td><td>0.974</td></tr><tr><td>FFS+PSAL</td><td>0.468 0.633</td><td>0.957</td><td>0.680</td><td>0.974</td></tr><tr><td>FFS+PSAL+IA</td><td>0.485 0.647</td><td>0.958</td><td>0.667</td><td>0.976</td></tr><tr><td>FFS+GIA</td><td>0.499</td><td>0.661 0.960</td><td>0.687</td><td>0.977</td></tr></table>",
+                "table_type": "simple_table",
+                "table_nest_level": 1
+            },
+            "bbox": [
+                81,
+                89,
+                464,
+                185
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "MMD and YNet is still inferior to ours. Specifically, our method achieves 21.2% improvement in Jaccard, 22.7% improvement in Dice, 6.9% improvement in Acc., 16.4% improvement in Sn., and 4.2% improvement in Sp. compared with YNet."
+                    }
+                ]
+            },
+            "bbox": [
+                75,
+                228,
+                470,
+                304
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Compared with the unsupervised methods IIC [19] and ReDO [9], our method achieves significantly better performance for all metrics on XCAD. The results show that unsupervised methods cannot achieve satisfactory performance on the gray-scale X-ray images where the segmentation objects can be hardly distinguished from the background."
+                    }
+                ]
+            },
+            "bbox": [
+                75,
+                304,
+                470,
+                396
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Self-supervised method SSVS [25] is specifically designed for XCAD, yet our method still achieves much better performance for all metrics, i.e., 11% improvement in Jaccard, 10.4% improvement in Dice and 10.4% improvement in Sn."
+                    }
+                ]
+            },
+            "bbox": [
+                75,
+                396,
+                470,
+                472
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Table. 2 and 3 further compare our method with the existing methods on the retinal and crack datasets and a similar trend can be observed in these three datasets. Figure. 3 shows the visualization results of images from various kinds of curvilinear datasets."
+                    }
+                ]
+            },
+            "bbox": [
+                75,
+                473,
+                470,
+                549
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "FreeCOS not only achieves state-of-the-art (SOTA) performance but also demonstrates unique advantages compared to various types of methods. a) Compared with traditional methods, FreeCOS does not require complex parameter tunning as traditional methods and achieves much better performance. b) FreeCOS can better tolerate large domain shifts than domain adaptation methods. But the effectiveness of current domain adaptation methods may struggle to achieve satisfactory performance facing a large domain gap. c) Unsupervised methods are more suitable for segmenting objects with aspect ratios close to one and perform well when objects are visually distinct from backgrounds. But their performance greatly degrades when segmenting curvilinear objects with branching structures in cluttered backgrounds. d) Self-supervised methods based on GAN/Diffusion require training with clean background images which limits applications to practical scenarios."
+                    }
+                ]
+            },
+            "bbox": [
+                75,
+                549,
+                472,
+                809
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "4.3.2 Ablation Study"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                76,
+                829,
+                238,
+                845
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "We first conduct ablation studies to evaluate the impact of different modules. To this end, we build the following variants based on our method. For all the variant models and our final model, we use the same U-Net model as our backbone. 1) FFS. We utilize the FFS to generate synthetic training images and the corresponding labels to train the U-Net segmentation model. 2) FFS+PSAL. We further apply PSAL to align features of synthetic and real target images on top of FFS. 3) FFS+PSAL+IA. We apply image-level alignment via relative intensity order transformation (i.e., IA) on top of FFS+PSAL. 4) FFS+GIA. We apply our GIA module (including IA, PSAL and CMCL) on top of FFS. This model is also our final curvilinear segmentation model. The ablation studies are conducted on XCAD. The trend on other datasets are similar and thus the results on the other datasets are omitted due to the space limit."
+                    }
+                ]
+            },
+            "bbox": [
+                75,
+                854,
+                470,
+                901
+            ]
+        },
+        {
+            "type": "table",
+            "content": {
+                "image_source": {
+                    "path": "images/9756f23274fcfaa578d1d83b8453a3708bfddaaa131202129b466edf1ae71441.jpg"
+                },
+                "table_caption": [
+                    {
+                        "type": "text",
+                        "content": "Table 5. Ablation study for FFS."
+                    }
+                ],
+                "table_footnote": [],
+                "html": "<table><tr><td></td><td>Jaccard Dice</td></tr><tr><td>FFS w/o Gaussian blur 0.383 0.547</td><td>Acc. Sn. Sp. 0.940 0.654 0.959</td></tr><tr><td>FFS w/o FDA</td><td>0.302 0.459 0.920 0.609</td></tr><tr><td></td><td>0.940</td></tr><tr><td>FFS w/o various intensities 0.405</td><td>0.569 0.957 0.525 0.984</td></tr><tr><td>FFS w/o various angles</td><td>0.267 0.415 0.939 0.409 0.972</td></tr><tr><td>FFS w/o various lengths 0.224</td><td>0.358 0.943 0.300 0.983</td></tr><tr><td>FFS w/o various widths 0.224</td><td>0.354 0.935 0.348 0.972</td></tr><tr><td>FFS 0.450</td><td>0.615 0.955 0.664 0.974</td></tr></table>",
+                "table_type": "simple_table",
+                "table_nest_level": 1
+            },
+            "bbox": [
+                503,
+                90,
+                888,
+                222
+            ]
+        },
+        {
+            "type": "table",
+            "content": {
+                "image_source": {
+                    "path": "images/5b497984df535234b322cb23e931f7211063d933b1fecd0be27198b65de252ce.jpg"
+                },
+                "table_caption": [
+                    {
+                        "type": "text",
+                        "content": "Table 6. Ablation study for architecture."
+                    }
+                ],
+                "table_footnote": [],
+                "html": "<table><tr><td></td><td>Architecture</td><td>Jaccard</td><td>Dice</td><td>Acc.</td><td>Sn.</td><td>Sp.</td></tr><tr><td>FFS</td><td>U-Net [33]</td><td>0.450</td><td>0.615</td><td>0.955</td><td>0.664</td><td>0.974</td></tr><tr><td>FFS</td><td>Iternet [23]</td><td>0.481</td><td>0.645</td><td>0.959</td><td>0.670</td><td>0.976</td></tr><tr><td>FFS+GIA</td><td>Iternet [23]</td><td>0.505</td><td>0.664</td><td>0.964</td><td>0.641</td><td>0.984</td></tr></table>",
+                "table_type": "simple_table",
+                "table_nest_level": 1
+            },
+            "bbox": [
+                504,
+                241,
+                887,
+                310
+            ]
+        },
+        {
+            "type": "table",
+            "content": {
+                "image_source": {
+                    "path": "images/98747643303fdac22d36819dffce89353225cdcb2f49e4e310ea701cb3a27db4.jpg"
+                },
+                "table_caption": [
+                    {
+                        "type": "text",
+                        "content": "Table 7. Ablation study for different numbers of synthetic images."
+                    }
+                ],
+                "table_footnote": [],
+                "html": "<table><tr><td>Numbers of images</td><td>Jaccard</td><td>Dice</td><td>Acc.</td><td>Sn.</td><td>Sp.</td></tr><tr><td>Synthetic-15</td><td>0.464</td><td>0.629</td><td>0.958</td><td>0.630</td><td>0.979</td></tr><tr><td>Synthetic-45</td><td>0.478</td><td>0.642</td><td>0.958</td><td>0.674</td><td>0.976</td></tr><tr><td>Synthetic-75</td><td>0.488</td><td>0.652</td><td>0.960</td><td>0.668</td><td>0.978</td></tr><tr><td>Synthetic-150</td><td>0.499</td><td>0.661</td><td>0.960</td><td>0.687</td><td>0.977</td></tr></table>",
+                "table_type": "simple_table",
+                "table_nest_level": 1
+            },
+            "bbox": [
+                503,
+                338,
+                888,
+                431
+            ]
+        },
+        {
+            "type": "table",
+            "content": {
+                "image_source": {
+                    "path": "images/14f3340e201b6ef072e073941cc9e5f65a17bd6b1fe8f24fd4e8de9dc79d718f.jpg"
+                },
+                "table_caption": [
+                    {
+                        "type": "text",
+                        "content": "Table 8. Ablation study for different numbers of target images."
+                    }
+                ],
+                "table_footnote": [],
+                "html": "<table><tr><td>Numbers of images</td><td>Jaccard</td><td>Dice</td><td>Acc. Sn.</td><td></td><td>Sp.</td></tr><tr><td>Target-162</td><td>0.455</td><td>0.620</td><td>0.952</td><td>0.678</td><td>0.969</td></tr><tr><td>Target-486</td><td>0.476</td><td>0.637</td><td>0.955</td><td>0.683</td><td>0.972</td></tr><tr><td>Target-810</td><td>0.466</td><td>0.630</td><td>0.958</td><td>0.635</td><td>0.978</td></tr><tr><td>Target-1620</td><td>0.499</td><td>0.661</td><td>0.960</td><td>0.687</td><td>0.977</td></tr></table>",
+                "table_type": "simple_table",
+                "table_nest_level": 1
+            },
+            "bbox": [
+                503,
+                459,
+                887,
+                550
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": []
+            },
+            "bbox": [
+                496,
+                583,
+                893,
+                779
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "The results in Table 4 show that 1) by training a U-Net model using synthetic images from FFS, we can already achieve better performance than the SOTA selfsupervised method SSVS which is based on adversarial learning [25]. Such results reveal a very interesting phenomenon although adversarial learning can synthesize visually similar images as real target images, it cannot explicitly control the generated visual patterns and thus fail to enforce the segmentation-oriented patterns and properties to be encoded in synthetic images. In comparison, FFS can explicitly control the synthesis of both curvilinear structures and background patterns and hence can achieve better performance. 2) Aligning features via prediction space adaptation loss (PSAL) can help reduce domain shifts between synthetic images and real target images and thus FFS+PSAL achieves performance improvements compared with FFS. 3) Aligning synthetic images and real target images via IA method can also reduce the domain shifts and thus FFS+PSAL+IA can provide complementary improvements to FFS+PSAL. 4) Finally, the best performance is obtained when combining both FFS and GIA."
+                    }
+                ]
+            },
+            "bbox": [
+                496,
+                780,
+                895,
+                901
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "882"
+                    }
+                ]
+            },
+            "bbox": [
+                485,
+                945,
+                511,
+                957
+            ]
+        }
+    ],
+    [
+        {
+            "type": "image",
+            "content": {
+                "image_source": {
+                    "path": "images/d52cd47f8f3989a6441a078119bac7bd7446bda698301ec5f927fe3d9187dde7.jpg"
+                },
+                "image_caption": [
+                    {
+                        "type": "text",
+                        "content": "Figure 3. The visualization results of images from the various kinds of curvilinear datasets."
+                    }
+                ],
+                "image_footnote": []
+            },
+            "bbox": [
+                80,
+                88,
+                890,
+                438
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": []
+            },
+            "bbox": [
+                75,
+                488,
+                470,
+                684
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "We further explore the importance of different parameters in FFS on the final performance and discuss how to generate images of curvilinear structures to encode sufficient and comprehensive visual cues for learning robust and distinctive features. To this end, we build 6 variant models based on FFS. 1) FFS w/o Gaussian blur. We do not perform Gaussian blur to synthetic images from FFS. 2) FFS w/o FDA. We remove FDA-based synthesis from FFS and only generate curvilinear structures without backgrounds. 3) FFS w/o various intensities. We remove intensity variations "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "c _ { i }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "in the Fractal system and set the intensity to a fixed value 60. 4) FFS w/o various angles. We utilize a small branching angle range from (1°, 5°) to reduce the branching angle variations. 5) FFS w/o various lengths. We reduce the length variation range to (10px, 20px). 6) FFS w/o various widths. We reduce the width variation to (1px, 5px)."
+                    }
+                ]
+            },
+            "bbox": [
+                75,
+                689,
+                472,
+                901
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": []
+            },
+            "bbox": [
+                498,
+                487,
+                892,
+                517
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "The results in Table 5 show that 1) Gaussian blur can smooth the transition region between curvilinear objects and backgrounds, better mimicking the target images and providing more challenging samples for training than those with sharp boundaries. As a result, excluding Gaussian blur decreases the performance of FFS by 6.8% in Dice. 2) FDA could provide background patterns of target images which are essential for learning features of negative samples. Thus, FFS w/o FDA is 15.6% worse than FFS in Dice. 3) Among the four parameters of the Fractal system, i.e., intensity, angle, length and width, width plays the most important role in the final performance, i.e., FFS w/o various widths decreases the performance by 26.1% compared with FFS in Dice. To summarize, we identify that the appearance patterns in the curvilinear object, object-background transition regions and background regions are important for self-supervised segmentation. Meanwhile, proper parameter settings which can provide similar geometric characteristics with the real target images are key to the success of our self-supervised method."
+                    }
+                ]
+            },
+            "bbox": [
+                496,
+                518,
+                895,
+                821
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "4.3.3 Ablation Study on Architecture"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                500,
+                844,
+                774,
+                859
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "By replacing the U-Net with Iternet in FFS, We conduct ablation studies on two backbone networks U-Net [33] and Iternet [23]. FFS using Iternet segmentation model gets better performance than FFS using U-Net in Table 6. "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathrm { F F S + G I A }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "also demonstrates performance improvement, showing FreeCOS's effectiveness on different architectures. This indicates that the use of a more advanced segmentation network architecture for FreeCOS has the potential to improve performance."
+                    }
+                ]
+            },
+            "bbox": [
+                498,
+                869,
+                893,
+                901
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "883"
+                    }
+                ]
+            },
+            "bbox": [
+                485,
+                945,
+                511,
+                957
+            ]
+        }
+    ],
+    [
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": []
+            },
+            "bbox": [
+                75,
+                90,
+                470,
+                198
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "4.3.4 Self-supervised training with more data"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                76,
+                220,
+                408,
+                236
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "We also examine the segmentation performance when varying the number of synthetic images on the XCAD dataset. Results in Tables. 7 and 8 provide the results when using different numbers of synthetic structures and real target images for generating synthetic images for self-supervised training respectively. Synthetic-15~ Synthetic-150 denote using the number of synthetic fractal object images "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "X _ { f r a c }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "from 15 to 150, and Target-162 ~ Target-1620 denote using the number of target images "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "X _ { t }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "from 162 to 1620. Increasing both synthetic structures and real target images can accordingly improve the final segmentation performance."
+                    }
+                ]
+            },
+            "bbox": [
+                75,
+                246,
+                470,
+                414
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "5. Conclusion"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                76,
+                429,
+                196,
+                445
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "In this paper, we propose a novel self-supervised curvilinear object segmentation method (FreeCOS) that learns robust and distinctive features from fractals and unlabeled images. Different from existing methods, FreeCOS applies the proposed FFS and GIA approach to effectively guide learning distinctive features to distinguish curvilinear objects and backgrounds and aligns information of synthetic and target images at both image and feature levels. One limitation of FreeCOS is that may generate false positives in other curvilinear objects (e.g., catheters in XCAD) and requires proper selection for width range. However, we have successfully utilized this self-supervised learning method for coronary vessel segmentation, retinal vessel segmentation and crack segmentation by reasonable parameter selection. To the best of our knowledge, FreeOCS is the first self-supervised learning method for various curvilinear object segmentation applications."
+                    }
+                ]
+            },
+            "bbox": [
+                75,
+                455,
+                470,
+                712
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Acknowledgements. This work was supported by the National Natural Science Foundation of China under Grants 62061160490, 62122029, and U20B2064."
+                    }
+                ]
+            },
+            "bbox": [
+                76,
+                713,
+                470,
+                758
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "References"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                78,
+                775,
+                174,
+                791
+            ]
+        },
+        {
+            "type": "list",
+            "content": {
+                "list_type": "reference_list",
+                "list_items": [
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[1] Rameen Abdal, Peihao Zhu, Niloy J Mitra, and Peter Wonka. Labels4free: Unsupervised segmentation using stylegan. In Proceedings of the IEEE/CVF International Conference on Computer Vision, pages 13970–13979, 2021. 1, 3"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[2] Michael D Abràmoff, Mona K Garvin, and Milan Sonka. Retinal imaging and image analysis. IEEE Reviews in Biomedical Engineering, 3:169–208, 2010. 1"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[3] Inigo Alonso, Alberto Sabater, David Ferstl, Luis Montesano, and Ana C Murillo. Semi-supervised semantic segmentation with pixel-level contrastive learning from a classwise memory bank. In Proceedings of the IEEE/CVF International Conference on Computer Vision, pages 8219–8228, 2021.3"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[4] Shekoofeh Azizi, Basil Mustafa, Fiona Ryan, Zachary Beaver, Jan Freyberg, Jonathan Deaton, Aaron Loh, Alan Karthikesalingam, Simon Kornblith, Ting Chen, Vivek Natarajan, and Mohammad Norouzi. Big self-supervised models advance medical image classification. In Proceedings of the IEEE/CVF International Conference on Computer Vision, pages 3478–3488, 2021. 3"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[5] Amir Bar, Xin Wang, Vadim Kantorov, Colorado J Reed, Roei Herzig, Gal Chechik, Anna Rohrbach, Trevor Darrell, and Amir Globerson. Detreg: Unsupervised pretraining with region priors for object detection. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pages 14605–14615, 2022. 3"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[6] Favyen Bastani, Songtao He, Sofiane Abbar, Mohammad Alizadeh, Hari Balakrishnan, Sanjay Chawla, Sam Madden, and David DeWitt. Roadtracer: Automatic extraction of road networks from aerial images. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition, pages 4720–4728, 2018. 1"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[7] Anil Batra, Suriya Singh, Guan Pang, Saikat Basu, CV Jawahar, and Manohar Paluri. Improved road connectivity by joint learning of orientation and segmentation. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pages 10385–10393, 2019. 1"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[8] Róger Bermúdez-Chacón, Pablo Márquez-Neila, Mathieu Salzmann, and Pascal Fua. A domain-adaptive two-stream unet for electron microscopy image segmentation. In IEEE International Symposium on Biomedical Imaging, pages 400– 404. IEEE, 2018. 1, 6"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[9] Mickaël Chen, Thierry Artières, and Ludovic Denoyer. Unsupervised object segmentation by redrawing. Advances in Neural Information Processing Systems, 32, 2019. 1, 2, 3, 6, 7"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[10] Mingfei Cheng, Kaili Zhao, Xuhong Guo, Yajing Xu, and Jun Guo. Joint topology-preserving and feature-refinement network for curvilinear structure segmentation. In Proceedings of the IEEE/CVF International Conference on Computer Vision, pages 7147–7156, 2021. 1"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[11] Kien Do, Truyen Tran, and Svetha Venkatesh. Clustering by maximizing mutual information across views. In Proceedings of the IEEE/CVF International Conference on Computer Vision, pages 9928–9938, 2021. 1, 2"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[12] Carl Doersch, Abhinav Gupta, and Alexei A Efros. Unsupervised visual representation learning by context prediction. In Proceedings of the IEEE International Conference on Computer Vision, pages 1422–1430, 2015. 3"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[13] Alejandro F Frangi, Wiro J Niessen, Koen L Vincken, and Max A Viergever. Multiscale vessel enhancement filtering. In International Conference on Medical Image Computing and Computer-Assisted Intervention, pages 130–137. Springer, 1998. 2, 6"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "bbox": [
+                84,
+                801,
+                467,
+                856
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "884"
+                    }
+                ]
+            },
+            "bbox": [
+                485,
+                945,
+                511,
+                957
+            ]
+        }
+    ],
+    [
+        {
+            "type": "list",
+            "content": {
+                "list_type": "reference_list",
+                "list_items": [
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[14] Muhammad Moazam Fraz, Paolo Remagnino, Andreas Hoppe, Bunyarit Uyyanonvara, Alicja R Rudnicka, Christopher G Owen, and Sarah A Barman. Blood vessel segmentation methodologies in retinal images-a survey. Computer Methods and Programs in Biomedicine, 108(1):407– 433,2012.1"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[15] Matteo Frigo and Steven G Johnson. Fftw: An adaptive software architecture for the fft. In Proceedings of IEEE International Conference on Acoustics, Speech and Signal Processing, volume 3, pages 1381–1384. IEEE, 1998. 4"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[16] Spyros Gidaris, Praveer Singh, and Nikos Komodakis. Unsupervised representation learning by predicting image rotations. In International Conference on Learning Representations, 2018. 3"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[17] AD Hoover, Valentina Kouznetsova, and Michael Goldbaum. Locating blood vessels in retinal images by piecewise threshold probing of a matched filter response. IEEE Transactions on Medical imaging, 19(3):203–210, 2000. 1, 2, 6"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[18] Xiaoling Hu, Fuxin Li, Dimitris Samaras, and Chao Chen. Topology-preserving deep image segmentation. Advances in Neural Information Processing Systems, 32, 2019. 1"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[19] Xu Ji, Joao F Henriques, and Andrea Vedaldi. Invariant information clustering for unsupervised image classification and segmentation. In Proceedings of the IEEE/CVF International Conference on Computer Vision, pages 9865–9874, 2019. 1, 2, 3, 6, 7"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[20] Khan Bahadar Khan, Muhammad Shahbaz Siddique, Muhammad Ahmad, and Manuel Mazzara. A hybrid unsupervised approach for retinal vessel segmentation. BioMed Research International, 2020, 2020. 2, 6"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[21] Boah Kim, Yujin Oh, and Jong Chul Ye. Diffusion adversarial representation learning for self-supervised vessel segmentation. In International Conference on Learning Representations, 2022. 2, 3, 6"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[22] Max WK Law and Albert Chung. Three dimensional curvilinear structure detection using optimally oriented flux. In European Conference on Computer Vision, pages 368–382. Springer, 2008. 2, 6"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[23] Liangzhi Li, Manisha Verma, Yuta Nakashima, Hajime Nagahara, and Ryo Kawasaki. Iternet: Retinal image segmentation utilizing structural redundancy in vessel networks. In Proceedings of the IEEE/CVF Winter Conference on Applications of Computer Vision, pages 3656–3665, 2020. 7, 9"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[24] Yunfan Li, Peng Hu, Zitao Liu, Dezhong Peng, Joey Tianyi Zhou, and Xi Peng. Contrastive clustering. In Proceedings of the AAAI Conference on Artificial Intelligence, volume 35, pages 8547–8555, 2021. 1, 2"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[25] Yuxin Ma, Yang Hua, Hanming Deng, Tao Song, Hao Wang, Zhengui Xue, Heng Cao, Ruhui Ma, and Haibing Guan. Selfsupervised vessel segmentation via adversarial learning. In Proceedings of the IEEE/CVF International Conference on Computer Vision, pages 7536–7545, 2021. 1, 2, 3, 5, 6, 7"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[26] Nogol Memari, Abd Rahman Ramli, M Saripan, Syamsiah Mashohor, and Mehrdad Moghbel. Retinal blood vessel segmentation by using matched filtering and fuzzy cmeans clustering with integrated level set method for diabetic retinopathy assessment. Journal of Medical and Biological Engineering, 39(5):713–731, 2019. 2, 6"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[27] Ishan Misra and Laurens van der Maaten. Self-supervised learning of pretext-invariant representations. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pages 6707–6717, 2020. 3"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[28] Agata Mosinska, Mateusz Koziński, and Pascal Fua. Joint segmentation and path classification of curvilinear structures. IEEE Transactions on Pattern Analysis and Machine Intelligence, 42(6):1515–1521, 2019. 1"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[29] Agata Mosinska, Pablo Marquez-Neila, Mateusz Koziński, and Pascal Fua. Beyond the pixel-wise loss for topologyaware delineation. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition, pages 3136– 3145,2018.1"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[30] Taesung Park, Alexei A Efros, Richard Zhang, and Jun-Yan Zhu. Contrastive learning for unpaired image-to-image translation. In European Conference on Computer Vision, pages 319–345. Springer, 2020. 3"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[31] Deepak Pathak, Philipp Krahenbuhl, Jeff Donahue, Trevor Darrell, and Alexei A Efros. Context encoders: Feature learning by inpainting. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition, pages 2536–2544, 2016. 3"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[32] Joris Roels, Julian Hennies, Yvan Saeys, Wilfried Philips, and Anna Kreshuk. Domain adaptive segmentation in volume electron microscopy imaging. In IEEE International Symposium on Biomedical Imaging, pages 1519– 1522. IEEE, 2019. 1, 6"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[33] Olaf Ronneberger, Philipp Fischer, and Thomas Brox. Unet: Convolutional networks for biomedical image segmentation. In International Conference on Medical Image Computing and Computer-Assisted Intervention, pages 234–241. Springer, 2015. 5, 6, 7, 8"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[34] Tianyi Shi, Nicolas Boutry, Yongchao Xu, and Thierry Géraud. Local intensity order transformation for robust curvilinear object segmentation. IEEE Transactions on Image Processing, 31:2557–2569, 2022. 5, 6"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[35] Tianyi Shi, Xiaohuan Ding, Wei Zhou, Feng Pan, Zengqiang Yan, Xiang Bai, and Xin Yang. Affinity feature strengthening for accurate, complete and robust vessel segmentation. IEEE Journal of Biomedical and Health Informatics, 27(8):4006– 4017,2023.1"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[36] Suprosanna Shit, Johannes C Paetzold, Anjany Sekuboyina, Ivan Ezhov, Alexander Unger, Andrey Zhylka, Josien PW Pluim, Ulrich Bauer, and Bjoern H Menze. cldice-a novel topology-preserving loss function for tubular structure segmentation. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pages 16560– 16569, 2021.1"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[37] Joes Staal, Michael D Abràmoff, Meindert Niemeijer, Max A Viergever, and Bram Van Ginneken. Ridge-based vessel segmentation in color images of the retina. IEEE Transactions on Medical Imaging, 23(4):501–509, 2004. 1, 2, 6"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[38] Joseph L Thomas, Simon Winther, Robert F Wilson, and Morten Bøttcher. A novel approach to diagnosing coronary artery disease: acoustic detection of coronary turbulence. The International Journal of Cardiovascular Imaging, 33(1):129–136, 2017. 1"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "bbox": [
+                78,
+                93,
+                468,
+                174
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "885"
+                    }
+                ]
+            },
+            "bbox": [
+                485,
+                945,
+                511,
+                957
+            ]
+        }
+    ],
+    [
+        {
+            "type": "list",
+            "content": {
+                "list_type": "reference_list",
+                "list_items": [
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[39] Feigege Wang, Yue Gu, Wenxi Liu, Yuanlong Yu, Shengfeng He, and Jia Pan. Context-aware spatio-recurrent curvilinear structure segmentation. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pages 12648–12657, 2019. 1"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[40] Jierong Wang and Albert Chung. Higher-order flux with spherical harmonics transform for vascular analysis. In International Conference on Medical Image Computing and Computer-Assisted Intervention, pages 55–65. Springer, 2020.2"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[41] Xuehui Wang, Kai Zhao, Ruixin Zhang, Shouhong Ding, Yan Wang, and Wei Shen. Contrastmask: Contrastive learning to segment every thing. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pages 11604–11613, 2022. 3,5"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[42] Yan Wang, Xu Wei, Fengze Liu, Jieneng Chen, Yuyin Zhou, Wei Shen, Elliot K Fishman, and Alan L Yuille. Deep distance transform for tubular structure segmentation in ct scans. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pages 3833-3842, 2020.1"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[43] Haiyan Wu, Yanyun Qu, Shaohui Lin, Jian Zhou, Ruizhi Qiao, Zhizhong Zhang, Yuan Xie, and Lizhuang Ma. Contrastive learning for compact single image dehazing. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pages 10551–10560, 2021. 3"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[44] Enze Xie, Jian Ding, Wenhai Wang, Xiaohang Zhan, Hang Xu, Peize Sun, Zhenguo Li, and Ping Luo. Detco: Unsupervised contrastive learning for object detection. In Proceedings of the IEEE/CVF International Conference on Computer Vision, pages 8392–8401, 2021. 3"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[45] Yanchao Yang and Stefano Soatto. Fda: Fourier domain adaptation for semantic segmentation. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pages 4085–4095, 2020. 2, 4"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[46] Mair Zamir. On fractal properties of arterial trees. Journal of Theoretical Biology, 197(4):517–526, 1999. 1"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[47] Mair Zamir. Arterial branching within the confines of fractal 1-system formalism. The Journal of General Physiology, 118(3):267–276, 2001. 1, 2, 4"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[48] Mair Zamir. Fractal dimensions and multifractility in vascular branching. Journal of Theoretical Biology, 212(2):183– 190, 2001. 1"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[49] Yuanyi Zhong, Bodi Yuan, Hong Wu, Zhiqiang Yuan, Jian Peng, and Yu-Xiong Wang. Pixel contrastive-consistent semi-supervised semantic segmentation. In Proceedings of the IEEE/CVF International Conference on Computer Vision, pages 7273–7282, 2021. 3"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[50] Wei Zhou, Yukang Wang, Jiajia Chu, Jiehua Yang, Xiang Bai, and Yongchao Xu. Affinity space adaptation for semantic segmentation across domains. IEEE Transactions on Image Processing, 30:2549–2561, 2020. 5"
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "[51] Qin Zou, Yu Cao, Qingquan Li, Qingzhou Mao, and Song Wang. Cracktree: Automatic crack detection from pavement images. Pattern Recognition Letters, 33(3):227–238, 2012. 1,2,6"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "bbox": [
+                78,
+                93,
+                470,
+                161
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "886"
+                    }
+                ]
+            },
+            "bbox": [
+                485,
+                945,
+                511,
+                957
+            ]
+        }
+    ]
+]

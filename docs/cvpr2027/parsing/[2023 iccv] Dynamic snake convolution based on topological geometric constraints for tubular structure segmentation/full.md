@@ -1,0 +1,281 @@
+# Dynamic Snake Convolution based on Topological Geometric Constraints for Tubular Structure Segmentation
+
+Yaolei Qi¹, Yuting He1, Xiaoming Qi1, Yuan Zhang1, and Guanyu Yang1,2,3\*
+
+1 Key Laboratory of New Generation Artificial Intelligence Technology and Its Interdisciplinary Applications (Southeast University), Ministry of Education, Nanjing 210096, China 2 Jiangsu Province Joint International Research Laboratory of Medical Information Processing, Southeast University, Nanjing, China
+
+3 Centre de Recherche en Information Biomédicale Sino-Français (CRIBs), Strasbourg, France yaolei710@seu.edu.cn, yang.list@seu.edu.cn
+
+## Abstract
+
+Accurate segmentation of topological tubular structures, such as blood vessels and roads, is crucial in various fields, ensuring accuracy and efficiency in downstream tasks. However, many factors complicate the task, including thin local structures and variable global morphologies. In this work, we note the specificity of tubular structures and use this knowledge to guide our DSCNet to simultaneously enhance perception in three stages: feature extraction, feature fusion, and loss constraint. First, we propose a dynamic snake convolution to accurately capture the features of tubular structures by adaptively focusing on slender and tortuous local structures. Subsequently, we propose a multi-view feature fusion strategy to complement the attention to features from multiple perspectives during feature fusion, ensuring the retention of important information from different global morphologies. Finally, a continuity constraint loss function, based on persistent homology, is proposed to constrain the topological continuity of the segmentation better. Experiments on 2D and 3D datasets show that our DSCNet provides better accuracy and continuity on the tubular structure segmentation task compared with several methods. Our codes are publicly available.
+
+## 1. Introduction
+
+The accurate segmentation of topological tubular structures is paramount in various fields to ensure the precision and efficiency of downstream tasks. In clinical applications, a well-delineated blood vessel is a crucial prerequisite for computational hemodynamics, and it assists radiologists in locating and diagnosing lesions [13, 16]. In remote sensing applications, complete road segmentation provides a solid foundation for route planning. Regardless of the field, these structures share common features of being thin and tortuous, which make them challenging to capture due to their small proportion in images. Therefore, there is an urgent need to enhance the perception of thin tubular structures.
+
+![](images/484cc88080bca0863601c19cfc80713eadf6769bc88f5605688868807061770f.jpg)  
+Figure 1. Challenges. The above figure shows a 3D heart vascular dataset and a 2D remote road dataset. Both datasets aim to extract tubular structures, but this task faces challenges due to fragile local structures and complex global morphology. Motivation. The standard convolutional kernel is intended to extract local features. On this basis, deformable convolutional kernels have been designed to enrich their application and adapt to geometric deformations of different targets. However, due to the aforementioned challenges, it is difficult to focus efficiently on the thin tubular structures.
+
+However, it remains challenging due to the following difficulties: (1) Thin and fragile local structure. As shown in Figure 1, thin structures account for only a small proportion of the overall image with limited pixel composition. Moreover, these structures are susceptible to interference from complex backgrounds, rendering it difficult to precisely discriminate subtle target variations by the model. Consequently, the model may struggle to differentiate these structures, resulting in the fracture of the segmentation. (2) Complex and variable global morphology. Figure 1 shows the complex and variable morphology of thin tubular structures, even within the same image. Morphological variations are observed in targets located in different regions, depending on the number of branches, the location of bifurcations, and the path length. The model may tend to overfit features that have already been seen, resulting in weak generalization when the data exhibits unprecedented morphological structures.
+
+Recently, many studies have proposed incorporating domain knowledge (e.g. geometric topology and tree structure) to guide the model better to perceive the distinctive features of the tubular structures, thus focusing on improving the accuracy of local segmentation and maintaining the continuity of global morphology. Existing methods can be broadly classified into three categories: (1) Networkbased methods [7, 12, 31, 28, 14, 8] design specific network architectures according to the characteristics of the tubular structures that guide the model to focus on critical features. However, given the small proportion of tubular structures, the network may inevitably lose the perception of the corresponding structures. (2) Feature-based methods [21, 33, 15, 35, 20] enhance the comprehension of the particular geometric and topological features of tubular structures by supplementing the model with additional feature representations. However, some redundant feature representations exacerbate the computational burden while not providing a positive influence on the model. (3) Loss-based methods [24, 29, 1, 30] incorporate measurement methods to supplement constraints during the training process, typically through loss functions. These methods reinforce the stringent constraints on segmentation. Building on this foundation, structured losses combined with continuity constraints from the topological perspective will potentially further improve the accuracy of the tubular segmentation.
+
+To tackle the above obstacles, we propose a novel framework, DSCNet, involving a tubular-aware convolution kernel, multi-view feature fusion strategy, and topological continuity constraint loss function. (1) To address the challenge of the small proportion of thin and fragile local structures that are difficult for the model to focus on, we propose Dynamic Serpentine Convolution (DSConv) to enhance the perception of the geometric structure by adaptively focusing on the thin and curved local features of tubular structures. Unlike deformable convolution [6], which leaves the network completely free to learn geometrical changes, thus causing perceptual regions to wander, especially on thin tubular structures, our DSConv considers the snake-like morphology of tubular structures and supplements the free learning process with constraints that allow for targeted enhancement of the perception of tubular structures. (2) To address the challenge of complex and variable global morphology, we propose a multi-view feature fusion strategy. In this method, we generate multiple morphological kernel templates based on DSConv for viewing the structural features of the target from various perspectives and achieve efficient feature fusion by summarizing typical vital features. (3) To address the problem that segmentation of tubular structures is prone to fracture, we propose a Topological Continuity Constrained Loss Function (TCLoss) based on Persistent Homology (PH). PH[9, 19, 5] responds to the process of topological features from emergence to disappearance. It obtains adequate topological information from noisy high-dimensional data. The related Betti numbers are one way of describing connectivity in the topological space. Unlike [30, 10], our TCLoss combines PH with point set similarity to pilot the network to focus on fracture regions with anomalous pixel/voxel distributions, achieving continuity constraints from a topological perspective.
+
+To summarize, our work proposes a novel framework of knowledge fusion addressing the difficulties of the thin tubular structures, and the specific contributions are threefold. (1) We propose a dynamic snake convolution to adaptively focus on the slender and tortuous local features and realize the accurate tubular structures segmentation on both 2D and 3D datasets. Our model is thoroughly verified using both internal and external test data. (2) We propose a multi-perspective feature fusion strategy to supplement the attention to the vital features from multiple perspectives. (3) We propose a topological continuity constraint loss function based on Persistent Homology, which better constrains the continuity of the segmentation.
+
+## 2. Related Work
+
+## 2.1. Methods based on Network Design
+
+Various methods have been proposed to achieve better performance by designing particular network architectures and modules according to the morphology of the tubular structures. (1) Methods based on the convolutional kernel design, represented by the famous dilated convolution [32] and deformable convolution [6], are proposed to deal with the inherent limited geometric transformation in CNNs, showing outstanding performance on sophisticated detection and segmentation tasks. These methods [7, 34, 12, 31] are also designed to dynamically perceive the geometric features of the objects to adapt to the structure with changeable morphology. For example, DUNet proposed in [12] integrates the deformable convolution into the U-shape architecture and adaptively adjusts the receptive field according to the vessels’ scales and shapes. (2) Methods based on the network architecture design are proposed to learn the special geometric topological features of the tubular structures. PointScatter [28] is proposed to represent the tubular structure with points set, which is an alternative to the segmentation models for the tubular structure extraction task. [14] proposed a tree-structured convolutional gated recurrent unit to model the coronary artery's topological structures explicitly. Different from the ideas mentioned above of allowing the model to learn the geometric changes completely freely, considering the limitation of the convergence difficulty caused by excessive randomness and the possibility that the model will focus on the unexpected regions of the target. Our work integrates the domain knowledge of tubular structure morphology to stably enhance the perception of the tubular structure in the feature extraction process.
+
+## 2.2. Methods based on Features Fusion
+
+Methods based on features fusion [35, 15, 33, 21, 20] strengthens the representation of the tubular structure by supplementing additional feature information to the model. Considering the topology and the sparsity of the tubular structures, [35] proposed a cross-network multi-scale feature fusion method performed between two networks to support high-quality vessel segmentation effectively. In [15], a global transformer and dual local attention network via deep-shallow hierarchical feature fusion are investigated to simultaneously capture the global and local characterizations. [33] proposed to fuse the contextual anatomical information and vascular topologies for accurate tubular structure segmentation. In our work, we propose a multiperspective feature fusion strategy to supplement the attention to the vital features from multiple perspectives. In this strategy, we generate numerous morphological kernel templates based on our DSConv to observe the structural characteristics of the target from multiple perspectives and realize the feature fusion by summarizing the essential standard features, thus improving the performance of our model.
+
+## 2.3. Methods based on Loss Function
+
+Methods based on loss function [24, 29, 1] introduce measurement methods to supplement constraints in the training process. These methods strengthen the strong constraints on the tubular structures segmentation. [24] introduced a similarity measurement termed centerline Dice, which is calculated on the intersection of the segmentation masks and the skeleton. [29] proposed a geometryaware tubular structure segmentation method, Deep Distance Transform (DDT), which combines intuitions from the classical distance transform for skeletonization and tubular structure segmentation. These methods focus on the continuity of the tubular structure segmentation, but the skeleton's inaccuracy and offset will affect the constraints' precision. [1] proposed a similarity index that captures the topological consistency of the predicted segmentation and designs a loss function based on the morphological closing operator for tubular structure segmentation. In [30], topological data analysis methods are incorporated with a geometric deep learning model for fine-grained segmentation for 3D objects. These methods will capture the features of the topological objects. Drawing inspiration from this, our work proposes a topological continuity constraint loss function (TCLoss) that better constrains the continuity of the segmentation from a topological perspective. Our TCLoss gradually introduces constraints based on Persistence Homology [27, 2] during the training process to guide the network to focus on the fracture regions and realize continuity.
+
+## 3. Methodology
+
+Our method is designed to deal simultaneously with 2D and 3D feature maps of thin tubular structures. For simplicity, our modules are described in 2D, and the detailed extension to 3D is also provided in our open source.
+
+## 3.1. Dynamic Snake Convolution
+
+In this section, we discuss how to perform Dynamic Snake Convolution (DSConv) to extract the tubular structure's local features. Given the standard 2D convolution coordinates as $K ,$ the central coordinate is $K _ { i } = ( x _ { i } , y _ { i } )$ . A $3 \times 3$ kernel K with dilation 1 is expressed as:
+
+$$
+K = \{ ( x - 1 , y - 1 ) , ( x - 1 , y ) , \cdot \cdot \cdot , ( x + 1 , y + 1 ) \}\tag{1}
+$$
+
+To give the convolution kernel more flexibility to focus on complex geometric features of the target, inspired by [6], we introduced deformation offsets $\Delta .$ However, if the model is left free to learn the deformation offsets, the perceptual field tends to stray outside the target, especially in the case of thin tubular structures. Therefore, we use an iterative strategy (Figure 3), selecting the following position to be observed in turn for each target to be processed, thus ensuring continuity of the attention and not spreading the field of sensation too far due to the large deformation offsets.
+
+In DSConv, we straighten the standard convolution kernel, both in the direction of the x-axis and the y-axis. We consider a convolution kernel of size 9 and take the xaxis direction as an example, the specific position of each grid in K is represented as: $K _ { i \pm c } = ( x _ { i \pm c } , y _ { i \pm c } )$ , where $c = \{ 0 , 1 , 2 , 3 , 4 \}$ denotes the horizontal distance from the central grid. The selection of each grid position $K _ { i \pm c }$ in the convolution kernel K is a cumulative process. Starting from the center position $K _ { i }$ , the position away from the center grid depends on the position of the previous grid: $K _ { i + 1 }$ is augmented with an offset $\Delta = \{ \delta | \delta \in [ - 1 , 1 ] \}$ compared to $K _ { i }$ . Hence, the offset needs to be Σ, thus ensuring that the convolution kernel conforms to a linear morphological structure. Figure 3 in the direction of the x-axis becomes:
+
+![](images/68f257016371342f9a8b1eb47b26cb266204fbfcece6bca9e6d8b8dfd408359c.jpg)  
+Figure 2. Methodology. Schematic overview of our proposed method illustrated on an example of the 3D coronary artery segmentation Our method has three sections: (1) Dynamic snake convolution (DSConv), which learns the deformation according to the input feature map, adaptively focuses on the slender and tortuous local features under the knowledge of the tubular structure morphology. (2) Multi-view feature fusion strategy, which generates multiple morphological kernel templates based on our DSConv and is used to observe the structural characteristics of the target from multiple perspectives. (3) Loss function, called topological continuity constraint loss function (TCLoss), is based on Persistent Homology to guide the network to focus on the fracture regions with abnormally low pixels/voxels distribution and realize continuity constraint.
+
+$$
+K _ { i \pm c } = \left\{ \begin{array} { l } { { ( x _ { i + c } , y _ { i + c } ) = ( x _ { i } + c , y _ { i } + \Sigma _ { i } ^ { i + c } \Delta y ) , } } \\ { { ( x _ { i - c } , y _ { i - c } ) = ( x _ { i } - c , y _ { i } + \Sigma _ { i - c } ^ { i } \Delta y ) , } } \end{array} \right.\tag{2}
+$$
+
+and Equation 2 in the direction of the y-axis becomes:
+
+$$
+K _ { j \pm c } = \left\{ \begin{array} { l } { ( x _ { j + c } , y _ { j + c } ) = ( x _ { j } + \Sigma _ { j } ^ { j + c } \Delta x , y _ { j } + c ) , } \\ { ( x _ { j - c } , y _ { j - c } ) = ( x _ { j } + \Sigma _ { j - c } ^ { j } \Delta x , y _ { j } - c ) , } \end{array} \right.\tag{3}
+$$
+
+As the offset $\Delta$ is typically fractional, bilinear interpolation is implemented as:
+
+$$
+K = \Sigma _ { K ^ { \prime } } B ( K ^ { \prime } , K ) \cdot K ^ { \prime }\tag{4}
+$$
+
+![](images/b7cc10e083ce6198065b9ad6632ea369c7e800f8ca35a55b4f046182efb1421c.jpg)  
+Figure 3. Left: Illustration of the coordinates calculation of the DSConv. Right: The receptive field of the DSConv.
+
+where K denotes a fractional location for Equation 2 and Equation 3, $K ^ { \prime }$ enumerates all integral spatial locations and B is the bilinear interpolation kernel and it is separated into two one-dimensional kernels as:
+
+$$
+B ( K , K ^ { \prime } ) = b ( K _ { x } , K _ { x } ^ { \prime } ) \cdot b ( K _ { y } , K _ { y } ^ { \prime } )\tag{5}
+$$
+
+As shown in Figure 3, our DSConv covers a $9 \times 9$ range during the deformation process due to the two-dimensional (x-axis, y-axis) changes. DSConv is designed to better adapt to the slender tubular structure based on the dynamic structures so as to better perceive the key features.
+
+## 3.2. Multi-view Feature Fusion Strategy
+
+This section discusses implementing the multi-view feature fusion strategy to guide the model to complement the focus on essential features from multiple perspectives. For each K, two feature maps $f ^ { l } ( K _ { x } )$ and $f ^ { l } ( K _ { y } )$ from layer l are extracted from the x-axis and y-axis, expressed as:
+
+$$
+\begin{array} { r } { f ^ { l } ( { \cal K } ) = \{ \underbrace { \Sigma _ { i } w ( { \cal K } _ { i } ) \cdot f ^ { l } ( { \cal K } _ { i } ) } _ { f ^ { l } ( { \cal K } _ { x } ) } , \underbrace { \Sigma _ { j } w ( { \cal K } _ { j } ) \cdot f ^ { l } ( { \cal K } _ { j } ) } _ { f ^ { l } ( { \cal K } _ { y } ) } \} } \end{array}\tag{6}
+$$
+
+where $w ( K _ { i } )$ denotes the weight at position $K _ { i }$ , and the features extracted by the l-th layer convolution kernel K are calculated using the cumulative approach.
+
+Based on Equation $^ { 6 , }$ we extract m groups of features as $T ^ { l }$ , which contains different morphology of the DSConv:
+
+![](images/1385b4cd834f6202412d0dbc12aa93c4a14d46d2d77cd20c913dba6b96fc1e5c.jpg)  
+Figure 4. The multi-view feature fusion strategy.
+
+$$
+T ^ { l } = \underbrace { ( f ^ { l } ( K _ { x } ) , f ^ { l } ( K _ { y } ) } _ { T _ { 1 } ^ { l } } , \underbrace { f ^ { l } ( K _ { x } ) , f ^ { l } ( K _ { y } ) } _ { T _ { 2 } ^ { l } } , \cdot \cdot \cdot \underbrace { f ^ { l } ( K _ { x } ) , f ^ { l } ( K _ { y } ) } _ { T _ { m } ^ { l } } )\tag{7}
+$$
+
+The feature fusion of multiple templates will inevitably bring redundant noise. Therefore, a random dropping strategy $r ^ { l }$ is introduced during the training stage (Figure 4), to improve the performance of our model and prevent overfitting without increasing additional computational burden, then Equation 7 becomes:
+
+$$
+\left\{ \begin{array} { l l } { r ^ { l } \sim \mathrm { B e r n o u l l i } ( p ) } \\ { \hat { T } ^ { l } = r ^ { l } \cdot T ^ { l } } \\ { f ^ { l + 1 } ( K ) = \Sigma ^ { \lfloor m \times p \rfloor } \hat { T } _ { t } ^ { l } } \end{array} \right.\tag{8}
+$$
+
+where $p$ is the probability of random dropping and $r ^ { l }$ satisfies the Bernoulli distribution. The optimal dropping strategy is saved during the training phase and guides the model to fuse key features during the testing phase.
+
+## 3.3. Topological Continuity Constraint Loss
+
+In this section, we discuss how to implement the topological continuity constraint loss (TCLoss) based on the Persistent Homology to constrain the continuity of the segmentation. The geometric and topological information in complex structures is a pivotal clue to help the models understand the continuous structures. Tools from the topological data analysis are adopted to extract the essential features hidden in the complex tubular structures.
+
+We aim to construct the topology of the data and extract the high-dimensional relationships in the complex tubular structure, represented as persistence barcodes and Persistence Homology (PH), as illustrated in Figure 5.
+
+Given G, its N-dimensional topological structure, homology class [9, 19] is an equivalence class of N-manifolds which can be deformed into each other within G, where 0- dimensional and 1-dimensional are connected components and handles. PH is applied to compute the evolution of topological features, and the period between the appearance time b and disappearance time d of topological features is kept [30]. Such periods are summarized in a concise format called a persistence diagram (PD), which consists of a set of points $( b , d )$ . Each point $( b , d )$ represents the d-th homology class that appears at b and disappears at d. Let $P D \ = \ \mathrm { d g m } ( \cdot )$ denote the persistent homology obtained from the groundtruth $L$ and the output O. We consider the topological information in complex tubular structures, which contains the key clues to determine the presence of fractures, to be evident in the homotopy features of 0-dimensional and 1-dimensional homological features. The existing methods [30, 5, 10] use modified Wasserstein distance to compute the best match between the points generated by the output and the points generated by the groundtruth, and the outlier points without optimal pairing are matched to the diagonal and do not participate in the loss calculation. However, in our task, the outlier points represent anomalous appearing or disappearing time and imply wrong topological relations that play an important role. Therefore, we measure the similarity between the two sets of points using Hausdorff distance[26]:
+
+![](images/298d25d84355be15c02d5c7fac7c18b3157827d0838ba64a7532b6650ea6249e.jpg)  
+Figure 5. Illustration of the Persistent Homology and our TCLoss.
+
+$$
+\left\{ \begin{array} { l l } { d _ { H } ( P _ { O } , P _ { L } ) = \underset { u \in P _ { O } } { \operatorname* { m a x } } \underset { v \in P _ { L } } { \operatorname* { m i n } } \parallel u - v \parallel } \\ { d _ { H } ( P _ { L } , P _ { O } ) = \underset { v \in P _ { L } } { \operatorname* { m a x } } \underset { u \in P _ { O } } { \operatorname* { m i n } } \parallel v - u \parallel } \\ { d _ { H } ^ { * } = \operatorname* { m a x } \{ d _ { H } ( P _ { O } , P _ { L } ) , d _ { H } ( P _ { L } , P _ { O } ) \} } \end{array} \right.\tag{9}
+$$
+
+where $P o \in \mathrm { D g m } ( O ) , P _ { L } \in \mathrm { D g m } ( L )$ and $d _ { H } ^ { * }$ represents the bidirectional Hausdorff distance, which is computed in terms of n-dim points. Our used Hausdorff distance is sensitive to outliers. As shown in Equation 9, if two sets of points are similar, all the points are perfectly superimposed except only one point in $P _ { O }$ , which is far from any point in $P _ { H }$ , then the Hausdorff distance is determined by that point and is large [11].
+
+Then the summation over all dimensions (n = $0 , 1 , 2 , \cdots , N )$ is performed to obtain the $\mathcal { L } _ { P H }$ and the whole TCLoss is integrated with the cross enropy loss $\mathcal { L } _ { C E }$ as the final loss function $\begin{array} { r } { \mathcal { L } _ { T C } = \mathcal { L } _ { C E } + \sum _ { n = 0 } ^ { N } d _ { H } ^ { * } } \end{array}$
+
+Finally, the topology and accuracy are constrained by the combined effect of the two loss functions, contributing to continuous tubular segmentation.
+
+## 4. Experiments Configurations
+
+## 4.1. Datasets
+
+We employ three datasets containing two public and one internal dataset for validating our framework. In 2D, we evaluate the DRIVE retina dataset[25] and the Massachusetts Roads dataset[17]. In 3D, we used a dataset called Cardiac CCTA Data. Details concerning the experimental setup can be found in the supplementary material.
+
+## 4.2. Evaluation Metrics
+
+We performed comparative experiments and ablation studies to demonstrate the advantages of our proposed framework. The classical segmentation network U-Net [4] and the $\mathrm { C S ^ { 2 } }$ -Net [18] proposed in 2021 for vascular segmentation are compared to validate the accuracy. To validate the network design performance, we compared the DCU-net [31] proposed in 2022 for retinal vascular segmentation. To validate the advantages of feature fusion, we compared the Transunet [3] for medical image segmentation proposed in 2021. To validate the loss function constraint, we compared clDice [24] proposed in 2021 and Wasserstein-distance-based TCLoss LwTC [30]. These models are trained on the same dataset with the exact implementation and were evaluated by the following metrics. All metrics were calculated for each image and averaged.
+
+1. Volumetric scores: Mean Dice Coefficient (Dice), Relative-Dice coefficient (RDice)[22], CenterlineDice (clDice)[24], Accuracy (ACC) and AUC are used to evaluate the performance of the results
+
+2. Topology errors: We follow [24, 28] and calculate the topology-based scores including the Betti Errors for Betti numbers $\beta _ { 0 }$ and $\beta _ { 1 }$ . Meanwhile, to objectively verify the continuity of the coronary artery segmentation, the overlap until frst error (OF) [23] is used to evaluate the completeness of the extracted centerline.
+
+3. Distance errors: Hausdorff Distance (HD) [26] is also widely used to describe the similarity between two sets of points, which is recommended to evaluate the thin tubular structures.
+
+## 5. Results and Discussion
+
+In this paragraph, we will evaluate and analyze our proposed framework's effectiveness in three ways: (1) The performance of our proposed method for the thin tubular structure segmentation task is compared and verified by the following metrics. The visual effects of different methods are simultaneously shown. (2) We analyzed the effectiveness of our proposed DSConv to guide the model to focus on the tubular structure, and the help of the TCLoss to constrain the topology of the segmentation. (3) We provide comprehensive experiments, including ablation studies, on the DRIVE dataset as an example. Additionally, due to space constraints, we highlight some of the most important comparison experiments on other datasets. The results show the strong performance of our method on both 2D and 3D fields.
+
+## 5.1. Quantitative Evaluation
+
+The advantages of our method on each metric are demonstrated in Table 1, and the results show that our proposed DSCNet achieves better results on both 2D and 3D datasets.
+
+Evaluation on DRIVE. On the DRIVE dataset, our DSCNet outperforms the other models regarding segmentation accuracy and topological continuity. In Table 1, our proposed DSCNet achieves the best segmentation results compared with other methods with Dice of 82.06%, RDice of 90.17%, clDice of 82.07%, ACC of 96.87%, and AUC of 90.27% from the perspective of the volumetric accuracy. Meanwhile, from the view of the topology, our DSC-Net achieves the best topological continuity compared with other methods with $\beta _ { 0 }$ error of 0.998 and $\beta _ { 1 }$ error of 0.803. The results show that our method better captures the specific features of the thin tubular structures and exhibits a more accurate segmentation performance and a more continuous topology. As shown in the sixth to twelfth rows of Table 1, with the addition of our TCLoss, different models both show improvement in the topological continuity of the segmentation. The results illustrate that our TCLoss accurately constrains the model to focus on thin tubular structures that lose topological continuity.
+
+Evaluation on ROADS. On the Massachusetts Roads dataset, our DSCNet also achieves the best results. As shown in Table 1, our proposed DSCNet with TCLoss achieves the best segmentation results compared with other methods with Dice of 78.21%, RDice of 85.85%, and clDice of 87.64%. Compared with the results of the classical segmentation network UNet, our method achieves at most 1.31% Dice, 1.78% RDice, and 0.77% clDice improvements. The results show that our model also performs well for structurally complex and morphologically variable road datasets compared with other models.
+
+Evaluation on CORONARY. On the Cardiac CCTA dataset, we verify that our DSCNet still achieves the same best results for segmenting the thin tubular structures in 3D. As shown in Table 2, our proposed DSCNet achieves the best segmentation results compared with other methods with Dice of 80.27%, RDice of 86.37%, and clDice of 85.26%. Compared with the results of the classical segmentation network UNet, our method achieves at most 3.40% Dice, 1.89% RDice, and 3.83% clDice improvements. Meanwhile, we used OF metrics to assess the continuity of segmentation. With our method, the OF metrics improved by 6.00% for LAD, 3.78% for LCX, and 3.30%
+
+Model Analysis
+
+Image & Label  
+Loss Analysis  
+![](images/f0946301149a5359706dbb747cd293b11d4984e71c7faeee5b15d28d93c703de.jpg)  
+Figure 6. Qualitative results. To verify the performance of our method more objectively and efficiently, we selected representative hard-to-segment regions from each dataset. From top to bottom, we show two rows of results for the DRIVE dataset, the Massachusetts road dataset, and our internal Coronary dataset. From left to right, we show the original image, groundtruth, and the results from classical UNet, DCU-net, our DSCNet, UNet with clDice, UNet with our proposed TCLoss, and our DSCNet with TCLoss. The results indicate that our DSCNet and TCLoss outperform the other models regarding segmentation accuracy and topological continuity. The yellow arrows indicate the areas where the segmentation is broken, while the green arrows indicate areas where the segmentation is performing well.
+
+for RCA (LAD, LCX, and RCA are the vital trunks of the coronary vessels). The improvement in the continuity of vessels plays a crucial role in the clinic.
+
+Ablation Experiment Analysis. Taking the DRIVE dataset as an example, the ablation experiments prove the importance of our DSCNet and our TCLoss. (1) To prove the effectiveness of our DSCNet. The results in the first five rows of Table 1 show that our method is better suited to segmenting thin tubular structures. The results show that our proposed DSConv plays a vital role in the model, helping the network better to capture the critical features of the thin tubular structures. (2) To prove the effectiveness of our TCLoss. As shown in the sixth to ninth rows of Table 1, with the addition of our TCLoss, different models both show improvement in the topological continuity of the segmentation. The results illustrate that our TCLoss accurately constrains the model to focus on thin tubular structures that lose topological continuity.
+
+## 5.2. Qualitative Evaluation
+
+Our DSCNet and TCLoss have decisive visual superiority in arbitrary aspects (Figure 6). (1) To demonstrate the effectiveness of our DSCNet. From left to right, the third to fifth columns show the performance of the different networks in terms of segmentation accuracy. Thanks to our DSConv to adaptively perceive critical features of the thin tubular structure, our model focuses more accurately on special tubular features than other methods, thus showing better performance on tubular structure segmentation. (2) To demonstrate the effectiveness of our TCLoss. From left to right, the sixth to eighth columns show the performance of different loss functions on the continuity of the segmentation of the thin tubular structure. With the addition of our proposed TCLoss, the continuity of the segmentation is greatly improved in hard-to-segment regions. The results confirm that our method gives a stable segmentation performance with better topological continuity, especially in complex and variable morphological structures. Notably, on the Massachusetts Roads dataset, our model achieves good visualization on adjacent straight or curved roads. More visualization results can be found in the supplementary material.
+
+<table><tr><td rowspan="2">Dataset</td><td rowspan="2">Network</td><td rowspan="2">Loss</td><td colspan="5">Volumetric (%) ↑</td><td colspan="2">Topology ↓</td><td>Distance ↓</td></tr><tr><td>Dice</td><td>RDice</td><td>clDice</td><td>ACC</td><td>AUC</td><td> $\overline { { \beta _ { 0 } } }$ </td><td> $\overline { { \beta _ { 1 } } }$ </td><td>HD</td></tr><tr><td rowspan="10">DRIVE</td><td>UNet</td><td> $\mathcal { L } _ { C E }$ </td><td> $8 0 . 7 3 _ { \pm 1 . 7 7 }$ </td><td> $8 7 . 9 4 _ { \pm 3 . 3 2 }$ </td><td> $7 9 . 6 6 _ { \pm 4 . 0 0 }$ </td><td> $9 6 . 7 4 _ { \pm 0 . 2 8 }$ </td><td> $8 8 . 5 7 { \scriptstyle \pm 2 . 4 4 }$ </td><td> $1 . 2 0 9 _ { \pm 0 . 3 4 2 }$ </td><td> $0 . 8 8 3 _ { \pm 0 . 1 3 5 }$ </td><td> $6 . 8 6 _ { \pm 0 . 5 6 }$ </td></tr><tr><td>Transunet</td><td> $\mathcal { L } _ { C E }$ </td><td> $8 0 . 5 6 _ { \pm 2 . 1 4 }$ </td><td> $8 7 . 1 4 _ { \pm 3 . 8 2 }$ </td><td> $7 9 . 0 2 _ { \pm 5 . 0 5 }$ </td><td> $9 6 . 7 5 _ { \pm 0 . 3 2 }$ </td><td> $8 8 . 0 2 _ { \pm 2 . 7 9 }$ </td><td> $1 . 2 1 0 _ { \pm 0 . 3 0 9 }$ </td><td> $0 . 8 4 4 _ { \pm 0 . 1 5 7 }$ </td><td> $6 . 8 3 _ { \pm 0 . 5 2 }$ </td></tr><tr><td>CS2-Net</td><td> $\mathcal { L } _ { C E }$ </td><td> $7 7 . 5 3 _ { \pm 2 . 9 4 }$ </td><td> $8 2 . 5 5 _ { \pm 4 . 1 0 }$ </td><td> $7 4 . 8 8 _ { \pm 5 . 2 7 }$ </td><td> $9 6 . 4 6 _ { \pm 0 . 3 6 }$ </td><td> $8 4 . 7 3 _ { \pm 2 . 8 2 }$ </td><td> $1 . 3 9 1 _ { \pm 0 . 3 3 1 }$ </td><td> $0 . 9 0 6 _ { \pm 0 . 1 7 7 }$ </td><td> $6 . 9 0 _ { \pm 0 . 4 8 }$ </td></tr><tr><td>DCU-net</td><td> $\mathcal { L } _ { C E }$ </td><td> $8 0 . 8 3 _ { \pm 1 . 9 9 }$ </td><td> $8 7 . 7 3 _ { \pm 3 . 6 0 }$ </td><td> $8 0 . 1 9 _ { \pm 4 . 8 0 }$ </td><td> $9 6 . 7 7 { \scriptstyle \pm 0 . 3 1 }$ </td><td> $8 8 . 4 5 _ { \pm 2 . 6 7 }$ </td><td> $1 . 1 0 4 _ { \pm 0 . 3 2 7 }$ </td><td> $0 . 8 1 7 _ { \pm 0 . 1 6 6 }$ </td><td> $6 . 8 4 _ { \pm 0 . 5 8 }$ </td></tr><tr><td>DSCNet(ours)</td><td> $\mathcal { L } _ { C E }$ </td><td> $\mathbf { 8 1 . 8 5 _ { \pm 1 . 7 4 } }$ </td><td> ${ \bf 8 8 . 9 3 _ { \pm 3 . 3 6 } }$ </td><td> $\mathbf { 8 1 . 1 6 _ { \pm 4 . 5 4 } }$ </td><td> ${ \bf 9 6 . 9 1 _ { \pm 0 . 2 8 } }$ </td><td> $\mathbf { 8 9 . 3 8 _ { \pm 2 . 5 4 } }$ </td><td> $\mathbf { 1 . 0 9 4 _ { \pm 0 . 3 0 1 } }$ </td><td> $\mathbf { 0 . 7 8 0 _ { \pm 0 . 1 6 2 } }$ </td><td> ${ \bf 6 . 6 8 _ { \pm 0 . 4 9 } }$ </td></tr><tr><td>UNet</td><td> $\overline { { \mathcal { L } _ { T C } ( \bf { o u r s } ) } }$ </td><td> $\overline { { 8 0 . 9 3 _ { \pm 1 . 9 7 } } }$ </td><td> $\overline { { 8 8 . 0 0 _ { \pm 3 . 4 1 } } }$ </td><td> $8 0 . 2 8 _ { \pm 4 . 4 1 }$ </td><td> $9 6 . 7 8 _ { \pm 0 . 3 0 }$ </td><td> $\overline { { 8 8 . 6 3 _ { \pm 2 . 5 6 } } }$ </td><td> $\overline { { 1 . 1 1 7 _ { \pm 0 . 2 8 6 } } }$ </td><td> $\mathbf { 0 . 7 9 7 _ { \pm 0 . 1 5 1 } }$ </td><td> $\overline { { 6 . 8 8 _ { \pm 0 . 5 3 } } }$ </td></tr><tr><td>Transunet</td><td> $\mathcal { L } _ { T C } ( \bf { o u r s } )$ </td><td> $8 0 . 7 9 _ { \pm 2 . 1 1 }$ </td><td> $8 7 . 7 8 _ { \pm 3 . 8 0 }$ </td><td> $7 9 . 8 6 _ { \pm 4 . 9 0 }$ </td><td> $9 6 . 7 6 { \scriptstyle \pm 0 . 3 2 }$ </td><td> $8 8 . 4 8 _ { \pm 2 . 8 2 }$ </td><td> $1 . 1 7 6 _ { \pm 0 . 2 9 5 }$ </td><td> $0 . 8 1 8 _ { \pm 0 . 1 7 6 }$ </td><td> $6 . 8 3 _ { \pm 0 . 5 1 }$ </td></tr><tr><td>CS²-Net</td><td> $\mathcal { L } _ { T C } ( \bf { o u r s } )$ </td><td> $7 9 . 6 9 _ { \pm 2 . 3 1 }$ </td><td> $8 6 . 1 4 _ { \pm 3 . 8 2 }$ </td><td> $7 7 . 7 2 _ { \pm 5 . 0 9 }$ </td><td> $9 6 . 6 4 _ { \pm 0 . 3 2 }$ </td><td> $8 7 . 2 5 _ { \pm 2 . 7 6 }$ </td><td> $1 . 3 0 8 _ { \pm 0 . 3 3 4 }$ </td><td> $0 . 8 4 8 _ { \pm 0 . 1 6 0 }$ </td><td> $6 . 9 3 _ { \pm 0 . 4 5 }$ </td></tr><tr><td>DCU-net</td><td> $\mathcal { L } _ { T C } ( \bf { o u r s } )$ </td><td> $8 1 . 1 8 _ { \pm 1 . 9 0 }$ </td><td> $8 7 . 8 9 _ { \pm 3 . 4 3 }$ </td><td> $8 0 . 6 0 _ { \pm 4 . 5 4 }$ </td><td> $9 6 . 8 3 _ { \pm 0 . 3 1 }$ </td><td> $8 8 . 5 9 _ { \pm 2 . 5 7 }$ </td><td> $1 . 0 7 6 _ { \pm 0 . 3 1 3 }$ </td><td> $0 . 8 1 7 _ { \pm 0 . 1 6 7 }$ </td><td> $6 . 8 0 _ { \pm 0 . 5 6 }$ </td></tr><tr><td>UNet UNet</td><td> $_ \mathrm { c l D i c e }$ </td><td> $8 0 . 7 7 _ { \pm 1 . 9 2 }$ </td><td> $8 7 . 5 3 _ { \pm 3 . 4 2 }$ </td><td> $7 9 . 9 3 _ { \pm 4 . 4 8 }$ </td><td> $9 6 . 7 7 _ { \pm 0 . 3 1 }$ </td><td> $8 8 . 2 9 _ { \pm 2 . 5 2 }$ </td><td> $1 . 1 9 9 _ { \pm 0 . 3 0 3 }$ </td><td> $0 . 8 3 3 _ { \pm 0 . 1 5 7 }$ </td><td> $6 . 9 3 _ { \pm 0 . 5 4 }$ </td></tr><tr><td>DSCNet(ours)</td><td> $\mathcal { L } _ { W T C }$   $\mathcal { L } _ { T C } ( \bf { o u r s } )$ </td><td> $8 0 . 8 9 _ { \pm 1 . 9 5 }$   $\mathbf { 8 2 . 0 6 _ { \pm 1 . 4 4 } }$ </td><td> $8 7 . 8 5 _ { \pm 3 . 5 5 }$   $\mathbf { 9 0 . 1 7 { \scriptstyle \pm 3 . 0 4 } }$ </td><td> $8 0 . 0 3 { \scriptstyle \pm 4 . 7 5 }$   ${ \bf 8 2 . 0 7 } _ { \pm 4 . 3 5 }$ </td><td> $9 6 . 7 8 _ { \pm 0 . 2 9 }$   $\mathbf { 9 6 . 8 7 _ { \pm 0 . 2 4 } }$ </td><td> $8 8 . 5 3 { \scriptstyle \pm 2 . 6 4 }$   $\mathbf { 9 0 . 2 7 { \scriptstyle \pm 2 . 3 2 } }$ </td><td> $1 . 1 4 4 _ { \pm 0 . 3 3 9 }$   $\mathbf { 0 . 9 9 8 _ { \pm 0 . 3 1 2 } }$ </td><td> $0 . 8 1 4 _ { \pm 0 . 1 7 6 }$   $0 . 8 0 3 _ { \pm 0 . 1 7 9 }$ </td><td> $6 . 7 9 _ { \pm 0 . 4 7 }$ </td></tr><tr><td rowspan="7"></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td> ${ \bf 6 . 7 8 _ { \pm 0 . 5 1 } }$ </td></tr><tr><td>UNet</td><td> $\mathcal { L } _ { C E }$ </td><td> $7 6 . 9 0 _ { \pm 6 . 3 0 }$ </td><td> $8 4 . 0 7 _ { \pm 6 . 4 6 }$ </td><td> $8 6 . 8 7 _ { \pm 6 . 5 9 }$ </td><td> $9 7 . 9 7 _ { \pm 1 . 2 7 }$ </td><td> $9 8 . 2 9 _ { \pm 1 . 2 4 }$ </td><td> $1 . 1 0 7 _ { \pm 0 . 5 5 1 }$ </td><td> $1 . 5 0 5 _ { \pm 0 . 4 6 7 }$ </td><td> $8 . 1 1 _ { \pm 2 . 4 2 }$ </td></tr><tr><td>Transunet DCU-net</td><td> $\mathcal { L } _ { C E }$   $\mathcal { L } _ { C E }$ </td><td> $7 5 . 8 2 _ { \pm 6 . 8 3 }$ </td><td> $8 1 . 5 0 { \scriptstyle \pm 6 . 6 5 }$   $8 4 . 2 6 _ { \pm 6 . 3 7 }$ </td><td> $8 6 . 0 4 _ { \pm 7 . 4 0 }$ </td><td> $9 7 . 9 7 _ { \pm 1 . 2 8 }$ </td><td> $9 8 . 2 3 _ { \pm 1 . 1 5 }$ </td><td> $1 . 1 0 5 _ { \pm 0 . 6 1 5 }$ </td><td> $1 . 5 7 0 { \scriptstyle \pm 0 . 6 6 3 }$ </td><td> $8 . 1 1 _ { \pm 2 . 5 3 }$ </td></tr><tr><td>UNet</td><td> $\mathcal { L } _ { T C } ( \bf { o u r s } )$ </td><td> $7 7 . 2 4 _ { \pm 6 . 3 0 }$   $7 7 . 7 0 { \scriptstyle \pm 6 . 0 7 }$ </td><td> $8 4 . 8 0 { \scriptstyle \pm 5 . 9 6 }$ </td><td> $8 6 . 9 8 _ { \pm 6 . 5 3 }$   $8 7 . 4 7 _ { \pm 6 . 3 1 }$ </td><td> $9 8 . 0 3 _ { \pm 1 . 1 4 }$   $9 8 . 0 3 _ { \pm 1 . 2 3 }$ </td><td> $9 8 . 3 4 _ { \pm 1 . 1 9 }$   $9 8 . 4 1 _ { \pm 1 . 1 3 }$ </td><td> $1 . 0 8 5 _ { \pm 0 . 6 5 3 }$ </td><td> $1 . 4 7 4 _ { \pm 0 . 4 9 7 }$ </td><td> $8 . 0 4 _ { \pm 2 . 5 3 }$ </td></tr><tr><td>UNet</td><td> $_ \mathrm { c l D i c e }$ </td><td> $7 7 . 3 7 { \scriptstyle \pm 5 . 5 7 }$ </td><td> $8 4 . 1 8 _ { \pm 5 . 9 9 }$ </td><td> $8 7 . 0 5 _ { \pm 6 . 3 4 }$ </td><td> $9 8 . 0 3 _ { \pm 1 . 2 2 }$ </td><td> $9 8 . 4 0 _ { \pm 1 . 1 2 }$ </td><td> $1 . 0 7 2 _ { \pm 0 . 6 3 1 }$   $1 . 0 7 9 _ { \pm 0 . 6 1 3 }$ </td><td> $1 . 4 0 1 _ { \pm 0 . 4 9 6 }$   $1 . 4 0 7 _ { \pm 0 . 6 0 3 }$ </td><td> $8 . 0 4 _ { \pm 2 . 7 2 }$   $8 . 0 8 _ { \pm 2 . 4 6 }$ </td></tr><tr><td>DSCNet(ours)</td><td> $\mathcal { L } _ { C E }$ </td><td> $7 8 . 0 4 { \scriptstyle \pm 5 . 7 7 }$ </td><td> $8 5 . 3 5 { \scriptstyle \pm 5 . 4 2 }$ </td><td> $8 7 . 7 4 _ { \pm 6 . 0 2 }$ </td><td> $9 8 . 0 5 _ { \pm 1 . 2 1 }$ </td><td> $9 8 . 3 9 _ { \pm 1 . 1 9 }$ </td><td> $1 . 1 1 8 _ { \pm 0 . 6 4 1 }$ </td><td> $1 . 4 4 1 _ { \pm 0 . 5 2 3 }$ </td><td> $7 . 9 6 _ { \pm 2 . 4 3 }$ </td></tr><tr><td>DSCNet(ours)</td><td> $\mathcal { L } _ { T C } ( \bf { o u r s } )$ </td><td> ${ 7 8 . 2 1 } _ { \pm 5 . 7 7 }$ </td><td> ${ \bf 8 5 . 8 5 _ { \pm 5 . 5 6 } }$ </td><td> $8 7 . 6 4 _ { \pm 5 . 9 9 }$ </td><td> $9 8 . 0 5 _ { \pm 1 . 2 1 }$ </td><td> $9 8 . 4 6 _ { \pm 1 . 0 8 }$ </td><td> $\mathbf { 1 . 0 5 3 _ { \pm 0 . 5 2 3 } }$ </td><td> ${ \bf 1 . 3 9 6 _ { \pm 0 . 4 5 6 } }$ </td><td> $7 . 3 4 _ { \pm 2 . 4 8 }$ </td></tr></table>
+
+Table 1. Quantitative results for the DRIVE retina dataset and the Massachusetts road dataset (ROADS) are shown in this table. All experiments verified the performance of our method on three levels: volumetric accuracy, topological connectivity, and distance error. Our DSCNet and TCLoss achieve the most competitive results in all metrics.
+<table><tr><td rowspan="2">Dataset</td><td rowspan="2">Network</td><td rowspan="2">Loss</td><td colspan="3">Volumetric (%) ↑</td><td colspan="3">Topology OF ↑</td><td>Distance ↓</td></tr><tr><td>Dice</td><td>RDice</td><td>clDice</td><td>LAD</td><td>LCX</td><td>RCA</td><td>HD</td></tr><tr><td rowspan="6">CORONARY</td><td>UNet</td><td> $\mathcal { L } _ { C E }$ </td><td> $7 6 . 8 7 { \scriptstyle \pm 5 . 3 8 }$ </td><td> $8 4 . 4 8 _ { \pm 4 . 5 5 }$ </td><td> $8 1 . 4 3 _ { \pm 6 . 0 2 }$ </td><td> $0 . 8 0 6 _ { \pm 0 . 2 5 2 }$ </td><td> $0 . 8 4 7 _ { \pm 0 . 2 3 9 }$ </td><td> $0 . 8 4 9 _ { \pm 0 . 2 6 7 }$ </td><td> $7 . 7 2 7 { \scriptstyle \pm 3 . 3 0 }$ </td></tr><tr><td>Transunet</td><td> $\mathcal { L } _ { C E }$ </td><td> $7 6 . 7 0 _ { \pm 6 . 6 5 }$ </td><td> $8 3 . 2 3 _ { \pm 6 . 7 2 }$ </td><td> $7 8 . 7 1 _ { \pm 6 . 9 3 }$ </td><td>0.810±0.274</td><td> $0 . 6 9 4 _ { \pm 0 . 3 0 7 }$ </td><td>0.816±0.303</td><td> $8 . 5 8 0 _ { \pm 4 . 1 1 }$ </td></tr><tr><td>DCU-net</td><td> $\mathcal { L } _ { C E }$ </td><td> $7 8 . 3 3 { \scriptstyle \pm 5 . 0 0 }$ </td><td> $8 5 . 6 7 _ { \pm 4 . 2 9 }$ </td><td> $8 2 . 2 9 _ { \pm 5 . 3 1 }$ </td><td> $0 . 8 3 3 _ { \pm 0 . 2 1 9 }$ </td><td> $0 . 7 4 6 _ { \pm 0 . 2 9 6 }$ </td><td> $0 . 8 3 5 _ { \pm 0 . 3 0 0 }$ </td><td> $7 . 3 3 1 { \scriptstyle \pm 3 . 0 6 }$ </td></tr><tr><td>UNet</td><td> $_ \mathrm { c l D i c e }$ </td><td> $7 7 . 8 6 _ { \pm 5 . 2 5 }$ </td><td> $8 4 . 4 2 _ { \pm 4 . 6 5 }$ </td><td> $8 2 . 3 7 _ { \pm 5 . 5 4 }$ </td><td> $0 . 8 1 7 _ { \pm 0 . 2 5 6 }$ </td><td> $0 . 8 4 5 _ { \pm 0 . 2 3 4 }$ </td><td> $0 . 8 5 9 _ { \pm 0 . 2 6 5 }$ </td><td> $7 . 4 1 2 _ { \pm 3 . 6 8 }$ </td></tr><tr><td>DSCNet(ours)</td><td> $\mathcal { L } _ { C E }$ </td><td> $7 9 . 9 2 _ { \pm 5 . 2 6 }$ </td><td> $8 5 . 9 8 _ { \pm 4 . 6 0 }$ </td><td> $8 4 . 9 5 _ { \pm 5 . 7 6 }$ </td><td> $0 . 8 5 8 { \scriptstyle \pm 0 . 1 9 8 }$ </td><td> $0 . 8 5 3 _ { \pm 0 . 2 4 1 }$ </td><td> $0 . 8 6 2 _ { \pm 0 . 2 6 7 }$ </td><td> $6 . 3 2 6 { \scriptstyle \pm 2 . 8 5 }$ </td></tr><tr><td>DSCNet(ours)</td><td> $\mathcal { L } _ { T C } ( \bf { o u r s } )$ </td><td> $\mathbf { 8 0 . 2 7 \mathrm { _ { \pm 4 . 6 7 } } }$ </td><td> ${ \bf 8 6 . 3 7 \pm _ { 4 . 1 6 } }$ </td><td> $\mathbf { 8 5 . 2 6 } _ { \pm 4 . 9 8 }$ </td><td> $\mathbf { 0 . 8 6 6 _ { \pm 0 . 1 9 5 } }$ </td><td> $\mathbf { 0 . 8 8 5 _ { \pm 0 . 2 1 0 } }$ </td><td> $\mathbf { 0 . 8 8 2 _ { \pm 0 . 2 5 0 } }$ </td><td> ${ \pm . 7 8 7 _ { \pm 2 . 9 9 } }$ </td></tr></table>
+
+Table 2. Quantitative results for the 3D Cardiac CCTA dataset. Experimental metrics supplement with OF metrics for verifying the topological connectivity. The LAD, LCX, and RCA are the three main trunks of the coronary vessels and are of great clinical value.
+
+the shape of tubular structures. The top of Figure 7 shows the convolution kernel's positions and shape. Visualization results show that our DSConv adapts well to tubular structures and maintains the shape, while the deformable convolution wanders outside the target. (2) Focus on the locations of tubular structures. The bottom of Figure 7 shows the heatmap of the attention on the given point. Results show that the brightest regions of our DSConv are concentrated in the tubular structures, which represents that our DSConv is more sensitive to tubular structures.
+
+## 5.4. Future Work
+
+## 5.3. Model Analysis
+
+Our DSConv dynamically adapts the shape to tubular structures, and the attention well fits the target. (1) Adapt to
+
+Our proposed framework copes well with the segmentation of thin tubular structures and successfully integrates morphological features with topological knowledge to guide the model to adapt to the segmentation. However whether other morphological targets will achieve better performance with a similar paradigm is still an exciting topic. Meanwhile, more research will investigate the possibility of incorporating other types of domain knowledge or topological analysis to further improve the performance of the segmentation. Furthermore, more experimental and theoretical validation will enrich this topic.
+
+![](images/20e42ff6213e016056f88c47080981cdec1ca2887581208b01beaaf664dbaff8.jpg)  
+Figure 7. Top: We superimpose 3 layers with a total of 729 points (red) on each image to show the convolution kernel's position and shape for a given point (yellow). Bottom: The heatmap shows the region of interest for each convolution.
+
+## 6. Conclusion
+
+In this study, we focus on the special features of the tubular structures and use this knowledge to guide the model to enhance the perception simultaneously in three stages: feature extraction, feature fusion, and loss constraint. Firstly, we propose a dynamic snake convolution to adaptively focus on the thin and tortuous structure, thus accurately capturing the features of tubular structures. Secondly, we introduce a multi-view feature fusion strategy to complement the focus on features from multiple angles during feature fusion, ensuring the retention of important information from different global morphology. Lastly, we propose a topological continuity constraint loss to constrain the topological continuity of the segmentation. Our method is verified on both 2D and 3D datasets and the results show our method provides better accuracy and continuity on the tubular structure segmentation task compared with several methods.
+
+## 7. Acknowledgments
+
+This research was supported by the Intergovernmental Cooperation Project of the National Key Research and Development Program of China (2022YFE0116700) and the Postgraduate Research & Practice Innovation Program of Jiangsu Province, the Fundamental Research Funds for the Central Universities (KYCX22\_0239). We thank the Big Data Computing Center of Southeast University for providing the facility support.
+
+## References
+
+[1] R. J. Araújo, Jaime S Cardoso, and H. P Oliveira. Topological Similarity Index and Loss Function for Blood Vessel Segmentation. IEEE TRANSACTIONS ON MEDICAL IMAGING, XX:1, jul 2021.
+
+[2] Ulrich Bauer. Ripser: efficient computation of Vietoris-Rips persistence barcodes. J. Appl. Comput. Topol., 5(3):391–423, 2021.
+
+[3] Jieneng Chen, Yongyi Lu, Qihang Yu, et al. Transunet: Transformers make strong encoders for medical image segmentation. arXiv preprint arXiv:2102.04306, 2021.
+
+[4] Özgün Çiçek, Ahmed Abdulkadir, Soeren S. Lienkamp, et al. 3d u-net: Learning dense volumetric segmentation from sparse annotation. In International Conference on Medical Image Computing and Computer-Assisted Intervention, pages 424–432. Springer, 2016.
+
+[5] David Cohen-Steiner, Herbert Edelsbrunner, John Harer, et al. Lipschitz functions have 1 p-stable persistence. Foundations of computational mathematics, 10(2):127–139, 2010.
+
+[6] Jifeng Dai, Haozhi Qi, Yuwen Xiong, et al. Deformable convolutional networks. In Proceedings of the IEEE International Conference on Computer Vision (ICCV), Oct 2017.
+
+[7] Shunjie Dong, Zixuan Pan, Yu Fu, et al. Deu-net 2.0: Enhanced deformable u-net for 3d cardiac cine mri segmentation. Medical Image Analysis, 78:102389, 2022.
+
+[8] Yuting He, Rongjun Ge, Jiasong Wu, et al. Thin semantics enhancement via high-frequency priori rule for thin structures segmentation. In 2021 IEEE International Conference on Data Mining (ICDM), pages 1096–1101. IEEE, 2021.
+
+[9] Edelsbrunner Herbert and Harer John. Computational topology: an introduction. American Mathematical Soc, 2010.
+
+[10] Xiaoling Hu, Fuxin Li, Dimitris Samaras, et al. Topologypreserving deep image segmentation. Advances in neural information processing systems, 32, 2019.
+
+[11] Daniel P Huttenlocher, Gregory A. Klanderman, and William J Rucklidge. Comparing images using the hausdorff distance. IEEE Transactions on pattern analysis and machine intelligence, 15(9):850–863, 1993.
+
+[12] Qiangguo Jin, Zhaopeng Meng, Tuan D. Pham, et al. Dunet: A deformable network for retinal vessel segmentation. Knowledge-Based Systems, 178:149–162, 2019.
+
+[13] Brian S. Ko, James D. Cameron, Ravi K. Munnur, et al. Noninvasive ct-derived ffr based on structural and fluid analysis. 10(6):663–673, 2017.
+
+[14] Bin Kong, Xin Wang, Junjie Bai, et al. Learning treestructured representation for 3d coronary artery segmentation. Computerized Medical Imaging and Graphics, 80:101688, 2020.
+
+[15] Yang Li, Yue Zhang, Jing-Yu Liu, et al. Global transformer and dual local attention network via deep-shallow hierarchical feature fusion for retinal vessel segmentation. IEEE Transactions on Cybernetics, pages 1–14, 2022.
+
+[16] James K. Min, Jonathon Leipsic, Michael J. Pencina, et al. Diagnostic Accuracy of Fractional Flow Reserve From Anatomic CT Angiography. JAMA, 308(12):1237–1245, 09 2012.
+
+[17] Volodymyr Mnih. Machine learning for aerial image labeling. University of Toronto (Canada), 2013.
+
+[18] Lei Mou, Yitian Zhao, Huazhu Fu, et al. Cs2-net: Deep learning segmentation of curvilinear structures in medical imaging. Medical Image Analysis, 67:101874, 2021.
+
+[19] James R Munkres. Elements of algebraic topology. CRC press, 2018.
+
+[20] Xiaoming Qi, Yuting He, Guanyu Yang, et al. Mvsgan: Spatial-aware multi-view cmr fusion for accurate 3d left ventricular myocardium segmentation. IEEE Journal of Biomedical and Health Informatics, 26(5):2264–2275, 2021.
+
+[21] Xiaoming Qi, Guanyu Yang, Yuting He, et al. Contrastive relocalization and history distillation in federated cmr segmentation. International Conference on Medical Image Computing and Computer-Assisted Intervention, pages 256–265, 2022.
+
+[22] Yaolei Qi, Han Xu, Yuting He, et al. Examinee-examiner network: Weakly supervised accurate coronary lumen segmentation using centerline constraint. IEEE Transactions on Image Processing, 30:9429–9441, 2021.
+
+[23] Michiel Schaap, Coert T Metz, Theo van Walsum, et al. Standardized evaluation methodology and reference database for evaluating coronary artery centerline extraction algorithms. Medical Image Analysis, 13(5):701–714, 2009.
+
+[24] Suprosanna Shit, Johannes C. Paetzold, Anjany Sekuboyina, et al. cldice - a novel topology-preserving loss function for tubular structure segmentation. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR), pages 16560–16569, June 2021.
+
+[25] Joes Staal, Michael D Abràmoff, Meindert Niemeijer, et al. Ridge-based vessel segmentation in color images of the retina. IEEE transactions on medical imaging, 23(4):501– 509, 2004.
+
+[26] Abdel Aziz Taha and Allan Hanbury. Metrics for evaluating 3d medical image segmentation: analysis, selection, and tool. BMC medical imaging, 15(1):1–28, 2015.
+
+[27] Christopher Tralie, Nathaniel Saul, and Rann Bar-On. Ripser.py: A lean persistent homology library for python. The Journal of Open Source Software, 3(29):925, Sep 2018.
+
+[28] Dong Wang, Zhao Zhang, Ziwei Zhao, et al. Pointscatter: Point set representation for tubular structure extraction, 2022.
+
+[29] Yan Wang, Xu Wei, Fengze Liu, et al. Deep distance transform for tubular structure segmentation in ct scans. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR), June 2020.
+
+[30] Chi-Chong Wong and Chi-Man Vong. Persistent homology based graph convolution network for fine-grained 3d shape segmentation. In Proceedings of the IEEE/CVF International Conference on Computer Vision (ICCV), pages 7098– 7107, October 2021.
+
+[31] Xin Yang, Zhiqiang Li, Yingqing Guo, et al. DCU-net: a deformable convolutional neural network based on cascade U-net for retinal vessel segmentation. Multimedia Tools and Applications, 81(11):15593–15607, may 2022.
+
+[32] Fisher Yu, Vladlen Koltun, and Thomas Funkhouser. Dilated residual networks. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR), July 2017.
+
+[33] Xiao Zhang, Jingyang Zhang, Lei Ma, et al. Progressive deep segmentation of coronary artery via hierarchical topology
+
+learning. In Medical Image Computing and Computer Assisted Intervention – MICCAI 2022, pages 391–400, Cham, 2022. Springer Nature Switzerland.
+
+[34] Chunhui Zhao, Wenxiang Zhu, and Shou Feng. Superpixel guided deformable convolution network for hyperspectral image classification. IEEE Transactions on Image Processing, 31:3838–3851, 2022.
+
+[35] Gangming Zhao, Kongming Liang, Chengwei Pan, et al. Graph Convolution Based Cross-Network Multi-Scale Feature Fusion for Deep Vessel Segmentation. IEEE Transactions on Medical Imaging, pages 1–1, 2022
