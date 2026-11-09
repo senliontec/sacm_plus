@@ -190,6 +190,17 @@ def test_sam_vit_l_unet_state_dict_is_decoder_only():
     assert all(key in model.decoder.state_dict() for key in state)
 
 
+def test_knowsam_norm_switch_and_instance_norm_replacement():
+    parser = build_parser(load_adapter('knowsam'))
+    assert parser.parse_args([]).knowsam_norm == 'in'
+    assert parser.parse_args(
+        ['--knowsam-norm', 'official']).knowsam_norm == 'official'
+    from baseline_zoo.adapters.knowsam import _use_instance_norm
+    module = torch.nn.Sequential(torch.nn.BatchNorm2d(4))
+    _use_instance_norm(module, torch.device('cpu'))
+    assert isinstance(module[0], torch.nn.InstanceNorm2d)
+
+
 def test_knowsam_shared_wandb_interval_default():
     parser = build_parser(load_adapter('knowsam'))
     args = parser.parse_args([])

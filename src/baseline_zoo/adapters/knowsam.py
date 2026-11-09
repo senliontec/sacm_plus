@@ -104,6 +104,25 @@ def _mean_metric(values):
     return float(np.mean(finite)) if finite else float('nan')
 
 
+def _use_instance_norm(module: torch.nn.Module, device) -> None:
+    """Replace BatchNorm2d with InstanceNorm2d in-place.
+
+    The official KnowSAM batch is 12 labeled + 12 unlabeled.  The 3-shot
+    port uses 3+3, so BN running statistics are estimated from six images
+    and drift far from the per-batch statistics; the eval predictions then
+    collapse toward background for hundreds of iterations.  InstanceNorm
+    removes the batch-size dependency.  ``--knowsam-norm official`` keeps
+    the upstream BatchNorm graph.
+    """
+    for name, child in list(module.named_children()):
+        if isinstance(child, torch.nn.BatchNorm2d):
+            setattr(module, name, torch.nn.InstanceNorm2d(
+                child.num_features, affine=True,
+                track_running_stats=False).to(device))
+        else:
+            _use_instance_norm(child, device)
+
+
 class KnowSAMAdapter(BaselineAdapter):
     id = 'knowsam'
     display_name = 'KnowSAM'
@@ -141,6 +160,12 @@ class KnowSAMAdapter(BaselineAdapter):
         'The official 50,000-iteration budget, consistency/MixUp schedule, '
         'losses, optimizers and SGDL validation selection are preserved; '
         'the seed is the protocol seed.',
+        'Official SGDL uses BatchNorm with batch 24 (12+12). The port uses '
+        '3+3 for the 3-shot protocol, so BatchNorm running statistics are '
+        'unstable and eval predictions stay near background for hundreds of '
+        'iterations. The default --knowsam-norm in replaces BatchNorm2d '
+        'with InstanceNorm2d (3-shot adaptation); --knowsam-norm official '
+        'restores the upstream graph.',
         'ViT-B is used as in the official KnowSAM code; the paper states the '
         'shared ViT-L backbone, but KnowSAM ships a ViT-B SAM adapter.',
         'Upstream postprocessing takes argmax over the 256x256 logits and '
@@ -206,6 +231,11 @@ class KnowSAMAdapter(BaselineAdapter):
         parser.add_argument(
             '--unet-lr', type=float, default=0.01,
             help='SGD LR for the SGDL/UNet-VNet branch (official: 0.01)')
+        parser.add_argument(
+            '--knowsam-norm', choices=['in', 'official'], default='in',
+            help='SGDL normalization: in (default) replaces BatchNorm2d '
+                 'with InstanceNorm2d for the 3+3 batch; official keeps '
+                 'upstream BatchNorm, which assumes batch 24')
 
     # ---- staging ------------------------------------------------------
     @staticmethod
@@ -461,6 +491,7 @@ class KnowSAMAdapter(BaselineAdapter):
             'batch_size': int(args.batch_size),
             'max_iterations': int(iterations),
             'unet_lr': float(kargs.UNet_lr),
+            'norm': str(getattr(args, 'knowsam_norm', 'in')),
         }
         (workdir / 'knowsam_config.json').write_text(
             json.dumps(construction, indent=2) + '\n')
@@ -487,6 +518,13 @@ class KnowSAMAdapter(BaselineAdapter):
                           config=run_config)
 
         trainer = Trainer(kargs)
+        if str(getattr(args, 'knowsam_norm', 'in')) == 'in':
+            _use_instance_norm(trainer.SGDL, args.device)
+            # The trainer built the SGD optimizer before the replacement;
+            # rebuild it so the new InstanceNorm affine parameters train.
+            trainer.optimizer_SGDL = torch.optim.SGD(
+                trainer.SGDL.parameters(), lr=args.unet_lr,
+                momentum=0.9, weight_decay=args.weight_decay)
         transforms = build_weak_strong_transforms(kargs)
         train_set = build_Dataset(kargs, str(root), 'train_semi', transforms)
         val_set = build_Dataset(kargs, str(root), 'val',
@@ -715,16 +753,22 @@ class KnowSAMAdapter(BaselineAdapter):
                 'input_size', args.input_size))
             args.labeled_batch = int(construction.get(
                 'labeled_batch', args.labeled_batch))
+            # Older checkpoints predate the norm field and were trained
+            # with BatchNorm; only a recorded 'in' may use InstanceNorm.
+            args.knowsam_norm = str(construction.get('norm', 'official'))
             # KnowSAM inference uses the SGDL checkpoint only; SAM is a
             # training-time pseudo-label teacher and is not rebuilt here.
         else:
+            args.knowsam_norm = 'official'
             print('[knowsam] warning: missing knowsam_config.json; '
-                  'using eval-time defaults', flush=True)
+                  'using BatchNorm for a legacy checkpoint', flush=True)
         kargs = self._args(args, root, args.labeled_batch)
         kargs.max_iterations = (args.max_iterations
                                 if args.max_iterations is not None
                                 else args.epochs)
         model = KnowSAM(kargs, bilinear=False).to(args.device).eval()
+        if str(getattr(args, 'knowsam_norm', 'in')) == 'in':
+            _use_instance_norm(model, args.device)
         if args.checkpoint is None and (workdir / 'knowsam_model.txt').is_file():
             checkpoint = Path(
                 (workdir / 'knowsam_model.txt').read_text().strip())

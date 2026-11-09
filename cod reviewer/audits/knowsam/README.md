@@ -241,14 +241,51 @@ are only 4% of the official 50,000 budget.
 The end-to-end train → 20-dataset prediction → four-metric evaluation path
 works. Full 50k training is required before using KnowSAM in the main table.
 
+### Second confirmed task-adaptation bug: BatchNorm with a 3+3 batch
+
+The official SGDL branch uses BatchNorm with batch 24 (12 labeled + 12
+unlabeled).  In the 3+3 port BN running statistics drift from the per-batch
+statistics, so evaluation stays near background for hundreds of iterations
+and the curve looks abnormal (Dice exactly 0 through ~350 iterations with
+BN).  This is a batch-size/normalization mismatch, not a crash.
+
+Fix: `--knowsam-norm in` (default) replaces `BatchNorm2d` with
+`InstanceNorm2d` in the SGDL branch; `--knowsam-norm official` preserves the
+upstream graph.  The setting is recorded in `knowsam_config.json` and used by
+prediction.  Legacy checkpoints without a recorded norm default to official
+BatchNorm.
+
+Matched-iteration validation comparison (shared Dice; official SGDL Dice in
+parentheses):
+
+| iteration | BatchNorm | InstanceNorm |
+|---|---|---|
+| 100 | 0.0000 (0.0000) | 0.0000 (0.0000) |
+| 200 | 0.0000 (0.0000) | 0.2609 (0.2809) |
+| 500 | 0.2366 (0.2476) | 0.3459 (0.3861) |
+| 1000 | 0.3406 (0.3793) | 0.3563 (0.4097) |
+
+20-dataset test (not same budget; IN at 1000 vs BN at 2000):
+
+| run | Dice | IoU | clDice | HD95 |
+|---|---|---|---|---|
+| BN, 2000 iter | 0.2658 | 0.1840 | 0.2674 | 257.09 |
+| IN, 1000 iter | 0.2748 | 0.1874 | 0.2771 | 166.53 |
+
+The IN run already exceeds the BN run on all four metrics at half the
+iterations, and it removes the long all-background phase.  VNet branch Dice
+stays 0 while UNet/fusion learn; VNet is a faithful copy with
+`normalization='none'`, so this is an open optimization risk rather than a
+confirmed port deviation.
+
 ### Remaining limitations (not code bugs)
 
 - 3+3 batch vs official 12+12; effective labeled supervision is 4x smaller.
   `--batch-size 12 --labeled-batch 6` fits an 11 GiB local card (peak ~10.3
-  GiB) but did not change the early trajectory in a 200-iteration probe.
+  GiB) but did not change the early BN trajectory in a 200-iteration probe.
 - The 384 unlabeled cap is still dominated by CORN/CREMI after group
   exclusion; DRIVE/DCA1/CrackTree200 contribute no non-test unlabeled images.
 - No official KnowSAM checkpoint and no 50k-iteration run; G2/G6a/G6c remain
   unverified for official parity.
-- `G6c=partial`: local 2000-iteration training + 20-dataset eval completed,
-  but the official 50k budget was not run.
+- `G6c=partial`: local 2000-iteration BN and 1000-iteration IN training plus
+  20-dataset eval completed, but the official 50k budget was not run.

@@ -27,4 +27,6 @@ note: >-
   The 50,000 budget is iterations (the official loop's unit), not epochs.
   Prediction uses the generic official postprocessing (no largest-component
   filtering); pass --knowsam-largest-cc only for ACDC-like single-component
-  targets.
+  targets. The 3+3 batch makes upstream BatchNorm unstable, so the default
+  uses InstanceNorm2d in the SGDL branch (--knowsam-norm official restores
+  the upstream BatchNorm graph).
