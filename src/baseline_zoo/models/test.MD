@@ -15,7 +15,7 @@ From this file's directory: `../../../../3rd`
 ├── cs2net                -> 3rd/CS-Net
 ├── bcunet                -> 3rd/BCU-Net
 ├── maskvsc               -> 3rd/MaskVSC
-├── nnwnet                -> 3rd/nnWNet
+├── nnwnet                -> 3rd/nnWNet 强的离谱
 ├── sam_med2d             -> 3rd/SAM-Med2D
 ├── sam_octa              -> 3rd/SAM-OCTA
 ├── cwsam                 -> 3rd/CWSAM
