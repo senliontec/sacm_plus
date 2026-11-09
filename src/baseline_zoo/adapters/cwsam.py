@@ -44,7 +44,7 @@ class CWSAMAdapter(BaselineAdapter):
     id = 'cwsam'
     display_name = 'CWSAM'
     official_source = 'ClassWise-SAM-Adapter (self-contained copy)'
-    official_entrypoint = 'upstream train.py with ViT-L encoder'
+    official_entrypoint = 'upstream train.py with ViT-B encoder'
     input_size = 1024
     official_lr = 2e-4
     official_weight_decay = 0.01
@@ -67,6 +67,11 @@ class CWSAMAdapter(BaselineAdapter):
         'ViT-L training on 11 GiB; it changes memory, not the computation.',
         'Official ImageNet normalization and the absence of augmentation '
         'are preserved; predictions are restored to GT resolution.',
+        'Official evaluation reports S-measure/E-measure/weighted-F/MAE '
+        'and mIoU/OA at 1024; this project reports Dice/IoU/clDice/HD95 '
+        'at the original GT resolution with the penalty convention for '
+        'empty masks. The metric sets are therefore not numerically '
+        'comparable with the official paper.',
         'The shared 3-shot project budget is 800 epochs instead of the '
         'official 200.',
         'Official training uses 2-GPU DDP with per-GPU batch 1 (effective '
@@ -82,7 +87,14 @@ class CWSAMAdapter(BaselineAdapter):
         'initial decoder logits are >50x larger and 3-shot training '
         'collapses to an all-background solution. This is a deliberate '
         'numerical deviation from the upstream script, restoring the '
-        'intended SAM initialization.',
+        'intended SAM initialization (--cwsam-sam-key-remap off '
+        'reproduces the upstream random-init load for a separate audit).',
+        'The cls_upscaling readout is new and randomly initialized '
+        'upstream; its output scale varies by seed and can start saturated. '
+        'This port zero-initialises the final cls_upscaling projection so '
+        'every seed starts at logit 0 (--cwsam-cls-init official restores '
+        'the upstream PyTorch-default init). This is an initialisation-only '
+        'deviation; the forward graph is unchanged.',
     )
 
     def add_args(self, parser):
@@ -106,6 +118,18 @@ class CWSAMAdapter(BaselineAdapter):
             '--cwsam-dice-weight', type=float, default=0.5,
             help='foreground soft-Dice weight added to CE; 0 restores the '
                  'earlier uniform-CE port')
+        parser.add_argument(
+            '--cwsam-cls-init', default='zero', choices=['zero', 'official'],
+            help='initialisation of the final cls_upscaling projection. '
+                 'zero (default) starts the decoder logits at 0 and avoids '
+                 'seed-dependent all-background collapse; official keeps '
+                 'PyTorch default init to reproduce the upstream script')
+        parser.add_argument(
+            '--cwsam-sam-key-remap', default='on', choices=['on', 'off'],
+            help='on (default) loads SAM no_mask_embed/positional-encoding '
+                 'weights through the CWSAM key relocation; off reproduces '
+                 "the upstream strict=False load, which leaves them random "
+                 '(audit only)')
 
     def _default_checkpoint(self, encoder: str) -> Path:
         name = ('sam_vit_b_01ec64.pth' if encoder == 'vit_b'
@@ -114,8 +138,19 @@ class CWSAMAdapter(BaselineAdapter):
 
     def build_model(self, args) -> nn.Module:
         self.encoder = str(getattr(args, 'cwsam_encoder', 'vit_b'))
-        return build_cwsam(
+        model = build_cwsam(
             num_classes=2, inp_size=self.input_size, encoder=self.encoder)
+        # The class-specific readout is new (not in the SAM checkpoint) and
+        # its random projection makes the initial logits seed-dependent;
+        # some seeds start saturated and never leave the all-background
+        # solution.  Zeroing the final projection starts every seed at
+        # logit 0 while leaving the forward graph unchanged.
+        if str(getattr(args, 'cwsam_cls_init', 'zero')) == 'zero':
+            final = model.mask_decoder.cls_upscaling[3]
+            nn.init.zeros_(final.weight)
+            if final.bias is not None:
+                nn.init.zeros_(final.bias)
+        return model
 
     def load_pretrained(self, model, args):
         checkpoint = getattr(args, 'sam_checkpoint', None)
@@ -129,9 +164,17 @@ class CWSAMAdapter(BaselineAdapter):
                 'download the matching SAM base checkpoint first')
         payload = torch.load(checkpoint, map_location='cpu',
                              weights_only=False)
-        state = _remap_sam_state(payload.get('model', payload))
+        state = payload.get('model', payload)
+        remap_keys = str(getattr(
+            args, 'cwsam_sam_key_remap', 'on')).lower() == 'on'
+        if remap_keys:
+            state = _remap_sam_state(state)
         missing, unexpected = model.load_state_dict(state, strict=False)
         def allowed_missing(key):
+            if not remap_keys and key in (
+                    'no_mask_embed.weight',
+                    'pe_layer.positional_encoding_gaussian_matrix'):
+                return True
             if key.startswith('image_encoder.prompt_generator.'):
                 return True
             if key.startswith('mask_decoder.cls_upscaling.'):
@@ -182,6 +225,9 @@ class CWSAMAdapter(BaselineAdapter):
             'bg_weight': float(getattr(args, 'cwsam_bg_weight', 0.1)),
             'fg_weight': float(getattr(args, 'cwsam_fg_weight', 1.0)),
             'dice_weight': float(getattr(args, 'cwsam_dice_weight', 0.5)),
+            'cls_init': str(getattr(args, 'cwsam_cls_init', 'zero')),
+            'sam_key_remap': str(getattr(
+                args, 'cwsam_sam_key_remap', 'on')),
         }
 
     def restore_config(self, args, config):
@@ -199,6 +245,10 @@ class CWSAMAdapter(BaselineAdapter):
             args.cwsam_fg_weight = float(config['fg_weight'])
         if 'dice_weight' in config:
             args.cwsam_dice_weight = float(config['dice_weight'])
+        if 'cls_init' in config:
+            args.cwsam_cls_init = str(config['cls_init'])
+        if 'sam_key_remap' in config:
+            args.cwsam_sam_key_remap = str(config['sam_key_remap'])
 
     def _preprocess(self, sample, device):
         image = load_rgb(sample.image_path).resize(

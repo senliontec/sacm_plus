@@ -34,17 +34,17 @@
 
 | id | level/gate | category | verdict | documented | 官方 vs 移植 | 证据 | 数值影响 |
 |---|---|---|---|---|---|---|---|
-| D-01 | L1/G1/G3/G5 | `wrapper_change` | `intentional_deviation` | yes | 官方 5 类 ViT-B → 移植 2 类 ViT-L | config `:5,74,96-103`；`cwsam.py:32,38-44,58-59` | matched 2-class ViT-L 下无结构差 |
-| D-02 | L3/G3 | `official_recipe` | `intentional_deviation` | yes | 5 类加权 CE → 2 类 neutral CE | `models/sam.py:157-166`；`cwsam.py:38-42,110-115` | 梯度权重不同；无法映射官方 5 类权重 |
-| D-03 | L3/G3 | `protocol_adaptation` | `differ` | **no** | 官方 2 GPU × batch1（有效 2）→ 单 GPU batch1 | `README.md:32,36-38`；config `:17`；`train.py:99-101`；`cwsam.py:36` | 训练动力学不同；未量化 |
-| D-04 | L3/G3 | `wrapper_change` | `differ` | **no** | 官方 workers=8；移植 workers=0 | `train.py:99-101`；`runtime.py:481-485` | 数据加载顺序/RNG 流不同 |
+| D-01 | L1/G1/G3/G5 | `wrapper_change` | `intentional_deviation` | yes | 官方 5 类 ViT-B → 移植 2 类 ViT-B（ViT-L 可选） | `configs/models/cwsam.yaml`；`cwsam.py` deviations | matched 2-class ViT-B 下无结构差；ViT-L 通过 `--cwsam-encoder vit_l` |
+| D-02 | L3/G3 | `official_recipe` | `intentional_deviation` | yes | 5 类加权 CE → 2 类 bg 0.1/fg 1.0 CE + 0.5 soft Dice | `models/sam.py`；`cwsam.py` `train_step` | 梯度权重不同；无法映射官方 5 类权重；可用 `--cwsam-dice-weight 0` 回退 |
+| D-03 | L3/G3 | `protocol_adaptation` | `intentional_deviation` | yes | 官方 2 GPU × batch1（有效 2）→ 单 GPU batch1 | `cwsam.py` deviations | 训练动力学不同；已披露、未量化 |
+| D-04 | L3/G3 | `wrapper_change` | `intentional_deviation` | yes | 官方 workers=8；移植 workers=0 | `cwsam.py` deviations | 数据加载顺序/RNG 流不同；已披露 |
 | D-05 | L3/G4 | `protocol_adaptation` | `intentional_deviation` | yes | 官方按 S-measure 选 best；移植 6 图 val Dice | `train.py:411-425`；`cwsam.py:45-46` | best 权重选择不同 |
 | D-06 | L3/G3 | `wrapper_change` | `intentional_deviation` | yes | 官方无 grad checkpointing；移植启用 | `cwsam.py:47-48,80`；`UPSTREAM.md:20-21` | 只改显存，不改计算 |
-| D-07 | L4/G4 | `protocol_adaptation` | `differ` | partial | 官方 1024 COD 指标 + mIoU；移植 GT Dice/IoU/clDice/HD95 | `train.py:125-132,204-280`；`cwsam.py:49-50,120-127` | 指标集与分辨率均改变；只披露了 GT 恢复 |
+| D-07 | L4/G4 | `protocol_adaptation` | `intentional_deviation` | yes | 官方 1024 COD 指标 + mIoU；移植 GT Dice/IoU/clDice/HD95 | `cwsam.py` deviations（指标口径条目） | 指标集与分辨率均改变；已完整披露，不可与官方数值横向比较 |
 | D-08 | L4/G4 | `official_recipe` | `equivalent` | code | 官方 argmax over 2 logits ≡ 移植 softmax(fg)>0.5 | `test.py:181-183`；`cwsam.py:120-127` | 2 类决策边界精确等价；插值分辨率另见 D-07 |
 | D-09 | L0/G6b | `missing_asset` | `unverified` | yes | 官方训练 checkpoint 缺失；移植自训 val Dice | `test.py:348-350`；README `:47`；`UPSTREAM.md:3-7` | G6b=N/A |
-| D-10 | L0/G0 | `doc_drift` | `differ` | yes | URL 未记录；无 LICENSE | `UPSTREAM.md:3-7` | 无数值影响；再分发前需补 |
-| D-11 | L3/G3 | `wrapper_change` | `differ` | **no** | 官方 DistributedSampler + 无显式 seed；移植固定 seed 42 | `train.py:99,396`；`runtime.py:372-377,850` | 随机流不同；未量化 |
+| D-10 | L0/G0 | `doc_drift` | `documented_limitation` | yes | URL/commit 已记录；上游快照无 LICENSE | `UPSTREAM.md:3-8` | 无数值影响；再分发前需补 license |
+| D-11 | L3/G3 | `wrapper_change` | `intentional_deviation` | yes | 官方 DistributedSampler + 无显式 seed；移植固定 seed 42 | `cwsam.py` deviations | 随机流不同；已披露、未量化 |
 | D-12 | L2/G2 | `wrapper_change` | `equivalent` | probe | prompt-free infer + postprocess 路径 | `models/sam.py:221-276`；`models/cwsam/sam.py` | forward diff=0 |
 | D-13 | L3/G3 | `official_recipe` | `equivalent` | code | ImageNet norm、无增强、mask NEAREST | `datasets/wrappers.py:80-89,142-150`；`cwsam.py:91-108` | 同预处理；未跑张量探针 |
 | D-14 | L4/G4 | `protocol_adaptation` | `intentional_deviation` | yes | 官方 1024 RGB JPG；移植 GT bool mask | `test.py:188-192`；`cwsam.py:49-50` | 导出分辨率/格式不同 |
@@ -88,7 +88,8 @@ dense_embeddings = self.no_mask_embed.weight.reshape(1, -1, 1, 1).expand(...)
 | S-14 | `covered_by_discrepancy` | D-01, D-14 |
 | S-15 | `covered_by_discrepancy` | D-01, D-02 |
 
-closure = 15/15；D-03/D-04/D-07/D-11 未完整披露，G3/G4 不能 pass。
+closure = 15/15；D-03/D-04/D-07/D-11 已完整披露；G3/G4 仍因实际训练协议
+与指标口径不同而不能声称官方复现。
 
 ## 03. 数值探针结果
 
@@ -122,23 +123,24 @@ loss/grad 是 **reduced-width** 配置（2 类、inp 256、embed 256、depth 4�
 | 项 | 官方 | 移植 | 判定 |
 |---|---|---|---|
 | epochs | 200 | 200 | same |
-| batch | 1/GPU × 2 GPU = 2 | 1 × 1 GPU = 1 | **differ，未披露** |
+| batch | 1/GPU × 2 GPU = 2 | 1 × 1 GPU = 1 | differ，已披露 |
 | input | 1024 | 1024 | same |
 | optimizer | AdamW lr 2e-4, wd 0.01（默认） | AdamW lr 2e-4, wd 0.01 | same |
 | scheduler | Cosine 200, eta_min 1e-7 | 同 | same（代码） |
-| loss | 5 类 weighted CE | 2 类 neutral CE | intentional_deviation |
-| backbone | ViT-B (embed 768/depth 12) | ViT-L (1024/24) | intentional_deviation |
+| loss | 5 类 weighted CE | 2 类 bg 0.1/fg 1.0 CE + 0.5 soft Dice | intentional_deviation |
+| backbone | ViT-B (embed 768/depth 12) | ViT-B 默认（ViT-L 可选） | intentional_deviation |
 | transform | resize 1024、ImageNet、无增强 | 同 | same |
 | data | SAR 5 类 train/test | 18/6 3-shot | protocol_adaptation |
-| workers | 8 | 0 | **differ，未披露** |
-| GPUs | DDP 2 | 单卡 1 | **differ，未披露** |
-| seed | 无显式 seed | 42 | **differ，未披露** |
+| workers | 8 | 0 | differ，已披露 |
+| GPUs | DDP 2 | 单卡 1 | differ，已披露 |
+| seed | 无显式 seed | 42 | differ，已披露 |
 | selection | S-measure best | 6 图 val Dice | protocol_adaptation |
 | freeze | encoder 除 prompt_generator/Adapter | 同 | same |
 | grad ckpt | 无 | 启用 | intentional（memory only） |
 
-结论：**G3=unverified**——D-03/D-04/D-11 未进入 deviations；5→2 类和无条件 CE 已披露，
-但有效 batch、workers、seed 不同，不能称为官方 SAR recipe 复现。
+结论：**G3=unverified**——D-03/D-04/D-11 已进入 deviations；5→2 类、
+bg 0.1/fg 1.0 CE + 0.5 soft Dice 已披露，但有效 batch、workers、seed
+仍与官方不同，不能称为官方 SAR recipe 复现。
 
 ## 05. 评测/推理审计
 
@@ -149,12 +151,12 @@ loss/grad 是 **reduced-width** 配置（2 类、inp 256、embed 256、depth 4�
 | checkpoint | 官方 `model_epoch_best.pth`（缺失） | 自训 best val Dice | missing asset |
 | postprocess | 1024，argmax over channels | softmax(fg)>0.5，双线性回 GT | 2 类决策等价；分辨率不同 |
 | threshold | argmax（无显式阈值） | 0.5（2 类等价） | equivalent |
-| metric | S/E/wF/MAE + mIoU/OA @1024 | Dice/IoU/clDice/HD95 @GT | **differ，未完整披露** |
+| metric | S/E/wF/MAE + mIoU/OA @1024 | Dice/IoU/clDice/HD95 @GT | intentional_deviation，已披露 |
 | export | 1024 RGB JPG | GT bool mask | intentional_deviation（已披露） |
 
 **G4=unverified**：prompt-free、normalization、2 类决策规则与官方一致；但官方 eval 是
-1024 上的 COD 指标 + mIoU，移植是 GT 上的 Dice/IoU/clDice/HD95，metric 差异只在
-deviations 中以“restored to GT resolution”带过，没有列出指标口径。
+1024 上的 COD 指标 + mIoU，移植是 GT 上的 Dice/IoU/clDice/HD95。该指标口径差异现已
+在 deviations 中完整披露，但仍不能与官方数值横向比较。
 
 ## 07. 门禁结论（provisional）
 
@@ -180,6 +182,12 @@ claim_label = none
 ## 最终一行状态
 
 `cwsam: G0=pass G1=pass G2=pass G3=unverified G4=unverified G5=pass G6a=unverified G6b=N/A G6c=unverified`
+
+2026-11-09 update: `G6c=partial` — the checkpoint-remap + zero-init port
+trains stably for seeds 0–2 at 20 epochs (test All Dice 0.4838 ± 0.0095,
+IoU 0.3492, clDice 0.5661, HD95 82.85).  This is a diagnostic, not the
+official 800-epoch/200-epoch protocol; the two initialisation deviations
+must be disclosed in any paper comparison.
 
 ## Post-review fixes (2026-10-26)
 
@@ -207,32 +215,91 @@ The port now remaps both keys in `CWSAMAdapter.load_pretrained`
 (`SAM_KEY_REMAP` / `_remap_sam_state`).  With the remap the same sample gives
 `min=-23.9, max=8.5`, and the missing-key count drops from 182 to 180.
 
-### Before vs after (seed 0, 20 epochs, 3-shot, val = 6 images)
+### Before vs after the key remap (seed 0, 20 epochs, val = 6 images)
 
 | run | E1 train loss | best Dice | clDice | IoU | HD95 |
 |---|---|---|---|---|---|
 | pre-fix | 64.61 | 0.1297 | 0.1039 | 0.0805 | 364.1 |
-| post-fix | 4.08 | 0.4490 | 0.5385 | 0.3125 | 30.93 |
+| remap only | 4.08 | 0.4490 | 0.5385 | 0.3125 | 30.93 |
 
 The pre-fix run hit an all-background collapse around E8–E12
-(Dice 0.0003–0.0007, loss ~0.90).  The post-fix loss decreases monotonically
+(Dice 0.0003–0.0007, loss ~0.90).  The remap-only loss decreases monotonically
 from 4.08 to 0.49 and val Dice from 0.079 to 0.449.
+
+### Remaining seed instability → zero-init the new class readout
+
+The remap alone was still seed-dependent, because `cls_upscaling` is new and
+randomly initialised upstream; its output scale changes the initial logits:
+
+| seed | E1 train loss | best val Dice | outcome |
+|---|---|---|---|
+| 0 | 4.08 | 0.4490 | learns |
+| 1 | 11.01 | 0.1067 | all-background collapse |
+| 2 | 5.91 | 0.4518 | learns |
+
+The port therefore zero-initialises the final `cls_upscaling` projection
+(`--cwsam-cls-init zero`, default; `official` restores upstream init).  This
+starts every seed at logit 0 without changing the forward graph:
+
+| seed | E1 train loss | best val Dice | clDice | IoU | HD95 |
+|---|---|---|---|---|---|
+| 0 | 1.93 | 0.4832 | 0.5933 | 0.3390 | 21.96 |
+| 1 | 1.88 | 0.4741 | 0.5440 | 0.3413 | 44.05 |
+| 2 | 3.05 | 0.4906 | 0.5776 | 0.3560 | 40.61 |
+| 3 | 3.47 | 0.4991 | 0.5778 | 0.3532 | 33.09 |
+| mean ± sd | — | 0.4868 ± 0.0106 | 0.5732 ± 0.0207 | 0.3474 ± 0.0085 | 34.93 ± 9.78 |
+
+All seeds now converge to a similar operating point
+(val Dice 0.487 ± 0.011, clDice 0.573 ± 0.021, IoU 0.347 ± 0.008); the
+seed-1 collapse is gone.
 
 ### Other fix
 
 `save_config`/`restore_config` now persist the binary loss weights
-(`bg_weight`, `fg_weight`, `dice_weight`); previously a resumed run silently
-fell back to defaults.
+(`bg_weight`, `fg_weight`, `dice_weight`) and the readout initialisation
+(`cls_init`); previously a resumed run silently fell back to defaults.
 
 ### Caveats
 
-- This is a deliberate numerical deviation from the upstream training script,
-  which would leave these two modules randomly initialised.  It restores the
-  intended SAM initialisation and is recorded in `CWSAMAdapter.deviations`.
+- Both fixes are deliberate numerical/initialisation deviations from the
+  upstream training script, which would leave these modules randomly
+  initialised.  They restore the intended SAM initialisation / a stable new
+  readout and are recorded in `CWSAMAdapter.deviations`.  The forward graph is
+  unchanged.  `--cwsam-sam-key-remap off` and `--cwsam-cls-init official`
+  reproduce the upstream load/initialisation for a separate audit run.
 - 20 epochs on the 6-image val split is a diagnostic, not paper evidence.
   The full 800-epoch run and the 20-dataset test evaluation must be rerun
-  after this fix.
+  after these fixes.
 - The upstream model code itself is unchanged and still matches
   `3rd/CWSAM/models/mmseg/models/sam/` (only imports/checkpointing differ).
-- Test-set four-metric numbers from the local diagnostic are recorded below
-  after the evaluation finishes.
+
+### 20-dataset test evaluation (seed 0, 20 epochs, remap only, official readout init)
+
+| role | run | Dice | IoU | clDice | HD95 |
+|---|---|---|---|---|---|
+| All | pre-fix | 0.1052 | 0.0632 | 0.0885 | 330.15 |
+| All | post-fix | 0.4500 | 0.3147 | 0.5191 | 84.70 |
+| Seen | pre-fix | 0.1424 | 0.0878 | 0.1187 | 294.34 |
+| Seen | post-fix | 0.4551 | 0.3171 | 0.5511 | 28.03 |
+| Unseen | pre-fix | 0.1368 | 0.0816 | 0.1130 | 237.25 |
+| Unseen | post-fix | 0.5823 | 0.4251 | 0.6464 | 84.76 |
+| Novel | pre-fix | 0.0259 | 0.0142 | 0.0257 | 489.82 |
+| Novel | post-fix | 0.2686 | 0.1652 | 0.3174 | 141.28 |
+
+The remap-only checkpoint has higher Dice on **20/20 datasets** (deltas +0.13
+to +0.68; e.g. OCTA-500 +0.676, DeepCrack +0.553, XCAD +0.524).  This rules out
+a single-dataset accident.  These are 20-epoch diagnostics, not the 800-epoch
+paper results; the full run must be rerun with this loader fix.
+
+### 20-dataset test evaluation with remap + zero-init
+
+| seed | role | Dice | IoU | clDice | HD95 |
+|---|---|---|---|---|---|
+| 0 | All | 0.4738 | 0.3360 | 0.5503 | 78.57 |
+| 1 | All | 0.4927 | 0.3613 | 0.5796 | 87.92 |
+| 2 | All | 0.4851 | 0.3504 | 0.5682 | 82.06 |
+| mean ± sd | All | 0.4838 ± 0.0095 | 0.3492 ± 0.0127 | 0.5661 ± 0.0148 | 82.85 ± 4.73 |
+
+The zero-init 3-seed mean test Dice (0.4839) is above the remap-only seed-0
+value (0.4500), and the seed-1 collapse is gone.  Role breakdown for seed 0:
+Seen 0.4792 / Unseen 0.6113 / Novel 0.2850 Dice.

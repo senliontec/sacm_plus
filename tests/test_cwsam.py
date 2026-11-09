@@ -33,6 +33,8 @@ def test_encoder_config_roundtrip(tmp_path):
     assert config['bg_weight'] == 0.1
     assert config['fg_weight'] == 1.0
     assert config['dice_weight'] == 0.5
+    assert config['cls_init'] == 'zero'
+    assert config['sam_key_remap'] == 'on'
 
     restored = SimpleNamespace()
     adapter.restore_config(restored, config)
@@ -41,6 +43,25 @@ def test_encoder_config_roundtrip(tmp_path):
     assert restored.cwsam_bg_weight == 0.1
     assert restored.cwsam_fg_weight == 1.0
     assert restored.cwsam_dice_weight == 0.5
+    assert restored.cwsam_cls_init == 'zero'
+    assert restored.cwsam_sam_key_remap == 'on'
+
+
+def test_cls_readout_initialization_modes():
+    zero_adapter = CWSAMAdapter()
+    zero_adapter.input_size = 256
+    zero_model = zero_adapter.build_model(
+        SimpleNamespace(cwsam_encoder='vit_b', cwsam_cls_init='zero'))
+    final = zero_model.mask_decoder.cls_upscaling[3]
+    assert torch.count_nonzero(final.weight) == 0
+    assert torch.count_nonzero(final.bias) == 0
+
+    official_adapter = CWSAMAdapter()
+    official_adapter.input_size = 256
+    official_model = official_adapter.build_model(
+        SimpleNamespace(cwsam_encoder='vit_b', cwsam_cls_init='official'))
+    assert torch.count_nonzero(
+        official_model.mask_decoder.cls_upscaling[3].weight) > 0
 
 
 def test_sam_prompt_encoder_keys_are_remapped():

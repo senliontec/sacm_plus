@@ -24,5 +24,13 @@ note: >-
   Self-contained port of the official CWSAM frequency-prompt/adapter SAM.
   Defaults to ViT-B with the official ViT-B base checkpoint, matching the
   released configs; `--cwsam-encoder vit_l` exposes the paper's claimed
-  shared-ViT-L variant as an unverified ablation. Binary segmentation uses
-  neutral CE; official ImageNet preprocessing and freeze policy preserved.
+  shared-ViT-L variant as an unverified ablation. Binary segmentation maps
+  the official 5-class weighted CE to background 0.1 / foreground 1.0 CE
+  plus a 0.5 foreground soft-Dice term; pass --cwsam-bg-weight 1
+  --cwsam-fg-weight 1 --cwsam-dice-weight 0 for neutral CE. The adapter
+  remaps SAM's prompt_encoder.no_mask_embed and positional-encoding keys,
+  which upstream leaves randomly initialized (--cwsam-sam-key-remap off
+  reproduces the upstream load), and zero-initialises the final
+  cls_upscaling projection (--cwsam-cls-init official restores the
+  upstream init); official ImageNet preprocessing and the freeze policy
+  are preserved.

@@ -29,15 +29,33 @@ for a in "$@"; do case "$a" in
   *) echo "未知参数: $a"; exit 1 ;;
 esac; done
 
+# Local run products must never reach the server: the server trains and
+# evaluates into its own results/ tree, and mixing local files into it can
+# corrupt or silently shadow server results.  This exclusion is required on
+# EVERY rsync call and is checked by require_results_exclude below.
+RESULTS_EXCLUDES=(--exclude '/results/')
 EXCLUDES=(--exclude '__pycache__' --exclude '*.pyc'
           --exclude '.git/' --exclude '.codegraph/' --exclude '.pytest_cache/'
           --exclude '.idea/' --exclude '.ruff_cache/'
           # Leading slash anchors these to the transfer root.  Unanchored
           # 'data/' would also drop vendored trees such as
           # src/baseline_zoo/models/matcher/dinov2/data/.
-          --exclude '/results/' --exclude '/3rd/'
+          "${RESULTS_EXCLUDES[@]}" --exclude '/3rd/'
           # Runtime artifacts: never delete server-trained checkpoints.
           --exclude '/checkpoints/')
+
+require_results_exclude() {
+  local arg
+  for arg in "$@"; do
+    if [ "$arg" = "/results/" ]; then
+      return 0
+    fi
+  done
+  echo "ERROR: refusing rsync without --exclude '/results/'" >&2
+  echo "       local results/ must never be uploaded to the server." >&2
+  exit 1
+}
+require_results_exclude "${EXCLUDES[@]}"
 [ "$CODE_ONLY" -eq 1 ] && EXCLUDES+=(--exclude '/checkpoints/' --exclude '*.pth'
                                      --exclude '/datasets/' --exclude '/data/')
 
@@ -68,7 +86,7 @@ if [ "$CODE_ONLY" -eq 0 ]; then
     [ -d "${SRC}/$d" ] || continue
     echo "Uploading $d: (incremental, no --delete) ..."
     rsync -e "$RSYNC_SSH" -avz --partial --update --checksum \
-        --info=progress2 \
+        --info=progress2 "${RESULTS_EXCLUDES[@]}" \
         "${SRC}/$d/" "${SERVER}:${TARGET}/$d/"
   done
 fi
