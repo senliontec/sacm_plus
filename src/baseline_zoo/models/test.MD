@@ -19,7 +19,7 @@ From this file's directory: `../../../../3rd`
 ├── sam_med2d             -> 3rd/SAM-Med2D 曲线不是很正常，我估计能优化
 ├── sam_octa              -> 3rd/SAM-OCTA 已经改完，还没跑
 ├── cwsam                 -> 3rd/CWSAM 已经改完，还没跑
-├── knowsam               -> 3rd/KnowSAM
+├── knowsam               -> 3rd/KnowSAM 已经改完，还没跑
 ├── segdino               -> 3rd/segdino
 ├── sacm_official         -> 3rd/SACM 曲线正常
 ├── sacm_stc             -> 3rd/SACM (corrected derivative of sacm_official) 曲线正常
