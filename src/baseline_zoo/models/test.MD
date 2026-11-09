@@ -17,7 +17,7 @@ From this file's directory: `../../../../3rd`
 ├── maskvsc               -> 3rd/MaskVSC
 ├── nnwnet                -> 3rd/nnWNet 强的离谱
 ├── sam_med2d             -> 3rd/SAM-Med2D 曲线不是很正常，我估计能优化
-├── sam_octa              -> 3rd/SAM-OCTA
+├── sam_octa              -> 3rd/SAM-OCTA 已经改完，还没跑
 ├── cwsam                 -> 3rd/CWSAM
 ├── knowsam               -> 3rd/KnowSAM
 ├── segdino               -> 3rd/segdino
