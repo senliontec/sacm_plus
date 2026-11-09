@@ -59,6 +59,20 @@ def _role(value: str) -> str:
         text, value)
 
 
+def _run_manifest(run_root: Path) -> dict | None:
+    """Return the parsed run manifest, or None when absent/unreadable."""
+    for candidate in (run_root / 'eval' / 'run_manifest.json',
+                      run_root / 'run_manifest.json'):
+        if not candidate.is_file():
+            continue
+        try:
+            payload = json.loads(candidate.read_text())
+        except (OSError, json.JSONDecodeError):
+            return None
+        return payload if isinstance(payload, dict) else None
+    return None
+
+
 def _run_status(run_root: Path) -> str | None:
     """Return the manifest status, or None for a legacy run without one."""
     failed = (run_root / 'eval' / 'run_manifest.failed.json')
@@ -89,6 +103,9 @@ def load_run(run_root: Path, model: str, seed: int,
     complete runs.
     """
     status = _run_status(run_root)
+    if status is None:
+        print(f'[warn] {run_root}: no run_manifest.json; dataset '
+              'completeness cannot be verified')
     if status is not None and status != 'done' and not allow_partial:
         print(f'[warn] skipping incomplete run {run_root} '
               f'(status={status}); pass --allow-partial to include it')
@@ -107,6 +124,22 @@ def load_run(run_root: Path, model: str, seed: int,
     filter_preset = preset
     with open(path, newline='') as f:
         for raw in csv.DictReader(f):
+            row_method = (raw.get('method') or '').strip()
+            if row_method and row_method != model:
+                raise SystemExit(
+                    f'{path}: row method={row_method!r} but requested '
+                    f'{model!r}')
+            row_seed = raw.get('seed')
+            if row_seed not in (None, ''):
+                try:
+                    row_seed_int = int(row_seed)
+                except (TypeError, ValueError):
+                    raise SystemExit(
+                        f'{path}: invalid seed={row_seed!r}') from None
+                if row_seed_int != int(seed):
+                    raise SystemExit(
+                        f'{path}: row seed={row_seed_int} but requested '
+                        f'{seed}')
             if (filter_preset is not None
                     and raw.get('preset') not in (None, filter_preset)):
                 continue
@@ -133,6 +166,23 @@ def load_run(run_root: Path, model: str, seed: int,
                     std=_float(raw.get(f'{metric}_std')),
                     group=group_for(model),
                 ))
+
+    manifest = _run_manifest(run_root)
+    if manifest is not None:
+        manifest_variant = manifest.get('variant')
+        if (filter_preset is not None and manifest_variant
+                and str(manifest_variant) != filter_preset):
+            raise SystemExit(
+                f'{run_root}: manifest variant={manifest_variant!r} but '
+                f'requested {filter_preset!r}')
+        expected = manifest.get('datasets')
+        if isinstance(expected, list) and expected:
+            actual = {row.dataset for row in rows}
+            missing = sorted(set(expected) - actual)
+            extra = sorted(actual - set(expected))
+            if missing or extra:
+                print(f'[warn] {path}: dataset set differs from '
+                      f'run_manifest.json (missing={missing}, extra={extra})')
     return rows
 
 
@@ -166,18 +216,14 @@ def load_runs(models: Iterable[str], seeds: Iterable[int],
         variant = preset or _run_variant(model, None)
         for seed in seeds:
             run_root = result_root / model / variant / f'seed_{seed}'
-            if not run_root.is_dir():
-                # A run may use a non-default preset (e.g. SACM-STC's
-                # all_dense).  With no explicit --preset, accept the only
-                # available variant instead of silently reporting it missing.
-                matches = sorted((result_root / model).glob(
-                    f'*/seed_{seed}'))
-                if len(matches) == 1:
-                    run_root = matches[0]
+            # Only the legacy default layout is allowed to fall back; never
+            # substitute a different variant for the configured preset.
             legacy = result_root / model / f'seed_{seed}'
-            if not run_root.is_dir() and legacy.is_dir():
+            if (not run_root.is_dir() and variant == 'default'
+                    and legacy.is_dir()):
+                print(f'[warn] using legacy layout {legacy}')
                 run_root = legacy
-            current = load_run(run_root, model, seed, preset=preset,
+            current = load_run(run_root, model, seed, preset=variant,
                                allow_partial=allow_partial)
             if not current:
                 missing.append(str(run_root))

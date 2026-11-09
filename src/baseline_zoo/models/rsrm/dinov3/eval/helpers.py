@@ -10,6 +10,7 @@ from typing import Any
 import torch
 from omegaconf import OmegaConf
 
+import baseline_zoo.models.rsrm.dinov3 as dinov3
 import baseline_zoo.models.rsrm.dinov3.distributed
 from baseline_zoo.models.rsrm.dinov3.eval import results
 

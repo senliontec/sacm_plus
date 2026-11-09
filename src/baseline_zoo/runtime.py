@@ -481,6 +481,18 @@ def write_history(path: Path, config, history, best_epoch, best_score,
         print(f'WARNING: failed to write {path}: {exc}')
 
 
+def _variant_from_workdir(workdir: Path) -> str:
+    """Return the run variant encoded in ``results/runs/<method>/<variant>``."""
+    try:
+        from core.run_layout import RUNS_ROOT
+        rel = Path(workdir).resolve().relative_to(RUNS_ROOT.resolve())
+        if len(rel.parts) >= 2:
+            return rel.parts[1]
+    except (OSError, ValueError):
+        pass
+    return 'default'
+
+
 def write_run_info(path: Path, *, method: str, seed: int, checkpoint: Path,
                    best_epoch: int, last_epoch: int, selection: str,
                    epochs: int, data_root: str | None = None,
@@ -489,6 +501,7 @@ def write_run_info(path: Path, *, method: str, seed: int, checkpoint: Path,
                    wandb: dict | None = None,
                    artifacts: dict | None = None,
                    resumed_from: str | None = None,
+                   variant: str = 'default',
                    periodic_checkpoints: list[str] | None = None,
                    error: str | None = None):
     """Write seed-aware checkpoint metadata next to metrics_history.json.
@@ -501,7 +514,7 @@ def write_run_info(path: Path, *, method: str, seed: int, checkpoint: Path,
         'artifact_version': ARTIFACT_VERSION,
         'family': 'baseline',
         'method': str(method),
-        'variant': 'default',
+        'variant': str(variant),
         'seed': int(seed),
         'status': str(status),
         'checkpoint': str(Path(checkpoint).resolve()),
@@ -747,6 +760,7 @@ def run_training_free(adapter: BaselineAdapter,
     write_run_info(
         workdir / 'run_info.json',
         method=adapter.id,
+        variant=_variant_from_workdir(workdir),
         seed=args.seed,
         checkpoint=ckpt_path,
         best_epoch=0,
@@ -809,6 +823,30 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
         generator=train_generator,
         drop_last=getattr(adapter, 'drop_last', False),
         collate_fn=lambda batch: batch)
+
+    # Resume must build the model from the checkpoint's adapter config, not
+    # from the current CLI defaults (geometry/norm/scale can differ).
+    ckpt_path = workdir / 'best_model.pth'
+    last_path = workdir / 'last_model.pth'
+    if args.resume:
+        choice = getattr(args, 'resume_checkpoint', 'auto')
+        if choice == 'last':
+            preview_path = last_path
+        elif choice == 'best':
+            preview_path = ckpt_path
+        else:
+            preview_path = last_path if last_path.is_file() else ckpt_path
+        if preview_path.is_file():
+            preview = torch.load(preview_path, map_location='cpu',
+                                 weights_only=False)
+            stored_cfg = preview.get('config', {}) or {}
+            stored_seed = stored_cfg.get('seed', preview.get('seed'))
+            if stored_seed is not None and int(stored_seed) != int(args.seed):
+                raise SystemExit(
+                    f'resume checkpoint seed={stored_seed} but --seed '
+                    f'is {args.seed}; refusing to mix seeds')
+            adapter.restore_config(
+                args, stored_cfg.get('adapter_config', {}))
 
     model = adapter.build_model(args).to(device)
     adapter.load_pretrained(model, args)
@@ -958,6 +996,10 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
         adapter.load_state_dict(model, payload['model_state_dict'])
         if payload.get('optimizer_state_dict'):
             optimizer.load_state_dict(payload['optimizer_state_dict'])
+        else:
+            print('WARNING: resume checkpoint has no optimizer state; '
+                  'the optimizer restarts from scratch at this epoch',
+                  flush=True)
         if scheduler is not None and payload.get('scheduler_state_dict'):
             scheduler.load_state_dict(payload['scheduler_state_dict'])
         restore_rng_state(payload.get('rng_state'))
@@ -1011,6 +1053,7 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
     write_run_info(
         workdir / 'run_info.json',
         method=adapter.id,
+        variant=_variant_from_workdir(workdir),
         seed=args.seed,
         checkpoint=ckpt_path,
         best_epoch=best_epoch,
@@ -1202,6 +1245,7 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
         write_run_info(
             workdir / 'run_info.json',
             method=adapter.id,
+            variant=_variant_from_workdir(workdir),
             seed=args.seed,
             checkpoint=ckpt_path,
             best_epoch=best_epoch,
@@ -1214,6 +1258,7 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
             last_checkpoint=last_checkpoint,
             wandb=wandb_run_info,
             artifacts=artifact_info,
+            periodic_checkpoints=periodic_checkpoints,
             resumed_from=(
                 str(resume_path) if resume_path is not None else None),
         )
@@ -1232,7 +1277,9 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
             error=error)
         write_run_info(
             workdir / 'run_info.json',
-            method=adapter.id, seed=args.seed, checkpoint=ckpt_path,
+            method=adapter.id,
+            variant=_variant_from_workdir(workdir),
+            seed=args.seed, checkpoint=ckpt_path,
             best_epoch=best_epoch,
             last_epoch=(int(history[-1].get('epoch', 0))
                         if history else 0),
@@ -1242,6 +1289,7 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
                 args, 'reproducibility_info', None),
             status='failed', last_checkpoint=last_checkpoint,
             wandb=wandb_run_info, artifacts=artifact_info,
+            periodic_checkpoints=periodic_checkpoints,
             resumed_from=(
                 str(resume_path) if resume_path is not None else None),
             error=error)
@@ -1258,6 +1306,7 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
     write_run_info(
         workdir / 'run_info.json',
         method=adapter.id,
+        variant=_variant_from_workdir(workdir),
         seed=args.seed,
         checkpoint=ckpt_path,
         best_epoch=best_epoch,
@@ -1270,6 +1319,7 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
         last_checkpoint=last_checkpoint,
         wandb=wandb_run_info,
         artifacts=artifact_info,
+        periodic_checkpoints=periodic_checkpoints,
         resumed_from=(
             str(resume_path) if resume_path is not None else None),
     )
@@ -1328,9 +1378,12 @@ def run_prediction(adapter: BaselineAdapter, args: argparse.Namespace,
                 f'instead of --input-size={args.input_size}', flush=True)
         args.input_size = saved_input
     model = adapter.build_model(args)
-    state = payload.get('model_state_dict') or {}
-    if state:
-        adapter.load_state_dict(model, state)
+    state = payload.get('model_state_dict')
+    if not isinstance(state, dict) or not state:
+        raise SystemExit(
+            f'checkpoint {ckpt_path} has no model_state_dict; refusing to '
+            'evaluate a randomly initialized model')
+    adapter.load_state_dict(model, state)
     model.to(device).eval()
 
     datasets = []
@@ -1578,8 +1631,15 @@ def main_for(adapter: BaselineAdapter, argv: list[str] | None = None) -> int:
     if args.data_root is None:
         seed_root = (REPO_ROOT / 'data' /
                      f'sacm_3shot_seed{int(args.seed)}')
-        args.data_root = (seed_root if seed_root.is_dir()
-                          else REPO_ROOT / 'data' / 'sacm_3shot')
+        if seed_root.is_dir():
+            args.data_root = seed_root
+        elif int(args.seed) == 42:
+            args.data_root = REPO_ROOT / 'data' / 'sacm_3shot'
+            print('[warn] seed 42: using legacy data/sacm_3shot split')
+        else:
+            raise SystemExit(
+                f'missing seed-specific data root: {seed_root}; '
+                'create the split or pass --data-root explicitly')
     if args.workdir is None:
         from core.run_layout import run_root
         args.workdir = run_root(adapter.id, 'default', int(args.seed))

@@ -28,6 +28,7 @@ export TRANSFORMERS_OFFLINE="${TRANSFORMERS_OFFLINE:-1}"
 TABLES_ONLY=0
 GPU_ENV="${GPU:-}"
 GPU_FLAG=0
+OUT_DIR="results/tables"
 ARGS=()
 for arg in "$@"; do
   case "$arg" in
@@ -71,6 +72,18 @@ while [ "$idx" -lt "${#ARGS[@]}" ]; do
       GPU_FLAG=1
       idx=$((idx + 1))
       ;;
+    --out-dir)
+      if [ $((idx + 1)) -ge "${#ARGS[@]}" ]; then
+        echo "[run-paper] ERROR: --out-dir requires a value" >&2
+        exit 2
+      fi
+      OUT_DIR="${ARGS[$((idx + 1))]}"
+      idx=$((idx + 2))
+      ;;
+    --out-dir=*)
+      OUT_DIR="${arg#--out-dir=}"
+      idx=$((idx + 1))
+      ;;
     *)
       idx=$((idx + 1))
       ;;
@@ -112,6 +125,6 @@ else
 fi
 
 bash scripts/run_report.sh ${ARGS[@]+"${ARGS[@]}"}
-if [ "$DRY_RUN" -eq 0 ] && [ -f results/tables/all_metrics.csv ]; then
-  bash scripts/run_figures.sh
+if [ "$DRY_RUN" -eq 0 ] && [ -f "$OUT_DIR/all_metrics.csv" ]; then
+  bash scripts/run_figures.sh --tables-dir "$OUT_DIR"
 fi

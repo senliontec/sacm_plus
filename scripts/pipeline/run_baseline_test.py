@@ -34,7 +34,8 @@ from protocol_specs import dataset_specs  # noqa: E402
 # Self-contained adapters.  A method without an entry is assumed to have
 # predictions already on disk (reference-only or externally produced).
 from baseline_zoo.adapters.registry import available_adapters  # noqa: E402
-from core.run_layout import RUNS_ROOT, run_root  # noqa: E402
+from baseline_zoo.registry import load_models  # noqa: E402
+from core.run_layout import RUNS_ROOT, default_variant, run_root  # noqa: E402
 from core.run_status import RunStatus  # noqa: E402
 from core.wandb_utils import (  # noqa: E402
     finish_run,
@@ -106,6 +107,65 @@ def checkpoint_split_hash(path: Path):
         return payload.get('split_manifest_sha256')
     except Exception:
         return None
+
+
+def resolve_variant(method: str, checkpoint: Path | None,
+                    explicit: str | None) -> str:
+    """Resolve the run variant without silently defaulting to ``default``.
+
+    Priority: explicit CLI value -> checkpoint path under
+    ``results/runs/<method>/<variant>/seed_<n>`` -> model config preset ->
+    ``default`` (baselines).
+    """
+    if explicit:
+        return str(explicit)
+    if checkpoint is not None:
+        try:
+            rel = Path(checkpoint).resolve().relative_to(RUNS_ROOT.resolve())
+        except (OSError, ValueError):
+            rel = None
+        if rel is not None and len(rel.parts) >= 3 and rel.parts[0] == method:
+            return rel.parts[1]
+    try:
+        model = load_models().get(method)
+        if model is not None:
+            return default_variant(model.defaults)
+    except Exception:
+        pass
+    return 'default'
+
+
+def resolve_eval_root(paper_root: str | Path | None, canonical_run: Path,
+                      train_root: Path) -> Path:
+    """Map ``--paper-root`` to the eval output directory.
+
+    Config templates pass the checkpoint's run root.  That must resolve to
+    ``<run>/eval`` in the checkpoint's own variant, never to the method's
+    default-variant eval directory (the old ``all_dense``/``default`` alias
+    bug).  An explicit external path is preserved verbatim.
+    """
+    if paper_root is None:
+        return Path(canonical_run) / 'eval'
+    requested = Path(paper_root)
+    if requested.resolve() in (Path(train_root).resolve(),
+                               Path(canonical_run).resolve()):
+        return requested / 'eval'
+    return requested
+
+
+def resolve_split_manifest(protocol: Path, seed: int) -> Path:
+    """Require the split manifest belonging to the active protocol seed."""
+    split = protocol.parent / 'split_manifest.csv'
+    if split.is_file():
+        return split
+    if int(seed) == 42:
+        legacy = REPO_ROOT / 'data' / 'sacm_3shot' / 'split_manifest.csv'
+        if legacy.is_file():
+            print('[warn] using legacy seed-42 split manifest for seed 42')
+            return legacy
+    raise SystemExit(
+        f'missing split manifest for seed {seed}: {split}; '
+        'pass a matching --protocol or regenerate the split')
 
 
 def _as_bool(value):
@@ -218,8 +278,16 @@ def main():
                              'data/sacm_3shot_seed0/protocol_manifest.csv)')
     parser.add_argument('--checkpoint', type=Path, default=None,
                         help='trained baseline checkpoint (default: '
-                             'results/runs/<method>/default/seed_<seed>/'
+                             'results/runs/<method>/<variant>/seed_<seed>/'
                              'best_model.pth or the native checkpoint name)')
+    parser.add_argument(
+        '--variant', default=None,
+        help='run variant (default: infer from the checkpoint run root, '
+             'else the model config preset, else default)')
+    parser.add_argument(
+        '--allow-missing-prediction-meta', action='store_true',
+        help='with --skip-predict, accept predictions without '
+             '.prediction_meta.json (provenance is not validated)')
     parser.add_argument('--sam-checkpoint', type=Path,
                         default=REPO_ROOT / 'checkpoints' /
                         'sam_vit_l_0b3195.pth',
@@ -325,7 +393,8 @@ def main():
     if args.data_root is None:
         # The protocol and its support images live in the same seed split.
         args.data_root = args.protocol.parent
-    args.variant = 'default'
+    args.variant = resolve_variant(
+        args.method, args.checkpoint, args.variant)
     canonical_run = run_root(args.method, args.variant, args.seed)
     if args.checkpoint is None:
         custom = {
@@ -339,17 +408,13 @@ def main():
     if args.pred_root is None:
         args.pred_root = canonical_run / 'predictions'
     args.pred_root = Path(args.pred_root)
-    if (args.paper_root is None
-            or Path(args.paper_root).resolve() == train_root.resolve()
-            or Path(args.paper_root).resolve() == canonical_run.resolve()):
-        eval_root = canonical_run / 'eval'
-    else:
-        eval_root = Path(args.paper_root)
-    args.paper_root = eval_root
+    args.paper_root = resolve_eval_root(
+        args.paper_root, canonical_run, train_root)
     if args.vis_root is None:
         args.vis_root = canonical_run / 'visualizations'
     args.vis_root = Path(args.vis_root)
-    args.run_root = canonical_run
+    # The checkpoint's own run root is the provenance source of truth.
+    args.run_root = train_root
     args.train_root = train_root
     dataset_filter = set(args.datasets) if args.datasets else None
     specs = read_specs(args.protocol, dataset_filter)
@@ -391,18 +456,19 @@ def main():
         if args.skip_predict:
             meta_path = method_pred_root / '.prediction_meta.json'
             if not meta_path.is_file():
+                if not args.allow_missing_prediction_meta:
+                    raise SystemExit(
+                        '--skip-predict requires .prediction_meta.json so '
+                        'the checkpoint/split provenance can be validated; '
+                        'regenerate predictions or pass '
+                        '--allow-missing-prediction-meta')
                 print('[warn] --skip-predict: no prediction metadata; '
-                      'checkpoint provenance is not re-validated')
+                      'checkpoint provenance is not re-validated '
+                      '(--allow-missing-prediction-meta)')
             else:
                 meta = json.loads(meta_path.read_text())
-                # Follow the active protocol's own split manifest; fall back
-                # to the frozen seed-42 manifest only when it has none.
-                split = args.protocol.parent / 'split_manifest.csv'
-                if not split.is_file():
-                    split = (REPO_ROOT / 'data' / 'sacm_3shot' /
-                             'split_manifest.csv')
-                expected_split = (file_sha256(split)
-                                  if split.is_file() else None)
+                split = resolve_split_manifest(args.protocol, args.seed)
+                expected_split = file_sha256(split)
                 custom_checkpoint = args.method in CUSTOM_CHECKPOINTS
                 expected_ckpt = (None if custom_checkpoint
                                  else (file_sha256(args.checkpoint)
@@ -445,10 +511,8 @@ def main():
                 # Use the split manifest belonging to the active protocol.
                 # Seed-specific checkpoints must not be compared against the
                 # frozen seed-42 split.
-                split = args.protocol.parent / 'split_manifest.csv'
-                if not split.is_file():
-                    split = REPO_ROOT / 'data' / 'sacm_3shot' / 'split_manifest.csv'
-                if (split.is_file() and not args.allow_stale_checkpoint
+                split = resolve_split_manifest(args.protocol, args.seed)
+                if (not args.allow_stale_checkpoint
                         and args.method not in CUSTOM_CHECKPOINTS):
                     expected_hash = file_sha256(split)
                     actual_hash = checkpoint_split_hash(args.checkpoint)
@@ -547,7 +611,18 @@ def main():
         canonical_eval = (Path(args.paper_root).resolve() ==
                           (canonical_run / 'eval').resolve())
         finalize_allowed = canonical_eval and full_eval
-        status_value = ('train_only' if args.skip_paper
+        existing_manifest_path = args.paper_root / 'run_manifest.json'
+        existing_status = None
+        if existing_manifest_path.is_file():
+            try:
+                existing_status = json.loads(
+                    existing_manifest_path.read_text()).get('status')
+            except (OSError, json.JSONDecodeError):
+                existing_status = None
+        preserve_manifest = bool(
+            args.skip_paper and existing_status == 'done')
+        status_value = ('done' if preserve_manifest
+                        else 'train_only' if args.skip_paper
                         else 'done' if full_eval else 'partial')
         manifest = {
             'family': 'baseline',
@@ -556,6 +631,9 @@ def main():
             'seed': int(args.seed),
             'run_root': str(args.run_root),
             'checkpoint': str(args.checkpoint.resolve()),
+            'checkpoint_sha256': (
+                file_sha256(args.checkpoint)
+                if args.checkpoint.is_file() else None),
             'protocol': str(args.protocol),
             'datasets': [name for name, _ in specs],
             'pred_root': str(method_pred_root),
@@ -575,7 +653,9 @@ def main():
             'generated_at': time.strftime('%Y-%m-%dT%H:%M:%S'),
         }
         finalize = REPO_ROOT / 'scripts' / 'pipeline' / 'finalize_run.py'
-        if finalize_allowed:
+        if preserve_manifest:
+            print('[warn] --skip-paper: preserving existing done manifest')
+        elif finalize_allowed:
             if not finalize.is_file():
                 raise RuntimeError(
                     f'missing canonical finalizer: {finalize}')

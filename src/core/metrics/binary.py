@@ -77,5 +77,10 @@ def binary_metrics(pred, gt, empty_policy='penalty'):
             'cldice': cldice_score(pred, gt),
             'hd95': hd95_score(pred, gt),
         }
+    # Non-empty but skeleton-disjoint masks yield 0/0 in cldice_score.
+    # Under the penalty policy that is a worst-case topology failure, not a
+    # reason to silently drop the image from the denominator.
+    if empty_policy == 'penalty' and np.isnan(values['cldice']):
+        values['cldice'] = 0.0
     values['empty'] = float(not bool(pred.any()))
     return values

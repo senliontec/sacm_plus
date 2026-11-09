@@ -260,8 +260,9 @@ class Trainer(nn.Module):
         for i_batch, sampled_batch in enumerate(val_loader):
             val_image = sampled_batch["image"].to(self.device)
             val_label = sampled_batch["label"].to(self.device)
-            image_embeddings = self.sam_model.image_encoder(val_image)
-            pred_UNet, pred_VNet, pred_UNet_soft, pred_VNet_soft, fusion_map = self.SGDL(val_image)
+            with torch.no_grad():
+                image_embeddings = self.sam_model.image_encoder(val_image)
+                pred_UNet, pred_VNet, pred_UNet_soft, pred_VNet_soft, fusion_map = self.SGDL(val_image)
 
             points_embedding, boxes_embedding, mask_embedding = self.sam_model.super_prompt(image_embeddings)
 

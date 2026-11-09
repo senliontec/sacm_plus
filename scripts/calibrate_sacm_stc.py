@@ -48,6 +48,13 @@ def load_model(adapter, checkpoint: Path, device: torch.device):
     adapter.prediction_mode = True
     adapter.restore_config(
         args, (payload.get('config') or {}).get('adapter_config', {}))
+    if int(getattr(args, 'use_typed_stage2', 0)) != 1:
+        raise SystemExit(
+            f'{checkpoint}: blend calibration is defined only for the '
+            'typed Stage-2 prototype (use_typed_stage2=1). The shipped '
+            'all_dense preset deploys the gating slot directly and has no '
+            'typed_composer; evaluate its fixed candidates on the val split '
+            'instead.')
     args.input_size = int(payload.get('input_size', 1024))
     adapter.input_size = args.input_size
     adapter.args = args

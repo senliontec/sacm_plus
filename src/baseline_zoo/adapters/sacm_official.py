@@ -161,9 +161,10 @@ class SACMOfficialAdapter(BaselineAdapter):
             images.append(torch.from_numpy(
                 np.asarray(image, dtype=np.float32).copy()
             ).permute(2, 0, 1) / 255.0)
-            masks.append(torch.from_numpy(
-                np.asarray(mask, dtype=np.float32).copy()
-            ).unsqueeze(0) / 255.0)
+            mask_np = np.asarray(mask, dtype=np.float32).copy()
+            if mask_np.size and float(mask_np.max()) <= 1.0:
+                mask_np *= 255.0
+            masks.append(torch.from_numpy(mask_np).unsqueeze(0) / 255.0)
         return (torch.stack(images).to(self.device),
                 torch.stack(masks).to(self.device))
 

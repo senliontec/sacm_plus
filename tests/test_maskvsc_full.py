@@ -435,7 +435,7 @@ def test_two_stage_training_and_prediction(split_root, tmp_path):
 
 
 def _fake_evaluate(stage1_dice, stage2_dice):
-    def fake_evaluate(adapter, model, samples, device):
+    def fake_evaluate(adapter, model, samples, device, **kwargs):
         dice = stage1_dice if model.stage == 'stage1' else stage2_dice
         metrics = {
             'dice': dice, 'iou': dice, 'cldice': dice, 'hd95': 1.0,

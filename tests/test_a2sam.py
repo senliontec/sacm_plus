@@ -331,14 +331,14 @@ def test_adapter_stage_config_and_data_pipeline(tmp_path):
     batch = adapter._prepare_unet_batch([sample], random.Random(0))
     assert batch['image'].shape == (1, 3, 1024, 1024)
     assert batch['target'].shape == (1, 1, 1024, 1024)
-    adapter._unet_cache[sample.stem] = {
+    adapter._unet_cache[f'{sample.dataset}/{sample.stem}'] = {
         'probability': torch.zeros(1, 8, 8),
         'xi_star': 0.1,
     }
     prior_batch = adapter._prepare_prior_batch([sample], random.Random(0))
     assert prior_batch['probability'].shape == (1, 1, 8, 8)
     assert prior_batch['target'].shape == (1,)
-    adapter._stage3_cache[sample.stem] = {
+    adapter._stage3_cache[f'{sample.dataset}/{sample.stem}'] = {
         'logits': torch.zeros(1, 8, 8),
         'y_c': torch.zeros(1, 8, 8),
         'uncertainty': torch.zeros(1, 8, 8),

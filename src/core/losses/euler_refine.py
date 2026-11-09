@@ -434,8 +434,8 @@ def norm_ten(pred_ce, binary=False):
     mmin = pred_ce.min()
     pred_ce = (pred_ce - mmin)/ (mmax - mmin+ 0.001)
     if binary:
-        pred_ce[pred_ce>=0.5] == 1
-        pred_ce[pred_ce<0.5] == 0
+        pred_ce[pred_ce>=0.5] = 1
+        pred_ce[pred_ce<0.5] = 0
     return pred_ce
 
 

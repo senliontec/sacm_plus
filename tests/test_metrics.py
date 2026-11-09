@@ -146,3 +146,23 @@ def test_binary_metrics_matches_baseline_definition():
     empty = binary_metrics(np.zeros_like(pred), gt)
     assert empty["empty"] == 1.0
     assert empty["dice"] == pytest.approx(0.0)
+
+
+def test_binary_metrics_penalty_maps_disjoint_cldice_to_zero():
+    """Non-empty, skeleton-disjoint masks are a worst-case clDice, not NaN.
+
+    The penalty policy must keep these failed topology cases in the
+    denominator; otherwise ``nanmean`` silently drops them.
+    """
+    pred = np.zeros((8, 8), dtype=np.uint8)
+    gt = np.zeros((8, 8), dtype=np.uint8)
+    pred[0, 0] = 1
+    gt[7, 7] = 1
+    assert np.isnan(cldice_score(pred, gt))
+
+    penalized = binary_metrics(pred, gt, empty_policy='penalty')
+    assert penalized["cldice"] == 0.0
+    assert not penalized["empty"]
+
+    nan_policy = binary_metrics(pred, gt, empty_policy='nan')
+    assert np.isnan(nan_policy["cldice"])

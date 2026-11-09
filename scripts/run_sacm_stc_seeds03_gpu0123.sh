@@ -27,6 +27,25 @@ set -euo pipefail
 cd "$(dirname "$0")/.." || exit 1
 REPO="$(pwd)"
 
+# The gpu0123 and gpu4567 scripts are alternative GPU placements for the
+# same model/variant/seeds; never let both write the same run roots.
+LOCK_DIR="$REPO/results/runs/.locks"
+mkdir -p "$LOCK_DIR"
+if command -v flock >/dev/null 2>&1; then
+  exec 9>"$LOCK_DIR/sacm_stc_all_dense.lock"
+  if ! flock -n 9; then
+    echo "ERROR: another SACM-STC all_dense wrapper is already running" >&2
+    exit 3
+  fi
+else
+  LOCK_MK="$LOCK_DIR/sacm_stc_all_dense.lockdir"
+  if ! mkdir "$LOCK_MK" 2>/dev/null; then
+    echo "ERROR: another SACM-STC all_dense wrapper is already running" >&2
+    exit 3
+  fi
+  trap 'rmdir "$LOCK_MK" 2>/dev/null || true' EXIT
+fi
+
 MODEL="sacm_stc"
 VARIANT="all_dense"
 SEEDS_STR="${SEEDS:-0 1 2 3}"

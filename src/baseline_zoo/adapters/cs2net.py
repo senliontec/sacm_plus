@@ -334,6 +334,10 @@ class CS2NetAdapter(BaselineAdapter):
             else:
                 image, mask = _center_square(image, mask, self.input_size)
 
+            if self._augment_mode() == 'official' and geometry == 'full':
+                raise SystemExit(
+                    'cs2net: official augmentation requires center/padded '
+                    'geometry; use --cs2net-augment mild for full geometry')
             if self._augment_mode() == 'official' and geometry != 'full':
                 angle = rng.randint(-40, 40)
                 image = image.rotate(angle)
@@ -359,9 +363,10 @@ class CS2NetAdapter(BaselineAdapter):
             image_t = torch.from_numpy(
                 np.asarray(image, dtype=np.float32).copy()
             ).permute(2, 0, 1) / 255.0
-            mask_t = torch.from_numpy(
-                np.asarray(mask, dtype=np.float32).copy()
-            ).unsqueeze(0) / 255.0
+            mask_np = np.asarray(mask, dtype=np.float32).copy()
+            if mask_np.size and float(mask_np.max()) <= 1.0:
+                mask_np *= 255.0
+            mask_t = torch.from_numpy(mask_np).unsqueeze(0) / 255.0
             images.append(image_t)
             masks.append(mask_t)
         shapes = {tuple(item.shape) for item in images}
@@ -405,6 +410,8 @@ class CS2NetAdapter(BaselineAdapter):
             else:
                 threshold = float(threshold_otsu(arr))
             binary = arr > threshold
+        # Use the same image source as the forward transform; mask/image
+        # sizes can differ in external test roots.
         with Image.open(sample.image_path) as image:
             width, height = image.size
         geometry = self._geometry_mode()

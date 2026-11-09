@@ -422,7 +422,12 @@ def summarize(per_dataset, metric_names):
         summary[dataset] = {}
         for metric in metric_names:
             values = np.asarray([r[metric] for r in rows], dtype=float)
-            values = values[np.isfinite(values)]
+            finite = values[np.isfinite(values)]
+            if finite.size < values.size:
+                print(f'[warn] {dataset}: dropping '
+                      f'{values.size - finite.size}/{values.size} non-finite '
+                      f'{metric} values from the mean', flush=True)
+            values = finite
             if values.size:
                 summary[dataset][metric] = {
                     'mean': float(values.mean()),
@@ -646,9 +651,16 @@ def main():
         seed_protocol = (REPO_ROOT / 'data' /
                          f'sacm_3shot_seed{args.seed}' /
                          'protocol_manifest.csv')
-        args.protocol = (seed_protocol if seed_protocol.is_file() else
-                         REPO_ROOT / 'data' / 'sacm_3shot' /
-                         'protocol_manifest.csv')
+        if seed_protocol.is_file():
+            args.protocol = seed_protocol
+        elif int(args.seed) == 42:
+            args.protocol = (REPO_ROOT / 'data' / 'sacm_3shot' /
+                             'protocol_manifest.csv')
+            print('[warn] seed 42: using legacy data/sacm_3shot protocol')
+        else:
+            raise SystemExit(
+                f'missing seed-specific protocol for seed {args.seed}: '
+                f'{seed_protocol}; pass --protocol explicitly')
     if args.pred_root is None:
         if args.layout == 'canonical':
             run_root = (REPO_ROOT / 'results' / 'runs' / args.methods[0] /

@@ -561,6 +561,7 @@ class KnowSAMAdapter(BaselineAdapter):
                             except Exception as exc:
                                 print('[knowsam] shared validation failed: '
                                       f'{exc}', flush=True)
+                                raise
                             else:
                                 scalars.update({
                                     'val/selection': shared_metrics['dice'],

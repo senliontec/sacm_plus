@@ -252,7 +252,10 @@ class FSSAMAdapter(BaselineAdapter):
         candidates = [item for item in groups.get(sample.dataset, [])
                       if item.stem != sample.stem]
         if not candidates:
-            candidates = [sample]
+            raise RuntimeError(
+                'FSSAM training requires at least one other labeled image '
+                f'for dataset {sample.dataset!r}; refusing to use the query '
+                'as its own support (query-GT leakage)')
         count = min(int(shots), len(candidates))
         return rng.sample(candidates, count)
 

@@ -183,8 +183,10 @@ class CWSAMAdapter(BaselineAdapter):
             images.append(self._preprocess(sample, self.device)[0])
             mask = Image.open(sample.mask_path).convert('L').resize(
                 (self.input_size, self.input_size), Image.NEAREST)
+            mask_np = np.asarray(mask)
+            threshold = 0 if mask_np.size and mask_np.max() <= 1 else 127
             masks.append(torch.from_numpy(
-                (np.asarray(mask) > 127).astype(np.int64).copy()))
+                (mask_np > threshold).astype(np.int64).copy()))
         return torch.stack(images), torch.stack(masks).to(self.device)
 
     def train_step(self, model, batch):

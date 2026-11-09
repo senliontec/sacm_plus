@@ -1,6 +1,7 @@
 """Tests for cross-model / cross-seed metric aggregation."""
 
 import csv
+import json
 import sys
 from pathlib import Path
 
@@ -84,6 +85,68 @@ def test_explicit_preset_selects_sacm_stc_variant(tmp_path):
                               preset='all_dense')
     assert missing == []
     assert {row.model for row in rows} == {'sacm_stc'}
+
+
+def test_row_method_mismatch_raises(tmp_path):
+    path = (tmp_path / 'unet' / 'default' / 'seed_0' / 'eval' / 'tables')
+    path.mkdir(parents=True)
+    row = {'method': 'sacm_stc', 'dataset': 'DRIVE', 'role': 'Seen',
+           'dice_mean': 0.8}
+    with open(path / 'all_metrics.csv', 'w', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=list(row))
+        writer.writeheader()
+        writer.writerow(row)
+    with pytest.raises(SystemExit, match='row method'):
+        load_runs(['unet'], [0], tmp_path)
+
+
+def test_configured_variant_does_not_fall_back_to_legacy_default(tmp_path):
+    """A configured all_dense run must not silently read sacm_stc/seed_0."""
+    _write_sacm_stc(tmp_path, 0)
+    legacy = tmp_path / 'sacm_stc' / 'seed_0' / 'eval' / 'tables'
+    legacy.mkdir(parents=True)
+    with open(legacy / 'all_metrics.csv', 'w', newline='') as f:
+        writer = csv.DictWriter(
+            f, fieldnames=['dataset', 'role'] + FIELDS)
+        writer.writeheader()
+        writer.writerow({'dataset': 'DRIVE', 'role': 'Seen',
+                         'dice_mean': 0.9})
+    # Remove the canonical run so only the legacy directory remains.
+    for path in sorted(
+            (tmp_path / 'sacm_stc' / 'all_dense').rglob('*'), reverse=True):
+        path.unlink() if path.is_file() else path.rmdir()
+    rows, missing = load_runs(['sacm_stc'], [0], tmp_path)
+    assert rows == []
+    assert missing == [
+        str(tmp_path / 'sacm_stc' / 'all_dense' / 'seed_0')]
+
+
+def test_manifest_dataset_mismatch_warns(tmp_path, capsys):
+    _write_sacm_stc(tmp_path, 0)
+    manifest_path = (tmp_path / 'sacm_stc' / 'all_dense' / 'seed_0' /
+                     'eval' / 'run_manifest.json')
+    manifest_path.write_text(json.dumps({
+        'status': 'done', 'variant': 'all_dense',
+        'datasets': ['DRIVE', 'WIRE', 'MISSING'],
+    }))
+    rows, missing = load_runs(['sacm_stc'], [0], tmp_path)
+    assert missing == []
+    assert len(rows) == 8
+    out = capsys.readouterr().out
+    assert 'dataset set differs' in out
+    assert 'MISSING' in out
+
+
+def test_manifest_variant_mismatch_raises(tmp_path):
+    _write_sacm_stc(tmp_path, 0)
+    manifest_path = (tmp_path / 'sacm_stc' / 'all_dense' / 'seed_0' /
+                     'eval' / 'run_manifest.json')
+    manifest_path.write_text(json.dumps({
+        'status': 'done', 'variant': 'default',
+        'datasets': ['DRIVE', 'WIRE'],
+    }))
+    with pytest.raises(SystemExit, match='manifest variant'):
+        load_runs(['sacm_stc'], [0], tmp_path)
 
 
 def test_write_report_outputs_tables(tmp_path):

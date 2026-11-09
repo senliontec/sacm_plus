@@ -120,9 +120,12 @@ def _build_sam(
                     sam.load_state_dict(state_dict, True)
                 else:
                     sam.load_state_dict(state_dict)
-        except:
-            print('*******interpolate')
-            new_state_dict = load_from(sam, state_dict, image_size, vit_patch_size)   
+        except RuntimeError as exc:
+            message = str(exc)
+            if 'size mismatch' not in message and 'pos_embed' not in message:
+                raise
+            print('*******interpolate positional embeddings')
+            new_state_dict = load_from(sam, state_dict, image_size, vit_patch_size)
             sam.load_state_dict(new_state_dict)
         print(f"*******load {checkpoint}")
         

@@ -264,8 +264,15 @@ def _run_job(job: dict, stage: str, resume: bool, dry_run: bool) -> bool:
             print(f"[error] missing checkpoint: {job['checkpoint']}",
                   file=sys.stderr)
             return False
+    command = job['command']
+    if (stage == 'train' and resume
+            and (output_root / 'last_model.pth').is_file()
+            and '--resume' not in command):
+        command += ' --resume'
+        print(f'[{model.id}] seed={seed}: resuming from last_model.pth',
+              flush=True)
     if dry_run:
-        print(f"dry-run: {job['command']}", flush=True)
+        print(f'dry-run: {command}', flush=True)
         return True
     output_root.mkdir(parents=True, exist_ok=True)
     # The pipeline finalizer moves this root-level log to eval/eval.log.
@@ -273,7 +280,7 @@ def _run_job(job: dict, stage: str, resume: bool, dry_run: bool) -> bool:
     log_path = output_root / f'{stage}.log'
     prefix = f'[{model.id} seed={seed} gpu={gpu}] '
     print(f"{prefix}start (log: {log_path})", flush=True)
-    ok = _run(job['command'], log_path, prefix)
+    ok = _run(command, log_path, prefix)
     if ok and job['checkpoint'].is_file():
         _write_marker(job)
         print(f"[{model.id}] seed={seed} gpu={gpu} done", flush=True)

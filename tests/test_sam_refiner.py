@@ -1,8 +1,10 @@
 """Fast SAMRefiner tests (no SAM checkpoint)."""
 
 import importlib.util
+import sys
 from pathlib import Path
 
+import pytest
 import torch
 
 from core.postprocess.sam_refiner import SAMRefiner
@@ -36,8 +38,11 @@ def test_distance_fallback_is_positive_inside_mask():
 
 def _load_cli():
     path = REPO_ROOT / 'scripts' / 'tools' / 'apply_sam_refiner.py'
+    if not path.is_file():
+        pytest.skip('apply_sam_refiner CLI is not part of this tree')
     spec = importlib.util.spec_from_file_location('apply_sam_refiner', path)
     module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
 

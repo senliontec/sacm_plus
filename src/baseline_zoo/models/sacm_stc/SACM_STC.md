@@ -102,7 +102,9 @@ parameter groups to `--lr`, so the adapter refuses that combination.
    repeated each image `tokens.shape[0]` times (`B*B` for `B > 1`).
 8. **multimask semantics** — `multimask_output=False` returns the top-1
    candidate by predicted IoU; `True` returns all four ranked candidates.
-   Upstream sliced `[1:]`, dropping the best candidate.
+   Upstream's `multimask_output=True` branch slices `[1:]` and drops the
+   best candidate; upstream training/eval always passes `False`, so this
+   is a latent upstream inconsistency rather than an active result change.
 9. **Predictor fix** — `SamPredictor` unpacks the adapter encoder tuple,
    stores `adapter_features`, forwards them to the decoder, and clears them
    in `reset_image`.

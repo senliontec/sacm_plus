@@ -3,6 +3,8 @@
 import sys
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / 'src'
 for p in (str(SRC), str(ROOT)):
@@ -17,3 +19,12 @@ def pytest_addoption(parser):
         default=False,
         help="run heavy tests (persistence engines); skipped by default",
     )
+
+
+def pytest_collection_modifyitems(config, items):
+    if config.getoption('--run-slow'):
+        return
+    skip = pytest.mark.skip(reason='slow test; pass --run-slow to run it')
+    for item in items:
+        if 'slow' in item.keywords:
+            item.add_marker(skip)

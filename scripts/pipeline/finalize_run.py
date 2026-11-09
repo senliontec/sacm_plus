@@ -272,7 +272,8 @@ def _read_source_run_info(source_train: Path, variant: str,
 # ---------------------------------------------------------------------------
 
 def _dataset_dirs(source_eval: Path, method: str,
-                  variant: str) -> list[Path]:
+                  variant: str, expected: set[str] | None = None
+                  ) -> list[Path]:
     """Find raw per-dataset result dirs across current and legacy layouts."""
     roots = [source_eval / variant, source_eval / method, source_eval]
     found: dict[str, Path] = {}
@@ -281,6 +282,8 @@ def _dataset_dirs(source_eval: Path, method: str,
             continue
         for child in sorted(root.iterdir()):
             if not child.is_dir() or child.name in RESERVED_DIRS:
+                continue
+            if expected is not None and child.name not in expected:
                 continue
             if child.name in found:
                 continue
@@ -906,8 +909,10 @@ def finalize(args: argparse.Namespace) -> Path:
     _promote_eval_log(source_eval, source_train, args.variant, eval_root,
                       cleanup=bool(args.cleanup))
 
-    dataset_dirs = _dataset_dirs(source_eval, args.method, args.variant)
     roles = _role_from_protocol(protocol_path)
+    dataset_dirs = _dataset_dirs(
+        source_eval, args.method, args.variant,
+        expected=set(roles) if roles else None)
     aggregate_source = _aggregate_source(source_eval)
     aggregate_rows, aggregate_fields = _aggregate_rows(
         aggregate_source, args.variant)

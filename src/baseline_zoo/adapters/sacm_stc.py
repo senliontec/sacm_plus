@@ -110,13 +110,13 @@ class SACMSTCAdapter(BaselineAdapter):
         parser.add_argument('--bce-weight', type=float, default=0.7)
         parser.add_argument('--dice-weight', type=float, default=0.3)
         parser.add_argument(
-            '--bce-pos-weight', type=float, default=1.0,
+            '--bce-pos-weight', type=float, default=2.0,
             help='foreground weight for BCE in the mask criterion '
-                 '(1.0 is the official unweighted loss)')
+                 '(shipped all_dense recipe: 2.0)')
         parser.add_argument(
-            '--binary-targets', type=int, choices=[0, 1], default=1,
-            help='binarize resized training masks at 0.5 (1, default) or '
-                 'keep the official soft bilinear targets (0)')
+            '--binary-targets', type=int, choices=[0, 1], default=0,
+            help='binarize resized training masks at 0.5 (1) or keep the '
+                 'official soft bilinear targets (0, shipped default)')
         parser.add_argument(
             '--deploy-threshold', type=float, default=0.5,
             help='probability threshold used to export the mask; can be '
@@ -133,8 +133,8 @@ class SACMSTCAdapter(BaselineAdapter):
             '--deep-sup-weight', type=float, default=0.3,
             help='weight of the Stage-1 all-head mask loss')
         parser.add_argument(
-            '--iou-loss-weight', type=float, default=1.0,
-            help='weight of the per-head IoU MSE')
+            '--iou-loss-weight', type=float, default=0.0,
+            help='weight of the per-head IoU MSE (shipped all_dense: 0)')
         parser.add_argument(
             '--head-select',
             choices=['auto', 'iou', 'gating', 'gating_soft', 'fixed', 'mean'],
@@ -180,9 +180,9 @@ class SACMSTCAdapter(BaselineAdapter):
         parser.add_argument('--stc-compose-weight', type=float, default=0.5)
         parser.add_argument('--stc-gate-weight', type=float, default=0.05)
         parser.add_argument(
-            '--use-typed-stage2', type=int, choices=[0, 1], default=1,
+            '--use-typed-stage2', type=int, choices=[0, 1], default=0,
             help='use stable Stage-2 task heads + typed composition '
-                 '(SACM-STC default)')
+                 '(ablation; shipped all_dense: 0)')
         parser.add_argument('--typed-resolution', type=int, default=512)
         parser.add_argument('--typed-centerline-weight', type=float, default=0.2)
         parser.add_argument('--typed-cl-dice-weight', type=float, default=0.2)
@@ -274,14 +274,27 @@ class SACMSTCAdapter(BaselineAdapter):
                 f'deployment-head must be in [0, '
                 f'{decoder.num_mask_tokens}), got '
                 f'{self.deployment_head}')
+        if (float(getattr(args, 'stage1_fusion_weight', 0.0)) > 0
+                and (int(getattr(args, 'use_stc', 0)) == 1
+                     or int(getattr(args, 'use_typed_stage2', 0)) == 1)):
+            raise SystemExit(
+                'stage1-fusion-weight is not supported with use_stc or '
+                'use_typed_stage2; set it to 0 for those paths')
         if int(getattr(args, 'use_stc', 0)) == 1:
             resolution = int(getattr(args, 'stc_resolution', 512))
             if resolution <= 0:
                 raise SystemExit('stc-resolution must be positive')
-            embed_dim = int(getattr(
-                getattr(model, 'image_encoder', None), 'embed_dim', 1024))
+            encoder = getattr(model, 'image_encoder', None)
+            embed_dim = getattr(encoder, 'embed_dim', None)
+            if embed_dim is None:
+                proj = getattr(getattr(encoder, 'patch_embed', None),
+                               'proj', None)
+                embed_dim = getattr(proj, 'out_channels', None)
+            if embed_dim is None:
+                raise SystemExit(
+                    'cannot infer image-encoder embed_dim for STCHead')
             model.stc_head = STCHead(
-                feature_ch=2 * embed_dim,
+                feature_ch=2 * int(embed_dim),
                 width=int(getattr(args, 'stc_width', 32)))
         if int(getattr(args, 'use_typed_stage2', 0)) == 1:
             if int(getattr(args, 'use_stc', 0)) == 1:
@@ -393,6 +406,15 @@ class SACMSTCAdapter(BaselineAdapter):
                     'typed_dense_cldice_weight', 'typed_dense_boundary_weight',
                     'calibrated_blend_g'):
             if key in config:
+                previous = getattr(args, key, None)
+                if (key in {'deploy_threshold', 'stage1_fusion_weight',
+                            'stage1_fusion_mode', 'use_stc',
+                            'use_typed_stage2'}
+                        and previous is not None
+                        and previous != config[key]):
+                    print(f'[sacm_stc] checkpoint config overrides '
+                          f'{key}: {previous!r} -> {config[key]!r}',
+                          flush=True)
                 setattr(args, key, config[key])
         saved_size = config.get('input_size')
         if saved_size is not None:
@@ -505,9 +527,12 @@ class SACMSTCAdapter(BaselineAdapter):
             images.append(torch.from_numpy(
                 np.asarray(image, dtype=np.float32).copy()
             ).permute(2, 0, 1) / 255.0)
-            mask_tensor = torch.from_numpy(
-                np.asarray(mask, dtype=np.float32).copy()
-            ).unsqueeze(0) / 255.0
+            mask_np = np.asarray(mask, dtype=np.float32).copy()
+            # Accept both 0/255 and literal 0/1 mask encodings; without this
+            # the 0/1 case becomes an all-background target after /255.
+            if mask_np.size and float(mask_np.max()) <= 1.0:
+                mask_np *= 255.0
+            mask_tensor = torch.from_numpy(mask_np).unsqueeze(0) / 255.0
             if int(getattr(self.args, 'binary_targets', 1)) == 1:
                 mask_tensor = (mask_tensor > 0.5).float()
             masks.append(mask_tensor)
@@ -874,6 +899,10 @@ class SACMSTCAdapter(BaselineAdapter):
         images, masks = batch
         stage2, iou_pred, stage1 = self._forward(
             model, images, return_stage1=True)
+        # Keep the native Stage-2 tensor for the STC branch: predict_sample
+        # resamples 256 -> stc_resolution directly, while loss_main below
+        # uses the 256 -> 1024 training geometry.
+        stage2_native = stage2
         masks = F.interpolate(masks, (1024, 1024), mode='bilinear',
                               align_corners=False)
         stage1 = F.interpolate(stage1, (1024, 1024), mode='bilinear',
@@ -928,7 +957,7 @@ class SACMSTCAdapter(BaselineAdapter):
         loss = loss + self._topology_loss(stage2, masks)
         if int(getattr(self.args, 'use_stc', 0)) == 1:
             loss = loss + self._stc_loss(
-                model, images, masks, stage2, iou_pred)
+                model, images, masks, stage2_native, iou_pred)
         return loss
 
     def prepare_eval_sample(self, sample, device):

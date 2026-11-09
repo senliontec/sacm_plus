@@ -323,6 +323,10 @@ class StructuralDecoderV3(nn.Module):
             image_pe=image_pe,
             sparse_prompt_embeddings=sparse_prompt_embeddings,
             dense_prompt_embeddings=dense_prompt_embeddings,
+            adapter_features=kwargs.get('adapter_features'),
+            intermediate_features=kwargs.get('intermediate_features'),
+            detail_features=kwargs.get('detail_features'),
+            image=kwargs.get('image'),
             return_stage1=False,
         )
         return masks, iou

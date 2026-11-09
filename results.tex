@@ -1,0 +1,46 @@
+% Requires: \usepackage{booktabs,multirow,graphicx}
+\begin{table*}[t]
+\centering
+\small
+\setlength{\tabcolsep}{3pt}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{llcccc|cccc|cccc|cccc}
+\toprule
+\multirow{2}{*}{Dataset} & \multirow{2}{*}{Role} & \multicolumn{4}{c}{SACM (official)} & \multicolumn{4}{|c}{U-Net} & \multicolumn{4}{|c}{CS2Net} & \multicolumn{4}{|c}{MaskVSC} \\
+ &  & Dice $\uparrow$ & IoU $\uparrow$ & clDice $\uparrow$ & HD95 $\downarrow$ & Dice $\uparrow$ & IoU $\uparrow$ & clDice $\uparrow$ & HD95 $\downarrow$ & Dice $\uparrow$ & IoU $\uparrow$ & clDice $\uparrow$ & HD95 $\downarrow$ & Dice $\uparrow$ & IoU $\uparrow$ & clDice $\uparrow$ & HD95 $\downarrow$ \\
+\midrule
+CHASEDB1 & Seen & \textbf{79.76} & \textbf{66.41} & \textbf{80.85} & \textbf{11.49} & \underline{78.48} & \underline{64.76} & \underline{79.73} & \underline{15.45} & 76.79 & 62.50 & 77.00 & 20.39 & 76.80 & 62.43 & 78.79 & 16.88 \\
+CORN & Seen & 54.75 & 38.02 & 60.87 & \textbf{17.13} & \textbf{59.61} & \textbf{42.93} & \underline{60.99} & 25.15 & 55.82 & 39.19 & 57.69 & 26.33 & \underline{57.99} & \underline{41.24} & \textbf{61.30} & \underline{24.97} \\
+CrackTree200 & Seen & 48.34 & 32.08 & 54.91 & \textbf{10.56} & \textbf{68.28} & \textbf{52.97} & \textbf{69.68} & 47.76 & \underline{58.31} & \underline{42.45} & \underline{59.44} & 72.58 & 47.56 & 31.53 & 52.52 & \underline{47.20} \\
+CREMI & Seen & 41.98 & 26.63 & 46.80 & \textbf{7.44} & \textbf{53.84} & \textbf{36.98} & \textbf{62.45} & \underline{11.29} & \underline{47.65} & \underline{31.31} & \underline{58.15} & 13.06 & 39.98 & 25.02 & 51.00 & 15.88 \\
+DCA1 & Seen & \textbf{74.57} & \textbf{59.85} & \textbf{79.12} & \textbf{21.53} & 65.38 & 49.52 & 71.82 & 34.88 & \underline{66.58} & \underline{50.46} & \underline{72.06} & 33.16 & 64.65 & 48.95 & 68.96 & \underline{31.68} \\
+DRIVE & Seen & \textbf{78.82} & \underline{65.15} & \textbf{79.43} & \textbf{6.81} & \textbf{78.82} & \textbf{65.26} & \underline{79.28} & \underline{7.80} & \underline{77.27} & 63.23 & 76.54 & 11.73 & 76.94 & 62.72 & 77.54 & 9.20 \\
+\midrule
+Seen macro & Seen & 63.04 & 48.02 & \underline{66.99} & \textbf{12.49} & \textbf{67.40} & \textbf{52.07} & \textbf{70.66} & \underline{23.72} & \underline{63.73} & \underline{48.19} & 66.81 & 29.54 & 60.65 & 45.32 & 65.02 & 24.30 \\
+\midrule
+CHCrack5k & Unseen & \textbf{47.24} & \textbf{33.59} & \textbf{57.02} & \textbf{69.18} & 24.06 & 14.81 & 29.69 & 162.49 & 23.05 & 13.84 & 25.73 & 183.39 & \underline{26.14} & \underline{16.27} & \underline{33.20} & \underline{110.91} \\
+DeepCrack & Unseen & \textbf{60.42} & \textbf{44.92} & \textbf{73.74} & \textbf{44.66} & \underline{23.38} & \underline{13.73} & \underline{39.68} & \underline{101.40} & 16.21 & 9.11 & 29.63 & 127.46 & 12.19 & 7.23 & 18.35 & 138.81 \\
+FIVES & Unseen & \textbf{77.22} & \textbf{64.31} & \textbf{79.29} & \textbf{78.51} & 52.23 & 37.43 & 44.38 & 161.01 & 69.00 & 54.93 & 67.35 & 122.17 & \underline{75.05} & \underline{61.43} & \underline{77.03} & \underline{92.70} \\
+HRF & Unseen & \textbf{73.05} & \textbf{57.76} & \textbf{73.90} & \underline{49.67} & 69.57 & \underline{53.74} & 65.92 & \textbf{40.83} & \underline{69.70} & 53.68 & \underline{67.04} & 98.51 & 67.26 & 50.77 & 62.84 & 138.82 \\
+LES-AV & Unseen & \textbf{81.01} & \textbf{68.17} & \textbf{81.37} & \textbf{44.47} & 65.59 & 49.57 & 56.56 & 65.15 & 74.77 & 60.11 & 71.89 & 61.63 & \underline{76.64} & \underline{62.38} & \underline{78.73} & \underline{49.94} \\
+OCTA-500 & Unseen & \textbf{62.95} & \textbf{46.18} & \textbf{76.95} & \textbf{6.72} & 36.39 & 22.39 & 58.24 & 19.07 & 38.87 & 24.24 & \underline{60.98} & \underline{14.07} & \underline{43.84} & \underline{28.19} & 59.86 & 17.57 \\
+STARE & Unseen & \textbf{80.21} & \textbf{67.09} & \textbf{84.85} & \textbf{7.50} & \underline{77.20} & \underline{63.19} & \underline{80.80} & \underline{16.88} & 71.78 & 56.88 & 74.19 & 24.71 & 75.60 & 61.08 & 79.84 & 17.33 \\
+XCAD & Unseen & \textbf{64.33} & \textbf{47.87} & \textbf{68.37} & \textbf{85.49} & \underline{49.88} & \underline{34.03} & \underline{57.80} & 105.96 & 32.47 & 20.13 & 42.29 & 118.28 & 44.81 & 29.62 & 51.59 & \underline{95.55} \\
+\midrule
+Unseen macro & Unseen & \textbf{68.30} & \textbf{53.74} & \textbf{74.44} & \textbf{48.28} & 49.79 & 36.11 & 54.13 & 84.10 & 49.48 & 36.62 & 54.89 & 93.78 & \underline{52.69} & \underline{39.62} & \underline{57.68} & \underline{82.70} \\
+\midrule
+DeepGlobe & Novel & \textbf{20.79} & \textbf{12.66} & \textbf{20.53} & \underline{364.28} & 4.93 & 2.58 & 4.86 & 373.54 & 4.13 & 2.14 & 4.36 & 371.13 & \underline{7.47} & \underline{4.06} & \underline{9.66} & \textbf{362.00} \\
+LEAF & Novel & \textbf{34.11} & \textbf{21.60} & \textbf{37.10} & \textbf{71.26} & \underline{19.06} & \underline{10.98} & \underline{21.45} & \underline{81.36} & 14.49 & 8.12 & 15.90 & 104.19 & 12.60 & 7.15 & 13.12 & 105.79 \\
+ROAD & Novel & \textbf{34.26} & \textbf{21.80} & \textbf{38.76} & \textbf{164.73} & 5.29 & 2.78 & 5.92 & \underline{169.49} & 5.86 & 3.06 & 7.43 & 178.70 & \underline{8.03} & \underline{4.33} & \underline{9.39} & 247.26 \\
+TopoMortar & Novel & 6.97 & 4.08 & 7.61 & 125.88 & \underline{8.31} & \underline{4.46} & 7.46 & 49.09 & \textbf{9.20} & \textbf{4.96} & \underline{7.84} & \textbf{37.78} & 7.91 & 4.28 & \textbf{8.38} & \underline{46.44} \\
+TYRE & Novel & \textbf{36.61} & \textbf{23.61} & \textbf{48.29} & \textbf{87.07} & \underline{34.99} & \underline{21.95} & \underline{41.86} & 97.03 & 31.87 & 19.49 & 39.09 & 95.90 & 25.01 & 14.78 & 36.68 & \underline{92.27} \\
+WIRE & Novel & \textbf{50.62} & \textbf{35.18} & \textbf{56.96} & \textbf{66.52} & 29.01 & 18.28 & 35.30 & 91.24 & 30.40 & 19.21 & 36.11 & 81.16 & \underline{33.00} & \underline{20.97} & \underline{40.40} & \underline{81.08} \\
+\midrule
+Novel macro & Novel & \textbf{30.56} & \textbf{19.82} & \textbf{34.88} & 146.62 & \underline{16.93} & \underline{10.17} & 19.47 & \textbf{143.62} & 15.99 & 9.50 & 18.46 & \underline{144.81} & 15.67 & 9.26 & \underline{19.60} & 155.81 \\
+\midrule
+All macro & All & \textbf{55.40} & \textbf{41.85} & \textbf{60.34} & \textbf{67.04} & \underline{45.22} & \underline{33.12} & \underline{48.69} & \underline{83.84} & 43.71 & 31.95 & 47.54 & 89.82 & 43.97 & 32.22 & 48.46 & 87.11 \\
+\bottomrule
+\end{tabular}}
+\caption{Per-dataset 3-shot segmentation results on the 20-dataset protocol.  Dice/IoU/clDice: \%; HD95: px. $\uparrow$/$\downarrow$ mark the better direction; best in bold, second best underlined.}
+\label{tab:per-dataset}
+\end{table*}

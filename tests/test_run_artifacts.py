@@ -4,6 +4,7 @@ import csv
 import importlib.util
 import json
 import random
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -19,6 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def _load(name, relative):
     spec = importlib.util.spec_from_file_location(name, ROOT / relative)
     module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
 
@@ -130,6 +132,26 @@ def test_rng_state_round_trip(artifacts):
     assert random.random() == pytest.approx(py_next)
     assert float(np.random.random()) == pytest.approx(np_next)
     assert float(torch.rand(())) == pytest.approx(torch_next)
+
+
+def test_eval_root_stays_in_checkpoint_variant_run(tmp_path):
+    script = _load(
+        'run_baseline_test_under_test',
+        'scripts/pipeline/run_baseline_test.py')
+    canonical = tmp_path / 'sacm_stc' / 'all_dense' / 'seed_0'
+    # No --paper-root: canonical eval directory.
+    assert script.resolve_eval_root(None, canonical, canonical) == (
+        canonical / 'eval')
+    # Config template passes the checkpoint's run root.
+    assert script.resolve_eval_root(canonical, canonical, canonical) == (
+        canonical / 'eval')
+    # Explicit external output directory is preserved.
+    external = tmp_path / 'custom_eval'
+    assert script.resolve_eval_root(external, canonical, canonical) == external
+    # A checkpoint copied outside results/runs still resolves beside itself.
+    copied = tmp_path / 'copy' / 'all_dense' / 'seed_0'
+    assert script.resolve_eval_root(copied, canonical, copied) == (
+        copied / 'eval')
 
 
 def test_finalizer_promotes_extra_artifacts(tmp_path):

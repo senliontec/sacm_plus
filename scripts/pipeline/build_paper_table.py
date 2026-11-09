@@ -77,7 +77,7 @@ def _parse_models(values):
     return parsed
 
 
-def _read_seed(path: Path, expected: int):
+def _read_seed(path: Path, expected: int, variant: str | None = None):
     with path.open(newline='') as handle:
         rows = [row for row in csv.DictReader(handle) if row.get('dataset')]
     if expected and len(rows) != expected:
@@ -85,6 +85,11 @@ def _read_seed(path: Path, expected: int):
             f'{path}: found {len(rows)} dataset rows, expected {expected}')
     out = {}
     for row in rows:
+        row_variant = (row.get('variant') or '').strip()
+        if variant and row_variant and row_variant != variant:
+            raise SystemExit(
+                f'{path}: row variant={row_variant!r} but requested '
+                f'{variant!r}')
         dataset = row['dataset'].strip()
         if dataset in out:
             raise SystemExit(f'{path}: duplicate dataset row {dataset}')
@@ -109,7 +114,7 @@ def _load_method(repo, model, variant, seeds, expected):
         if not path.is_file():
             raise SystemExit(f'missing metrics for {model}/{variant} '
                              f'seed {seed}: tried {tables}')
-        data[seed] = _read_seed(path, expected)
+        data[seed] = _read_seed(path, expected, variant)
     datasets = set(data[seeds[0]])
     for seed in seeds[1:]:
         if set(data[seed]) != datasets:

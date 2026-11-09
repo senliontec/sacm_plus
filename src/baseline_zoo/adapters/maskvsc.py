@@ -39,6 +39,7 @@ from baseline_zoo.models.maskvsc.gcn import (
 )
 from baseline_zoo.runtime import (
     BaselineAdapter,
+    configure_baseline_determinism,
     evaluate,
     file_sha256,
     print_epoch_footer,
@@ -200,9 +201,11 @@ class MaskVSCAdapter(BaselineAdapter):
         '31.61M. --maskvsc-vig-decode coherent keeps the earlier '
         'transpose-token-grid/patch-32 reconstruction (371.6M ViG) as an '
         'explicit ablation only; it is not the released architecture.',
-        'Main baseline uses the official release stage-1 behavior '
-        '(count_nonzero L_C, flip-only augmentation) and the released '
-        'dot-product ViG graph. Paper-mode L_C, ±30° rotation and Euclidean '
+        'The shipped pooled 3-shot row uses the task-adapted stage 1 '
+        '(InstanceNorm, batch 1, mild/±30° augmentation, soft-Dice 1.0) and '
+        'the released dot-product ViG graph; the released flip-only/BN '
+        'recipe is selectable for fidelity comparisons. Paper-mode L_C and '
+        'Euclidean '
         'KNN remain explicit ablations via --maskvsc-connect-loss paper, '
         '--maskvsc-rotation-degrees 30 and --maskvsc-vig-graph paper. The '
         'paper-mode L_C scale |S(Y)-S(Y_G)|*N/#foreground is not the default '
@@ -319,6 +322,12 @@ class MaskVSCAdapter(BaselineAdapter):
         parser.add_argument(
             '--maskvsc-stage2-epochs', type=int, default=200,
             help='ViG completion epochs (official 200)')
+        parser.add_argument(
+            '--maskvsc-stage2-min-gain', type=float, default=0.0,
+            help='minimum validation selection gain required to deploy the '
+                 'stage-2 ViG instead of falling back to stage 1 (default: '
+                 '0 = historical argmax rule; use e.g. 1e-4 to avoid '
+                 'noise-level selection)')
         parser.add_argument(
             '--maskvsc-vig-blocks', type=int, default=16,
             help='number of ViG blocks (official 16)')
@@ -525,6 +534,14 @@ class MaskVSCAdapter(BaselineAdapter):
         seg = _replace_batchnorm(seg, self._norm)
         vig = _replace_batchnorm(vig, self._norm)
         model = MaskVSCFull(seg, vig)
+        if str(self._norm) == 'instance':
+            remaining_bn1d = sum(
+                1 for module in model.modules()
+                if isinstance(module, nn.BatchNorm1d))
+            if remaining_bn1d:
+                print('[warn] MaskVSC --maskvsc-norm instance replaces '
+                      f'BatchNorm2d only; {remaining_bn1d} BatchNorm1d '
+                      'layers remain in the ViG token MLPs', flush=True)
         predicting = bool(
             getattr(self, 'prediction_mode', False)
             or getattr(args, 'stage', None) == 'predict')
@@ -560,8 +577,10 @@ class MaskVSCAdapter(BaselineAdapter):
 
             if label_np.max() == 255:
                 label_np = (label_np >= 128).astype(np.uint8) * 255
-            elif label_np.max() == 1:
-                label_np = (label_np >= 0.5).astype(np.uint8)
+            elif label_np.max() <= 1:
+                # Keep the 0/255 scale expected by the /255 below; a literal
+                # 0/1 target would otherwise become 1/255 foreground.
+                label_np = (label_np >= 0.5).astype(np.uint8) * 255
 
             image_t = torch.from_numpy(
                 image_np.astype(np.float32).copy()
@@ -582,9 +601,12 @@ class MaskVSCAdapter(BaselineAdapter):
                                               self.input_size]))
             # Official ImageDataset_GCN_Fundus keeps the soft, PIL-resized
             # grayscale label and ToTensor simply divides by 255.
-            label_np = np.asarray(
+            label_arr = np.asarray(
                 label.resize([self.input_size, self.input_size]),
-                dtype=np.float32) / 255.0
+                dtype=np.float32)
+            if label_arr.size and float(label_arr.max()) <= 1.0:
+                label_arr = label_arr * 255.0
+            label_np = label_arr / 255.0
             if corrupt_ratio > 0:
                 binary = (label_np > 0.5).astype(np.uint8) * 255
                 image_np = mask_vessel_corrupt(
@@ -804,6 +826,7 @@ class MaskVSCAdapter(BaselineAdapter):
             raise SystemExit(
                 'MaskVSC custom pipeline does not implement: '
                 + ', '.join(unsupported))
+        configure_baseline_determinism(args)
         seed_everything(args.seed)
         device = torch.device(args.device)
         if device.type == 'cuda' and device.index is not None:
@@ -940,7 +963,9 @@ class MaskVSCAdapter(BaselineAdapter):
                     model, train_loader, stage1_optimizer, args)
                 model.set_stage('stage1')
                 metrics, per_dataset = evaluate(
-                    self, model, val_samples, device)
+                    self, model, val_samples, device,
+                    empty_policy=getattr(
+                        args, 'empty_metric_policy', 'penalty'))
                 score = self.selection_score(metrics, per_dataset)
                 improved = score > best1
                 if improved:
@@ -1019,7 +1044,9 @@ class MaskVSCAdapter(BaselineAdapter):
                     model, vig_loader, stage2_optimizer, args)
                 model.set_stage('stage2')
                 metrics, per_dataset = evaluate(
-                    self, model, val_samples, device)
+                    self, model, val_samples, device,
+                    empty_policy=getattr(
+                        args, 'empty_metric_policy', 'penalty'))
                 score = self.selection_score(metrics, per_dataset)
                 improved = score > best2
                 if improved:
@@ -1033,9 +1060,13 @@ class MaskVSCAdapter(BaselineAdapter):
                     # 1, so the completion head can be inspected later.
                     previous_use_vig = self._use_vig
                     self._use_vig = True
+                    stage2_config = dict(run_config)
+                    stage2_config['selected_stage'] = 2
+                    stage2_config['selected_epoch'] = epoch
+                    stage2_config['selected_score'] = self._json_value(score)
                     self._save_checkpoint(
                         workdir / 'stage2_best.pth', model, args,
-                        run_config, split_sha, epoch, best2, metrics,
+                        stage2_config, split_sha, epoch, best2, metrics,
                         per_dataset)
                     self._use_vig = previous_use_vig
                     # Stage-2 "improvement" is only stage-local.  Do not
@@ -1068,8 +1099,16 @@ class MaskVSCAdapter(BaselineAdapter):
                         scalars, metrics, per_dataset)
                     log_scalars(run, scalars)
 
+            stage2_gain = (best2 - best1) if best2_epoch else float('-inf')
+            min_gain = float(getattr(args, 'maskvsc_stage2_min_gain', 0.0))
             selected_stage = (
-                2 if best2_epoch and best2 > best1 else 1)
+                2 if best2_epoch and stage2_gain > min_gain else 1)
+            run_config['stage2_best_gain'] = (
+                None if not best2_epoch else float(stage2_gain))
+            if selected_stage == 2 and stage2_gain < 1e-4:
+                print('[warn] MaskVSC stage-2 gain is noise-level '
+                      f'({stage2_gain:.2e}); disclose the selected stage '
+                      'or set --maskvsc-stage2-min-gain 1e-4', flush=True)
             if selected_stage == 1:
                 message = (
                     'MaskVSC stage-2 ViG did not beat stage-1 on the shared '
@@ -1142,6 +1181,8 @@ class MaskVSCAdapter(BaselineAdapter):
             'vig_decode': str(self._vig_decode),
             'vig_graph': str(self._vig_graph),
             'vig_residual': int(self._vig_residual),
+            'stage2_min_gain': float(getattr(
+                args, 'maskvsc_stage2_min_gain', 0.0)),
             'vig_grad_clip': float(self._vig_grad_clip),
             'norm': str(self._norm),
             'stage2_corrupt_ratio': float(self._stage2_corrupt_ratio),

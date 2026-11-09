@@ -389,6 +389,10 @@ class RSRM(torch.nn.Module):
             within = torch.cov(fg_feat.T) + torch.cov(bg_feat.T)
             fisher = torch.trace(between) / torch.trace(within + 1e-8)
             scores.append(fisher)
+        if not scores:
+            raise ValueError(
+                'RSRM fisher_ratio: no support has at least two foreground '
+                'and two background feature entries')
         return torch.stack(scores)
 
     # ASE ----------------------------------------------------------------

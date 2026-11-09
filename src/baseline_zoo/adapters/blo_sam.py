@@ -150,7 +150,9 @@ class BLOSAMAdapter(BaselineAdapter):
         mask = Image.open(sample.mask_path).convert('L').resize(
             (self.input_size, self.input_size), Image.NEAREST)
         image_np = np.asarray(image, dtype=np.float32).copy() / 255.0
-        mask_np = (np.asarray(mask) > 127).astype(np.int64)
+        mask_arr = np.asarray(mask)
+        threshold = 0 if mask_arr.size and mask_arr.max() <= 1 else 127
+        mask_np = (mask_arr > threshold).astype(np.int64)
         if augment and rng.random() < 0.5:
             image_np = np.flip(image_np, axis=1).copy()
             mask_np = np.flip(mask_np, axis=1).copy()

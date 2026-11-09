@@ -1,19 +1,22 @@
 #!/usr/bin/env bash
 # Incrementally pull server-side results/runs into the local repo.
 #
-# Default pull set (small analysis artifacts, no weights / predictions):
-#   eval/**, metrics_history.json, checkpoint.json, train_config.json,
-#   run_info.json, wandb_run.json, val_metrics_by_dataset.csv,
-#   provenance/**, train.log, eval.log
+# Default pull set is analysis data (no weights / predictions):
+#   eval/**, metrics_history.json, run_info.json, checkpoint.json,
+#   train_config.json, val_metrics_by_dataset.csv, wandb_run.json,
+#   train.log, eval.log, provenance/**
 #
-# The script never uses rsync --delete and never overwrites newer local files.
-# It is safe to run repeatedly while the server is still evaluating.
+# The script uses rsync include/exclude filters directly; it does not run a
+# remote find.  It never uses rsync --delete and never overwrites newer local
+# files.  It is safe to run repeatedly while the server is still training or
+# evaluating.
 #
 # Usage:
 #   bash scripts/pull_results.sh
 #   bash scripts/pull_results.sh --models "sacm_stc:all_dense sacm_official:default" --seeds "0 1"
 #   bash scripts/pull_results.sh --watch 300
 #   bash scripts/pull_results.sh --until-complete --interval 300
+#   bash scripts/pull_results.sh --status
 #   bash scripts/pull_results.sh --with-predictions --datasets "DRIVE CREMI"
 #   bash scripts/pull_results.sh --with-checkpoints
 #   bash scripts/pull_results.sh --dry-run
@@ -37,7 +40,12 @@ SERVER="${SERVER:-zkyd@172.16.1.7}"
 TARGET="${TARGET:-/home/zkyd/code/sacm-plus}"
 EXPECTED_DATASETS="${EXPECTED_DATASETS:-20}"
 
-DEFAULT_MODELS=(sacm_stc:all_dense sacm_official:default unet:default cs2net:default maskvsc:default)
+# sacm_stc:default currently evaluates the all_dense checkpoint (its
+# run_info.json points best_checkpoint at all_dense), so it is an alias, not a
+# separate method.  Keep it in the default pull set for provenance, but leave
+# it out of the paper table command printed at the end.  --status marks such
+# runs with alias_of=<variant>.
+DEFAULT_MODELS=(sacm_stc:all_dense sacm_stc:default sacm_official:default unet:default cs2net:default maskvsc:default)
 DEFAULT_SEEDS=(0 1 2 3)
 
 MODEL_FILTERS=()
@@ -47,13 +55,15 @@ WITH_PREDICTIONS=0
 WITH_CHECKPOINTS=0
 DRY_RUN=0
 REQUIRE_COMPLETE=0
+STATUS_ONLY=0
 WATCH=0
 INTERVAL=300
 TIMEOUT=0
+RETRIES=3
 
 usage() {
   cat <<'EOF'
-Pull server-side results/runs into the local repo (incremental, no delete).
+Pull server-side results/runs into the local repo (analysis data, no weights).
 
 Usage:
   bash scripts/pull_results.sh [options]
@@ -65,11 +75,13 @@ Options:
   --datasets LIST      only with --with-predictions; dataset filter
   --with-predictions   also pull predictions/ (can be very large)
   --with-checkpoints   also pull best_model.pth / stage*_best.pth
+  --status             only print local run status/metrics; do not pull
   --dry-run            show what rsync would transfer; do not write
   --watch [SECONDS]    pull repeatedly (default interval 300s)
   --until-complete     repeat until selected runs have 20 dataset rows
   --interval SECONDS   watch interval (default 300)
   --timeout SECONDS    stop watch after this many seconds (0 = never)
+  --retries N          rsync retry attempts on failure (default 3)
   --require-complete   exit 1 if any selected run is missing/partial
   -h, --help           show this help
 
@@ -96,6 +108,7 @@ while [ $# -gt 0 ]; do
       ;;
     --with-predictions) WITH_PREDICTIONS=1 ;;
     --with-checkpoints) WITH_CHECKPOINTS=1 ;;
+    --status) STATUS_ONLY=1 ;;
     --dry-run) DRY_RUN=1 ;;
     --require-complete) REQUIRE_COMPLETE=1 ;;
     --until-complete) REQUIRE_COMPLETE=1; WATCH=1 ;;
@@ -106,6 +119,10 @@ while [ $# -gt 0 ]; do
     --timeout)
       [ $# -ge 2 ] || { echo "missing value for --timeout" >&2; exit 2; }
       shift; TIMEOUT="$1"
+      ;;
+    --retries)
+      [ $# -ge 2 ] || { echo "missing value for --retries" >&2; exit 2; }
+      shift; RETRIES="$1"
       ;;
     --watch)
       WATCH=1
@@ -126,6 +143,10 @@ fi
 if [ "$WITH_CHECKPOINTS" -eq 1 ]; then
   echo "WARNING: --with-checkpoints pulls model weights and can be large." >&2
 fi
+if ! [[ "$RETRIES" =~ ^[0-9]+$ ]] || [ "$RETRIES" -lt 1 ]; then
+  echo "ERROR: --retries must be a positive integer" >&2
+  exit 2
+fi
 
 if [ -z "${PYTHON:-}" ]; then
   if [ -x /home/zkyd/anaconda3/envs/tsai/bin/python ]; then
@@ -139,8 +160,6 @@ fi
 
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/sacm-pull.XXXXXX")"
 trap 'rm -rf "$TMP"' EXIT
-RAW="$TMP/raw.txt"
-LIST="$TMP/files.txt"
 EXPECTED="$TMP/expected.txt"
 
 CONTROL_DIR="${TMPDIR:-/tmp}/sacm-plus-ssh-$(id -u)"
@@ -148,112 +167,105 @@ mkdir -p "$CONTROL_DIR"
 chmod 700 "$CONTROL_DIR"
 CONTROL_PATH="$CONTROL_DIR/%C"
 SSH_OPTS=(-o ControlMaster=auto -o ControlPath="$CONTROL_PATH"
-          -o ControlPersist=600)
+          -o ControlPersist=600 -o ServerAliveInterval=30
+          -o ServerAliveCountMax=4)
 RSYNC_SSH="ssh ${SSH_OPTS[*]}"
 
-if ! ssh "${SSH_OPTS[@]}" "$SERVER" "test -d '$TARGET/results/runs'" >/dev/null 2>&1; then
+if [ "$STATUS_ONLY" -eq 0 ] && \
+   ! ssh "${SSH_OPTS[@]}" "$SERVER" "test -d '$TARGET/results/runs'" >/dev/null 2>&1; then
   echo "ERROR: cannot access $SERVER:$TARGET/results/runs" >&2
   echo "Check SERVER/TARGET and network/SSH access." >&2
   exit 3
 fi
 
-find_expression() {
-  local expr="-path '*/eval/*'"
-  expr+=" -o -name 'metrics_history.json'"
-  expr+=" -o -name 'checkpoint.json'"
-  expr+=" -o -name 'train_config.json'"
-  expr+=" -o -name 'run_info.json'"
-  expr+=" -o -name 'wandb_run.json'"
-  expr+=" -o -name 'val_metrics_by_dataset.csv'"
-  expr+=" -o -path '*/provenance/*'"
-  expr+=" -o -name 'train.log'"
-  expr+=" -o -name 'eval.log'"
-  if [ "$WITH_PREDICTIONS" -eq 1 ]; then
-    expr+=" -o -path '*/predictions/*'"
-  fi
-  if [ "$WITH_CHECKPOINTS" -eq 1 ]; then
-    expr+=" -o -name 'best_model.pth'"
-    expr+=" -o -name 'stage1_best.pth'"
-    expr+=" -o -name 'stage2_best.pth'"
-    expr+=" -o -name 'last_model.pth'"
-  fi
-  printf '%s' "$expr"
-}
-
-filter_files() {
-  local model_filter=1
-  local seed_filter=1
+pull_files() {
+  local model_patterns=()
+  local seed_patterns=()
   if [ ${#MODEL_FILTERS[@]} -eq 0 ] || [ "${MODEL_FILTERS[0]}" = "all" ]; then
-    model_filter=0
+    model_patterns=('*/*')
+  else
+    local spec model variant
+    for spec in "${MODEL_FILTERS[@]}"; do
+      if [[ "$spec" == *:* ]]; then
+        model="${spec%%:*}"
+        variant="${spec#*:}"
+      else
+        model="$spec"
+        variant='*'
+      fi
+      model_patterns+=("$model/$variant")
+    done
   fi
   if [ ${#SEED_FILTERS[@]} -eq 0 ] || [ "${SEED_FILTERS[0]}" = "all" ]; then
-    seed_filter=0
+    seed_patterns=('*')
+  else
+    seed_patterns=("${SEED_FILTERS[@]}")
   fi
-  : > "$LIST"
-  while IFS= read -r f; do
-    [ -z "$f" ] && continue
-    if [ "$model_filter" -eq 1 ]; then
-      local ok=0
-      local m prefix
-      for m in "${MODEL_FILTERS[@]}"; do
-        if [[ "$m" == *:* ]]; then
-          prefix="results/runs/${m%%:*}/${m#*:}/"
-        else
-          prefix="results/runs/$m/"
-        fi
-        if [[ "$f" == "$prefix"* ]]; then ok=1; break; fi
-      done
-      [ "$ok" -eq 1 ] || continue
-    fi
-    if [ "$seed_filter" -eq 1 ]; then
-      local ok=0
-      local s
-      for s in "${SEED_FILTERS[@]}"; do
-        if [[ "$f" == */"seed_$s/"* ]]; then ok=1; break; fi
-      done
-      [ "$ok" -eq 1 ] || continue
-    fi
-    if [ ${#DATASET_FILTERS[@]} -gt 0 ] && [[ "$f" == */predictions/* ]]; then
-      local rest="${f#*/predictions/}"
-      rest="${rest#*/}"
-      local ds="${rest%%/*}"
-      local ok=0
-      local d
-      for d in "${DATASET_FILTERS[@]}"; do
-        if [ "$ds" = "$d" ]; then ok=1; break; fi
-      done
-      [ "$ok" -eq 1 ] || continue
-    fi
-    printf '%s\n' "$f" >> "$LIST"
-  done < "$RAW"
-  sort -u -o "$LIST" "$LIST"
-}
 
-pull_files() {
-  local expr
-  expr="$(find_expression)"
-  echo "=== $(date '+%F %T') querying $SERVER:$TARGET/results/runs ==="
-  if ! ssh "${SSH_OPTS[@]}" "$SERVER" "cd '$TARGET' && find results/runs -type f \\( $expr \\)" > "$RAW"; then
-    echo "ERROR: remote find failed" >&2
-    return 1
+  local filters=()
+  # Prune the large directories before the generic directory include.
+  if [ "$WITH_PREDICTIONS" -eq 0 ]; then
+    filters+=(--exclude='predictions/')
   fi
-  filter_files
-  local count
-  count="$(wc -l < "$LIST" | tr -d ' ')"
-  echo "selected files: $count"
-  if [ "$count" -eq 0 ]; then
-    echo "nothing to transfer"
-    return 0
+  if [ "$WITH_CHECKPOINTS" -eq 0 ]; then
+    filters+=(--exclude='checkpoints/')
+    filters+=(--exclude='*.pth')
   fi
-  local rsync_args=(-e "$RSYNC_SSH" -avz --partial --update
-                    --info=progress2 --files-from="$LIST" --relative)
+  filters+=(--include='*/')
+
+  local mp sp prefix ds
+  for mp in "${model_patterns[@]}"; do
+    for sp in "${seed_patterns[@]}"; do
+      prefix="$mp/seed_$sp"
+      filters+=(--include="${prefix}/eval/***")
+      filters+=(--include="${prefix}/metrics_history.json")
+      filters+=(--include="${prefix}/run_info.json")
+      filters+=(--include="${prefix}/checkpoint.json")
+      filters+=(--include="${prefix}/train_config.json")
+      filters+=(--include="${prefix}/val_metrics_by_dataset.csv")
+      filters+=(--include="${prefix}/wandb_run.json")
+      filters+=(--include="${prefix}/train.log")
+      filters+=(--include="${prefix}/eval.log")
+      filters+=(--include="${prefix}/provenance/***")
+      if [ "$WITH_PREDICTIONS" -eq 1 ]; then
+        if [ ${#DATASET_FILTERS[@]} -eq 0 ]; then
+          filters+=(--include="${prefix}/predictions/***")
+        else
+          for ds in "${DATASET_FILTERS[@]}"; do
+            filters+=(--include="${prefix}/predictions/*/${ds}/***")
+          done
+        fi
+      fi
+    done
+  done
+  if [ "$WITH_CHECKPOINTS" -eq 1 ]; then
+    filters+=(--include='*/best_model.pth')
+    filters+=(--include='*/stage1_best.pth')
+    filters+=(--include='*/stage2_best.pth')
+    filters+=(--include='*/last_model.pth')
+  fi
+  filters+=(--exclude='*')
+
+  echo "=== $(date '+%F %T') pulling analysis results from $SERVER:$TARGET/results/runs ==="
+  local rsync_args=(-az --partial --update --prune-empty-dirs --timeout=120
+                    --info=progress2 -e "$RSYNC_SSH")
   if [ "$DRY_RUN" -eq 1 ]; then
     rsync_args+=(--dry-run)
   fi
-  if ! rsync "${rsync_args[@]}" "$SERVER:$TARGET/" "$REPO/"; then
-    echo "ERROR: rsync failed" >&2
-    return 1
-  fi
+  local attempt=1
+  while :; do
+    if rsync "${rsync_args[@]}" "${filters[@]}" \
+        "$SERVER:$TARGET/results/runs/" "$REPO/results/runs/"; then
+      return 0
+    fi
+    if [ "$attempt" -ge "$RETRIES" ]; then
+      echo "ERROR: rsync failed after $RETRIES attempt(s)" >&2
+      return 1
+    fi
+    attempt=$((attempt + 1))
+    echo "rsync failed; retry $attempt/$RETRIES in 10s ..." >&2
+    sleep 10
+  done
 }
 
 check_coverage() {
@@ -285,6 +297,7 @@ check_coverage() {
   done
   "$PYTHON" - "$REPO" "$EXPECTED_DATASETS" "$EXPECTED" <<'PY'
 import csv
+import json
 import sys
 from pathlib import Path
 
@@ -295,27 +308,74 @@ expected = [line.strip().split('|')
             for line in expected_path.read_text().splitlines()
             if line.strip()]
 
+
+def read_json(path):
+    try:
+        return json.loads(path.read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+def macro(rows, key):
+    values = [float(row[key]) for row in rows
+              if row.get(key) not in (None, '')]
+    return sum(values) / len(values) if values else float('nan')
+
+
 print('')
-print(f'Coverage (eval/tables/all_metrics.csv; expected {expected_n} rows/run):')
+print(f'Local run status (eval/tables/all_metrics.csv; expected {expected_n} rows/run):')
 ok_all = True
 for model, variant, seed in expected:
-    path = (repo / 'results' / 'runs' / model / variant /
-            f'seed_{seed}' / 'eval' / 'tables' / 'all_metrics.csv')
+    run = repo / 'results' / 'runs' / model / variant / f'seed_{seed}'
+    info = {}
+    info.update(read_json(run / 'checkpoint.json'))
+    info.update(read_json(run / 'run_info.json'))
+    train_state = info.get('status', '-')
+    best_epoch = info.get('best_epoch')
+    best_epoch = '-' if best_epoch is None else str(best_epoch)
+    label = f'{model}/{variant} seed_{seed}'
+
+    # Flag runs whose evaluated checkpoint actually lives under another
+    # variant (e.g. a copied/aliased run) so the same weights are not
+    # silently counted twice in a comparison.
+    ckpt = str(info.get('best_checkpoint') or info.get('checkpoint') or '')
+    parts = ckpt.split('/')
+    alias = ''
+    if 'runs' in parts:
+        i = parts.index('runs')
+        if len(parts) > i + 3 and parts[i + 1] == model and parts[i + 2] != variant:
+            alias = f' alias_of={parts[i + 2]}'
+
+    path = run / 'eval' / 'tables' / 'all_metrics.csv'
     if not path.is_file():
-        print(f'  {model}/{variant} seed_{seed}: MISSING')
+        print(f'  {label}: eval MISSING | train={train_state} '
+              f'best_ep={best_epoch}{alias}')
         ok_all = False
         continue
     with path.open(newline='') as handle:
         rows = [row for row in csv.DictReader(handle) if row.get('dataset')]
     n = len(rows)
-    status = 'OK' if n >= expected_n else 'PARTIAL'
+    state = 'OK' if n >= expected_n else 'PARTIAL'
     if n < expected_n:
         ok_all = False
-    print(f'  {model}/{variant} seed_{seed}: {n}/{expected_n} {status}')
+    dice = macro(rows, 'dice_mean')
+    iou = macro(rows, 'iou_mean')
+    cldice = macro(rows, 'cldice_mean')
+    hd95 = macro(rows, 'hd95_mean')
+    print(f'  {label}: {n}/{expected_n} {state} | train={train_state} '
+          f'best_ep={best_epoch}{alias} | Dice {100 * dice:.2f} '
+          f'IoU {100 * iou:.2f} clDice {100 * cldice:.2f} HD95 {hd95:.2f}')
 print('coverage:', 'COMPLETE' if ok_all else 'INCOMPLETE')
 raise SystemExit(0 if ok_all else 1)
 PY
 }
+
+if [ "$STATUS_ONLY" -eq 1 ]; then
+  if check_coverage; then
+    exit 0
+  fi
+  exit 1
+fi
 
 run_once() {
   pull_files || return 1
@@ -356,4 +416,5 @@ fi
 
 echo ""
 echo "Local results: $REPO/results/runs"
+echo "Quick status:  bash scripts/pull_results.sh --status"
 echo "Paper table:   MODELS=\"sacm_stc:all_dense sacm_official:default unet:default cs2net:default maskvsc:default\" bash scripts/build_paper_table.sh"

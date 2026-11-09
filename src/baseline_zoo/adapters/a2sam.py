@@ -49,6 +49,11 @@ DEFAULT_SAM = REPO_ROOT / 'checkpoints/sam_vit_b_01ec64.pth'
 TA_WEIGHT = 0.7
 
 
+def _sample_key(sample) -> str:
+    """Cache key including the dataset name; stems are not globally unique."""
+    return f'{sample.dataset}/{sample.stem}'
+
+
 def _sample_seed(seed: int, stem: str, purpose: str = 'eval') -> int:
     payload = f'{purpose}:{stem}'.encode('utf-8')
     return (int(seed) * 1_000_003
@@ -408,7 +413,7 @@ class A2SAMAdapter(BaselineAdapter):
             xi_star = dice_optimal_xi(morse, gt_np, grid_size=grid_size)
             branch_values.append(morse.n_branches)
             xi_values.append(float(xi_star))
-            self._unet_cache[sample.stem] = {
+            self._unet_cache[_sample_key(sample)] = {
                 'logits': logits[0].detach().cpu(),
                 'probability': probability[0].detach().cpu(),
                 'morse': morse,
@@ -429,7 +434,7 @@ class A2SAMAdapter(BaselineAdapter):
         images, probs, targets = [], [], []
         flip = self._flip_allowed() and rng.random() < 0.5
         for sample in samples:
-            cached = self._unet_cache.get(sample.stem)
+            cached = self._unet_cache.get(_sample_key(sample))
             if cached is None:
                 raise RuntimeError(
                     f'A2SAM prior cache missing for {sample.stem}')
@@ -520,7 +525,7 @@ class A2SAMAdapter(BaselineAdapter):
         uncertainty_max = []
         branch_values = []
         for sample in samples:
-            cached_unet = self._unet_cache.get(sample.stem)
+            cached_unet = self._unet_cache.get(_sample_key(sample))
             if cached_unet is None:
                 raise RuntimeError(
                     f'A2SAM stage-3 cache missing for {sample.stem}')
@@ -535,7 +540,7 @@ class A2SAMAdapter(BaselineAdapter):
             uncertainty_means.append(float(uncertainty.mean()))
             uncertainty_max.append(float(uncertainty.max()))
             branch_values.append(cached_unet['morse'].n_branches)
-            self._stage3_cache[sample.stem] = {
+            self._stage3_cache[_sample_key(sample)] = {
                 'logits': logits[0].detach().cpu(),
                 'y_c': y_c[0].float().detach().cpu(),
                 'uncertainty': uncertainty[0].detach().cpu(),
@@ -558,7 +563,7 @@ class A2SAMAdapter(BaselineAdapter):
         flip = augment and self._flip_allowed() and rng.random() < 0.5
         mode = self._fusion_mode()
         for sample in samples:
-            cached = self._stage3_cache.get(sample.stem)
+            cached = self._stage3_cache.get(_sample_key(sample))
             if cached is None:
                 raise RuntimeError(
                     f'A2SAM stage-3 cache missing for {sample.stem}')
@@ -815,7 +820,7 @@ class A2SAMAdapter(BaselineAdapter):
                 'uncertainty': uncertainty[0].detach().cpu(),
             }
             if not self.prediction_mode:
-                self._eval_cache[sample.stem] = cached
+                self._eval_cache[_sample_key(sample)] = cached
         mode = self._fusion_mode()
         coarse = cached['logits'] if mode == 'release' else cached['y_c']
         with torch.no_grad():

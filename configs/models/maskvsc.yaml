@@ -28,9 +28,12 @@ defaults:
 note: >-
   Full two-stage MaskVSC (TMI 2025): stage-1 Fundus UNet with masked-vessel
   corruption + Connect_Loss, then the ViG completion head on frozen stage-1
-  probability maps; final inference is ViG(Seg(image)). Main baseline uses
-  the official release stage-1 behavior (count_nonzero L_C, flip-only
-  augmentation) and the released dot-product ViG graph. Stage 2 uses the
+  probability maps; final inference is ViG(Seg(image)). The shipped pooled
+  3-shot recipe uses the task-adapted stage 1 (InstanceNorm, batch 1,
+  mild/±30° augmentation, soft-Dice weight 1.0) and the released dot-product
+  ViG graph; the released BN/batch-4/flip-only recipe remains selectable.
+  Stage-1 vs stage-2 selection records the gain and can require a minimum
+  margin with --maskvsc-stage2-min-gain. Stage 2 uses the
   released patch16 ViG decode (official token-fold view, N=1024 predictor
   channels; ViG 23.84M, full 31.61M), soft GCN labels, frozen/eval stage 1,
   no augmentation, and val-Dice selection across both stages. The stage-1

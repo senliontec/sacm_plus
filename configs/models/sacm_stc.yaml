@@ -17,6 +17,7 @@ eval_entrypoint: >-
   python scripts/pipeline/run_baseline_test.py --method sacm_stc
   --protocol {test_manifest}
   --seed {seed}
+  --variant {preset}
   --checkpoint {output_root}/best_model.pth
   --pred-root {output_root}/predictions
   --paper-root {output_root}
