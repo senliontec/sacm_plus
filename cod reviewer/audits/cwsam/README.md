@@ -185,3 +185,54 @@ claim_label = none
 
 - Added disclosure for official 2-GPU/batch-1/workers=8 vs single-GPU/batch-1/workers=0.
 - Class-weighted CE remains a disclosed, unresolved high-risk adaptation.
+
+## Live training audit and checkpoint-loading fix (2026-11-09)
+
+### Confirmed bug: SAM no-mask embedding and PE buffer were never loaded
+
+CWSAM moved `no_mask_embed` and `pe_layer` from SAM's `prompt_encoder` to the
+top-level `SAM` module but kept loading the Meta SAM checkpoint with
+`strict=False`.  Consequently:
+
+- `no_mask_embed.weight` was re-initialised by PyTorch as N(0, 1), whereas
+  SAM's trained embedding is N(0, 1/sqrt(256)) (checkpoint std 0.0527).
+- `pe_layer.positional_encoding_gaussian_matrix` got a fresh random buffer
+  instead of the checkpoint buffer.
+
+The first effect is dominant: at initialisation the decoder logits reached
+`min=-1372.1, max=685.4` (class-0 mean `-1043.2`, class-1 mean `+370.2`),
+so softmax was saturated and training collapsed to all background.
+
+The port now remaps both keys in `CWSAMAdapter.load_pretrained`
+(`SAM_KEY_REMAP` / `_remap_sam_state`).  With the remap the same sample gives
+`min=-23.9, max=8.5`, and the missing-key count drops from 182 to 180.
+
+### Before vs after (seed 0, 20 epochs, 3-shot, val = 6 images)
+
+| run | E1 train loss | best Dice | clDice | IoU | HD95 |
+|---|---|---|---|---|---|
+| pre-fix | 64.61 | 0.1297 | 0.1039 | 0.0805 | 364.1 |
+| post-fix | 4.08 | 0.4490 | 0.5385 | 0.3125 | 30.93 |
+
+The pre-fix run hit an all-background collapse around E8–E12
+(Dice 0.0003–0.0007, loss ~0.90).  The post-fix loss decreases monotonically
+from 4.08 to 0.49 and val Dice from 0.079 to 0.449.
+
+### Other fix
+
+`save_config`/`restore_config` now persist the binary loss weights
+(`bg_weight`, `fg_weight`, `dice_weight`); previously a resumed run silently
+fell back to defaults.
+
+### Caveats
+
+- This is a deliberate numerical deviation from the upstream training script,
+  which would leave these two modules randomly initialised.  It restores the
+  intended SAM initialisation and is recorded in `CWSAMAdapter.deviations`.
+- 20 epochs on the 6-image val split is a diagnostic, not paper evidence.
+  The full 800-epoch run and the 20-dataset test evaluation must be rerun
+  after this fix.
+- The upstream model code itself is unchanged and still matches
+  `3rd/CWSAM/models/mmseg/models/sam/` (only imports/checkpointing differ).
+- Test-set four-metric numbers from the local diagnostic are recorded below
+  after the evaluation finishes.
