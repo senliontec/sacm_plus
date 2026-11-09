@@ -58,7 +58,8 @@ if loss_weight is not None:
     self.criterionBCE = torch.nn.CrossEntropyLoss(pos_weight)
 else:
     self.criterionBCE = torch.nn.CrossEntropyLoss()
-# 官方配置 loss_weight=[1.5,1,0.5,1.9,0.1]；移植 2 类直接 neutral CE
+# 官方配置 loss_weight=[1.5,1,0.5,1.9,0.1]
+# 历史探针用 2 类 neutral CE；当前默认 bg 0.1/fg 1.0 CE + 0.5 soft Dice
 ```
 
 ```text
@@ -115,8 +116,9 @@ grad norm official/port:       1.6917170713762673 / 1.691717038307889
 ```
 
 loss/grad 是 **reduced-width** 配置（2 类、inp 256、embed 256、depth 4、heads 4），
-两侧都用 neutral CE。**未测 optimizer step；未用官方 class-weighted CE；
-不是官方 5/10 类 ViT-B 配置。**
+该历史探针两侧都用 neutral CE。**未做上游 optimizer-step 对照；未用官方
+class-weighted CE；不是官方 5/10 类 ViT-B 配置。** 当前移植默认已改为
+bg 0.1/fg 1.0 CE + 0.5 soft Dice，见 `CWSAMAdapter.deviations`。
 
 ## 04. 训练配方审计
 
@@ -163,10 +165,10 @@ bg 0.1/fg 1.0 CE + 0.5 soft Dice 已披露，但有效 batch、workers、seed
 ```text
 A0  = unverified            # calibration pack 未冻结
 G0  = pass                  # commit/remote 可追溯；URL/LICENSE 缺失已记录
-G1  = pass                  # matched 2-class ViT-L: keys/shape/param/buffer/strict copy 全同
-G2  = pass (scoped)         # forward 0 diff；reduced-width neutral CE loss/grad 3e-8；step 未测
-G3  = unverified            # 有效 batch/workers/seed 未披露；5→2 类/权重 CE 属适配
-G4  = unverified            # metric 集未披露
+G1  = pass                  # matched 2-class: keys/shape/param/buffer/strict copy 全同
+G2  = pass (scoped)         # forward 0 diff；reduced-width neutral CE loss/grad 3e-8；无上游 step 对照
+G3  = unverified            # 有效 batch/workers/seed 已披露，但仍与官方不同；5→2 类/权重 CE 属适配
+G4  = unverified            # metric 口径已披露，但与官方 S/E/wF/MAE 不可比
 G5  = pass                  # 18/6/20、GT 导出、prompt-free 角色；2 类适配已披露
 G6a = unverified            # 仅单步探针，未做 N>=20 optimizer steps
 G6b = N/A                   # 官方训练 checkpoint 不存在
@@ -184,8 +186,8 @@ claim_label = none
 `cwsam: G0=pass G1=pass G2=pass G3=unverified G4=unverified G5=pass G6a=unverified G6b=N/A G6c=unverified`
 
 2026-11-09 update: `G6c=partial` — the checkpoint-remap + zero-init port
-trains stably for seeds 0–2 at 20 epochs (test All Dice 0.4838 ± 0.0095,
-IoU 0.3492, clDice 0.5661, HD95 82.85).  This is a diagnostic, not the
+trains stably for seeds 0–3 at 20 epochs (test All Dice 0.4894 ± 0.0135,
+IoU 0.3537, clDice 0.5710, HD95 81.46).  This is a diagnostic, not the
 official 800-epoch/200-epoch protocol; the two initialisation deviations
 must be disclosed in any paper comparison.
 
@@ -298,8 +300,9 @@ paper results; the full run must be rerun with this loader fix.
 | 0 | All | 0.4738 | 0.3360 | 0.5503 | 78.57 |
 | 1 | All | 0.4927 | 0.3613 | 0.5796 | 87.92 |
 | 2 | All | 0.4851 | 0.3504 | 0.5682 | 82.06 |
-| mean ± sd | All | 0.4838 ± 0.0095 | 0.3492 ± 0.0127 | 0.5661 ± 0.0148 | 82.85 ± 4.73 |
+| 3 | All | 0.5059 | 0.3672 | 0.5859 | 77.29 |
+| mean ± sd | All | 0.4894 ± 0.0135 | 0.3537 ± 0.0137 | 0.5710 ± 0.0156 | 81.46 ± 4.76 |
 
-The zero-init 3-seed mean test Dice (0.4839) is above the remap-only seed-0
+The zero-init 4-seed mean test Dice (0.4894) is above the remap-only seed-0
 value (0.4500), and the seed-1 collapse is gone.  Role breakdown for seed 0:
 Seen 0.4792 / Unseen 0.6113 / Novel 0.2850 Dice.
