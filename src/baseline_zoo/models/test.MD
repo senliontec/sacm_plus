@@ -17,18 +17,18 @@ From this file's directory: `../../../../3rd`
 `3rd` is a read-only upstream reference. Do not import from it at runtime.
 
 ```text
-└── unet                  -> 3rd/Pytorch-UNet 已经正确, 实验曲线优秀
-├── cs2net                -> 3rd/CS-Net 曲线基本正常
+└── unet                  -> 3rd/Pytorch-UNet ⭐
+├── cs2net                -> 3rd/CS-Net ⭐
 ├── bcunet                -> 3rd/BCU-Net
-├── maskvsc               -> 3rd/MaskVSC 训练曲线基本正常
-├── nnwnet                -> 3rd/nnWNet 强的离谱
-├── sam_med2d             -> 3rd/SAM-Med2D 曲线不是很正常，我估计能优化
-├── sam_octa              -> 3rd/SAM-OCTA 已经改完，还没跑
-├── cwsam                 -> 3rd/CWSAM 已经改完，还没跑
-├── knowsam               -> 3rd/KnowSAM 已经改完，还没跑
-├── segdino               -> 3rd/segdino 已经改完，还没跑
-├── sacm_official         -> 3rd/SACM 曲线正常
-├── sacm_stc             -> 3rd/SACM (corrected derivative of sacm_official) 曲线正常
+├── maskvsc               -> 3rd/MaskVSC ⭐
+├── nnwnet                -> 3rd/nnWNet ⭐⭐⭐⭐⭐
+├── sam_med2d             -> 3rd/SAM-Med2D ✅
+├── sam_octa              -> 3rd/SAM-OCTA ✅
+├── cwsam                 -> 3rd/CWSAM ✅
+├── knowsam               -> 3rd/KnowSAM ✅
+├── segdino               -> 3rd/segdino ✅
+├── sacm_official         -> 3rd/SACM ⭐⭐⭐⭐
+├── sacm_stc             -> 3rd/SACM (corrected derivative of sacm_official) ⭐⭐⭐⭐
 
 
 .
