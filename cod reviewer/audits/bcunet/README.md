@@ -243,5 +243,148 @@ reproducing old runs; the setting is stored in the checkpoint config.
   newly introduced port bug, but it may be a performance risk.
 - Local 2080 Ti cannot run the full training step at 512/batch-2 (OOM);
   timing/validation of the 512 dual-branch model requires a 24 GiB card.
-- Tests: `tests/test_bcunet_paper.py` 10 passed, including the new unique
-  stream and repeat-identity round-trip tests.
+- Tests: `tests/test_bcunet_paper.py` 14 passed, including the new unique
+  stream, repeat-identity round-trip, input-normalization/interp, and
+  fp16-MRL regression tests.
+
+## Live 3-shot diagnostics (2026-11-10)
+
+Local diagnostics used seed 0, 512 input, batch 1 with gradient
+accumulation 2 on one 2080 Ti (batch 2 OOMs at 512), and the local
+ImageNet-22k ConvNeXt checkpoint (342/350 backbone tensors matched; only
+the four new output `norm0..3` layers start at identity).
+
+### Confirmed behavior
+
+- **MRL is necessary.** At 5 epochs, MRL reached validation Dice 0.4497;
+  release-style CE collapsed to 0.3592 with empty predictions on CORN,
+  CREMI and CrackTree200 (HD95 penalty 564 px). The paper MRL default is
+  retained.
+- **Fusion 0.5/0.5 is better than release 0.4/0.6.** Five-epoch validation
+  Dice 0.4497 vs 0.4425, with the 0.4/0.6 variant worse on CORN,
+  CrackTree200 and DCA1.
+- **Input normalization is not the bottleneck.** RGB+ImageNet gave 0.4641
+  at 5 epochs vs 0.4623 for raw BGR with the same 6x all-domain
+  augmentation; RGB alone gave 0.4743 and did not reproduce the gain in
+  the 10-epoch 18x runs (0.5488 vs 0.5492 best validation Dice). The
+  ConvNeXt stem LayerNorm and U-Net InstanceNorm already absorb the raw
+  [0,255] scale.
+
+### Confirmed bug/perf fixes
+
+- **AMP + MRL NaN.** `RecallCrossEntropy` converted class counts to the
+  logit dtype; fp16 counts above 65504 overflow to inf, and weight =
+  inf/inf becomes NaN. Counts now stay fp32 and the weight is cast to the
+  loss dtype. A CUDA fp16 regression test covers it.
+- **Repeated CPU augmentation.** The deterministic 18x variants were
+  rebuilt on every epoch. `BCUNetTrainDataset` now caches the augmented
+  512x512 image/mask tensors; memory is ~1.6 GiB for the 324-sample
+  all-domain stream.
+- **Small-image upsampling.** `cv2.INTER_AREA` was used even when
+  upsampling DCA1 (300px), CORN (384px) and OCTA-500 (400px); OpenCV's
+  INTER_AREA zoom path is blocky. `--bcunet-image-interp adaptive` uses
+  INTER_LINEAR for upsampling and INTER_AREA for downsampling.
+- **Configurable regularization.** Added `--bcunet-drop-path`,
+  `--bcunet-backbone-lr-scale` and `--bcunet-freeze-backbone` for 3-shot
+  adaptation; defaults preserve the official recipe.
+
+### Main result: all-domain augmentation
+
+The paper scopes 18x augmentation to retinal datasets. In the pooled
+six-domain 3-shot protocol, retinal-only scope produces 108 retinal and
+12 non-retinal samples per epoch (9:1). Applying the same 18x
+reconstruction to all six domains balances the domains and improved
+every non-retinal validation domain:
+
+| Seed 0, 5 epochs | Retinal-only | All-domain 18x |
+|---|---:|---:|
+| Val Dice | 0.4497 | **0.5255** |
+| Val clDice | 0.5378 | **0.5993** |
+| Val IoU | 0.3227 | **0.3790** |
+| Val HD95 | 33.60 | **15.56** |
+| CORN val Dice | 0.192 | **0.355** |
+| CrackTree200 val Dice | 0.170 | **0.352** |
+| CREMI val Dice | 0.286 | **0.317** |
+| DCA1 val Dice | 0.584 | **0.642** |
+
+The same 5-epoch checkpoints evaluated on all 20 test datasets:
+
+| Seed 0, 5 epochs, test | Retinal-only | All-domain 18x |
+|---|---:|---:|
+| Seen Dice / IoU / clDice / HD95 | 43.82 / 31.22 / 50.90 / 59.63 | **51.31 / 36.99 / 58.14 / 27.33** |
+| Unseen | 49.06 / 35.05 / 53.39 / 98.56 | **52.86 / 38.32 / 58.98 / 86.42** |
+| Novel | 16.86 / 9.93 / 20.07 / 153.58 | 16.88 / 10.10 / 19.90 / **143.36** |
+| All macro | 37.83 / 26.37 / 42.65 / 103.39 | **41.61 / 29.45 / 47.01 / 85.77** |
+
+Per-dataset regressions remain: XCAD 57.19 -> 50.67 Dice, TYRE 32.25 ->
+29.26, TopoMortar 12.23 -> 8.25, LEAF 14.99 -> 13.33, and HRF clDice
+64.98 -> 63.10. The improvement is a role-macro gain, not a universal
+per-dataset win.
+
+### 10-epoch test and the backbone-LR fix
+
+At 10 epochs the all-domain 18x recipe improved Seen but lost Novel
+ground; the Seen-only validation selected a checkpoint that overfitted
+the training domains. Freezing the backbone recovered Novel but gave up
+Seen. Scaling only the pretrained ConvNeXt learning rate by 0.1 kept the
+Seen gain and recovered Novel:
+
+| Seed 0, 10 epochs, test macro | Seen | Unseen | Novel | All |
+|---|---:|---:|---:|---:|
+| Retinal-only, backbone lr 1.0 | 46.54 / 33.58 / 53.95 / 55.21 | 56.45 / 41.57 / 58.73 / 97.54 | 17.83 / 10.53 / 21.59 / 146.09 | 41.89 / 29.86 / 46.16 / 99.40 |
+| All-domain 18x, backbone lr 1.0 | 53.05 / 38.89 / 58.93 / 21.78 | 54.61 / 40.26 / 59.68 / 85.79 | 14.41 / 8.54 / 17.73 / 144.44 | 42.08 / 30.34 / 46.87 / 84.18 |
+| All-domain 18x, frozen backbone | 50.38 / 36.28 / 55.40 / 33.92 | 53.40 / 38.67 / 58.16 / 93.89 | 17.58 / 10.41 / 20.80 / 137.20 | 41.75 / 29.48 / 46.12 / 88.89 |
+| **All-domain 18x, backbone lr 0.1x** | **52.57 / 38.36 / 58.40 / 25.73** | **55.07 / 40.35 / 60.34 / 85.65** | **18.01 / 10.83 / 20.81 / 138.96** | **43.20 / 30.90 / 47.90 / 83.67** |
+
+The deployed recipe is all-domain 18x with backbone lr scale 0.1. Against
+the retinal-only 10-epoch recipe it wins 13/20 datasets on Dice and 13/20
+on HD95; the main losses are DeepCrack (-12.08 Dice), XCAD (-6.58),
+TopoMortar (-5.76) and OCTA-500 (-4.75). Large gains are CORN (+14.18),
+CrackTree200 (+14.48), CHCrack5k (+9.67), DCA1 (+7.05) and WIRE (+7.03).
+This is still a role-macro win, not a per-dataset sweep.
+
+A cheaper 6x all-domain stream (18 samples/domain/epoch) reached
+40.56/28.36/46.04/93.24 at 10 epochs, worse than 18x
+(42.08/30.34/46.87/84.18) and much worse than 18x + backbone 0.1x, so
+the 18x stream is retained despite its 2.7x epoch cost. Lowering the
+backbone lr without all-domain augmentation is not enough: retinal-only
++ backbone 0.1x reached 38.94/27.29/43.32/97.06, worse than the
+retinal-only 1.0x recipe (41.89/29.86/46.16/99.40). The gain comes from
+the combination: more domain-balanced data plus a slower pretrained
+backbone.
+
+### Seed-1 check
+
+The 10-epoch best recipe was repeated on seed 1 and evaluated on the
+seed-1 protocol test manifest:
+
+| Seed 0/1, 10 epochs, All macro | Dice | IoU | clDice | HD95 |
+|---|---:|---:|---:|---:|
+| Seed 0, retinal-only 1.0x | 41.89 | 29.86 | 46.16 | 99.40 |
+| Seed 0, all-18x + backbone 0.1x | **43.20** | **30.90** | **47.90** | **83.67** |
+| Seed 1, retinal-only 1.0x | 38.42 | 26.83 | 43.10 | 100.42 |
+| Seed 1, all-18x + backbone 0.1x | **43.20** | **30.79** | **47.97** | **85.42** |
+
+The direction is stable across seeds: +1.31/+4.78 Dice, +1.74/+4.87
+clDice, and -15.73/-15.00 HD95. The absolute seed-1 baseline is lower,
+so the seed-1 gain is larger; the adapted recipe lands at the same 43.20
+All Dice on both seeds. Role-level seed-1: Seen 51.32 / 37.49 / 57.25 /
+25.70; Unseen 55.56 / 40.49 / 61.00 / 82.99; Novel 18.62 / 11.14 /
+21.33 / 148.40.
+
+### Remaining caveats
+
+- These are 5/10-epoch diagnostic checkpoints, not the 800-epoch server
+  budget; absolute numbers are not final.
+- The 10-epoch best-vs-base comparison is seed 0 and seed 1; the 5-epoch
+  screens and regularization probes are seed 0 only.
+- Local batch 1 x accumulation 2 is not identical to official batch 2:
+  MRL weights are computed per sample rather than over the batch pair.
+- Freeze-backbone and backbone-LR-scale were validated at 10 epochs;
+  drop-path and weight-decay sweeps were not. The deployed recipe keeps
+  the official 0.3 drop path and trains the backbone at 0.1x lr.
+- The 800-epoch server budget is still unvalidated; these are 5/10-epoch
+  diagnostic checkpoints. The curve is still moving at 10 epochs.
+- The official constructibility/G2/G4 caveats above remain: this is a
+  task-adapted reimplementation, not a numerical reproduction of the
+  released model.

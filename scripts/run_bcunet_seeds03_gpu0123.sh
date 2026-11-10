@@ -6,12 +6,14 @@
 # Usage (server, repo root):
 #   bash scripts/run_bcunet_seeds03_gpu0123.sh
 #
-# BCU-Net is the paper-faithful CBM 2023 branch from
-# configs/models/bcunet.yaml: ConvNeXt + U-Net, MRL loss, 18x offline
-# augmentation, per-sample InstanceNorm task adaptation, and the shared
-# 800-epoch comparison budget.  No baseline model code is modified by this
-# script.  The unified runner assigns one seed per GPU.  Training must
-# finish for all seeds before evaluation starts.
+# BCU-Net is the CBM 2023 branch from configs/models/bcunet.yaml:
+# ConvNeXt + U-Net, MRL loss, 18x offline augmentation, per-sample
+# InstanceNorm, and the shared 800-epoch comparison budget.  The deployed
+# 3-shot task recipe applies the 18x reconstruction to all six domains and
+# scales the pretrained backbone lr by 0.1; see the config/audit for the
+# seed-0 evidence and per-dataset trade-offs.  No baseline model code is
+# modified by this script.  The unified runner assigns one seed per GPU.
+# Training must finish for all seeds before evaluation starts.
 #
 # Env overrides:
 #   GPU_LIST=0,1,2,3      SEEDS="0 1 2 3"
@@ -47,6 +49,13 @@ for name in RESUME SKIP_TRAIN SKIP_EVAL ALLOW_BUSY; do
 done
 EXPECTED_DATASETS="${EXPECTED_DATASETS:-20}"
 MAX_USED_MIB="${MAX_USED_MIB:-2000}"
+CONVNEXT_CKPT="$REPO/checkpoints/convnext_base_22k_224.pth"
+if [ "$SKIP_TRAIN" != "1" ] && [ ! -f "$CONVNEXT_CKPT" ]; then
+  echo "ERROR: missing ConvNeXt ImageNet-22k checkpoint: $CONVNEXT_CKPT" >&2
+  echo "download: https://dl.fbaipublicfiles.com/convnext/convnext_base_22k_224.pth" >&2
+  echo "put it under checkpoints/ before training (or use SKIP_TRAIN=1 to evaluate only)" >&2
+  exit 4
+fi
 read -r -a SEED_ARGS <<< "$SEEDS_STR"
 if [ "${#SEED_ARGS[@]}" -eq 0 ]; then
   echo "ERROR: SEEDS is empty" >&2
