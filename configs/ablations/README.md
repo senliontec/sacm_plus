@@ -128,6 +128,31 @@ retained; the primary endpoint is pre-specified in the YAML
 - The launcher writes a timestamped driver log and config snapshot; the
   existing `all_dense` tree is untouched.
 
+## Native-vs-legacy topology control
+
+`configs/ablations/sacm_stc_native_control.yaml` isolates the topology input
+path from the head-scope question.  It reuses the completed native arms
+(`das_ss`, `das_aa_mean`) and trains only two new legacy arms
+(`legacy_ss`, `legacy_aa_mean`):
+
+```text
+native    Stage-2 256 -> topology-resolution (current)
+training  Stage-2 256 -> 1024 -> topology-resolution (legacy)
+```
+
+One command, 8 new runs on 8 GPUs:
+
+```bash
+bash scripts/run_sacm_stc_native_control.sh
+```
+
+The wrapper refuses to start unless the native arms already have complete
+training and 20-dataset eval tables.  It resumes existing legacy runs, then
+writes `results/ablations/sacm_stc_native_control/analysis/ablation_report.md`.
+The primary contrasts are `das_ss - legacy_ss` and
+`das_aa_mean - legacy_aa_mean`; all four metrics and the 15-dataset role
+breakdown are retained.
+
 ## Decision rules
 
 Do not claim the all-candidate structural contribution unless **Aa - As** is

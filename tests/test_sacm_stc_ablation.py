@@ -42,6 +42,8 @@ QUICK_CONFIG = REPO_ROOT / 'configs' / 'ablations' / \
     'sacm_stc_das_quick.yaml'
 FINAL_CONFIG = REPO_ROOT / 'configs' / 'ablations' / \
     'sacm_stc_final.yaml'
+CONTROL_CONFIG = REPO_ROOT / 'configs' / 'ablations' / \
+    'sacm_stc_native_control.yaml'
 
 
 def test_sacm_stc_default_alias_is_rejected():
@@ -127,6 +129,51 @@ def test_quick_das_config_and_arm_flags_parse():
             assert parsed.topology_aggregate == 'mean'
         else:
             assert parsed.stage2_loss_aggregate == aggregate
+            assert parsed.topology_aggregate == 'deployment'
+
+
+def test_native_control_config_reuses_native_arms_and_parses_legacy():
+    config = RUNNER.load_config(CONTROL_CONFIG)
+    assert config['output_root'] == 'results/runs/sacm_stc'
+    assert config['eval_checkpoint'] == 'best_model.pth'
+    assert config['epochs'] == 300
+    assert config['analysis']['require_train_complete'] is True
+    assert config['analysis']['require_eval_complete'] is True
+    assert len(config['analysis']['datasets']) == 15
+    assert list(config['arms']) == [
+        'das_ss',
+        'das_aa_mean',
+        'legacy_ss',
+        'legacy_aa_mean',
+    ]
+    assert [c['id'] for c in config['contrasts']] == [
+        'native_ss_minus_legacy_ss',
+        'native_aa_mean_minus_legacy_aa_mean',
+    ]
+
+    from baseline_zoo.adapters.registry import load_adapter
+    from baseline_zoo.runtime import build_parser
+
+    parser = build_parser(load_adapter('sacm_stc'))
+    expected = {
+        'das_ss': ('native', 'selected', 'selected'),
+        'das_aa_mean': ('native', 'all', 'all'),
+        'legacy_ss': ('training', 'selected', 'selected'),
+        'legacy_aa_mean': ('training', 'all', 'all'),
+    }
+    for arm, (source, dense, topology) in expected.items():
+        command = RUNNER._train_command(
+            config, arm, 0, '0', Path('data/sacm_3shot_seed0'),
+            Path(f'results/runs/sacm_stc/{arm}/seed_0'), 300, False)
+        parsed = parser.parse_args(command[5:])
+        assert parsed.topology_source == source
+        assert parsed.stage2_loss_scope == dense
+        assert parsed.topology_head == topology
+        if arm in ('das_aa_mean', 'legacy_aa_mean'):
+            assert parsed.stage2_loss_aggregate == 'mean'
+            assert parsed.topology_aggregate == 'mean'
+        else:
+            assert parsed.stage2_loss_aggregate == 'deployment'
             assert parsed.topology_aggregate == 'deployment'
 
 

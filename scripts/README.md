@@ -136,6 +136,21 @@ result is not modified.  See
 [`../configs/ablations/README.md`](../configs/ablations/README.md) for the
 arm definitions, Aa−As / Sa−Ss decision rules, outputs, and diagnostics.
 
+## SACM-STC native-vs-legacy topology control
+
+`configs/ablations/sacm_stc_native_control.yaml` reuses the completed native
+arms and trains only the two legacy topology-source arms.  One command runs
+train → 20-dataset eval → 15-dataset paired analysis:
+
+```bash
+bash scripts/run_sacm_stc_native_control.sh
+```
+
+It refuses to start unless `das_ss` and `das_aa_mean` already have complete
+training and 20-dataset eval tables.  Results are written under
+`results/runs/sacm_stc/legacy_*/seed_*/` and
+`results/ablations/sacm_stc_native_control/analysis/`.
+
 ## Paper Table 2 (all 20 datasets)
 
 After both runs have finished (the combined script above already does this),

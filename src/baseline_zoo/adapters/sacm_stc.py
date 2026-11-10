@@ -68,7 +68,8 @@ class SACMSTCAdapter(BaselineAdapter):
         'The old equal-weight mean divided the deployed head loss by N; '
         '--stage2-loss-aggregate mean / --topology-aggregate mean reproduce '
         'that ablation. Topology losses also consume the native Stage-2 '
-        'resolution before resampling, avoiding the 256->1024->512 blur.',
+        'resolution before resampling, avoiding the 256->1024->512 blur; '
+        '--topology-source training reproduces that legacy path.',
         'SAM normalization is applied before the image encoder '
         '(scale [0,1] -> [0,255], then Sam.preprocess); upstream passed '
         '[0,1] directly into the frozen encoder.',
@@ -190,6 +191,13 @@ class SACMSTCAdapter(BaselineAdapter):
         parser.add_argument(
             '--topology-resolution', type=int, default=512,
             help='resolution used to compute optional topology losses')
+        parser.add_argument(
+            '--topology-source', choices=['native', 'training'],
+            default='native',
+            help='tensor fed to the topology losses: native keeps the '
+                 'Stage-2 decoder resolution before resizing to '
+                 'topology-resolution; training reproduces the legacy '
+                 '256 -> 1024 -> topology-resolution path')
         parser.add_argument(
             '--topology-head', choices=['deployment', 'selected', 'all'],
             default='deployment',
@@ -391,6 +399,8 @@ class SACMSTCAdapter(BaselineAdapter):
             args, 'stage2_loss_aggregate', 'deployment')).lower()
         self.topology_aggregate = str(getattr(
             args, 'topology_aggregate', 'deployment')).lower()
+        self.topology_source = str(getattr(
+            args, 'topology_source', 'native')).lower()
         self.stage2_aux_weight = float(getattr(
             args, 'stage2_aux_weight', 0.25))
         self.topology_aux_weight = float(getattr(
@@ -401,6 +411,10 @@ class SACMSTCAdapter(BaselineAdapter):
             if value not in ('deployment', 'mean'):
                 raise ValueError(
                     f'{self.id}: unknown {name} {value!r}')
+        if self.topology_source not in ('native', 'training'):
+            raise ValueError(
+                f'{self.id}: unknown topology_source '
+                f'{self.topology_source!r}')
         for name, value in (
                 ('stage2_aux_weight', self.stage2_aux_weight),
                 ('topology_aux_weight', self.topology_aux_weight)):
@@ -492,6 +506,9 @@ class SACMSTCAdapter(BaselineAdapter):
                 getattr(args, 'skeleton_recall_weight', 0.0)),
             'topology_resolution': int(
                 getattr(args, 'topology_resolution', 512)),
+            'topology_source': str(getattr(
+                self, 'topology_source',
+                getattr(args, 'topology_source', 'native'))),
             'topology_head': getattr(args, 'topology_head', 'deployment'),
             'topology_aggregate': str(getattr(
                 self, 'topology_aggregate',
@@ -561,7 +578,7 @@ class SACMSTCAdapter(BaselineAdapter):
                     'stage2_loss_aggregate', 'stage2_aux_weight',
                     'cl_dice_weight', 'tversky_weight',
                     'skeleton_recall_weight', 'topology_resolution',
-                    'topology_head', 'topology_aggregate',
+                    'topology_source', 'topology_head', 'topology_aggregate',
                     'topology_aux_weight', 'topology_warmup_epochs',
                     'tversky_alpha', 'tversky_beta', 'use_stc',
                     'stc_resolution', 'stc_width', 'stc_dense_weight',
@@ -1148,10 +1165,16 @@ class SACMSTCAdapter(BaselineAdapter):
             loss_iou = F.mse_loss(iou_pred, iou_gt)
 
         loss = loss_main + deep_sup * loss_ds + iou_weight * loss_iou
-        # Use the native Stage-2 tensor for topology supervision.  Passing the
-        # 1024-res stretched tensor here would resample 256 -> 1024 -> 512
-        # and blur the one-pixel structures the topology losses target.
-        loss = loss + self._topology_loss(stage2_native, masks)
+        # Native topology supervision avoids the 256 -> 1024 -> 512
+        # resampling blur.  The legacy path intentionally passes the 1024-res
+        # stretched tensor so the native-vs-legacy control changes only this
+        # input, not the loss, targets, or aggregation.
+        topology_source = str(getattr(
+            self, 'topology_source',
+            getattr(self.args, 'topology_source', 'native'))).lower()
+        topology_input = (
+            stage2_native if topology_source == 'native' else stage2)
+        loss = loss + self._topology_loss(topology_input, masks)
         if int(getattr(self.args, 'use_stc', 0)) == 1:
             loss = loss + self._stc_loss(
                 model, images, masks, stage2_native, iou_pred)

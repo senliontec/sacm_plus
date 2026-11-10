@@ -1,0 +1,132 @@
+# Native-vs-legacy topology-source control for SACM-STC.
+#
+# The two native arms are the completed 4-arm DAS quick runs and are reused
+# read-only.  Only the two legacy arms are trained here.  All four arms use
+# the same 15-dataset, 4-seed protocol so the paired analysis can isolate the
+# effect of the topology input path:
+#
+#   native   Stage-2 256 logits -> topology-resolution (current)
+#   training Stage-2 256 -> 1024 -> topology-resolution (legacy)
+#
+# The legacy arms pass ``topology-source: training``.  Dense loss, topology
+# loss, targets, aggregation and checkpoints are otherwise identical.
+schema_version: 1
+name: sacm_stc_native_control
+description: >-
+  Same-code native-vs-legacy topology-source control at the shared quick
+  ablation budget, built on the completed DAS arms.
+protocol: seeded5
+method: sacm_stc
+seeds: [0, 1, 2, 3]
+epochs: 300
+eval_checkpoint: best_model.pth
+expected_datasets: 20
+output_root: results/runs/sacm_stc
+
+wandb:
+  project: sacm
+  entity: buaazqk
+  group: sacm_stc_native_control
+  tags: sacm_stc,ablation,native_topology,control
+  use_wandb: true
+
+common_train_args:
+  sam-checkpoint: checkpoints/sam_vit_l_0b3195.pth
+  bce-weight: 0.7
+  dice-weight: 0.3
+  bce-pos-weight: 2
+  binary-targets: 0
+  deploy-threshold: 0.5
+  deep-sup-weight: 0.3
+  iou-loss-weight: 0
+  head-select: gating
+  deployment-head: 2
+  topology-resolution: 512
+  topology-warmup-epochs: 5
+  stage2-loss-aggregate: deployment
+  stage2-aux-weight: 0.25
+  topology-aggregate: deployment
+  topology-aux-weight: 0.25
+  use-stc: 0
+  use-typed-stage2: 0
+  save-every: 0
+  num-workers: 0
+
+arms:
+  # Existing native arms, reused from the completed DAS quick ablation.
+  das_ss:
+    display_name: Native topology, selected dense + selected topology
+    args:
+      stage2-loss-scope: selected
+      topology-head: selected
+      topology-source: native
+      cl-dice-weight: 0.1
+      skeleton-recall-weight: 0.1
+
+  das_aa_mean:
+    display_name: Native topology, all dense + all topology, uniform mean
+    args:
+      stage2-loss-scope: all
+      topology-head: all
+      topology-source: native
+      stage2-loss-aggregate: mean
+      topology-aggregate: mean
+      cl-dice-weight: 0.1
+      skeleton-recall-weight: 0.1
+
+  # New legacy controls: only the topology input path changes.
+  legacy_ss:
+    display_name: Legacy topology, selected dense + selected topology
+    args:
+      stage2-loss-scope: selected
+      topology-head: selected
+      topology-source: training
+      cl-dice-weight: 0.1
+      skeleton-recall-weight: 0.1
+
+  legacy_aa_mean:
+    display_name: Legacy topology, all dense + all topology, uniform mean
+    args:
+      stage2-loss-scope: all
+      topology-head: all
+      topology-source: training
+      stage2-loss-aggregate: mean
+      topology-aggregate: mean
+      cl-dice-weight: 0.1
+      skeleton-recall-weight: 0.1
+
+contrasts:
+  - id: native_ss_minus_legacy_ss
+    left: das_ss
+    right: legacy_ss
+    label: native vs legacy topology under selected dense + selected topology
+  - id: native_aa_mean_minus_legacy_aa_mean
+    left: das_aa_mean
+    right: legacy_aa_mean
+    label: native vs legacy topology under all dense + all topology
+
+analysis:
+  output_root: results/ablations/sacm_stc_native_control/analysis
+  primary_metric: dice
+  primary_role: All
+  metrics: [dice, iou, cldice, hd95]
+  datasets:
+    - CHASEDB1
+    - CrackTree200
+    - CREMI
+    - DCA1
+    - DRIVE
+    - CHCrack5k
+    - FIVES
+    - HRF
+    - LES-AV
+    - OCTA-500
+    - DeepGlobe
+    - ROAD
+    - TopoMortar
+    - TYRE
+    - WIRE
+  require_train_complete: true
+  require_eval_complete: true
+  bootstrap_samples: 2000
+  seed: 20261110
