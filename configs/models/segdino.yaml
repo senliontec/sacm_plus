@@ -7,6 +7,7 @@ train_entrypoint: >-
   python -m baseline_zoo.run_one --model segdino --stage train
   --data-root {split_root} --workdir {output_root}
   --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
+  --input-size 512
 eval_entrypoint: >-
   python scripts/pipeline/run_baseline_test.py --method segdino
   --protocol {test_manifest}
@@ -25,4 +26,6 @@ note: >-
   checkpoint exists. The DINOv3 backbone is frozen by default per the
   README/paper; pass --segdino-train-backbone for the released full-finetune
   behavior. --random-init is code-smoke only and must not be used for
-  reported results.
+  reported results. Project default input is 512 (the README uses 256) because
+  256 destroys thin curvilinear structures; pass --input-size 256 to restore
+  the README setting.

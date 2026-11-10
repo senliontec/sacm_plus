@@ -214,3 +214,52 @@ official_metric_match = unverified
 ## Post-review fixes (2026-10-26)
 
 - Added disclosure for official seed 42/workers=16 vs port protocol seed/workers=0.
+
+## Live monitoring and input-size fix (2026-11-10)
+
+### Confirmed bug: `--input-size` was silently ignored
+
+`SegDINOAdapter.prepare_train_batch` / `prepare_eval_sample` read
+`self.input_size` (class attribute = 256), while the shared CLI only set
+`args.input_size`; there was no synchronization and no `--input-size`
+argument in the adapter.  Every run therefore stayed at 256 even when the
+caller requested 512/1024.
+
+Fix: the adapter now declares `--input-size`, synchronizes
+`self.input_size = args.input_size` in `build_model`, and defaults to 512
+for this thin-structure protocol.  The value is stored in the checkpoint and
+restored at prediction.  `--input-size 256` restores the official README
+setting; `1024` matches the official test default.
+
+### Local 800-epoch evidence (seed 0, 3-shot, frozen backbone)
+
+| input | val best Dice | All test Dice | IoU | clDice | HD95 |
+|---|---:|---:|---:|---:|---:|
+| 256 | 0.2495 (E743) | 0.2344 | 0.1425 | 0.2416 | 108.58 |
+| 512 | **0.3908 (E411)** | **0.3553** | **0.2414** | **0.3832** | **87.14** |
+
+The 512 model at only 200 epochs already reached All Dice 0.2795, above the
+256 model trained for 800 epochs.  The 256 curve rises very slowly and
+plateaus around 0.23; the 512 curve crosses the same point much earlier and
+reaches ~0.39 validation Dice.
+
+800-epoch full-finetune control at 256 (`--segdino-train-backbone`) reached
+val best 0.2326 and did not beat the frozen backbone (0.2495); the default
+frozen policy is retained for the paper profile.
+
+### Caveats
+
+- The official README budget is 50 epochs, not 800; the port uses 800 to
+  compensate for 18 training images, and the best checkpoint is selected on
+  the 6-image validation split (best at E411; final E800 is lower, indicating
+  overfitting/validation fluctuation).
+- 512 is a task adaptation for thin curvilinear structures, not the README
+  setting.
+- 1024 (official test default) was not trained locally; it may improve thin
+  structures further but costs more memory/time.
+- Test All Dice 0.3553 is still below the main SAM/topology baselines; this is
+  a valid but weaker baseline, not an official-metric reproduction.
+- No official SegDINO checkpoint exists; G6c remains partial (800-epoch seed-0
+  local run + 20-dataset eval, single seed).
+- Tests: `tests/test_segdino.py` 6 passed, including the new input-size
+  regression test.

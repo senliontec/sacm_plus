@@ -34,7 +34,9 @@ class SegDINOAdapter(BaselineAdapter):
     display_name = 'SegDINO'
     official_source = 'SegDINO (self-contained DPT + timm DINOv3)'
     official_entrypoint = 'upstream train_segdino.py'
-    input_size = 256
+    # 512 is the project default for thin curvilinear structures.  The
+    # official README uses 256; pass --input-size 256 to restore it.
+    input_size = 512
     official_lr = 1e-4
     official_weight_decay = 1e-4
     train_batch_size = 4
@@ -54,7 +56,10 @@ class SegDINOAdapter(BaselineAdapter):
         'gamma_1/2) and the hub RoPE periods are restored. --random-init '
         'exists only for a code smoke test.',
         'The official README trains/evaluates at 256 while test_segdino.py '
-        'defaults to 1024; this port follows the README 256 setting.',
+        'defaults to 1024. This project defaults to 512 because 256 destroys '
+        'thin curvilinear structures at the DINOv3 patch-16 token grid; pass '
+        '--input-size 256 to restore the README setting or 1024 for the '
+        'official test default.',
         'Predictions are restored to the original GT resolution for the '
         'shared evaluator.',
         'The README/paper describe a frozen DINOv3 backbone, but the '
@@ -80,6 +85,9 @@ class SegDINOAdapter(BaselineAdapter):
     )
 
     def add_args(self, parser):
+        parser.add_argument('--input-size', type=int, default=self.input_size,
+                            help='SegDINO resize resolution (official README '
+                                 'uses 256; 512/1024 can help thin structures)')
         parser.add_argument('--dino-size', default='small',
                             choices=['s', 'small', 'b', 'base', 'l', 'large'])
         default_ckpt = os.environ.get('DINO_CKPT')
@@ -96,6 +104,12 @@ class SegDINOAdapter(BaselineAdapter):
                  'default is the README/paper frozen backbone')
 
     def build_model(self, args):
+        # The adapter's prepare/eval transforms read self.input_size, while
+        # the shared CLI only sets args.input_size.  Without this sync,
+        # --input-size is silently ignored (both training and prediction
+        # keep resizing to 256).
+        if hasattr(args, 'input_size'):
+            self.input_size = int(args.input_size)
         checkpoint = args.dino_ckpt
         if checkpoint is None and not args.random_init:
             try:

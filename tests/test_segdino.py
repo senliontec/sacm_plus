@@ -32,6 +32,25 @@ def test_default_freezes_backbone_and_trains_decoder():
         assert model(torch.randn(1, 3, 64, 64)).shape == (1, 1, 64, 64)
 
 
+def test_input_size_cli_is_applied():
+    from baseline_zoo.adapters.registry import load_adapter
+    from baseline_zoo.runtime import build_parser
+
+    adapter = load_adapter('segdino')
+    parser = build_parser(adapter)
+    assert parser.parse_args([]).input_size == 512
+    assert parser.parse_args(
+        ['--input-size', '256']).input_size == 256
+
+    args = SimpleNamespace(
+        dino_size='small', dino_ckpt=None, random_init=True,
+        input_size=512)
+    model = adapter.build_model(args)
+    assert adapter.input_size == 512
+    with torch.no_grad():
+        assert model(torch.zeros(1, 3, 64, 64)).shape == (1, 1, 64, 64)
+
+
 def test_release_profile_trains_backbone():
     model = _model()
     adapter = SegDINOAdapter()
