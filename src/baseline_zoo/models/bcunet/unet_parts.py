@@ -145,19 +145,23 @@ class RecallCrossEntropy(nn.Module):
         safe_target[~valid] = 0
 
         pred = input.argmax(dim=1)
+        # Counts can exceed fp16's 65504 on a 512x512 image.  Keep the
+        # ratio in fp32 even when the logits are fp16/bf16 (AMP); otherwise
+        # inf/inf produces a NaN loss.
+        count_dtype = torch.float32
         gt_count = torch.bincount(
-            safe_target[valid], minlength=self.n_classes).to(input.dtype)
+            safe_target[valid], minlength=self.n_classes).to(count_dtype)
         false_negative = valid & (pred != safe_target)
         fn_count = torch.bincount(
             safe_target[false_negative],
-            minlength=self.n_classes).to(input.dtype)
+            minlength=self.n_classes).to(count_dtype)
         # 1 - recall; absent classes have no target pixels and therefore no
         # effect on the masked mean below.
         weight = fn_count / gt_count.clamp(min=1)
 
         per_pixel = F.cross_entropy(
             input, target, reduction='none', ignore_index=self.ignore_index)
-        loss = weight[safe_target] * per_pixel
+        loss = weight[safe_target].to(per_pixel.dtype) * per_pixel
         loss = loss[valid]
         if loss.numel() == 0:
             return input.sum() * 0.0

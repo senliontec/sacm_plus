@@ -9,11 +9,14 @@ from .unet_parts import *
 class BCUNet(nn.Module):
     def __init__(self, n_channels, n_classes, bilinear=False,
                  pretrained=True, in_22k=True,
-                 fusion_unet=0.5, fusion_convnext=0.5):
+                 fusion_unet=0.5, fusion_convnext=0.5,
+                 drop_path_rate=0.3):
         super().__init__()
         self.n_channels = n_channels
         self.n_classes = n_classes
-        self.backbone = convnext_base(pretrained=pretrained, in_22k=in_22k)
+        self.backbone = convnext_base(
+            pretrained=pretrained, in_22k=in_22k,
+            drop_path_rate=drop_path_rate)
         self.bilinear = bilinear
         self.fusion_unet = float(fusion_unet)
         self.fusion_convnext = float(fusion_convnext)

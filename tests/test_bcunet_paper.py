@@ -98,6 +98,85 @@ def test_adapter_norm_config_roundtrip_and_legacy_inference():
     assert args.bcunet_norm == 'batch'
 
 
+def test_input_normalization_and_interp_roundtrip():
+    adapter = BCUNetAdapter()
+    args = build_parser(adapter).parse_args([
+        '--stage', 'train', '--no-pretrained',
+        '--bcunet-input-norm', 'imagenet', '--bcunet-rgb',
+        '--bcunet-image-interp', 'adaptive',
+        '--bcunet-drop-path', '0.0',
+        '--bcunet-backbone-lr-scale', '0.1',
+        '--bcunet-freeze-backbone'])
+    adapter.input_norm = 'imagenet'
+    adapter.rgb = True
+    adapter.image_interp = 'adaptive'
+    adapter.drop_path_rate = 0.0
+    adapter.backbone_lr_scale = 0.1
+    adapter.freeze_backbone = True
+    config = adapter.save_config(args)
+    assert config['input_norm'] == 'imagenet'
+    assert config['rgb'] is True
+    assert config['image_interp'] == 'adaptive'
+    assert config['drop_path_rate'] == 0.0
+    assert config['backbone_lr_scale'] == 0.1
+    assert config['freeze_backbone'] is True
+
+    restored_args = build_parser(BCUNetAdapter()).parse_args(['--stage', 'train'])
+    restored = BCUNetAdapter()
+    restored.restore_config(restored_args, config)
+    assert restored.input_norm == 'imagenet'
+    assert restored.rgb is True
+    assert restored.image_interp == 'adaptive'
+    assert restored.drop_path_rate == 0.0
+    assert restored.backbone_lr_scale == 0.1
+    assert restored.freeze_backbone is True
+    assert restored_args.bcunet_input_norm == 'imagenet'
+    assert restored_args.bcunet_rgb is True
+    assert restored_args.bcunet_image_interp == 'adaptive'
+    assert restored_args.bcunet_drop_path == 0.0
+    assert restored_args.bcunet_backbone_lr_scale == 0.1
+    assert restored_args.bcunet_freeze_backbone is True
+
+
+def test_rgb_and_imagenet_normalization_are_applied():
+    adapter = BCUNetAdapter()
+    adapter.rgb = True
+    adapter.input_norm = 'none'
+    bgr = torch.tensor([[[[10.0]], [[20.0]], [[30.0]]]])
+    rgb = adapter._normalize_images(bgr)
+    assert rgb[0, 0].item() == 30.0
+    assert rgb[0, 1].item() == 20.0
+    assert rgb[0, 2].item() == 10.0
+
+    adapter.input_norm = 'imagenet'
+    normalized = adapter._normalize_images(bgr)
+    expected = (torch.tensor(30.0) / 255.0 - 0.485) / 0.229
+    assert normalized[0, 0].item() == pytest.approx(expected.item(), rel=1e-5)
+
+
+def test_adaptive_image_interp_is_accepted(tmp_path):
+    image = np.zeros((64, 80, 3), dtype=np.uint8)
+    mask = np.zeros((64, 80), np.uint8)
+    image_path = tmp_path / 'case.png'
+    mask_path = tmp_path / 'case_mask.png'
+    Image.fromarray(image).save(image_path)
+    Image.fromarray(mask).save(mask_path)
+    sample = Sample(image_path, mask_path, 'DCA1', 'case')
+    dataset = BCUNetTrainDataset(
+        [sample], input_size=512, variants=1, seed=0,
+        image_interp='adaptive')
+    assert dataset[0][0].shape == (3, 512, 512)
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(),
+                    reason='fp16 CUDA kernel required')
+def test_recall_ce_fp16_large_counts_is_finite():
+    logits = torch.randn(1, 2, 256, 256, device='cuda', dtype=torch.float16)
+    target = torch.ones(1, 256, 256, device='cuda', dtype=torch.long)
+    loss = RecallCrossEntropy(n_classes=2)(logits, target)
+    assert torch.isfinite(loss)
+
+
 def test_repeat_identity_flag_roundtrip():
     adapter = BCUNetAdapter()
     args = build_parser(adapter).parse_args([

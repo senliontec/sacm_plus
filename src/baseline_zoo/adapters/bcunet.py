@@ -60,6 +60,12 @@ class BCUNetAdapter(BaselineAdapter):
     accumulation_steps = 1
     selection = 'dice'
     norm = 'instance'
+    input_norm = 'none'
+    rgb = False
+    image_interp = 'area'
+    drop_path_rate = 0.3
+    backbone_lr_scale = 1.0
+    freeze_backbone = False
     deviations = (
         'Paper profile: multilabel recall loss (MRL). L1 supervises the '
         'ConvNeXt output, L3 the U-Net output, and L2 the average-fused '
@@ -180,6 +186,35 @@ class BCUNetAdapter(BaselineAdapter):
             help='mask resize when fitting the 512 input. nearest (default) '
                  'preserves 1-px curvilinear labels; area reproduces the '
                  'official INTER_AREA label downsampling that can erase them')
+        parser.add_argument(
+            '--bcunet-image-interp', choices=['area', 'linear', 'adaptive'],
+            default='area',
+            help='image resize interpolation. area preserves the official '
+                 'INTER_AREA path; adaptive uses INTER_AREA when shrinking '
+                 'and INTER_LINEAR when upsampling small inputs (DCA1 300px, '
+                 'CORN 384px, OCTA-500 400px)')
+        parser.add_argument(
+            '--bcunet-input-norm', choices=['none', 'scale', 'imagenet'],
+            default='none',
+            help='input normalization. none preserves the official raw BGR '
+                 '[0,255] path; scale divides by 255; imagenet applies '
+                 'ImageNet mean/std after RGB conversion')
+        parser.add_argument(
+            '--bcunet-rgb', action='store_true',
+            help='convert OpenCV BGR to RGB before the model (the ConvNeXt-22k '
+                 'backbone was pretrained on RGB)')
+        parser.add_argument(
+            '--bcunet-drop-path', type=float, default=0.3,
+            help='ConvNeXt stochastic-depth rate (official default 0.3; '
+                 '0.0 disables it for very small 3-shot training sets)')
+        parser.add_argument(
+            '--bcunet-backbone-lr-scale', type=float, default=1.0,
+            help='multiply the Adam lr for the pretrained ConvNeXt backbone '
+                 'only; 1.0 keeps the official single-lr recipe')
+        parser.add_argument(
+            '--bcunet-freeze-backbone', action='store_true',
+            help='freeze the ConvNeXt backbone and train only the U-Net and '
+                 'fusion heads; 3-shot task adaptation')
 
     def _fusion_weights(self, args):
         unet = float(getattr(args, 'bcunet_fusion_unet', 0.5))
@@ -189,11 +224,67 @@ class BCUNetAdapter(BaselineAdapter):
                 'BCU-Net fusion weights must be non-negative and non-zero')
         return unet, convnext
 
+    _IMAGENET_MEAN = (0.485, 0.456, 0.406)
+    _IMAGENET_STD = (0.229, 0.224, 0.225)
+
+    def _normalize_images(self, images: torch.Tensor) -> torch.Tensor:
+        """Apply the configured channel order and input normalization."""
+        if self.rgb:
+            images = images[:, [2, 1, 0], :, :]
+        if self.input_norm == 'scale':
+            images = images / 255.0
+        elif self.input_norm == 'imagenet':
+            mean = torch.tensor(
+                self._IMAGENET_MEAN, device=images.device,
+                dtype=images.dtype).view(1, 3, 1, 1)
+            std = torch.tensor(
+                self._IMAGENET_STD, device=images.device,
+                dtype=images.dtype).view(1, 3, 1, 1)
+            images = (images / 255.0 - mean) / std
+        return images
+
+    def _resize_image(self, image, size: int):
+        if self.image_interp == 'linear':
+            interpolation = cv2.INTER_LINEAR
+        elif self.image_interp == 'adaptive':
+            interpolation = (
+                cv2.INTER_AREA
+                if min(image.shape[:2]) > size else cv2.INTER_LINEAR)
+        else:
+            interpolation = cv2.INTER_AREA
+        return cv2.resize(image, (size, size), interpolation=interpolation)
+
     def build_model(self, args) -> nn.Module:
         self.norm = str(getattr(args, 'bcunet_norm', self.norm)).lower()
         if self.norm not in ('batch', 'instance'):
             raise ValueError(
                 f'{self.id}: unknown --bcunet-norm {self.norm!r}')
+        self.input_norm = str(getattr(
+            args, 'bcunet_input_norm', self.input_norm)).lower()
+        if self.input_norm not in ('none', 'scale', 'imagenet'):
+            raise ValueError(
+                f'{self.id}: unknown --bcunet-input-norm {self.input_norm!r}')
+        self.image_interp = str(getattr(
+            args, 'bcunet_image_interp', self.image_interp)).lower()
+        if self.image_interp not in ('area', 'linear', 'adaptive'):
+            raise ValueError(
+                f'{self.id}: unknown --bcunet-image-interp '
+                f'{self.image_interp!r}')
+        self.rgb = bool(getattr(args, 'bcunet_rgb', self.rgb))
+        self.drop_path_rate = float(getattr(
+            args, 'bcunet_drop_path', self.drop_path_rate))
+        if not 0.0 <= self.drop_path_rate <= 1.0:
+            raise ValueError(
+                f'{self.id}: --bcunet-drop-path must be in [0,1], got '
+                f'{self.drop_path_rate}')
+        self.backbone_lr_scale = float(getattr(
+            args, 'bcunet_backbone_lr_scale', self.backbone_lr_scale))
+        if self.backbone_lr_scale <= 0:
+            raise ValueError(
+                f'{self.id}: --bcunet-backbone-lr-scale must be > 0, got '
+                f'{self.backbone_lr_scale}')
+        self.freeze_backbone = bool(getattr(
+            args, 'bcunet_freeze_backbone', self.freeze_backbone))
         predicting = bool(
             getattr(self, 'prediction_mode', False)
             or getattr(args, 'stage', None) == 'predict'
@@ -206,9 +297,13 @@ class BCUNetAdapter(BaselineAdapter):
             bilinear=not bool(getattr(args, 'bcunet_convtranspose', False)),
             pretrained=False, in_22k=True,
             fusion_unet=unet_weight, fusion_convnext=convnext_weight,
+            drop_path_rate=self.drop_path_rate,
         )
         if load_pretrained:
             self._load_local_convnext(model, args)
+        if self.freeze_backbone and not predicting:
+            for parameter in model.backbone.parameters():
+                parameter.requires_grad = False
         if self.norm == 'instance' and isinstance(model, nn.Module):
             _replace_batchnorm(model)
         return model
@@ -247,9 +342,20 @@ class BCUNetAdapter(BaselineAdapter):
               f'({len(matched)} matched, {len(missing)} left initialized)')
 
     def make_optimizer(self, model, args):
+        parameters = [p for p in model.parameters() if p.requires_grad]
+        scale = float(self.backbone_lr_scale)
+        if scale == 1.0:
+            return torch.optim.Adam(
+                parameters, lr=args.lr,
+                weight_decay=args.weight_decay)
+        backbone_ids = {id(p) for p in model.backbone.parameters()}
+        backbone = [p for p in parameters if id(p) in backbone_ids]
+        heads = [p for p in parameters if id(p) not in backbone_ids]
+        groups = [{'params': heads, 'lr': args.lr}]
+        if backbone:
+            groups.append({'params': backbone, 'lr': args.lr * scale})
         return torch.optim.Adam(
-            [p for p in model.parameters() if p.requires_grad],
-            lr=args.lr, weight_decay=args.weight_decay)
+            groups, lr=args.lr, weight_decay=args.weight_decay)
 
     def make_train_dataset(self, samples, args):
         variants = int(getattr(args, 'bcunet_augment_variants', 18))
@@ -262,6 +368,7 @@ class BCUNetAdapter(BaselineAdapter):
                 args, 'bcunet_augment_scope', 'retinal')),
             mask_resize=str(getattr(
                 args, 'bcunet_mask_resize', 'nearest')),
+            image_interp=self.image_interp,
             repeat_identity=bool(getattr(
                 args, 'bcunet_repeat_identity', False)))
 
@@ -269,8 +376,7 @@ class BCUNetAdapter(BaselineAdapter):
         image = cv2.imread(str(sample.image_path))
         if image is None:
             raise SystemExit(f'cv2 could not read {sample.image_path}')
-        return cv2.resize(image, (self.input_size, self.input_size),
-                          interpolation=cv2.INTER_AREA)
+        return self._resize_image(image, self.input_size)
 
     def _load_mask(self, sample):
         mask = cv2.imread(str(sample.mask_path), cv2.IMREAD_GRAYSCALE)
@@ -294,7 +400,8 @@ class BCUNetAdapter(BaselineAdapter):
         if samples and isinstance(samples[0], tuple):
             images = torch.stack([item[0] for item in samples])
             masks = torch.stack([item[1] for item in samples])
-            return images.to(self.device), masks.to(self.device)
+            return (self._normalize_images(images).to(self.device),
+                    masks.to(self.device))
         images = []
         masks = []
         for sample in samples:
@@ -302,7 +409,7 @@ class BCUNetAdapter(BaselineAdapter):
             images.append(torch.from_numpy(
                 np.transpose(image, [2, 0, 1]).copy()).float())
             masks.append(torch.from_numpy(self._load_mask(sample)))
-        return (torch.stack(images).to(self.device),
+        return (self._normalize_images(torch.stack(images)).to(self.device),
                 torch.stack(masks).to(self.device))
 
     def train_step(self, model, batch):
@@ -321,7 +428,8 @@ class BCUNetAdapter(BaselineAdapter):
         image = self._load_image(sample)
         tensor = torch.from_numpy(
             np.transpose(image, [2, 0, 1]).copy()).float()
-        return tensor.unsqueeze(0).to(device)
+        tensor = self._normalize_images(tensor.unsqueeze(0))
+        return tensor.to(device)
 
     def predict_sample(self, model, prepared, sample):
         with torch.no_grad():
@@ -338,6 +446,12 @@ class BCUNetAdapter(BaselineAdapter):
         unet_weight, convnext_weight = self._fusion_weights(args)
         return {
             'norm': str(self.norm),
+            'input_norm': str(self.input_norm),
+            'rgb': bool(self.rgb),
+            'image_interp': str(self.image_interp),
+            'drop_path_rate': float(self.drop_path_rate),
+            'backbone_lr_scale': float(self.backbone_lr_scale),
+            'freeze_backbone': bool(self.freeze_backbone),
             'input_size': int(self.input_size),
             'loss': str(getattr(args, 'bcunet_loss', 'mrl')),
             'augment_variants': int(
@@ -371,6 +485,30 @@ class BCUNetAdapter(BaselineAdapter):
                 args.bcunet_norm = kind
         if 'input_size' in config:
             self.input_size = int(config['input_size'])
+        if 'input_norm' in config:
+            self.input_norm = str(config['input_norm']).lower()
+            if hasattr(args, 'bcunet_input_norm'):
+                args.bcunet_input_norm = self.input_norm
+        if 'rgb' in config:
+            self.rgb = bool(config['rgb'])
+            if hasattr(args, 'bcunet_rgb'):
+                args.bcunet_rgb = self.rgb
+        if 'image_interp' in config:
+            self.image_interp = str(config['image_interp']).lower()
+            if hasattr(args, 'bcunet_image_interp'):
+                args.bcunet_image_interp = self.image_interp
+        if 'drop_path_rate' in config:
+            self.drop_path_rate = float(config['drop_path_rate'])
+            if hasattr(args, 'bcunet_drop_path'):
+                args.bcunet_drop_path = self.drop_path_rate
+        if 'backbone_lr_scale' in config:
+            self.backbone_lr_scale = float(config['backbone_lr_scale'])
+            if hasattr(args, 'bcunet_backbone_lr_scale'):
+                args.bcunet_backbone_lr_scale = self.backbone_lr_scale
+        if 'freeze_backbone' in config:
+            self.freeze_backbone = bool(config['freeze_backbone'])
+            if hasattr(args, 'bcunet_freeze_backbone'):
+                args.bcunet_freeze_backbone = self.freeze_backbone
         for key, attribute in (
                 ('loss', 'bcunet_loss'),
                 ('augment_variants', 'bcunet_augment_variants'),

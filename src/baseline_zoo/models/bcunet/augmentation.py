@@ -96,8 +96,18 @@ def apply_variant(image, mask, variant: int, seed: int = 0, key: str = ''):
     return image, mask
 
 
-def _resize_pair(image, mask, size: int, mask_resize: str = 'nearest'):
-    image = cv2.resize(image, (size, size), interpolation=cv2.INTER_AREA)
+def _resize_pair(image, mask, size: int, mask_resize: str = 'nearest',
+                 image_interp: str = 'area'):
+    if image_interp == 'linear':
+        image_interpolation = cv2.INTER_LINEAR
+    elif image_interp == 'adaptive':
+        image_interpolation = (
+            cv2.INTER_AREA
+            if min(image.shape[:2]) > size else cv2.INTER_LINEAR)
+    else:
+        image_interpolation = cv2.INTER_AREA
+    image = cv2.resize(
+        image, (size, size), interpolation=image_interpolation)
     interpolation = (cv2.INTER_AREA if mask_resize == 'area'
                      else cv2.INTER_NEAREST)
     mask = cv2.resize(mask, (size, size), interpolation=interpolation)
@@ -118,8 +128,8 @@ class BCUNetTrainDataset(Dataset):
 
     def __init__(self, samples, input_size: int = 512, variants: int = 18,
                  seed: int = 0, augment_scope: str = 'retinal',
-                 mask_resize: str = 'nearest',
-                 repeat_identity: bool = False):
+                 mask_resize: str = 'nearest', image_interp: str = 'area',
+                 repeat_identity: bool = False, cache: bool = True):
         if variants < 1:
             raise ValueError('variants must be at least 1')
         if variants > N_VARIANTS:
@@ -131,12 +141,18 @@ class BCUNetTrainDataset(Dataset):
         if mask_resize not in ('nearest', 'area'):
             raise ValueError(
                 f'mask_resize must be nearest|area, got {mask_resize!r}')
+        if image_interp not in ('area', 'linear', 'adaptive'):
+            raise ValueError(
+                f'image_interp must be area|linear|adaptive, '
+                f'got {image_interp!r}')
         self.samples = list(samples)
         self.input_size = int(input_size)
         self.variants = int(variants)
         self.seed = int(seed)
         self.augment_scope = augment_scope
         self.mask_resize = mask_resize
+        self.image_interp = image_interp
+        self.cache = bool(cache)
         self.repeat_identity = bool(repeat_identity)
         # Build the expanded index list once.  Non-retinal samples are not
         # augmented under retinal scope; repeating their identity 18 times
@@ -153,11 +169,17 @@ class BCUNetTrainDataset(Dataset):
                 self.indices.extend(
                     (sample_index, variant)
                     for variant in range(self.variants))
+        # The variants are deterministic, so build each augmented pair once
+        # and reuse it across epochs.  Without this cache every epoch
+        # re-reads and re-augments all 18x samples on the CPU.
+        self._cache = [None] * len(self.indices) if self.cache else None
 
     def __len__(self):
         return len(self.indices)
 
     def __getitem__(self, index):
+        if self._cache is not None and self._cache[index] is not None:
+            return self._cache[index]
         sample_index, variant = self.indices[index]
         sample = self.samples[sample_index]
         if (self.augment_scope == 'retinal'
@@ -168,5 +190,9 @@ class BCUNetTrainDataset(Dataset):
         image, mask = _read_pair(sample)
         image, mask = apply_variant(
             image, mask, variant, seed=self.seed, key=sample.stem)
-        return _resize_pair(
-            image, mask, self.input_size, mask_resize=self.mask_resize)
+        item = _resize_pair(
+            image, mask, self.input_size, mask_resize=self.mask_resize,
+            image_interp=self.image_interp)
+        if self._cache is not None:
+            self._cache[index] = item
+        return item
