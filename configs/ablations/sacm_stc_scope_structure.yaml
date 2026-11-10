@@ -22,6 +22,12 @@
 # BCE, gating deployment, the 1024 input, and the official optimizer/schedule
 # identical.  The ablation budget is 300 epochs; the 800-epoch all_dense runs
 # remain the main-table results, and Aa at 300 epochs is the budget control.
+#
+# All-candidate dense/topology arms use deployment-aligned aggregation:
+# the deployed slot keeps full weight and auxiliary candidates contribute a
+# 0.25-weight mean term.  The old equal-weight mean (which gave the deployed
+# head only 1/4 weight) is available via
+# ``stage2-loss-aggregate: mean`` / ``topology-aggregate: mean`` in an arm.
 schema_version: 1
 name: sacm_stc_scope_structure
 description: >-
@@ -57,6 +63,13 @@ common_train_args:
   deployment-head: 2
   topology-resolution: 512
   topology-warmup-epochs: 5
+  # Keep the deployed slot at full weight; the other candidates contribute a
+  # 0.25-weight mean term.  Old equal-weight arms can be reproduced by
+  # setting either aggregate to mean in the arm args.
+  stage2-loss-aggregate: deployment
+  stage2-aux-weight: 0.25
+  topology-aggregate: deployment
+  topology-aux-weight: 0.25
   use-stc: 0
   use-typed-stage2: 0
   save-every: 0

@@ -10,8 +10,11 @@ train_entrypoint: >-
   --use-typed-stage2 0 --use-stc 0
   --deep-sup-weight 0.3 --iou-loss-weight 0
   --head-select gating
+  --stage2-loss-scope all --stage2-loss-aggregate deployment
+  --stage2-aux-weight 0.25
   --skeleton-recall-weight 0.1 --cl-dice-weight 0.1
-  --topology-head all --topology-warmup-epochs 5
+  --topology-head all --topology-aggregate deployment
+  --topology-aux-weight 0.25 --topology-warmup-epochs 5
   --binary-targets 0 --bce-pos-weight 2
 eval_entrypoint: >-
   python scripts/pipeline/run_baseline_test.py --method sacm_stc
@@ -39,4 +42,10 @@ note: >-
   specialized heads removed the official multi-candidate robustness; see
   the local A/B evidence in the adapter deviations and results/diagnostics.
   The faithful official SACM remains the main-table baseline
-  (`sacm_official`).
+  (`sacm_official`). The all-candidate dense/topology terms now use
+  deployment-aligned aggregation: the deployed slot keeps full weight and
+  the three auxiliary heads contribute a 0.25-weight mean term. The old
+  equal-weight arms diluted the deployed head by 4x; use
+  --stage2-loss-aggregate mean / --topology-aggregate mean to reproduce
+  them. Topology losses consume the native Stage-2 tensor before
+  resampling, avoiding the previous 256->1024->512 blur.

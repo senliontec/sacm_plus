@@ -61,6 +61,14 @@ class SACMSTCAdapter(BaselineAdapter):
     train_batch_size = 1
     selection = 'dice'
     deviations = (
+        'Deployment-aligned Stage-2 aggregation: with '
+        '--stage2-loss-scope all and --topology-head all, the deployed head '
+        'keeps full loss weight and the auxiliary heads contribute a mean '
+        'term at --stage2-aux-weight / --topology-aux-weight (default 0.25). '
+        'The old equal-weight mean divided the deployed head loss by N; '
+        '--stage2-loss-aggregate mean / --topology-aggregate mean reproduce '
+        'that ablation. Topology losses also consume the native Stage-2 '
+        'resolution before resampling, avoiding the 256->1024->512 blur.',
         'SAM normalization is applied before the image encoder '
         '(scale [0,1] -> [0,255], then Sam.preprocess); upstream passed '
         '[0,1] directly into the frozen encoder.',
@@ -154,10 +162,22 @@ class SACMSTCAdapter(BaselineAdapter):
         parser.add_argument(
             '--stage2-loss-scope', choices=['all', 'selected'],
             default='all',
-            help='Stage-2 dense mask loss: all = mean over the four native '
-                 'candidates (shipped default); selected = only the '
-                 'deployment-selected slot (gating slot 0, or deployment-head '
-                 'when head-select=fixed)')
+            help='Stage-2 dense mask loss: all = every native candidate; '
+                 'selected = only the deployment-selected slot (gating slot 0, '
+                 'or deployment-head when head-select=fixed). How the all '
+                 'candidates are combined is controlled by '
+                 '--stage2-loss-aggregate')
+        parser.add_argument(
+            '--stage2-loss-aggregate', choices=['deployment', 'mean'],
+            default='deployment',
+            help='only for --stage2-loss-scope all: deployment keeps the '
+                 'deployed head at full weight and adds auxiliary heads at '
+                 '--stage2-aux-weight; mean reproduces the old equal-weight '
+                 'average (deployed head weight 1/N)')
+        parser.add_argument(
+            '--stage2-aux-weight', type=float, default=0.25,
+            help='weight of the mean auxiliary dense loss when '
+                 '--stage2-loss-aggregate deployment')
         parser.add_argument(
             '--cl-dice-weight', type=float, default=0.0,
             help='binary soft-clDice weight on the topology head (0 disables)')
@@ -175,6 +195,17 @@ class SACMSTCAdapter(BaselineAdapter):
             default='deployment',
             help='apply topology losses to one fixed deployment head, the '
                  'deployment-selected slot (selected), or all four heads')
+        parser.add_argument(
+            '--topology-aggregate', choices=['deployment', 'mean'],
+            default='deployment',
+            help='only for --topology-head all: deployment keeps the '
+                 'deployed head at full topology weight and adds auxiliary '
+                 'heads at --topology-aux-weight; mean reproduces the old '
+                 'equal-weight average')
+        parser.add_argument(
+            '--topology-aux-weight', type=float, default=0.25,
+            help='weight of the mean auxiliary topology loss when '
+                 '--topology-aggregate deployment')
         parser.add_argument(
             '--topology-warmup-epochs', type=int, default=5,
             help='linearly ramp topology losses in over this many epochs')
@@ -297,6 +328,44 @@ class SACMSTCAdapter(BaselineAdapter):
                 f'topology index {index} outside [0, {num_heads})')
         return [index]
 
+    def _deployment_anchor_index(self):
+        """Head that keeps full loss weight under deployment aggregation.
+
+        For the shipped gating selector this is the post-gating slot 0; for a
+        fixed selector it is ``deployment_head``.  Selectors that aggregate or
+        choose per image (mean/gating_soft/iou) have no single supervised
+        candidate, so use ``deployment_head`` only as the auxiliary anchor.
+        """
+        head_select = getattr(self, 'head_select', 'gating')
+        if head_select == 'gating':
+            return 0
+        if head_select == 'fixed':
+            return int(self.deployment_head)
+        return int(self.deployment_head)
+
+    @staticmethod
+    def _aggregate_head_losses(losses, indices, anchor, aux_weight,
+                               aggregate):
+        """Combine per-head losses without diluting the deployed head.
+
+        ``mean`` is the old behaviour: every selected head contributes 1/N,
+        so an all-scope run gives the deployed head only 1/4 of its
+        selected-scope weight.  ``deployment`` keeps the deployed head at
+        weight 1 and adds the mean auxiliary loss at ``aux_weight``.  This
+        makes the scope comparison a scope comparison instead of a hidden
+        loss-weight comparison.
+        """
+        values = [losses[index] for index in indices]
+        if (str(aggregate) == 'mean' or len(values) == 1
+                or anchor not in indices):
+            return torch.stack(values).mean()
+        auxiliary = [
+            losses[index] for index in indices if index != anchor]
+        if not auxiliary:
+            return losses[anchor]
+        return values[indices.index(anchor)] + float(aux_weight) * (
+            torch.stack(auxiliary).mean())
+
     def selected_candidate_index(self):
         """Public deployment-slot index for candidate diagnostics."""
         return self._selected_stage2_index()
@@ -318,6 +387,26 @@ class SACMSTCAdapter(BaselineAdapter):
 
         self.head_select = self._resolved_head_select(args)
         self.deployment_head = int(getattr(args, 'deployment_head', 2))
+        self.stage2_loss_aggregate = str(getattr(
+            args, 'stage2_loss_aggregate', 'deployment')).lower()
+        self.topology_aggregate = str(getattr(
+            args, 'topology_aggregate', 'deployment')).lower()
+        self.stage2_aux_weight = float(getattr(
+            args, 'stage2_aux_weight', 0.25))
+        self.topology_aux_weight = float(getattr(
+            args, 'topology_aux_weight', 0.25))
+        for name, value in (
+                ('stage2_loss_aggregate', self.stage2_loss_aggregate),
+                ('topology_aggregate', self.topology_aggregate)):
+            if value not in ('deployment', 'mean'):
+                raise ValueError(
+                    f'{self.id}: unknown {name} {value!r}')
+        for name, value in (
+                ('stage2_aux_weight', self.stage2_aux_weight),
+                ('topology_aux_weight', self.topology_aux_weight)):
+            if value < 0:
+                raise ValueError(
+                    f'{self.id}: {name} must be non-negative, got {value}')
         if (self.head_select == 'iou'
                 and float(getattr(args, 'iou_loss_weight', 0.0)) <= 0):
             print('[sacm_stc] iou-loss-weight <= 0: falling back to '
@@ -391,6 +480,12 @@ class SACMSTCAdapter(BaselineAdapter):
             'deployment_head': int(getattr(args, 'deployment_head', 2)),
             'stage2_loss_scope': getattr(
                 args, 'stage2_loss_scope', 'all'),
+            'stage2_loss_aggregate': str(getattr(
+                self, 'stage2_loss_aggregate',
+                getattr(args, 'stage2_loss_aggregate', 'deployment'))),
+            'stage2_aux_weight': float(getattr(
+                self, 'stage2_aux_weight',
+                getattr(args, 'stage2_aux_weight', 0.25))),
             'cl_dice_weight': float(getattr(args, 'cl_dice_weight', 0.0)),
             'tversky_weight': float(getattr(args, 'tversky_weight', 0.0)),
             'skeleton_recall_weight': float(
@@ -398,6 +493,12 @@ class SACMSTCAdapter(BaselineAdapter):
             'topology_resolution': int(
                 getattr(args, 'topology_resolution', 512)),
             'topology_head': getattr(args, 'topology_head', 'deployment'),
+            'topology_aggregate': str(getattr(
+                self, 'topology_aggregate',
+                getattr(args, 'topology_aggregate', 'deployment'))),
+            'topology_aux_weight': float(getattr(
+                self, 'topology_aux_weight',
+                getattr(args, 'topology_aux_weight', 0.25))),
             'topology_warmup_epochs': int(
                 getattr(args, 'topology_warmup_epochs', 5)),
             'tversky_alpha': float(getattr(args, 'tversky_alpha', 0.3)),
@@ -457,9 +558,11 @@ class SACMSTCAdapter(BaselineAdapter):
                     'stage1_fusion_weight', 'stage1_fusion_mode',
                     'deep_sup_weight', 'iou_loss_weight',
                     'deployment_head', 'stage2_loss_scope',
+                    'stage2_loss_aggregate', 'stage2_aux_weight',
                     'cl_dice_weight', 'tversky_weight',
                     'skeleton_recall_weight', 'topology_resolution',
-                    'topology_head', 'topology_warmup_epochs',
+                    'topology_head', 'topology_aggregate',
+                    'topology_aux_weight', 'topology_warmup_epochs',
                     'tversky_alpha', 'tversky_beta', 'use_stc',
                     'stc_resolution', 'stc_width', 'stc_dense_weight',
                     'stc_centerline_weight', 'stc_cl_dice_weight',
@@ -940,20 +1043,36 @@ class SACMSTCAdapter(BaselineAdapter):
             masks, size=(resolution, resolution), mode='nearest')
         indices = self._topology_indices(stage2.shape[1])
 
-        total = stage2.new_zeros(())
+        head_totals = {}
         for index in indices:
             logits = F.interpolate(
                 stage2[:, index:index + 1],
                 size=(resolution, resolution),
                 mode='bilinear', align_corners=False)
+            per_head = stage2.new_zeros(())
             if cl_w > 0:
-                total = total + cl_w * self._cl_loss(logits, target)
+                per_head = per_head + cl_w * self._cl_loss(logits, target)
             if tv_w > 0:
-                total = total + tv_w * self._tversky_loss(logits, target)
-            if sk_w > 0:
-                total = total + sk_w * self._skeleton_recall_loss(
+                per_head = per_head + tv_w * self._tversky_loss(
                     logits, target)
-        total = total / float(len(indices))
+            if sk_w > 0:
+                per_head = per_head + sk_w * self._skeleton_recall_loss(
+                    logits, target)
+            head_totals[index] = per_head
+        aggregate = str(getattr(
+            self, 'topology_aggregate',
+            getattr(args, 'topology_aggregate', 'deployment')))
+        aux_weight = float(getattr(
+            self, 'topology_aux_weight',
+            getattr(args, 'topology_aux_weight', 0.25)))
+        # For topology-head=all the deployed slot keeps full weight; the
+        # auxiliary heads only add --topology-aux-weight * mean(aux).  For
+        # single-head modes there is no auxiliary term.
+        anchor = (self._deployment_anchor_index()
+                  if str(getattr(args, 'topology_head', 'deployment')) == 'all'
+                  else indices[0])
+        total = self._aggregate_head_losses(
+            head_totals, indices, anchor, aux_weight, aggregate)
 
         epoch = int(getattr(self, '_epoch', 1))
         warmup = max(0, int(getattr(args, 'topology_warmup_epochs', 5)))
@@ -987,12 +1106,20 @@ class SACMSTCAdapter(BaselineAdapter):
         bce_weight = float(self.args.bce_weight)
         dice_weight = float(self.args.dice_weight)
         head_indices = self._stage2_loss_indices(stage2.shape[1])
-        head_losses = [
-            self._mask_criterion(stage2[:, k:k + 1], masks,
-                                 bce_weight, dice_weight)
+        head_losses = {
+            k: self._mask_criterion(stage2[:, k:k + 1], masks,
+                                    bce_weight, dice_weight)
             for k in head_indices
-        ]
-        loss_main = torch.stack(head_losses).mean()
+        }
+        aggregate = str(getattr(
+            self, 'stage2_loss_aggregate',
+            getattr(self.args, 'stage2_loss_aggregate', 'deployment')))
+        aux_weight = float(getattr(
+            self, 'stage2_aux_weight',
+            getattr(self.args, 'stage2_aux_weight', 0.25)))
+        loss_main = self._aggregate_head_losses(
+            head_losses, head_indices, self._deployment_anchor_index(),
+            aux_weight, aggregate)
 
         deep_sup = float(getattr(self.args, 'deep_sup_weight', 0.0))
         loss_ds = stage2.new_zeros(())
@@ -1021,7 +1148,10 @@ class SACMSTCAdapter(BaselineAdapter):
             loss_iou = F.mse_loss(iou_pred, iou_gt)
 
         loss = loss_main + deep_sup * loss_ds + iou_weight * loss_iou
-        loss = loss + self._topology_loss(stage2, masks)
+        # Use the native Stage-2 tensor for topology supervision.  Passing the
+        # 1024-res stretched tensor here would resample 256 -> 1024 -> 512
+        # and blur the one-pixel structures the topology losses target.
+        loss = loss + self._topology_loss(stage2_native, masks)
         if int(getattr(self.args, 'use_stc', 0)) == 1:
             loss = loss + self._stc_loss(
                 model, images, masks, stage2_native, iou_pred)

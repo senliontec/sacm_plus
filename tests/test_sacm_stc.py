@@ -237,9 +237,11 @@ def test_sacm_stc_config_roundtrip():
         adapter_dim_ratio=0.25, bce_weight=0.6, dice_weight=0.4,
         deep_sup_weight=0.1, iou_loss_weight=0.5, head_select='fixed',
         input_size=1024, deployment_head=3, stage2_loss_scope='selected',
+        stage2_loss_aggregate='mean', stage2_aux_weight=0.4,
         cl_dice_weight=0.2,
         tversky_weight=0.3, skeleton_recall_weight=0.1,
         topology_resolution=512, topology_head='deployment',
+        topology_aggregate='mean', topology_aux_weight=0.35,
         topology_warmup_epochs=4, tversky_alpha=0.4, tversky_beta=0.6,
         use_stc=1, stc_resolution=256, stc_width=16,
         stc_dense_weight=1.0, stc_centerline_weight=0.2,
@@ -264,11 +266,15 @@ def test_sacm_stc_config_roundtrip():
     assert restored.head_select == 'fixed'
     assert restored.deployment_head == 3
     assert restored.stage2_loss_scope == 'selected'
+    assert restored.stage2_loss_aggregate == 'mean'
+    assert restored.stage2_aux_weight == 0.4
     assert restored.cl_dice_weight == 0.2
     assert restored.tversky_weight == 0.3
     assert restored.skeleton_recall_weight == 0.1
     assert restored.topology_resolution == 512
     assert restored.topology_head == 'deployment'
+    assert restored.topology_aggregate == 'mean'
+    assert restored.topology_aux_weight == 0.35
     assert restored.topology_warmup_epochs == 4
     assert restored.tversky_alpha == 0.4
     assert restored.tversky_beta == 0.6
@@ -366,9 +372,12 @@ def test_sacm_stc_selected_loss_scope_uses_only_deployed_slot(monkeypatch):
     adapter.args = argparse.Namespace(
         bce_weight=0.7, dice_weight=0.3, deep_sup_weight=0.0,
         iou_loss_weight=0.0, use_typed_stage2=0, use_stc=0,
-        stage2_loss_scope='selected', cl_dice_weight=0.0,
+        stage2_loss_scope='selected',
+        stage2_loss_aggregate='mean', stage2_aux_weight=0.25,
+        cl_dice_weight=0.0,
         tversky_weight=0.0, skeleton_recall_weight=0.0,
-        topology_head='all', topology_warmup_epochs=0,
+        topology_head='all', topology_aggregate='mean',
+        topology_aux_weight=0.25, topology_warmup_epochs=0,
         topology_resolution=32)
 
     def fake_forward(model, images, return_stage1=True):
@@ -400,6 +409,84 @@ def test_sacm_stc_selected_loss_scope_uses_only_deployed_slot(monkeypatch):
     loss = adapter.train_step(model, (images, masks))
     assert calls == [0.0, 1.0, 2.0, 3.0]
     assert abs(float(loss) - 1.5) < 1e-6
+
+
+def test_sacm_stc_deployment_aggregate_keeps_deployed_weight(monkeypatch):
+    adapter = load_adapter('sacm_stc')
+    adapter.head_select = 'gating'
+    adapter.deployment_head = 2
+    adapter.args = argparse.Namespace(
+        bce_weight=0.7, dice_weight=0.3, deep_sup_weight=0.0,
+        iou_loss_weight=0.0, use_typed_stage2=0, use_stc=0,
+        stage2_loss_scope='all', stage2_loss_aggregate='deployment',
+        stage2_aux_weight=0.25, cl_dice_weight=0.0,
+        tversky_weight=0.0, skeleton_recall_weight=0.0,
+        topology_head='selected', topology_aggregate='deployment',
+        topology_aux_weight=0.25, topology_warmup_epochs=0,
+        topology_resolution=32)
+
+    def fake_forward(model, images, return_stage1=True):
+        del model, images, return_stage1
+        stage2 = torch.arange(4, dtype=torch.float32).view(1, 4, 1, 1)
+        stage2 = stage2.expand(1, 4, 256, 256).clone()
+        stage1 = torch.zeros(1, 4, 256, 256)
+        return stage2, torch.zeros(1, 4), stage1
+
+    calls = []
+
+    def fake_criterion(logits, target, bce_weight, dice_weight):
+        del target, bce_weight, dice_weight
+        calls.append(float(logits.mean().item()))
+        return logits.mean()
+
+    monkeypatch.setattr(adapter, '_forward', fake_forward)
+    monkeypatch.setattr(adapter, '_mask_criterion', fake_criterion)
+    loss = adapter.train_step(
+        torch.nn.Module(),
+        (torch.zeros(1, 3, 8, 8), torch.zeros(1, 1, 256, 256)))
+    assert calls == [0.0, 1.0, 2.0, 3.0]
+    # selected slot 0 keeps full weight; mean(1,2,3)=2 at 0.25.
+    assert abs(float(loss) - 0.5) < 1e-6
+
+
+def test_sacm_stc_topology_uses_native_stage2(monkeypatch):
+    adapter = load_adapter('sacm_stc')
+    adapter.head_select = 'gating'
+    adapter.deployment_head = 2
+    adapter.args = argparse.Namespace(
+        bce_weight=0.7, dice_weight=0.3, deep_sup_weight=0.0,
+        iou_loss_weight=0.0, use_typed_stage2=0, use_stc=0,
+        stage2_loss_scope='selected', stage2_loss_aggregate='deployment',
+        stage2_aux_weight=0.25, cl_dice_weight=0.0,
+        tversky_weight=0.0, skeleton_recall_weight=0.0,
+        topology_head='selected', topology_aggregate='deployment',
+        topology_aux_weight=0.25, topology_warmup_epochs=0,
+        topology_resolution=8)
+
+    def fake_forward(model, images, return_stage1=True):
+        del model, images, return_stage1
+        stage2 = torch.zeros(1, 4, 8, 8)
+        stage1 = torch.zeros(1, 4, 8, 8)
+        return stage2, torch.zeros(1, 4), stage1
+
+    def fake_criterion(logits, target, bce_weight, dice_weight):
+        del target, bce_weight, dice_weight
+        return logits.sum() * 0.0
+
+    seen = {}
+
+    def fake_topology(stage2, masks):
+        del masks
+        seen['shape'] = tuple(stage2.shape)
+        return stage2.sum() * 0.0
+
+    monkeypatch.setattr(adapter, '_forward', fake_forward)
+    monkeypatch.setattr(adapter, '_mask_criterion', fake_criterion)
+    monkeypatch.setattr(adapter, '_topology_loss', fake_topology)
+    adapter.train_step(
+        torch.nn.Module(),
+        (torch.zeros(1, 3, 8, 8), torch.zeros(1, 1, 8, 8)))
+    assert seen['shape'] == (1, 4, 8, 8)
 
 
 def test_sacm_stc_predict_candidates(tmp_path):
@@ -866,9 +953,11 @@ def test_sacm_stc_all_dense_config_roundtrip():
         binary_targets=0, deploy_threshold=0.4,
         head_select='mean', adapter_dim_ratio=0.1,
         deep_sup_weight=0.3, iou_loss_weight=0.0,
+        stage2_loss_aggregate='deployment', stage2_aux_weight=0.25,
         cl_dice_weight=0.1, tversky_weight=0.0,
         skeleton_recall_weight=0.1, topology_resolution=512,
-        topology_head='all', topology_warmup_epochs=5,
+        topology_head='all', topology_aggregate='deployment',
+        topology_aux_weight=0.25, topology_warmup_epochs=5,
         tversky_alpha=0.3, tversky_beta=0.7, use_stc=0,
         stc_resolution=512, stc_width=32, stc_dense_weight=1.0,
         stc_centerline_weight=0.2, stc_cl_dice_weight=0.2,
@@ -898,6 +987,10 @@ def test_sacm_stc_all_dense_config_roundtrip():
     assert target.binary_targets == 0
     assert target.deploy_threshold == 0.4
     assert target.head_select == 'mean'
+    assert target.stage2_loss_aggregate == 'deployment'
+    assert target.stage2_aux_weight == 0.25
+    assert target.topology_aggregate == 'deployment'
+    assert target.topology_aux_weight == 0.25
 
 
 def test_sacm_stc_new_cli_choices_parse():
@@ -913,3 +1006,12 @@ def test_sacm_stc_new_cli_choices_parse():
     assert args.binary_targets == 0
     assert args.bce_pos_weight == 2.0
     assert args.deploy_threshold == 0.4
+    for choice in ('deployment', 'mean'):
+        args = parser.parse_args(['--stage2-loss-aggregate', choice])
+        assert args.stage2_loss_aggregate == choice
+        args = parser.parse_args(['--topology-aggregate', choice])
+        assert args.topology_aggregate == choice
+    args = parser.parse_args([
+        '--stage2-aux-weight', '0.5', '--topology-aux-weight', '0.3'])
+    assert args.stage2_aux_weight == 0.5
+    assert args.topology_aux_weight == 0.3
