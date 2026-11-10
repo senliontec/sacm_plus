@@ -20,7 +20,7 @@ From this file's directory: `../../../../3rd`
 ├── sam_octa              -> 3rd/SAM-OCTA 已经改完，还没跑
 ├── cwsam                 -> 3rd/CWSAM 已经改完，还没跑
 ├── knowsam               -> 3rd/KnowSAM 已经改完，还没跑
-├── segdino               -> 3rd/segdino
+├── segdino               -> 3rd/segdino 已经改完，还没跑
 ├── sacm_official         -> 3rd/SACM 曲线正常
 ├── sacm_stc             -> 3rd/SACM (corrected derivative of sacm_official) 曲线正常
 
