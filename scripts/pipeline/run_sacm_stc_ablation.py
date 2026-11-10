@@ -102,13 +102,12 @@ def _parse_seeds(values, protocol, default):
     raw = values if values is not None else default
     if raw is None:
         raw = list(protocol.seeds)
-    # argparse nargs='*' may yield a single comma-separated item.
+    # argparse nargs='*' may yield one quoted string ("0 1 2 3") or one
+    # comma-separated item ("0,1,2,3").  Accept both forms.
     seeds = []
     for value in raw:
-        for item in str(value).split(','):
-            item = item.strip()
-            if item:
-                seeds.append(int(item))
+        for item in str(value).replace(',', ' ').split():
+            seeds.append(int(item))
     unknown = sorted(set(seeds) - set(protocol.seeds))
     if unknown:
         raise SystemExit(
@@ -119,8 +118,8 @@ def _parse_seeds(values, protocol, default):
 
 def _parse_arms(values, config):
     if values:
-        arms = [item.strip() for value in values
-                for item in str(value).split(',') if item.strip()]
+        arms = [item for value in values
+                for item in str(value).replace(',', ' ').split()]
     else:
         arms = list(config['arms'])
     unknown = [arm for arm in arms if arm not in config['arms']]

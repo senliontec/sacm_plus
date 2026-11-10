@@ -97,6 +97,7 @@ def test_quick_das_config_and_arm_flags_parse():
     assert config['eval_checkpoint'] == 'best_model.pth'
     assert config['analysis']['require_train_complete'] is True
     assert config['analysis']['require_eval_complete'] is True
+    assert len(config['analysis']['datasets']) == 15
     assert list(config['arms']) == [
         'das_ss',
         'das_aa_mean',
@@ -129,6 +130,22 @@ def test_quick_das_config_and_arm_flags_parse():
             assert parsed.topology_aggregate == 'deployment'
 
 
+def test_seed_and_arm_parsing_accept_quoted_lists():
+    from baseline_zoo.protocols import load_protocol
+
+    protocol = load_protocol('seeded5')
+    assert RUNNER._parse_seeds(
+        ['0 1 2 3'], protocol, protocol.seeds) == [0, 1, 2, 3]
+    assert RUNNER._parse_seeds(
+        ['0,1,2,3'], protocol, protocol.seeds) == [0, 1, 2, 3]
+
+    config = RUNNER.load_config(QUICK_CONFIG)
+    assert RUNNER._parse_arms(
+        ['das_ss das_aa_mean'], config) == ['das_ss', 'das_aa_mean']
+    assert RUNNER._parse_arms(
+        ['das_ss,das_aa_mean'], config) == ['das_ss', 'das_aa_mean']
+
+
 def test_final_config_is_canonical_and_parses_all_arms():
     config = RUNNER.load_config(FINAL_CONFIG)
     assert config['output_root'] == 'results/runs/sacm_stc'
@@ -136,6 +153,7 @@ def test_final_config_is_canonical_and_parses_all_arms():
     assert config['epochs'] == 800
     assert config['analysis']['require_train_complete'] is True
     assert config['analysis']['require_eval_complete'] is True
+    assert len(config['analysis']['datasets']) == 15
     assert list(config['arms']) == [
         'final_full',
         'final_sel_sel',
@@ -367,6 +385,46 @@ def test_eval_stage_requires_completed_training(tmp_path):
         allow_untrained_eval=True)
     assert 'error' not in jobs[0]
     assert [spec['stage'] for spec in jobs[0]['commands']] == ['eval']
+
+
+def test_analysis_dataset_filter_recomputes_macro(tmp_path):
+    arm = 'arm_a'
+    run = tmp_path / 'runs' / arm / 'seed_0'
+    tables = run / 'eval' / 'tables'
+    tables.mkdir(parents=True)
+    datasets = [f'D{index}' for index in range(20)]
+    rows = []
+    for index, dataset in enumerate(datasets):
+        role = 'Seen' if index < 6 else ('Unseen' if index < 14 else 'Novel')
+        rows.append({
+            'dataset': dataset, 'role': role,
+            'dice_mean': 0.5 + index / 100.0,
+            'iou_mean': 0.4 + index / 100.0,
+            'cldice_mean': 0.6 + index / 100.0,
+            'hd95_mean': 50.0,
+        })
+    _write_csv(tables / 'all_metrics.csv', rows,
+               ['dataset', 'role', 'dice_mean', 'iou_mean',
+                'cldice_mean', 'hd95_mean'])
+    # Deliberately wrong 20-dataset macro table: the filtered analysis must
+    # ignore it and recompute from all_metrics.csv.
+    _write_csv(tables / 'macro_metrics.csv', [
+        {'role': 'All', 'metric': 'dice', 'mean': 0.99},
+        {'role': 'Seen', 'metric': 'dice', 'mean': 0.99},
+    ], ['role', 'metric', 'mean'])
+
+    selected = datasets[:5]
+    config = {
+        'output_root': str(tmp_path / 'runs'),
+        'analysis': {'datasets': selected},
+    }
+    macro = ANALYZER._load_macro(config, arm, 0)
+    expected = sum(0.5 + index / 100.0 for index in range(5)) / 5
+    assert macro[('All', 'dice')] == pytest.approx(expected)
+    assert macro[('Seen', 'dice')] == pytest.approx(expected)
+    assert ('Unseen', 'dice') not in macro
+    dataset_values = ANALYZER._load_dataset(config, arm, 0)
+    assert {key[0] for key in dataset_values} == set(selected)
 
 
 def test_analysis_can_require_completed_training(tmp_path):

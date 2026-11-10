@@ -137,7 +137,44 @@ def _eval_incomplete_reason(config, arm: str, seed: int) -> str | None:
     return None
 
 
+def _analysis_dataset_filter(config) -> set[str] | None:
+    """Return the explicit analysis dataset subset, if configured."""
+    analysis = config.get('analysis') or {}
+    values = analysis.get('datasets')
+    if not values:
+        return None
+    return {str(value).strip() for value in values if str(value).strip()}
+
+
 def _load_macro(config, arm: str, seed: int) -> dict | None:
+    selected = _analysis_dataset_filter(config)
+    if selected is not None:
+        # A subset analysis must not reuse the 20-dataset macro table: the
+        # role means have to be recomputed over the selected dataset rows.
+        path = (_run_root(config, arm, seed) / 'eval' / 'tables' /
+                'all_metrics.csv')
+        if not path.is_file():
+            return None
+        rows = [row for row in _read_csv(path)
+                if row.get('dataset') in selected]
+        if not rows:
+            return None
+        values = {}
+        for role in ROLES:
+            group = (rows if role == 'All'
+                     else [row for row in rows if row.get('role') == role])
+            if not group:
+                continue
+            for metric in METRICS:
+                numbers = [
+                    _float(row.get(f'{metric}_mean')) for row in group
+                ]
+                numbers = [value for value in numbers
+                           if math.isfinite(value)]
+                if numbers:
+                    values[(role, metric)] = sum(numbers) / len(numbers)
+        return values
+
     path = (_run_root(config, arm, seed) / 'eval' / 'tables' /
             'macro_metrics.csv')
     if not path.is_file():
@@ -152,6 +189,7 @@ def _load_macro(config, arm: str, seed: int) -> dict | None:
 
 
 def _load_dataset(config, arm: str, seed: int) -> dict | None:
+    selected = _analysis_dataset_filter(config)
     path = (_run_root(config, arm, seed) / 'eval' / 'tables' /
             'all_metrics.csv')
     if not path.is_file():
@@ -161,6 +199,8 @@ def _load_dataset(config, arm: str, seed: int) -> dict | None:
         dataset = row.get('dataset')
         role = row.get('role')
         if not dataset:
+            continue
+        if selected is not None and dataset not in selected:
             continue
         for metric in METRICS:
             key = f'{metric}_mean'
@@ -666,10 +706,13 @@ def main(argv: list[str] | None = None) -> int:
     (output_root / 'ablation_report.md').write_text(
         _markdown_report(config, contrast_summaries, dataset_summaries,
                          candidate_summaries, arm_summaries, missing))
+    selected_datasets = _analysis_dataset_filter(config)
     (output_root / 'summary.json').write_text(json.dumps({
         'config': str(config_path),
         'arms': arms,
         'seeds': seeds,
+        'analysis_datasets': (
+            sorted(selected_datasets) if selected_datasets else 'all'),
         'n_arm_rows': len(arm_summaries),
         'n_contrasts': len(config.get('contrasts', [])),
         'n_contrast_rows': len(contrast_summaries),

@@ -18,8 +18,11 @@
 #   GPU_LIST=0,...,7       default all eight cards
 #   MAX_USED_MIB=2000      fail if a card is already occupied
 #   ALLOW_BUSY=1           skip the busy-GPU check
-#   ALLOW_RESUME=1         allow existing das_* run directories to resume
 #   WANDB_MODE=online      online | offline | disabled
+#
+# Existing das_* directories are resumed automatically: completed training and
+# eval stages are skipped, while missing stages are filled in.  Use a fresh
+# parent directory only if you intentionally want a new run namespace.
 #
 # The eval stage refuses any arm/seed whose run_info.json is not a completed
 # matching-budget training run, so a crashed training run cannot silently
@@ -59,9 +62,9 @@ GPU_LIST="${GPU_LIST:-0,1,2,3,4,5,6,7}"
 MAX_USED_MIB="${MAX_USED_MIB:-2000}"
 LOG_ROOT="$REPO/results/logs/sacm_stc_das_quick"
 
-# A stale das_* directory can make --resume skip a "complete" run or reuse a
-# partial checkpoint from an earlier code version.  Refuse to start unless
-# the operator explicitly opts into resuming.
+# One-click resume: existing das_* directories are kept.  The ablation runner
+# skips completed training/eval stages and only fills the missing ones, so a
+# killed driver can be restarted without retraining the finished arms.
 STALE_ARMS=()
 for arm in "${ARMS[@]}"; do
   if [ -d "$REPO/results/runs/sacm_stc/$arm" ]; then
@@ -69,17 +72,9 @@ for arm in "${ARMS[@]}"; do
   fi
 done
 if [ "${#STALE_ARMS[@]}" -gt 0 ]; then
-  if [ "${ALLOW_RESUME:-0}" = "1" ]; then
-    echo "WARNING: resuming existing das_* directories: ${STALE_ARMS[*]}"
-  else
-    echo "ERROR: stale das_* result directories already exist:" >&2
-    for arm in "${STALE_ARMS[@]}"; do
-      echo "  results/runs/sacm_stc/$arm" >&2
-    done
-    echo "Move/delete only these das_* directories, or re-run with" >&2
-    echo "ALLOW_RESUME=1 if you intentionally want to resume them." >&2
-    exit 2
-  fi
+  echo "Existing das_* directories will be resumed/skipped: ${STALE_ARMS[*]}"
+  echo "Completed training and eval stages are not recomputed."
+  echo "To intentionally start fresh, move/delete only those das_* directories."
 fi
 LOCK_FILE="$LOG_ROOT/quick.lock"
 
@@ -171,7 +166,13 @@ if [ "${DAS_DAEMON:-0}" != "1" ]; then
   echo "  runs:  $RUNS ($WAVES wave(s) on $GPU_COUNT GPUs)"
   echo "  eta:   ~$((ETA_MIN / 60))h$((ETA_MIN % 60))m (train+eval, no diagnostics)"
   echo "  log:   $LOG"
-  DAS_LOG="$LOG" DAS_DAEMON=1 nohup bash "$0" >>"$LOG" 2>&1 &
+  if command -v setsid >/dev/null 2>&1; then
+    DAS_LOG="$LOG" DAS_DAEMON=1 setsid nohup bash "$0" \
+      >>"$LOG" 2>&1 </dev/null &
+  else
+    DAS_LOG="$LOG" DAS_DAEMON=1 nohup bash "$0" \
+      >>"$LOG" 2>&1 </dev/null &
+  fi
   PID=$!
   echo "$PID" >"$PID_FILE"
   echo "  pid:   $PID"

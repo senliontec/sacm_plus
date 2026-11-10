@@ -24,7 +24,6 @@
 #   FINAL_ARMS="..."       comma/space separated arm subset
 #   MAX_USED_MIB=2000      fail if a card is already occupied
 #   ALLOW_BUSY=1           skip the busy-GPU check
-#   ALLOW_RESUME=1         allow existing final_* run directories
 #   ALLOW_CODE_CHANGE=1    replace a stale code/config fingerprint
 #   PER_RUN_MIN=300        rough per-run minutes for the ETA display
 #   WANDB_MODE=online      online | offline | disabled
@@ -116,17 +115,9 @@ for arm in "${ARMS[@]}"; do
   fi
 done
 if [ "${#STALE_ARMS[@]}" -gt 0 ]; then
-  if [ "${ALLOW_RESUME:-0}" = "1" ]; then
-    echo "WARNING: resuming existing final_* directories: ${STALE_ARMS[*]}"
-  else
-    echo "ERROR: final_* result directories already exist:" >&2
-    for arm in "${STALE_ARMS[@]}"; do
-      echo "  results/runs/sacm_stc/$arm" >&2
-    done
-    echo "Move/delete only these final_* directories, or re-run with" >&2
-    echo "ALLOW_RESUME=1 if you intentionally want to resume them." >&2
-    exit 2
-  fi
+  echo "Existing final_* directories will be resumed/skipped: ${STALE_ARMS[*]}"
+  echo "Completed training and eval stages are not recomputed."
+  echo "To intentionally start fresh, move/delete only those final_* directories."
 fi
 
 # Freeze the code and config.  The per-run provenance records the complete
@@ -225,7 +216,13 @@ if [ "${FINAL_DAEMON:-0}" != "1" ]; then
   echo "  eta:   ~$((ETA_MIN / 60))h$((ETA_MIN % 60))m (train+eval, no diagnostics)"
   echo "  fingerprint: $FINGERPRINT"
   echo "  log:   $LOG"
-  FINAL_LOG="$LOG" FINAL_DAEMON=1 nohup bash "$0" >>"$LOG" 2>&1 &
+  if command -v setsid >/dev/null 2>&1; then
+    FINAL_LOG="$LOG" FINAL_DAEMON=1 setsid nohup bash "$0" \
+      >>"$LOG" 2>&1 </dev/null &
+  else
+    FINAL_LOG="$LOG" FINAL_DAEMON=1 nohup bash "$0" \
+      >>"$LOG" 2>&1 </dev/null &
+  fi
   PID=$!
   echo "$PID" >"$PID_FILE"
   echo "  pid:   $PID"

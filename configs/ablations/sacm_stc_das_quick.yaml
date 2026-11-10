@@ -121,6 +121,25 @@ analysis:
   primary_metric: dice
   primary_role: All
   metrics: [dice, iou, cldice, hd95]
+  # Primary paper analysis is the balanced 15-dataset subset
+  # (5 Seen / 5 Unseen / 5 Novel).  Keep the full 20-dataset eval for
+  # completeness, but recompute macro metrics from this subset here.
+  datasets:
+    - CHASEDB1
+    - CrackTree200
+    - CREMI
+    - DCA1
+    - DRIVE
+    - CHCrack5k
+    - FIVES
+    - HRF
+    - LES-AV
+    - OCTA-500
+    - DeepGlobe
+    - ROAD
+    - TopoMortar
+    - TYRE
+    - WIRE
   # A crashed run still has best_model.pth; never let it enter the paired
   # tables.  The eval stage enforces the same rule before writing metrics.
   require_train_complete: true

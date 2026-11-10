@@ -360,6 +360,10 @@ def main() -> int:
                              'sacm_official:default')
     parser.add_argument('--seeds', nargs='+', type=int, default=[0, 1, 2, 3])
     parser.add_argument('--expected-datasets', type=int, default=20)
+    parser.add_argument(
+        '--datasets', nargs='+', default=None,
+        help='optional analysis subset; each eval table may still contain '
+             'the full 20-dataset protocol')
     parser.add_argument('--out-dir', type=Path,
                         default=Path('results/reports/paper_table2'))
     parser.add_argument('--decimals', type=int, default=None,
@@ -440,6 +444,19 @@ def main() -> int:
     else:
         print(f'[warn] protocol manifest not found: {protocol}; '
               'skipping dataset-name check')
+
+    if args.datasets:
+        requested = {
+            item.strip() for value in args.datasets
+            for item in str(value).split(',') if item.strip()
+        }
+        unknown = sorted(requested - set(datasets))
+        if unknown:
+            raise SystemExit(
+                f'--datasets contains unknown dataset(s): {unknown}; '
+                f'available: {sorted(datasets)}')
+        datasets = requested
+        print(f'[info] analysis subset: {len(datasets)} datasets')
 
     datasets = sorted(
         datasets,

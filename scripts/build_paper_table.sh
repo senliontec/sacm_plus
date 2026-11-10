@@ -18,6 +18,7 @@
 # Env overrides:
 #   MODELS="sacm_stc:all_dense sacm_official:default"
 #   SEEDS="0 1 2 3"
+#   DATASETS="CHASEDB1 CrackTree200 ... WIRE"   optional analysis subset
 #   OUT_DIR=results/reports/paper_table2
 #   EXPECTED_DATASETS=20
 #   PYTHON=...
@@ -29,8 +30,15 @@ MODELS="${MODELS:-sacm_stc:all_dense sacm_official:default}"
 SEEDS="${SEEDS:-0 1 2 3}"
 OUT_DIR="${OUT_DIR:-results/reports/paper_table2}"
 EXPECTED_DATASETS="${EXPECTED_DATASETS:-20}"
+DATASETS="${DATASETS:-}"
 read -r -a MODEL_ARGS <<< "$MODELS"
 read -r -a SEED_ARGS <<< "$SEEDS"
+DATASET_ARGS=()
+DATASET_FLAGS=()
+if [ -n "$DATASETS" ]; then
+  read -r -a DATASET_ARGS <<< "$DATASETS"
+  DATASET_FLAGS=(--datasets "${DATASET_ARGS[@]}")
+fi
 
 if [ -z "${PYTHON:-}" ]; then
   if [ -x /home/zkyd/anaconda3/envs/tsai/bin/python ]; then
@@ -57,6 +65,7 @@ echo "============================================================"
   --seeds "${SEED_ARGS[@]}" \
   --expected-datasets "$EXPECTED_DATASETS" \
   --out-dir "$OUT_DIR" \
+  "${DATASET_FLAGS[@]}" \
   "$@"
 
 echo "============================================================"
