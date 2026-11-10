@@ -112,6 +112,12 @@ class BCUNetAdapter(BaselineAdapter):
         'mask resize is NEAREST to preserve 1-px curvilinear labels; '
         '--bcunet-mask-resize area restores the official INTER_AREA label '
         'downsampling.',
+        'Under the retinal augmentation scope, non-retinal samples are kept '
+        'once instead of being repeated with an identity transform 18 times. '
+        'The old repetition preserved equal per-domain sample counts but '
+        'made 2/3 of every epoch duplicate GPU work and biased the pooled '
+        'domains toward the non-retinal sets. Pass '
+        '--bcunet-repeat-identity to reproduce the legacy balanced stream.',
         'Official main.py uses nn.DataParallel on four GPUs, workers=8 and an '
         'unseeded global RNG; this port uses one GPU per job, workers=0 and '
         'the shared protocol seed, so floating-point accumulation and data '
@@ -153,6 +159,12 @@ class BCUNetAdapter(BaselineAdapter):
             default='retinal',
             help='paper scope is retinal vessel datasets; all is a task '
                  'adaptation for the pooled 20-domain protocol')
+        parser.add_argument(
+            '--bcunet-repeat-identity', action='store_true',
+            help='legacy balanced sampling: repeat non-retinal images with '
+                 'identity 18x. Default is unique samples (retinal variants '
+                 '+ one copy per non-retinal image), which avoids 2/3 '
+                 'duplicate GPU work')
         parser.add_argument(
             '--bcunet-fusion-unet', type=float, default=0.5,
             help='fused-output weight for the U-Net branch (paper 0.5)')
@@ -249,7 +261,9 @@ class BCUNetAdapter(BaselineAdapter):
             augment_scope=str(getattr(
                 args, 'bcunet_augment_scope', 'retinal')),
             mask_resize=str(getattr(
-                args, 'bcunet_mask_resize', 'nearest')))
+                args, 'bcunet_mask_resize', 'nearest')),
+            repeat_identity=bool(getattr(
+                args, 'bcunet_repeat_identity', False)))
 
     def _load_image(self, sample):
         image = cv2.imread(str(sample.image_path))
@@ -330,6 +344,8 @@ class BCUNetAdapter(BaselineAdapter):
                 getattr(args, 'bcunet_augment_variants', 18)),
             'augment_scope': str(
                 getattr(args, 'bcunet_augment_scope', 'retinal')),
+            'repeat_identity': bool(
+                getattr(args, 'bcunet_repeat_identity', False)),
             'fusion_unet': unet_weight,
             'fusion_convnext': convnext_weight,
             'convtranspose': bool(
@@ -359,6 +375,7 @@ class BCUNetAdapter(BaselineAdapter):
                 ('loss', 'bcunet_loss'),
                 ('augment_variants', 'bcunet_augment_variants'),
                 ('augment_scope', 'bcunet_augment_scope'),
+                ('repeat_identity', 'bcunet_repeat_identity'),
                 ('fusion_unet', 'bcunet_fusion_unet'),
                 ('fusion_convnext', 'bcunet_fusion_convnext'),
                 ('convtranspose', 'bcunet_convtranspose'),

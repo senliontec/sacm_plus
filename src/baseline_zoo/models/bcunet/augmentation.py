@@ -118,7 +118,8 @@ class BCUNetTrainDataset(Dataset):
 
     def __init__(self, samples, input_size: int = 512, variants: int = 18,
                  seed: int = 0, augment_scope: str = 'retinal',
-                 mask_resize: str = 'nearest'):
+                 mask_resize: str = 'nearest',
+                 repeat_identity: bool = False):
         if variants < 1:
             raise ValueError('variants must be at least 1')
         if variants > N_VARIANTS:
@@ -136,15 +137,33 @@ class BCUNetTrainDataset(Dataset):
         self.seed = int(seed)
         self.augment_scope = augment_scope
         self.mask_resize = mask_resize
+        self.repeat_identity = bool(repeat_identity)
+        # Build the expanded index list once.  Non-retinal samples are not
+        # augmented under retinal scope; repeating their identity 18 times
+        # (the previous behavior) wastes 2/3 of every epoch on duplicate
+        # GPU work.  ``repeat_identity=True`` restores that legacy balanced
+        # sampling for reproducing old runs.
+        self.indices = []
+        for sample_index, sample in enumerate(self.samples):
+            if (self.augment_scope == 'retinal'
+                    and sample.dataset not in RETINAL_VESSEL_DATASETS
+                    and not self.repeat_identity):
+                self.indices.append((sample_index, 0))
+            else:
+                self.indices.extend(
+                    (sample_index, variant)
+                    for variant in range(self.variants))
 
     def __len__(self):
-        return len(self.samples) * self.variants
+        return len(self.indices)
 
     def __getitem__(self, index):
-        sample_index, variant = divmod(index, self.variants)
+        sample_index, variant = self.indices[index]
         sample = self.samples[sample_index]
         if (self.augment_scope == 'retinal'
                 and sample.dataset not in RETINAL_VESSEL_DATASETS):
+            # Legacy repeat_identity mode stores 18 indices for these
+            # samples; they must all be the identity variant.
             variant = 0
         image, mask = _read_pair(sample)
         image, mask = apply_variant(

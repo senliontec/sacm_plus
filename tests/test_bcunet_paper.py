@@ -98,6 +98,19 @@ def test_adapter_norm_config_roundtrip_and_legacy_inference():
     assert args.bcunet_norm == 'batch'
 
 
+def test_repeat_identity_flag_roundtrip():
+    adapter = BCUNetAdapter()
+    args = build_parser(adapter).parse_args([
+        '--stage', 'train', '--no-pretrained',
+        '--bcunet-repeat-identity'])
+    assert args.bcunet_repeat_identity is True
+    config = adapter.save_config(args)
+    assert config['repeat_identity'] is True
+    restored = build_parser(BCUNetAdapter()).parse_args(['--stage', 'train'])
+    BCUNetAdapter().restore_config(restored, config)
+    assert restored.bcunet_repeat_identity is True
+
+
 def test_model_uses_paper_average_fusion():
     model = BCUNet(
         n_channels=3, n_classes=2, bilinear=True, pretrained=False,
@@ -147,10 +160,15 @@ def test_augmentation_scope_is_retinal_by_default(tmp_path):
     paper_scope = BCUNetTrainDataset(
         [retinal, other], input_size=512, variants=18, seed=0,
         augment_scope='retinal')
-    # Retinal samples use the full variants.
+    # Retinal samples use the full variants; non-retinal samples appear once.
+    assert len(paper_scope) == 19
     assert not torch.equal(paper_scope[0][0], paper_scope[1][0])
-    # Non-retinal samples repeat identity: items 18 and 19 are identical.
-    assert torch.equal(paper_scope[18][0], paper_scope[19][0])
+    assert paper_scope[18][0].shape == (3, 512, 512)
+    legacy = BCUNetTrainDataset(
+        [retinal, other], input_size=512, variants=18, seed=0,
+        augment_scope='retinal', repeat_identity=True)
+    assert len(legacy) == 36
+    assert torch.equal(legacy[18][0], legacy[19][0])
     all_scope = BCUNetTrainDataset(
         [other], input_size=512, variants=18, seed=0,
         augment_scope='all')

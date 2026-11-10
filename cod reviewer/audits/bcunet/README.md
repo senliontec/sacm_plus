@@ -200,3 +200,48 @@ G6a/G6c；A0。
 - Prediction and `--stage all` no longer request ImageNet-22k pretrained downloads; training keeps the official initialization.
 - Test: `test_bcunet_prediction_skips_pretrained_backbone`.
 - Remaining: online/offline prediction no longer blocks, but official constructibility/G2/G4 caveats remain.
+
+## Live task-adaptation fix (2026-11-10)
+
+### Fixed: identity-18x duplication of non-retinal samples
+
+Under the default retinal augmentation scope, the previous
+`BCUNetTrainDataset` still enumerated 18 indices for every sample.  For the
+12 non-retinal seed-0 images, those 18 copies were forced to the identity
+variant, so each epoch contained:
+
+```text
+6 retinal x 18 = 108 real augmented samples
+12 non-retinal x 18 = 216 identical duplicates
+total = 324 samples/epoch
+```
+
+That wasted about 2/3 of every epoch on duplicate GPU work and over-weighted
+the non-retinal domains by 18x.  The dataset now builds an explicit index
+list: retinal samples get all variants, non-retinal samples appear once.
+Seed 0 becomes 108 + 12 = 120 samples/epoch (60 batch-2 steps instead of
+162).  `--bcunet-repeat-identity` restores the legacy balanced stream for
+reproducing old runs; the setting is stored in the checkpoint config.
+
+### Remaining issues
+
+- **Missing local asset:** `checkpoints/convnext_base_22k_224.pth` is not in
+  the local tree.  Training with the default pretrained initialization fails
+  locally at model construction; the server must provide the checkpoint or
+  `--no-pretrained` must be used for a smoke test.
+- **Repaired, not official:** official `core/models.py` has a broken bilinear
+  `Up` channel count and an undefined `upconv2x2` OutConv; the port repairs
+  both.  MRL is fed raw logits instead of the upstream log-softmax path.
+  These remain documented approximations, not official numerical parity.
+- **Task match:** only retinal datasets receive the 18x augmentation; the
+  pooled protocol mixes retinal and non-retinal domains.  The new unique
+  stream is faster but over-weights retinal samples; the legacy balanced
+  stream is available but slower.  This trade-off must be stated in the
+  paper.
+- **Raw BGR [0,255] with ConvNeXt-22k:** inherited from the official loader;
+  no ImageNet normalization is applied.  This is upstream behavior, not a
+  newly introduced port bug, but it may be a performance risk.
+- Local 2080 Ti cannot run the full training step at 512/batch-2 (OOM);
+  timing/validation of the 512 dual-branch model requires a 24 GiB card.
+- Tests: `tests/test_bcunet_paper.py` 10 passed, including the new unique
+  stream and repeat-identity round-trip tests.
