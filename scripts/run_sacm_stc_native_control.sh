@@ -20,6 +20,7 @@
 #   MAX_USED_MIB=2000      fail if a card is already occupied
 #   ALLOW_BUSY=1           skip the busy-GPU check
 #   WANDB_MODE=online      online | offline | disabled
+#   CONTROL_DRY_RUN=1      validate config/native arms and exit without GPU work
 #
 # Existing legacy_* directories are resumed automatically.  The native arms
 # must already have completed training and 20-dataset eval; this wrapper will
@@ -79,6 +80,15 @@ if ! grep -q 'topology-source: training' "$REPO/$CONFIG"; then
 fi
 
 # The native arms must already be trained and evaluated on all 20 datasets.
+EXPECTED_EPOCHS="$(
+  "$PYTHON" -c \
+    'import sys, yaml; print(int(yaml.safe_load(open(sys.argv[1]))["epochs"]))' \
+    "$REPO/$CONFIG" 2>/dev/null || true
+)"
+if ! [[ "$EXPECTED_EPOCHS" =~ ^[0-9]+$ ]]; then
+  echo "ERROR: cannot read epochs from $CONFIG" >&2
+  exit 2
+fi
 missing_native=()
 for arm in "${NATIVE_ARMS[@]}"; do
   for seed in "${SEEDS[@]}"; do
@@ -87,6 +97,7 @@ for arm in "${NATIVE_ARMS[@]}"; do
     info="$run_root/run_info.json"
     if [ ! -f "$info" ] \
        || ! grep -q '"status"[[:space:]]*:[[:space:]]*"done"' "$info" \
+       || ! grep -Eq "\"epochs\"[[:space:]]*:[[:space:]]*${EXPECTED_EPOCHS}([^0-9]|$)" "$info" \
        || [ ! -f "$table" ] \
        || [ "$(wc -l < "$table" 2>/dev/null || echo 0)" -lt 21 ]; then
       missing_native+=("$arm seed_$seed")
@@ -99,6 +110,12 @@ if [ "${#missing_native[@]}" -gt 0 ]; then
   echo "Run the DAS quick ablation first, e.g.:" >&2
   echo "  bash scripts/run_sacm_stc_das_quick.sh" >&2
   exit 2
+fi
+
+if [ "${CONTROL_DRY_RUN:-0}" = "1" ]; then
+  echo "Dry run: native arms and control config are ready;"
+  echo "would train ${LEGACY_ARMS[*]} for seeds ${SEEDS[*]} on GPUs $GPU_LIST."
+  exit 0
 fi
 
 STALE_LEGACY=()
