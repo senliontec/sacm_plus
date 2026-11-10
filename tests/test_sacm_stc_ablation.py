@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import importlib.util
+import json
 import sys
 from pathlib import Path
 
@@ -37,6 +38,10 @@ PAPER_TABLE = _load_module(
     'scripts/pipeline/build_paper_table.py')
 CONFIG = REPO_ROOT / 'configs' / 'ablations' / \
     'sacm_stc_scope_structure.yaml'
+QUICK_CONFIG = REPO_ROOT / 'configs' / 'ablations' / \
+    'sacm_stc_das_quick.yaml'
+FINAL_CONFIG = REPO_ROOT / 'configs' / 'ablations' / \
+    'sacm_stc_final.yaml'
 
 
 def test_sacm_stc_default_alias_is_rejected():
@@ -85,6 +90,95 @@ def test_ablation_config_and_train_command_parse():
         assert parsed.epochs == 200
         assert parsed.use_wandb is True
         assert parsed.wandb_name.endswith(f'{arm}-seed0')
+
+
+def test_quick_das_config_and_arm_flags_parse():
+    config = RUNNER.load_config(QUICK_CONFIG)
+    assert config['eval_checkpoint'] == 'best_model.pth'
+    assert config['analysis']['require_train_complete'] is True
+    assert config['analysis']['require_eval_complete'] is True
+    assert list(config['arms']) == [
+        'das_ss',
+        'das_aa_mean',
+        'das_aa_dep',
+        'das_as_dep',
+    ]
+
+    from baseline_zoo.adapters.registry import load_adapter
+    from baseline_zoo.runtime import build_parser
+
+    parser = build_parser(load_adapter('sacm_stc'))
+    cases = {
+        'das_ss': ('selected', 'selected', 'deployment'),
+        'das_aa_mean': ('all', 'all', 'mean'),
+        'das_aa_dep': ('all', 'all', 'deployment'),
+        'das_as_dep': ('all', 'selected', 'deployment'),
+    }
+    for arm, (dense, topology, aggregate) in cases.items():
+        command = RUNNER._train_command(
+            config, arm, 0, '0', Path('data/sacm_3shot_seed0'),
+            Path(f'results/runs/sacm_stc/{arm}/seed_0'), 300, False)
+        parsed = parser.parse_args(command[5:])
+        assert parsed.stage2_loss_scope == dense
+        assert parsed.topology_head == topology
+        if arm == 'das_aa_mean':
+            assert parsed.stage2_loss_aggregate == 'mean'
+            assert parsed.topology_aggregate == 'mean'
+        else:
+            assert parsed.stage2_loss_aggregate == aggregate
+            assert parsed.topology_aggregate == 'deployment'
+
+
+def test_final_config_is_canonical_and_parses_all_arms():
+    config = RUNNER.load_config(FINAL_CONFIG)
+    assert config['output_root'] == 'results/runs/sacm_stc'
+    assert config['eval_checkpoint'] == 'best_model.pth'
+    assert config['epochs'] == 800
+    assert config['analysis']['require_train_complete'] is True
+    assert config['analysis']['require_eval_complete'] is True
+    assert list(config['arms']) == [
+        'final_full',
+        'final_sel_sel',
+        'final_sel_all',
+        'final_all_sel',
+        'final_all_all_mean',
+        'final_sel_none',
+        'final_all_none',
+    ]
+
+    from baseline_zoo.adapters.registry import load_adapter
+    from baseline_zoo.runtime import build_parser
+
+    parser = build_parser(load_adapter('sacm_stc'))
+    for arm in config['arms']:
+        command = RUNNER._train_command(
+            config, arm, 0, '0', Path('data/sacm_3shot_seed0'),
+            Path(f'results/runs/sacm_stc/{arm}/seed_0'), 800, False)
+        parsed = parser.parse_args(command[5:])
+        assert parsed.epochs == 800
+        assert parsed.stage2_loss_scope in ('all', 'selected')
+        assert parsed.topology_head in ('all', 'selected')
+        if arm in ('final_sel_none', 'final_all_none'):
+            assert parsed.cl_dice_weight == 0.0
+            assert parsed.skeleton_recall_weight == 0.0
+        else:
+            assert parsed.cl_dice_weight == 0.1
+            assert parsed.skeleton_recall_weight == 0.1
+
+    from baseline_zoo.protocols import load_protocol
+    protocol = load_protocol('seeded5')
+    jobs = RUNNER.build_jobs(
+        config, protocol, 'train', list(config['arms']),
+        config['seeds'], 800, False)
+    assert len(jobs) == 7 * 4
+    assert all([spec['stage'] for spec in job['commands']] == ['train']
+               for job in jobs)
+
+    assert PAPER_TABLE._model_label('sacm_stc', 'final_full') == \
+        'SACM-STC (full)'
+    assert PAPER_TABLE._model_label(
+        'sacm_stc', 'final_all_all_mean') == \
+        'SACM-STC (all/all, uniform control)'
 
 
 def test_audit_jobs_build_diagnostic_commands():
@@ -230,6 +324,120 @@ def test_resume_rejects_partial_run_with_other_epoch_budget(tmp_path):
     jobs = RUNNER.build_jobs(
         config, protocol, 'all', [arm], [1], 200, True)
     assert '--resume' in jobs[0]['commands'][0]['command']
+
+
+def test_eval_stage_requires_completed_training(tmp_path):
+    import copy
+
+    config = copy.deepcopy(RUNNER.load_config(CONFIG))
+    config['output_root'] = str(tmp_path / 'runs')
+    config['diagnostics']['output_root'] = str(tmp_path / 'diagnostics')
+    from baseline_zoo.protocols import load_protocol
+    protocol = load_protocol('seeded5')
+    arm = 'b0_selected_base'
+    run = tmp_path / 'runs' / arm / 'seed_0'
+
+    jobs = RUNNER.build_jobs(
+        config, protocol, 'eval', [arm], [0], 300, True)
+    assert jobs[0]['commands'] == []
+    assert 'run_info' in jobs[0]['error']
+
+    run.mkdir(parents=True)
+    info = run / 'run_info.json'
+    info.write_text('{"status": "running", "epochs": 300}')
+    jobs = RUNNER.build_jobs(
+        config, protocol, 'eval', [arm], [0], 300, True)
+    assert 'status' in jobs[0]['error']
+
+    info.write_text('{"status": "done", "epochs": 200}')
+    jobs = RUNNER.build_jobs(
+        config, protocol, 'eval', [arm], [0], 300, True)
+    assert 'epochs' in jobs[0]['error']
+
+    info.write_text('{"status": "done", "epochs": 300}')
+    jobs = RUNNER.build_jobs(
+        config, protocol, 'eval', [arm], [0], 300, True)
+    assert 'error' not in jobs[0]
+    assert [spec['stage'] for spec in jobs[0]['commands']] == ['eval']
+
+    # Explicit override remains available for externally produced checkpoints.
+    info.unlink()
+    jobs = RUNNER.build_jobs(
+        config, protocol, 'eval', [arm], [0], 300, True,
+        allow_untrained_eval=True)
+    assert 'error' not in jobs[0]
+    assert [spec['stage'] for spec in jobs[0]['commands']] == ['eval']
+
+
+def test_analysis_can_require_completed_training(tmp_path):
+    base = tmp_path / 'runs'
+    arm = 'arm_a'
+    run = base / arm / 'seed_0'
+    tables = run / 'eval' / 'tables'
+    tables.mkdir(parents=True)
+    macro = []
+    for role in ('All', 'Seen', 'Unseen', 'Novel'):
+        for metric in ('dice', 'iou', 'cldice', 'hd95'):
+            value = 50.0 if metric == 'hd95' else 0.5
+            macro.append({'role': role, 'metric': metric, 'mean': value})
+    _write_csv(tables / 'macro_metrics.csv', macro,
+               ['role', 'metric', 'mean'])
+    _write_csv(tables / 'all_metrics.csv', [{
+        'dataset': 'D', 'role': 'Seen',
+        'dice_mean': 0.5, 'iou_mean': 0.5,
+        'cldice_mean': 0.5, 'hd95_mean': 50.0,
+    }], ['dataset', 'role', 'dice_mean', 'iou_mean',
+         'cldice_mean', 'hd95_mean'])
+    (run / 'eval' / 'run_manifest.json').write_text(
+        '{"status": "done", "checkpoint": "/x/best_model.pth"}')
+
+    config = {
+        'schema_version': 1,
+        'name': 'require_complete_test',
+        'protocol': 'seeded5',
+        'method': 'sacm_stc',
+        'seeds': [0],
+        'epochs': 300,
+        'expected_datasets': 1,
+        'eval_checkpoint': 'best_model.pth',
+        'output_root': str(base),
+        'arms': {arm: {'args': {}}},
+        'contrasts': [],
+        'analysis': {
+            'output_root': str(tmp_path / 'analysis'),
+            'require_train_complete': True,
+            'require_eval_complete': True,
+            'bootstrap_samples': 10,
+            'seed': 1,
+        },
+        'diagnostics': {'output_root': str(tmp_path / 'diagnostics')},
+    }
+    config_path = tmp_path / 'config.yaml'
+    config_path.write_text(yaml.safe_dump(config))
+
+    # No contrast is configured, so the analyzer's exit code is 2; the
+    # assertion here is about what was admitted to the tables.
+    assert ANALYZER.main(['--config', str(config_path)]) in (0, 2)
+    summary = json.loads((tmp_path / 'analysis' / 'summary.json').read_text())
+    assert int(summary['n_arm_rows']) == 0
+    assert any('run_info' in item for item in summary['missing'])
+
+    run.mkdir(parents=True, exist_ok=True)
+    (run / 'run_info.json').write_text(
+        '{"status": "done", "epochs": 300}')
+    assert ANALYZER.main(['--config', str(config_path)]) in (0, 2)
+    summary = json.loads((tmp_path / 'analysis' / 'summary.json').read_text())
+    assert int(summary['n_arm_rows']) > 0
+    assert not any('run_info' in item for item in summary['missing'])
+
+    # A partial eval table must be rejected even when training is complete.
+    _write_csv(tables / 'all_metrics.csv', [],
+               ['dataset', 'role', 'dice_mean', 'iou_mean',
+                'cldice_mean', 'hd95_mean'])
+    assert ANALYZER.main(['--config', str(config_path)]) in (0, 2)
+    summary = json.loads((tmp_path / 'analysis' / 'summary.json').read_text())
+    assert int(summary['n_arm_rows']) == 0
+    assert any('eval table' in item for item in summary['missing'])
 
 
 def test_matrix_evaluates_the_configured_final_checkpoint():

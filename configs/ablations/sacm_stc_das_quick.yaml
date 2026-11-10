@@ -1,0 +1,131 @@
+# Quick deployment-aligned Stage-2 (DAS) ablation.
+#
+# Four arms x four seeds, 300 epochs, train + 20-dataset eval, no diagnostics.
+# New arm names keep the previous mean/best results under results/runs/sacm_stc
+# untouched.  eval_checkpoint=best_model.pth matches the previously pulled
+# tables; change to last_model.pth only for a separate final-checkpoint study.
+schema_version: 1
+name: sacm_stc_das_quick
+description: >-
+  Four-arm deployment-aligned Stage-2 ablation at the shared 300-epoch
+  training budget: selected-selected baseline, old equal-weight full control,
+  deployment-weighted full, and deployment-weighted dense-aux/selected-topology.
+protocol: seeded5
+method: sacm_stc
+seeds: [0, 1, 2, 3]
+epochs: 300
+eval_checkpoint: best_model.pth
+expected_datasets: 20
+output_root: results/runs/sacm_stc
+
+wandb:
+  project: sacm
+  entity: buaazqk
+  group: sacm_stc_das_quick
+  tags: sacm_stc,ablation,das,quick
+  use_wandb: true
+
+common_train_args:
+  sam-checkpoint: checkpoints/sam_vit_l_0b3195.pth
+  bce-weight: 0.7
+  dice-weight: 0.3
+  bce-pos-weight: 2
+  binary-targets: 0
+  deploy-threshold: 0.5
+  deep-sup-weight: 0.3
+  iou-loss-weight: 0
+  head-select: gating
+  deployment-head: 2
+  topology-resolution: 512
+  topology-warmup-epochs: 5
+  stage2-loss-aggregate: deployment
+  stage2-aux-weight: 0.25
+  topology-aggregate: deployment
+  topology-aux-weight: 0.25
+  use-stc: 0
+  use-typed-stage2: 0
+  save-every: 0
+  num-workers: 0
+
+arms:
+  das_ss:
+    display_name: Ss selected dense + selected structure
+    args:
+      stage2-loss-scope: selected
+      topology-head: selected
+      cl-dice-weight: 0.1
+      skeleton-recall-weight: 0.1
+
+  das_aa_mean:
+    display_name: Aa-mean old equal-weight full control
+    args:
+      stage2-loss-scope: all
+      topology-head: all
+      stage2-loss-aggregate: mean
+      topology-aggregate: mean
+      cl-dice-weight: 0.1
+      skeleton-recall-weight: 0.1
+
+  das_aa_dep:
+    display_name: Aa-deployment full, selected full + 0.25 aux
+    args:
+      stage2-loss-scope: all
+      topology-head: all
+      stage2-loss-aggregate: deployment
+      topology-aggregate: deployment
+      stage2-aux-weight: 0.25
+      topology-aux-weight: 0.25
+      cl-dice-weight: 0.1
+      skeleton-recall-weight: 0.1
+
+  das_as_dep:
+    display_name: As-deployment all-dense aux + selected structure
+    args:
+      stage2-loss-scope: all
+      topology-head: selected
+      stage2-loss-aggregate: deployment
+      stage2-aux-weight: 0.25
+      cl-dice-weight: 0.1
+      skeleton-recall-weight: 0.1
+
+contrasts:
+  - id: das_aa_dep_minus_ss
+    left: das_aa_dep
+    right: das_ss
+    label: deployment full vs selected-selected
+  - id: das_aa_dep_minus_aa_mean
+    left: das_aa_dep
+    right: das_aa_mean
+    label: deployment vs old equal-weight full
+  - id: das_aa_mean_minus_ss
+    left: das_aa_mean
+    right: das_ss
+    label: old equal-weight full vs selected-selected
+  - id: das_as_dep_minus_ss
+    left: das_as_dep
+    right: das_ss
+    label: all-dense aux + selected structure vs selected-selected
+  - id: das_as_dep_minus_aa_dep
+    left: das_as_dep
+    right: das_aa_dep
+    label: selected vs all structure under deployment-weighted dense
+
+diagnostics:
+  splits: [val, test]
+  max_per_dataset: 20
+  empty_metric_policy: penalty
+  output_root: results/ablations/sacm_stc_das/candidate_diagnostics
+
+analysis:
+  output_root: results/ablations/sacm_stc_das/analysis
+  primary_metric: dice
+  primary_role: All
+  metrics: [dice, iou, cldice, hd95]
+  # A crashed run still has best_model.pth; never let it enter the paired
+  # tables.  The eval stage enforces the same rule before writing metrics.
+  require_train_complete: true
+  # A crashed 20-dataset eval can leave a partial all_metrics.csv; require
+  # the complete table and the matching checkpoint manifest as well.
+  require_eval_complete: true
+  bootstrap_samples: 2000
+  seed: 20261110

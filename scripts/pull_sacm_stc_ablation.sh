@@ -2,8 +2,8 @@
 # One-click pull of the completed SACM-STC ablation arms.
 #
 # It probes the server first and only pulls arms whose seeds each have a
-# complete 20-dataset eval/tables/all_metrics.csv.  This avoids treating a
-# still-training arm (currently b3/Aa) as a finished result.
+# complete 20-dataset eval/tables/all_metrics.csv and a completed training
+# run_info.json.  This avoids treating a still-training arm as a result.
 #
 # The actual transfer is delegated to scripts/pull_results.sh, so it uses
 # the same SSH/rsync retry and include/exclude rules (no predictions or
@@ -15,16 +15,28 @@
 #   bash scripts/pull_sacm_stc_ablation.sh --dry-run
 #   bash scripts/pull_sacm_stc_ablation.sh --seeds "0 1 2 3"
 #   bash scripts/pull_sacm_stc_ablation.sh --arms "b0_selected_base ss_selected_dense_selected_structure"
+#   bash scripts/pull_sacm_stc_ablation.sh \
+#     --config configs/ablations/sacm_stc_das_quick.yaml \
+#     --arms "das_ss das_aa_mean das_aa_dep das_as_dep" --analyze
+#
+# Options:
+#   --config PATH          experiment YAML (default: scope_structure)
+#   --checkpoint-name NAME override config eval_checkpoint for the probe
+#   --no-probe             pull requested arms without server checks
+#
+# If --arms is omitted, the arm list is read from the selected config.
 #
 # Env overrides:
 #   SERVER=zkyd@172.16.1.7
 #   TARGET=/home/zkyd/code/sacm-plus
 #   EXPECTED_DATASETS=20
+#   EXPECTED_EPOCHS=300
 #
-# After the pull, --analyze runs:
+# After the pull, --analyze runs the selected config:
 #   bash scripts/run_sacm_stc_ablation.sh --stage analyze \
-#     --arms <completed arms> --seeds <seeds>
-# and writes results/ablations/sacm_stc/analysis/ablation_report.md.
+#     --config <config> --arms <completed arms> --seeds <seeds>
+# The checkpoint name, epoch budget and analysis root default to the config's
+# ``eval_checkpoint``, ``epochs`` and ``analysis.output_root``.
 set -euo pipefail
 cd "$(dirname "$0")/.." || exit 1
 REPO="$(pwd)"
@@ -32,23 +44,29 @@ REPO="$(pwd)"
 SERVER="${SERVER:-zkyd@172.16.1.7}"
 TARGET="${TARGET:-/home/zkyd/code/sacm-plus}"
 EXPECTED_DATASETS="${EXPECTED_DATASETS:-20}"
+CONFIG="${CONFIG:-configs/ablations/sacm_stc_scope_structure.yaml}"
+CHECKPOINT_NAME="${CHECKPOINT_NAME:-}"
+EXPECTED_EPOCHS="${EXPECTED_EPOCHS:-}"
+if [ -z "${PYTHON:-}" ]; then
+  if [ -x /home/zkyd/anaconda3/envs/tsai/bin/python ]; then
+    PYTHON=/home/zkyd/anaconda3/envs/tsai/bin/python
+  elif [ -x /home/dev/anaconda3/envs/tsai/bin/python ]; then
+    PYTHON=/home/dev/anaconda3/envs/tsai/bin/python
+  else
+    PYTHON=python
+  fi
+fi
+export PYTHON
 
-DEFAULT_ARMS=(
-  b0_selected_base
-  b1_all_dense_base
-  b2_all_dense_selected_structure
-  sa_selected_dense_all_structure
-  ss_selected_dense_selected_structure
-  b3_all_dense_all_structure
-)
-ARMS=("${DEFAULT_ARMS[@]}")
+ARMS=()
+ARMS_GIVEN=0
 SEEDS=(0 1 2 3)
 ANALYZE=0
 DRY_RUN=0
 NO_PROBE=0
 
 usage() {
-  sed -n '2,27p' "$0"
+  sed -n '2,39p' "$0"
 }
 
 while [ "$#" -gt 0 ]; do
@@ -57,6 +75,7 @@ while [ "$#" -gt 0 ]; do
       [ "$#" -ge 2 ] || { echo "missing value for --arms" >&2; exit 2; }
       shift
       IFS=', ' read -r -a ARMS <<< "$1"
+      ARMS_GIVEN=1
       ;;
     --seeds)
       [ "$#" -ge 2 ] || { echo "missing value for --seeds" >&2; exit 2; }
@@ -65,6 +84,17 @@ while [ "$#" -gt 0 ]; do
       ;;
     --analyze) ANALYZE=1 ;;
     --dry-run) DRY_RUN=1 ;;
+    --config)
+      [ "$#" -ge 2 ] || { echo "missing value for --config" >&2; exit 2; }
+      shift
+      CONFIG="$1"
+      ;;
+    --checkpoint-name)
+      [ "$#" -ge 2 ] || {
+        echo "missing value for --checkpoint-name" >&2; exit 2; }
+      shift
+      CHECKPOINT_NAME="$1"
+      ;;
     --no-probe) NO_PROBE=1 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
@@ -72,16 +102,68 @@ while [ "$#" -gt 0 ]; do
   shift
 done
 
-if [ "${#ARMS[@]}" -eq 0 ]; then
-  echo "ERROR: --arms is empty" >&2
-  exit 2
-fi
 if [ "${#SEEDS[@]}" -eq 0 ]; then
   echo "ERROR: --seeds is empty" >&2
   exit 2
 fi
 if ! [[ "$EXPECTED_DATASETS" =~ ^[0-9]+$ ]]; then
   echo "ERROR: EXPECTED_DATASETS must be an integer" >&2
+  exit 2
+fi
+if [ ! -f "$CONFIG" ]; then
+  echo "ERROR: config not found: $CONFIG" >&2
+  exit 2
+fi
+if [ -z "$CHECKPOINT_NAME" ]; then
+  CHECKPOINT_NAME="$("$PYTHON" - "$CONFIG" <<'PY'
+import sys
+import yaml
+config = yaml.safe_load(open(sys.argv[1])) or {}
+print(config.get('eval_checkpoint', 'best_model.pth') or '')
+PY
+)" || { echo "ERROR: cannot read eval_checkpoint from $CONFIG" >&2; exit 2; }
+fi
+if [ -z "$EXPECTED_EPOCHS" ]; then
+  EXPECTED_EPOCHS="$("$PYTHON" - "$CONFIG" <<'PY'
+import sys
+import yaml
+config = yaml.safe_load(open(sys.argv[1])) or {}
+print(config.get('epochs', '') or '')
+PY
+)" || { echo "ERROR: cannot read epochs from $CONFIG" >&2; exit 2; }
+fi
+ANALYSIS_ROOT="$("$PYTHON" - "$CONFIG" <<'PY'
+import sys
+import yaml
+config = yaml.safe_load(open(sys.argv[1])) or {}
+print((config.get('analysis') or {}).get(
+    'output_root', 'results/ablations/sacm_stc/analysis') or '')
+PY
+)" || { echo "ERROR: cannot read analysis.output_root" >&2; exit 2; }
+if [ -z "$CHECKPOINT_NAME" ]; then
+  echo "ERROR: config has no eval_checkpoint and --checkpoint-name is empty" >&2
+  exit 2
+fi
+if [ -n "$EXPECTED_EPOCHS" ] && ! [[ "$EXPECTED_EPOCHS" =~ ^[0-9]+$ ]]; then
+  echo "ERROR: EXPECTED_EPOCHS must be an integer" >&2
+  exit 2
+fi
+if [ "${#ARMS[@]}" -eq 0 ] && [ "$ARMS_GIVEN" -eq 0 ]; then
+  ARMS_TEXT="$("$PYTHON" - "$CONFIG" <<'PY'
+import sys
+import yaml
+config = yaml.safe_load(open(sys.argv[1])) or {}
+for arm in (config.get('arms') or {}):
+    print(arm)
+PY
+)" || { echo "ERROR: cannot read arms from $CONFIG" >&2; exit 2; }
+  ARMS=()
+  while IFS= read -r arm; do
+    [ -n "$arm" ] && ARMS+=("$arm")
+  done <<< "$ARMS_TEXT"
+fi
+if [ "${#ARMS[@]}" -eq 0 ]; then
+  echo "ERROR: --arms is empty and config has no arms" >&2
   exit 2
 fi
 
@@ -130,6 +212,8 @@ else
   # environment assignments instead.
   REMOTE_CMD="TARGET=$(printf '%q' "$TARGET")"
   REMOTE_CMD+=" EXPECTED=$(printf '%q' "$EXPECTED_DATASETS")"
+  REMOTE_CMD+=" CHECKPOINT=$(printf '%q' "$CHECKPOINT_NAME")"
+  REMOTE_CMD+=" EPOCHS=$(printf '%q' "$EXPECTED_EPOCHS")"
   REMOTE_CMD+=" ARMS=$(printf '%q' "${ARMS[*]}")"
   REMOTE_CMD+=" SEEDS=$(printf '%q' "${SEEDS[*]}")"
   REMOTE_CMD+=" bash -s"
@@ -137,6 +221,8 @@ else
     ssh "${SSH_OPTS[@]}" "$SERVER" "$REMOTE_CMD" <<'REMOTE'
 target="$TARGET"
 expected="$EXPECTED"
+checkpoint_name="$CHECKPOINT"
+expected_epochs="$EPOCHS"
 arms="$ARMS"
 seeds="$SEEDS"
 for arm in $arms; do
@@ -144,6 +230,7 @@ for arm in $arms; do
   for seed in $seeds; do
     csv="$target/results/runs/sacm_stc/$arm/seed_$seed/eval/tables/all_metrics.csv"
     manifest="$target/results/runs/sacm_stc/$arm/seed_$seed/eval/run_manifest.json"
+    run_info="$target/results/runs/sacm_stc/$arm/seed_$seed/run_info.json"
     if [ ! -f "$csv" ]; then
       echo "  ${arm} seed ${seed}: missing eval/tables/all_metrics.csv" >&2
       ok=0
@@ -154,13 +241,28 @@ for arm in $arms; do
       ok=0
       continue
     fi
+    if [ ! -f "$run_info" ]; then
+      echo "  ${arm} seed ${seed}: missing run_info.json" >&2
+      ok=0
+      continue
+    fi
+    if ! grep -Eq '"status"[[:space:]]*:[[:space:]]*"done"' "$run_info"; then
+      echo "  ${arm} seed ${seed}: training status is not done" >&2
+      ok=0
+    fi
+    if [ -n "$expected_epochs" ] \
+       && ! grep -Eq '"epochs"[[:space:]]*:[[:space:]]*'"$expected_epochs"'([^0-9]|$)' \
+            "$run_info"; then
+      echo "  ${arm} seed ${seed}: training epochs != ${expected_epochs}" >&2
+      ok=0
+    fi
     if grep -Eq '"status"[[:space:]]*:[[:space:]]*"(running|failed)"' "$manifest"; then
       echo "  ${arm} seed ${seed}: eval status running/failed" >&2
       ok=0
     fi
-    if grep -q '"checkpoint"' "$manifest" \
-       && ! grep -q 'last_model.pth' "$manifest"; then
-      echo "  ${arm} seed ${seed}: eval checkpoint is not last_model.pth" >&2
+    if [ -n "$checkpoint_name" ] && grep -q '"checkpoint"' "$manifest" \
+       && ! grep -Fq "$checkpoint_name" "$manifest"; then
+      echo "  ${arm} seed ${seed}: eval checkpoint is not ${checkpoint_name}" >&2
       ok=0
     fi
     rows="$(awk 'END { print NR - 1 }' "$csv" 2>/dev/null || echo 0)"
@@ -229,9 +331,10 @@ if [ "$ANALYZE" -eq 1 ]; then
     echo ""
     echo "=== local paired analysis ==="
     bash "$REPO/scripts/run_sacm_stc_ablation.sh" --stage analyze \
+      --config "$CONFIG" \
       --arms "${COMPLETED[@]}" --seeds "${SEEDS[@]}"
     echo ""
-    echo "Report: results/ablations/sacm_stc/analysis/ablation_report.md"
+    echo "Report: ${ANALYSIS_ROOT}/ablation_report.md"
   fi
 fi
 

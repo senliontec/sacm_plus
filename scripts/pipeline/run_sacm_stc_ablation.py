@@ -285,6 +285,31 @@ def _train_complete(path: Path, epochs: int) -> bool:
     return payload.get('status') == 'done' and recorded == int(epochs)
 
 
+def _training_incomplete_reason(run_root: Path, epochs: int) -> str | None:
+    """Explain why a run is not safe to evaluate/analyse yet.
+
+    Separate ``train`` and ``eval`` stages are useful for scheduling, but they
+    lose the per-job failure propagation of the ``all`` stage.  Without this
+    guard a run that crashed at epoch 150 still has ``best_model.pth`` and
+    would be evaluated as if it had completed the full budget.
+    """
+    path = run_root / 'run_info.json'
+    try:
+        payload = json.loads(path.read_text())
+    except (OSError, ValueError, TypeError):
+        return 'missing or invalid run_info.json (training not complete)'
+    status = payload.get('status')
+    if status != 'done':
+        return f'training status={status!r}, expected done'
+    try:
+        recorded = int(payload.get('epochs'))
+    except (TypeError, ValueError):
+        return 'run_info.json has no valid epochs'
+    if recorded != int(epochs):
+        return f'training epochs={recorded}, expected {int(epochs)}'
+    return None
+
+
 def _resume_epochs_match(run_root: Path, epochs: int) -> bool:
     """Only resume a partial run started with the same epoch budget.
 
@@ -394,6 +419,10 @@ def _run_gpu_jobs(gpu: str, jobs: list[dict], log_root: Path,
     del gpu
     ok = True
     for job in jobs:
+        if job.get('error'):
+            print(f'[{job["id"]}] ERROR: {job["error"]}', file=sys.stderr)
+            ok = False
+            continue
         for command_spec in job['commands']:
             label = _job_label(command_spec['stage'], job['id'])
             if command_spec.get('skip'):
@@ -451,7 +480,8 @@ def _run_root(config, arm: str, seed: int) -> Path:
 
 
 def build_jobs(config: dict, protocol, stage: str, arms: list[str],
-               seeds: list[int], epochs: int, resume: bool) -> list[dict]:
+               seeds: list[int], epochs: int, resume: bool,
+               allow_untrained_eval: bool = False) -> list[dict]:
     jobs = []
     diagnostics = config.get('diagnostics') or {}
     diag_splits = list(diagnostics.get('splits', ['val', 'test']))
@@ -493,6 +523,18 @@ def build_jobs(config: dict, protocol, stage: str, arms: list[str],
     for arm in arms:
         for seed in seeds:
             run_root = _run_root(config, arm, seed)
+            training_error = None
+            if stage in ('eval', 'diagnose') and not allow_untrained_eval:
+                training_error = _training_incomplete_reason(run_root, epochs)
+            if training_error:
+                jobs.append({
+                    'id': f'{arm}_seed{seed}',
+                    'arm': arm,
+                    'seed': seed,
+                    'commands': [],
+                    'error': training_error,
+                })
+                continue
             split_root = protocol.split_for(seed).split_root
             protocol_path = protocol.split_for(seed).test_manifest
             commands = []
@@ -608,6 +650,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument('--resume', action=argparse.BooleanOptionalAction,
                         default=True,
                         help='skip completed stages (default: true)')
+    parser.add_argument(
+        '--allow-untrained-eval', action='store_true',
+        help='allow eval/diagnose when run_info.json is missing or does not '
+             'record a completed matching-budget training run; intended only '
+             'for externally produced checkpoints')
     parser.add_argument('--dry-run', action='store_true')
     args = parser.parse_args(argv)
 
@@ -657,7 +704,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if _run_command(command, log_path, 'analysis') else 1
 
     jobs = build_jobs(
-        config, protocol, args.stage, arms, seeds, epochs, bool(args.resume))
+        config, protocol, args.stage, arms, seeds, epochs, bool(args.resume),
+        bool(args.allow_untrained_eval))
     if not jobs:
         print('no jobs to run')
         return 0

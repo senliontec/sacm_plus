@@ -38,6 +38,14 @@ ROLE_ORDER = {'Seen': 0, 'Unseen': 1, 'Novel': 2}
 LABELS = {
     ('sacm_official', 'default'): 'SACM (official)',
     ('sacm_stc', 'all_dense'): 'SACM-STC',
+    ('sacm_stc', 'final_full'): 'SACM-STC (full)',
+    ('sacm_stc', 'final_sel_sel'): 'SACM-STC (selected/selected)',
+    ('sacm_stc', 'final_sel_all'): 'SACM-STC (selected dense, all topology)',
+    ('sacm_stc', 'final_all_sel'): 'SACM-STC (all dense, selected topology)',
+    ('sacm_stc', 'final_all_all_mean'):
+        'SACM-STC (all/all, uniform control)',
+    ('sacm_stc', 'final_sel_none'): 'SACM-STC (selected, no topology)',
+    ('sacm_stc', 'final_all_none'): 'SACM-STC (all dense, no topology)',
 }
 
 

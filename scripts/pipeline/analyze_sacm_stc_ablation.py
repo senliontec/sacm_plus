@@ -88,6 +88,55 @@ def _run_root(config, arm: str, seed: int) -> Path:
     return _resolve(config['output_root']) / arm / f'seed_{seed}'
 
 
+def _training_incomplete_reason(run_root: Path, epochs) -> str | None:
+    """Return why a run must not enter the paired analysis, or None."""
+    path = run_root / 'run_info.json'
+    try:
+        payload = json.loads(path.read_text())
+    except (OSError, ValueError, TypeError):
+        return 'missing or invalid run_info.json'
+    if payload.get('status') != 'done':
+        return f'training status={payload.get("status")!r}, expected done'
+    if epochs is not None:
+        try:
+            recorded = int(payload.get('epochs'))
+        except (TypeError, ValueError):
+            return 'run_info.json has no valid epochs'
+        if recorded != int(epochs):
+            return f'training epochs={recorded}, expected {int(epochs)}'
+    return None
+
+
+def _eval_incomplete_reason(config, arm: str, seed: int) -> str | None:
+    """Return why a 20-dataset eval table is not safe to analyse, or None."""
+    run_root = _run_root(config, arm, seed)
+    table = run_root / 'eval' / 'tables' / 'all_metrics.csv'
+    try:
+        rows = _read_csv(table)
+    except (OSError, csv.Error):
+        return 'missing or invalid eval/tables/all_metrics.csv'
+    expected = int(config.get('expected_datasets', 20))
+    datasets = {row.get('dataset') for row in rows if row.get('dataset')}
+    if len(datasets) < expected:
+        return (f'eval table has {len(datasets)}/{expected} datasets '
+                '(eval incomplete)')
+    manifest = run_root / 'eval' / 'run_manifest.json'
+    try:
+        payload = json.loads(manifest.read_text())
+    except (OSError, ValueError, TypeError):
+        return 'missing or invalid eval/run_manifest.json'
+    if payload.get('status') not in (None, 'done'):
+        return f'eval status={payload.get("status")!r}, expected done'
+    checkpoint_name = config.get('eval_checkpoint')
+    if checkpoint_name:
+        expected_name = Path(str(checkpoint_name)).name
+        recorded = payload.get('checkpoint')
+        if not recorded or Path(recorded).name != expected_name:
+            return (f'eval checkpoint={recorded!r}, '
+                    f'expected {expected_name}')
+    return None
+
+
 def _load_macro(config, arm: str, seed: int) -> dict | None:
     path = (_run_root(config, arm, seed) / 'eval' / 'tables' /
             'macro_metrics.csv')
@@ -447,8 +496,24 @@ def main(argv: list[str] | None = None) -> int:
     dataset = {}
     candidate = {}
     missing = []
+    require_complete = bool(
+        analysis.get('require_train_complete', False))
+    require_eval_complete = bool(
+        analysis.get('require_eval_complete', False))
+    expected_epochs = config.get('epochs')
     for arm in arms:
         for seed in seeds:
+            if require_complete:
+                reason = _training_incomplete_reason(
+                    _run_root(config, arm, seed), expected_epochs)
+                if reason is not None:
+                    missing.append(f'{arm}/seed_{seed}: {reason}')
+                    continue
+            if require_eval_complete:
+                reason = _eval_incomplete_reason(config, arm, seed)
+                if reason is not None:
+                    missing.append(f'{arm}/seed_{seed}: {reason}')
+                    continue
             values = _load_macro(config, arm, seed)
             if values is None:
                 missing.append(f'{arm}/seed_{seed}: missing macro_metrics.csv')
