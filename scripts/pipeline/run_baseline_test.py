@@ -375,6 +375,13 @@ def main():
              'with a finite worst-case value')
     parser.add_argument('--device', default=None)
     parser.add_argument(
+        '--invert-test-datasets', default='',
+        help='comma-separated test dataset names whose images are inverted '
+             'before prediction (engineering override; no retraining)')
+    parser.add_argument(
+        '--invert-test-threshold', type=float, default=0.5,
+        help='binarisation threshold used for inverted datasets')
+    parser.add_argument(
         '--seed', type=int, default=None,
         help='protocol seed forwarded to prediction adapter (default: '
              'parsed from the protocol path, else 0)')
@@ -609,6 +616,11 @@ def main():
                     cmd += ['--device', args.device]
                 cmd += ['--test-datasets']
                 cmd += [f'{name}:{root}' for name, root in specs]
+                if args.invert_test_datasets:
+                    cmd += [
+                        '--invert-test-datasets', args.invert_test_datasets,
+                        '--invert-test-threshold',
+                        str(args.invert_test_threshold)]
                 begin_stage('predict')
                 run(cmd, repo_env())
             else:

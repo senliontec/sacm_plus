@@ -1448,6 +1448,14 @@ def run_prediction(adapter: BaselineAdapter, args: argparse.Namespace,
         # support-donor selection and per-dataset caches stay correct.
         test_set = RawPairDataset(Path(root), dataset_name=name)
         datasets.append((name, test_set.samples))
+    invert_names = {
+        part.strip()
+        for part in str(
+            getattr(args, 'invert_test_datasets', '') or '').split(',')
+        if part.strip()
+    }
+    invert_threshold = float(getattr(args, 'invert_test_threshold', 0.5))
+    base_threshold = float(getattr(args, 'deploy_threshold', 0.5))
     total_images = sum(len(samples) for _, samples in datasets)
     status = RunStatus(method=adapter.id, stage='predict', heartbeat=10.0)
     status.update(datasets_total=len(datasets), overall_total=total_images)
@@ -1461,10 +1469,15 @@ def run_prediction(adapter: BaselineAdapter, args: argparse.Namespace,
                                  overall_total=total_images)
             print(f'{name}: predicting {total} images on {device} -> {out_dir}',
                   flush=True)
+            inverted_dataset = name in invert_names
+            args.deploy_threshold = (
+                invert_threshold if inverted_dataset else base_threshold)
             t0 = time.time()
             for done, sample in enumerate(samples, 1):
                 with torch.no_grad():
                     prepared = adapter.prepare_eval_sample(sample, device)
+                    if inverted_dataset:
+                        prepared = 1.0 - prepared
                     pred = adapter.predict_sample(model, prepared, sample)
                 pred = np.asarray(pred)
                 if pred.dtype != bool:
@@ -1572,6 +1585,13 @@ def build_parser(adapter: BaselineAdapter) -> argparse.ArgumentParser:
                         help='prediction output root (default: '
                              '<workdir>/predictions/<model>)')
     parser.add_argument('--test-datasets', nargs='+', default=[])
+    parser.add_argument(
+        '--invert-test-datasets', default='',
+        help='comma-separated test dataset names whose images are inverted '
+             'before prediction (engineering override; no retraining)')
+    parser.add_argument(
+        '--invert-test-threshold', type=float, default=0.5,
+        help='binarisation threshold used for inverted datasets')
     parser.add_argument('--epochs', type=int,
                         default=_configured_epochs(adapter))
     parser.add_argument('--batch-size', type=int,

@@ -66,7 +66,8 @@ class MorphPrompt(nn.Module):
 
     def __init__(self, embed_dim: int = 256,
                  scales: tuple[int, ...] = (3, 7, 15),
-                 work_size: int = 512, init_scale: float = 0.1):
+                 work_size: int = 512, gate_threshold: float = 0.1,
+                 gate_bias: float = -4.0):
         super().__init__()
         self.embed_dim = int(embed_dim)
         self.scales = tuple(int(s) for s in scales)
@@ -76,7 +77,18 @@ class MorphPrompt(nn.Module):
             nn.GELU(),
             nn.Conv2d(embed_dim, embed_dim, 1),
         )
-        self.scale = nn.Parameter(torch.full((1,), float(init_scale)))
+        # Per-image safety gate.  Its inputs are image intensity statistics
+        # and the pooled ON/OFF response; the bias starts at -4 so the gate
+        # is closed (and the prompt is exactly zero) until training opens it.
+        self.gate = nn.Sequential(
+            nn.Linear(6 + embed_dim, 16),
+            nn.GELU(),
+            nn.Linear(16, 1),
+        )
+        nn.init.constant_(self.gate[-1].bias, float(gate_bias))
+        self.scale = nn.Parameter(torch.ones(1))
+        self.gate_threshold = float(gate_threshold)
+        self.last_gate = None
 
     @staticmethod
     def _erode(x: torch.Tensor, kernel: int) -> torch.Tensor:
@@ -88,7 +100,7 @@ class MorphPrompt(nn.Module):
         pad = kernel // 2
         return F.max_pool2d(x, kernel_size=kernel, stride=1, padding=pad)
 
-    def forward(self, images: torch.Tensor) -> torch.Tensor:
+    def morph_features(self, images: torch.Tensor) -> torch.Tensor:
         if images.ndim != 4 or images.shape[1] != 3:
             raise ValueError(
                 'morph prompt expects [B, 3, H, W] RGB images, got '
@@ -106,7 +118,26 @@ class MorphPrompt(nn.Module):
             # White top-hat + black top-hat; the two terms swap under
             # inversion, so the sum is polarity-invariant.
             features.append((gray - opening) + (closing - gray))
-        return self.scale * self.proj(torch.cat(features, dim=1))
+        return self.proj(torch.cat(features, dim=1))
+
+    def forward(self, images: torch.Tensor) -> torch.Tensor:
+        features = self.morph_features(images)
+        stats = torch.cat(
+            [images.mean(dim=(2, 3)), images.std(dim=(2, 3))], dim=1)
+        pooled = features.mean(dim=(2, 3))
+        gate = torch.sigmoid(
+            self.gate(torch.cat([stats, pooled], dim=1)))
+        # Training uses the soft gate so gradients reach the gate and the
+        # projection.  Inference uses the hard safety gate: below the
+        # threshold the prompt contributes exactly zero, so the downstream
+        # model is bit-identical to the no-POMP path.
+        if self.training:
+            gated = gate
+        else:
+            gated = torch.where(
+                gate >= self.gate_threshold, gate, torch.zeros_like(gate))
+        self.last_gate = gate.detach()
+        return self.scale * gated[:, :, None, None] * features
 
 
 class TopologyQualityHead(nn.Module):

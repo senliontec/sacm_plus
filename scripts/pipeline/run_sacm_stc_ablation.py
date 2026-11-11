@@ -234,6 +234,14 @@ def _eval_command(config, arm: str, seed: int, gpu: str,
         '--use_wandb', 'true' if use_wandb else 'false',
         '--skip-visualize',
     ]
+    invert = config.get('eval_invert_datasets') or []
+    if invert:
+        command += [
+            '--invert-test-datasets',
+            ','.join(str(item) for item in invert),
+            '--invert-test-threshold',
+            str(config.get('eval_invert_threshold', 0.5)),
+        ]
     if use_wandb:
         command += [
             '--wandb_project', str(wandb.get('project', 'sacm')),

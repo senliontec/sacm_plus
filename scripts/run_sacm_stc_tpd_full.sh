@@ -13,7 +13,7 @@
 #   GPU_LIST=0,1 SEEDS="0 1" bash scripts/run_sacm_stc_tpd_full.sh
 #   bash scripts/run_sacm_stc_tpd_full.sh --dry-run
 #
-# Env overrides: GPU_LIST, SEEDS, MAX_USED_MIB, ALLOW_BUSY,
+# Env overrides: GPU_LIST, SEEDS, ARM, MAX_USED_MIB, ALLOW_BUSY,
 #                TPD_FULL_LOG, TPD_FULL_DAEMON (internal)
 set -euo pipefail
 cd "$(dirname "$0")/.." || exit 1
@@ -21,6 +21,7 @@ REPO="$(pwd)"
 
 CONFIG="configs/ablations/sacm_stc_tpd_full.yaml"
 read -r -a SEED_ARR <<< "${SEEDS:-0 1 2 3}"
+ARM="${ARM:-tpd_full}"
 GPU_LIST="${GPU_LIST:-0,1,2,3}"
 MAX_USED_MIB="${MAX_USED_MIB:-2000}"
 LOG_ROOT="$REPO/results/logs/sacm_stc_tpd_full"
@@ -95,7 +96,7 @@ fi
 if [ "$DRY_RUN" -eq 1 ]; then
   echo "Dry run: SACM-STC full + TPD"
   echo "  config: $CONFIG"
-  echo "  arms:   tpd_full"
+  echo "  arms:   $ARM"
   echo "  seeds:  ${SEED_ARR[*]}"
   echo "  gpus:   $GPU_LIST"
   echo "  runs:   ${#SEED_ARR[@]} x 800 epochs + 20-dataset eval"
@@ -150,7 +151,7 @@ echo "============================================================"
 
 set +e
 bash "$REPO/scripts/run_sacm_stc_ablation.sh" --stage all \
-  --config "$CONFIG" --arms tpd_full --seeds "${SEED_ARR[@]}" \
+  --config "$CONFIG" --arms "$ARM" --seeds "${SEED_ARR[@]}" \
   --gpus "$GPU_LIST"
 STATUS=$?
 set -e

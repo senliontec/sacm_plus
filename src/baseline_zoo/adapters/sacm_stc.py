@@ -124,6 +124,9 @@ class SACMSTCAdapter(BaselineAdapter):
         self.image_dense_prompt = False
         self.image_dense_prompt_mode = 'residual'
         self.morph_prompt = False
+        self.morph_prompt_gate_threshold = 0.1
+        self.polarity_augment = False
+        self.polarity_augment_prob = 0.5
         self.topology_quality = False
         self.quality_resolution = 64
         self.quality_warmup_epochs = 5
@@ -193,6 +196,18 @@ class SACMSTCAdapter(BaselineAdapter):
             '--morph-prompt', type=int, choices=[0, 1], default=0,
             help='POMP: polarity-invariant ON/OFF morphological dense '
                  'prompt (multi-scale white + black top-hat sum)')
+        parser.add_argument(
+            '--morph-prompt-gate-threshold', type=float, default=0.1,
+            help='POMP per-image gate threshold; below it the prompt '
+                 'contributes exactly zero, so the no-POMP path is '
+                 'preserved bit-for-bit until training opens the gate')
+        parser.add_argument(
+            '--polarity-augment', type=int, choices=[0, 1], default=0,
+            help='randomly invert training images (mask unchanged) to teach '
+                 'the POMP gate when to open')
+        parser.add_argument(
+            '--polarity-augment-prob', type=float, default=0.5,
+            help='inversion probability for --polarity-augment')
         parser.add_argument(
             '--topology-quality', type=int, choices=[0, 1], default=0,
             help='TPD: train a candidate topology-quality head and select '
@@ -490,6 +505,16 @@ class SACMSTCAdapter(BaselineAdapter):
             raise SystemExit(
                 'image-dense-prompt-mode must be residual or replace')
         self.morph_prompt = bool(int(getattr(args, 'morph_prompt', 0)))
+        self.morph_prompt_gate_threshold = float(
+            getattr(args, 'morph_prompt_gate_threshold', 0.1))
+        if not 0.0 <= self.morph_prompt_gate_threshold <= 1.0:
+            raise SystemExit('morph-prompt-gate-threshold must be in [0, 1]')
+        self.polarity_augment = bool(
+            int(getattr(args, 'polarity_augment', 0)))
+        self.polarity_augment_prob = float(
+            getattr(args, 'polarity_augment_prob', 0.5))
+        if not 0.0 <= self.polarity_augment_prob <= 1.0:
+            raise SystemExit('polarity-augment-prob must be in [0, 1]')
         self.topology_quality = bool(
             int(getattr(args, 'topology_quality', 0)))
         self.quality_resolution = int(
@@ -641,7 +666,9 @@ class SACMSTCAdapter(BaselineAdapter):
         if self.morph_prompt:
             prompt_dim = getattr(
                 getattr(model, 'mask_decoder', None), 'transformer_dim', 256)
-            model.morph_prompt = MorphPrompt(int(prompt_dim))
+            model.morph_prompt = MorphPrompt(
+                int(prompt_dim),
+                gate_threshold=float(self.morph_prompt_gate_threshold))
         if self.topology_quality:
             model.topology_quality_head = TopologyQualityHead()
         return model
@@ -672,6 +699,15 @@ class SACMSTCAdapter(BaselineAdapter):
             'morph_prompt': int(getattr(
                 self, 'morph_prompt',
                 getattr(args, 'morph_prompt', 0))),
+            'morph_prompt_gate_threshold': float(getattr(
+                self, 'morph_prompt_gate_threshold',
+                getattr(args, 'morph_prompt_gate_threshold', 0.1))),
+            'polarity_augment': int(getattr(
+                self, 'polarity_augment',
+                getattr(args, 'polarity_augment', 0))),
+            'polarity_augment_prob': float(getattr(
+                self, 'polarity_augment_prob',
+                getattr(args, 'polarity_augment_prob', 0.5))),
             'topology_quality': int(getattr(
                 self, 'topology_quality',
                 getattr(args, 'topology_quality', 0))),
@@ -796,7 +832,8 @@ class SACMSTCAdapter(BaselineAdapter):
                     'stage1_fusion_weight', 'stage1_fusion_mode',
                     'deep_sup_weight', 'iou_loss_weight',
                     'image_dense_prompt', 'image_dense_prompt_mode',
-                    'morph_prompt',
+                    'morph_prompt', 'morph_prompt_gate_threshold',
+                    'polarity_augment', 'polarity_augment_prob',
                     'topology_quality',
                     'quality_loss_weight', 'quality_iou_weight',
                     'quality_dice_weight', 'quality_cldice_weight',
@@ -1009,8 +1046,11 @@ class SACMSTCAdapter(BaselineAdapter):
             if int(getattr(self.args, 'binary_targets', 1)) == 1:
                 mask_tensor = (mask_tensor > 0.5).float()
             masks.append(mask_tensor)
-        return (torch.stack(images).to(self.device),
-                torch.stack(masks).to(self.device))
+        images = torch.stack(images).to(self.device)
+        if (self.polarity_augment
+                and rng.random() < float(self.polarity_augment_prob)):
+            images = 1.0 - images
+        return images, torch.stack(masks).to(self.device)
 
     def _mask_criterion(self, logits, target, bce_weight, dice_weight):
         pos_weight = float(getattr(

@@ -20,6 +20,11 @@ seeds: [0, 1, 2, 3]
 epochs: 800
 eval_checkpoint: best_model.pth
 expected_datasets: 20
+# Engineering override for the three bright-structure novel datasets whose
+# foreground/background polarity is opposite to the training domains.
+# This is a deployment trick, not a method contribution and not an ablation.
+eval_invert_datasets: [TopoMortar, DeepGlobe, LEAF]
+eval_invert_threshold: 0.2
 output_root: results/runs/sacm_stc_tpd_full
 
 wandb:
@@ -57,6 +62,10 @@ common_train_args:
   # TPD additions
   image-dense-prompt: 1
   image-dense-prompt-mode: residual
+  morph-prompt: 0
+  morph-prompt-gate-threshold: 0.1
+  polarity-augment: 0
+  polarity-augment-prob: 0.5
   topology-quality: 1
   quality-loss-weight: 0.1
   quality-iou-weight: 0.34
@@ -78,6 +87,13 @@ arms:
   tpd_full:
     display_name: SACM-STC full + TPD (image prompt + quality ranking + refinement)
     args: {}
+  tpd_morph:
+    display_name: SACM-STC full + TPD + POMP (polarity-invariant ON/OFF prompt)
+    args:
+      morph-prompt: 1
+      morph-prompt-gate-threshold: 0.1
+      polarity-augment: 1
+      polarity-augment-prob: 0.5
 
 contrasts: []
 

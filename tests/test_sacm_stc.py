@@ -1344,21 +1344,33 @@ def test_sacm_stc_tpd_refine_ignores_degenerate_low_score_candidate():
 
 
 def test_sacm_stc_morph_prompt():
-    prompt = MorphPrompt(embed_dim=16, scales=(3, 7), work_size=32)
+    prompt = MorphPrompt(embed_dim=16, scales=(3, 7), work_size=32,
+                         gate_threshold=0.0)
     x = torch.rand(2, 3, 32, 32)
+    feats = prompt.morph_features(x)
+    feats_inv = prompt.morph_features(1.0 - x)
+    assert feats.shape == (2, 16, 32, 32)
+    # White/black top-hat swap under inversion; the features are invariant.
+    assert torch.allclose(feats, feats_inv, atol=1e-5)
     out = prompt(x)
-    out_inv = prompt(1.0 - x)
     assert out.shape == (2, 16, 32, 32)
-    # White/black top-hat swap under inversion; the sum is invariant.
-    assert torch.allclose(out, out_inv, atol=1e-5)
+    assert torch.count_nonzero(out) > 0
+    # The initial gate (~0.018) is below the default 0.1 threshold.
+    closed = MorphPrompt(embed_dim=16, scales=(3,), work_size=32)
+    closed.eval()
+    assert torch.count_nonzero(closed(x)) == 0
 
     adapter = load_adapter('sacm_stc')
     adapter.input_size = 1024
     adapter.morph_prompt = True
-    assert adapter.save_config(argparse.Namespace())['morph_prompt'] == 1
+    cfg = adapter.save_config(argparse.Namespace())
+    assert cfg['morph_prompt'] == 1
+    assert cfg['morph_prompt_gate_threshold'] == 0.1
     parser = argparse.ArgumentParser()
     adapter.add_args(parser)
-    assert parser.parse_args(['--morph-prompt', '1']).morph_prompt == 1
+    ns = parser.parse_args(
+        ['--morph-prompt', '1', '--polarity-augment', '1'])
+    assert ns.morph_prompt == 1 and ns.polarity_augment == 1
 
 
 def test_sacm_stc_morph_prompt_forward():
@@ -1390,7 +1402,8 @@ def test_sacm_stc_morph_prompt_forward():
             self.image_encoder = FakeIE()
             self.mask_decoder = FakeMD()
             self.morph_prompt = MorphPrompt(
-                embed_dim=256, scales=(3,), work_size=16)
+                embed_dim=256, scales=(3,), work_size=16,
+                gate_threshold=0.0)
 
         def preprocess(self, images):
             return images
@@ -1402,3 +1415,10 @@ def test_sacm_stc_morph_prompt_forward():
     adapter.morph_prompt = False
     without_morph = adapter._forward(model, torch.rand(1, 3, 16, 16))
     assert torch.count_nonzero(without_morph) == 0
+    # With the safety gate closed at inference, the no-POMP path is
+    # reproduced exactly.
+    adapter.morph_prompt = True
+    model.morph_prompt.gate_threshold = 0.1
+    model.eval()
+    closed = adapter._forward(model, torch.rand(1, 3, 16, 16))
+    assert torch.count_nonzero(closed) == 0
