@@ -1899,3 +1899,29 @@ def test_sacm_stc_topoqa_degenerate_masks():
     assert torch.all(stability(torch.full((1, 1, 8, 8), 10.0)) > 0.9)
     assert torch.all(stability(torch.full((1, 1, 8, 8), -10.0)) > 0.9)
     assert torch.all(stability(thin) > 0.9)
+
+
+def test_sacm_stc_topoqa_clip_excludes_quality_head():
+    adapter = load_adapter('sacm_stc')
+
+    class Tiny(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.main = torch.nn.Linear(2, 2)
+            self.topoqa_quality_head = RoleQualityHead(
+                embed_dim=8, hidden=8, role_dim=4)
+
+    model = Tiny()
+    adapter.topoqa = False
+    default = adapter.clip_parameters(model)
+    expected = [p for p in model.parameters() if p.requires_grad]
+    assert len(default) == len(expected)
+    assert {id(p) for p in default} == {id(p) for p in expected}
+
+    adapter.topoqa = True
+    clipped = adapter.clip_parameters(model)
+    ids = {id(p) for p in clipped}
+    for parameter in model.main.parameters():
+        assert id(parameter) in ids
+    for parameter in model.topoqa_quality_head.parameters():
+        assert id(parameter) not in ids

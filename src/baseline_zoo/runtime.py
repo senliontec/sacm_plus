@@ -143,6 +143,15 @@ class BaselineAdapter(ABC):
             [p for p in model.parameters() if p.requires_grad],
             lr=args.lr, weight_decay=args.weight_decay)
 
+    def clip_parameters(self, model: nn.Module) -> list[nn.Parameter]:
+        """Parameters included in the global gradient-norm clip.
+
+        The default preserves the historical behaviour.  An adapter may
+        exclude an auxiliary readout head trained from a detached loss so
+        the main model's update scale stays identical to its control.
+        """
+        return [p for p in model.parameters() if p.requires_grad]
+
     def make_scheduler(self, optimizer: torch.optim.Optimizer,
                        args: argparse.Namespace):
         return None
@@ -230,8 +239,7 @@ class BaselineAdapter(ABC):
             if pending == accum:
                 if args.grad_clip > 0:
                     torch.nn.utils.clip_grad_norm_(
-                        [p for p in model.parameters() if p.requires_grad],
-                        args.grad_clip)
+                        self.clip_parameters(model), args.grad_clip)
                 optimizer.step()
                 optimizer.zero_grad(set_to_none=True)
                 pending = 0
@@ -248,8 +256,7 @@ class BaselineAdapter(ABC):
                         parameter.grad.mul_(scale)
             if args.grad_clip > 0:
                 torch.nn.utils.clip_grad_norm_(
-                    [p for p in model.parameters() if p.requires_grad],
-                    args.grad_clip)
+                    self.clip_parameters(model), args.grad_clip)
             optimizer.step()
             optimizer.zero_grad(set_to_none=True)
         if scheduler is not None and not self.scheduler_after_validation:

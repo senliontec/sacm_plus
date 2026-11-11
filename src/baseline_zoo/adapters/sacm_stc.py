@@ -1265,6 +1265,23 @@ class SACMSTCAdapter(BaselineAdapter):
             parameter.requires_grad_(True)
         model.image_encoder.grad_checkpointing = True
 
+    def clip_parameters(self, model):
+        """Keep the main clip identical when TopoQA is enabled.
+
+        The quality loss is detached from the segmentation model, but its
+        head gradients would otherwise enter the global clip and change the
+        main model's effective update scale.  Exclude only that readout; the
+        optimizer still updates it, and its bounded MSE/ranking losses do not
+        need the shared clip.
+        """
+        if not getattr(self, 'topoqa', False):
+            return super().clip_parameters(model)
+        return [
+            parameter for name, parameter in model.named_parameters()
+            if parameter.requires_grad
+            and not name.startswith('topoqa_quality_head.')
+        ]
+
     def make_optimizer(self, model, args):
         decay, no_decay, composer = [], [], []
         for name, parameter in model.named_parameters():
