@@ -91,6 +91,11 @@ common_train_args:
   num-workers: 0
 
 arms:
+  control:
+    display_name: sacm_stc full native four heads (control)
+    args:
+      specialized-heads: 0
+      head-fusion: 0
   ssh_topo_exclusive:
     display_name: >-
       SSH + deployed-only generic topology + head1 soft-clDice/skeleton recall
@@ -101,6 +106,9 @@ arms:
       fusion-loss-weight: 1.0
       topology-head: selected
       specialized-topology-mode: both
+      # 2x the deployed head's topology weight: head 1 becomes the
+      # strongest topology head instead of merely sharing 0.1 with head 0.
+      specialized-topology-weight: 0.2
   ssh_image_fusion:
     display_name: SSH + per-image image-gated fusion
     args:
@@ -118,9 +126,14 @@ arms:
       fusion-loss-weight: 1.0
       topology-head: selected
       specialized-topology-mode: both
+      specialized-topology-weight: 0.2
       head-fusion-mode: image_gated
 
-contrasts: []
+contrasts:
+  - id: ssh_both_minus_control
+    left: ssh_both
+    right: control
+    label: full improved head scheme vs native full recipe
 
 analysis:
   output_root: results/ablations/sacm_stc_improve_300/analysis

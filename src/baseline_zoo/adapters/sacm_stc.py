@@ -130,6 +130,7 @@ class SACMSTCAdapter(BaselineAdapter):
         self.polarity_augment_prob = 0.5
         self.specialized_heads = False
         self.specialized_head_weight = 0.1
+        self.specialized_topology_weight = 0.1
         self.head_fusion = False
         self.fusion_loss_weight = 1.0
         self.head_fusion_mode = 'linear'
@@ -243,6 +244,11 @@ class SACMSTCAdapter(BaselineAdapter):
             choices=['cldice', 'skeleton', 'both'], default='cldice',
             help='specialised head-1 topology objective: soft-clDice '
                  '(original), skeleton recall, or both')
+        parser.add_argument(
+            '--specialized-topology-weight', type=float, default=None,
+            help='weight of the head-1 topology term; defaults to '
+                 '--specialized-head-weight.  Raise it to make head 1 a '
+                 'stronger topology specialist than the deployed head.')
         parser.add_argument(
             '--topology-quality', type=int, choices=[0, 1], default=0,
             help='TPD: train a candidate topology-quality head and select '
@@ -554,6 +560,14 @@ class SACMSTCAdapter(BaselineAdapter):
             int(getattr(args, 'specialized_heads', 0)))
         self.specialized_head_weight = float(
             getattr(args, 'specialized_head_weight', 0.1))
+        topology_weight = getattr(
+            args, 'specialized_topology_weight', None)
+        self.specialized_topology_weight = (
+            self.specialized_head_weight if topology_weight is None
+            else float(topology_weight))
+        if self.specialized_topology_weight < 0:
+            raise SystemExit(
+                '--specialized-topology-weight must be non-negative')
         self.head_fusion = bool(int(getattr(args, 'head_fusion', 0)))
         self.fusion_loss_weight = float(
             getattr(args, 'fusion_loss_weight', 1.0))
@@ -776,6 +790,8 @@ class SACMSTCAdapter(BaselineAdapter):
             'specialized_head_weight': float(getattr(
                 self, 'specialized_head_weight',
                 getattr(args, 'specialized_head_weight', 0.1))),
+            'specialized_topology_weight': float(getattr(
+                self, 'specialized_topology_weight', 0.1)),
             'head_fusion': int(getattr(
                 self, 'head_fusion',
                 getattr(args, 'head_fusion', 0))),
@@ -915,6 +931,7 @@ class SACMSTCAdapter(BaselineAdapter):
                     'morph_prompt', 'morph_prompt_gate_threshold',
                     'polarity_augment', 'polarity_augment_prob',
                     'specialized_heads', 'specialized_head_weight',
+                    'specialized_topology_weight',
                     'head_fusion', 'fusion_loss_weight',
                     'head_fusion_mode', 'specialized_topology_mode',
                     'topology_quality',
@@ -1683,7 +1700,9 @@ class SACMSTCAdapter(BaselineAdapter):
         the same solution.
         """
         weight = float(self.specialized_head_weight)
-        if weight <= 0:
+        topology_weight = float(getattr(
+            self, 'specialized_topology_weight', weight))
+        if weight <= 0 and topology_weight <= 0:
             return stage2.new_zeros(())
         resolution = int(getattr(self.args, 'topology_resolution', 512))
         target = F.interpolate(
@@ -1709,7 +1728,8 @@ class SACMSTCAdapter(BaselineAdapter):
             self._specialized_tversky = TverskyLoss(alpha=0.3, beta=0.7)
         boundary = self._boundary_weighted_loss(heads[:, 2:3], target)
         recall = self._specialized_tversky(heads[:, 3:4], target)
-        return weight * (topology + boundary + recall)
+        return (weight * (boundary + recall)
+                + topology_weight * topology)
 
     def _fused_heads(self, model, stage2):
         fusion = getattr(model, 'head_fusion', None)

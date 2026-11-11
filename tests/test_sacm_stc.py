@@ -1443,23 +1443,28 @@ def test_sacm_stc_head_fusion():
     adapter.specialized_heads = True
     adapter.head_fusion_mode = 'image_gated'
     adapter.specialized_topology_mode = 'both'
+    adapter.specialized_topology_weight = 0.2
     cfg = adapter.save_config(argparse.Namespace())
     assert cfg['head_fusion'] == 1 and cfg['specialized_heads'] == 1
     assert cfg['head_fusion_mode'] == 'image_gated'
     assert cfg['specialized_topology_mode'] == 'both'
+    assert cfg['specialized_topology_weight'] == 0.2
     parser = argparse.ArgumentParser()
     adapter.add_args(parser)
     ns = parser.parse_args(
         ['--head-fusion', '1', '--specialized-heads', '1',
          '--head-fusion-mode', 'image_gated',
-         '--specialized-topology-mode', 'both'])
+         '--specialized-topology-mode', 'both',
+         '--specialized-topology-weight', '0.2'])
     assert ns.head_fusion == 1 and ns.specialized_heads == 1
     assert ns.head_fusion_mode == 'image_gated'
     assert ns.specialized_topology_mode == 'both'
+    assert ns.specialized_topology_weight == 0.2
     restored = argparse.Namespace()
     adapter.restore_config(restored, cfg)
     assert restored.head_fusion_mode == 'image_gated'
     assert restored.specialized_topology_mode == 'both'
+    assert restored.specialized_topology_weight == 0.2
 
 
 def test_sacm_stc_head_fusion_image_gated():
@@ -1511,6 +1516,10 @@ def test_sacm_stc_specialized_topology_modes():
     # at least as large as the single-objective variants.
     assert values['both'] >= values['cldice'] - 1e-6
     assert values['both'] >= values['skeleton'] - 1e-6
+    # The dedicated topology weight amplifies only head 1's topology term.
+    adapter.specialized_topology_weight = 0.2
+    stronger = adapter._specialized_head_loss(stage2, masks)
+    assert float(stronger) > values['both']
 
 
 def test_sacm_stc_boundary_weighted_loss():
