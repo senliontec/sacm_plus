@@ -207,8 +207,12 @@ if not checkpoint.is_file():
              'copy checkpoints/sam_vit_l_0b3195.pth to the server first '
              '(the server is offline)')
 
+# scipy/tqdm are imported by the official point-prompt generator
+# (models/sam_octa/prompts.py); check them here so a missing dependency
+# fails the preflight instead of a multi-hour training run.
 missing_modules = [
-    module for module in ('torch', 'cv2', 'albumentations', 'skimage')
+    module for module in ('torch', 'cv2', 'albumentations', 'skimage',
+                          'scipy', 'tqdm')
     if importlib.util.find_spec(module) is None]
 if missing_modules:
     sys.exit('ERROR: missing SAM-OCTA dependencies: '
