@@ -94,6 +94,17 @@ arms:
       morph-prompt-gate-threshold: 0.1
       polarity-augment: 1
       polarity-augment-prob: 0.5
+  ssh:
+    display_name: SACM-STC full + structure-specialized heads + safe fusion
+    args:
+      image-dense-prompt: 0
+      topology-quality: 0
+      quality-refine: 0
+      quality-refine-stage1: 0
+      specialized-heads: 1
+      specialized-head-weight: 0.1
+      head-fusion: 1
+      fusion-loss-weight: 1.0
 
 contrasts: []
 

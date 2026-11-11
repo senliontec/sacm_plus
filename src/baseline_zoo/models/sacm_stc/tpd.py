@@ -140,6 +140,34 @@ class MorphPrompt(nn.Module):
         return self.scale * gated[:, :, None, None] * features
 
 
+class HeadFusion(nn.Module):
+    """Safe zero-initialised per-pixel fusion of the four Stage-2 heads.
+
+    ``out = z0 + conv([z1-z0, z2-z0, z3-z0])`` with the 1x1 conv
+    zero-initialised, so at initialisation the fused output is exactly the
+    deployed head z0 (the gating anchor).  The conv is trained jointly with
+    the segmentation loss and learns a per-pixel residual from the three
+    structure-specialised auxiliary heads.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.fuse = nn.Conv2d(3, 1, 1)
+        nn.init.zeros_(self.fuse.weight)
+        nn.init.zeros_(self.fuse.bias)
+
+    def forward(self, heads: torch.Tensor) -> torch.Tensor:
+        if heads.ndim != 4 or heads.shape[1] != 4:
+            raise ValueError(
+                'head fusion expects four Stage-2 heads [B, 4, H, W], got '
+                f'{tuple(heads.shape)}')
+        base = heads[:, 0:1]
+        residual = torch.cat(
+            [heads[:, 1:2] - base, heads[:, 2:3] - base,
+             heads[:, 3:4] - base], dim=1)
+        return base + self.fuse(residual)
+
+
 class TopologyQualityHead(nn.Module):
     """Shared per-candidate quality predictor.
 
@@ -219,4 +247,6 @@ class TopologyQualityHead(nn.Module):
         return torch.stack(scores, dim=1).clamp(0.0, 1.0)
 
 
-__all__ = ['ImageDensePrompt', 'MorphPrompt', 'TopologyQualityHead']
+__all__ = [
+    'HeadFusion', 'ImageDensePrompt', 'MorphPrompt', 'TopologyQualityHead',
+]

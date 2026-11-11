@@ -40,6 +40,7 @@ from baseline_zoo.models.sacm_stc.typed import (  # noqa: E402
     width_to_pixels,
 )
 from baseline_zoo.models.sacm_stc.tpd import (  # noqa: E402
+    HeadFusion,
     ImageDensePrompt,
     MorphPrompt,
     TopologyQualityHead,
@@ -1422,3 +1423,35 @@ def test_sacm_stc_morph_prompt_forward():
     model.eval()
     closed = adapter._forward(model, torch.rand(1, 3, 16, 16))
     assert torch.count_nonzero(closed) == 0
+
+
+def test_sacm_stc_head_fusion():
+    fusion = HeadFusion()
+    heads = torch.randn(2, 4, 8, 8)
+    out = fusion(heads)
+    assert out.shape == (2, 1, 8, 8)
+    # Zero-initialised fusion reproduces the deployed head exactly.
+    assert torch.allclose(out, heads[:, 0:1])
+    out.sum().backward()
+    assert fusion.fuse.weight.grad is not None
+    assert float(fusion.fuse.weight.grad.abs().sum()) > 0
+
+    adapter = load_adapter('sacm_stc')
+    adapter.input_size = 1024
+    adapter.head_fusion = True
+    adapter.specialized_heads = True
+    cfg = adapter.save_config(argparse.Namespace())
+    assert cfg['head_fusion'] == 1 and cfg['specialized_heads'] == 1
+    parser = argparse.ArgumentParser()
+    adapter.add_args(parser)
+    ns = parser.parse_args(
+        ['--head-fusion', '1', '--specialized-heads', '1'])
+    assert ns.head_fusion == 1 and ns.specialized_heads == 1
+
+
+def test_sacm_stc_boundary_weighted_loss():
+    adapter = load_adapter('sacm_stc')
+    logits = torch.randn(2, 1, 16, 16)
+    target = (torch.rand(2, 1, 16, 16) > 0.5).float()
+    loss = adapter._boundary_weighted_loss(logits, target)
+    assert torch.isfinite(loss)

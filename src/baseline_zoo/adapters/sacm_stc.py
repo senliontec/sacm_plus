@@ -41,6 +41,7 @@ from baseline_zoo.models.sacm_stc.topology_losses import (
     TverskyLoss,
 )
 from baseline_zoo.models.sacm_stc.tpd import (
+    HeadFusion,
     ImageDensePrompt,
     MorphPrompt,
     TopologyQualityHead,
@@ -127,6 +128,12 @@ class SACMSTCAdapter(BaselineAdapter):
         self.morph_prompt_gate_threshold = 0.1
         self.polarity_augment = False
         self.polarity_augment_prob = 0.5
+        self.specialized_heads = False
+        self.specialized_head_weight = 0.1
+        self.head_fusion = False
+        self.fusion_loss_weight = 1.0
+        self._specialized_cl_loss = None
+        self._specialized_tversky = None
         self.topology_quality = False
         self.quality_resolution = 64
         self.quality_warmup_epochs = 5
@@ -208,6 +215,20 @@ class SACMSTCAdapter(BaselineAdapter):
         parser.add_argument(
             '--polarity-augment-prob', type=float, default=0.5,
             help='inversion probability for --polarity-augment')
+        parser.add_argument(
+            '--specialized-heads', type=int, choices=[0, 1], default=0,
+            help='structure-specialised losses on the three auxiliary '
+                 'Stage-2 heads (topology / boundary / recall)')
+        parser.add_argument(
+            '--specialized-head-weight', type=float, default=0.1,
+            help='weight of the specialised head losses')
+        parser.add_argument(
+            '--head-fusion', type=int, choices=[0, 1], default=0,
+            help='zero-initialised per-pixel fusion of the four Stage-2 '
+                 'heads; at initialisation it reproduces the deployed head')
+        parser.add_argument(
+            '--fusion-loss-weight', type=float, default=1.0,
+            help='weight of the fused-head dense mask loss')
         parser.add_argument(
             '--topology-quality', type=int, choices=[0, 1], default=0,
             help='TPD: train a candidate topology-quality head and select '
@@ -515,6 +536,19 @@ class SACMSTCAdapter(BaselineAdapter):
             getattr(args, 'polarity_augment_prob', 0.5))
         if not 0.0 <= self.polarity_augment_prob <= 1.0:
             raise SystemExit('polarity-augment-prob must be in [0, 1]')
+        self.specialized_heads = bool(
+            int(getattr(args, 'specialized_heads', 0)))
+        self.specialized_head_weight = float(
+            getattr(args, 'specialized_head_weight', 0.1))
+        self.head_fusion = bool(int(getattr(args, 'head_fusion', 0)))
+        self.fusion_loss_weight = float(
+            getattr(args, 'fusion_loss_weight', 1.0))
+        if self.specialized_heads or self.head_fusion:
+            scope = str(getattr(args, 'stage2_loss_scope', 'all'))
+            if scope != 'all':
+                raise SystemExit(
+                    'specialized-heads / head-fusion require '
+                    'stage2-loss-scope=all')
         self.topology_quality = bool(
             int(getattr(args, 'topology_quality', 0)))
         self.quality_resolution = int(
@@ -669,6 +703,8 @@ class SACMSTCAdapter(BaselineAdapter):
             model.morph_prompt = MorphPrompt(
                 int(prompt_dim),
                 gate_threshold=float(self.morph_prompt_gate_threshold))
+        if self.head_fusion:
+            model.head_fusion = HeadFusion()
         if self.topology_quality:
             model.topology_quality_head = TopologyQualityHead()
         return model
@@ -708,6 +744,18 @@ class SACMSTCAdapter(BaselineAdapter):
             'polarity_augment_prob': float(getattr(
                 self, 'polarity_augment_prob',
                 getattr(args, 'polarity_augment_prob', 0.5))),
+            'specialized_heads': int(getattr(
+                self, 'specialized_heads',
+                getattr(args, 'specialized_heads', 0))),
+            'specialized_head_weight': float(getattr(
+                self, 'specialized_head_weight',
+                getattr(args, 'specialized_head_weight', 0.1))),
+            'head_fusion': int(getattr(
+                self, 'head_fusion',
+                getattr(args, 'head_fusion', 0))),
+            'fusion_loss_weight': float(getattr(
+                self, 'fusion_loss_weight',
+                getattr(args, 'fusion_loss_weight', 1.0))),
             'topology_quality': int(getattr(
                 self, 'topology_quality',
                 getattr(args, 'topology_quality', 0))),
@@ -834,6 +882,8 @@ class SACMSTCAdapter(BaselineAdapter):
                     'image_dense_prompt', 'image_dense_prompt_mode',
                     'morph_prompt', 'morph_prompt_gate_threshold',
                     'polarity_augment', 'polarity_augment_prob',
+                    'specialized_heads', 'specialized_head_weight',
+                    'head_fusion', 'fusion_loss_weight',
                     'topology_quality',
                     'quality_loss_weight', 'quality_iou_weight',
                     'quality_dice_weight', 'quality_cldice_weight',
@@ -1568,6 +1618,59 @@ class SACMSTCAdapter(BaselineAdapter):
             return None
         return best
 
+    @staticmethod
+    def _boundary_weighted_loss(logits, target):
+        """Boundary-emphasised full-mask loss for the boundary head."""
+        eroded = -F.max_pool2d(
+            -target, kernel_size=5, stride=1, padding=2)
+        boundary = (target - eroded).clamp(0.0, 1.0)
+        weight = 1.0 + 4.0 * boundary
+        bce = F.binary_cross_entropy_with_logits(
+            logits, target, weight=weight)
+        prob = torch.sigmoid(logits)
+        dims = (1, 2, 3)
+        inter = (prob * target).sum(dim=dims)
+        union = prob.sum(dim=dims) + target.sum(dim=dims)
+        dice = 1.0 - (2.0 * inter + 1e-6) / (union + 1e-6)
+        return bce + dice.mean()
+
+    def _specialized_head_loss(self, stage2, masks):
+        """Structure-specialised losses on the three auxiliary heads.
+
+        Head 1: topology/connectivity (soft-clDice).
+        Head 2: boundary-weighted full-mask loss.
+        Head 3: recall-heavy Tversky full-mask loss.
+
+        All heads keep the dense mask loss from the all-dense recipe; these
+        terms only add a different emphasis so the heads do not collapse to
+        the same solution.
+        """
+        weight = float(self.specialized_head_weight)
+        if weight <= 0:
+            return stage2.new_zeros(())
+        resolution = int(getattr(self.args, 'topology_resolution', 512))
+        target = F.interpolate(
+            masks, (resolution, resolution), mode='bilinear',
+            align_corners=False)
+        heads = F.interpolate(
+            stage2, (resolution, resolution), mode='bilinear',
+            align_corners=False)
+        if self._specialized_cl_loss is None:
+            self._specialized_cl_loss = SoftclDiceLoss()
+        if self._specialized_tversky is None:
+            self._specialized_tversky = TverskyLoss(alpha=0.3, beta=0.7)
+        topology = self._specialized_cl_loss(heads[:, 1:2], target)
+        boundary = self._boundary_weighted_loss(heads[:, 2:3], target)
+        recall = self._specialized_tversky(heads[:, 3:4], target)
+        return weight * (topology + boundary + recall)
+
+    def _fused_heads(self, model, stage2):
+        fusion = getattr(model, 'head_fusion', None)
+        if fusion is None:
+            raise RuntimeError(
+                'head-fusion=1 but model.head_fusion is missing')
+        return fusion(stage2)
+
     def train_step(self, model, batch):
         images, masks = batch
         stage2, iou_pred, stage1 = self._forward(
@@ -1650,6 +1753,16 @@ class SACMSTCAdapter(BaselineAdapter):
         topology_input = (
             stage2_native if topology_source == 'native' else stage2)
         loss = loss + self._topology_loss(topology_input, masks)
+        if self.specialized_heads:
+            loss = loss + self._specialized_head_loss(
+                stage2_native, masks)
+        if self.head_fusion:
+            fused = self._fused_heads(model, stage2_native)
+            fused = F.interpolate(
+                fused, (1024, 1024), mode='bilinear',
+                align_corners=False)
+            loss = loss + self.fusion_loss_weight * self._mask_criterion(
+                fused, masks, bce_weight, dice_weight)
         if int(getattr(self.args, 'use_stc', 0)) == 1:
             loss = loss + self._stc_loss(
                 model, images, masks, stage2_native, iou_pred)
@@ -1721,6 +1834,9 @@ class SACMSTCAdapter(BaselineAdapter):
                     'STC requires SAM adapter/intermediate features')
             logits = head(anchor, image, sam_features)['final']
         else:
+            fused_logits = (
+                self._fused_heads(model, stage2)
+                if self.head_fusion else None)
             # Resolve the single candidate this selector deploys, if any.
             # Aggregate selectors (mean / gating_soft) have no single base and
             # are not refined.
@@ -1764,6 +1880,8 @@ class SACMSTCAdapter(BaselineAdapter):
             else:
                 # Defensive fallback: official gating slot 0.
                 logits = stage2[:, 0:1]
+            if fused_logits is not None:
+                logits = fused_logits
             if stage1_weight > 0 and stage1 is not None:
                 if getattr(self.args, 'stage1_fusion_mode',
                            'gated') == 'mean':
