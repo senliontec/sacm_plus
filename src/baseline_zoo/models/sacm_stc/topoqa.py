@@ -97,6 +97,39 @@ class RoleQualityHead(nn.Module):
         return torch.sigmoid(self.score(self.trunk(features)))
 
 
+def _topology_score(pred: torch.Tensor, target: torch.Tensor,
+                    skel_pred: torch.Tensor,
+                    skel_target: torch.Tensor,
+                    smooth: float = 1.0) -> torch.Tensor:
+    """Per-sample soft-clDice with degenerate-mask guards.
+
+    ``_soft_skel`` returns zero for both an empty mask and a solid full
+    mask.  The raw ratio then reads ``smooth / smooth = 1`` and makes an
+    empty prediction look perfect against a non-empty target.  Whenever
+    either skeleton is empty, fall back to Dice; handle empty/empty and
+    one-empty explicitly.
+    """
+    pred_area = (pred > 0.5).sum(dim=(1, 2, 3))
+    target_area = (target > 0.5).sum(dim=(1, 2, 3))
+    skel_pred_area = skel_pred.sum(dim=(1, 2, 3))
+    skel_target_area = skel_target.sum(dim=(1, 2, 3))
+    inter = (pred * target).sum(dim=(1, 2, 3))
+    dice = (2.0 * inter + 1e-6) / (
+        pred_area + target_area + 1e-6)
+    tprec = ((skel_pred * target).sum(dim=(1, 2, 3)) + smooth) / (
+        skel_pred_area + smooth)
+    tsens = ((skel_target * pred).sum(dim=(1, 2, 3)) + smooth) / (
+        skel_target_area + smooth)
+    score = 2.0 * tprec * tsens / (tprec + tsens + 1e-3)
+    score = torch.where(
+        (skel_pred_area <= 0) | (skel_target_area <= 0), dice, score)
+    both_empty = (pred_area <= 0) & (target_area <= 0)
+    one_empty = (pred_area <= 0) ^ (target_area <= 0)
+    score = torch.where(both_empty, torch.ones_like(score), score)
+    score = torch.where(one_empty, torch.zeros_like(score), score)
+    return score.clamp(0.0, 1.0)
+
+
 @torch.no_grad()
 def quality_metric_targets(candidate_logits: torch.Tensor,
                            target: torch.Tensor,
@@ -106,9 +139,10 @@ def quality_metric_targets(candidate_logits: torch.Tensor,
 
     ``candidate_logits`` is ``[B, N, H, W]`` and ``target`` is
     ``[B, 1, H, W]`` or ``[B, H, W]``.  The IoU target follows the evaluator
-    (two empty masks count as IoU 1).  The clDice target is the soft-clDice
-    score ``1 - SoftclDiceLoss``; it is a cheap, differentiable proxy for the
-    hard skeleton metric and is detached before the quality regression.
+    (two empty masks count as IoU 1).  The clDice target is a guarded
+    soft-clDice score; empty/full degenerate masks fall back to Dice so a
+    zero soft skeleton cannot look perfect.  It is a cheap proxy for the hard
+    skeleton metric and is detached before the quality regression.
     """
     if candidate_logits.ndim != 4:
         raise ValueError(
@@ -147,17 +181,8 @@ def quality_metric_targets(candidate_logits: torch.Tensor,
     for index in range(candidate_logits.shape[1]):
         pred = torch.sigmoid(candidate_logits[:, index:index + 1])
         skel_pred = cl_loss._soft_skel(pred)
-        tprec = ((skel_pred * target).sum(dim=(1, 2, 3)) + smooth) / (
-            skel_pred.sum(dim=(1, 2, 3)) + smooth)
-        tsens = ((skel_target * pred).sum(dim=(1, 2, 3)) + smooth) / (
-            skel_target.sum(dim=(1, 2, 3)) + smooth)
-        score = 2.0 * tprec * tsens / (tprec + tsens + 1e-3)
-        both_empty = (
-            ((pred > 0.5).sum(dim=(1, 2, 3)) <= 0)
-            & (target.sum(dim=(1, 2, 3)) <= 0))
-        score = torch.where(
-            both_empty, torch.ones_like(score), score)
-        cldice.append(score)
+        cldice.append(_topology_score(
+            pred, target, skel_pred, skel_target, smooth))
     cldice = torch.stack(cldice, dim=1).clamp(0.0, 1.0)
     return iou.clamp(0.0, 1.0), cldice
 
@@ -198,16 +223,8 @@ class TopologyStability(nn.Module):
         low = low.reshape(batch * slots, 1, height, width)
         skel_high = self._skel._soft_skel(high)
         skel_low = self._skel._soft_skel(low)
-        tprec = ((skel_high * low).sum(dim=(1, 2, 3)) + self.smooth) / (
-            skel_high.sum(dim=(1, 2, 3)) + self.smooth)
-        tsens = ((skel_low * high).sum(dim=(1, 2, 3)) + self.smooth) / (
-            skel_low.sum(dim=(1, 2, 3)) + self.smooth)
-        score = 2.0 * tprec * tsens / (tprec + tsens + 1e-6)
-        both_empty = (
-            (high.sum(dim=(1, 2, 3)) <= 0)
-            & (low.sum(dim=(1, 2, 3)) <= 0))
-        score = torch.where(
-            both_empty, torch.ones_like(score), score)
+        score = _topology_score(
+            high, low, skel_high, skel_low, self.smooth)
         return score.reshape(batch, slots).clamp(0.0, 1.0)
 
 

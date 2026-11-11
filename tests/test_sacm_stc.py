@@ -1866,3 +1866,36 @@ def test_sacm_stc_topoqa_load_state_dict_allows_fresh_head():
     state.pop('other.weight')
     with pytest.raises(RuntimeError):
         adapter.load_state_dict(model, state)
+
+
+def test_sacm_stc_topoqa_degenerate_masks():
+    empty = torch.full((1, 4, 8, 8), -10.0)
+    full = torch.full((1, 4, 8, 8), 10.0)
+    thin = torch.full((1, 4, 8, 8), -10.0)
+    thin[:, :, 4, :] = 10.0
+    t_empty = torch.zeros(1, 1, 8, 8)
+    t_full = torch.ones(1, 1, 8, 8)
+    t_thin = torch.zeros(1, 1, 8, 8)
+    t_thin[:, :, 4, :] = 1.0
+
+    # A zero soft skeleton must not make a degenerate prediction perfect.
+    _, cldice = quality_metric_targets(empty, t_full)
+    assert torch.allclose(cldice, torch.zeros_like(cldice), atol=1e-5)
+    _, cldice = quality_metric_targets(full, t_empty)
+    assert torch.allclose(cldice, torch.zeros_like(cldice), atol=1e-5)
+    _, cldice = quality_metric_targets(full, t_thin)
+    assert torch.all(cldice < 0.5)
+    _, cldice = quality_metric_targets(thin, t_full)
+    assert torch.all(cldice < 0.5)
+    _, cldice = quality_metric_targets(full, t_full)
+    assert torch.all(cldice > 0.9)
+    _, cldice = quality_metric_targets(thin, t_thin)
+    assert torch.all(cldice > 0.9)
+
+    # Neutral logits have an empty high mask and a full low mask: maximally
+    # unstable, not perfectly stable.  Empty/empty and full/full stay stable.
+    stability = TopologyStability(num_iter=3, delta=0.1)
+    assert torch.all(stability(torch.zeros(1, 1, 8, 8)) < 0.1)
+    assert torch.all(stability(torch.full((1, 1, 8, 8), 10.0)) > 0.9)
+    assert torch.all(stability(torch.full((1, 1, 8, 8), -10.0)) > 0.9)
+    assert torch.all(stability(thin) > 0.9)
