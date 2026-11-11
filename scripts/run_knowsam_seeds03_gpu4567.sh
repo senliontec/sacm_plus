@@ -125,7 +125,6 @@ echo "============================================================"
 
 "$PYTHON" - "$REPO" "$GPU_LIST" "$SEEDS_STR" "$MAX_USED_MIB" \
   "$ALLOW_BUSY" "$MIN_FREE_GB" "$CONFIG" <<'PY'
-import importlib.util
 import shutil
 import subprocess
 import sys
@@ -210,29 +209,39 @@ if not checkpoint.is_file():
              '(the server is offline)')
 
 pools = {
-    'DRIVE': repo / 'datasets/seen/DRIVE/images',
-    'CHASEDB1': repo / 'datasets/seen/CHASEDB1/images',
-    'DCA1': repo / 'datasets/seen/DCA1/images',
-    'CREMI': repo / 'datasets/seen/CREMI/images',
-    'CrackTree200': repo / 'datasets/seen/CrackTree200/images',
-    'CORN': repo / 'datasets/seen/CORN/train/images',
+    'DRIVE': (repo / 'datasets/seen/DRIVE/images',
+              repo / 'datasets/seen/DRIVE/masks'),
+    'CHASEDB1': (repo / 'datasets/seen/CHASEDB1/images',
+                 repo / 'datasets/seen/CHASEDB1/masks'),
+    'DCA1': (repo / 'datasets/seen/DCA1/images',
+             repo / 'datasets/seen/DCA1/masks'),
+    'CREMI': (repo / 'datasets/seen/CREMI/images',
+              repo / 'datasets/seen/CREMI/masks'),
+    'CrackTree200': (repo / 'datasets/seen/CrackTree200/images',
+                     repo / 'datasets/seen/CrackTree200/masks'),
+    'CORN': (repo / 'datasets/seen/CORN/train/images',
+             repo / 'datasets/seen/CORN/train/masks'),
 }
-missing_pools = [name for name, path in pools.items()
-                 if not path.is_dir()]
+missing_pools = [name for name, paths in pools.items()
+                 if not all(path.is_dir() for path in paths)]
 if missing_pools:
     sys.exit('ERROR: missing KnowSAM unlabeled source pool(s): '
-             + ', '.join(f'{name} ({pools[name]})'
+             + ', '.join(f'{name} ({", ".join(str(p) for p in pools[name])})'
                          for name in missing_pools))
 
-missing_modules = [
-    module for module in ('torch', 'cv2', 'albumentations', 'scipy',
-                          'skimage', 'einops', 'h5py', 'medpy',
-                          'hausdorff', 'matplotlib')
-    if importlib.util.find_spec(module) is None]
+# find_spec only proves the package is installed; KnowSAM imports native
+# modules (cv2, medpy, hausdorff, h5py), so import them for real.
+missing_modules = []
+for module in ('torch', 'cv2', 'albumentations', 'scipy', 'skimage',
+               'einops', 'h5py', 'medpy', 'hausdorff', 'matplotlib'):
+    try:
+        __import__(module)
+    except Exception as exc:  # noqa: BLE001 - report the real import error
+        missing_modules.append(f'{module} ({exc})')
 if missing_modules:
-    sys.exit('ERROR: missing KnowSAM dependencies: '
-             + ', '.join(missing_modules)
-             + f'\nInstall them with the runtime used by {sys.executable}')
+    sys.exit('ERROR: KnowSAM dependencies are not importable: '
+             + '; '.join(missing_modules)
+             + f'\nInstall/fix them with the runtime used by {sys.executable}')
 
 free_gb = shutil.disk_usage(repo).free / (1024 ** 3)
 if free_gb < min_free_gb:

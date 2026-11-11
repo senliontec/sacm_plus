@@ -16,16 +16,16 @@ From this file's directory: `../../../../3rd`
 
 `3rd` is a read-only upstream reference. Do not import from it at runtime.
 
-```text
+```text ✅ ⭐
 └── unet                  -> 3rd/Pytorch-UNet ⭐
 ├── cs2net                -> 3rd/CS-Net ⭐
 ├── bcunet                -> 3rd/BCU-Net
 ├── maskvsc               -> 3rd/MaskVSC ⭐
 ├── nnwnet                -> 3rd/nnWNet ⭐⭐⭐⭐⭐
-├── sam_med2d             -> 3rd/SAM-Med2D ✅
-├── sam_octa              -> 3rd/SAM-OCTA ✅
+├── sam_med2d             -> 3rd/SAM-Med2D ⭐⭐
+├── sam_octa              -> 3rd/SAM-OCTA ⭐⭐⭐
 ├── cwsam                 -> 3rd/CWSAM ✅
-├── knowsam               -> 3rd/KnowSAM ✅
+├── knowsam               -> 3rd/KnowSAM ⭐⭐
 ├── segdino               -> 3rd/segdino ✅
 ├── sacm_official         -> 3rd/SACM ⭐⭐⭐⭐
 ├── sacm_stc             -> 3rd/SACM (corrected derivative of sacm_official) ⭐⭐⭐⭐
