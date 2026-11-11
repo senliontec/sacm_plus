@@ -41,6 +41,7 @@ from baseline_zoo.models.sacm_stc.typed import (  # noqa: E402
 )
 from baseline_zoo.models.sacm_stc.tpd import (  # noqa: E402
     ImageDensePrompt,
+    MorphPrompt,
     TopologyQualityHead,
 )
 from baseline_zoo.registry import load_models  # noqa: E402
@@ -1122,11 +1123,11 @@ def test_sacm_stc_tpd_modules():
     adapter.quality_refine_weight = 1.0
     logits = torch.full((1, 4, 4, 4), -10.0)
     logits[:, 1] = 10.0
-    scores = torch.tensor([[0.99, 0.01, 0.0, 0.0]])
+    scores = torch.tensor([[0.90, 0.80, 0.0, 0.0]])
     refined = adapter._quality_refined_logits(logits, scores)
     assert refined.shape == (1, 1, 4, 4)
-    # Candidate 1 supports all pixels, so full-weight refinement fills the
-    # missing region.
+    # Candidate 1 supports all pixels and its quality is close to the best,
+    # so full-weight refinement fills the missing region.
     assert torch.all(torch.sigmoid(refined) > 0.5)
 
 
@@ -1240,10 +1241,11 @@ def test_sacm_stc_tpd_refine_runs_when_quality_keeps_gating(tmp_path,
 
     monkeypatch.setattr(adapter, '_forward', fake_forward)
     # Slot 0 (the gating anchor) is also the quality argmax, so selection
-    # keeps gating and reports no override index.
+    # keeps gating and reports no override index.  Candidate 1 must still be
+    # quality-vetted before it can contribute refinement support.
     monkeypatch.setattr(
         adapter, '_quality_scores',
-        lambda model, stage2: torch.tensor([[0.9, 0.2, 0.1, 0.0]]))
+        lambda model, stage2: torch.tensor([[0.9, 0.8, 0.1, 0.0]]))
     sample = argparse.Namespace(mask_path=mask_path)
     mask = adapter.predict_sample(
         torch.nn.Module(), torch.zeros(1, 3, 1024, 1024), sample)
@@ -1316,3 +1318,87 @@ def test_sacm_stc_tpd_quality_margin_keeps_anchor(monkeypatch):
         adapter, '_quality_scores',
         lambda model, stage2: make_scores(0.50, 0.60))
     assert adapter._quality_candidate_index(None, stage2) == 1
+
+
+def test_sacm_stc_tpd_refine_ignores_degenerate_low_score_candidate():
+    """A low-quality all-foreground proposal must not flood the mask."""
+    adapter = load_adapter('sacm_stc')
+    adapter.quality_refine_topk = 2
+    adapter.quality_refine_threshold = 0.7
+    adapter.quality_refine_weight = 1.0
+    adapter.quality_refine_stage1 = False
+    adapter.quality_refine_min_score_ratio = 0.5
+    adapter.args = argparse.Namespace(deploy_threshold=0.5)
+    low = float(torch.logit(torch.tensor(0.1)))
+    base = float(torch.logit(torch.tensor(0.2)))
+    stage2 = torch.full((1, 4, 2, 2), low)
+    stage2[:, 0] = base
+    stage2[:, 1] = 10.0  # all-foreground degenerate proposal
+    # The quality head correctly ranks candidate 1 far below candidate 0.
+    scores = torch.tensor([[0.50, 0.02, 0.01, 0.01]])
+    refined = torch.sigmoid(adapter._quality_refined_logits(
+        stage2, scores, base_index=0))
+    # Candidate 1 is below 0.5 * best, so it contributes no support and the
+    # deployed mask is unchanged.
+    assert torch.allclose(refined, torch.full_like(refined, 0.2), atol=1e-5)
+
+
+def test_sacm_stc_morph_prompt():
+    prompt = MorphPrompt(embed_dim=16, scales=(3, 7), work_size=32)
+    x = torch.rand(2, 3, 32, 32)
+    out = prompt(x)
+    out_inv = prompt(1.0 - x)
+    assert out.shape == (2, 16, 32, 32)
+    # White/black top-hat swap under inversion; the sum is invariant.
+    assert torch.allclose(out, out_inv, atol=1e-5)
+
+    adapter = load_adapter('sacm_stc')
+    adapter.input_size = 1024
+    adapter.morph_prompt = True
+    assert adapter.save_config(argparse.Namespace())['morph_prompt'] == 1
+    parser = argparse.ArgumentParser()
+    adapter.add_args(parser)
+    assert parser.parse_args(['--morph-prompt', '1']).morph_prompt == 1
+
+
+def test_sacm_stc_morph_prompt_forward():
+    adapter = load_adapter('sacm_stc')
+    adapter.morph_prompt = True
+    adapter.image_dense_prompt = False
+
+    class FakePE:
+        def __call__(self, points=None, boxes=None, masks=None):
+            return torch.zeros(1, 4, 256), torch.zeros(1, 256, 8, 8)
+
+        def get_dense_pe(self):
+            return torch.zeros(1, 256, 8, 8)
+
+    class FakeIE:
+        embed_dim = 256
+
+        def __call__(self, images, return_features=True):
+            return torch.zeros(images.shape[0], 256, 8, 8), []
+
+    class FakeMD:
+        def predict_masks(self, **kwargs):
+            return kwargs['dense_prompt_embeddings']
+
+    class FakeModel(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.prompt_encoder = FakePE()
+            self.image_encoder = FakeIE()
+            self.mask_decoder = FakeMD()
+            self.morph_prompt = MorphPrompt(
+                embed_dim=256, scales=(3,), work_size=16)
+
+        def preprocess(self, images):
+            return images
+
+    model = FakeModel()
+    with_morph = adapter._forward(model, torch.rand(1, 3, 16, 16))
+    assert with_morph.shape == (1, 256, 8, 8)
+    assert torch.count_nonzero(with_morph) > 0
+    adapter.morph_prompt = False
+    without_morph = adapter._forward(model, torch.rand(1, 3, 16, 16))
+    assert torch.count_nonzero(without_morph) == 0

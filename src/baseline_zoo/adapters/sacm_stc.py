@@ -42,6 +42,7 @@ from baseline_zoo.models.sacm_stc.topology_losses import (
 )
 from baseline_zoo.models.sacm_stc.tpd import (
     ImageDensePrompt,
+    MorphPrompt,
     TopologyQualityHead,
 )
 from baseline_zoo.models.sacm_stc.typed import (
@@ -122,6 +123,7 @@ class SACMSTCAdapter(BaselineAdapter):
         self.deployment_head = 2
         self.image_dense_prompt = False
         self.image_dense_prompt_mode = 'residual'
+        self.morph_prompt = False
         self.topology_quality = False
         self.quality_resolution = 64
         self.quality_warmup_epochs = 5
@@ -130,6 +132,7 @@ class SACMSTCAdapter(BaselineAdapter):
         self.quality_refine_threshold = 0.7
         self.quality_refine_weight = 0.5
         self.quality_refine_stage1 = False
+        self.quality_refine_min_score_ratio = 0.5
         self.quality_select_margin = 0.01
         self._last_quality_scores = None
 
@@ -187,6 +190,10 @@ class SACMSTCAdapter(BaselineAdapter):
             help='residual: no_mask_embed + image prompt; replace: image '
                  'embedding + projected image prompt (MM-SAM style)')
         parser.add_argument(
+            '--morph-prompt', type=int, choices=[0, 1], default=0,
+            help='POMP: polarity-invariant ON/OFF morphological dense '
+                 'prompt (multi-scale white + black top-hat sum)')
+        parser.add_argument(
             '--topology-quality', type=int, choices=[0, 1], default=0,
             help='TPD: train a candidate topology-quality head and select '
                  'the deployed candidate with it; four candidates remain '
@@ -230,6 +237,12 @@ class SACMSTCAdapter(BaselineAdapter):
             help='use the coarse Stage-1 heads as additional high-confidence '
                  'support for under-segmentation repair (E-SAM multi-level '
                  'proposal adaptation)')
+        parser.add_argument(
+            '--quality-refine-min-score-ratio', type=float, default=0.5,
+            help='only candidates whose quality score is at least this '
+                 'fraction of the best candidate may contribute refinement '
+                 'support; prevents low-score degenerate proposals from '
+                 'flooding the mask')
         parser.add_argument(
             '--quality-select-margin', type=float, default=0.01,
             help='only switch away from the gating candidate when its '
@@ -476,6 +489,7 @@ class SACMSTCAdapter(BaselineAdapter):
         if self.image_dense_prompt_mode not in ('residual', 'replace'):
             raise SystemExit(
                 'image-dense-prompt-mode must be residual or replace')
+        self.morph_prompt = bool(int(getattr(args, 'morph_prompt', 0)))
         self.topology_quality = bool(
             int(getattr(args, 'topology_quality', 0)))
         self.quality_resolution = int(
@@ -492,20 +506,29 @@ class SACMSTCAdapter(BaselineAdapter):
             getattr(args, 'quality_refine_weight', 0.5))
         self.quality_refine_stage1 = bool(
             int(getattr(args, 'quality_refine_stage1', 0)))
+        self.quality_refine_min_score_ratio = float(
+            getattr(args, 'quality_refine_min_score_ratio', 0.5))
         self.quality_select_margin = float(
             getattr(args, 'quality_select_margin', 0.01))
         if self.quality_refine_topk <= 0:
             raise SystemExit('quality-refine-topk must be positive')
+        if not 0.0 <= self.quality_refine_min_score_ratio <= 1.0:
+            raise SystemExit(
+                'quality-refine-min-score-ratio must be in [0, 1]')
         if self.quality_select_margin < 0:
             raise SystemExit('quality-select-margin must be non-negative')
         if self.quality_resolution <= 0:
             raise SystemExit('quality-resolution must be positive')
         if self.topology_quality:
             scope = str(getattr(args, 'stage2_loss_scope', 'all'))
-            if scope != 'selected':
+            if scope not in ('all', 'selected'):
                 raise SystemExit(
-                    'topology-quality requires stage2-loss-scope=selected; '
-                    'the auxiliary candidates must not receive dense GT loss')
+                    'topology-quality requires stage2-loss-scope=all or '
+                    'selected; the candidates it ranks must be trainable')
+            # With scope=all the auxiliary candidates receive dense GT loss
+            # (the canonical SACM-STC full recipe), so they are well-trained
+            # proposals and the quality head ranks four supervised heads.
+            # scope=selected keeps the proposal-only design.
             if int(getattr(args, 'use_stc', 0)) == 1:
                 raise SystemExit(
                     'topology-quality is not supported with use_stc')
@@ -615,6 +638,10 @@ class SACMSTCAdapter(BaselineAdapter):
                 getattr(model, 'mask_decoder', None), 'transformer_dim', 256)
             model.image_dense_prompt = ImageDensePrompt(
                 int(prompt_dim), prompt_dim=int(prompt_dim))
+        if self.morph_prompt:
+            prompt_dim = getattr(
+                getattr(model, 'mask_decoder', None), 'transformer_dim', 256)
+            model.morph_prompt = MorphPrompt(int(prompt_dim))
         if self.topology_quality:
             model.topology_quality_head = TopologyQualityHead()
         return model
@@ -642,6 +669,9 @@ class SACMSTCAdapter(BaselineAdapter):
             'image_dense_prompt_mode': str(getattr(
                 self, 'image_dense_prompt_mode',
                 getattr(args, 'image_dense_prompt_mode', 'residual'))),
+            'morph_prompt': int(getattr(
+                self, 'morph_prompt',
+                getattr(args, 'morph_prompt', 0))),
             'topology_quality': int(getattr(
                 self, 'topology_quality',
                 getattr(args, 'topology_quality', 0))),
@@ -674,6 +704,9 @@ class SACMSTCAdapter(BaselineAdapter):
             'quality_refine_stage1': int(getattr(
                 self, 'quality_refine_stage1',
                 getattr(args, 'quality_refine_stage1', 0))),
+            'quality_refine_min_score_ratio': float(getattr(
+                self, 'quality_refine_min_score_ratio',
+                getattr(args, 'quality_refine_min_score_ratio', 0.5))),
             'quality_select_margin': float(getattr(
                 self, 'quality_select_margin',
                 getattr(args, 'quality_select_margin', 0.01))),
@@ -763,13 +796,15 @@ class SACMSTCAdapter(BaselineAdapter):
                     'stage1_fusion_weight', 'stage1_fusion_mode',
                     'deep_sup_weight', 'iou_loss_weight',
                     'image_dense_prompt', 'image_dense_prompt_mode',
+                    'morph_prompt',
                     'topology_quality',
                     'quality_loss_weight', 'quality_iou_weight',
                     'quality_dice_weight', 'quality_cldice_weight',
                     'quality_resolution', 'quality_warmup_epochs',
                     'quality_refine', 'quality_refine_topk',
                     'quality_refine_threshold', 'quality_refine_weight',
-                    'quality_refine_stage1', 'quality_select_margin',
+                    'quality_refine_stage1', 'quality_refine_min_score_ratio',
+                    'quality_select_margin',
                     'deployment_head', 'stage2_loss_scope',
                     'stage2_loss_aggregate', 'stage2_aux_weight',
                     'cl_dice_weight', 'tversky_weight',
@@ -871,6 +906,10 @@ class SACMSTCAdapter(BaselineAdapter):
         return model.preprocess(images)
 
     def _forward(self, model, images, return_stage1=False):
+        # Keep the raw [0,1] image for the polarity-invariant morphological
+        # prompt; SAM preprocessing normalizes it and would destroy the
+        # intensity polarity the ON/OFF features are built from.
+        raw_images = images
         images = self._sam_preprocess(model, images)
         batch = images.shape[0]
         sparse, dense = model.prompt_encoder(
@@ -926,6 +965,22 @@ class SACMSTCAdapter(BaselineAdapter):
                 dense = base + residual
             else:
                 dense = dense + residual
+        if self.morph_prompt:
+            morph = getattr(model, 'morph_prompt', None)
+            if morph is None:
+                raise RuntimeError(
+                    'morph-prompt=1 but model.morph_prompt is missing')
+            residual = morph(raw_images)
+            if residual.shape[1] != dense.shape[1]:
+                raise RuntimeError(
+                    'morph prompt produced '
+                    f'{residual.shape[1]} channels but SAM dense prompts '
+                    f'use {dense.shape[1]}')
+            if residual.shape[-2:] != dense.shape[-2:]:
+                residual = F.interpolate(
+                    residual, size=dense.shape[-2:],
+                    mode='bilinear', align_corners=False)
+            dense = dense + residual
         return model.mask_decoder.predict_masks(
             image_embeddings=embeddings,
             image_pe=model.prompt_encoder.get_dense_pe(),
@@ -1394,9 +1449,22 @@ class SACMSTCAdapter(BaselineAdapter):
         gathered = torch.gather(
             probs, 1, indices[:, :, None, None].expand(
                 -1, -1, probs.shape[2], probs.shape[3]))
-        # High-confidence support from any top-k proposal, as in E-SAM's
-        # under-segmentation repair; not a weighted average that would hide a
-        # confident auxiliary proposal behind a weak top-1 score.
+        # Non-deployed Stage-2 heads receive no dense GT loss and can
+        # degenerate into all-foreground proposals.  A plain max over top-k
+        # lets such a proposal flood the mask even when the quality head
+        # ranked it far below the best candidate (measured: score 0.02 vs
+        # 0.49, fill 0.9, Dice 0.83 -> 0.19).  Keep a proposal only when its
+        # predicted quality is comparable to the best one.
+        min_ratio = float(getattr(
+            self, 'quality_refine_min_score_ratio', 0.5))
+        best_score = scores.max(dim=1, keepdim=True).values.clamp_min(1e-6)
+        keep = scores >= (min_ratio * best_score)
+        keep = torch.gather(keep, 1, indices)
+        gathered = gathered * keep[:, :, None, None].to(gathered.dtype)
+        # High-confidence support from any quality-vetted proposal, as in
+        # E-SAM's under-segmentation repair; not a weighted average that
+        # would hide a confident auxiliary proposal behind a weak top-1
+        # score.
         support = gathered.max(dim=1, keepdim=True).values
         if stage1 is not None and self.quality_refine_stage1:
             if stage1.shape[-2:] != probs.shape[-2:]:

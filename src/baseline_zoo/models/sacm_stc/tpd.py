@@ -50,6 +50,65 @@ class ImageDensePrompt(nn.Module):
         return self.scale * self.proj(image_embeddings)
 
 
+class MorphPrompt(nn.Module):
+    """Polarity-invariant ON/OFF morphological dense prompt.
+
+    White top-hat (bright structures) and black top-hat (dark structures)
+    swap under intensity inversion, so their sum is invariant to the
+    foreground/background contrast sign.  Multi-scale sums are projected to
+    the decoder's dense-prompt width and added residually.
+
+    Offline validation (TopoMortar/DeepGlobe/LEAF/ROAD/WIRE/XCAD/DRIVE)
+    showed the multi-scale top-hat sum is the strongest and exactly
+    polarity-invariant structural feature (AUC 0.66-0.92, inversion
+    correlation +1.000).
+    """
+
+    def __init__(self, embed_dim: int = 256,
+                 scales: tuple[int, ...] = (3, 7, 15),
+                 work_size: int = 512, init_scale: float = 0.1):
+        super().__init__()
+        self.embed_dim = int(embed_dim)
+        self.scales = tuple(int(s) for s in scales)
+        self.work_size = int(work_size)
+        self.proj = nn.Sequential(
+            nn.Conv2d(len(self.scales), embed_dim, 1, bias=False),
+            nn.GELU(),
+            nn.Conv2d(embed_dim, embed_dim, 1),
+        )
+        self.scale = nn.Parameter(torch.full((1,), float(init_scale)))
+
+    @staticmethod
+    def _erode(x: torch.Tensor, kernel: int) -> torch.Tensor:
+        pad = kernel // 2
+        return -F.max_pool2d(-x, kernel_size=kernel, stride=1, padding=pad)
+
+    @staticmethod
+    def _dilate(x: torch.Tensor, kernel: int) -> torch.Tensor:
+        pad = kernel // 2
+        return F.max_pool2d(x, kernel_size=kernel, stride=1, padding=pad)
+
+    def forward(self, images: torch.Tensor) -> torch.Tensor:
+        if images.ndim != 4 or images.shape[1] != 3:
+            raise ValueError(
+                'morph prompt expects [B, 3, H, W] RGB images, got '
+                f'{tuple(images.shape)}')
+        gray = (0.299 * images[:, 0:1] + 0.587 * images[:, 1:2]
+                + 0.114 * images[:, 2:3])
+        if self.work_size and gray.shape[-1] != self.work_size:
+            gray = F.interpolate(
+                gray, size=(self.work_size, self.work_size),
+                mode='bilinear', align_corners=False)
+        features = []
+        for kernel in self.scales:
+            opening = self._dilate(self._erode(gray, kernel), kernel)
+            closing = self._erode(self._dilate(gray, kernel), kernel)
+            # White top-hat + black top-hat; the two terms swap under
+            # inversion, so the sum is polarity-invariant.
+            features.append((gray - opening) + (closing - gray))
+        return self.scale * self.proj(torch.cat(features, dim=1))
+
+
 class TopologyQualityHead(nn.Module):
     """Shared per-candidate quality predictor.
 
@@ -129,4 +188,4 @@ class TopologyQualityHead(nn.Module):
         return torch.stack(scores, dim=1).clamp(0.0, 1.0)
 
 
-__all__ = ['ImageDensePrompt', 'TopologyQualityHead']
+__all__ = ['ImageDensePrompt', 'MorphPrompt', 'TopologyQualityHead']

@@ -57,6 +57,7 @@ common_train_args:
   quality-refine-threshold: 0.7
   quality-refine-weight: 0.5
   quality-refine-stage1: 0
+  quality-refine-min-score-ratio: 0.5
   quality-select-margin: 0.01
   save-every: 0
   num-workers: 0
