@@ -549,6 +549,11 @@ class SACMSTCAdapter(BaselineAdapter):
             print('[sacm_stc] iou-loss-weight <= 0: falling back to '
                   'gating head 0 for mask selection', flush=True)
             self.head_select = 'gating'
+        if (self.topology_quality
+                and self.head_select not in ('gating', 'fixed')):
+            raise SystemExit(
+                'topology-quality requires head-select=gating or fixed; '
+                f'got {self.head_select!r}')
         if float(getattr(args, 'deep_sup_weight', 0.0)) <= 0:
             print('[sacm_stc] deep-sup-weight <= 0: Stage-1 heads receive '
                   'no gradient in this fixed port (no refiner path)',
@@ -895,6 +900,11 @@ class SACMSTCAdapter(BaselineAdapter):
                     'image-dense-prompt=1 but model.image_dense_prompt is '
                     'missing')
             residual = prompt(embeddings)
+            if residual.shape[1] != dense.shape[1]:
+                raise RuntimeError(
+                    'image dense prompt produced '
+                    f'{residual.shape[1]} channels but SAM dense prompts '
+                    f'use {dense.shape[1]}')
             if residual.shape[-2:] != dense.shape[-2:]:
                 residual = F.interpolate(
                     residual, size=dense.shape[-2:],
@@ -904,6 +914,11 @@ class SACMSTCAdapter(BaselineAdapter):
                 # projected image embedding, instead of a constant no-mask
                 # anchor.
                 base = embeddings
+                if base.shape[1] != dense.shape[1]:
+                    raise RuntimeError(
+                        'image encoder embeddings have '
+                        f'{base.shape[1]} channels but SAM dense prompts '
+                        f'use {dense.shape[1]}')
                 if base.shape[-2:] != dense.shape[-2:]:
                     base = F.interpolate(
                         base, size=dense.shape[-2:],
@@ -1352,18 +1367,27 @@ class SACMSTCAdapter(BaselineAdapter):
         target = self._quality_target(stage2, masks)
         return weight * F.mse_loss(scores, target)
 
-    def _quality_refined_logits(self, stage2, scores, stage1=None):
+    def _quality_refined_logits(self, stage2, scores, stage1=None,
+                                base_index=None):
         """E-SAM-inspired conservative under-segmentation refinement.
 
-        The top-quality Stage-2 candidate stays the base mask.  Regions that
-        are missing from it but supported by the top-k quality candidates or
-        the coarse Stage-1 heads above a high confidence threshold are
-        blended in.  This is a lightweight binary adaptation of E-SAM's
-        multi-level proposal / under-segmentation repair, not a dense loss on
-        the auxiliary heads.
+        The deployed candidate stays the base mask.  Regions that are missing
+        from it but supported by the top-k quality candidates or the coarse
+        Stage-1 heads above a high confidence threshold are blended in.  This
+        is a lightweight binary adaptation of E-SAM's multi-level proposal /
+        under-segmentation repair, not a dense loss on the auxiliary heads.
+
+        ``base_index`` decouples refinement from candidate selection: it is
+        the candidate actually deployed by the selector (gating/fixed/iou or
+        the quality override).  ``None`` keeps the legacy behaviour of using
+        the top-quality candidate as the base.
         """
         if stage2.shape[1] <= 1:
             return stage2[:, :1]
+        if (base_index is not None
+                and not 0 <= int(base_index) < stage2.shape[1]):
+            raise ValueError(
+                f'base_index {base_index} outside [0, {stage2.shape[1]})')
         topk = max(1, min(int(self.quality_refine_topk), stage2.shape[1]))
         _, indices = torch.topk(scores, topk, dim=1)
         probs = torch.sigmoid(stage2)
@@ -1382,12 +1406,22 @@ class SACMSTCAdapter(BaselineAdapter):
             stage1_support = torch.sigmoid(stage1).mean(
                 dim=1, keepdim=True)
             support = torch.maximum(support, stage1_support)
+        if base_index is None:
+            base = scores.argmax(dim=1)
+        else:
+            base = torch.full(
+                (probs.shape[0],), int(base_index),
+                dtype=torch.long, device=probs.device)
         selected = torch.gather(
-            probs, 1, indices[:, :1, None, None].expand(
-                -1, -1, probs.shape[2], probs.shape[3]))
+            probs, 1, base[:, None, None, None].expand(
+                -1, 1, probs.shape[2], probs.shape[3]))
+        # "Missing" uses the same deployment threshold as final
+        # binarisation, so refinement and thresholding stay consistent.
+        deploy_threshold = float(getattr(
+            getattr(self, 'args', None), 'deploy_threshold', 0.5))
         extra = (
             (support > float(self.quality_refine_threshold))
-            & (selected < 0.5)
+            & (selected < deploy_threshold)
         ).to(probs.dtype)
         fused = selected + float(self.quality_refine_weight) * extra * (
             support - selected)
@@ -1404,8 +1438,15 @@ class SACMSTCAdapter(BaselineAdapter):
         epoch = getattr(self, '_epoch', None)
         warmup = int(getattr(self, 'quality_warmup_epochs', 0))
         if epoch is not None and int(epoch) <= warmup:
+            # Refinement must not consume scores from an untrained head, or
+            # stale scores left over from a previous phase.
+            self._last_quality_scores = None
             return None
         scores = self._quality_scores(model, stage2)
+        if scores.shape[0] != 1:
+            raise RuntimeError(
+                'quality candidate selection expects batch size 1, got '
+                f'{scores.shape[0]}')
         self._last_quality_scores = scores.detach()
         best = int(scores.argmax(dim=1)[0].item())
         anchor = self._selected_stage2_index()
@@ -1572,12 +1613,30 @@ class SACMSTCAdapter(BaselineAdapter):
                     'STC requires SAM adapter/intermediate features')
             logits = head(anchor, image, sam_features)['final']
         else:
+            # Resolve the single candidate this selector deploys, if any.
+            # Aggregate selectors (mean / gating_soft) have no single base and
+            # are not refined.
+            base_index = None
             if quality_index is not None:
-                logits = stage2[:, quality_index:quality_index + 1]
+                base_index = quality_index
+            elif self.head_select == 'gating':
+                # Official gating order: slot 0 is the top-gated candidate.
+                base_index = 0
+            elif self.head_select == 'fixed':
+                base_index = int(self.deployment_head)
+            elif self.head_select == 'iou':
+                base_index = int(iou_pred.argmax(dim=1)[0].item())
+
+            if base_index is not None:
+                logits = stage2[:, base_index:base_index + 1]
+                # Refinement is independent of the quality override: it runs
+                # whenever the feature is enabled and the quality head has
+                # produced scores, including when selection kept gating.
                 if (self.quality_refine
                         and self._last_quality_scores is not None):
                     logits = self._quality_refined_logits(
-                        stage2, self._last_quality_scores, stage1)
+                        stage2, self._last_quality_scores, stage1,
+                        base_index=base_index)
             elif self.head_select == 'mean':
                 # The four native Stage-2 heads are all dense candidates.
                 # Averaging their logits is permutation-invariant, so it also
@@ -1594,14 +1653,8 @@ class SACMSTCAdapter(BaselineAdapter):
                         dim=1, keepdim=True).clamp_min(1e-6)
                     logits = (stage2 * weights[:, :, None, None]).sum(
                         dim=1, keepdim=True)
-            elif self.head_select == 'iou':
-                index = int(iou_pred.argmax(dim=1)[0].item())
-                logits = stage2[:, index:index + 1]
-            elif self.head_select == 'fixed':
-                logits = stage2[:, self.deployment_head:
-                                self.deployment_head + 1]
             else:
-                # Official gating order: slot 0 is the top-gated candidate.
+                # Defensive fallback: official gating slot 0.
                 logits = stage2[:, 0:1]
             if stage1_weight > 0 and stage1 is not None:
                 if getattr(self.args, 'stage1_fusion_mode',

@@ -3,8 +3,9 @@
 These are optional, default-off pieces for the TPD experiment:
 
 * :class:`ImageDensePrompt` conditions the prompt-free dense prompt on the
-  image encoder output (MM-SAM style).  Its residual scale starts at zero so
-  the existing ``no_mask_embed`` path is unchanged until training moves it.
+  image encoder output (MM-SAM style).  Its residual gate starts at 0.1 so
+  the branch is active from the first step when the flag is enabled; the
+  flag itself is default-off, so existing runs are unchanged.
 * :class:`TopologyQualityHead` predicts a scalar quality for each native
   Stage-2 candidate.  Candidates remain proposals; only the deployed head
   receives the dense mask loss.
@@ -20,23 +21,32 @@ from torch import nn
 class ImageDensePrompt(nn.Module):
     """Image-conditioned residual for SAM's prompt-free dense embedding."""
 
-    def __init__(self, embed_dim: int = 256, prompt_dim: int | None = None):
+    def __init__(self, embed_dim: int = 256, prompt_dim: int | None = None,
+                 init_scale: float = 0.1):
         super().__init__()
+        self.embed_dim = int(embed_dim)
         prompt_dim = int(embed_dim if prompt_dim is None else prompt_dim)
         self.proj = nn.Sequential(
             nn.Conv2d(int(embed_dim), prompt_dim, 1, bias=False),
             nn.GELU(),
             nn.Conv2d(prompt_dim, prompt_dim, 1),
         )
-        # Zero residual gate: the initial forward returns exactly the
-        # existing no_mask_embed behaviour.
-        self.scale = nn.Parameter(torch.zeros(1))
+        # LayerScale-style gate.  A zero initialisation leaves the residual
+        # at exactly zero and, with the shared 3e-4 LR, the learned scale
+        # only reached 2.3e-4 after 7 epochs -- the image prompt was an
+        # effective no-op.  Start the gate at a small nonzero value so the
+        # enabled branch actually contributes from the first step.
+        self.scale = nn.Parameter(torch.full((1,), float(init_scale)))
 
     def forward(self, image_embeddings: torch.Tensor) -> torch.Tensor:
         if image_embeddings.ndim != 4:
             raise ValueError(
                 'image_embeddings must be [B, C, H, W], got '
                 f'{tuple(image_embeddings.shape)}')
+        if image_embeddings.shape[1] != self.embed_dim:
+            raise ValueError(
+                f'expected {self.embed_dim} image-embedding channels, got '
+                f'{image_embeddings.shape[1]}')
         return self.scale * self.proj(image_embeddings)
 
 

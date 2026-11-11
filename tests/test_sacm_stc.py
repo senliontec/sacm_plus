@@ -1094,7 +1094,12 @@ def test_sacm_stc_tpd_modules():
     image = torch.randn(2, 8, 4, 4)
     residual = prompt(image)
     assert residual.shape == image.shape
-    assert torch.count_nonzero(residual) == 0
+    # The gate starts at 0.1 (LayerScale style) so the enabled branch is
+    # active from the first step instead of learning an ~1e-4 no-op.
+    assert abs(float(prompt.scale.detach()) - 0.1) < 1e-6
+    assert torch.count_nonzero(residual) > 0
+    with pytest.raises(ValueError):
+        prompt(torch.randn(2, 7, 4, 4))
 
     projected = ImageDensePrompt(embed_dim=16, prompt_dim=4)
     assert projected(torch.randn(2, 16, 4, 4)).shape == (2, 4, 4, 4)
@@ -1203,3 +1208,111 @@ def test_sacm_stc_tpd_predict_selects_quality(tmp_path, monkeypatch):
         torch.nn.Module(), torch.zeros(1, 3, 1024, 1024), sample)
     assert mask.shape == (3, 4)
     assert mask.all()
+
+
+def test_sacm_stc_tpd_refine_runs_when_quality_keeps_gating(tmp_path,
+                                                            monkeypatch):
+    """Refinement must not depend on the quality head overriding gating."""
+    from PIL import Image
+
+    mask_path = tmp_path / 'mask.png'
+    Image.fromarray(np.zeros((3, 4), dtype=np.uint8)).save(mask_path)
+    adapter = load_adapter('sacm_stc')
+    adapter.head_select = 'gating'
+    adapter.topology_quality = True
+    adapter.quality_refine = True
+    adapter.quality_refine_topk = 2
+    adapter.quality_refine_threshold = 0.7
+    adapter.quality_refine_weight = 1.0
+    adapter.quality_refine_stage1 = False
+    adapter.quality_warmup_epochs = 0
+    adapter.quality_select_margin = 0.01
+    adapter.args = argparse.Namespace(
+        use_typed_stage2=0, use_stc=0, stage1_fusion_weight=0.0,
+        stage1_fusion_mode='gated', deploy_threshold=0.5,
+        topology_quality=1)
+
+    def fake_forward(model, prepared, return_stage1=False):
+        del model, prepared, return_stage1
+        stage2 = torch.full((1, 4, 2, 2), -10.0)
+        stage2[:, 1] = 10.0
+        return stage2, torch.zeros(1, 4)
+
+    monkeypatch.setattr(adapter, '_forward', fake_forward)
+    # Slot 0 (the gating anchor) is also the quality argmax, so selection
+    # keeps gating and reports no override index.
+    monkeypatch.setattr(
+        adapter, '_quality_scores',
+        lambda model, stage2: torch.tensor([[0.9, 0.2, 0.1, 0.0]]))
+    sample = argparse.Namespace(mask_path=mask_path)
+    mask = adapter.predict_sample(
+        torch.nn.Module(), torch.zeros(1, 3, 1024, 1024), sample)
+    # The gating base is empty, but candidate 1 is high-confidence support,
+    # so refinement must fill it even without a quality override.
+    assert mask.all()
+
+
+def test_sacm_stc_tpd_refine_uses_deploy_threshold():
+    adapter = load_adapter('sacm_stc')
+    adapter.quality_refine_topk = 2
+    adapter.quality_refine_threshold = 0.7
+    adapter.quality_refine_weight = 1.0
+    adapter.quality_refine_stage1 = False
+    low = float(torch.logit(torch.tensor(0.1)))
+    base = float(torch.logit(torch.tensor(0.4)))
+    high = float(torch.logit(torch.tensor(0.95)))
+    stage2 = torch.full((1, 4, 2, 2), low)
+    stage2[:, 0] = base
+    stage2[:, 1] = high
+    scores = torch.tensor([[0.9, 0.8, 0.0, 0.0]])
+
+    adapter.args = argparse.Namespace(deploy_threshold=0.5)
+    filled = torch.sigmoid(adapter._quality_refined_logits(
+        stage2, scores, base_index=0))
+    assert float(filled.min()) > 0.9
+
+    adapter.args = argparse.Namespace(deploy_threshold=0.3)
+    kept = torch.sigmoid(adapter._quality_refined_logits(
+        stage2, scores, base_index=0))
+    assert torch.allclose(kept, torch.full_like(kept, 0.4), atol=1e-5)
+
+
+def test_sacm_stc_tpd_refine_stage1_support():
+    adapter = load_adapter('sacm_stc')
+    adapter.quality_refine_topk = 2
+    adapter.quality_refine_threshold = 0.7
+    adapter.quality_refine_weight = 1.0
+    adapter.quality_refine_stage1 = True
+    adapter.args = argparse.Namespace(deploy_threshold=0.5)
+    low = float(torch.logit(torch.tensor(0.1)))
+    base = float(torch.logit(torch.tensor(0.2)))
+    stage2 = torch.full((1, 4, 2, 2), low)
+    stage2[:, 0] = base
+    scores = torch.tensor([[0.9, 0.8, 0.0, 0.0]])
+    stage1 = torch.full((1, 4, 2, 2), 10.0)
+    refined = torch.sigmoid(adapter._quality_refined_logits(
+        stage2, scores, stage1, base_index=0))
+    # Top-k proposals are below threshold; only the Stage-1 support fills.
+    assert torch.all(refined > 0.9)
+
+
+def test_sacm_stc_tpd_quality_margin_keeps_anchor(monkeypatch):
+    adapter = load_adapter('sacm_stc')
+    adapter.head_select = 'gating'
+    adapter.topology_quality = True
+    adapter.quality_warmup_epochs = 0
+    adapter.quality_select_margin = 0.01
+    stage2 = torch.zeros(1, 4, 2, 2)
+
+    def make_scores(anchor, best):
+        return torch.tensor([[anchor, best, 0.0, 0.0]])
+
+    monkeypatch.setattr(
+        adapter, '_quality_scores',
+        lambda model, stage2: make_scores(0.50, 0.505))
+    assert adapter._quality_candidate_index(None, stage2) is None
+
+    monkeypatch.setattr(
+        adapter, '_quality_scores',
+        lambda model, stage2: make_scores(0.50, 0.60))
+    assert adapter._quality_candidate_index(None, stage2) == 1
