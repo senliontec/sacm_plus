@@ -1,0 +1,189 @@
+# SACM-STC component ablation under the current canonical deployment.
+#
+# Fixed for every arm:
+#   head-select: gating
+#   deployment-head: 2 (not used by gating)
+#   stage2-loss-scope: all
+#   topology-head: all
+#   best_model.pth eval
+#
+# Only the current SACM-STC components are varied:
+#   topology loss on/off
+#   Stage-1 deep supervision on/off
+#   soft bilinear targets vs binary targets
+#   BCE positive weight 2 vs 1
+#
+# The same-matrix full arm full_sacm_stc is trained in this matrix.  No old
+# checkpoint or old ablation directory is reused.
+schema_version: 1
+name: sacm_stc_component_ablation_200ep
+description: >-
+  200-epoch direction-finding component ablation of the current SACM-STC
+  recipe at canonical gating deployment, with a freshly trained full anchor.
+protocol: seeded5
+method: sacm_stc
+seeds: [0, 1, 2, 3]
+epochs: 200
+eval_checkpoint: best_model.pth
+expected_datasets: 20
+output_root: results/runs/sacm_stc_component_ablation_200ep
+
+wandb:
+  project: sacm
+  entity: buaazqk
+  group: sacm_stc_component_ablation_200ep
+  tags: sacm_stc,ablation,components,200ep
+  use_wandb: true
+
+common_train_args:
+  sam-checkpoint: checkpoints/sam_vit_l_0b3195.pth
+  bce-weight: 0.7
+  dice-weight: 0.3
+  bce-pos-weight: 2
+  binary-targets: 0
+  deploy-threshold: 0.5
+  deep-sup-weight: 0.3
+  iou-loss-weight: 0
+  head-select: gating
+  deployment-head: 2
+  topology-resolution: 512
+  topology-source: native
+  topology-warmup-epochs: 5
+  stage2-loss-scope: all
+  stage2-loss-aggregate: deployment
+  stage2-aux-weight: 0.25
+  topology-head: all
+  topology-aggregate: deployment
+  topology-aux-weight: 0.25
+  cl-dice-weight: 0.1
+  skeleton-recall-weight: 0.1
+  use-stc: 0
+  use-typed-stage2: 0
+  save-every: 0
+  num-workers: 0
+
+arms:
+  # Full SACM-STC, trained in this matrix.  This is the only full anchor.
+  full_sacm_stc:
+    display_name: 完整 SACM-STC（同矩阵 full）
+    args: {}
+
+  without_topology_losses:
+    display_name: 去掉 topology 损失（clDice + Skeleton Recall）
+    args:
+      cl-dice-weight: 0.0
+      skeleton-recall-weight: 0.0
+
+  without_cldice_loss:
+    display_name: 只去掉 clDice
+    args:
+      cl-dice-weight: 0.0
+
+  without_skeleton_recall_loss:
+    display_name: 只去掉 Skeleton Recall
+    args:
+      skeleton-recall-weight: 0.0
+
+  without_deep_supervision:
+    display_name: 去掉 Stage-1 深监督
+    args:
+      deep-sup-weight: 0.0
+
+  without_topology_losses_and_deep_supervision:
+    display_name: 去掉 topology 损失 + Stage-1 深监督
+    args:
+      cl-dice-weight: 0.0
+      skeleton-recall-weight: 0.0
+      deep-sup-weight: 0.0
+
+  with_binary_targets:
+    display_name: 二值 target（替代 soft target）
+    args:
+      binary-targets: 1
+
+  with_bce_pos_weight_1:
+    display_name: BCE 前景权重=1（替代 2）
+    args:
+      bce-pos-weight: 1
+
+  with_binary_targets_and_bce_pos_weight_1:
+    display_name: 二值 target + BCE 前景权重=1
+    args:
+      binary-targets: 1
+      bce-pos-weight: 1
+
+contrasts:
+  - id: full_minus_without_topology_losses
+    left: full_sacm_stc
+    right: without_topology_losses
+    label: 完整 full 去掉 topology 损失
+  - id: full_minus_without_cldice_loss
+    left: full_sacm_stc
+    right: without_cldice_loss
+    label: 完整 full 只去掉 clDice
+  - id: full_minus_without_skeleton_recall_loss
+    left: full_sacm_stc
+    right: without_skeleton_recall_loss
+    label: 完整 full 只去掉 Skeleton Recall
+  - id: full_minus_without_deep_supervision
+    left: full_sacm_stc
+    right: without_deep_supervision
+    label: 完整 full 去掉 Stage-1 深监督
+  - id: without_cldice_minus_without_topology
+    left: without_cldice_loss
+    right: without_topology_losses
+    label: 去掉 clDice 后再去掉 Skeleton Recall
+  - id: without_skeleton_minus_without_topology
+    left: without_skeleton_recall_loss
+    right: without_topology_losses
+    label: 去掉 Skeleton Recall 后再去掉 clDice
+  - id: without_deep_minus_without_topology_and_deep
+    left: without_deep_supervision
+    right: without_topology_losses_and_deep_supervision
+    label: 关闭深监督后再去掉 topology
+  - id: without_topology_minus_without_topology_and_deep
+    left: without_topology_losses
+    right: without_topology_losses_and_deep_supervision
+    label: 关闭 topology 后再去掉深监督
+  - id: full_minus_with_binary_targets
+    left: full_sacm_stc
+    right: with_binary_targets
+    label: soft target -> 二值 target
+  - id: full_minus_with_bce_pos_weight_1
+    left: full_sacm_stc
+    right: with_bce_pos_weight_1
+    label: BCE 前景权重 2 -> 1
+  - id: with_binary_minus_with_binary_and_bce_1
+    left: with_binary_targets
+    right: with_binary_targets_and_bce_pos_weight_1
+    label: 二值 target 下 BCE 前景权重 2 -> 1
+  - id: with_bce_1_minus_with_binary_and_bce_1
+    left: with_bce_pos_weight_1
+    right: with_binary_targets_and_bce_pos_weight_1
+    label: 前景权重=1 下 soft target -> 二值 target
+
+analysis:
+  output_root: results/ablations/sacm_stc_component_ablation_200ep/analysis
+  primary_metric: dice
+  primary_role: All
+  metrics: [dice, iou, cldice, hd95]
+  datasets:
+    - CHASEDB1
+    - CrackTree200
+    - CREMI
+    - DCA1
+    - DRIVE
+    - CHCrack5k
+    - FIVES
+    - HRF
+    - LES-AV
+    - OCTA-500
+    - DeepGlobe
+    - ROAD
+    - TopoMortar
+    - TYRE
+    - WIRE
+  require_train_complete: true
+  require_eval_complete: true
+  bootstrap_samples: 2000
+  seed: 20261110
