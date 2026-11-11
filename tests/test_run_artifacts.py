@@ -191,9 +191,32 @@ def test_finalizer_promotes_extra_artifacts(tmp_path):
 
     info = finalizer._promote_extra_artifacts(
         source, 'full', finalizer.CheckpointInfo(best, 'file'), run_root)
-    assert (run_root / 'last_model.pth').is_file()
+    assert not (run_root / 'last_model.pth').exists()
+    assert not (run_root / 'checkpoints').exists()
     assert (run_root / 'train_config.json').is_file()
     assert (run_root / 'provenance' / 'data_manifest.json').is_file()
-    assert (run_root / 'checkpoints' / 'epoch_0001.pth').is_file()
     assert (run_root / 'wandb_run.json').is_file()
-    assert Path(info['last_checkpoint']).is_file()
+    assert info['last_checkpoint'] is None
+    assert info['checkpoints'] is None
+
+
+def test_successful_training_cleanup_removes_temporary_checkpoints(tmp_path):
+    from baseline_zoo.runtime import (
+        _remove_temporary_checkpoints,
+        run_prediction,
+    )
+
+    workdir = tmp_path / 'run'
+    workdir.mkdir()
+    last = workdir / 'last_model.pth'
+    last.write_bytes(b'temporary')
+    periodic = workdir / 'checkpoints'
+    periodic.mkdir()
+    (periodic / 'epoch_0001.pth').write_bytes(b'temporary')
+
+    _remove_temporary_checkpoints(workdir, last)
+    assert not last.exists()
+    assert not periodic.exists()
+
+    with pytest.raises(SystemExit):
+        run_prediction(object(), SimpleNamespace(), last)

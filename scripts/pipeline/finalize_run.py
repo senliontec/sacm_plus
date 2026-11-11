@@ -4,10 +4,8 @@
 The only user-facing tree is::
 
     results/runs/<method>/<variant>/seed_<seed>/
-      best_model.pth            # selected checkpoint
-      last_model.pth            # resumable last-epoch state (when present)
+      best_model.pth            # the only retained model checkpoint
       best_model                # directory checkpoints (symlink)
-      checkpoints/              # periodic snapshots (when present)
       checkpoint.json           # kind + native checkpoint path
       train_config.json         # full args + provenance pointers
       provenance/               # data/environment/git/manifests
@@ -646,7 +644,7 @@ def _promote_train_log(source_train: Path, variant: str,
 
 def _artifact_source(source_train: Path, variant: str,
                      checkpoint: CheckpointInfo) -> Path | None:
-    """Find the directory that holds train_config/last_model/provenance."""
+    """Find the directory that holds train_config/provenance."""
     candidates = [
         checkpoint.native.parent,
         source_train / variant,
@@ -667,7 +665,11 @@ def _artifact_source(source_train: Path, variant: str,
 def _promote_extra_artifacts(source_train: Path, variant: str,
                              checkpoint: CheckpointInfo,
                              run_root: Path) -> dict[str, str | None]:
-    """Copy training-provenance/resume artifacts into the canonical run root."""
+    """Copy training provenance into the canonical run root.
+
+    Temporary resume/periodic checkpoints are never promoted: only the
+    selected ``best_model.pth`` is a result artifact.
+    """
     source = _artifact_source(source_train, variant, checkpoint)
     result: dict[str, str | None] = {
         'train_config': None,
@@ -698,16 +700,15 @@ def _promote_extra_artifacts(source_train: Path, variant: str,
         if not _same_path(resume_config, target):
             _copy_file(resume_config, target)
 
-    last_source = _find_file(
-        source / 'last_model.pth',
-        checkpoint.native.parent / 'last_model.pth',
-        source_train / 'last_model.pth',
-        source_train / variant / 'last_model.pth',
-    )
-    if last_source is not None:
-        target = run_root / 'last_model.pth'
-        _link_or_copy(last_source, target)
-        result['last_checkpoint'] = str(target.resolve())
+    # Never promote last_model.pth or periodic snapshots.  Remove stale
+    # targets left by older finalizer versions so a rerun leaves exactly one
+    # model artifact in the canonical tree.
+    for stale in (run_root / 'last_model.pth',
+                  run_root / 'checkpoints'):
+        if stale.is_symlink() or stale.is_file():
+            stale.unlink()
+        elif stale.is_dir():
+            shutil.rmtree(stale)
 
     provenance_source = source / 'provenance'
     provenance_target = run_root / 'provenance'
@@ -718,16 +719,6 @@ def _promote_extra_artifacts(source_train: Path, variant: str,
             provenance_source, provenance_target, dirs_exist_ok=True)
     if provenance_target.is_dir():
         result['provenance'] = str(provenance_target.resolve())
-
-    checkpoint_source = source / 'checkpoints'
-    checkpoint_target = run_root / 'checkpoints'
-    if checkpoint_source.is_dir():
-        checkpoint_target.mkdir(parents=True, exist_ok=True)
-        for source_path in sorted(checkpoint_source.glob('*.pth')):
-            target = checkpoint_target / source_path.name
-            if not _same_path(source_path, target):
-                _link_or_copy(source_path, target)
-        result['checkpoints'] = str(checkpoint_target.resolve())
     return result
 
 

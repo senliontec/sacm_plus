@@ -115,7 +115,7 @@ arm names or model hyperparameters.  The one-command overnight launcher
 audits the existing full checkpoints, then runs all 24 controlled jobs
 automatically on GPUs 4–7 (the overnight default; seeds 0–3, all six arms,
 300 epochs each); each job is followed by its 20-dataset evaluation and
-candidate diagnostics on the final `last_model.pth`:
+candidate diagnostics on `best_model.pth` (the only retained checkpoint):
 
 ```bash
 # one command; self-daemonizes and prints PID/log

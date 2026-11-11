@@ -241,7 +241,6 @@ pull_files() {
     filters+=(--include='*/best_model.pth')
     filters+=(--include='*/stage1_best.pth')
     filters+=(--include='*/stage2_best.pth')
-    filters+=(--include='*/last_model.pth')
   fi
   filters+=(--exclude='*')
 

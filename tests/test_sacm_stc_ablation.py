@@ -309,7 +309,7 @@ def test_resume_does_not_reuse_eval_when_training_will_rerun(tmp_path):
     (run / 'eval').mkdir(parents=True, exist_ok=True)
     (run / 'eval' / 'run_manifest.json').write_text(
         '{"status": "done", "checkpoint": "'
-        + str(run / 'last_model.pth') + '"}')
+        + str(run / 'best_model.pth') + '"}')
 
     jobs = RUNNER.build_jobs(
         config, protocol, 'all', [arm], [0], 200, True)
@@ -323,7 +323,7 @@ def test_resume_does_not_reuse_eval_when_training_will_rerun(tmp_path):
         '{"status": "done", "epochs": 200}')
     (tmp_path / 'diagnostics' / arm / 'seed_0').mkdir(parents=True)
     (tmp_path / 'diagnostics' / arm / 'seed_0' / 'summary.json').write_text(
-        '{"checkpoint": "' + str(run / 'last_model.pth') + '"}')
+        '{"checkpoint": "' + str(run / 'best_model.pth') + '"}')
     jobs = RUNNER.build_jobs(
         config, protocol, 'all', [arm], [0], 200, True)
     commands = jobs[0]['commands']
@@ -545,9 +545,9 @@ def test_analysis_can_require_completed_training(tmp_path):
     assert any('eval table' in item for item in summary['missing'])
 
 
-def test_matrix_evaluates_the_configured_final_checkpoint():
+def test_matrix_evaluates_only_best_model():
     config = RUNNER.load_config(CONFIG)
-    assert config['eval_checkpoint'] == 'last_model.pth'
+    assert config['eval_checkpoint'] == 'best_model.pth'
     from baseline_zoo.protocols import load_protocol
     protocol = load_protocol('seeded5')
     jobs = RUNNER.build_jobs(
@@ -555,10 +555,15 @@ def test_matrix_evaluates_the_configured_final_checkpoint():
     commands = jobs[0]['commands']
     eval_command = commands[1]['command']
     diagnose_command = commands[2]['command']
-    assert 'last_model.pth' in eval_command[
+    assert 'best_model.pth' in eval_command[
         eval_command.index('--checkpoint') + 1]
-    assert 'last_model.pth' in diagnose_command[
+    assert 'best_model.pth' in diagnose_command[
         diagnose_command.index('--checkpoint') + 1]
+
+    invalid = dict(config)
+    invalid['eval_checkpoint'] = 'last_model.pth'
+    with pytest.raises(SystemExit):
+        RUNNER._eval_checkpoint(invalid)
 
 
 def test_diagnostic_helpers_are_deterministic():

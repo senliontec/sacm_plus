@@ -4,7 +4,7 @@
 # It self-daemonizes, then:
 #   1. audits the existing 800-epoch all_dense checkpoints (no training);
 #   2. runs the 6-arm x 4-seed x 300-epoch matrix on the requested GPUs;
-#   3. each 300-epoch run is evaluated on its final last_model.pth over the
+#   3. each 300-epoch run is evaluated on its best_model.pth over the
 #      20 test datasets, then candidate diagnostics run;
 #   4. the generic runner writes the paired analysis report at the end.
 #

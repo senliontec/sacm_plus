@@ -202,13 +202,18 @@ def _train_command(config, arm: str, seed: int, gpu: str,
 
 
 def _eval_checkpoint(config) -> str:
-    """Checkpoint evaluated after the fixed training budget.
+    """Return the only valid evaluation checkpoint.
 
-    The ablation default is the final epoch checkpoint, so "300 epochs then
-    test" is literal; set ``eval_checkpoint: best_model.pth`` to use the
-    val-Dice-selected checkpoint instead.
+    Every completed run keeps exactly one model artifact, ``best_model.pth``.
+    ``last_model.pth`` is a temporary crash-resume snapshot and is rejected
+    so it can never enter an ablation table again.
     """
-    return str(config.get('eval_checkpoint', 'best_model.pth'))
+    name = str(config.get('eval_checkpoint', 'best_model.pth'))
+    if name != 'best_model.pth':
+        raise SystemExit(
+            'ablation config must use eval_checkpoint: best_model.pth; '
+            f'got {name!r}')
+    return name
 
 
 def _eval_command(config, arm: str, seed: int, gpu: str,
@@ -341,8 +346,8 @@ def _eval_complete(run_root: Path, expected_datasets: int,
     analysis.  The canonical table has one row per test dataset.
 
     When ``checkpoint_name`` is supplied, the eval manifest must record that
-    checkpoint.  This prevents a stale best_model evaluation from satisfying
-    a new last_model (epoch-300) evaluation.
+    checkpoint.  This prevents a stale evaluation from satisfying a
+    different checkpoint evaluation.
     """
     table = run_root / 'eval' / 'tables' / 'all_metrics.csv'
     if not _artifact_nonempty(table):

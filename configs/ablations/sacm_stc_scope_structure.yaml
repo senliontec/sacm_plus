@@ -37,9 +37,9 @@ protocol: seeded5
 method: sacm_stc
 seeds: [0, 1, 2, 3]
 epochs: 300
-# Evaluate the final epoch-300 checkpoint after training ends.  Set to
-# best_model.pth to use the val-Dice-selected checkpoint instead.
-eval_checkpoint: last_model.pth
+# Every completed training run keeps only best_model.pth.  last_model.pth is
+# a temporary crash-resume snapshot and is deleted when training finishes.
+eval_checkpoint: best_model.pth
 expected_datasets: 20
 output_root: results/runs/sacm_stc
 wandb:

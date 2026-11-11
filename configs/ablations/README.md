@@ -38,10 +38,9 @@ for the key arms rather than rerunning the whole matrix.
 
 The launcher self-daemonizes, runs the candidate audit, then launches all 24
 short runs. Each run trains for 300 epochs, then automatically gets its
-20-dataset evaluation and candidate diagnostics on the final
-`last_model.pth` (set `eval_checkpoint: best_model.pth` in the YAML to use
-the val-selected checkpoint instead), and
-candidate diagnostics; the paired analysis is written after all jobs finish.
+20-dataset evaluation and candidate diagnostics on
+`best_model.pth`; every completed run keeps only that checkpoint, and the
+paired analysis is written after all jobs finish.
 
 ```bash
 # server, repo root

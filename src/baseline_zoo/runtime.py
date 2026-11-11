@@ -456,6 +456,29 @@ def _prune_periodic_checkpoints(directory: Path, keep: int) -> list[Path]:
     return files[-keep:] if keep else []
 
 
+def _remove_temporary_checkpoints(workdir: Path, last_path: Path) -> None:
+    """Remove crash-resume snapshots after a successful training run.
+
+    ``last_model.pth`` is needed while training is in progress so a crashed
+    run can resume.  It is never a result artifact: only ``best_model.pth``
+    survives a completed run.  Periodic snapshots are also removed for the
+    same reason.
+    """
+    try:
+        if last_path.is_file() or last_path.is_symlink():
+            last_path.unlink()
+    except OSError as exc:
+        print(f'WARNING: could not remove temporary checkpoint '
+              f'{last_path}: {exc}', flush=True)
+    checkpoint_dir = workdir / 'checkpoints'
+    if checkpoint_dir.is_dir():
+        try:
+            shutil.rmtree(checkpoint_dir)
+        except OSError as exc:
+            print(f'WARNING: could not remove periodic checkpoints '
+                  f'{checkpoint_dir}: {exc}', flush=True)
+
+
 def write_history(path: Path, config, history, best_epoch, best_score,
                   *, status: str = 'running',
                   last_checkpoint: Path | None = None,
@@ -1304,9 +1327,15 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
                 str(resume_path) if resume_path is not None else None),
             error=error)
         raise SystemExit(error)
+    # Successful training exposes exactly one model artifact: best_model.pth.
+    # The temporary resume snapshot and periodic snapshots are removed before
+    # the terminal metadata is written, so no evaluation can select them.
+    _remove_temporary_checkpoints(workdir, last_path)
+    last_checkpoint = None
+    periodic_checkpoints = []
     write_history(
         history_path, run_config, history, best_epoch, best_score,
-        status='done', last_checkpoint=last_checkpoint,
+        status='done', last_checkpoint=None,
         artifacts=artifact_info, wandb=wandb_run_info,
         resumed_from=(str(resume_path) if resume_path is not None else None))
     print_epoch_footer()
@@ -1350,6 +1379,10 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
 
 def run_prediction(adapter: BaselineAdapter, args: argparse.Namespace,
                    ckpt_path: Path) -> None:
+    if Path(ckpt_path).name == 'last_model.pth':
+        raise SystemExit(
+            'last_model.pth is a temporary crash-resume snapshot and is '
+            'never a valid evaluation checkpoint; use best_model.pth')
     configure_baseline_determinism(args)
     device = torch.device(args.device)
     _select_cuda_device(device)
@@ -1577,9 +1610,9 @@ def build_parser(adapter: BaselineAdapter) -> argparse.ArgumentParser:
     parser.add_argument('--num-workers', type=int, default=0)
     parser.add_argument(
         '--resume', action='store_true',
-        help='resume at the next epoch boundary from last_model.pth when '
-             'available, otherwise best_model.pth; use --resume-checkpoint '
-             'to force one')
+        help='resume at the next epoch boundary from the temporary '
+             'last_model.pth when available, otherwise best_model.pth; the '
+             'temporary file is removed after successful completion')
     parser.add_argument(
         '--resume-checkpoint', choices=['auto', 'last', 'best'],
         default='auto',
@@ -1587,11 +1620,14 @@ def build_parser(adapter: BaselineAdapter) -> argparse.ArgumentParser:
     parser.add_argument('--save-optimizer', action='store_true',
                         help='store optimizer state in the best checkpoint '
                              '(large for SAM-Med2D Adapters; default off)')
-    parser.add_argument('--save-last-every', type=int, default=1,
-                        help='write last_model.pth every N epochs (default 1)')
+    parser.add_argument(
+        '--save-last-every', type=int, default=1,
+        help='write the temporary last_model.pth every N epochs for crash '
+             'resume (default 1); it is deleted after successful training')
     parser.add_argument('--save-every', type=int, default=50,
-                        help='write checkpoints/epoch_XXXX.pth every N epochs '
-                             '(0 disables periodic snapshots)')
+                        help='write temporary checkpoints/epoch_XXXX.pth every '
+                             'N epochs (0 disables); the directory is deleted '
+                             'after successful training')
     parser.add_argument('--keep-checkpoints', type=int, default=2,
                         help='keep this many newest periodic checkpoints')
     parser.add_argument(
@@ -1660,6 +1696,12 @@ def main_for(adapter: BaselineAdapter, argv: list[str] | None = None) -> int:
     if args.stage == 'predict' and not args.test_datasets:
         raise SystemExit('--test-datasets is required for --stage predict')
     ckpt_path = args.checkpoint or (args.workdir / 'best_model.pth')
+    if (args.stage in ('predict', 'all')
+            and args.checkpoint is not None
+            and Path(args.checkpoint).name == 'last_model.pth'):
+        raise SystemExit(
+            'last_model.pth is a temporary crash-resume snapshot and is '
+            'never a valid evaluation checkpoint; use best_model.pth')
     if args.stage in ('train', 'all') and args.checkpoint is not None:
         raise SystemExit('--checkpoint is a predict-time option; '
                          'use --workdir for training output')

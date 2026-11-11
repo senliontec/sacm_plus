@@ -2,8 +2,8 @@
 #
 # Four arms x four seeds, 300 epochs, train + 20-dataset eval, no diagnostics.
 # New arm names keep the previous mean/best results under results/runs/sacm_stc
-# untouched.  eval_checkpoint=best_model.pth matches the previously pulled
-# tables; change to last_model.pth only for a separate final-checkpoint study.
+# untouched.  eval_checkpoint=best_model.pth is the only allowed evaluation
+# checkpoint; last_model.pth is a temporary crash-resume snapshot.
 schema_version: 1
 name: sacm_stc_das_quick
 description: >-
