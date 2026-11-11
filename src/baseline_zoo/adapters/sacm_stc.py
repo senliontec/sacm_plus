@@ -134,6 +134,7 @@ class SACMSTCAdapter(BaselineAdapter):
         self.head_fusion = False
         self.fusion_loss_weight = 1.0
         self.head_fusion_mode = 'linear'
+        self.head_fusion_warmup_epochs = 0
         self.specialized_topology_mode = 'cldice'
         self._specialized_cl_loss = None
         self._specialized_skeleton_loss = None
@@ -239,6 +240,11 @@ class SACMSTCAdapter(BaselineAdapter):
             help='linear keeps the original global 1x1 residual fusion; '
                  'image_gated predicts three per-image residual weights '
                  'from head logit statistics (zero-initialised)')
+        parser.add_argument(
+            '--head-fusion-warmup-epochs', type=int, default=0,
+            help='linearly ramp the image-gated fusion output from 0 '
+                 '(exactly the deployed head) to 1 over this many epochs; '
+                 '0 disables the warmup')
         parser.add_argument(
             '--specialized-topology-mode',
             choices=['cldice', 'skeleton', 'both'], default='cldice',
@@ -576,6 +582,11 @@ class SACMSTCAdapter(BaselineAdapter):
         if self.head_fusion_mode not in HeadFusion.MODES:
             raise SystemExit(
                 f'unknown --head-fusion-mode {self.head_fusion_mode!r}')
+        self.head_fusion_warmup_epochs = int(getattr(
+            args, 'head_fusion_warmup_epochs', 0))
+        if self.head_fusion_warmup_epochs < 0:
+            raise SystemExit(
+                '--head-fusion-warmup-epochs must be non-negative')
         self.specialized_topology_mode = str(getattr(
             args, 'specialized_topology_mode', 'cldice'))
         if self.specialized_topology_mode not in (
@@ -801,6 +812,9 @@ class SACMSTCAdapter(BaselineAdapter):
             'head_fusion_mode': str(getattr(
                 self, 'head_fusion_mode',
                 getattr(args, 'head_fusion_mode', 'linear'))),
+            'head_fusion_warmup_epochs': int(getattr(
+                self, 'head_fusion_warmup_epochs',
+                getattr(args, 'head_fusion_warmup_epochs', 0))),
             'specialized_topology_mode': str(getattr(
                 self, 'specialized_topology_mode',
                 getattr(args, 'specialized_topology_mode', 'cldice'))),
@@ -933,7 +947,8 @@ class SACMSTCAdapter(BaselineAdapter):
                     'specialized_heads', 'specialized_head_weight',
                     'specialized_topology_weight',
                     'head_fusion', 'fusion_loss_weight',
-                    'head_fusion_mode', 'specialized_topology_mode',
+                    'head_fusion_mode', 'head_fusion_warmup_epochs',
+                    'specialized_topology_mode',
                     'topology_quality',
                     'quality_loss_weight', 'quality_iou_weight',
                     'quality_dice_weight', 'quality_cldice_weight',
@@ -1736,7 +1751,15 @@ class SACMSTCAdapter(BaselineAdapter):
         if fusion is None:
             raise RuntimeError(
                 'head-fusion=1 but model.head_fusion is missing')
-        return fusion(stage2)
+        warmup = int(getattr(self, 'head_fusion_warmup_epochs', 0))
+        scale = None
+        if warmup > 0:
+            stage = str(getattr(
+                getattr(self, 'args', None), 'stage', ''))
+            if stage == 'train':
+                epoch = max(1, int(getattr(self, '_epoch', 1)))
+                scale = min(1.0, epoch / float(warmup))
+        return fusion(stage2, scale=scale)
 
     def train_step(self, model, batch):
         images, masks = batch

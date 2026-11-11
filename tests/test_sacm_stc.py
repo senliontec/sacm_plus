@@ -1442,11 +1442,13 @@ def test_sacm_stc_head_fusion():
     adapter.head_fusion = True
     adapter.specialized_heads = True
     adapter.head_fusion_mode = 'image_gated'
+    adapter.head_fusion_warmup_epochs = 10
     adapter.specialized_topology_mode = 'both'
     adapter.specialized_topology_weight = 0.2
     cfg = adapter.save_config(argparse.Namespace())
     assert cfg['head_fusion'] == 1 and cfg['specialized_heads'] == 1
     assert cfg['head_fusion_mode'] == 'image_gated'
+    assert cfg['head_fusion_warmup_epochs'] == 10
     assert cfg['specialized_topology_mode'] == 'both'
     assert cfg['specialized_topology_weight'] == 0.2
     parser = argparse.ArgumentParser()
@@ -1454,15 +1456,18 @@ def test_sacm_stc_head_fusion():
     ns = parser.parse_args(
         ['--head-fusion', '1', '--specialized-heads', '1',
          '--head-fusion-mode', 'image_gated',
+         '--head-fusion-warmup-epochs', '10',
          '--specialized-topology-mode', 'both',
          '--specialized-topology-weight', '0.2'])
     assert ns.head_fusion == 1 and ns.specialized_heads == 1
     assert ns.head_fusion_mode == 'image_gated'
+    assert ns.head_fusion_warmup_epochs == 10
     assert ns.specialized_topology_mode == 'both'
     assert ns.specialized_topology_weight == 0.2
     restored = argparse.Namespace()
     adapter.restore_config(restored, cfg)
     assert restored.head_fusion_mode == 'image_gated'
+    assert restored.head_fusion_warmup_epochs == 10
     assert restored.specialized_topology_mode == 'both'
     assert restored.specialized_topology_weight == 0.2
 
@@ -1494,8 +1499,37 @@ def test_sacm_stc_head_fusion_image_gated():
     swapped[:, 1:] = swapped[:, 1:].flip(1)
     assert not torch.allclose(_gate_weights(heads), _gate_weights(swapped))
     assert not torch.allclose(fused, fusion(swapped))
+    # The warmup scale linearly interpolates between the deployed head and
+    # the fully gated fusion.
+    base = heads[:, 0:1]
+    assert torch.allclose(fusion(heads, scale=0.0), base)
+    half = fusion(heads, scale=0.5)
+    assert torch.allclose(
+        half, base + 0.5 * (fusion(heads, scale=1.0) - base), atol=1e-6)
     with pytest.raises(ValueError):
         HeadFusion(mode='unknown')
+
+
+def test_sacm_stc_head_fusion_warmup_scale():
+    adapter = load_adapter('sacm_stc')
+    fusion = HeadFusion(mode='image_gated')
+    with torch.no_grad():
+        fusion.gate[-1].weight.fill_(0.1)
+        fusion.gate[-1].bias.fill_(0.1)
+    heads = torch.randn(2, 4, 8, 8)
+    model = argparse.Namespace(head_fusion=fusion)
+    adapter.head_fusion_warmup_epochs = 10
+    adapter._epoch = 5
+    adapter.args = argparse.Namespace(stage='train')
+    warm = adapter._fused_heads(model, heads)
+    assert torch.allclose(warm, fusion(heads, scale=0.5))
+    # Final prediction uses the fully trained gate, not the warmup scale.
+    adapter.args.stage = 'predict'
+    assert torch.allclose(adapter._fused_heads(model, heads), fusion(heads))
+    # warmup=0 preserves the pre-warmup behaviour.
+    adapter.head_fusion_warmup_epochs = 0
+    adapter.args.stage = 'train'
+    assert torch.allclose(adapter._fused_heads(model, heads), fusion(heads))
 
 
 def test_sacm_stc_specialized_topology_modes():

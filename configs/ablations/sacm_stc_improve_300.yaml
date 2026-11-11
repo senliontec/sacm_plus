@@ -104,6 +104,7 @@ arms:
       specialized-head-weight: 0.1
       head-fusion: 1
       fusion-loss-weight: 1.0
+      head-fusion-warmup-epochs: 10
       topology-head: selected
       specialized-topology-mode: both
       # 2x the deployed head's topology weight: head 1 becomes the
@@ -117,6 +118,7 @@ arms:
       head-fusion: 1
       fusion-loss-weight: 1.0
       head-fusion-mode: image_gated
+      head-fusion-warmup-epochs: 10
   ssh_both:
     display_name: SSH + exclusive topology + head1 skeleton + image-gated fusion
     args:
@@ -128,6 +130,7 @@ arms:
       specialized-topology-mode: both
       specialized-topology-weight: 0.2
       head-fusion-mode: image_gated
+      head-fusion-warmup-epochs: 10
 
 contrasts:
   - id: ssh_both_minus_control

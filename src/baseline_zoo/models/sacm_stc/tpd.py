@@ -153,7 +153,11 @@ class HeadFusion(nn.Module):
       different auxiliary heads.  The gate's last layer is zero-initialised,
       hence the fused output is exactly z0 at initialisation.
 
-    The per-pixel residual inputs are shared by both modes.
+    The per-pixel residual inputs are shared by both modes.  ``forward``
+    accepts an optional ``scale`` for the image-gated mode: the adapter uses
+    it to ramp the gate from 0 (exact deployed head) to 1 over the first
+    epochs, which prevents the freshly initialised gate from destabilising
+    early training.  The linear mode ignores ``scale``.
     """
 
     MODES = ('linear', 'image_gated')
@@ -180,7 +184,8 @@ class HeadFusion(nn.Module):
             nn.init.zeros_(self.gate[-1].weight)
             nn.init.zeros_(self.gate[-1].bias)
 
-    def forward(self, heads: torch.Tensor) -> torch.Tensor:
+    def forward(self, heads: torch.Tensor,
+                scale: float | None = None) -> torch.Tensor:
         if heads.ndim != 4 or heads.shape[1] != 4:
             raise ValueError(
                 'head fusion expects four Stage-2 heads [B, 4, H, W], got '
@@ -194,6 +199,8 @@ class HeadFusion(nn.Module):
         stats = torch.cat(
             [heads.mean(dim=(2, 3)), heads.std(dim=(2, 3))], dim=1)
         weights = torch.tanh(self.gate(stats))
+        if scale is not None:
+            weights = weights * float(scale)
         return base + (weights[:, :, None, None] * residual).sum(
             dim=1, keepdim=True)
 
