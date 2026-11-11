@@ -1,4 +1,8 @@
-# TopoQA vs canonical sacm_stc full (300-epoch, seed 0, paired).
+# TopoQA vs canonical sacm_stc full (300-epoch, seed 0, paired, clean run).
+#
+# Clean restart after excluding the detached TopoQA quality head from the
+# main gradient-norm clip, so the two arms have identical main-model updates
+# until arbitration starts at epoch 20.
 #
 # Control: native four-head full recipe (all dense + all topology,
 # deployment aggregation, no specialized heads, no fusion).  Treatment:
@@ -7,7 +11,7 @@
 # TopoQA flags differ.  This is a 300-epoch screening budget; a winner must
 # be confirmed at 800 epochs.
 schema_version: 1
-name: sacm_stc_topoqa_full_300
+name: sacm_stc_topoqa_full_300_clean
 description: >-
   Paired 300-epoch comparison of canonical sacm_stc full against TopoQA
   (role-aware IoU/soft-clDice quality + Pareto arbitration).
@@ -17,13 +21,13 @@ seeds: [0]
 epochs: 300
 eval_checkpoint: best_model.pth
 expected_datasets: 20
-output_root: results/runs/sacm_stc_topoqa_full_300
+output_root: results/runs/sacm_stc_topoqa_full_300_clean
 
 wandb:
   project: sacm
   entity: buaazqk
-  group: sacm_stc_topoqa_full_300
-  tags: sacm_stc,topoqa,full,300ep
+  group: sacm_stc_topoqa_full_300_clean
+  tags: sacm_stc,topoqa,full,300ep,clean
   use_wandb: true
 
 common_train_args:
@@ -124,7 +128,7 @@ contrasts:
     label: quality loss only vs sacm_stc full
 
 analysis:
-  output_root: results/ablations/sacm_stc_topoqa_full_300/analysis
+  output_root: results/ablations/sacm_stc_topoqa_full_300_clean/analysis
   primary_metric: dice
   primary_role: All
   metrics:
