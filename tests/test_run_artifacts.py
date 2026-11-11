@@ -181,18 +181,21 @@ def test_finalizer_promotes_extra_artifacts(tmp_path):
     run_root.mkdir()
     best = source / 'best_model.pth'
     torch.save({'model_state_dict': {}}, best)
-    torch.save({'model_state_dict': {}}, source / 'last_model.pth')
+    torch.save({'model_state_dict': {}}, source / '.resume_state.pth')
     (source / 'train_config.json').write_text('{}\n')
     (source / 'wandb_run.json').write_text('{}\n')
     (source / 'provenance').mkdir()
     (source / 'provenance' / 'data_manifest.json').write_text('{}\n')
     (source / 'checkpoints').mkdir()
     torch.save({'epoch': 1}, source / 'checkpoints' / 'epoch_0001.pth')
+    stale_backup = run_root / 'best_model.before_20260101_000000.pth'
+    stale_backup.write_bytes(b'stale')
 
     info = finalizer._promote_extra_artifacts(
         source, 'full', finalizer.CheckpointInfo(best, 'file'), run_root)
-    assert not (run_root / 'last_model.pth').exists()
+    assert not (run_root / '.resume_state.pth').exists()
     assert not (run_root / 'checkpoints').exists()
+    assert not stale_backup.exists()
     assert (run_root / 'train_config.json').is_file()
     assert (run_root / 'provenance' / 'data_manifest.json').is_file()
     assert (run_root / 'wandb_run.json').is_file()
@@ -208,15 +211,33 @@ def test_successful_training_cleanup_removes_temporary_checkpoints(tmp_path):
 
     workdir = tmp_path / 'run'
     workdir.mkdir()
-    last = workdir / 'last_model.pth'
+    last = workdir / '.resume_state.pth'
     last.write_bytes(b'temporary')
     periodic = workdir / 'checkpoints'
     periodic.mkdir()
     (periodic / 'epoch_0001.pth').write_bytes(b'temporary')
+    backup = workdir / 'best_model.before_20260101_000000.pth'
+    backup.write_bytes(b'stale')
 
     _remove_temporary_checkpoints(workdir, last)
     assert not last.exists()
     assert not periodic.exists()
+    assert not backup.exists()
 
     with pytest.raises(SystemExit):
         run_prediction(object(), SimpleNamespace(), last)
+
+    from core.trainer import Trainer
+
+    core = Trainer.__new__(Trainer)
+    core.save_dir = str(workdir)
+    core.last_checkpoint = str(last)
+    core.periodic_checkpoints = [str(periodic / 'epoch_0001.pth')]
+    last.write_bytes(b'temporary')
+    periodic.mkdir()
+    (periodic / 'epoch_0001.pth').write_bytes(b'temporary')
+    core._remove_temporary_checkpoints()
+    assert not last.exists()
+    assert not periodic.exists()
+    assert core.last_checkpoint is None
+    assert core.periodic_checkpoints == []

@@ -266,10 +266,10 @@ def _run_job(job: dict, stage: str, resume: bool, dry_run: bool) -> bool:
             return False
     command = job['command']
     if (stage == 'train' and resume
-            and (output_root / 'last_model.pth').is_file()
+            and (output_root / '.resume_state.pth').is_file()
             and '--resume' not in command):
         command += ' --resume'
-        print(f'[{model.id}] seed={seed}: resuming from last_model.pth',
+        print(f'[{model.id}] seed={seed}: resuming from .resume_state.pth',
               flush=True)
     if dry_run:
         print(f'dry-run: {command}', flush=True)

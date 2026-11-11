@@ -10,6 +10,7 @@ extra topology loss; gradient clipping; best-F1 checkpoint selection).
 import json
 import logging
 import os
+import shutil
 import time
 import warnings
 
@@ -1221,7 +1222,7 @@ class Trainer:
             return
         if not force and epoch_completed % every != 0:
             return
-        path = os.path.join(self.save_dir, 'last_model.pth')
+        path = os.path.join(self.save_dir, '.resume_state.pth')
         try:
             self._torch_save_atomic(
                 self._checkpoint_payload(
@@ -1230,6 +1231,29 @@ class Trainer:
             self.last_checkpoint = os.path.abspath(path)
         except (OSError, RuntimeError) as exc:
             logging.warning('last checkpoint save failed: %s', exc)
+
+    def _remove_temporary_checkpoints(self):
+        """Delete crash-resume/periodic snapshots after successful training."""
+        last_path = os.path.join(self.save_dir, '.resume_state.pth')
+        try:
+            if os.path.lexists(last_path):
+                os.remove(last_path)
+        except OSError as exc:
+            logging.warning('last checkpoint cleanup failed: %s', exc)
+        checkpoint_dir = os.path.join(self.save_dir, 'checkpoints')
+        if os.path.isdir(checkpoint_dir):
+            try:
+                shutil.rmtree(checkpoint_dir)
+            except OSError as exc:
+                logging.warning('periodic checkpoint cleanup failed: %s', exc)
+        try:
+            for name in os.listdir(self.save_dir):
+                if 'last' in name.lower() and name.endswith('.pth'):
+                    os.remove(os.path.join(self.save_dir, name))
+        except OSError as exc:
+            logging.warning('legacy checkpoint cleanup failed: %s', exc)
+        self.last_checkpoint = None
+        self.periodic_checkpoints = []
 
     def _prune_periodic(self):
         keep = max(0, int(getattr(self.args, 'keep_checkpoints', 2)))
@@ -1563,10 +1587,10 @@ class Trainer:
         else:
             run_status = 'done'
             if self._rank0:
-                # Force a final last checkpoint even when the last epoch is
-                # not on the --save-last-every grid.
-                self._save_last_checkpoint(
-                    history, best_epoch, self.args.epochs, force=True)
+                # A completed run exposes exactly one model artifact:
+                # best_model.pth.  resume-state/periodic files exist only while
+                # training is in progress so an interrupted run can resume.
+                self._remove_temporary_checkpoints()
                 self._write_history(
                     history, best_epoch, status='done',
                     last_epoch=(history[-1].get('epoch') if history else None))

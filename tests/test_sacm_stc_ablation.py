@@ -378,7 +378,7 @@ def test_resume_rejects_partial_run_with_other_epoch_budget(tmp_path):
     arm = 'b1_all_dense_base'
     run = tmp_path / 'runs' / arm / 'seed_1'
     run.mkdir(parents=True)
-    (run / 'last_model.pth').write_bytes(b'partial')
+    (run / '.resume_state.pth').write_bytes(b'partial')
     (run / 'train_config.json').write_text(
         '{"args": {"epochs": 200}}')
 
@@ -561,7 +561,7 @@ def test_matrix_evaluates_only_best_model():
         diagnose_command.index('--checkpoint') + 1]
 
     invalid = dict(config)
-    invalid['eval_checkpoint'] = 'last_model.pth'
+    invalid['eval_checkpoint'] = '.resume_state.pth'
     with pytest.raises(SystemExit):
         RUNNER._eval_checkpoint(invalid)
 

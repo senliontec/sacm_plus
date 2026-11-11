@@ -205,7 +205,7 @@ def _eval_checkpoint(config) -> str:
     """Return the only valid evaluation checkpoint.
 
     Every completed run keeps exactly one model artifact, ``best_model.pth``.
-    ``last_model.pth`` is a temporary crash-resume snapshot and is rejected
+    ``.resume_state.pth`` is a temporary crash-resume snapshot and is rejected
     so it can never enter an ablation table again.
     """
     name = str(config.get('eval_checkpoint', 'best_model.pth'))
@@ -549,7 +549,7 @@ def build_jobs(config: dict, protocol, stage: str, arms: list[str],
                     resume and _train_complete(done, epochs))
                 train_resume = bool(
                     resume and not train_skip
-                    and (run_root / 'last_model.pth').is_file()
+                    and (run_root / '.resume_state.pth').is_file()
                     and _resume_epochs_match(run_root, epochs))
                 commands.append({
                     'stage': 'train',

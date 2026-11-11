@@ -4,7 +4,7 @@
 The only user-facing tree is::
 
     results/runs/<method>/<variant>/seed_<seed>/
-      best_model.pth            # the only retained model checkpoint
+      best_model.pth            # the only evaluation checkpoint
       best_model                # directory checkpoints (symlink)
       checkpoint.json           # kind + native checkpoint path
       train_config.json         # full args + provenance pointers
@@ -656,7 +656,7 @@ def _artifact_source(source_train: Path, variant: str,
             continue
         seen.add(candidate)
         if any((candidate / name).exists() for name in (
-                'train_config.json', 'last_model.pth',
+                'train_config.json', '.resume_state.pth',
                 'wandb_run.json', 'provenance', 'checkpoints')):
             return candidate
     return None
@@ -700,11 +700,14 @@ def _promote_extra_artifacts(source_train: Path, variant: str,
         if not _same_path(resume_config, target):
             _copy_file(resume_config, target)
 
-    # Never promote last_model.pth or periodic snapshots.  Remove stale
+    # Never promote .resume_state.pth or periodic snapshots.  Remove stale
     # targets left by older finalizer versions so a rerun leaves exactly one
     # model artifact in the canonical tree.
-    for stale in (run_root / 'last_model.pth',
-                  run_root / 'checkpoints'):
+    stale_paths = [run_root / '.resume_state.pth',
+                   run_root / 'checkpoints',
+                   *run_root.glob('best_model.before_*.pth'),
+                   *run_root.glob('*last*.pth')]
+    for stale in stale_paths:
         if stale.is_symlink() or stale.is_file():
             stale.unlink()
         elif stale.is_dir():

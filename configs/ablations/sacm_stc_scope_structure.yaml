@@ -37,7 +37,7 @@ protocol: seeded5
 method: sacm_stc
 seeds: [0, 1, 2, 3]
 epochs: 300
-# Every completed training run keeps only best_model.pth.  last_model.pth is
+# Every completed training run keeps only best_model.pth.  .resume_state.pth is
 # a temporary crash-resume snapshot and is deleted when training finishes.
 eval_checkpoint: best_model.pth
 expected_datasets: 20

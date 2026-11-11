@@ -99,14 +99,14 @@ bitwise guaranteed.
 
 ## Training artifacts
 
-Every successful training run retains exactly one model artifact:
+Every successful training run retains exactly one evaluation checkpoint:
 `best_model.pth`.  While training is in progress, a temporary
-`last_model.pth` (crash-resume state) and optional
+`.resume_state.pth` (crash-resume state) and optional
 `checkpoints/epoch_XXXX.pth` snapshots may exist; both are deleted when
 training reaches `status=done`.  A failed/interrupted run keeps the temporary
 resume state so it can be resumed, but it is never an evaluation candidate.
 
-- `last_model.pth` is temporary only and is rejected by evaluation;
+- `.resume_state.pth` is temporary only and is rejected by evaluation;
 - `checkpoints/` periodic snapshots are temporary only;
 - `train_config.json` with the full resolved args, git commit/dirty state,
   environment versions, base-checkpoint SHA256 and data-manifest hash;
@@ -139,5 +139,5 @@ dataset directory and the absolute GT mask path, so it survives
 when present.
 
 These artifacts apply to runs started with this code.  Historical runs may
-still contain `last_model.pth` or periodic snapshots; those files are audit
+still contain legacy temporary or periodic snapshots; those files are audit
 artifacts only and must never be used for evaluation or paper tables.

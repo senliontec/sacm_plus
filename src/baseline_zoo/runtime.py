@@ -456,13 +456,22 @@ def _prune_periodic_checkpoints(directory: Path, keep: int) -> list[Path]:
     return files[-keep:] if keep else []
 
 
+def _reject_temporary_checkpoint(path: Path) -> None:
+    """Reject temporary resume snapshots and legacy last checkpoints."""
+    name = Path(path).name.lower()
+    if name == '.resume_state.pth' or 'last' in name:
+        raise SystemExit(
+            f'{path} is a temporary training snapshot and is never a valid '
+            'evaluation checkpoint; use best_model.pth')
+
+
 def _remove_temporary_checkpoints(workdir: Path, last_path: Path) -> None:
     """Remove crash-resume snapshots after a successful training run.
 
-    ``last_model.pth`` is needed while training is in progress so a crashed
+    ``.resume_state.pth`` is needed while training is in progress so a crashed
     run can resume.  It is never a result artifact: only ``best_model.pth``
-    survives a completed run.  Periodic snapshots are also removed for the
-    same reason.
+    survives a completed run.  Periodic snapshots and legacy last snapshots
+    are also removed for the same reason.
     """
     try:
         if last_path.is_file() or last_path.is_symlink():
@@ -477,6 +486,18 @@ def _remove_temporary_checkpoints(workdir: Path, last_path: Path) -> None:
         except OSError as exc:
             print(f'WARNING: could not remove periodic checkpoints '
                   f'{checkpoint_dir}: {exc}', flush=True)
+    for backup in workdir.glob('best_model.before_*.pth'):
+        try:
+            backup.unlink()
+        except OSError as exc:
+            print(f'WARNING: could not remove checkpoint backup '
+                  f'{backup}: {exc}', flush=True)
+    for legacy in workdir.glob('*last*.pth'):
+        try:
+            legacy.unlink()
+        except OSError as exc:
+            print(f'WARNING: could not remove legacy checkpoint '
+                  f'{legacy}: {exc}', flush=True)
 
 
 def write_history(path: Path, config, history, best_epoch, best_score,
@@ -763,11 +784,6 @@ def run_training_free(adapter: BaselineAdapter,
     workdir = Path(args.workdir)
     workdir.mkdir(parents=True, exist_ok=True)
     ckpt_path = workdir / 'best_model.pth'
-    if ckpt_path.is_file() and not args.resume:
-        backup = ckpt_path.with_name(
-            f'best_model.before_{time.strftime("%Y%m%d_%H%M%S")}.pth')
-        shutil.copy2(ckpt_path, backup)
-        print(f'backup previous checkpoint -> {backup}')
 
     payload = {
         'adapter': adapter.id,
@@ -860,7 +876,7 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
     # Resume must build the model from the checkpoint's adapter config, not
     # from the current CLI defaults (geometry/norm/scale can differ).
     ckpt_path = workdir / 'best_model.pth'
-    last_path = workdir / 'last_model.pth'
+    last_path = workdir / '.resume_state.pth'
     if args.resume:
         choice = getattr(args, 'resume_checkpoint', 'auto')
         if choice == 'last':
@@ -957,12 +973,7 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
         wandb_run_info = {}
 
     ckpt_path = workdir / 'best_model.pth'
-    last_path = workdir / 'last_model.pth'
-    if ckpt_path.is_file() and not args.resume:
-        backup = ckpt_path.with_name(
-            f'best_model.before_{time.strftime("%Y%m%d_%H%M%S")}.pth')
-        shutil.copy2(ckpt_path, backup)
-        print(f'backup previous checkpoint -> {backup}')
+    last_path = workdir / '.resume_state.pth'
 
     history = []
     history_path = workdir / 'metrics_history.json'
@@ -1379,10 +1390,7 @@ def run_training(adapter: BaselineAdapter, args: argparse.Namespace) -> Path:
 
 def run_prediction(adapter: BaselineAdapter, args: argparse.Namespace,
                    ckpt_path: Path) -> None:
-    if Path(ckpt_path).name == 'last_model.pth':
-        raise SystemExit(
-            'last_model.pth is a temporary crash-resume snapshot and is '
-            'never a valid evaluation checkpoint; use best_model.pth')
+    _reject_temporary_checkpoint(Path(ckpt_path))
     configure_baseline_determinism(args)
     device = torch.device(args.device)
     _select_cuda_device(device)
@@ -1611,7 +1619,7 @@ def build_parser(adapter: BaselineAdapter) -> argparse.ArgumentParser:
     parser.add_argument(
         '--resume', action='store_true',
         help='resume at the next epoch boundary from the temporary '
-             'last_model.pth when available, otherwise best_model.pth; the '
+             '.resume_state.pth when available, otherwise best_model.pth; the '
              'temporary file is removed after successful completion')
     parser.add_argument(
         '--resume-checkpoint', choices=['auto', 'last', 'best'],
@@ -1622,7 +1630,7 @@ def build_parser(adapter: BaselineAdapter) -> argparse.ArgumentParser:
                              '(large for SAM-Med2D Adapters; default off)')
     parser.add_argument(
         '--save-last-every', type=int, default=1,
-        help='write the temporary last_model.pth every N epochs for crash '
+        help='write the temporary .resume_state.pth every N epochs for crash '
              'resume (default 1); it is deleted after successful training')
     parser.add_argument('--save-every', type=int, default=50,
                         help='write temporary checkpoints/epoch_XXXX.pth every '
@@ -1697,11 +1705,8 @@ def main_for(adapter: BaselineAdapter, argv: list[str] | None = None) -> int:
         raise SystemExit('--test-datasets is required for --stage predict')
     ckpt_path = args.checkpoint or (args.workdir / 'best_model.pth')
     if (args.stage in ('predict', 'all')
-            and args.checkpoint is not None
-            and Path(args.checkpoint).name == 'last_model.pth'):
-        raise SystemExit(
-            'last_model.pth is a temporary crash-resume snapshot and is '
-            'never a valid evaluation checkpoint; use best_model.pth')
+            and args.checkpoint is not None):
+        _reject_temporary_checkpoint(Path(args.checkpoint))
     if args.stage in ('train', 'all') and args.checkpoint is not None:
         raise SystemExit('--checkpoint is a predict-time option; '
                          'use --workdir for training output')

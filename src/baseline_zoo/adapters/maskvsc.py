@@ -851,11 +851,6 @@ class MaskVSCAdapter(BaselineAdapter):
         workdir.mkdir(parents=True, exist_ok=True)
         ckpt_path = workdir / 'best_model.pth'
         stage1_ckpt_path = workdir / 'stage1_best.pth'
-        if ckpt_path.is_file():
-            backup = ckpt_path.with_name(
-                f'best_model.before_{time.strftime("%Y%m%d_%H%M%S")}.pth')
-            shutil.copy2(ckpt_path, backup)
-            print(f'backup previous checkpoint -> {backup}', flush=True)
 
         split_manifest = Path(args.data_root) / 'split_manifest.csv'
         split_sha = (file_sha256(split_manifest)
