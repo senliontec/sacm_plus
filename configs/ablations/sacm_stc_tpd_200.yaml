@@ -28,11 +28,11 @@ seeds: [0, 1, 2, 3]
 epochs: 200
 eval_checkpoint: best_model.pth
 expected_datasets: 20
-# Engineering override for the three bright-structure novel datasets whose
-# foreground/background polarity is opposite to the training domains.
-# This is a deployment trick, not a method contribution and not an ablation.
-eval_invert_datasets: [TopoMortar, DeepGlobe, LEAF]
-eval_invert_threshold: 0.2
+# Engineering-only inversion override: OFF by default. Uncomment the two
+# lines below for an explicit deployment run, and apply the same override to
+# every model in that comparison. This is not a method contribution.
+# eval_invert_datasets: [TopoMortar, DeepGlobe, LEAF]
+# eval_invert_threshold: 0.2
 output_root: results/runs/sacm_stc_tpd_200
 
 wandb:
