@@ -46,6 +46,12 @@ from baseline_zoo.models.sacm_stc.tpd import (
     MorphPrompt,
     TopologyQualityHead,
 )
+from baseline_zoo.models.sacm_stc.topoqa import (
+    RoleQualityHead,
+    TopologyStability,
+    pareto_arbitrate,
+    quality_metric_targets,
+)
 from baseline_zoo.models.sacm_stc.typed import (
     WIDTH_MAX_PX,
     WIDTH_MIN_PX,
@@ -150,6 +156,28 @@ class SACMSTCAdapter(BaselineAdapter):
         self.quality_refine_min_score_ratio = 0.5
         self.quality_select_margin = 0.01
         self._last_quality_scores = None
+        # TopoQA (default-off): role-aware quality + Pareto arbitration.
+        self.topoqa = False
+        self.topoqa_quality_weight = 0.1
+        self.topoqa_rank_weight = 0.1
+        self.topoqa_temperature = 0.1
+        self.topoqa_resolution = 256
+        self.topoqa_warmup_epochs = 20
+        self.topoqa_detach = True
+        self.topoqa_arbitration = 'pareto'
+        self.topoqa_margin_cldice = 0.01
+        self.topoqa_margin_iou = 0.005
+        self.topoqa_stability_delta = 0.1
+        self.topoqa_stability_threshold = 0.9
+        self.topoqa_alpha = 0.5
+        self.topoqa_hidden = 64
+        self.topoqa_role_dim = 16
+        self.topoqa_skeleton_iters = 5
+        self._topoqa_cl_loss = None
+        self._topoqa_stability = None
+        self._last_topoqa_quality = None
+        self._last_topoqa_stability = None
+        self._last_topoqa_index = None
 
     def add_args(self, parser):
         parser.add_argument(
@@ -309,6 +337,60 @@ class SACMSTCAdapter(BaselineAdapter):
             '--quality-select-margin', type=float, default=0.01,
             help='only switch away from the gating candidate when its '
                  'quality is below the best by this margin')
+        parser.add_argument(
+            '--topoqa', type=int, choices=[0, 1], default=0,
+            help='TopoQA: predict per-slot IoU/soft-clDice quality and '
+                 'arbitrate among the four Stage-2 experts')
+        parser.add_argument(
+            '--topoqa-quality-weight', type=float, default=0.1,
+            help='weight of the per-slot quality regression loss')
+        parser.add_argument(
+            '--topoqa-rank-weight', type=float, default=0.1,
+            help='weight of the within-image quality ranking loss')
+        parser.add_argument(
+            '--topoqa-temperature', type=float, default=0.1,
+            help='temperature for the quality ranking soft targets')
+        parser.add_argument(
+            '--topoqa-resolution', type=int, default=256,
+            help='resolution used for quality targets and stability')
+        parser.add_argument(
+            '--topoqa-warmup-epochs', type=int, default=20,
+            help='epochs of quality-head training before arbitration is '
+                 'enabled; the quality loss itself starts immediately')
+        parser.add_argument(
+            '--topoqa-detach', type=int, choices=[0, 1], default=1,
+            help='detach the expert tokens from the quality head (1 keeps '
+                 'the segmentation model unchanged by the quality loss)')
+        parser.add_argument(
+            '--topoqa-arbitration', choices=['none', 'pareto'],
+            default='pareto',
+            help='none trains the quality head without changing selection; '
+                 'pareto selects a non-champion only under the clDice/IoU '
+                 'constraints, with a topology-stability rescue')
+        parser.add_argument(
+            '--topoqa-margin-cldice', type=float, default=0.01,
+            help='minimum predicted clDice gain required to switch experts')
+        parser.add_argument(
+            '--topoqa-margin-iou', type=float, default=0.005,
+            help='maximum predicted IoU drop allowed when switching experts')
+        parser.add_argument(
+            '--topoqa-stability-delta', type=float, default=0.1,
+            help='probability offset for the topology stability score')
+        parser.add_argument(
+            '--topoqa-stability-threshold', type=float, default=0.9,
+            help='rescue when the champion stability is below this value')
+        parser.add_argument(
+            '--topoqa-alpha', type=float, default=0.5,
+            help='clDice weight in the scalarized ranking target')
+        parser.add_argument(
+            '--topoqa-hidden', type=int, default=64,
+            help='hidden width of the role quality head')
+        parser.add_argument(
+            '--topoqa-role-dim', type=int, default=16,
+            help='role embedding width of the role quality head')
+        parser.add_argument(
+            '--topoqa-skeleton-iters', type=int, default=5,
+            help='soft-skeleton iterations for quality targets and stability')
         parser.add_argument(
             '--stage2-loss-scope', choices=['all', 'selected'],
             default='all',
@@ -651,6 +733,88 @@ class SACMSTCAdapter(BaselineAdapter):
         if self.quality_refine_stage1 and not self.quality_refine:
             raise SystemExit(
                 'quality-refine-stage1 requires quality-refine=1')
+        self.topoqa = bool(int(getattr(args, 'topoqa', 0)))
+        self.topoqa_quality_weight = float(
+            getattr(args, 'topoqa_quality_weight', 0.1))
+        self.topoqa_rank_weight = float(
+            getattr(args, 'topoqa_rank_weight', 0.1))
+        self.topoqa_temperature = float(
+            getattr(args, 'topoqa_temperature', 0.1))
+        self.topoqa_resolution = int(
+            getattr(args, 'topoqa_resolution', 256))
+        self.topoqa_warmup_epochs = int(
+            getattr(args, 'topoqa_warmup_epochs', 20))
+        self.topoqa_detach = bool(
+            int(getattr(args, 'topoqa_detach', 1)))
+        self.topoqa_arbitration = str(
+            getattr(args, 'topoqa_arbitration', 'pareto')).lower()
+        self.topoqa_margin_cldice = float(
+            getattr(args, 'topoqa_margin_cldice', 0.01))
+        self.topoqa_margin_iou = float(
+            getattr(args, 'topoqa_margin_iou', 0.005))
+        self.topoqa_stability_delta = float(
+            getattr(args, 'topoqa_stability_delta', 0.1))
+        self.topoqa_stability_threshold = float(
+            getattr(args, 'topoqa_stability_threshold', 0.9))
+        self.topoqa_alpha = float(
+            getattr(args, 'topoqa_alpha', 0.5))
+        self.topoqa_hidden = int(
+            getattr(args, 'topoqa_hidden', 64))
+        self.topoqa_role_dim = int(
+            getattr(args, 'topoqa_role_dim', 16))
+        self.topoqa_skeleton_iters = int(
+            getattr(args, 'topoqa_skeleton_iters', 5))
+        if self.topoqa:
+            if self.topology_quality:
+                raise SystemExit(
+                    'topoqa and topology-quality are mutually exclusive')
+            if int(getattr(args, 'use_stc', 0)) == 1:
+                raise SystemExit('topoqa is not supported with use_stc')
+            if int(getattr(args, 'use_typed_stage2', 0)) == 1:
+                raise SystemExit(
+                    'topoqa is not supported with typed Stage-2')
+            if str(getattr(args, 'stage2_loss_scope', 'all')) != 'all':
+                raise SystemExit(
+                    'topoqa requires stage2-loss-scope=all; the quality '
+                    'head ranks four densely supervised experts')
+            if (self.topoqa_arbitration != 'none'
+                    and self.head_select != 'gating'):
+                raise SystemExit(
+                    'topoqa arbitration requires head-select=gating; use '
+                    'topoqa-arbitration=none to keep another selector')
+            if self.topoqa_quality_weight < 0:
+                raise SystemExit(
+                    'topoqa-quality-weight must be non-negative')
+            if self.topoqa_rank_weight < 0:
+                raise SystemExit(
+                    'topoqa-rank-weight must be non-negative')
+            if self.topoqa_temperature <= 0:
+                raise SystemExit('topoqa-temperature must be positive')
+            if self.topoqa_resolution <= 0:
+                raise SystemExit('topoqa-resolution must be positive')
+            if self.topoqa_warmup_epochs < 0:
+                raise SystemExit(
+                    'topoqa-warmup-epochs must be non-negative')
+            if self.topoqa_margin_cldice < 0:
+                raise SystemExit(
+                    'topoqa-margin-cldice must be non-negative')
+            if self.topoqa_margin_iou < 0:
+                raise SystemExit(
+                    'topoqa-margin-iou must be non-negative')
+            if not 0.0 <= self.topoqa_stability_delta < 0.5:
+                raise SystemExit(
+                    'topoqa-stability-delta must be in [0, 0.5)')
+            if not 0.0 <= self.topoqa_stability_threshold <= 1.0:
+                raise SystemExit(
+                    'topoqa-stability-threshold must be in [0, 1]')
+            if not 0.0 <= self.topoqa_alpha <= 1.0:
+                raise SystemExit('topoqa-alpha must be in [0, 1]')
+            if self.topoqa_hidden <= 0 or self.topoqa_role_dim <= 0:
+                raise SystemExit(
+                    'topoqa-hidden and topoqa-role-dim must be positive')
+            if self.topoqa_skeleton_iters <= 0:
+                raise SystemExit(
+                    'topoqa-skeleton-iters must be positive')
         self.stage2_loss_aggregate = str(getattr(
             args, 'stage2_loss_aggregate', 'deployment')).lower()
         self.topology_aggregate = str(getattr(
@@ -758,6 +922,21 @@ class SACMSTCAdapter(BaselineAdapter):
             model.head_fusion = HeadFusion(mode=self.head_fusion_mode)
         if self.topology_quality:
             model.topology_quality_head = TopologyQualityHead()
+        if self.topoqa:
+            decoder = getattr(model, 'mask_decoder', None)
+            if (decoder is None
+                    or int(getattr(decoder, 'num_mask_tokens', 0)) != 4):
+                raise SystemExit(
+                    'TopoQA requires the four-slot native SACM decoder')
+            embed_dim = int(getattr(decoder, 'transformer_dim', 256))
+            model.topoqa_quality_head = RoleQualityHead(
+                embed_dim=embed_dim,
+                hidden=int(self.topoqa_hidden),
+                role_dim=int(self.topoqa_role_dim),
+                num_roles=4)
+            self._topoqa_stability = TopologyStability(
+                num_iter=int(self.topoqa_skeleton_iters),
+                delta=float(self.topoqa_stability_delta))
         return model
 
     def save_config(self, args):
@@ -856,6 +1035,53 @@ class SACMSTCAdapter(BaselineAdapter):
             'quality_select_margin': float(getattr(
                 self, 'quality_select_margin',
                 getattr(args, 'quality_select_margin', 0.01))),
+            'topoqa': int(getattr(
+                self, 'topoqa', getattr(args, 'topoqa', 0))),
+            'topoqa_quality_weight': float(getattr(
+                self, 'topoqa_quality_weight',
+                getattr(args, 'topoqa_quality_weight', 0.1))),
+            'topoqa_rank_weight': float(getattr(
+                self, 'topoqa_rank_weight',
+                getattr(args, 'topoqa_rank_weight', 0.1))),
+            'topoqa_temperature': float(getattr(
+                self, 'topoqa_temperature',
+                getattr(args, 'topoqa_temperature', 0.1))),
+            'topoqa_resolution': int(getattr(
+                self, 'topoqa_resolution',
+                getattr(args, 'topoqa_resolution', 256))),
+            'topoqa_warmup_epochs': int(getattr(
+                self, 'topoqa_warmup_epochs',
+                getattr(args, 'topoqa_warmup_epochs', 20))),
+            'topoqa_detach': int(getattr(
+                self, 'topoqa_detach',
+                getattr(args, 'topoqa_detach', 1))),
+            'topoqa_arbitration': str(getattr(
+                self, 'topoqa_arbitration',
+                getattr(args, 'topoqa_arbitration', 'pareto'))),
+            'topoqa_margin_cldice': float(getattr(
+                self, 'topoqa_margin_cldice',
+                getattr(args, 'topoqa_margin_cldice', 0.01))),
+            'topoqa_margin_iou': float(getattr(
+                self, 'topoqa_margin_iou',
+                getattr(args, 'topoqa_margin_iou', 0.005))),
+            'topoqa_stability_delta': float(getattr(
+                self, 'topoqa_stability_delta',
+                getattr(args, 'topoqa_stability_delta', 0.1))),
+            'topoqa_stability_threshold': float(getattr(
+                self, 'topoqa_stability_threshold',
+                getattr(args, 'topoqa_stability_threshold', 0.9))),
+            'topoqa_alpha': float(getattr(
+                self, 'topoqa_alpha',
+                getattr(args, 'topoqa_alpha', 0.5))),
+            'topoqa_hidden': int(getattr(
+                self, 'topoqa_hidden',
+                getattr(args, 'topoqa_hidden', 64))),
+            'topoqa_role_dim': int(getattr(
+                self, 'topoqa_role_dim',
+                getattr(args, 'topoqa_role_dim', 16))),
+            'topoqa_skeleton_iters': int(getattr(
+                self, 'topoqa_skeleton_iters',
+                getattr(args, 'topoqa_skeleton_iters', 5))),
             'head_select': getattr(
                 self, 'head_select', self._resolved_head_select(args)),
             'deployment_head': int(getattr(args, 'deployment_head', 2)),
@@ -957,6 +1183,15 @@ class SACMSTCAdapter(BaselineAdapter):
                     'quality_refine_threshold', 'quality_refine_weight',
                     'quality_refine_stage1', 'quality_refine_min_score_ratio',
                     'quality_select_margin',
+                    'topoqa', 'topoqa_quality_weight',
+                    'topoqa_rank_weight', 'topoqa_temperature',
+                    'topoqa_resolution', 'topoqa_warmup_epochs',
+                    'topoqa_detach', 'topoqa_arbitration',
+                    'topoqa_margin_cldice', 'topoqa_margin_iou',
+                    'topoqa_stability_delta',
+                    'topoqa_stability_threshold', 'topoqa_alpha',
+                    'topoqa_hidden', 'topoqa_role_dim',
+                    'topoqa_skeleton_iters',
                     'deployment_head', 'stage2_loss_scope',
                     'stage2_loss_aggregate', 'stage2_aux_weight',
                     'cl_dice_weight', 'tversky_weight',
@@ -997,6 +1232,29 @@ class SACMSTCAdapter(BaselineAdapter):
                 and config.get('head_select')
                 in ('iou', 'gating', 'gating_soft', 'fixed', 'mean')):
             args.head_select = config['head_select']
+
+    def load_state_dict(self, model, state) -> None:
+        """Load a checkpoint, allowing a freshly added TopoQA head.
+
+        Existing SSH checkpoints predate ``topoqa_quality_head``.  When
+        TopoQA is enabled, only those head tensors may be missing; every
+        other mismatch still raises.  The head then trains from its
+        initialisation, so an SSH checkpoint can seed a TopoQA run.
+        """
+        if not getattr(self, 'topoqa', False):
+            model.load_state_dict(state)
+            return
+        missing, unexpected = model.load_state_dict(state, strict=False)
+        allowed = [key for key in missing
+                   if key.startswith('topoqa_quality_head.')]
+        other_missing = [key for key in missing if key not in allowed]
+        if other_missing or unexpected:
+            raise RuntimeError(
+                'TopoQA checkpoint mismatch: missing='
+                f'{other_missing[:5]} unexpected={list(unexpected)[:5]}')
+        if allowed:
+            print('[sacm_stc] TopoQA quality head initialised from scratch '
+                  f'({len(allowed)} tensors)', flush=True)
 
     def configure_trainable(self, model):
         for name, parameter in model.image_encoder.named_parameters():
@@ -1683,6 +1941,87 @@ class SACMSTCAdapter(BaselineAdapter):
             return None
         return best
 
+    def _topoqa_quality(self, model):
+        """Predict per-slot (IoU, soft-clDice) quality from decoder tokens."""
+        head = getattr(model, 'topoqa_quality_head', None)
+        if head is None:
+            raise RuntimeError(
+                'topoqa=1 but model.topoqa_quality_head is missing')
+        decoder = getattr(model, 'mask_decoder', None)
+        tokens = getattr(decoder, 'last_sorted_tokens', None)
+        embeddings = getattr(decoder, 'last_image_embedding', None)
+        if tokens is None or embeddings is None:
+            raise RuntimeError(
+                'TopoQA needs decoder.last_sorted_tokens and '
+                'decoder.last_image_embedding; run a forward first')
+        if self.topoqa_detach:
+            tokens = tokens.detach()
+            embeddings = embeddings.detach()
+        return head(tokens, embeddings.mean(dim=(2, 3)))
+
+    def _topoqa_loss(self, model, stage2, masks):
+        """Quality regression plus within-image ranking on the four experts."""
+        if not self.topoqa:
+            return stage2.new_zeros(())
+        if self._topoqa_cl_loss is None:
+            self._topoqa_cl_loss = SoftclDiceLoss(
+                num_iter=int(self.topoqa_skeleton_iters))
+        resolution = int(self.topoqa_resolution)
+        heads = F.interpolate(
+            stage2, (resolution, resolution), mode='bilinear',
+            align_corners=False)
+        target = F.interpolate(
+            masks, (resolution, resolution), mode='nearest')
+        iou_gt, cldice_gt = quality_metric_targets(
+            heads, target, self._topoqa_cl_loss)
+        quality = self._topoqa_quality(model)
+        targets = torch.stack([iou_gt, cldice_gt], dim=-1)
+        regression = F.mse_loss(quality, targets)
+        alpha = float(self.topoqa_alpha)
+        score = alpha * quality[..., 1] + (1.0 - alpha) * quality[..., 0]
+        target_score = alpha * cldice_gt + (1.0 - alpha) * iou_gt
+        temperature = max(float(self.topoqa_temperature), 1e-6)
+        soft_target = F.softmax(
+            target_score / temperature, dim=1).detach()
+        ranking = -(soft_target * F.log_softmax(
+            score / temperature, dim=1)).sum(dim=1).mean()
+        return float(self.topoqa_quality_weight) * (
+            regression + float(self.topoqa_rank_weight) * ranking)
+
+    def _topoqa_candidate_index(self, model, stage2):
+        """Apply Pareto/TSS arbitration; ``None`` keeps the old selector."""
+        if (not self.topoqa
+                or str(self.topoqa_arbitration) == 'none'):
+            return None
+        epoch = getattr(self, '_epoch', None)
+        warmup = int(self.topoqa_warmup_epochs)
+        if epoch is not None and int(epoch) <= warmup:
+            self._last_topoqa_quality = None
+            self._last_topoqa_stability = None
+            self._last_topoqa_index = None
+            return None
+        quality = self._topoqa_quality(model).detach()
+        if quality.shape[0] != 1:
+            raise RuntimeError(
+                'TopoQA arbitration expects batch size 1, got '
+                f'{quality.shape[0]}')
+        if self._topoqa_stability is None:
+            self._topoqa_stability = TopologyStability(
+                num_iter=int(self.topoqa_skeleton_iters),
+                delta=float(self.topoqa_stability_delta))
+        stability = self._topoqa_stability(stage2)
+        champion = self._selected_stage2_index()
+        index = pareto_arbitrate(
+            quality, stability, champion=champion,
+            margin_cldice=float(self.topoqa_margin_cldice),
+            margin_iou=float(self.topoqa_margin_iou),
+            stability_threshold=float(
+                self.topoqa_stability_threshold))
+        self._last_topoqa_quality = quality
+        self._last_topoqa_stability = stability.detach()
+        self._last_topoqa_index = int(index[0].item())
+        return self._last_topoqa_index
+
     @staticmethod
     def _boundary_weighted_loss(logits, target):
         """Boundary-emphasised full-mask loss for the boundary head."""
@@ -1776,6 +2115,9 @@ class SACMSTCAdapter(BaselineAdapter):
         loss_quality = stage2.new_zeros(())
         if self.topology_quality:
             loss_quality = self._quality_loss(model, stage2_native, masks)
+        if self.topoqa:
+            loss_quality = loss_quality + self._topoqa_loss(
+                model, stage2_native, masks)
 
         if int(getattr(self.args, 'use_typed_stage2', 0)) == 1:
             # Keep Stage-2 logits at their native 256 resolution.  _typed_loss
@@ -1885,6 +2227,9 @@ class SACMSTCAdapter(BaselineAdapter):
         quality_index = None
         if self.topology_quality and not use_typed and not use_stc:
             quality_index = self._quality_candidate_index(model, stage2)
+        topoqa_index = None
+        if self.topoqa and not use_typed and not use_stc:
+            topoqa_index = self._topoqa_candidate_index(model, stage2)
         if use_typed:
             composer = getattr(model, 'typed_composer', None)
             if composer is None:
@@ -1931,7 +2276,9 @@ class SACMSTCAdapter(BaselineAdapter):
             # Aggregate selectors (mean / gating_soft) have no single base and
             # are not refined.
             base_index = None
-            if quality_index is not None:
+            if topoqa_index is not None:
+                base_index = topoqa_index
+            elif quality_index is not None:
                 base_index = quality_index
             elif self.head_select == 'gating':
                 # Official gating order: slot 0 is the top-gated candidate.
@@ -1970,7 +2317,11 @@ class SACMSTCAdapter(BaselineAdapter):
             else:
                 # Defensive fallback: official gating slot 0.
                 logits = stage2[:, 0:1]
-            if fused_logits is not None:
+            # Keep fusion only when TopoQA keeps the gating champion; a
+            # switched expert is deployed directly, so arbitration cannot be
+            # silently overridden by the fused champion.
+            if (fused_logits is not None
+                    and (topoqa_index is None or topoqa_index == 0)):
                 logits = fused_logits
             if stage1_weight > 0 and stage1 is not None:
                 if getattr(self.args, 'stage1_fusion_mode',

@@ -210,6 +210,10 @@ class MaskDecoder(nn.Module):
         With ``return_stage1=True`` the gating-ordered Stage-1 coarse masks
         are returned as a third value for deep supervision.
         """
+        # TopoQA reads the global image context and the post-gating Stage-2
+        # descriptors.  These attributes are unused unless TopoQA is enabled,
+        # so the default forward path is unchanged.
+        self.last_image_embedding = image_embeddings
         output_tokens = torch.cat(
             [self.iou_token.weight, self.mask_tokens.weight], dim=0)
         output_tokens = output_tokens.unsqueeze(0).expand(
@@ -322,6 +326,9 @@ class MaskDecoder(nn.Module):
                 -1, -1, mask_tokens_out.shape[-1]))
         if self.stable_stage2:
             sorted_tokens = sorted_tokens + self.stage2_type_emb.unsqueeze(0)
+        # Stage-2 slot descriptors after gating sort and (when enabled) the
+        # role type embedding.  TopoQA's quality head consumes these tokens.
+        self.last_sorted_tokens = sorted_tokens
         hyper_in_list_stage2: List[torch.Tensor] = []
         for i in range(self.num_mask_tokens):
             hyper_in_list_stage2.append(

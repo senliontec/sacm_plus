@@ -45,6 +45,12 @@ from baseline_zoo.models.sacm_stc.tpd import (  # noqa: E402
     MorphPrompt,
     TopologyQualityHead,
 )
+from baseline_zoo.models.sacm_stc.topoqa import (  # noqa: E402
+    RoleQualityHead,
+    TopologyStability,
+    pareto_arbitrate,
+    quality_metric_targets,
+)
 from baseline_zoo.registry import load_models  # noqa: E402
 
 
@@ -1562,3 +1568,301 @@ def test_sacm_stc_boundary_weighted_loss():
     target = (torch.rand(2, 1, 16, 16) > 0.5).float()
     loss = adapter._boundary_weighted_loss(logits, target)
     assert torch.isfinite(loss)
+
+
+def test_sacm_stc_decoder_exposes_topoqa_tokens():
+    decoder = _tiny_decoder()
+    image = torch.randn(1, 256, 8, 8)
+    image_pe = torch.randn(1, 256, 8, 8)
+    sparse = torch.zeros(1, 0, 256)
+    dense = torch.zeros(1, 256, 8, 8)
+    adapters = [torch.randn(1, 8, 8, 64) for _ in range(2)]
+    decoder.predict_masks(
+        image, image_pe, sparse, dense, adapter_features=adapters)
+    assert decoder.last_image_embedding.shape == (1, 256, 8, 8)
+    assert decoder.last_sorted_tokens.shape == (1, 4, 256)
+
+
+def test_sacm_stc_topoqa_modules():
+    head = RoleQualityHead(embed_dim=8, hidden=16, role_dim=4)
+    tokens = torch.randn(2, 4, 8, requires_grad=True)
+    global_feature = torch.randn(2, 8, requires_grad=True)
+    quality = head(tokens, global_feature)
+    assert quality.shape == (2, 4, 2)
+    assert torch.all(quality >= 0) and torch.all(quality <= 1)
+    quality.mean().backward()
+    assert tokens.grad is not None
+    assert any(p.grad is not None and float(p.grad.abs().sum()) > 0
+               for p in head.parameters())
+
+    logits = torch.randn(2, 4, 16, 16)
+    target = (torch.rand(2, 1, 16, 16) > 0.7).float()
+    iou, cldice = quality_metric_targets(logits, target)
+    assert iou.shape == (2, 4) and cldice.shape == (2, 4)
+    assert torch.all(iou >= 0) and torch.all(iou <= 1)
+    assert torch.all(cldice >= 0) and torch.all(cldice <= 1)
+
+    perfect = torch.full((1, 4, 8, 8), 10.0)
+    full = torch.ones(1, 1, 8, 8)
+    iou, cldice = quality_metric_targets(perfect, full)
+    assert torch.allclose(iou, torch.ones_like(iou), atol=1e-5)
+    assert torch.all(cldice > 0.95)
+
+    empty = torch.full((1, 4, 8, 8), -10.0)
+    iou, cldice = quality_metric_targets(
+        empty, torch.zeros(1, 1, 8, 8))
+    assert torch.allclose(iou, torch.ones_like(iou), atol=1e-5)
+    assert torch.allclose(cldice, torch.ones_like(cldice), atol=1e-5)
+
+    stability = TopologyStability(num_iter=2, delta=0.1)
+    scores = stability(logits)
+    assert scores.shape == (2, 4)
+    assert torch.all(scores >= 0) and torch.all(scores <= 1)
+    confident = stability(torch.full((1, 4, 8, 8), 10.0))
+    assert torch.all(confident > 0.95)
+
+
+def test_sacm_stc_topoqa_arbitration():
+    champion = torch.tensor([[[0.8, 0.6], [0.797, 0.7],
+                              [0.7, 0.2], [0.6, 0.1]]])
+    stable = torch.ones(1, 4)
+    assert pareto_arbitrate(champion, stable).tolist() == [1]
+    # IoU drop beyond the tolerance is rejected even when clDice rises.
+    guarded = torch.tensor([[[0.8, 0.6], [0.7, 0.7],
+                             [0.6, 0.2], [0.5, 0.1]]])
+    assert pareto_arbitrate(guarded, stable).tolist() == [0]
+    # No eligible candidate + unstable champion -> TSS rescue.
+    rescue = torch.tensor([[[0.8, 0.6], [0.797, 0.605],
+                            [0.7, 0.2], [0.6, 0.1]]])
+    unstable = torch.tensor([[0.5, 0.95, 0.5, 0.5]])
+    assert pareto_arbitrate(rescue, unstable).tolist() == [1]
+    # Highest clDice among eligible alternatives wins.
+    multiple = torch.tensor([[[0.8, 0.6], [0.7, 0.7],
+                              [0.797, 0.8], [0.6, 0.1]]])
+    assert pareto_arbitrate(multiple, stable).tolist() == [2]
+    # Champion is kept when no alternative passes the clDice margin.
+    quiet = torch.tensor([[[0.8, 0.6], [0.79, 0.605],
+                           [0.78, 0.5], [0.77, 0.4]]])
+    assert pareto_arbitrate(quiet, stable).tolist() == [0]
+
+
+def test_sacm_stc_topoqa_train_step(monkeypatch):
+    adapter = load_adapter('sacm_stc')
+    adapter.topoqa = True
+    adapter.topoqa_quality_weight = 0.1
+    adapter.topoqa_rank_weight = 0.1
+    adapter.topoqa_temperature = 0.1
+    adapter.topoqa_resolution = 8
+    adapter.topoqa_warmup_epochs = 0
+    adapter.topoqa_detach = True
+    adapter.topoqa_alpha = 0.5
+    adapter.topoqa_skeleton_iters = 2
+    adapter.topoqa_arbitration = 'none'
+    adapter.head_select = 'gating'
+    adapter.topology_quality = False
+    adapter.specialized_heads = False
+    adapter.head_fusion = False
+    adapter.args = argparse.Namespace(
+        use_typed_stage2=0, use_stc=0, stage1_fusion_weight=0.0,
+        deploy_threshold=0.5, bce_weight=0.7, dice_weight=0.3,
+        bce_pos_weight=2.0, stage2_loss_scope='all',
+        stage2_loss_aggregate='deployment', stage2_aux_weight=0.25,
+        deep_sup_weight=0.0, iou_loss_weight=0.0,
+        cl_dice_weight=0.0, skeleton_recall_weight=0.0,
+        tversky_weight=0.0, topology_head='all',
+        topology_aggregate='deployment', topology_aux_weight=0.25,
+        topology_warmup_epochs=0, topology_resolution=8,
+        topology_source='native', topoqa=1)
+
+    class FakeDecoder:
+        last_sorted_tokens = torch.randn(1, 4, 256)
+        last_image_embedding = torch.randn(1, 256, 8, 8)
+
+    class FakeModel(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.topoqa_quality_head = RoleQualityHead(
+                embed_dim=256, hidden=16, role_dim=4)
+            self.mask_decoder = FakeDecoder()
+
+    def fake_forward(model, images, return_stage1=True):
+        del model, images, return_stage1
+        stage2 = torch.zeros(1, 4, 8, 8, requires_grad=True)
+        stage1 = torch.zeros(1, 4, 8, 8)
+        return stage2, torch.zeros(1, 4), stage1
+
+    monkeypatch.setattr(adapter, '_forward', fake_forward)
+    monkeypatch.setattr(
+        adapter, '_mask_criterion',
+        lambda logits, target, bce_weight, dice_weight:
+        logits.sum() * 0.0)
+    monkeypatch.setattr(
+        adapter, '_topology_loss',
+        lambda stage2, masks: stage2.sum() * 0.0)
+    model = FakeModel()
+    loss = adapter.train_step(
+        model, (torch.zeros(1, 3, 8, 8), torch.zeros(1, 1, 8, 8)))
+    assert loss.requires_grad
+    loss.backward()
+    grads = [p.grad for p in model.topoqa_quality_head.parameters()
+             if p.grad is not None]
+    assert grads
+    assert any(float(g.abs().sum()) > 0 for g in grads)
+
+
+def test_sacm_stc_topoqa_predict_switches_expert(tmp_path, monkeypatch):
+    from PIL import Image
+
+    mask_path = tmp_path / 'mask.png'
+    Image.fromarray(np.zeros((3, 4), dtype=np.uint8)).save(mask_path)
+    adapter = load_adapter('sacm_stc')
+    adapter.topoqa = True
+    adapter.topoqa_arbitration = 'pareto'
+    adapter.topoqa_warmup_epochs = 0
+    adapter.topoqa_margin_cldice = 0.01
+    adapter.topoqa_margin_iou = 0.005
+    adapter.topoqa_stability_threshold = 0.9
+    adapter.topoqa_skeleton_iters = 2
+    adapter.topoqa_stability_delta = 0.1
+    adapter._topoqa_stability = TopologyStability(
+        num_iter=2, delta=0.1)
+    adapter.head_select = 'gating'
+    adapter.head_fusion = False
+    adapter.topology_quality = False
+    adapter.args = argparse.Namespace(
+        use_typed_stage2=0, use_stc=0, stage1_fusion_weight=0.0,
+        deploy_threshold=0.5, topoqa=1, head_select='gating')
+
+    def fake_forward(model, prepared, return_stage1=False):
+        del model, prepared, return_stage1
+        stage2 = torch.full((1, 4, 2, 2), -10.0)
+        stage2[:, 2] = 10.0
+        return stage2, torch.zeros(1, 4)
+
+    monkeypatch.setattr(adapter, '_forward', fake_forward)
+    monkeypatch.setattr(
+        adapter, '_topoqa_quality',
+        lambda model: torch.tensor([[[0.8, 0.6], [0.7, 0.61],
+                                     [0.797, 0.8], [0.6, 0.1]]]))
+    sample = argparse.Namespace(mask_path=mask_path)
+    mask = adapter.predict_sample(
+        torch.nn.Module(), torch.zeros(1, 3, 1024, 1024), sample)
+    assert mask.shape == (3, 4)
+    assert mask.all()
+
+
+def test_sacm_stc_topoqa_args_and_config():
+    adapter = load_adapter('sacm_stc')
+    parser = argparse.ArgumentParser()
+    adapter.add_args(parser)
+    args = parser.parse_args([
+        '--topoqa', '1', '--topoqa-quality-weight', '0.2',
+        '--topoqa-rank-weight', '0.3', '--topoqa-temperature', '0.2',
+        '--topoqa-resolution', '128', '--topoqa-warmup-epochs', '5',
+        '--topoqa-detach', '0', '--topoqa-arbitration', 'none',
+        '--topoqa-margin-cldice', '0.02', '--topoqa-margin-iou', '0.01',
+        '--topoqa-stability-delta', '0.2',
+        '--topoqa-stability-threshold', '0.8',
+        '--topoqa-alpha', '0.6', '--topoqa-hidden', '32',
+        '--topoqa-role-dim', '8', '--topoqa-skeleton-iters', '3'])
+    assert args.topoqa == 1
+    assert args.topoqa_quality_weight == 0.2
+    assert args.topoqa_rank_weight == 0.3
+    assert args.topoqa_temperature == 0.2
+    assert args.topoqa_resolution == 128
+    assert args.topoqa_warmup_epochs == 5
+    assert args.topoqa_detach == 0
+    assert args.topoqa_arbitration == 'none'
+    assert args.topoqa_margin_cldice == 0.02
+    assert args.topoqa_margin_iou == 0.01
+    assert args.topoqa_stability_delta == 0.2
+    assert args.topoqa_stability_threshold == 0.8
+    assert args.topoqa_alpha == 0.6
+    assert args.topoqa_hidden == 32
+    assert args.topoqa_role_dim == 8
+    assert args.topoqa_skeleton_iters == 3
+
+    adapter.topoqa = True
+    for key in ('topoqa_quality_weight', 'topoqa_rank_weight',
+                'topoqa_temperature', 'topoqa_resolution',
+                'topoqa_warmup_epochs', 'topoqa_detach',
+                'topoqa_arbitration', 'topoqa_margin_cldice',
+                'topoqa_margin_iou', 'topoqa_stability_delta',
+                'topoqa_stability_threshold', 'topoqa_alpha',
+                'topoqa_hidden', 'topoqa_role_dim',
+                'topoqa_skeleton_iters'):
+        setattr(adapter, key, getattr(args, key))
+    config = adapter.save_config(args)
+    restored = argparse.Namespace(head_select=None)
+    adapter.restore_config(restored, config)
+    assert restored.topoqa == 1
+    assert restored.topoqa_quality_weight == 0.2
+    assert restored.topoqa_rank_weight == 0.3
+    assert restored.topoqa_temperature == 0.2
+    assert restored.topoqa_resolution == 128
+    assert restored.topoqa_warmup_epochs == 5
+    assert restored.topoqa_detach == 0
+    assert restored.topoqa_arbitration == 'none'
+    assert restored.topoqa_margin_cldice == 0.02
+    assert restored.topoqa_margin_iou == 0.01
+    assert restored.topoqa_stability_delta == 0.2
+    assert restored.topoqa_stability_threshold == 0.8
+    assert restored.topoqa_alpha == 0.6
+    assert restored.topoqa_hidden == 32
+    assert restored.topoqa_role_dim == 8
+    assert restored.topoqa_skeleton_iters == 3
+
+
+def test_sacm_stc_topoqa_build_model(monkeypatch):
+    class DummyDecoder:
+        num_mask_tokens = 4
+        transformer_dim = 256
+
+    class DummyModel:
+        def __init__(self, **kwargs):
+            del kwargs
+            self.mask_decoder = DummyDecoder()
+
+    monkeypatch.setattr(
+        'baseline_zoo.adapters.sacm_stc.build_sam_vit_l',
+        lambda **kwargs: DummyModel(**kwargs))
+    adapter = load_adapter('sacm_stc')
+    adapter.prediction_mode = True
+    args = argparse.Namespace(
+        sam_checkpoint=Path('/missing/vit_l.pth'),
+        adapter_dim_ratio=0.2, head_select='gating',
+        iou_loss_weight=0.0, deep_sup_weight=0.3,
+        topoqa=1, topoqa_hidden=32, topoqa_role_dim=8,
+        topoqa_skeleton_iters=3, topoqa_stability_delta=0.1,
+        stage2_loss_scope='all', use_stc=0, use_typed_stage2=0,
+        head_fusion=0)
+    model = adapter.build_model(args)
+    assert hasattr(model, 'topoqa_quality_head')
+    assert adapter.topoqa is True
+    assert adapter._topoqa_stability is not None
+
+    bad = argparse.Namespace(**vars(args))
+    bad.topology_quality = 1
+    with pytest.raises(SystemExit):
+        adapter.build_model(bad)
+
+
+def test_sacm_stc_topoqa_load_state_dict_allows_fresh_head():
+    adapter = load_adapter('sacm_stc')
+    adapter.topoqa = True
+
+    class Tiny(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.topoqa_quality_head = RoleQualityHead(
+                embed_dim=8, hidden=8, role_dim=4)
+            self.other = torch.nn.Linear(2, 2)
+
+    model = Tiny()
+    state = {key: value.clone()
+             for key, value in model.state_dict().items()
+             if not key.startswith('topoqa_quality_head.')}
+    adapter.load_state_dict(model, state)
+    state.pop('other.weight')
+    with pytest.raises(RuntimeError):
+        adapter.load_state_dict(model, state)
