@@ -1427,6 +1427,7 @@ def test_sacm_stc_morph_prompt_forward():
 
 def test_sacm_stc_head_fusion():
     fusion = HeadFusion()
+    assert fusion.mode == 'linear'
     heads = torch.randn(2, 4, 8, 8)
     out = fusion(heads)
     assert out.shape == (2, 1, 8, 8)
@@ -1440,13 +1441,76 @@ def test_sacm_stc_head_fusion():
     adapter.input_size = 1024
     adapter.head_fusion = True
     adapter.specialized_heads = True
+    adapter.head_fusion_mode = 'image_gated'
+    adapter.specialized_topology_mode = 'both'
     cfg = adapter.save_config(argparse.Namespace())
     assert cfg['head_fusion'] == 1 and cfg['specialized_heads'] == 1
+    assert cfg['head_fusion_mode'] == 'image_gated'
+    assert cfg['specialized_topology_mode'] == 'both'
     parser = argparse.ArgumentParser()
     adapter.add_args(parser)
     ns = parser.parse_args(
-        ['--head-fusion', '1', '--specialized-heads', '1'])
+        ['--head-fusion', '1', '--specialized-heads', '1',
+         '--head-fusion-mode', 'image_gated',
+         '--specialized-topology-mode', 'both'])
     assert ns.head_fusion == 1 and ns.specialized_heads == 1
+    assert ns.head_fusion_mode == 'image_gated'
+    assert ns.specialized_topology_mode == 'both'
+    restored = argparse.Namespace()
+    adapter.restore_config(restored, cfg)
+    assert restored.head_fusion_mode == 'image_gated'
+    assert restored.specialized_topology_mode == 'both'
+
+
+def test_sacm_stc_head_fusion_image_gated():
+    fusion = HeadFusion(mode='image_gated')
+    heads = torch.randn(2, 4, 8, 8)
+    out = fusion(heads)
+    assert out.shape == (2, 1, 8, 8)
+    # Zero-initialised gate also reproduces the deployed head exactly.
+    assert torch.allclose(out, heads[:, 0:1])
+    out.sum().backward()
+    assert fusion.gate[-1].weight.grad is not None
+    assert float(fusion.gate[-1].weight.grad.abs().sum()) > 0
+    # With a non-zero gate the output departs from the base head and the
+    # per-image weights depend on the input statistics.
+    with torch.no_grad():
+        fusion.gate[-1].weight.fill_(0.1)
+        fusion.gate[-1].bias.fill_(0.1)
+    fused = fusion(heads)
+    assert not torch.allclose(fused, heads[:, 0:1])
+
+    def _gate_weights(value):
+        stats = torch.cat(
+            [value.mean(dim=(2, 3)), value.std(dim=(2, 3))], dim=1)
+        return torch.tanh(fusion.gate(stats))
+
+    swapped = heads.clone()
+    swapped[:, 1:] = swapped[:, 1:].flip(1)
+    assert not torch.allclose(_gate_weights(heads), _gate_weights(swapped))
+    assert not torch.allclose(fused, fusion(swapped))
+    with pytest.raises(ValueError):
+        HeadFusion(mode='unknown')
+
+
+def test_sacm_stc_specialized_topology_modes():
+    adapter = load_adapter('sacm_stc')
+    adapter.args = argparse.Namespace(topology_resolution=32)
+    adapter.specialized_head_weight = 0.1
+    stage2 = torch.randn(2, 4, 16, 16)
+    masks = torch.zeros(2, 1, 16, 16)
+    masks[:, :, 8, :] = 1.0
+    values = {}
+    for mode in ('cldice', 'skeleton', 'both'):
+        adapter.specialized_topology_mode = mode
+        loss = adapter._specialized_head_loss(stage2, masks)
+        assert torch.isfinite(loss)
+        assert float(loss) > 0
+        values[mode] = float(loss)
+    # Both adds the skeleton term on top of soft-clDice; each mode must be
+    # at least as large as the single-objective variants.
+    assert values['both'] >= values['cldice'] - 1e-6
+    assert values['both'] >= values['skeleton'] - 1e-6
 
 
 def test_sacm_stc_boundary_weighted_loss():

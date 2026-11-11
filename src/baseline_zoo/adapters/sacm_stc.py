@@ -132,7 +132,10 @@ class SACMSTCAdapter(BaselineAdapter):
         self.specialized_head_weight = 0.1
         self.head_fusion = False
         self.fusion_loss_weight = 1.0
+        self.head_fusion_mode = 'linear'
+        self.specialized_topology_mode = 'cldice'
         self._specialized_cl_loss = None
+        self._specialized_skeleton_loss = None
         self._specialized_tversky = None
         self.topology_quality = False
         self.quality_resolution = 64
@@ -229,6 +232,17 @@ class SACMSTCAdapter(BaselineAdapter):
         parser.add_argument(
             '--fusion-loss-weight', type=float, default=1.0,
             help='weight of the fused-head dense mask loss')
+        parser.add_argument(
+            '--head-fusion-mode', choices=['linear', 'image_gated'],
+            default='linear',
+            help='linear keeps the original global 1x1 residual fusion; '
+                 'image_gated predicts three per-image residual weights '
+                 'from head logit statistics (zero-initialised)')
+        parser.add_argument(
+            '--specialized-topology-mode',
+            choices=['cldice', 'skeleton', 'both'], default='cldice',
+            help='specialised head-1 topology objective: soft-clDice '
+                 '(original), skeleton recall, or both')
         parser.add_argument(
             '--topology-quality', type=int, choices=[0, 1], default=0,
             help='TPD: train a candidate topology-quality head and select '
@@ -543,6 +557,18 @@ class SACMSTCAdapter(BaselineAdapter):
         self.head_fusion = bool(int(getattr(args, 'head_fusion', 0)))
         self.fusion_loss_weight = float(
             getattr(args, 'fusion_loss_weight', 1.0))
+        self.head_fusion_mode = str(getattr(
+            args, 'head_fusion_mode', 'linear'))
+        if self.head_fusion_mode not in HeadFusion.MODES:
+            raise SystemExit(
+                f'unknown --head-fusion-mode {self.head_fusion_mode!r}')
+        self.specialized_topology_mode = str(getattr(
+            args, 'specialized_topology_mode', 'cldice'))
+        if self.specialized_topology_mode not in (
+                'cldice', 'skeleton', 'both'):
+            raise SystemExit(
+                'unknown --specialized-topology-mode '
+                f'{self.specialized_topology_mode!r}')
         if self.specialized_heads or self.head_fusion:
             scope = str(getattr(args, 'stage2_loss_scope', 'all'))
             if scope != 'all':
@@ -704,7 +730,7 @@ class SACMSTCAdapter(BaselineAdapter):
                 int(prompt_dim),
                 gate_threshold=float(self.morph_prompt_gate_threshold))
         if self.head_fusion:
-            model.head_fusion = HeadFusion()
+            model.head_fusion = HeadFusion(mode=self.head_fusion_mode)
         if self.topology_quality:
             model.topology_quality_head = TopologyQualityHead()
         return model
@@ -756,6 +782,12 @@ class SACMSTCAdapter(BaselineAdapter):
             'fusion_loss_weight': float(getattr(
                 self, 'fusion_loss_weight',
                 getattr(args, 'fusion_loss_weight', 1.0))),
+            'head_fusion_mode': str(getattr(
+                self, 'head_fusion_mode',
+                getattr(args, 'head_fusion_mode', 'linear'))),
+            'specialized_topology_mode': str(getattr(
+                self, 'specialized_topology_mode',
+                getattr(args, 'specialized_topology_mode', 'cldice'))),
             'topology_quality': int(getattr(
                 self, 'topology_quality',
                 getattr(args, 'topology_quality', 0))),
@@ -884,6 +916,7 @@ class SACMSTCAdapter(BaselineAdapter):
                     'polarity_augment', 'polarity_augment_prob',
                     'specialized_heads', 'specialized_head_weight',
                     'head_fusion', 'fusion_loss_weight',
+                    'head_fusion_mode', 'specialized_topology_mode',
                     'topology_quality',
                     'quality_loss_weight', 'quality_iou_weight',
                     'quality_dice_weight', 'quality_cldice_weight',
@@ -1637,7 +1670,11 @@ class SACMSTCAdapter(BaselineAdapter):
     def _specialized_head_loss(self, stage2, masks):
         """Structure-specialised losses on the three auxiliary heads.
 
-        Head 1: topology/connectivity (soft-clDice).
+        Head 1: topology/connectivity.  ``--specialized-topology-mode``
+        selects soft-clDice (original), skeleton recall, or both.  The
+        original recipe applies soft-clDice to every head through the
+        all-head topology loss, so ``skeleton``/``both`` are the modes that
+        make head 1 genuinely distinct.
         Head 2: boundary-weighted full-mask loss.
         Head 3: recall-heavy Tversky full-mask loss.
 
@@ -1655,11 +1692,21 @@ class SACMSTCAdapter(BaselineAdapter):
         heads = F.interpolate(
             stage2, (resolution, resolution), mode='bilinear',
             align_corners=False)
-        if self._specialized_cl_loss is None:
-            self._specialized_cl_loss = SoftclDiceLoss()
+        mode = str(getattr(
+            self, 'specialized_topology_mode', 'cldice')).lower()
+        topology = stage2.new_zeros(())
+        if mode in ('cldice', 'both'):
+            if self._specialized_cl_loss is None:
+                self._specialized_cl_loss = SoftclDiceLoss()
+            topology = topology + self._specialized_cl_loss(
+                heads[:, 1:2], target)
+        if mode in ('skeleton', 'both'):
+            if self._specialized_skeleton_loss is None:
+                self._specialized_skeleton_loss = SkeletonRecallLoss()
+            topology = topology + self._specialized_skeleton_loss(
+                heads[:, 1:2], target)
         if self._specialized_tversky is None:
             self._specialized_tversky = TverskyLoss(alpha=0.3, beta=0.7)
-        topology = self._specialized_cl_loss(heads[:, 1:2], target)
         boundary = self._boundary_weighted_loss(heads[:, 2:3], target)
         recall = self._specialized_tversky(heads[:, 3:4], target)
         return weight * (topology + boundary + recall)

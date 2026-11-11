@@ -141,20 +141,44 @@ class MorphPrompt(nn.Module):
 
 
 class HeadFusion(nn.Module):
-    """Safe zero-initialised per-pixel fusion of the four Stage-2 heads.
+    """Safe zero-initialised fusion of the four Stage-2 heads.
 
-    ``out = z0 + conv([z1-z0, z2-z0, z3-z0])`` with the 1x1 conv
-    zero-initialised, so at initialisation the fused output is exactly the
-    deployed head z0 (the gating anchor).  The conv is trained jointly with
-    the segmentation loss and learns a per-pixel residual from the three
-    structure-specialised auxiliary heads.
+    Two modes are supported:
+
+    * ``linear``: ``out = z0 + conv([z1-z0, z2-z0, z3-z0])`` with the 1x1
+      conv zero-initialised.  This is the original global linear fusion and
+      keeps the original state-dict keys (``fuse.weight``/``fuse.bias``).
+    * ``image_gated``: an image-level gate predicts three weights from the
+      per-head logit statistics (mean/std), so different images can trust
+      different auxiliary heads.  The gate's last layer is zero-initialised,
+      hence the fused output is exactly z0 at initialisation.
+
+    The per-pixel residual inputs are shared by both modes.
     """
 
-    def __init__(self):
+    MODES = ('linear', 'image_gated')
+
+    def __init__(self, mode: str = 'linear'):
         super().__init__()
-        self.fuse = nn.Conv2d(3, 1, 1)
-        nn.init.zeros_(self.fuse.weight)
-        nn.init.zeros_(self.fuse.bias)
+        self.mode = str(mode)
+        if self.mode not in self.MODES:
+            raise ValueError(
+                f'unknown head-fusion mode {mode!r}; expected one of '
+                f'{self.MODES}')
+        if self.mode == 'linear':
+            self.fuse = nn.Conv2d(3, 1, 1)
+            nn.init.zeros_(self.fuse.weight)
+            nn.init.zeros_(self.fuse.bias)
+        else:
+            # 4 head means + 4 head stds -> 3 residual weights in [-1, 1].
+            self.gate = nn.Sequential(
+                nn.LayerNorm(8),
+                nn.Linear(8, 16),
+                nn.GELU(),
+                nn.Linear(16, 3),
+            )
+            nn.init.zeros_(self.gate[-1].weight)
+            nn.init.zeros_(self.gate[-1].bias)
 
     def forward(self, heads: torch.Tensor) -> torch.Tensor:
         if heads.ndim != 4 or heads.shape[1] != 4:
@@ -165,7 +189,13 @@ class HeadFusion(nn.Module):
         residual = torch.cat(
             [heads[:, 1:2] - base, heads[:, 2:3] - base,
              heads[:, 3:4] - base], dim=1)
-        return base + self.fuse(residual)
+        if self.mode == 'linear':
+            return base + self.fuse(residual)
+        stats = torch.cat(
+            [heads.mean(dim=(2, 3)), heads.std(dim=(2, 3))], dim=1)
+        weights = torch.tanh(self.gate(stats))
+        return base + (weights[:, :, None, None] * residual).sum(
+            dim=1, keepdim=True)
 
 
 class TopologyQualityHead(nn.Module):
