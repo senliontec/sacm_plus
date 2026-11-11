@@ -1,0 +1,194 @@
+# TPD 200-epoch screening.
+#
+# The four native Stage-2 candidates are proposal-only.  Only the deployed
+# candidate receives the dense/topology GT loss; the other candidates are
+# never given a dense GT loss.
+#
+# Arms:
+#   selected_only
+#   selected_image_prompt
+#   selected_image_prompt_replace
+#   selected_topology_quality
+#   selected_tpd
+#   selected_tpd_replace
+#   selected_tpd_refine
+#   selected_tpd_replace_refine
+#
+# TPD = image-conditioned dense prompt (MM-SAM idea)
+#     + candidate topology-quality ranking (SAMEO/E-SAM idea)
+#     + multi-level proposal under-segmentation repair (E-SAM idea).
+schema_version: 1
+name: sacm_stc_tpd_200
+description: >-
+  200-epoch screening of selected-only, image-conditioned prompt, topology
+  quality ranking, and their TPD combination.
+protocol: seeded5
+method: sacm_stc
+seeds: [0, 1, 2, 3]
+epochs: 200
+eval_checkpoint: best_model.pth
+expected_datasets: 20
+output_root: results/runs/sacm_stc_tpd_200
+
+wandb:
+  project: sacm
+  entity: buaazqk
+  group: sacm_stc_tpd_200
+  tags: sacm_stc,tpd,selected,topology,200ep
+  use_wandb: true
+
+common_train_args:
+  sam-checkpoint: checkpoints/sam_vit_l_0b3195.pth
+  bce-weight: 0.7
+  dice-weight: 0.3
+  bce-pos-weight: 2
+  binary-targets: 0
+  deploy-threshold: 0.5
+  # TPD removes all-head dense supervision.
+  stage2-loss-scope: selected
+  stage2-loss-aggregate: deployment
+  stage2-aux-weight: 0.25
+  # Keep topology on the deployed head only.
+  topology-head: selected
+  topology-aggregate: deployment
+  topology-aux-weight: 0.25
+  topology-resolution: 512
+  topology-source: native
+  topology-warmup-epochs: 5
+  cl-dice-weight: 0.1
+  skeleton-recall-weight: 0.1
+  # Keep the Stage-1 gating/deep-supervision recipe; the removed supervision
+  # is the four Stage-2 dense/topology GT loss, not the Stage-1 coarse heads.
+  deep-sup-weight: 0.3
+  iou-loss-weight: 0
+  head-select: gating
+  deployment-head: 2
+  use-stc: 0
+  use-typed-stage2: 0
+  image-dense-prompt: 0
+  image-dense-prompt-mode: residual
+  topology-quality: 0
+  quality-loss-weight: 0.1
+  quality-iou-weight: 0.34
+  quality-dice-weight: 0.33
+  quality-cldice-weight: 0.33
+  quality-resolution: 64
+  quality-warmup-epochs: 5
+  quality-refine: 0
+  quality-refine-topk: 2
+  quality-refine-threshold: 0.7
+  quality-refine-weight: 0.5
+  quality-refine-stage1: 0
+  quality-select-margin: 0.01
+  save-every: 0
+  num-workers: 0
+
+arms:
+  selected_only:
+    display_name: 只监督 deployed head（无 all-head）
+    args: {}
+
+  selected_image_prompt:
+    display_name: selected-only + image-conditioned dense residual
+    args:
+      image-dense-prompt: 1
+      image-dense-prompt-mode: residual
+
+  selected_image_prompt_replace:
+    display_name: selected-only + image-derived dense prompt（replace）
+    args:
+      image-dense-prompt: 1
+      image-dense-prompt-mode: replace
+
+  selected_topology_quality:
+    display_name: selected-only + topology-quality 候选选择
+    args:
+      topology-quality: 1
+
+  selected_tpd:
+    display_name: TPD = selected + image residual + topology quality
+    args:
+      image-dense-prompt: 1
+      image-dense-prompt-mode: residual
+      topology-quality: 1
+
+  selected_tpd_replace:
+    display_name: TPD-replace = image-derived prompt + topology quality
+    args:
+      image-dense-prompt: 1
+      image-dense-prompt-mode: replace
+      topology-quality: 1
+
+  selected_tpd_refine:
+    display_name: TPD + E-SAM-style multi-level refinement
+    args:
+      image-dense-prompt: 1
+      image-dense-prompt-mode: residual
+      topology-quality: 1
+      quality-refine: 1
+      quality-refine-stage1: 1
+
+  selected_tpd_replace_refine:
+    display_name: TPD-replace + multi-level proposal refinement
+    args:
+      image-dense-prompt: 1
+      image-dense-prompt-mode: replace
+      topology-quality: 1
+      quality-refine: 1
+      quality-refine-stage1: 1
+
+contrasts:
+  - id: image_prompt_minus_selected
+    left: selected_image_prompt
+    right: selected_only
+    label: add image-conditioned dense residual
+  - id: image_replace_minus_selected
+    left: selected_image_prompt_replace
+    right: selected_only
+    label: add image-derived dense prompt (replace)
+  - id: topology_quality_minus_selected
+    left: selected_topology_quality
+    right: selected_only
+    label: add topology-quality candidate selection
+  - id: tpd_minus_selected
+    left: selected_tpd
+    right: selected_only
+    label: TPD vs selected-only
+  - id: tpd_replace_minus_selected
+    left: selected_tpd_replace
+    right: selected_only
+    label: TPD-replace vs selected-only
+  - id: refine_minus_tpd
+    left: selected_tpd_refine
+    right: selected_tpd
+    label: add E-SAM-style multi-level refinement
+  - id: replace_refine_minus_replace
+    left: selected_tpd_replace_refine
+    right: selected_tpd_replace
+    label: add multi-level refinement to TPD-replace
+
+analysis:
+  output_root: results/ablations/sacm_stc_tpd_200/analysis
+  primary_metric: dice
+  primary_role: All
+  metrics: [dice, iou, cldice, hd95]
+  datasets:
+    - CHASEDB1
+    - CrackTree200
+    - CREMI
+    - DCA1
+    - DRIVE
+    - CHCrack5k
+    - FIVES
+    - HRF
+    - LES-AV
+    - OCTA-500
+    - DeepGlobe
+    - ROAD
+    - TopoMortar
+    - TYRE
+    - WIRE
+  require_train_complete: true
+  require_eval_complete: true
+  bootstrap_samples: 2000
+  seed: 20261111

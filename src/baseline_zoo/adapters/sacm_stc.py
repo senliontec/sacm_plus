@@ -40,6 +40,10 @@ from baseline_zoo.models.sacm_stc.topology_losses import (
     SoftclDiceLoss,
     TverskyLoss,
 )
+from baseline_zoo.models.sacm_stc.tpd import (
+    ImageDensePrompt,
+    TopologyQualityHead,
+)
 from baseline_zoo.models.sacm_stc.typed import (
     WIDTH_MAX_PX,
     WIDTH_MIN_PX,
@@ -114,7 +118,20 @@ class SACMSTCAdapter(BaselineAdapter):
         self._cl_loss = None
         self._tversky_loss = None
         self._skeleton_recall_loss = None
+        self._quality_cl_loss = None
         self.deployment_head = 2
+        self.image_dense_prompt = False
+        self.image_dense_prompt_mode = 'residual'
+        self.topology_quality = False
+        self.quality_resolution = 64
+        self.quality_warmup_epochs = 5
+        self.quality_refine = False
+        self.quality_refine_topk = 2
+        self.quality_refine_threshold = 0.7
+        self.quality_refine_weight = 0.5
+        self.quality_refine_stage1 = False
+        self.quality_select_margin = 0.01
+        self._last_quality_scores = None
 
     def add_args(self, parser):
         parser.add_argument(
@@ -160,6 +177,63 @@ class SACMSTCAdapter(BaselineAdapter):
         parser.add_argument(
             '--deployment-head', type=int, default=2,
             help='Stage-2 head used by fixed deployment and topology losses')
+        parser.add_argument(
+            '--image-dense-prompt', type=int, choices=[0, 1], default=0,
+            help='TPD: add an image-conditioned residual to the prompt-free '
+                 'dense embedding (MM-SAM style); zero-initialised')
+        parser.add_argument(
+            '--image-dense-prompt-mode', choices=['residual', 'replace'],
+            default='residual',
+            help='residual: no_mask_embed + image prompt; replace: image '
+                 'embedding + projected image prompt (MM-SAM style)')
+        parser.add_argument(
+            '--topology-quality', type=int, choices=[0, 1], default=0,
+            help='TPD: train a candidate topology-quality head and select '
+                 'the deployed candidate with it; four candidates remain '
+                 'proposals and receive no dense GT loss')
+        parser.add_argument(
+            '--quality-loss-weight', type=float, default=0.1,
+            help='weight of the scalar candidate-quality regression loss')
+        parser.add_argument(
+            '--quality-iou-weight', type=float, default=0.34,
+            help='IoU component of the candidate-quality target (SAMEO)')
+        parser.add_argument(
+            '--quality-dice-weight', type=float, default=0.33,
+            help='Dice component of the candidate-quality target')
+        parser.add_argument(
+            '--quality-cldice-weight', type=float, default=0.33,
+            help='soft-clDice component of the candidate-quality target')
+        parser.add_argument(
+            '--quality-resolution', type=int, default=64,
+            help='spatial resolution used by the quality head and target')
+        parser.add_argument(
+            '--quality-warmup-epochs', type=int, default=5,
+            help='before this epoch, inference falls back to gating while '
+                 'the quality head is still warming up')
+        parser.add_argument(
+            '--quality-refine', type=int, choices=[0, 1], default=0,
+            help='E-SAM-inspired proposal refinement: add only high-'
+                 'confidence regions supported by the top-k quality '
+                 'candidates')
+        parser.add_argument(
+            '--quality-refine-topk', type=int, default=2,
+            help='number of top-quality candidates used for refinement')
+        parser.add_argument(
+            '--quality-refine-threshold', type=float, default=0.7,
+            help='support probability required before adding a missing '
+                 'region')
+        parser.add_argument(
+            '--quality-refine-weight', type=float, default=0.5,
+            help='blend weight for high-confidence proposal support')
+        parser.add_argument(
+            '--quality-refine-stage1', type=int, choices=[0, 1], default=0,
+            help='use the coarse Stage-1 heads as additional high-confidence '
+                 'support for under-segmentation repair (E-SAM multi-level '
+                 'proposal adaptation)')
+        parser.add_argument(
+            '--quality-select-margin', type=float, default=0.01,
+            help='only switch away from the gating candidate when its '
+                 'quality is below the best by this margin')
         parser.add_argument(
             '--stage2-loss-scope', choices=['all', 'selected'],
             default='all',
@@ -395,6 +469,55 @@ class SACMSTCAdapter(BaselineAdapter):
 
         self.head_select = self._resolved_head_select(args)
         self.deployment_head = int(getattr(args, 'deployment_head', 2))
+        self.image_dense_prompt = bool(
+            int(getattr(args, 'image_dense_prompt', 0)))
+        self.image_dense_prompt_mode = str(
+            getattr(args, 'image_dense_prompt_mode', 'residual')).lower()
+        if self.image_dense_prompt_mode not in ('residual', 'replace'):
+            raise SystemExit(
+                'image-dense-prompt-mode must be residual or replace')
+        self.topology_quality = bool(
+            int(getattr(args, 'topology_quality', 0)))
+        self.quality_resolution = int(
+            getattr(args, 'quality_resolution', 64))
+        self.quality_warmup_epochs = int(
+            getattr(args, 'quality_warmup_epochs', 5))
+        self.quality_refine = bool(
+            int(getattr(args, 'quality_refine', 0)))
+        self.quality_refine_topk = int(
+            getattr(args, 'quality_refine_topk', 2))
+        self.quality_refine_threshold = float(
+            getattr(args, 'quality_refine_threshold', 0.7))
+        self.quality_refine_weight = float(
+            getattr(args, 'quality_refine_weight', 0.5))
+        self.quality_refine_stage1 = bool(
+            int(getattr(args, 'quality_refine_stage1', 0)))
+        self.quality_select_margin = float(
+            getattr(args, 'quality_select_margin', 0.01))
+        if self.quality_refine_topk <= 0:
+            raise SystemExit('quality-refine-topk must be positive')
+        if self.quality_select_margin < 0:
+            raise SystemExit('quality-select-margin must be non-negative')
+        if self.quality_resolution <= 0:
+            raise SystemExit('quality-resolution must be positive')
+        if self.topology_quality:
+            scope = str(getattr(args, 'stage2_loss_scope', 'all'))
+            if scope != 'selected':
+                raise SystemExit(
+                    'topology-quality requires stage2-loss-scope=selected; '
+                    'the auxiliary candidates must not receive dense GT loss')
+            if int(getattr(args, 'use_stc', 0)) == 1:
+                raise SystemExit(
+                    'topology-quality is not supported with use_stc')
+            if int(getattr(args, 'use_typed_stage2', 0)) == 1:
+                raise SystemExit(
+                    'topology-quality is not supported with typed Stage-2')
+        if self.quality_refine and not self.topology_quality:
+            raise SystemExit(
+                'quality-refine requires topology-quality=1')
+        if self.quality_refine_stage1 and not self.quality_refine:
+            raise SystemExit(
+                'quality-refine-stage1 requires quality-refine=1')
         self.stage2_loss_aggregate = str(getattr(
             args, 'stage2_loss_aggregate', 'deployment')).lower()
         self.topology_aggregate = str(getattr(
@@ -470,6 +593,25 @@ class SACMSTCAdapter(BaselineAdapter):
                 raise SystemExit('use-stc and use-typed-stage2 are mutually '
                                  'exclusive')
             model.typed_composer = TypedComposer()
+        if self.image_dense_prompt or self.topology_quality:
+            encoder = getattr(model, 'image_encoder', None)
+            embed_dim = getattr(encoder, 'embed_dim', None)
+            if embed_dim is None:
+                proj = getattr(getattr(encoder, 'patch_embed', None),
+                               'proj', None)
+                embed_dim = getattr(proj, 'out_channels', None)
+            if embed_dim is None:
+                raise SystemExit(
+                    'cannot infer image-encoder embed_dim for TPD modules')
+        if self.image_dense_prompt:
+            # SAM's ViT neck emits the decoder-width embedding (256 for
+            # ViT-L), not the 1024-d patch-embedding input.
+            prompt_dim = getattr(
+                getattr(model, 'mask_decoder', None), 'transformer_dim', 256)
+            model.image_dense_prompt = ImageDensePrompt(
+                int(prompt_dim), prompt_dim=int(prompt_dim))
+        if self.topology_quality:
+            model.topology_quality_head = TopologyQualityHead()
         return model
 
     def save_config(self, args):
@@ -489,6 +631,47 @@ class SACMSTCAdapter(BaselineAdapter):
                 args, 'stage1_fusion_mode', 'gated'),
             'deep_sup_weight': float(getattr(args, 'deep_sup_weight', 0.3)),
             'iou_loss_weight': float(getattr(args, 'iou_loss_weight', 1.0)),
+            'image_dense_prompt': int(getattr(
+                self, 'image_dense_prompt',
+                getattr(args, 'image_dense_prompt', 0))),
+            'image_dense_prompt_mode': str(getattr(
+                self, 'image_dense_prompt_mode',
+                getattr(args, 'image_dense_prompt_mode', 'residual'))),
+            'topology_quality': int(getattr(
+                self, 'topology_quality',
+                getattr(args, 'topology_quality', 0))),
+            'quality_loss_weight': float(getattr(
+                args, 'quality_loss_weight', 0.1)),
+            'quality_iou_weight': float(getattr(
+                args, 'quality_iou_weight', 0.34)),
+            'quality_dice_weight': float(getattr(
+                args, 'quality_dice_weight', 0.33)),
+            'quality_cldice_weight': float(getattr(
+                args, 'quality_cldice_weight', 0.33)),
+            'quality_resolution': int(getattr(
+                self, 'quality_resolution',
+                getattr(args, 'quality_resolution', 64))),
+            'quality_warmup_epochs': int(getattr(
+                self, 'quality_warmup_epochs',
+                getattr(args, 'quality_warmup_epochs', 5))),
+            'quality_refine': int(getattr(
+                self, 'quality_refine',
+                getattr(args, 'quality_refine', 0))),
+            'quality_refine_topk': int(getattr(
+                self, 'quality_refine_topk',
+                getattr(args, 'quality_refine_topk', 2))),
+            'quality_refine_threshold': float(getattr(
+                self, 'quality_refine_threshold',
+                getattr(args, 'quality_refine_threshold', 0.7))),
+            'quality_refine_weight': float(getattr(
+                self, 'quality_refine_weight',
+                getattr(args, 'quality_refine_weight', 0.5))),
+            'quality_refine_stage1': int(getattr(
+                self, 'quality_refine_stage1',
+                getattr(args, 'quality_refine_stage1', 0))),
+            'quality_select_margin': float(getattr(
+                self, 'quality_select_margin',
+                getattr(args, 'quality_select_margin', 0.01))),
             'head_select': getattr(
                 self, 'head_select', self._resolved_head_select(args)),
             'deployment_head': int(getattr(args, 'deployment_head', 2)),
@@ -574,6 +757,14 @@ class SACMSTCAdapter(BaselineAdapter):
                     'bce_pos_weight', 'binary_targets', 'deploy_threshold',
                     'stage1_fusion_weight', 'stage1_fusion_mode',
                     'deep_sup_weight', 'iou_loss_weight',
+                    'image_dense_prompt', 'image_dense_prompt_mode',
+                    'topology_quality',
+                    'quality_loss_weight', 'quality_iou_weight',
+                    'quality_dice_weight', 'quality_cldice_weight',
+                    'quality_resolution', 'quality_warmup_epochs',
+                    'quality_refine', 'quality_refine_topk',
+                    'quality_refine_threshold', 'quality_refine_weight',
+                    'quality_refine_stage1', 'quality_select_margin',
                     'deployment_head', 'stage2_loss_scope',
                     'stage2_loss_aggregate', 'stage2_aux_weight',
                     'cl_dice_weight', 'tversky_weight',
@@ -697,6 +888,29 @@ class SACMSTCAdapter(BaselineAdapter):
             else:
                 fused = last_inter
             self._last_sam_features = fused.permute(0, 3, 1, 2)
+        if self.image_dense_prompt:
+            prompt = getattr(model, 'image_dense_prompt', None)
+            if prompt is None:
+                raise RuntimeError(
+                    'image-dense-prompt=1 but model.image_dense_prompt is '
+                    'missing')
+            residual = prompt(embeddings)
+            if residual.shape[-2:] != dense.shape[-2:]:
+                residual = F.interpolate(
+                    residual, size=dense.shape[-2:],
+                    mode='bilinear', align_corners=False)
+            if self.image_dense_prompt_mode == 'replace':
+                # MM-SAM-style dense embedding: image encoder embedding +
+                # projected image embedding, instead of a constant no-mask
+                # anchor.
+                base = embeddings
+                if base.shape[-2:] != dense.shape[-2:]:
+                    base = F.interpolate(
+                        base, size=dense.shape[-2:],
+                        mode='bilinear', align_corners=False)
+                dense = base + residual
+            else:
+                dense = dense + residual
         return model.mask_decoder.predict_masks(
             image_embeddings=embeddings,
             image_pe=model.prompt_encoder.get_dense_pe(),
@@ -1097,6 +1311,114 @@ class SACMSTCAdapter(BaselineAdapter):
             1.0, max(0.0, (epoch - warmup) / float(warmup)))
         return total * ramp
 
+    def _quality_scores(self, model, stage2):
+        """Return ``[B, N]`` candidate quality scores at low resolution."""
+        head = getattr(model, 'topology_quality_head', None)
+        if head is None:
+            raise RuntimeError(
+                'topology-quality=1 but model.topology_quality_head is '
+                'missing')
+        if stage2.ndim != 4 or stage2.shape[1] != 4:
+            raise RuntimeError(
+                'topology-quality expects four native Stage-2 candidates, '
+                f'got {tuple(stage2.shape)}')
+        low_res = F.interpolate(
+            stage2, size=(self.quality_resolution, self.quality_resolution),
+            mode='bilinear', align_corners=False)
+        return head(low_res)
+
+    def _quality_target(self, stage2, masks):
+        """Per-candidate Dice + soft-clDice target, detached from the graph."""
+        if self._quality_cl_loss is None:
+            self._quality_cl_loss = SoftclDiceLoss()
+        low_res = F.interpolate(
+            stage2, size=(self.quality_resolution, self.quality_resolution),
+            mode='bilinear', align_corners=False)
+        target = F.interpolate(
+            masks, size=(self.quality_resolution, self.quality_resolution),
+            mode='bilinear', align_corners=False)
+        with torch.no_grad():
+            return TopologyQualityHead.quality_target(
+                low_res, target, self._quality_cl_loss,
+                float(getattr(self.args, 'quality_iou_weight', 0.34)),
+                float(getattr(self.args, 'quality_dice_weight', 0.33)),
+                float(getattr(self.args, 'quality_cldice_weight', 0.33)))
+
+    def _quality_loss(self, model, stage2, masks):
+        weight = float(getattr(self.args, 'quality_loss_weight', 0.1))
+        if weight <= 0:
+            return stage2.new_zeros(())
+        scores = self._quality_scores(model, stage2)
+        target = self._quality_target(stage2, masks)
+        return weight * F.mse_loss(scores, target)
+
+    def _quality_refined_logits(self, stage2, scores, stage1=None):
+        """E-SAM-inspired conservative under-segmentation refinement.
+
+        The top-quality Stage-2 candidate stays the base mask.  Regions that
+        are missing from it but supported by the top-k quality candidates or
+        the coarse Stage-1 heads above a high confidence threshold are
+        blended in.  This is a lightweight binary adaptation of E-SAM's
+        multi-level proposal / under-segmentation repair, not a dense loss on
+        the auxiliary heads.
+        """
+        if stage2.shape[1] <= 1:
+            return stage2[:, :1]
+        topk = max(1, min(int(self.quality_refine_topk), stage2.shape[1]))
+        _, indices = torch.topk(scores, topk, dim=1)
+        probs = torch.sigmoid(stage2)
+        gathered = torch.gather(
+            probs, 1, indices[:, :, None, None].expand(
+                -1, -1, probs.shape[2], probs.shape[3]))
+        # High-confidence support from any top-k proposal, as in E-SAM's
+        # under-segmentation repair; not a weighted average that would hide a
+        # confident auxiliary proposal behind a weak top-1 score.
+        support = gathered.max(dim=1, keepdim=True).values
+        if stage1 is not None and self.quality_refine_stage1:
+            if stage1.shape[-2:] != probs.shape[-2:]:
+                stage1 = F.interpolate(
+                    stage1, size=probs.shape[-2:],
+                    mode='bilinear', align_corners=False)
+            stage1_support = torch.sigmoid(stage1).mean(
+                dim=1, keepdim=True)
+            support = torch.maximum(support, stage1_support)
+        selected = torch.gather(
+            probs, 1, indices[:, :1, None, None].expand(
+                -1, -1, probs.shape[2], probs.shape[3]))
+        extra = (
+            (support > float(self.quality_refine_threshold))
+            & (selected < 0.5)
+        ).to(probs.dtype)
+        fused = selected + float(self.quality_refine_weight) * extra * (
+            support - selected)
+        fused = fused.clamp(1e-4, 1.0 - 1e-4)
+        return torch.logit(fused)
+
+    def _quality_candidate_index(self, model, stage2):
+        """Select one candidate by predicted topology quality.
+
+        During the short warm-up the head is untrained, so inference keeps
+        the gating fallback.  Evaluation after training has no active epoch
+        and therefore uses the trained quality head.
+        """
+        epoch = getattr(self, '_epoch', None)
+        warmup = int(getattr(self, 'quality_warmup_epochs', 0))
+        if epoch is not None and int(epoch) <= warmup:
+            return None
+        scores = self._quality_scores(model, stage2)
+        self._last_quality_scores = scores.detach()
+        best = int(scores.argmax(dim=1)[0].item())
+        anchor = self._selected_stage2_index()
+        margin = float(getattr(self, 'quality_select_margin', 0.0))
+        if (0 <= anchor < scores.shape[1]
+                and float(scores[0, anchor]) + margin >= float(
+                    scores[0, best])):
+            # Keep the gating/deployment candidate when quality scores are
+            # too close; this prevents an untrained or noisy quality head
+            # from changing the base output.
+            return None
+        return best
+
     def train_step(self, model, batch):
         images, masks = batch
         stage2, iou_pred, stage1 = self._forward(
@@ -1109,6 +1431,9 @@ class SACMSTCAdapter(BaselineAdapter):
                               align_corners=False)
         stage1 = F.interpolate(stage1, (1024, 1024), mode='bilinear',
                                align_corners=False)
+        loss_quality = stage2.new_zeros(())
+        if self.topology_quality:
+            loss_quality = self._quality_loss(model, stage2_native, masks)
 
         if int(getattr(self.args, 'use_typed_stage2', 0)) == 1:
             # Keep Stage-2 logits at their native 256 resolution.  _typed_loss
@@ -1164,7 +1489,8 @@ class SACMSTCAdapter(BaselineAdapter):
                     torch.ones_like(inter))
             loss_iou = F.mse_loss(iou_pred, iou_gt)
 
-        loss = loss_main + deep_sup * loss_ds + iou_weight * loss_iou
+        loss = (loss_main + deep_sup * loss_ds + iou_weight * loss_iou
+                + loss_quality)
         # Native topology supervision avoids the 256 -> 1024 -> 512
         # resampling blur.  The legacy path intentionally passes the 1024-res
         # stretched tensor so the native-vs-legacy control changes only this
@@ -1194,12 +1520,19 @@ class SACMSTCAdapter(BaselineAdapter):
             self.args, 'stage1_fusion_weight', 0.0))
         use_typed = int(getattr(self.args, 'use_typed_stage2', 0)) == 1
         use_stc = int(getattr(self.args, 'use_stc', 0)) == 1
-        if stage1_weight > 0 and not use_typed and not use_stc:
+        need_stage1 = (
+            stage1_weight > 0
+            or (self.quality_refine and self.quality_refine_stage1)
+        )
+        if need_stage1 and not use_typed and not use_stc:
             stage2, iou_pred, stage1 = self._forward(
                 model, prepared, return_stage1=True)
         else:
             stage2, iou_pred = self._forward(
                 model, prepared, return_stage1=False)
+        quality_index = None
+        if self.topology_quality and not use_typed and not use_stc:
+            quality_index = self._quality_candidate_index(model, stage2)
         if use_typed:
             composer = getattr(model, 'typed_composer', None)
             if composer is None:
@@ -1239,7 +1572,13 @@ class SACMSTCAdapter(BaselineAdapter):
                     'STC requires SAM adapter/intermediate features')
             logits = head(anchor, image, sam_features)['final']
         else:
-            if self.head_select == 'mean':
+            if quality_index is not None:
+                logits = stage2[:, quality_index:quality_index + 1]
+                if (self.quality_refine
+                        and self._last_quality_scores is not None):
+                    logits = self._quality_refined_logits(
+                        stage2, self._last_quality_scores, stage1)
+            elif self.head_select == 'mean':
                 # The four native Stage-2 heads are all dense candidates.
                 # Averaging their logits is permutation-invariant, so it also
                 # works if the official gating order changes per image.

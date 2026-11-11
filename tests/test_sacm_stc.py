@@ -39,6 +39,10 @@ from baseline_zoo.models.sacm_stc.typed import (  # noqa: E402
     width_to_logits,
     width_to_pixels,
 )
+from baseline_zoo.models.sacm_stc.tpd import (  # noqa: E402
+    ImageDensePrompt,
+    TopologyQualityHead,
+)
 from baseline_zoo.registry import load_models  # noqa: E402
 
 
@@ -1065,3 +1069,137 @@ def test_sacm_stc_new_cli_choices_parse():
     for choice in ('native', 'training'):
         args = parser.parse_args(['--topology-source', choice])
         assert args.topology_source == choice
+    args = parser.parse_args([])
+    assert args.image_dense_prompt == 0
+    assert args.topology_quality == 0
+    args = parser.parse_args(
+        ['--image-dense-prompt', '1', '--topology-quality', '1',
+         '--quality-loss-weight', '0.2', '--quality-resolution', '32',
+         '--image-dense-prompt-mode', 'replace', '--quality-refine', '1'])
+    assert args.image_dense_prompt == 1
+    assert args.topology_quality == 1
+    assert args.quality_loss_weight == 0.2
+    assert args.quality_resolution == 32
+    assert args.image_dense_prompt_mode == 'replace'
+    assert args.quality_refine == 1
+    args = parser.parse_args(
+        ['--quality-refine', '1', '--quality-refine-stage1', '1',
+         '--quality-select-margin', '0.02'])
+    assert args.quality_refine_stage1 == 1
+    assert args.quality_select_margin == 0.02
+
+
+def test_sacm_stc_tpd_modules():
+    prompt = ImageDensePrompt(embed_dim=8)
+    image = torch.randn(2, 8, 4, 4)
+    residual = prompt(image)
+    assert residual.shape == image.shape
+    assert torch.count_nonzero(residual) == 0
+
+    projected = ImageDensePrompt(embed_dim=16, prompt_dim=4)
+    assert projected(torch.randn(2, 16, 4, 4)).shape == (2, 4, 4, 4)
+
+    quality = TopologyQualityHead(hidden=8)
+    candidates = torch.randn(2, 4, 16, 16)
+    scores = quality(candidates)
+    assert scores.shape == (2, 4)
+    assert torch.all(scores >= 0) and torch.all(scores <= 1)
+
+    target = (torch.rand(2, 1, 16, 16) > 0.7).float()
+    values = TopologyQualityHead.quality_target(
+        candidates, target, SoftclDiceLoss(), 0.33, 0.33, 0.34)
+    assert values.shape == (2, 4)
+    assert torch.all(values >= 0) and torch.all(values <= 1)
+
+    adapter = load_adapter('sacm_stc')
+    adapter.quality_refine_topk = 2
+    adapter.quality_refine_threshold = 0.7
+    adapter.quality_refine_weight = 1.0
+    logits = torch.full((1, 4, 4, 4), -10.0)
+    logits[:, 1] = 10.0
+    scores = torch.tensor([[0.99, 0.01, 0.0, 0.0]])
+    refined = adapter._quality_refined_logits(logits, scores)
+    assert refined.shape == (1, 1, 4, 4)
+    # Candidate 1 supports all pixels, so full-weight refinement fills the
+    # missing region.
+    assert torch.all(torch.sigmoid(refined) > 0.5)
+
+
+def test_sacm_stc_tpd_train_step(monkeypatch):
+    adapter = load_adapter('sacm_stc')
+    adapter.head_select = 'gating'
+    adapter.image_dense_prompt = False
+    adapter.topology_quality = True
+    adapter.quality_resolution = 16
+    adapter.quality_warmup_epochs = 0
+    adapter.args = argparse.Namespace(
+        use_typed_stage2=0, use_stc=0, stage1_fusion_weight=0.0,
+        deploy_threshold=0.5, bce_weight=0.7, dice_weight=0.3,
+        bce_pos_weight=2.0, stage2_loss_scope='selected',
+        stage2_loss_aggregate='deployment', stage2_aux_weight=0.25,
+        deep_sup_weight=0.0, iou_loss_weight=0.0,
+        cl_dice_weight=0.1, skeleton_recall_weight=0.1,
+        tversky_weight=0.0, topology_head='selected',
+        topology_aggregate='deployment', topology_aux_weight=0.25,
+        topology_warmup_epochs=0, topology_resolution=16,
+        topology_source='native', quality_loss_weight=0.1,
+        quality_dice_weight=0.5, quality_cldice_weight=0.5)
+
+    class FakeModel(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.topology_quality_head = TopologyQualityHead(hidden=8)
+
+    def fake_forward(model, images, return_stage1=True):
+        del model, images, return_stage1
+        stage2 = torch.zeros(1, 4, 8, 8, requires_grad=True)
+        stage1 = torch.zeros(1, 4, 8, 8)
+        return stage2, torch.zeros(1, 4), stage1
+
+    monkeypatch.setattr(adapter, '_forward', fake_forward)
+    monkeypatch.setattr(
+        adapter, '_mask_criterion',
+        lambda logits, target, bce_weight, dice_weight:
+        logits.sum() * 0.0)
+    monkeypatch.setattr(
+        adapter, '_topology_loss',
+        lambda stage2, masks: stage2.sum() * 0.0)
+    model = FakeModel()
+    loss = adapter.train_step(
+        model, (torch.zeros(1, 3, 8, 8), torch.zeros(1, 1, 8, 8)))
+    assert loss.requires_grad
+    loss.backward()
+    grads = [p.grad for p in model.topology_quality_head.parameters()
+             if p.grad is not None]
+    assert grads
+    assert any(float(g.abs().sum()) > 0 for g in grads)
+
+
+def test_sacm_stc_tpd_predict_selects_quality(tmp_path, monkeypatch):
+    from PIL import Image
+
+    mask_path = tmp_path / 'mask.png'
+    Image.fromarray(np.zeros((3, 4), dtype=np.uint8)).save(mask_path)
+    adapter = load_adapter('sacm_stc')
+    adapter.head_select = 'gating'
+    adapter.topology_quality = True
+    adapter.quality_warmup_epochs = 0
+    adapter.args = argparse.Namespace(
+        use_typed_stage2=0, use_stc=0, stage1_fusion_weight=0.0,
+        deploy_threshold=0.5, topology_quality=1)
+
+    def fake_forward(model, prepared, return_stage1=False):
+        del model, prepared, return_stage1
+        stage2 = torch.full((1, 4, 2, 2), -10.0)
+        stage2[:, 2] = 10.0
+        return stage2, torch.zeros(1, 4)
+
+    monkeypatch.setattr(adapter, '_forward', fake_forward)
+    monkeypatch.setattr(
+        adapter, '_quality_scores',
+        lambda model, stage2: torch.tensor([[0.1, 0.2, 0.9, 0.3]]))
+    sample = argparse.Namespace(mask_path=mask_path)
+    mask = adapter.predict_sample(
+        torch.nn.Module(), torch.zeros(1, 3, 1024, 1024), sample)
+    assert mask.shape == (3, 4)
+    assert mask.all()
