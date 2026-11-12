@@ -26,7 +26,7 @@ From this file's directory: `../../../../3rd`
 ├── sam_octa              -> 3rd/SAM-OCTA ⭐⭐⭐
 ├── cwsam                 -> 3rd/CWSAM ⭐⭐⭐
 ├── knowsam               -> 3rd/KnowSAM ⭐⭐
-├── segdino               -> 3rd/segdino ✅
+├── segdino               -> 3rd/segdino ⭐⭐
 ├── sacm_official         -> 3rd/SACM ⭐⭐⭐⭐
 ├── sacm_stc             -> 3rd/SACM (corrected derivative of sacm_official) ⭐⭐⭐⭐
 
