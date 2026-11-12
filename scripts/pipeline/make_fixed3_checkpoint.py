@@ -26,7 +26,6 @@ import argparse
 import hashlib
 import json
 import os
-import sys
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -98,6 +97,12 @@ def _already_derived(path: Path, source_sha: str, head: int) -> bool:
         payload = _load_checkpoint(path)
         adapter = _adapter_config(payload)
     except SystemExit:
+        return False
+    except Exception:
+        # A truncated/corrupt output must never satisfy the skip predicate.
+        return False
+    state = payload.get('model_state_dict')
+    if not isinstance(state, dict) or not state:
         return False
     return (
         payload.get('fixed3_source_sha256') == source_sha

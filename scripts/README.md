@@ -148,10 +148,11 @@ results/ablations/sacm_stc_fixed3_800/summary.json
 ```
 
 The helpers are `pipeline/make_fixed3_checkpoint.py` (derive the no-fusion
-checkpoint) and `pipeline/summarize_fixed3_seeds.py` (fixed3 vs official,
-four metrics, per-role/per-seed tables, per-dataset wins, paired deltas).
-The run uses local data and the local SAM checkpoint; it never downloads
-weights.
+checkpoint), `pipeline/check_ssh_recipe.py` (before reusing a complete
+800-epoch SSH run, compare its adapter config with the YAML arm), and
+`pipeline/summarize_fixed3_seeds.py` (fixed3 vs official, four metrics,
+per-role/per-seed tables, per-dataset wins, paired deltas).  The run uses
+local data and the local SAM checkpoint; it never downloads weights.
 
 ## SACM-STC scope/structure ablation
 

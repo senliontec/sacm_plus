@@ -25,6 +25,9 @@
 #   SUMMARY_ROOT=results/ablations/sacm_stc_fixed3_800
 #   SKIP_TRAIN=0                 SKIP_EVAL=0
 #   RESUME=1                     DERIVE_ONLY=0
+#     RESUME=1 reuses existing complete 800-epoch SSH runs, but first checks
+#     their adapter recipe with pipeline/check_ssh_recipe.py.
+#     RESUME=0 retrains the base from scratch and bypasses that reuse check.
 #   FORCE_DERIVE=0               FORCE_EVAL=0
 #   WANDB_MODE=online            WANDB_PROJECT=sacm
 #   WANDB_ENTITY=buaazqk         EVAL_WORKERS=<pipeline default>
@@ -359,6 +362,21 @@ fi
   echo "[warn] scipy is unavailable; Wilcoxon p-values will be n/a"
 
 if [ "$RESUME" = 1 ]; then RESUME_ARG="--resume"; else RESUME_ARG="--no-resume"; fi
+
+# A complete 800-epoch run_info is the ablation runner's skip marker; verify
+# that an existing checkpoint was really trained with this YAML recipe.
+if [ "$DRY_RUN" = 0 ] \
+   && { [ "$RESUME" = 1 ] || [ "$SKIP_TRAIN" = 1 ]; }; then
+  echo "[0/4] checking existing SSH run recipe"
+  if ! "$PYTHON" "$REPO/scripts/pipeline/check_ssh_recipe.py" \
+      --run-root "$RUN_ROOT" --config "$CONFIG_ABS" --arm ssh \
+      --seeds "${SEED_ARGS[@]}" --epochs "$EPOCHS"; then
+    echo "ERROR: existing SSH recipe check failed; archive the affected " \
+         "seed run roots or rerun with RESUME=0" >&2
+    exit 1
+  fi
+fi
+
 status=0
 
 # ---------------------------------------------------------------------------

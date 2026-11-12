@@ -397,10 +397,13 @@ def build_summary(args) -> tuple[dict, str, str]:
             official_root / f'seed_{seed}' / 'run_info.json') or {}
         for seed in seeds
     }
-    official_epochs = sorted({
-        int(info['epochs']) for info in official_run_info.values()
-        if info.get('epochs') is not None
-    })
+    parsed_epochs = []
+    for info in official_run_info.values():
+        try:
+            parsed_epochs.append(int(info.get('epochs')))
+        except (TypeError, ValueError):
+            continue
+    official_epochs = sorted(set(parsed_epochs))
     mixed_budget = bool(official_epochs) and any(
         value != epochs for value in official_epochs)
     for seed in seeds:
