@@ -29,7 +29,7 @@ Environment overrides:
     TRAIN_GPUS=0,1,2,3,4,5,6,7
     EVAL_GPUS=0,1,2,3,4,5,6,7
     CONFIG=configs/ablations/sacm_stc_fixed3_lean.yaml
-    LEAN_ROOT=results/runs/sacm_stc_fixed3_lean
+    LEAN_ROOT=results/runs/sacm_stc_fixed3_lean  # must match config
     SSH_ROOT=results/runs/sacm_stc_ssh_full_ab/ssh
     FIXED3_ROOT=results/runs/sacm_stc_fixed3_800/eval
     OFFICIAL_ROOT=results/runs/sacm_official/default
@@ -468,7 +468,8 @@ def main(argv: list[str] | None = None) -> int:
                         default=int(os.environ.get('MAX_USED_MIB', '2000')))
     args = parser.parse_args(argv)
     force_derive = bool(args.force or args.force_derive)
-    force_eval = bool(args.force or args.force_eval)
+    # A freshly derived checkpoint must not silently reuse old eval tables.
+    force_eval = bool(args.force or args.force_eval or force_derive)
 
     config_path = args.config if args.config.is_absolute() else (
         REPO_ROOT / args.config)
@@ -479,6 +480,29 @@ def main(argv: list[str] | None = None) -> int:
     missing_arms = [arm for arm in ARMS if arm not in arms]
     if missing_arms:
         raise SystemExit(f'config missing arms: {missing_arms}')
+
+    common = config.get('common_train_args') or {}
+    if str(common.get('head-select', 'gating')) != 'gating':
+        raise SystemExit(
+            'lean config must train with head-select=gating; fixed H3 is an '
+            'inference deployment, not a training-time selector')
+    nofusion_args = arms['nofusion'].get('args') or {}
+    native_args = arms['native_control'].get('args') or {}
+    notopo_args = arms['notopo'].get('args') or {}
+    if float(nofusion_args.get('head-fusion', 1)) != 0:
+        raise SystemExit('nofusion arm must set head-fusion: 0')
+    if int(native_args.get('specialized-heads', 1)) != 0:
+        raise SystemExit('native_control arm must set specialized-heads: 0')
+    if float(native_args.get('head-fusion', 1)) != 0:
+        raise SystemExit('native_control arm must set head-fusion: 0')
+    if float(notopo_args.get('cl-dice-weight', 1)) != 0:
+        raise SystemExit('notopo arm must set cl-dice-weight: 0')
+    if float(notopo_args.get('skeleton-recall-weight', 1)) != 0:
+        raise SystemExit('notopo arm must set skeleton-recall-weight: 0')
+    if float(notopo_args.get('specialized-topology-weight', 1)) != 0:
+        raise SystemExit(
+            'notopo arm must set specialized-topology-weight: 0; otherwise '
+            'the specialized head-1 topology loss remains active')
 
     seed_source = args.seeds
     if seed_source is None:
