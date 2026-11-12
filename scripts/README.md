@@ -107,6 +107,52 @@ protocol test datasets with Dice/IoU/clDice/HD95.  The recorder writes
 `SEEDS="..."`, `RESUME=1` (skip completed jobs), `SKIP_TRAIN=1`,
 `SKIP_EVAL=1`, `EXPECTED_DATASETS=20`.
 
+## SACM-STC fixed3 vs sacm_official (800 epochs, seeds 0-3)
+
+fixed3 is an **inference-only deployment** of the SSH checkpoint:
+`head_select=fixed`, `deployment_head=3` (the recall/Tversky expert), and
+`head_fusion=0`.  The network weights are unchanged; the derived checkpoint
+removes the unused `head_fusion.*` tensors so the strict load succeeds.
+
+One command trains the SSH base for seeds 0-3 at 800 epochs, derives the
+fixed3 checkpoint for every seed, evaluates fixed3 on all 20 protocol
+datasets, and writes a four-seed comparison against the already-completed
+`sacm_official` eval tables.  It does **not** train/evaluate `sacm_official`
+and does **not** train/evaluate `sacm_stc full`:
+
+```bash
+bash scripts/run_sacm_stc_fixed3_seeds03_800.sh
+DRY_RUN=1 bash scripts/run_sacm_stc_fixed3_seeds03_800.sh   # print commands
+EVAL_GPUS=4,5,6,7 bash scripts/run_sacm_stc_fixed3_seeds03_800.sh
+```
+
+Default GPU placement: train on GPUs 0-3, then evaluate fixed3 on the same
+GPUs 0-3 after training.  GPUs 4-7 stay free; set `EVAL_GPUS=4,5,6,7` if you
+prefer to run the evaluation there.
+
+The official comparison requires the existing tables:
+
+```text
+results/runs/sacm_official/default/seed_0..3/eval/tables/all_metrics.csv
+results/runs/sacm_official/default/seed_0..3/eval/tables/macro_metrics.csv
+```
+
+Key outputs:
+
+```text
+results/runs/sacm_stc_ssh_full_ab/ssh/seed_<s>/best_model.pth
+results/runs/sacm_stc_ssh_full_ab/ssh/seed_<s>/best_model_fixed3_nofusion.pth
+results/runs/sacm_stc_fixed3_800/eval/seed_<s>/tables/all_metrics.csv
+results/ablations/sacm_stc_fixed3_800/summary.md
+results/ablations/sacm_stc_fixed3_800/summary.json
+```
+
+The helpers are `pipeline/make_fixed3_checkpoint.py` (derive the no-fusion
+checkpoint) and `pipeline/summarize_fixed3_seeds.py` (fixed3 vs official,
+four metrics, per-role/per-seed tables, per-dataset wins, paired deltas).
+The run uses local data and the local SAM checkpoint; it never downloads
+weights.
+
 ## SACM-STC scope/structure ablation
 
 The dense-scope × structure-scope factorial is configured in
