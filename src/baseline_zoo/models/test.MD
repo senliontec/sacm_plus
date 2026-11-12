@@ -24,7 +24,7 @@ From this file's directory: `../../../../3rd`
 ├── nnwnet                -> 3rd/nnWNet ⭐⭐⭐⭐⭐
 ├── sam_med2d             -> 3rd/SAM-Med2D ⭐⭐
 ├── sam_octa              -> 3rd/SAM-OCTA ⭐⭐⭐
-├── cwsam                 -> 3rd/CWSAM ✅
+├── cwsam                 -> 3rd/CWSAM ⭐⭐⭐
 ├── knowsam               -> 3rd/KnowSAM ⭐⭐
 ├── segdino               -> 3rd/segdino ✅
 ├── sacm_official         -> 3rd/SACM ⭐⭐⭐⭐
