@@ -241,6 +241,7 @@ print(f'preflight OK: GPUs {requested}, seeds {seeds}, '
       f'DINOv3={dino_ckpt}, expected test datasets={expected}')
 PY
 
+SEED_TAG="${SEED_ARGS[0]}_${SEED_ARGS[${#SEED_ARGS[@]}-1]}"
 COMMON_ARGS=(--model "$MODEL" --seeds "${SEED_ARGS[@]}" --gpus "$GPU_LIST")
 if [ "$RESUME" = "1" ]; then
   COMMON_ARGS+=(--resume)
@@ -290,6 +291,6 @@ echo " per-run logs: results/runs/$MODEL/$VARIANT/seed_*/train.log"
 echo "               results/runs/$MODEL/$VARIANT/seed_*/eval/eval.log"
 echo " metrics:      results/runs/$MODEL/$VARIANT/seed_*/eval/tables/macro_metrics.csv"
 echo " per-dataset:  results/runs/$MODEL/$VARIANT/seed_*/eval/tables/per_dataset_4metrics.csv"
-echo " combined:     results/reports/${MODEL}_${VARIANT}_seeds0_3_per_dataset.csv"
-echo "               results/reports/${MODEL}_${VARIANT}_seeds0_3_mean_std.csv/.md"
+echo " combined:     results/reports/${MODEL}_${VARIANT}_seeds${SEED_TAG}_per_dataset.csv"
+echo "               results/reports/${MODEL}_${VARIANT}_seeds${SEED_TAG}_mean_std.csv/.md"
 echo "============================================================"
