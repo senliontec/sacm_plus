@@ -110,7 +110,7 @@ def test_dcd_registered():
     assert adapter.id == 'dcd'
     model = load_models()['dcd']
     assert model.available
-    assert model.defaults['epochs'] == 200
+    assert model.defaults['epochs'] == 800
 
 
 def test_dcd_all_heads_receive_gradient():

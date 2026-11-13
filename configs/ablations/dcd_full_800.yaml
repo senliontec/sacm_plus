@@ -1,0 +1,143 @@
+# DCD full 800-epoch run: frozen canonical fixed3 800 main + ablation.
+#
+# Four arms, identical seeds, split, schedule and shared arguments:
+#
+#   ssh              frozen canonical fixed3 800: specialised role losses
+#                    + fusion + topology (same recipe as dcd_ssh_full_ab/ssh)
+#   nofusion         specialised role losses + topology, no fusion training
+#   native_control   native four Stage-2 heads, no role losses, no fusion
+#   notopo           specialised role losses + fusion, no topology supervision
+#
+# Deployment for every arm is the derived fixed candidate 3
+# (head_select=fixed, deployment_head=3, head_fusion=0).  The native control
+# and the main DCD checkpoint are also evaluated with their training-time
+# selector (gating / gating+fusion) as deployment-reference rows; those rows
+# are eval-only and do not retrain anything.
+#
+# Budget: 4 arms x 4 seeds x 800 epochs = 16 training jobs.  The dense /
+# structure scope factorial in dcd_scope_structure.yaml is a separate
+# 300-epoch study and is deliberately not mixed into this 800-epoch table:
+# adding its 6 arms at 800 epochs would add 24 jobs and exceed one overnight
+# run on 8 GPUs.
+schema_version: 1
+name: dcd_full_800
+description: >-
+  Frozen canonical fixed3 DCD at 800 epochs plus the component ablation:
+  no fusion, native four-head control, and no topology supervision.
+protocol: seeded5
+method: dcd
+seeds: [0, 1, 2, 3]
+epochs: 800
+eval_checkpoint: best_model.pth
+expected_datasets: 20
+output_root: results/runs/dcd_full_800
+
+wandb:
+  project: sacm
+  entity: buaazqk
+  group: dcd_full_800
+  tags: dcd,ablation,800ep,full,fixed3
+  use_wandb: true
+
+common_train_args:
+  sam-checkpoint: checkpoints/sam_vit_l_0b3195.pth
+  adapter-dim-ratio: 0.1
+  bce-weight: 0.7
+  dice-weight: 0.3
+  bce-pos-weight: 2
+  binary-targets: 0
+  deploy-threshold: 0.5
+  deep-sup-weight: 0.3
+  specialized-head-weight: 0.1
+  specialized-topology-weight: 0.1
+  stage2-loss-scope: all
+  topology-head: all
+  topology-resolution: 512
+  topology-warmup-epochs: 5
+  cl-dice-weight: 0.1
+  skeleton-recall-weight: 0.1
+  head-select: gating
+  deployment-head: 3
+  save-every: 0
+  num-workers: 0
+
+arms:
+  ssh:
+    display_name: DCD fixed3 800 (frozen canonical)
+    args:
+      specialized-heads: 1
+      head-fusion: 1
+      fusion-loss-weight: 1.0
+
+  nofusion:
+    display_name: DCD without fusion training
+    args:
+      specialized-heads: 1
+      head-fusion: 0
+      fusion-loss-weight: 0.0
+
+  native_control:
+    display_name: native four-head control (no role losses, no fusion)
+    args:
+      specialized-heads: 0
+      specialized-head-weight: 0.0
+      specialized-topology-weight: 0.0
+      head-fusion: 0
+      fusion-loss-weight: 0.0
+
+  notopo:
+    display_name: DCD without topology supervision
+    args:
+      specialized-heads: 1
+      head-fusion: 1
+      fusion-loss-weight: 1.0
+      cl-dice-weight: 0.0
+      skeleton-recall-weight: 0.0
+      specialized-topology-weight: 0.0
+
+contrasts:
+  - id: ssh_minus_nofusion
+    left: ssh
+    right: nofusion
+    label: fusion training
+  - id: ssh_minus_native
+    left: ssh
+    right: native_control
+    label: specialised role losses + fusion
+  - id: ssh_minus_notopo
+    left: ssh
+    right: notopo
+    label: topology supervision
+  - id: nofusion_minus_native
+    left: nofusion
+    right: native_control
+    label: specialised role losses without fusion
+
+analysis:
+  output_root: results/ablations/dcd_full_800/analysis
+  primary_metric: cldice
+  primary_role: All
+  metrics: [dice, iou, cldice, hd95]
+  datasets:
+    - CHASEDB1
+    - CHCrack5k
+    - CORN
+    - CREMI
+    - CrackTree200
+    - DCA1
+    - DRIVE
+    - DeepCrack
+    - DeepGlobe
+    - FIVES
+    - HRF
+    - LEAF
+    - LES-AV
+    - OCTA-500
+    - ROAD
+    - STARE
+    - TYRE
+    - TopoMortar
+    - WIRE
+    - XCAD
+  bootstrap_samples: 2000
+  seed: 20261113

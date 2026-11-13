@@ -52,18 +52,17 @@ mean ± std; do not treat a single-seed sub-point difference as evidence.
 ## Reproducible comparison protocol
 
 ```bash
-SEED=0
-RUN_ROOT="results/runs/dcd/all_dense/seed_${SEED}"
-PYTHONHASHSEED=0 CUBLAS_WORKSPACE_CONFIG=:4096:8 \
-GPU=7 PRESET=full_typed EPOCHS=300 VAL_INTERVAL=1 SKIP_TEST=true \
-OUTPUT_ROOT="$RUN_ROOT" \
-TRAIN_ROOT="data/sacm_3shot_seed${SEED}" \
-bash scripts/run_dcd_seeds03_gpu0123.sh
+# canonical DCD fixed3 800, seeds 0-3
+SEEDS="0 1 2 3" EPOCHS=800 \
+TRAIN_GPUS=0,1,2,3 EVAL_GPUS=0,1,2,3 \
+bash scripts/run_dcd_fixed3_seeds03_800.sh
 ```
 
-Keep the same `SEED`, `PRESET`, `TRAIN_ROOT`, `EVAL_INPUT_MODE`,
-`NUM_WORKERS`, and checkpoint-selection settings for the control run. The
-one-click launchers already export the required environment variables.
+For the 8-GPU main + component ablation, use
+`bash scripts/run_dcd_full_800.sh`.  Keep the same `SEEDS`, `EPOCHS`,
+protocol seed split, and checkpoint-selection settings for the control run.
+The one-click launchers already export the required deterministic and W&B
+environment variables.
 
 ## Checking a rerun
 

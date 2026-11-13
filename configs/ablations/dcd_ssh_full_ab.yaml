@@ -7,7 +7,8 @@
 #
 # The deployed model is derived from the ssh checkpoint with
 # make_fixed3_checkpoint.py (head_select=fixed, deployment_head=3,
-# head_fusion=0).  The historical result is 56.66 / 43.05 / 63.42 / 64.28.
+# head_fusion=0).  The canonical fixed3 800 result is
+# 56.66 / 43.05 / 63.42 / 64.28.
 schema_version: 1
 name: dcd_ssh_full_ab
 description: >-

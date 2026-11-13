@@ -42,10 +42,31 @@ Deployment:
 - Predictions are exported at GT resolution and thresholded after sigmoid
   (> 0.5).
 
-The historical 800-epoch result is
+The canonical 800-epoch fixed3 result is
 **56.66 / 43.05 / 63.42 / 64.28** (Dice / IoU / clDice / HD95, 20 datasets,
 4 seeds), versus the official SACM code at
-**55.40 / 41.85 / 60.34 / 67.04**.
+**55.40 / 41.85 / 60.34 / 67.04**.  This is the frozen main result:
+`ssh` training with gating + auxiliary fusion, followed by inference-only
+fixed candidate 3.
+
+The 200-epoch rerun is
+**56.83 / 43.17 / 64.21 / 64.72** against the same official tables
+(Dice +1.43, IoU +1.32, clDice +3.87, HD95 -2.32).  Relative to the
+canonical 800-epoch run the difference is Dice +0.17, IoU +0.13,
+clDice +0.79, HD95 +0.44 (slightly worse), all within seed variance.
+This is a budget-reproduction check, not a replacement for the 800-epoch
+main result: the cosine schedule depends on the total epoch count, the
+selected checkpoint differs, and the two runs are not a controlled
+budget ablation.  The one-click runner below reproduces the 800-epoch
+main result and trains the component ablation from the same recipe.
+
+## Frozen canonical state
+
+DCD is frozen at the fixed3 800 recipe.  Do not add new experimental
+branches or flags to this adapter; new research directions must use a
+separate adapter/model.  The only supported switches are the kept
+ablations below, used by `configs/ablations/dcd_full_800.yaml` and the
+scope factorial.
 
 ## Kept ablations
 
@@ -56,8 +77,10 @@ The historical 800-epoch result is
 - `--stage2-loss-scope` / `--topology-head`: dense/structure scope
   factorial.
 
-The canonical 800-epoch pair is in
-`configs/ablations/dcd_ssh_full_ab.yaml`; the lean ablation is in
+The canonical fixed3 800 pair is in
+`configs/ablations/dcd_ssh_full_ab.yaml`; the frozen consolidated runner
+config is `configs/ablations/dcd_full_800.yaml` (same `ssh` arm plus the
+three component-ablation arms); the older lean ablation is in
 `configs/ablations/dcd_fixed3_lean.yaml`; the scope factorial is in
 `configs/ablations/dcd_scope_structure.yaml`.
 
@@ -96,15 +119,40 @@ part of the released recipe.
 
 ## Run
 
-One-click 200-epoch verification:
+One-click canonical fixed3 800 run + component ablation:
+
+```bash
+bash scripts/run_dcd_full_800.sh
+```
+
+This reproduces the frozen main result and trains the kept ablation.  It
+trains four arms for seeds 0-3 (`ssh` canonical, `nofusion`,
+`native_control`, `notopo`), derives fixed candidate 3 for every arm,
+evaluates all arms on the 20 test datasets, and adds two eval-only
+deployment references (DCD gating+fusion and native gating).  The `ssh`
+arm is exactly the previous fixed3 800 recipe (gating + fusion training,
+inference-only fixed candidate 3).  It writes:
+
+```text
+results/runs/dcd_full_800/<arm>/seed_<s>/
+results/runs/dcd_full_800/fixed3/
+results/ablations/dcd_full_800/summary.{md,csv,json,html}
+results/ablations/dcd_full_800/fixed3_vs_sacm/summary.md
+```
+
+The 300-epoch dense/structure scope factorial remains a separate study
+(`configs/ablations/dcd_scope_structure.yaml`) and is not mixed into this
+800-epoch table.
+
+The 200-epoch script is only a fast budget-reproduction check:
 
 ```bash
 bash scripts/run_dcd_expert_200.sh
 ```
 
-The script trains four seeds, derives the fixed candidate-3 checkpoint,
-evaluates 20 datasets, and summarizes against the official tables.  Use
-`DRY_RUN=1` for a preflight check.
+It trains four seeds, derives fixed candidate 3, evaluates 20 datasets, and
+summarizes against the official tables.  Use `DRY_RUN=1` for a preflight
+check.
 
 ## Runtime consumer
 

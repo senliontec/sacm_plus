@@ -86,11 +86,11 @@ Train and evaluate the proposed method and the official baseline separately,
 then build Table 2:
 
 ```bash
-# canonical DCD, seeds 0-3, 200 epochs, fixed candidate-3 deployment
-bash scripts/run_dcd_expert_200.sh
-
-# historical 800-epoch fixed3 recipe (new runs write new output roots)
+# canonical DCD fixed3 800, seeds 0-3 (frozen main recipe)
 bash scripts/run_dcd_fixed3_seeds03_800.sh
+
+# fast 200-epoch budget-reproduction check, seeds 0-3
+bash scripts/run_dcd_expert_200.sh
 
 # official SACM, seeds 0-3, GPUs 4-7
 bash scripts/run_sacm_seeds03_gpu4567.sh
@@ -150,6 +150,44 @@ checkpoint), `pipeline/check_ssh_recipe.py` (before reusing a complete
 `pipeline/summarize_fixed3_seeds.py` (fixed3 vs official, four metrics,
 per-role/per-seed tables, per-dataset wins, paired deltas).  The run uses
 local data and the local SAM checkpoint; it never downloads weights.
+
+## DCD canonical fixed3 800 main + component ablation
+
+`scripts/run_dcd_full_800.sh` is the one-click runner for the frozen
+canonical fixed3 800 main result.  Its `ssh` arm is the same recipe as
+`configs/ablations/dcd_ssh_full_ab.yaml`; the other three arms are the
+kept component ablation.  It trains four arms for seeds 0-3 on eight GPUs:
+
+| arm | specialised role losses | fusion | topology supervision |
+|---|---|---|---|
+| `ssh` | yes | yes | yes |
+| `nofusion` | yes | no | yes |
+| `native_control` | no | no | yes |
+| `notopo` | yes | yes | no |
+
+It then derives the fixed candidate-3 checkpoint for every arm, evaluates
+each arm on the 20 protocol test datasets, and adds two eval-only deployment
+references (DCD gating+fusion and native gating) from the same checkpoints.
+
+```bash
+# server, repo root, preferably under tmux
+bash scripts/run_dcd_full_800.sh
+DRY_RUN=1 bash scripts/run_dcd_full_800.sh --dry-run
+SKIP_TRAIN=1 bash scripts/run_dcd_full_800.sh   # resume/eval only
+RESUME=0 bash scripts/run_dcd_full_800.sh       # retrain from scratch
+```
+
+Key outputs:
+
+```text
+results/runs/dcd_full_800/<arm>/seed_<s>/
+results/runs/dcd_full_800/fixed3/
+results/ablations/dcd_full_800/summary.{md,csv,json,html}
+results/ablations/dcd_full_800/fixed3_vs_sacm/summary.md
+```
+
+The 300-epoch dense/structure scope factorial is separate and is not mixed
+into this 800-epoch table.
 
 ## DCD scope/structure ablation
 
@@ -252,8 +290,9 @@ scripts/
 ├── run_eval.sh
 ├── run_report.sh
 ├── run_figures.sh
-├── run_dcd_seeds03_gpu0123.sh    # reproduction: DCD seeds 0-3 (GPUs 0-3)
-├── run_dcd_seeds03_gpu4567.sh    # reproduction: DCD seeds 0-3 (GPUs 4-7)
+├── run_dcd_full_800.sh           # canonical fixed3 800 main + ablation
+├── run_dcd_fixed3_seeds03_800.sh # fixed3 800 on GPUs 0-3
+├── run_dcd_expert_200.sh         # 200-epoch budget check
 ├── run_sacm_seeds03_gpu4567.sh  # reproduction: SACM seeds 0-3
 ├── build_paper_table.sh    # Table 2 from recorded runs
 ├── pipeline/               # evaluation helpers used by the configs

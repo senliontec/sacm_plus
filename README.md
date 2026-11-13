@@ -59,28 +59,27 @@ W&B is self-hosted and online by default. Credentials are loaded from
 `scripts/wandb_env.sh`; use `WANDB_MODE=offline` or `WANDB_MODE=disabled`
 only when intentionally logging offline/not logging.
 
-## DCD: train and evaluate
+## DCD: frozen canonical fixed3 800
 
-One seed per GPU, four seeds, then the 20-dataset evaluation:
+The canonical DCD main is the fixed3 800 recipe:
 
 ```bash
-# GPUs 0-3
-bash scripts/run_dcd_seeds03_gpu0123.sh
-
-# GPUs 4-7
-bash scripts/run_dcd_seeds03_gpu4567.sh
+# canonical fixed3 800 main + 4-arm component ablation, seeds 0-3, GPUs 0-7
+bash scripts/run_dcd_full_800.sh
 ```
 
-Both scripts use `configs/models/dcd.yaml` and write to
-`results/runs/dcd/all_dense/seed_*/`. Useful environment overrides:
-`GPU_LIST`, `SEEDS`, `RESUME=1`, `SKIP_TRAIN=1`, `SKIP_EVAL=1`,
-`EXPECTED_DATASETS=20`.
+The `ssh` arm is exactly the previous fixed3 800 recipe: train with gating
+and auxiliary fusion, then derive `head_select=fixed`,
+`deployment_head=3`, `head_fusion=0` for inference.  The 4-seed 20-dataset
+result is **56.66 / 43.05 / 63.42 / 64.28** (Dice / IoU / clDice / HD95).
+The 200-epoch script (`scripts/run_dcd_expert_200.sh`) is only a fast
+budget-reproduction check.  The model registry default in
+`configs/models/dcd.yaml` is also 800 epochs.
 
-The current DCD configuration keeps the official four-candidate
-Stage-2 decoder (all four native mask tokens predict dense masks, Stage-1
-gating selects the deployment candidate), adds dense deep supervision and
-Skeleton Recall / soft-clDice consistency on the four dense candidates, and
-trains with soft bilinear targets plus foreground-weighted BCE.
+The model keeps the official four-candidate Stage-2 decoder, dense deep
+supervision, Skeleton Recall / soft-clDice consistency on all four dense
+candidates, and soft bilinear targets plus foreground-weighted BCE.  It is
+frozen: new research branches must use a separate adapter/model.
 
 The official baseline is run through the same registry:
 

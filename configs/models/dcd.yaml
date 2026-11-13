@@ -32,7 +32,7 @@ eval_entrypoint: >-
   --device cuda:{gpu} --use_wandb true --skip-visualize
 protocols: [seeded5, fixed]
 defaults:
-  epochs: 200
+  epochs: 800
   preset: all_dense
 note: >-
   Canonical DCD recipe.  The four native Stage-2 heads and the four

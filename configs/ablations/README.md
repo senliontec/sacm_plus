@@ -1,5 +1,10 @@
 # DCD ablation configs
 
+The frozen canonical DCD main is the fixed3 800 recipe.  Use
+`configs/ablations/dcd_full_800.yaml` for the one-click main + component
+ablation, or `configs/ablations/dcd_ssh_full_ab.yaml` for the minimal
+canonical pair.
+
 `configs/ablations/dcd_scope_structure.yaml` is the single source of
 truth for the dense-scope × structure-scope factorial.  The runner does not
 contain arm names or hyperparameters; edit the YAML and rerun.
@@ -95,11 +100,11 @@ results/ablations/dcd/config_snapshot_<stamp>.yaml
 results/logs/dcd_ablation/                       # driver/child logs
 ```
 
-New runs write under `results/runs/dcd/<arm>/`; historical 800-epoch
-results produced before the rename are kept as immutable archives and are not
-reused by new runs. Ablation runs use distinct arm variants, and W&B uses the
-`dcd_scope_structure` group, so they cannot be confused with the main
-row.
+New runs write under `results/runs/dcd/<arm>/`; archived pre-rename
+800-epoch results are kept as immutable history and are not reused by new
+runs. Ablation runs use distinct arm variants, and W&B uses the
+`dcd_scope_structure` group, so they cannot be confused with the canonical
+fixed3 800 main row.
 
 Morning checks:
 

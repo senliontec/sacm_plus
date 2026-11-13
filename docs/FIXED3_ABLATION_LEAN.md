@@ -1,7 +1,13 @@
 # fixed3 Lean Ablation — Run Sheet & Paper Table
 
-One page. **4 seeds × 20 datasets × 800 epochs.** Main paper uses one compact
-table; per-role/per-dataset and P0 head audit go to supplementary.
+> Status: legacy lean run sheet. The frozen canonical DCD main is the
+> fixed3 800 recipe; the current one-click runner is
+> `scripts/run_dcd_full_800.sh` with `configs/ablations/dcd_full_800.yaml`.
+> This page remains for the older three-arm ablation and its existing
+> tables.
+
+One page. **4 seeds × 20 datasets × 800 epochs.** The main paper uses one
+compact table; per-role/per-dataset and P0 head audit go to supplementary.
 
 ## 0. One-click run
 

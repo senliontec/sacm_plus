@@ -31,7 +31,23 @@ TRAIN_GPUS="${TRAIN_GPUS:-0,1,2,3}"
 EVAL_GPUS="${EVAL_GPUS:-0,1,2,3}"
 OUT_ROOT="${OUT_ROOT:-results/runs/dcd_expert_200}"
 SUMMARY_ROOT="${SUMMARY_ROOT:-results/ablations/dcd_expert_200}"
-OFFICIAL_ROOT="${OFFICIAL_ROOT:-results/runs/sacm/default}"
+OFFICIAL_ROOT="${OFFICIAL_ROOT:-}"
+if [ -z "$OFFICIAL_ROOT" ]; then
+  # Prefer the canonical new name; accept a pre-rename sacm*/default root
+  # when it is the only one with a complete seed-0 eval table.
+  if [ -f "results/runs/sacm/default/seed_0/eval/tables/all_metrics.csv" ]; then
+    OFFICIAL_ROOT="results/runs/sacm/default"
+  else
+    for _candidate in results/runs/sacm*/default; do
+      if [ -f "$_candidate/seed_0/eval/tables/all_metrics.csv" ]; then
+        OFFICIAL_ROOT="$_candidate"
+        break
+      fi
+    done
+    OFFICIAL_ROOT="${OFFICIAL_ROOT:-results/runs/sacm/default}"
+  fi
+fi
+unset _candidate
 EXPECTED_DATASETS="${EXPECTED_DATASETS:-20}"
 MAX_USED_MIB="${MAX_USED_MIB:-2000}"
 MIN_FREE_GB="${MIN_FREE_GB:-30}"
@@ -210,8 +226,31 @@ train_one() {
         "$root/run_info.json" \
      && grep -Eq "\"epochs\"[[:space:]]*:[[:space:]]*$EPOCHS([^0-9]|$)" \
         "$root/run_info.json"; then
-    echo "[train:$seed] already complete; skip"
-    return 0
+    # A completed run in this workdir must be the canonical DCD recipe.
+    # Otherwise a native/no-fusion ablation from an older experiment could
+    # be silently reused and the derived checkpoint would be wrong.
+    if "$PYTHON" - "$root/train_config.json" <<'PY'
+import json
+import sys
+try:
+    payload = json.load(open(sys.argv[1]))
+    args = payload.get('args', payload)
+    ok = (
+        int(args.get('specialized_heads', 1)) == 1
+        and int(args.get('head_fusion', 1)) == 1
+        and str(args.get('head_select', 'gating')) == 'gating'
+    )
+except Exception:
+    ok = False
+raise SystemExit(0 if ok else 1)
+PY
+    then
+      echo "[train:$seed] already complete; skip"
+      return 0
+    fi
+    echo "ERROR: $root is complete but is not the canonical DCD recipe." >&2
+    echo "       Move it away or run with RESUME=0." >&2
+    exit 1
   fi
   echo "[train:$seed] cuda:$gpu -> $root"
   local extra=()
