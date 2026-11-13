@@ -3,10 +3,10 @@
 #   train SSH fixed3 base seeds 0-3 at 800 epochs
 #   derive the no-fusion fixed3 checkpoint for every seed
 #   evaluate fixed3 seeds 0-3 on the 20 protocol datasets
-#   summarize fixed3 against the already-completed sacm_official seeds 0-3
+#   summarize fixed3 against the already-completed sacm seeds 0-3
 #
 # The official eval tables are read from disk; this script never trains or
-# evaluates sacm_official.  It also does not train/evaluate dcd full.
+# evaluates sacm.  It also does not train/evaluate dcd full.
 #
 # Default GPU placement:
 #   training:  GPUs 0-3
@@ -20,7 +20,7 @@
 # Env overrides:
 #   SEEDS="0 1 2 3"              EPOCHS=800
 #   TRAIN_GPUS=0,1,2,3           EVAL_GPUS=0,1,2,3
-#   OFFICIAL_ROOT=results/runs/sacm_official/default
+#   OFFICIAL_ROOT=results/runs/sacm/default
 #   FIXED3_OUT_ROOT=results/runs/dcd_fixed3_800
 #   SUMMARY_ROOT=results/ablations/dcd_fixed3_800
 #   SKIP_TRAIN=0                 SKIP_EVAL=0
@@ -48,7 +48,7 @@ SEEDS_STR="${SEEDS_STR//,/ }"
 EPOCHS="${EPOCHS:-800}"
 TRAIN_GPUS="${TRAIN_GPUS:-0,1,2,3}"
 EVAL_GPUS="${EVAL_GPUS:-0,1,2,3}"
-OFFICIAL_ROOT="${OFFICIAL_ROOT:-results/runs/sacm_official/default}"
+OFFICIAL_ROOT="${OFFICIAL_ROOT:-results/runs/sacm/default}"
 FIXED3_OUT_ROOT="${FIXED3_OUT_ROOT:-results/runs/dcd_fixed3_800}"
 SUMMARY_ROOT="${SUMMARY_ROOT:-results/ablations/dcd_fixed3_800}"
 EXPECTED_DATASETS="${EXPECTED_DATASETS:-20}"
@@ -262,7 +262,7 @@ for seed in seeds:
         if not path.is_file():
             raise SystemExit(
                 f'ERROR: missing official eval table {path}; '
-                'complete sacm_official seeds 0-3 first')
+                'complete sacm seeds 0-3 first')
     table = eval_root / 'tables' / 'all_metrics.csv'
     try:
         with open(table, newline='') as handle:
@@ -570,7 +570,7 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# 4. fixed3 vs sacm_official summary (CPU-only; official tables are read-only)
+# 4. fixed3 vs sacm summary (CPU-only; official tables are read-only)
 # ---------------------------------------------------------------------------
 if [ "$SKIP_EVAL" = 1 ]; then
   echo "[4/4] summary skipped (SKIP_EVAL=1)"
@@ -578,7 +578,7 @@ elif [ "$DRY_RUN" = 1 ]; then
   echo "[4/4] dry-run summary command:"
   echo "  ${PYTHON} scripts/pipeline/summarize_fixed3_seeds.py --fixed3-root ${FIXED3_OUT_ROOT_ABS} --official-root ${OFFICIAL_ROOT_ABS} --seeds ${SEED_ARGS[*]} --epochs ${EPOCHS} --expected-datasets ${EXPECTED_DATASETS} --output-root ${SUMMARY_ROOT_ABS}"
 else
-  echo "[4/4] summarizing fixed3 vs sacm_official"
+  echo "[4/4] summarizing fixed3 vs sacm"
   mkdir -p "$SUMMARY_ROOT_ABS"
   summary_args=(
     "$PYTHON" "$REPO/scripts/pipeline/summarize_fixed3_seeds.py"

@@ -25,7 +25,7 @@ The kept ablations are exactly the ones attached to this model:
 factorial.  Everything else (STC, typed Stage-2, TopoQA, TPD/POMP,
 quality-based selection, IoU selection) has been removed.
 
-``sacm_official`` remains an independent baseline and is not modified.
+``sacm`` remains an independent baseline and is not modified.
 """
 
 from __future__ import annotations
@@ -97,10 +97,8 @@ class DCDAdapter(BaselineAdapter):
     def __init__(self):
         super().__init__()
         self._cl_loss = None
-        self._tversky_loss = None
         self._skeleton_recall_loss = None
         self._specialized_cl_loss = None
-        self._specialized_skeleton_loss = None
         self._specialized_tversky = None
         self.deployment_head = 3
         self.specialized_heads = True

@@ -5,17 +5,17 @@ The paper comparison is:
 
     fixed3 (SSH checkpoint, slot 3, no fusion)
     vs
-    sacm_official (seeds 0-3, 20 protocol datasets)
+    sacm (seeds 0-3, 20 protocol datasets)
 
 The official eval tables must already exist under
-``results/runs/sacm_official/default/seed_<s>/eval/tables/``.  This script
+``results/runs/sacm/default/seed_<s>/eval/tables/``.  This script
 never trains or evaluates the official model; it only reads those tables and
 pairs them with the new fixed3 evaluations.
 
 Default layout:
 
     <fixed3-root>/eval/seed_<s>                       # fixed3
-    <official-root>/seed_<s>/eval                     # sacm_official
+    <official-root>/seed_<s>/eval                     # sacm
 
 The report always contains Dice, IoU, clDice and HD95 (HD95 lower is better),
 per-role and per-seed macro tables, per-dataset rows, paired fixed3-official
@@ -24,7 +24,7 @@ wins, and descriptive Wilcoxon p-values.
 Usage:
     python scripts/pipeline/summarize_fixed3_seeds.py \
         --fixed3-root results/runs/dcd_fixed3_800 \
-        --official-root results/runs/sacm_official/default \
+        --official-root results/runs/sacm/default \
         --seeds 0 1 2 3 \
         --output-root results/ablations/dcd_fixed3_800
 """
@@ -50,7 +50,7 @@ METRIC_KEYS = tuple(item[0] for item in METRICS)
 ROLES = ('All', 'Seen', 'Unseen', 'Novel')
 MODEL_LABELS = {
     'fixed3': 'fixed3 (slot3, no fusion)',
-    'official': 'SACM official',
+    'official': 'SACM',
 }
 EPS = 1e-12
 
@@ -526,7 +526,7 @@ def build_summary(args) -> tuple[dict, str, str]:
 
     summary = {
         'generated_at': datetime.now(timezone.utc).isoformat(),
-        'comparison': 'fixed3 vs sacm_official',
+        'comparison': 'fixed3 vs sacm',
         'fixed3_root': str(fixed3_root),
         'official_root': str(official_root),
         'output_root': str(output_root),
@@ -599,7 +599,7 @@ def build_summary(args) -> tuple[dict, str, str]:
 
     # Markdown report.
     lines = [
-        f'# DCD fixed3 vs sacm_official — {epochs}-epoch summary',
+        f'# DCD fixed3 vs sacm — {epochs}-epoch summary',
         '',
         f'Generated: `{summary["generated_at"]}`',
         '',
@@ -608,7 +608,7 @@ def build_summary(args) -> tuple[dict, str, str]:
         f'- Test datasets per eval: {int(args.expected_datasets)}',
         '- fixed3: SSH best checkpoint with `head_select=fixed`, '
         '`deployment_head=3`, `head_fusion=0`; **no retraining**.',
-        '- sacm_official: the already-completed official eval tables; '
+        '- sacm: the already-completed official eval tables; '
         'this report does not train or evaluate it.',
         '- Metrics: Dice, IoU, clDice, HD95; HD95 lower is better. '
         'Dice/IoU/clDice are percentages.',
@@ -626,7 +626,7 @@ def build_summary(args) -> tuple[dict, str, str]:
         '## Macro metrics (mean ± std across seeds)',
         '',
         _markdown_table(
-            ['Role', 'Metric', 'fixed3', 'SACM official'],
+            ['Role', 'Metric', 'fixed3', 'SACM'],
             macro_table_rows),
         '',
         '## Per-seed All-role macro',
@@ -692,7 +692,7 @@ def main(argv: list[str] | None = None) -> int:
                         help='root holding fixed3 eval/seed_<s> outputs')
     parser.add_argument(
         '--official-root', type=Path,
-        default=Path('results/runs/sacm_official/default'),
+        default=Path('results/runs/sacm/default'),
         help='root holding official seed_<s>/eval outputs')
     parser.add_argument('--seeds', nargs='+', type=int, required=True)
     parser.add_argument('--epochs', type=int, default=800,

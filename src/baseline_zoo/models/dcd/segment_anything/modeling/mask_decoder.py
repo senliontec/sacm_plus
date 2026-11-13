@@ -138,9 +138,9 @@ class MaskDecoder(nn.Module):
           image_pe (torch.Tensor): positional encoding with the shape of image_embeddings
           sparse_prompt_embeddings (torch.Tensor): the embeddings of the points and boxes
           dense_prompt_embeddings (torch.Tensor): the embeddings of the mask inputs
-          multimask_output (bool): if False, return the single candidate with
-            the highest predicted IoU; if True, return all candidates in
-            Stage-1 gating order
+          multimask_output (bool): if False, return the Stage-1 gating
+            champion (slot 0); if True, return all candidates in Stage-1
+            gating order
           adapter_features (List[torch.Tensor]): Adapter-E outputs from the
             image encoder, one feature map per transformer block
 
@@ -159,15 +159,11 @@ class MaskDecoder(nn.Module):
         if multimask_output:
             return masks, iou_pred
 
-        # The official code sliced [1:] here, which drops the gating
-        # champion.  Prompt-free SACM has no "single-mask" semantic, so
-        # select the candidate the trained IoU head considers best.
-        best = iou_pred.argmax(dim=1)
-        mask_indices = best[:, None, None, None].expand(
-            -1, 1, *masks.shape[2:])
-        masks = torch.gather(masks, 1, mask_indices)
-        iou_pred = torch.gather(iou_pred, 1, best[:, None])
-        return masks, iou_pred
+        # Prompt-free SACM: slot 0 is the Stage-1 gating champion.  The
+        # per-head IoU head is not trained in the canonical recipe, so it
+        # must not be used as a selector here (the old top-IoU fallback
+        # returned a semantically arbitrary candidate).
+        return masks[:, 0:1], iou_pred[:, 0:1]
 
     def predict_masks(
         self,

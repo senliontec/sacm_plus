@@ -6,7 +6,7 @@ CHASEDB1 CrackTree200 CREMI DCA1 DRIVE CHCrack5k FIVES HRF LES-AV OCTA-500 DeepG
 
 models:
 
-unet cs2net bcunet maskvsc nnwnet sam_med2d  sam_octa cwsam  knowsam  segdino sacm_official
+unet cs2net bcunet maskvsc nnwnet sam_med2d  sam_octa cwsam  knowsam  segdino sacm
 
 # 可以参考 ICLR ICML NIPS ACL 等顶会中对 SAM 做高效微调的方法
 
@@ -27,8 +27,8 @@ From this file's directory: `../../../../3rd`
 ├── cwsam                 -> 3rd/CWSAM ⭐⭐⭐
 ├── knowsam               -> 3rd/KnowSAM ⭐⭐
 ├── segdino               -> 3rd/segdino ⭐⭐
-├── sacm_official         -> 3rd/SACM ⭐⭐⭐⭐
-├── dcd             -> 3rd/SACM (corrected derivative of sacm_official) ⭐⭐⭐⭐
+├── sacm         -> 3rd/SACM ⭐⭐⭐⭐
+├── dcd             -> 3rd/SACM (corrected derivative of sacm) ⭐⭐⭐⭐
 
 
 .

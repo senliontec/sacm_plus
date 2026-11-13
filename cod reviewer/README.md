@@ -148,7 +148,7 @@ G6a 需官方 checkpoint 或短程 loss/grad parity；G6c 需全量训练/评测
 
 | 复合 profile | 适用方法 | 必需检查 | 不适用/需特别处理 |
 |---|---|---|---|
-| `supervised_prompt_free_sam` | SAMed、CWSAM、SACM official、SAM-Adapter、TopoLoRA-SAM | L1–L6；loss/grad；空 prompt/`no_mask_embed` 路径 | — |
+| `supervised_prompt_free_sam` | SAMed、CWSAM、SACM、SAM-Adapter、TopoLoRA-SAM | L1–L6；loss/grad；空 prompt/`no_mask_embed` 路径 | — |
 | `supervised_oracle_prompted_sam` | UCS、SAM-Med2D、SAM-OCTA | L1–L6；**GT box/point 生成与 refinement 单独审计** | 不得标为 prompt-free |
 | `supervised_support_based_sam` | FoB-SAM | L1–L6；support/episode + loss/grad | 不能因为 support-based 就跳过 loss/grad |
 | `training_free_support_based_sam` | PerSAM、Matcher | L1–L6；固定 support/target 的 mask/prompt/support 选择与确定性重复 | 无 loss/grad；不能跳过 L2 |

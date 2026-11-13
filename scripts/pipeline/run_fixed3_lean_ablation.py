@@ -32,7 +32,7 @@ Environment overrides:
     LEAN_ROOT=results/runs/dcd_fixed3_lean  # must match config
     SSH_ROOT=results/runs/dcd_ssh_full_ab/ssh
     FIXED3_ROOT=results/runs/dcd_fixed3_800/eval
-    OFFICIAL_ROOT=results/runs/sacm_official/default
+    OFFICIAL_ROOT=results/runs/sacm/default
     SUMMARY_ROOT=results/ablations/dcd_fixed3_lean
     SKIP_TRAIN=0 SKIP_EVAL=0 DRY_RUN=0 RESUME=1
     FORCE_DERIVE=0 FORCE_EVAL=0
@@ -340,7 +340,7 @@ def _write_summary(rows, fixed_values, output_root: Path,
         'nofusion': 'w/o fusion training',
         'native_control': 'native four-head control',
         'notopo': 'w/o topology loss',
-        'official': 'SACM official (reference)',
+        'official': 'SACM (reference)',
     }
     lines = [
         '# fixed3 Lean Ablation — 4-seed macro summary',
@@ -525,7 +525,7 @@ def main(argv: list[str] | None = None) -> int:
     fixed3_root = _resolve(os.environ.get(
         'FIXED3_ROOT', 'results/runs/dcd_fixed3_800/eval'))
     official_root = _resolve(os.environ.get(
-        'OFFICIAL_ROOT', 'results/runs/sacm_official/default'))
+        'OFFICIAL_ROOT', 'results/runs/sacm/default'))
     summary_root = _resolve(os.environ.get(
         'SUMMARY_ROOT', 'results/ablations/dcd_fixed3_lean'))
     stamp = datetime.now().strftime('%Y%m%d_%H%M%S')

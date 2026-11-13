@@ -11,7 +11,7 @@ inference (no test-time selector, no fusion).
 - Local reference snapshot: `3rd/SACM` (read-only third-party tree)
 - Snapshot commit: `986504957e3f41f7fc02e610e2ad9ad27c43300f`
 - Derived from the faithful port:
-  `src/baseline_zoo/models/sacm_official/segment_anything/`
+  `src/baseline_zoo/models/sacm/segment_anything/`
 - Vendored path:
   `src/baseline_zoo/models/dcd/segment_anything/`
 
@@ -72,8 +72,8 @@ These are paper-faithful corrections, not new architecture:
 5. Eq. 10 descriptor reorder before Stage-2 heads.
 6. Per-head IoU prediction bound to the ranked Stage-2 slot.
 7. Batch-repeat fix (`divmod` instead of `B*B`).
-8. `multimask_output=False` returns the top-IoU candidate instead of
-   dropping the gating champion.
+8. `multimask_output=False` returns the Stage-1 gating champion; the
+   untrained IoU head is not used as a selector.
 9. All four Stage-1 and Stage-2 heads are supervised; the official code
    trains only the gating champion.
 10. LayerNorm/bias parameters are excluded from weight decay.

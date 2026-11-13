@@ -42,7 +42,7 @@
 - `samed`：官方 `train.py` 默认 SGD、README 用 `--AdamW`；移植按 README 的 AdamW，但保留源默认歧义披露。
 - `fob_sam`：官方 test support 是 test fold 内的 held-out volume，且只评测有标注的 query slices；移植用 train/donor support 并评测全部 query。**G5 仍为 fail，不能进主表。**
 - `sam_octa`：官方只对 Artery/Vein/LargeVessel 加 clDice；二值 20-dataset 移植统一 0.8 Dice + 0.2 clDice；官方指标集和 seed/workers 差异已披露。
-- `sacm_official`：删除“upstream 在 1024 评测”的错误声明；官方 `test_sam.py:260-261` 会 resize 回原图。补充 commit、无 LICENSE、workers/seed；`test_sam.py` 自带 `SegmentationDataset(root_dir)`，没有 split 参数。
+- `sacm`：删除“upstream 在 1024 评测”的错误声明；官方 `test_sam.py:260-261` 会 resize 回原图。补充 commit、无 LICENSE、workers/seed；`test_sam.py` 自带 `SegmentationDataset(root_dir)`，没有 split 参数。
 - `ucs`：官方 workers=4；移植 workers=0；官方指标集未复现。
 
 ## G0 文档修复
@@ -50,7 +50,7 @@
 以下 `UPSTREAM.md` 的过期 `baselines/...` 路径改为本地 `3rd/...`，并补 commit：
 `unet`、`cs2net`（同时把 URL 改为 `iMED-Lab/CS-Net`）、`bcunet`、`maskvsc`、
 `nnwnet`、`segdino`、`sam_med2d`、`sam_octa`、`cwsam`、`fob_sam`、`knowsam`、
-`sacm_official`、`sam_vit_l_unet`。
+`sacm`、`sam_vit_l_unet`。
 
 ## 验证
 
@@ -63,7 +63,7 @@
 
 ### Remaining-model P1 fixes（2026-10-26）
 
-- `sacm_official`：prediction 允许 base SAM 缺失（`checkpoint=None`），并持久化 `adapter_dim_ratio`/loss weights；非默认配置可重建。
+- `sacm`：prediction 允许 base SAM 缺失（`checkpoint=None`），并持久化 `adapter_dim_ratio`/loss weights；非默认配置可重建。
 - `sam_vit_l_unet`：checkpoint config 记录 SAM base 路径与 SHA-256；预测使用不同 encoder 时打印明确 warning。
 - `dscnet`：`--dsc-stride > --input-size` 直接报错，不再留下未覆盖条带。
 - `sam_med2d`：train loss 按 batch 平均，修复日志约为官方值 1/batch_size 的问题。

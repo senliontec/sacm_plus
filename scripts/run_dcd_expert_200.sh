@@ -16,7 +16,7 @@
 #   TRAIN_GPUS=0,1,2,3    EVAL_GPUS=0,1,2,3
 #   OUT_ROOT=results/runs/dcd_expert_200
 #   SUMMARY_ROOT=results/ablations/dcd_expert_200
-#   OFFICIAL_ROOT=results/runs/sacm_official/default
+#   OFFICIAL_ROOT=results/runs/sacm/default
 #   EXPECTED_DATASETS=20  MAX_USED_MIB=2000  MIN_FREE_GB=30
 #   SKIP_TRAIN=0 SKIP_EVAL=0 RESUME=1 FORCE_DERIVE=0 FORCE_EVAL=0
 #   WANDB_MODE=online WANDB_PROJECT=sacm WANDB_ENTITY=buaazqk
@@ -31,7 +31,7 @@ TRAIN_GPUS="${TRAIN_GPUS:-0,1,2,3}"
 EVAL_GPUS="${EVAL_GPUS:-0,1,2,3}"
 OUT_ROOT="${OUT_ROOT:-results/runs/dcd_expert_200}"
 SUMMARY_ROOT="${SUMMARY_ROOT:-results/ablations/dcd_expert_200}"
-OFFICIAL_ROOT="${OFFICIAL_ROOT:-results/runs/sacm_official/default}"
+OFFICIAL_ROOT="${OFFICIAL_ROOT:-results/runs/sacm/default}"
 EXPECTED_DATASETS="${EXPECTED_DATASETS:-20}"
 MAX_USED_MIB="${MAX_USED_MIB:-2000}"
 MIN_FREE_GB="${MIN_FREE_GB:-30}"

@@ -14,7 +14,7 @@ sam_adapter,unverified,pass,pass,unverified,pass,pass,unverified,N/A,unverified,
 topolora,pass,pass,pass,unverified,pass,pass,pass,N/A,unverified,G3: runtime partial-accumulation rescale/param filtering undocumented,disclosed partial accumulation,not yet
 samed,pass,pass,pass,unverified,pass,pass,pass,N/A,unverified,G3: official default SGD vs README AdamW; DataParallel/RNG,fixed low-res input_size/4 and poly horizon; optimizer ambiguity remains,not yet
 fob_sam,pass,pass,pass,unverified,pass,fail,pass,N/A,unverified,G5: official test support from held-out volume; 3D supervoxel vs 2D GT,fixed donor/sin_pos/cache/config; G5 remains fail,not yet
-sacm_official,unverified,pass,pass,unverified,pass,fail,pass,N/A,unverified,G5: false 1024-eval claim; official resizes to original; G0 no commit/LICENSE,fixed prediction without base SAM; config ratio saved; G5 unverified,not yet
+sacm,unverified,pass,pass,unverified,pass,fail,pass,N/A,unverified,G5: false 1024-eval claim; official resizes to original; G0 no commit/LICENSE,fixed prediction without base SAM; config ratio saved; G5 unverified,not yet
 persam,pass,pass,pass,pass,pass,pass,pass,N/A,unverified,G6c only; D-persam-01 first-pass normalization undocumented,fixed raw-vs-normalized reference embedding split; tests added,post-A0 code-level
 matcher,pass,unverified,unverified,unverified,fail,pass,unverified,N/A,unverified,G4: FSS alpha/beta/exp 0.8/0.2/1 vs 1/0/0; unseeded; DINOv2 missing,fixed FSS 0.8/0.2/1.0 and prediction seed flag,post-A0 code-level
 knowsam,pass,pass,unverified,fail,fail,fail,unverified,N/A,unverified,test leakage: 166/384 unlabeled images are exact test images,fixed test-pool exclusion/CC/argmax; unlabeled pool now only CHASEDB1/CREMI/CORN (cap limited),post-A0 code-level

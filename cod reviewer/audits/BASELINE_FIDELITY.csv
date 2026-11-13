@@ -14,7 +14,7 @@ sam_adapter,exact,official,prompt-free,retrained,main-adapted,author weights abs
 topolora,exact ViT-B,official,prompt-free,retrained,main-adapted,partial accumulation/PT runtime differences
 samed,head-changed,adapted,prompt-free,retrained,supplement,8-class to binary head; AdamW ambiguity
 fob_sam,"exact FewShotSeg + SAM, 2D adaptation",adapted,support,retrained,reference,support protocol G5 fail
-sacm_official,exact,official,prompt-free,retrained,main-adapted,threshold fix + 20-dataset protocol
+sacm,exact,official,prompt-free,retrained,main-adapted,threshold fix + 20-dataset protocol
 persam,exact training-free,training-free,support (one-shot),base-only,reference,3-shot majority extension
 matcher,exact training-free,training-free,support,missing,reference,DINOv2 ViT-L absent
 knowsam,"exact, 2-class head",adapted,semi-supervised,retrained,supplement,ACDC official 4-class -> 2-class head; 3+3/pool only CHASEDB1/CREMI/CORN; test exclusion fixed

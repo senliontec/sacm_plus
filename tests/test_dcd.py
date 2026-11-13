@@ -145,7 +145,7 @@ def test_dcd_all_heads_receive_gradient():
         assert any(float(g.abs().sum()) > 0 for g in grads), name
 
 
-def test_dcd_forward_selects_highest_iou(monkeypatch):
+def test_dcd_forward_returns_gating_champion(monkeypatch):
     decoder = _tiny_decoder()
     masks = torch.arange(4, dtype=torch.float32).view(1, 4, 1, 1)
     masks = masks.expand(1, 4, 4, 4).clone()
@@ -156,15 +156,47 @@ def test_dcd_forward_selects_highest_iou(monkeypatch):
         return masks, iou
 
     monkeypatch.setattr(decoder, 'predict_masks', fake_predict_masks)
-    out_masks, out_iou = decoder.forward(
+    common = dict(
         image_embeddings=torch.zeros(1, 256, 8, 8),
         image_pe=torch.zeros(1, 256, 8, 8),
         sparse_prompt_embeddings=torch.zeros(1, 0, 256),
         dense_prompt_embeddings=torch.zeros(1, 256, 8, 8),
-        multimask_output=False,
         adapter_features=None)
-    assert torch.allclose(out_masks[0, 0], masks[0, 2])
-    assert torch.allclose(out_iou[0, 0], iou[0, 2])
+    out_masks, out_iou = decoder.forward(
+        multimask_output=False, **common)
+    # The IoU head is untrained in the canonical recipe; single-mask output
+    # must return the Stage-1 gating champion, not argmax(IoU).
+    assert torch.allclose(out_masks[0, 0], masks[0, 0])
+    assert torch.allclose(out_iou[0, 0], iou[0, 0])
+
+    all_masks, all_iou = decoder.forward(
+        multimask_output=True, **common)
+    assert torch.allclose(all_masks, masks)
+    assert torch.allclose(all_iou, iou)
+
+
+def test_dcd_decoder_batch_and_repeated_queries():
+    decoder = _tiny_decoder()
+    batch = 2
+    image = torch.randn(batch, 256, 8, 8)
+    image_pe = torch.randn(batch, 256, 8, 8)
+    dense = torch.zeros(batch, 256, 8, 8)
+    adapters = [torch.randn(batch, 8, 8, 64) for _ in range(2)]
+
+    stage2, iou_pred, stage1 = decoder.predict_masks(
+        image, image_pe, torch.zeros(batch, 0, 256), dense,
+        adapter_features=adapters, return_stage1=True)
+    assert stage2.shape == (batch, 4, 32, 32)
+    assert stage1.shape == (batch, 4, 32, 32)
+    assert iou_pred.shape == (batch, 4)
+
+    # Two prompt queries per image: the official code repeated each image
+    # B*B times; the fixed decoder must produce B*Q rows.
+    stage2_q, iou_q = decoder.predict_masks(
+        image, image_pe, torch.zeros(batch * 2, 0, 256), dense,
+        adapter_features=adapters, return_stage1=False)
+    assert stage2_q.shape == (batch * 2, 4, 32, 32)
+    assert iou_q.shape == (batch * 2, 4)
 
 
 def test_dcd_preprocess_scales_01_to_sam_range():

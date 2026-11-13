@@ -3,10 +3,10 @@
 # evaluate every seed on the 20 protocol test datasets (Dice/IoU/clDice/HD95).
 #
 # Usage (server, repo root):
-#   bash scripts/run_sacm_official_seeds03_gpu4567.sh
+#   bash scripts/run_sacm_seeds03_gpu4567.sh
 #
 # This uses the faithful official baseline config:
-#   configs/models/sacm_official.yaml
+#   configs/models/sacm.yaml
 # It intentionally preserves the upstream defects (no SAM pixel normalization,
 # all-zero dense prompt, 60->800 stretched schedule).  It is the official-code
 # row, not the corrected DCD variant.
@@ -29,7 +29,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.." || exit 1
 REPO="$(pwd)"
 
-MODEL="sacm_official"
+MODEL="sacm"
 VARIANT="default"
 SEEDS_STR="${SEEDS:-0 1 2 3}"
 GPU_LIST="${GPU_LIST:-4,5,6,7}"
@@ -74,7 +74,7 @@ source "$REPO/scripts/wandb_env.sh"
 export WANDB_MODE="${WANDB_MODE:-online}"
 
 STAMP="$(date +%Y%m%d_%H%M%S)"
-LOG_DIR="${LOG_DIR:-$REPO/results/logs/sacm_official_seeds03_gpu4567_${STAMP}}"
+LOG_DIR="${LOG_DIR:-$REPO/results/logs/sacm_seeds03_gpu4567_${STAMP}}"
 mkdir -p "$LOG_DIR"
 exec > >(tee -a "$LOG_DIR/driver.log") 2>&1
 
@@ -88,7 +88,7 @@ echo " log:   $LOG_DIR/driver.log"
 echo "============================================================"
 
 "$PYTHON" - "$REPO" "$GPU_LIST" "$SEEDS_STR" "$MAX_USED_MIB" \
-  "$ALLOW_BUSY" "configs/models/sacm_official.yaml" <<'PY'
+  "$ALLOW_BUSY" "configs/models/sacm.yaml" <<'PY'
 import subprocess
 import sys
 from pathlib import Path

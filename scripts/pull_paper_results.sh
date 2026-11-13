@@ -3,7 +3,7 @@
 #
 # Pulls the 20-dataset eval tables for:
 #   unet cs2net cwsam knowsam maskvsc nnwnet
-#   sacm_official sam_med2d sam_octa segdino
+#   sacm sam_med2d sam_octa segdino
 # plus the special roots:
 #   dcd_ssh_full_ab/ssh
 #   dcd_fixed3_800/eval
@@ -37,7 +37,7 @@ SERVER="${SERVER:-zkyd@172.16.1.7}"
 TARGET="${TARGET:-/home/zkyd/code/sacm-plus}"
 SEEDS_STR="${SEEDS:-0 1 2 3}"
 EXPECTED_DATASETS="${EXPECTED_DATASETS:-20}"
-BASELINES="${BASELINES:-unet:default cs2net:default cwsam:default knowsam:default maskvsc:default nnwnet:default sacm_official:default sam_med2d:default sam_octa:default segdino:default}"
+BASELINES="${BASELINES:-unet:default cs2net:default cwsam:default knowsam:default maskvsc:default nnwnet:default sacm:default sam_med2d:default sam_octa:default segdino:default}"
 EXTRA_MODEL="${EXTRA_MODEL:-dcd_ssh_full_ab:ssh}"
 PULL_EXTRA="${PULL_EXTRA:-1}"
 PULL_FIXED3="${PULL_FIXED3:-1}"

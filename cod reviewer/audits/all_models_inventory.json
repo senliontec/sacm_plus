@@ -231,8 +231,8 @@
     "source_upstream": ""
   },
   {
-    "id": "sacm_official",
-    "display": "SACM (official)",
+    "id": "sacm",
+    "display": "SACM",
     "official_source": "kylechuuuuu/SACM (self-contained copy)",
     "input_size": 1024,
     "epochs": 60,

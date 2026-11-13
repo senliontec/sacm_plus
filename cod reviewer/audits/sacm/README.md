@@ -1,11 +1,11 @@
-# SACM (official) 移植审计（手工 pilot）
+# SACM 移植审计（手工 pilot）
 
 > **修复后（2026-10-26）：** 本报告表格是修复前审计证据；当前代码状态和回归证据见
 > [`../POST_FIX.md`](../POST_FIX.md)。A0/G6c 仍未完成，gate 结论不变。
 
 - 官方仓库：`3rd/SACM`
 - 官方 commit：`986504957e3f41f7fc02e610e2ad9ad27c43300f`（2026-07-07，本地 git 可核验）
-- 移植版本：`src/baseline_zoo/adapters/sacm_official.py` + `src/baseline_zoo/models/sacm_official/`
+- 移植版本：`src/baseline_zoo/adapters/sacm.py` + `src/baseline_zoo/models/sacm/`
 - 项目 commit：`fc7d8f4711c025d75240581541fa0a067427a011`
 - 审计日期：2026-10-25
 
@@ -73,7 +73,7 @@ f1 = calculate_f1_score(low_res_masks, original_mask)
 pred_mask = (low_res_masks[0, 0] > 0.5).cpu().numpy().astype(np.uint8) * 255
 ```
 ```text
-# src/baseline_zoo/adapters/sacm_official.py:39-44（与官方源码矛盾）
+# src/baseline_zoo/adapters/sacm.py:39-44（与官方源码矛盾）
 'Predictions are restored to the original GT resolution for the '
 'shared evaluator; upstream evaluates at 1024.',
 'Upstream test_sam.py thresholds raw logits at 0.5; this port '

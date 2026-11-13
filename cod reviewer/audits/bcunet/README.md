@@ -111,7 +111,7 @@ closure = 15/15，但没有一条数值等价断言；closure 只表示差异已
 命令（只读本地；未下载、未训练）：
 
 ```bash
-cd /home/dev/mywork/project/segment/sacm_stc
+cd /home/dev/mywork/project/segment/sacm_plus
 /home/dev/anaconda3/envs/tsai/bin/python 'cod reviewer/audits/_shared/03_same_state_probes.py'
 ```
 

@@ -120,7 +120,7 @@ closure = 19/19；但 S-sd-06 的 disposition 是 `unverified`，仍有 open 证
 
 ## 03. 数值证据
 
-命令（在 `sacm_stc/` 下；只 build 本地模型，不下载、不训练）：
+命令（在 `sacm_plus/` 下；只 build 本地模型，不下载、不训练）：
 
 ```bash
 /home/dev/anaconda3/envs/tsai/bin/python 'cod reviewer/audits/_shared/03_same_state_probes.py'

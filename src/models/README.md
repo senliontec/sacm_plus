@@ -14,7 +14,7 @@ from models.sam_network import build_sam_vit_l
 example `sam_vit_l_unet`). The former algorithm layer has been removed.
 
 The official SACM baseline is self-contained at
-`src/baseline_zoo/models/sacm_official/`; `baselines/sacm/` is only a
+`src/baseline_zoo/models/sacm/`; `baselines/sacm/` is only a
 development reference snapshot and may be deleted. The proposed method
 `src/baseline_zoo/models/dcd/` (registry id `dcd`) is the current
 DCD implementation and does not replace the official entry.

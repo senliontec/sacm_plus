@@ -8,8 +8,8 @@ tables.
 
 - Proposed method: `src/baseline_zoo/models/dcd/` (registry id
   `dcd`).
-- Official comparison row: `src/baseline_zoo/models/sacm_official/`
-  (registry id `sacm_official`). The official implementation is kept
+- Official comparison row: `src/baseline_zoo/models/sacm/`
+  (registry id `sacm`). The official implementation is kept
   independent and is not replaced by the proposed method.
 - Baseline zoo: `configs/models/*.yaml` + `src/baseline_zoo/`.
 
@@ -85,7 +85,7 @@ trains with soft bilinear targets plus foreground-weighted BCE.
 The official baseline is run through the same registry:
 
 ```bash
-bash scripts/run_sacm_official_seeds03_gpu4567.sh
+bash scripts/run_sacm_seeds03_gpu4567.sh
 ```
 
 ## Unified baseline runs
@@ -115,7 +115,7 @@ results/runs/<method>/<variant>/seed_<seed>/
 
 Use `scripts/build_paper_table.sh` after the runs to build the SACM-style
 per-dataset table (`MODELS` defaults to
-`dcd:all_dense sacm_official:default`).
+`dcd:all_dense sacm:default`).
 
 ## Evaluation details
 
@@ -160,5 +160,5 @@ manifest, config) next to every run.
 
 If you use the official SACM implementation, cite its paper and repository.
 The official baseline code is preserved under
-`src/baseline_zoo/models/sacm_official/`; the proposed method lives under
+`src/baseline_zoo/models/sacm/`; the proposed method lives under
 `src/baseline_zoo/models/dcd/`.

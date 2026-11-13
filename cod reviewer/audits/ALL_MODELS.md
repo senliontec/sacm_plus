@@ -30,7 +30,7 @@
 | `topolora` | pass | pass | pass | unverified | pass | pass | pass | N/A | unverified | G3: runtime partial-accumulation rescale/param filtering undocumented |
 | `samed` | pass | pass | pass | unverified | pass | pass | pass | N/A | unverified | G3: official default SGD vs README AdamW; DataParallel/RNG |
 | `fob_sam` | pass | pass | pass | unverified | pass | fail | pass | N/A | unverified | G5: official test support from held-out volume; 3D supervoxel vs 2D GT |
-| `sacm_official` | unverified | pass | pass | unverified | pass | fail | pass | N/A | unverified | G5: false 1024-eval claim; official resizes to original; G0 no commit/LICENSE |
+| `sacm` | unverified | pass | pass | unverified | pass | fail | pass | N/A | unverified | G5: false 1024-eval claim; official resizes to original; G0 no commit/LICENSE |
 | `persam` | pass | pass | pass | pass | pass | pass | pass | N/A | unverified | G6c only; D-persam-01 first-pass normalization undocumented |
 | `matcher` | pass | unverified | unverified | unverified | fail | pass | unverified | N/A | unverified | G4: FSS alpha/beta/exp 0.8/0.2/1 vs 1/0/0; unseeded; DINOv2 missing |
 | `knowsam` | pass | pass | unverified | fail | fail | fail | unverified | N/A | unverified | test leakage: 166/384 unlabeled images are exact test images |
@@ -43,8 +43,8 @@
 - G2: 14 pass, 1 fail (`unet`), 7 unverified
 - G3: 1 pass (`persam`), 1 fail (`knowsam`), 20 unverified
 - G4: 16 pass, 2 fail (`matcher`, `knowsam`), 4 unverified
-- G5: 18 pass, 4 fail (`nnwnet`, `fob_sam`, `sacm_official`, `knowsam`)
-- G6a: 6 pass (`cs2net`, `topolora`, `samed`, `fob_sam`, `sacm_official`, `persam`), 16 unverified
+- G5: 18 pass, 4 fail (`nnwnet`, `fob_sam`, `sacm`, `knowsam`)
+- G6a: 6 pass (`cs2net`, `topolora`, `samed`, `fob_sam`, `sacm`, `persam`), 16 unverified
 - main_table: 0 pass; 22 blocked
 
 ## Highest-priority defects
@@ -54,7 +54,7 @@
 3. **SAM-Adapter weight decay**: official `AdamW` receives only `lr`, so PyTorch default `weight_decay=0.01` is active; port uses 0.0 and `UPSTREAM.md` incorrectly says no weight decay.
 4. **Matcher FSS recipe**: official FSS script uses `alpha=0.8, beta=0.2, exp=1.0`; port uses `1.0/0.0/0.0`, and prediction is unseeded. `G4=fail`.
 5. **nnWNet val leakage**: nnU-Net planning/preprocessing runs before `splits_final.json` is written, so the 6 val cases affect normalization/plans; `G5=fail`.
-6. **SACM official documentation**: adapter claims upstream evaluates at 1024, but official `test_sam.py:260-261` resizes predictions to original size; G5 fail and G0 missing commit/LICENSE.
+6. **SACM documentation**: adapter claims upstream evaluates at 1024, but official `test_sam.py:260-261` resizes predictions to original size; G5 fail and G0 missing commit/LICENSE.
 7. **FoB-SAM support protocol**: official test support is a held-out volume inside the test fold and only labeled query slices are evaluated; port uses training/donor support and all query images; `G5=fail`.
 8. **SAMed recipe ambiguity**: official source defaults to SGD unless `--AdamW` is passed; README command uses `--AdamW`. The port uses AdamW but does not resolve/disclose the source-vs-README ambiguity; `G3=unverified`.
 9. **TopoLoRA shared-runtime difference**: runtime rescales the final partial accumulation group and filters optimizer parameters; not in adapter deviations; `G3=unverified`.
@@ -79,7 +79,7 @@ These are code-level outcomes, not re-audited gate results. A0 is pass (pack v3)
 | `ucs` | fixed deterministic prediction prompt sampling; disclosed workers/metrics | `test_ucs.py` seed test |
 | `nnwnet` | fixed train-only planner/preprocess and W&B batch metadata | `test_nnwnet_planning_stage_excludes_val` |
 | `persam` | fixed raw-vs-normalized reference embedding split | `test_persam.py` embedding split/raw-prompting tests |
-| `sacm_official` | corrected false 1024-eval claim; commit/license/split/workers documented | `UPSTREAM.md`; deviations |
+| `sacm` | corrected false 1024-eval claim; commit/license/split/workers documented | `UPSTREAM.md`; deviations |
 | `sam_octa` | class-conditional clDice and metric/seed differences disclosed; still not reproduced | deviations |
 | `fob_sam` | official support protocol disclosed; **G5 remains fail** | deviations |
 | docs-only | `cs2net`, `jtfn`, `dscnet`, `maskvsc`, `sam_med2d`, `topolora`, `samed` received missing worker/RNG/accumulation disclosures | deviations |

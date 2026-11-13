@@ -34,8 +34,8 @@ collector and report pipeline.
 | CWSAM (`cwsam`) | OK | bilinear image resize matches `transforms.Resize`; UPSTREAM checkpointing claims corrected |
 | KnowSAM (`knowsam`) | OK | fixed exact-stem and protocol-group validation/test leakage in the unlabeled pool (CREMI volume / CHASEDB1 subject / CORN batch); CORN source root; protocol seeding; CPU-safe import/training path; equal labeled/unlabeled streams; stale staging cleared; `--epochs` wired to iteration budget; docs updated |
 | SegDINO (`segdino`) | OK with local-weight requirement | auto-detects a size-matched checkpoint under `checkpoints/` (no env setup); prediction reconstructs the saved backbone size without a gated download; DPT uses the selected backbone’s layer indices; strict checkpoint coverage check; `drop_last=True`; config stored in checkpoint |
-| SACM official (`sacm_official`) | OK | gradient clipping 1.0 is now effective (`--clip-grad-norm` → `grad_clip`); bilinear resize; sigmoid-threshold correction documented; UPSTREAM claims corrected |
-| DCD (`dcd`) | Fixed analysis variant (does not replace `sacm_official`) | SAM normalization + `no_mask_embed`; per-block Adapter-E LN; Eq.6 softmax-over-FFN fusion weights; Eq.10 Stage-2 descriptor reorder; all Stage-1/Stage-2 heads + per-head IoU supervised, IoU-head selection; batch-repeat/predictor/dead-code/weight-decay fixes; full list in `models/dcd/UPSTREAM.md` |
+| SACM (`sacm`) | OK | gradient clipping 1.0 is now effective (`--clip-grad-norm` → `grad_clip`); bilinear resize; sigmoid-threshold correction documented; UPSTREAM claims corrected |
+| DCD (`dcd`) | Fixed analysis variant (does not replace `sacm`) | SAM normalization + `no_mask_embed`; per-block Adapter-E LN; Eq.6 softmax-over-FFN fusion weights; Eq.10 Stage-2 descriptor reorder; all Stage-1/Stage-2 heads + per-head IoU supervised, IoU-head selection; batch-repeat/predictor/dead-code/weight-decay fixes; full list in `models/dcd/UPSTREAM.md` |
 | SAM ViT-L + U-Net (`sam_vit_l_unet`) | OK | augmentation moved back after the frozen encoder (matching the previous adapter); decoder-only checkpoint format restored; 1024 input guard restored |
 
 ## Shared runtime/pipeline fixes
@@ -149,7 +149,7 @@ Not unified, by design or documented exception:
 - Full fast test suite: exit 0, one slow test skipped.
 - `python -m baseline_zoo doctor`: 0 missing assets/dependencies.
 - One-epoch/short smoke training + prediction for U-Net, CS2Net, BCUNet,
-  MaskVSC, nnWNet, KnowSAM, SAM-OCTA, CWSAM, SACM official, SAM ViT-L +
+  MaskVSC, nnWNet, KnowSAM, SAM-OCTA, CWSAM, SACM, SAM ViT-L +
   U-Net, SegDINO; SAM-Med2D build/forward/prediction and decoder
   initialization check (full training blocked by GPU memory).
 - Non-square SAM-OCTA prediction verified on a 600×800 CrackTree200 image.

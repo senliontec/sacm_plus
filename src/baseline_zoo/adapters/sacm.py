@@ -1,7 +1,7 @@
 """Official SACM baseline (SAM ViT-L + adapters, prompt-free decoder).
 
 The official ``segment_anything`` package is copied into
-``baseline_zoo.models.sacm_official``.  Training follows the released
+``baseline_zoo.models.sacm``.  Training follows the released
 ``train_sam.py`` loss/optimizer/forward; selection and export follow the
 unified protocol.
 """
@@ -18,13 +18,13 @@ from PIL import Image
 from torch import nn
 
 from baseline_zoo.data import load_rgb
-from baseline_zoo.models.sacm_official import build_sam_vit_l
+from baseline_zoo.models.sacm import build_sam_vit_l
 from baseline_zoo.runtime import REPO_ROOT, BaselineAdapter
 
 
-class SACMOfficialAdapter(BaselineAdapter):
-    id = 'sacm_official'
-    display_name = 'SACM (official)'
+class SACMAdapter(BaselineAdapter):
+    id = 'sacm'
+    display_name = 'SACM'
     official_source = 'kylechuuuuu/SACM (self-contained copy)'
     official_entrypoint = 'upstream train_sam.py'
     input_size = 1024

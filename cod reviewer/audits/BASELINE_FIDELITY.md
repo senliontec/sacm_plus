@@ -40,7 +40,7 @@ Legend:
 | `topolora` | exact ViT-B | official | prompt-free | retrained | **main-adapted** | official 50-epoch recipe; partial accumulation/PT runtime differences disclosed |
 | `samed` | head-changed | adapted | prompt-free | retrained | **supplement** | official 8-class head/weights replaced by binary head; AdamW source ambiguity |
 | `fob_sam` | exact FewShotSeg + SAM, 2D adaptation | adapted | support | retrained | **reference** | official support is test-fold held-out; port training/donor support; G5 still fail |
-| `sacm_official` | exact | official | prompt-free | retrained | **main-adapted** | official 60-epoch recipe; sigmoid threshold fix and 20-dataset protocol disclosed |
+| `sacm` | exact | official | prompt-free | retrained | **main-adapted** | official 60-epoch recipe; sigmoid threshold fix and 20-dataset protocol disclosed |
 | `persam` | exact training-free | training-free | support (one-shot) | base-only | **reference** | 3-shot majority-vote extension; not main prompt-free |
 | `matcher` | exact training-free | training-free | support | missing | **reference** | DINOv2 ViT-L/14 absent; FSS score/seed fixed; cannot claim official reproduction |
 | `knowsam` | exact, 2-class head | adapted | semi-supervised | retrained | **supplement** | official ACDC is 4-class; port uses a 2-class head. 3+3 batch and unlabeled pool only CHASEDB1/CREMI/CORN; test exclusion fixed |
@@ -69,7 +69,7 @@ wholesale. The differences fall into three groups.
 | `segdino` | TN3K/Kvasir/ISIC binary | 20 domains; timm DINOv3 instead of official hub backbone |
 | `sam_adapter` | COD/polyp binary | 20 domains; official 20-epoch recipe, ViT-L |
 | `topolora` | DRIVE/STARE/CHASE/Kvasir/SAR binary (`3rd/Seglab/README.md`) | 20 domains; official ViT-B/50-epoch recipe |
-| `sacm_official` | four internal curvilinear datasets (`3rd/SACM/README.md:29`) | 20 domains; official 60-epoch recipe |
+| `sacm` | four internal curvilinear datasets (`3rd/SACM/README.md:29`) | 20 domains; official 60-epoch recipe |
 | `sam2_unet` | COD/SOD/MAS/mirror/polyp binary | 20 domains; Hiera-L absent; 200 epochs/batch 4 |
 | `sam_vit_l_unet` | project extension, no official task | 20 domains; project probe |
 
@@ -107,7 +107,7 @@ This confirms the distinction used by the table:
 ## Counts
 
 - **main-adapted candidates (9)**: `unet`, `cs2net`, `maskvsc`, `nnwnet`,
-  `jtfn`, `dscnet`, `sam_adapter`, `topolora`, `sacm_official`
+  `jtfn`, `dscnet`, `sam_adapter`, `topolora`, `sacm`
 - **supplement (3)**: `cwsam`, `samed`, `knowsam`
 - **reference (6)**: `sam_med2d`, `sam_octa`, `fob_sam`, `persam`, `matcher`,
   `ucs`

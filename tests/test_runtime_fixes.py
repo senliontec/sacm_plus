@@ -73,8 +73,8 @@ def test_fixed_protocol_resolves_frozen_split():
     assert split.test_manifest.name == 'protocol_manifest.csv'
 
 
-def test_sacm_official_clip_default_is_effective():
-    parser = build_parser(load_adapter('sacm_official'))
+def test_sacm_clip_default_is_effective():
+    parser = build_parser(load_adapter('sacm'))
     assert parser.parse_args([]).grad_clip == 1.0
     assert parser.parse_args(['--grad-clip', '0.25']).grad_clip == 0.25
 
@@ -596,8 +596,8 @@ def test_sacm_prediction_skips_missing_base_checkpoint(monkeypatch):
             captured.update(kwargs)
 
     monkeypatch.setattr(
-        'baseline_zoo.adapters.sacm_official.build_sam_vit_l', Dummy)
-    adapter = load_adapter('sacm_official')
+        'baseline_zoo.adapters.sacm.build_sam_vit_l', Dummy)
+    adapter = load_adapter('sacm')
     adapter.prediction_mode = True
     adapter.build_model(argparse.Namespace(
         sam_checkpoint=Path('/missing/vit_l.pth'),
@@ -613,7 +613,7 @@ def test_sacm_prediction_skips_missing_base_checkpoint(monkeypatch):
 
 
 def test_sacm_adapter_dim_ratio_roundtrip():
-    adapter = load_adapter('sacm_official')
+    adapter = load_adapter('sacm')
     args = argparse.Namespace(
         adapter_dim_ratio=0.25, bce_weight=0.6, dice_weight=0.4)
     config = adapter.save_config(args)

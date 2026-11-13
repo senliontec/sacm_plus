@@ -36,7 +36,7 @@ METRIC_LABEL = {'dice': 'Dice', 'iou': 'IoU',
 LOWER_BETTER = {'hd95'}
 ROLE_ORDER = {'Seen': 0, 'Unseen': 1, 'Novel': 2}
 LABELS = {
-    ('sacm_official', 'default'): 'SACM (official)',
+    ('sacm', 'default'): 'SACM',
     ('dcd', 'all_dense'): 'DCD',
     ('dcd', 'final_full'): 'DCD (full)',
     ('dcd', 'final_sel_sel'): 'DCD (selected/selected)',
@@ -357,7 +357,7 @@ def main() -> int:
     parser.add_argument('--repo-root', type=Path, default=None)
     parser.add_argument('--models', nargs='+', required=True,
                         help='model:variant specs, e.g. dcd:all_dense '
-                             'sacm_official:default')
+                             'sacm:default')
     parser.add_argument('--seeds', nargs='+', type=int, default=[0, 1, 2, 3])
     parser.add_argument('--expected-datasets', type=int, default=20)
     parser.add_argument(

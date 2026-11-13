@@ -337,7 +337,7 @@ for name in ('summary.md', 'summary.csv', 'summary.html'):
     if name in ('summary.md', 'summary.csv'):
         ok = ok and path.is_file()
 
-official = repo / 'results/runs/sacm_official/default'
+official = repo / 'results/runs/sacm/default'
 missing_official = [
     str(official / f'seed_{seed}' / 'eval/tables/all_metrics.csv')
     for seed in seeds

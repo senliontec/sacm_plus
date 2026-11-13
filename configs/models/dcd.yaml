@@ -18,6 +18,10 @@ train_entrypoint: >-
   --topology-resolution 512 --topology-warmup-epochs 5
   --deep-sup-weight 0.3 --head-select gating --deployment-head 3
   --num-workers 0 --save-every 0
+  && python scripts/pipeline/make_fixed3_checkpoint.py
+  --input {output_root}/best_model.pth
+  --output {output_root}/best_model_fixed_candidate.pth
+  --deployment-head 3
 eval_entrypoint: >-
   python scripts/pipeline/run_baseline_test.py --method dcd
   --protocol {test_manifest} --seed {seed}
@@ -29,6 +33,7 @@ eval_entrypoint: >-
 protocols: [seeded5, fixed]
 defaults:
   epochs: 200
+  preset: all_dense
 note: >-
   Canonical DCD recipe.  The four native Stage-2 heads and the four
   Stage-1 coarse heads are all supervised; soft-clDice and Skeleton Recall
@@ -41,5 +46,5 @@ note: >-
   no-fusion training (--head-fusion 0), no-topology control
   (--cl-dice-weight 0 --skeleton-recall-weight 0
   --specialized-topology-weight 0), and the dense/structure scope factorial
-  (--stage2-loss-scope, --topology-head).  sacm_official remains the
+  (--stage2-loss-scope, --topology-head).  sacm remains the
   independent official baseline.

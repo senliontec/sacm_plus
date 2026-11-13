@@ -119,7 +119,7 @@ python scripts/pipeline/run_baseline_test.py \
 - **gating + fusion**: evaluate the existing SSH checkpoint
   `results/runs/dcd_ssh_full_ab/ssh/seed_*/best_model.pth` as-is; no
   retraining.
-- **official**: read the existing `results/runs/sacm_official/default/seed_*/`.
+- **official**: read the existing `results/runs/sacm/default/seed_*/`.
 - **P0 H0/H1/H2/H3**: optional supplementary head audit; derive each head with
   `make_fixed3_checkpoint.py --deployment-head 0/1/2/3`. Not part of the main
   paper table.

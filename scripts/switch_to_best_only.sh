@@ -22,7 +22,7 @@
 #
 # Env overrides:
 #   MAIN_VARIANT=das_as_dep
-#   PAPER_MODELS="dcd:das_as_dep sacm_official:default ..."
+#   PAPER_MODELS="dcd:das_as_dep sacm:default ..."
 #   PAPER_DATASETS="CHASEDB1 ... WIRE"
 set -euo pipefail
 cd "$(dirname "$0")/.." || exit 1
@@ -37,7 +37,7 @@ ARCHIVE="results/archive/dcd_old_six_eval_${STAMP}"
 LOG_ROOT="results/logs"
 LOCK_FILE="$LOG_ROOT/switch_to_best_only.lock"
 MAIN_VARIANT="${MAIN_VARIANT:-das_as_dep}"
-PAPER_MODELS="${PAPER_MODELS:-dcd:${MAIN_VARIANT} sacm_official:default unet:default cs2net:default maskvsc:default}"
+PAPER_MODELS="${PAPER_MODELS:-dcd:${MAIN_VARIANT} sacm:default unet:default cs2net:default maskvsc:default}"
 PAPER_DATASETS="${PAPER_DATASETS:-CHASEDB1 CrackTree200 CREMI DCA1 DRIVE CHCrack5k FIVES HRF LES-AV OCTA-500 DeepGlobe ROAD TopoMortar TYRE WIRE}"
 
 OLD_ARMS=(

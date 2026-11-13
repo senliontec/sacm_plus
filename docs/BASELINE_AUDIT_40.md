@@ -79,7 +79,7 @@ deviations may remain. `WARN` means a real but non-blocking issue.
 | `a2sam` | A2SAM MIA 2026; `3rd/A2SAM` partial | WARN | P1 | release lacks U-Net/prior/DMT/SPG/weights; port reconstructs them; no end-to-end parity | label paper-level reconstruction; P0/P1 fixes below |
 | `aco_moe_lora` | ACO-MoE-LoRA ICML 2026 | WARN | P2 | ACO scheduler stepped per 4-image micro-batch vs once per batch-12; cooldown ~3x faster; license missing | **documented** accumulation artifact; cadence left unchanged to avoid untested behavior |
 | `knowsam` | KnowSAM; paper absent | WARN | P1 | batch 6 vs official 24; unlabeled pool only CHASEDB1/CREMI/CORN; no test leak | match effective batch/pool or document |
-| `sacm_official` | SACM CVPR 2026 | WARN | P2 | 60→800, val Dice vs official F1/loss, sigmoid correction of upstream raw-logit threshold; license missing | document; add license |
+| `sacm` | SACM CVPR 2026 | WARN | P2 | 60→800, val Dice vs official F1/loss, sigmoid correction of upstream raw-logit threshold; license missing | document; add license |
 | `segdino` | SegDINO; paper absent | PASS | P2 | README says frozen backbone, but official trainer never calls lock_backbone and port trained all | **fixed**: frozen backbone is default; `--segdino-train-backbone` reproduces released full-finetune |
 | `segdino_v2` | SegDINO v2; paper absent | WARN | P2 | hybrid paper-frozen + released BCE/augmentation; weight decay differs | declare one profile; add paper |
 | `sam_vit_l_unet` | project extension, no paper/3rd | PASS (N/A) | P2 | Dice epsilon 1.0; feature-level flip/rot after frozen ViT; square stretch | **eps fixed** to 1e-6 + test; still exclude from official table |
@@ -171,7 +171,7 @@ These need a method/paper decision rather than a mechanical patch:
 
 - **Reporting key mismatch fixed**: `visualize_predictions.py` used
   `sam-med2d`/`sam-octa`/`sacm` instead of `sam_med2d`/`sam_octa`/
-  `sacm_official`, and lacked `sam2_unet`/`sam_vit_l_unet`/`dcd`; labels
+  `sacm`, and lacked `sam2_unet`/`sam_vit_l_unet`/`dcd`; labels
   now cover every model config.
 
 
@@ -183,7 +183,7 @@ These need a method/paper decision rather than a mechanical patch:
   The one-click 40-baseline run uses each config default, so the comparison
   is 800 epochs for the shared-budget models and 1000 for CS-Net/JTFN.
 - **5 models still have no dedicated end-to-end test file**: cs2net,
-  knowsam, nnwnet (only incidental runtime tests), sacm_official,
+  knowsam, nnwnet (only incidental runtime tests), sacm,
   sam_med2d (only an init test).
 - **Mixed protocol categories** must be separated in paper tables:
   prompt-free, support-based, oracle-prompted, semi-supervised,

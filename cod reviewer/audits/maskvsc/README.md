@@ -123,7 +123,7 @@ closure = 17/17。D-mv-02/D-mv-03/D-mv-07 是 G3 的主要未闭合项。
 
 ## 03. 数值证据
 
-命令（在 `sacm_stc/` 下；无下载、无训练）：
+命令（在 `sacm_plus/` 下；无下载、无训练）：
 
 ```bash
 /home/dev/anaconda3/envs/tsai/bin/python 'cod reviewer/audits/_shared/03_same_state_probes.py'

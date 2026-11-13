@@ -1,4 +1,4 @@
-# SACM (official)
+# SACM
 
 ## Source
 
@@ -9,7 +9,7 @@
   (`Change device to use CUDA if available`, 2026-07-07)
 - License: the upstream snapshot has no `LICENSE` file. Do not redistribute
   the vendored copy without obtaining a license from the authors.
-- Vendored path: `src/baseline_zoo/models/sacm_official/segment_anything/`
+- Vendored path: `src/baseline_zoo/models/sacm/segment_anything/`
 
 ## Copied files
 
@@ -45,4 +45,4 @@
 
 ## Runtime consumer
 
-`baseline_zoo.adapters.sacm_official.SACMOfficialAdapter`
+`baseline_zoo.adapters.sacm.SACMAdapter`

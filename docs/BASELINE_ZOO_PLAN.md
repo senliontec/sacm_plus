@@ -37,7 +37,7 @@ sam2-unet, sacm
 Only three methods are wired into the current unified test runner:
 
 ```text
-unet, sam_vit_l_unet, sacm_official
+unet, sam_vit_l_unet, sacm
 ```
 
 The remaining methods have source code but no unified prediction adapter.

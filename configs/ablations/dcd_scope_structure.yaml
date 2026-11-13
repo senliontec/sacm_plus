@@ -55,6 +55,10 @@ common_train_args:
   bce-pos-weight: 2
   binary-targets: 0
   deploy-threshold: 0.5
+  # The historical factorial isolates dense/structure scope on the native
+  # four-head base.  Keep the role-specialised losses out of this matrix;
+  # they belong to the canonical expert recipe and the lean ablation.
+  specialized-heads: 0
   deep-sup-weight: 0.3
   head-select: gating
   deployment-head: 2

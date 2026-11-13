@@ -16,7 +16,7 @@ Examples:
   python scripts/build_results_tex.py --out results.tex
 
 The default method list matches the server runs:
-  dcd:all_dense sacm_official:default unet:default cs2net:default
+  dcd:all_dense sacm:default unet:default cs2net:default
   maskvsc:default
 """
 from __future__ import annotations
@@ -40,13 +40,13 @@ from build_paper_table import (  # noqa: E402
 
 DEFAULT_MODELS = [
     'dcd:all_dense',
-    'sacm_official:default',
+    'sacm:default',
     'unet:default',
     'cs2net:default',
     'maskvsc:default',
 ]
 METHOD_LABELS = {
-    ('sacm_official', 'default'): 'SACM (official)',
+    ('sacm', 'default'): 'SACM',
     ('dcd', 'all_dense'): 'DCD',
     ('unet', 'default'): 'U-Net',
     ('cs2net', 'default'): 'CS2Net',

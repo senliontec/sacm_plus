@@ -93,7 +93,7 @@ bash scripts/run_dcd_expert_200.sh
 bash scripts/run_dcd_fixed3_seeds03_800.sh
 
 # official SACM, seeds 0-3, GPUs 4-7
-bash scripts/run_sacm_official_seeds03_gpu4567.sh
+bash scripts/run_sacm_seeds03_gpu4567.sh
 ```
 
 Each script trains every seed first, then evaluates all seeds on the 20
@@ -104,7 +104,7 @@ protocol test datasets with Dice/IoU/clDice/HD95.  The recorder writes
 `SEEDS="..."`, `RESUME=1` (skip completed jobs), `SKIP_TRAIN=1`,
 `SKIP_EVAL=1`, `EXPECTED_DATASETS=20`.
 
-## DCD fixed3 vs sacm_official (800 epochs, seeds 0-3)
+## DCD fixed3 vs sacm (800 epochs, seeds 0-3)
 
 fixed3 is an **inference-only deployment** of the SSH checkpoint:
 `head_select=fixed`, `deployment_head=3` (the recall/Tversky expert), and
@@ -114,7 +114,7 @@ removes the unused `head_fusion.*` tensors so the strict load succeeds.
 One command trains the SSH base for seeds 0-3 at 800 epochs, derives the
 fixed3 checkpoint for every seed, evaluates fixed3 on all 20 protocol
 datasets, and writes a four-seed comparison against the already-completed
-`sacm_official` eval tables.  It does **not** train/evaluate `sacm_official`
+`sacm` eval tables.  It does **not** train/evaluate `sacm`
 and does **not** train/evaluate `dcd full`:
 
 ```bash
@@ -130,8 +130,8 @@ prefer to run the evaluation there.
 The official comparison requires the existing tables:
 
 ```text
-results/runs/sacm_official/default/seed_0..3/eval/tables/all_metrics.csv
-results/runs/sacm_official/default/seed_0..3/eval/tables/macro_metrics.csv
+results/runs/sacm/default/seed_0..3/eval/tables/all_metrics.csv
+results/runs/sacm/default/seed_0..3/eval/tables/macro_metrics.csv
 ```
 
 Key outputs:
@@ -178,7 +178,7 @@ build the SACM-style per-dataset table with all four metrics:
 bash scripts/build_paper_table.sh
 ```
 
-Default methods are `dcd:all_dense sacm_official:default`, seeds `0 1 2 3`.
+Default methods are `dcd:all_dense sacm:default`, seeds `0 1 2 3`.
 It reads each run's canonical `eval/tables/all_metrics.csv` and falls back to
 `per_dataset_4metrics.csv` only when that is absent.  It aggregates mean/std
 across seeds per dataset and per Seen/Unseen/Novel/All role (macro computed
@@ -254,7 +254,7 @@ scripts/
 ├── run_figures.sh
 ├── run_dcd_seeds03_gpu0123.sh    # reproduction: DCD seeds 0-3 (GPUs 0-3)
 ├── run_dcd_seeds03_gpu4567.sh    # reproduction: DCD seeds 0-3 (GPUs 4-7)
-├── run_sacm_official_seeds03_gpu4567.sh  # reproduction: SACM seeds 0-3
+├── run_sacm_seeds03_gpu4567.sh  # reproduction: SACM seeds 0-3
 ├── build_paper_table.sh    # Table 2 from recorded runs
 ├── pipeline/               # evaluation helpers used by the configs
 │   ├── run_baseline_test.py

@@ -24,8 +24,8 @@ remain the detailed 01/02 evidence.
 | `samed` | **fixed**: poly horizon `max(epochs, 200)`, final epoch nonzero. | `adapters/samed.py` |
 | `dscnet` | **fixed**: `--dsc-stride > --input-size` now raises instead of leaving uncovered stripes. | `adapters/dscnet.py` |
 | `sam_octa` | **fixed**: `batch-size > 1` raises instead of dropping samples. | `adapters/sam_octa.py` |
-| `sacm_official` | **fixed**: prediction builds with `checkpoint=None`; a host with only `best_model.pth` can evaluate. | `adapters/sacm_official.py` |
-| `sacm_official` | **fixed**: `adapter_dim_ratio` and loss weights are saved/restored. | `adapters/sacm_official.py` |
+| `sacm` | **fixed**: prediction builds with `checkpoint=None`; a host with only `best_model.pth` can evaluate. | `adapters/sacm.py` |
+| `sacm` | **fixed**: `adapter_dim_ratio` and loss weights are saved/restored. | `adapters/sacm.py` |
 | `sam_vit_l_unet` | **fixed**: checkpoint config stores SAM base path/SHA; a different encoder triggers a warning. | `adapters/sam_vit_l_unet.py` |
 | `sam_vit_l_unet` | Port keeps image/mask fp32 and only quantizes features; reference cached image/mask as fp16. Logit difference was tiny (6.258e-7), but disclosure is partial. | `adapters/sam_vit_l_unet.py:85-101,119-120` |
 | `cwsam` | **disclosed**: effective batch/workers difference added; class-weighted CE remains a disclosed high-risk adaptation. | `adapters/cwsam.py` |
@@ -61,7 +61,7 @@ These are smoke checks only; they do not replace G6a/G6c or a full model run.
 3. `jtfn`: choose resize/tiling for full-resolution eval, then test on one high-resolution sample.
 4. `bcunet`: do not download pretrained weights when a checkpoint is supplied or prediction only.
 5. `samed`: derive low-res target from input size; fix poly horizon/last-step zero.
-6. `sacm_official` / `sam_vit_l_unet`: persist construction/provenance config.
+6. `sacm` / `sam_vit_l_unet`: persist construction/provenance config.
 7. Disclosure-only items: CWSAM, SAM2-UNet, SegDINO, FoB workers/seed, DSCNet stat wording.
 
 P0 and the selected P1 fixes above were applied on 2026-10-26; remaining items are unchanged. See `POST_FIX.md`.
