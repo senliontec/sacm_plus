@@ -1,23 +1,21 @@
 #!/usr/bin/env bash
-# One-click native-control probe:
-#   train native multi-candidate model (no specialized losses, no fusion)
-#   derive the fixed candidate-3 checkpoint
-#   evaluate 20 datasets
-#   summarize against the existing SACM official tables
+# One-click canonical SACM-STC expert recipe at 200 epochs.
+#
+#   train specialised heads + linear fusion (4 seeds)
+#   derive the fixed-candidate-3 deployment checkpoint
+#   evaluate all 20 datasets
+#   summarize against the existing official SACM tables
 #
 # Usage (server, repo root, preferably under tmux):
-#   bash scripts/run_sacm_stc_native_150.sh
-#   DRY_RUN=1 bash scripts/run_sacm_stc_native_150.sh
-#   SEEDS="0" bash scripts/run_sacm_stc_native_150.sh
-#   SEEDS="0 1 2 3" EPOCHS=150 bash scripts/run_sacm_stc_native_150.sh
+#   bash scripts/run_sacm_stc_expert_200.sh
+#   DRY_RUN=1 bash scripts/run_sacm_stc_expert_200.sh
+#   SEEDS="0" bash scripts/run_sacm_stc_expert_200.sh
 #
 # Env overrides:
-#   SEEDS="0 1 2 3"       default four seeds
-#   EPOCHS=150
-#   TRAIN_GPUS=0,1,2,3    one GPU per seed; waves if fewer GPUs
-#   EVAL_GPUS=0,1,2,3
-#   OUT_ROOT=results/runs/sacm_stc_native_150
-#   SUMMARY_ROOT=results/ablations/sacm_stc_native_150
+#   SEEDS="0 1 2 3"       EPOCHS=200
+#   TRAIN_GPUS=0,1,2,3    EVAL_GPUS=0,1,2,3
+#   OUT_ROOT=results/runs/sacm_stc_expert_200
+#   SUMMARY_ROOT=results/ablations/sacm_stc_expert_200
 #   OFFICIAL_ROOT=results/runs/sacm_official/default
 #   EXPECTED_DATASETS=20  MAX_USED_MIB=2000  MIN_FREE_GB=30
 #   SKIP_TRAIN=0 SKIP_EVAL=0 RESUME=1 FORCE_DERIVE=0 FORCE_EVAL=0
@@ -28,18 +26,18 @@ REPO="$(pwd)"
 
 SEEDS_STR="${SEEDS:-0 1 2 3}"
 SEEDS_STR="${SEEDS_STR//,/ }"
-EPOCHS="${EPOCHS:-150}"
+EPOCHS="${EPOCHS:-200}"
 TRAIN_GPUS="${TRAIN_GPUS:-0,1,2,3}"
 EVAL_GPUS="${EVAL_GPUS:-0,1,2,3}"
-OUT_ROOT="${OUT_ROOT:-results/runs/sacm_stc_native_150}"
-SUMMARY_ROOT="${SUMMARY_ROOT:-results/ablations/sacm_stc_native_150}"
+OUT_ROOT="${OUT_ROOT:-results/runs/sacm_stc_expert_200}"
+SUMMARY_ROOT="${SUMMARY_ROOT:-results/ablations/sacm_stc_expert_200}"
 OFFICIAL_ROOT="${OFFICIAL_ROOT:-results/runs/sacm_official/default}"
 EXPECTED_DATASETS="${EXPECTED_DATASETS:-20}"
 MAX_USED_MIB="${MAX_USED_MIB:-2000}"
 MIN_FREE_GB="${MIN_FREE_GB:-30}"
 WANDB_PROJECT="${WANDB_PROJECT:-sacm}"
 WANDB_ENTITY="${WANDB_ENTITY:-buaazqk}"
-WANDB_GROUP="${WANDB_GROUP:-sacm_stc_native_150}"
+WANDB_GROUP="${WANDB_GROUP:-sacm_stc_expert_200}"
 
 as_bool() {
   case "${1,,}" in
@@ -57,7 +55,7 @@ FORCE_EVAL=$(as_bool "${FORCE_EVAL:-0}")
 ALLOW_BUSY=$(as_bool "${ALLOW_BUSY:-0}")
 ALLOW_LOW_DISK=$(as_bool "${ALLOW_LOW_DISK:-0}")
 
-read -r -a SEED_ARGS <<< "$SEEDS_STR"
+read -r -a SEED_ARGS <<< "$SEEDS_STR" || true
 if [ "${#SEED_ARGS[@]}" -eq 0 ]; then
   echo "ERROR: SEEDS is empty" >&2
   exit 2
@@ -127,11 +125,11 @@ if [ "$ALLOW_LOW_DISK" != "1" ] && [ -n "$FREE_GB" ] \
 fi
 
 STAMP="$(date +%Y%m%d_%H%M%S)"
-LOG_ROOT="${LOG_ROOT:-$REPO/results/logs/sacm_stc_native_150_$STAMP}"
+LOG_ROOT="${LOG_ROOT:-$REPO/results/logs/sacm_stc_expert_200_$STAMP}"
 mkdir -p "$LOG_ROOT" "$OUT_ROOT" "$SUMMARY_ROOT"
 LOCK_FILE="$OUT_ROOT/.run.lock"
 exec 9>"$LOCK_FILE"
-flock -n 9 || { echo "ERROR: another native-150 run is active" >&2; exit 2; }
+flock -n 9 || { echo "ERROR: another expert-200 run is active" >&2; exit 2; }
 
 for seed in "${SEED_ARGS[@]}"; do
   [ -f "data/sacm_3shot_seed$seed/protocol_manifest.csv" ] || {
@@ -147,8 +145,8 @@ done
   echo "ERROR: missing checkpoints/sam_vit_l_0b3195.pth" >&2
   exit 2
 }
-grep -q -- '--allow-native' scripts/pipeline/make_fixed3_checkpoint.py || {
-  echo "ERROR: make_fixed3_checkpoint.py lacks --allow-native" >&2
+[ -f scripts/pipeline/make_fixed3_checkpoint.py ] || {
+  echo "ERROR: missing make_fixed3_checkpoint.py" >&2
   exit 2
 }
 
@@ -171,30 +169,21 @@ COMMON=(
   --sam-checkpoint checkpoints/sam_vit_l_0b3195.pth
   --bce-weight 0.7 --dice-weight 0.3 --bce-pos-weight 2
   --binary-targets 0 --deploy-threshold 0.5
-  --stage2-loss-scope all --stage2-loss-aggregate deployment
-  --stage2-aux-weight 0.25
-  --topology-head all --topology-aggregate deployment
-  --topology-aux-weight 0.25 --topology-resolution 512
-  --topology-source native --topology-warmup-epochs 5
+  --stage2-loss-scope all --topology-head all
   --cl-dice-weight 0.1 --skeleton-recall-weight 0.1
-  --specialized-head-weight 0.1 --specialized-topology-mode cldice
-  --deep-sup-weight 0.3 --iou-loss-weight 0
-  --head-select gating --deployment-head 2
-  --head-fusion 0 --fusion-loss-weight 0.0
-  --head-fusion-mode linear --head-fusion-warmup-epochs 0
-  --image-dense-prompt 0 --morph-prompt 0 --polarity-augment 0
-  --topology-quality 0 --use-stc 0 --use-typed-stage2 0
+  --specialized-heads 1 --specialized-head-weight 0.1
+  --specialized-topology-weight 0.1
+  --head-fusion 1 --fusion-loss-weight 1.0
+  --topology-resolution 512 --topology-warmup-epochs 5
+  --deep-sup-weight 0.3 --head-select gating --deployment-head 3
   --save-every 0 --num-workers 0
   --use_wandb true
   --wandb_project "$WANDB_PROJECT" --wandb_entity "$WANDB_ENTITY"
   --wandb_group "$WANDB_GROUP"
 )
-# The native arm is the only training factor: no specialized losses,
-# no fusion.  All candidates keep the dense and topology supervision.
-TRAIN_EXTRA=(--specialized-heads 0)
 
 echo "============================================================"
-echo " SACM-STC native multi-candidate probe"
+echo " SACM-STC canonical expert recipe"
 echo " seeds: ${SEED_ARGS[*]}  epochs: $EPOCHS"
 echo " train gpus: ${TRAIN_GPU_ARR[*]}  eval gpus: ${EVAL_GPU_ARR[*]}"
 echo " run root:   $OUT_ROOT"
@@ -230,11 +219,11 @@ train_one() {
     extra+=(--resume)
   fi
   "$PYTHON" -m baseline_zoo.run_one \
-    "${COMMON[@]}" "${TRAIN_EXTRA[@]}" \
+    "${COMMON[@]}" \
     --data-root "data/sacm_3shot_seed$seed" \
     --workdir "$root" --seed "$seed" --device "cuda:$gpu" \
-    --wandb_name "sacm_stc_native_150_seed$seed" \
-    --wandb_tags "sacm_stc,native,150,probe" \
+    --wandb_name "sacm_stc_expert_200_seed$seed" \
+    --wandb_tags "sacm_stc,expert,200" \
     "${extra[@]}" >>"$log" 2>&1
   echo "[train:$seed] done"
 }
@@ -256,7 +245,7 @@ derive_one() {
   [ "$FORCE_DERIVE" = 1 ] && force+=(--force)
   "$PYTHON" scripts/pipeline/make_fixed3_checkpoint.py \
     --input "$input" --output "$output" --deployment-head 3 \
-    --allow-native "${force[@]}" >>"$LOG_ROOT/derive_seed_$seed.log" 2>&1
+    "${force[@]}" >>"$LOG_ROOT/derive_seed_$seed.log" 2>&1
   echo "[derive:$seed] done"
 }
 
@@ -281,15 +270,15 @@ eval_one() {
   "$PYTHON" scripts/pipeline/run_baseline_test.py \
     --method sacm_stc \
     --protocol "data/sacm_3shot_seed$seed/protocol_manifest.csv" \
-    --seed "$seed" --variant native_fixed150 \
+    --seed "$seed" --variant expert_fixed200 \
     --checkpoint "$ckpt" --sam-checkpoint checkpoints/sam_vit_l_0b3195.pth \
     --pred-root "$OUT_ROOT/predictions/seed_$seed" \
     --paper-root "$eval_root" --device "cuda:$gpu" \
     --metrics dice,iou,cldice,hd95 --skip-visualize \
     --use_wandb true --wandb_project "$WANDB_PROJECT" \
     --wandb_entity "$WANDB_ENTITY" --wandb_group "${WANDB_GROUP}_eval" \
-    --wandb_name "native_fixed150_seed$seed" \
-    --wandb_tags "sacm_stc,native,150,eval" \
+    --wandb_name "expert_fixed200_seed$seed" \
+    --wandb_tags "sacm_stc,expert,200,eval" \
     --allow-stale-checkpoint "${force[@]}" \
     >>"$log" 2>&1
   echo "[eval:$seed] done"
@@ -319,7 +308,7 @@ run_waves() {
 }
 
 if [ "$SKIP_TRAIN" != 1 ]; then
-  echo "[1/4] training native arms"
+  echo "[1/4] training canonical expert arms"
   run_waves train_one "${TRAIN_GPU_ARR[@]}"
 else
   echo "[1/4] training skipped"

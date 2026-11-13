@@ -1,26 +1,17 @@
-# Lean fixed3 ablation: three new 4-seed training arms for the paper table.
+# Lean fixed3 ablation: the three 800-epoch arms attached to the best model.
 #
-# Scope is deliberately small.  The main paper table compares:
-#   fixed3                  -> existing 4-seed eval tables
-#   gating + fusion         -> existing SSH checkpoint, eval only
-#   nofusion                -> trained here, fixed H3 eval
-#   native_control          -> trained here, eval as-is
-#   notopo                  -> trained here, fixed H3 eval
+#   fixed3          -> existing 4-seed eval tables (derived from ssh)
+#   gating + fusion -> existing ssh checkpoint, eval only
+#   nofusion        -> trained here, fixed H3 eval
+#   native_control  -> trained here, eval as-is (gating)
+#   notopo          -> trained here, fixed H3 eval
 #
-# Training uses the canonical gating/fusion recipe so that only the named
-# factor changes.  Do NOT use the runner's default eval stage for nofusion /
-# notopo: it would evaluate the checkpoint's gating deployment, not fixed H3.
-# After training, derive H3 with scripts/pipeline/make_fixed3_checkpoint.py
-# and evaluate the derived checkpoint.  native_control is evaluated as-is.
-#
-# P0 H0/H1/H2/H3/gating/fusion is a cheap eval-only supplement and is not
-# part of this training matrix.
+# Only the named factor changes; all shared arguments stay identical.
 schema_version: 1
 name: sacm_stc_fixed3_lean
 description: >-
   Lean fixed3 ablation: no-fusion training, native four-head control, and
-  no-topology supervision.  Three arms x four seeds at the shared 800-epoch
-  budget; fixed-H3 evaluation is a post-training derivation step.
+  no-topology supervision at the shared 800-epoch budget.
 protocol: seeded5
 method: sacm_stc
 seeds: [0, 1, 2, 3]
@@ -36,8 +27,6 @@ wandb:
   tags: sacm_stc,ablation,fixed3,lean,800ep
   use_wandb: true
 
-# Canonical SSH/STC training recipe.  Arms below change only the factor named
-# in the paper table; all shared arguments stay identical.
 common_train_args:
   sam-checkpoint: checkpoints/sam_vit_l_0b3195.pth
   bce-weight: 0.7
@@ -46,69 +35,43 @@ common_train_args:
   binary-targets: 0
   deploy-threshold: 0.5
   stage2-loss-scope: all
-  stage2-loss-aggregate: deployment
-  stage2-aux-weight: 0.25
   topology-head: all
-  topology-aggregate: deployment
-  topology-aux-weight: 0.25
   topology-resolution: 512
-  topology-source: native
   topology-warmup-epochs: 5
   cl-dice-weight: 0.1
   skeleton-recall-weight: 0.1
   specialized-head-weight: 0.1
-  specialized-topology-mode: cldice
+  specialized-topology-weight: 0.1
   deep-sup-weight: 0.3
-  iou-loss-weight: 0
-  # Training-time selection stays canonical; fixed H3 is an inference
-  # deployment, not a different training-time head selector.
   head-select: gating
-  deployment-head: 2
-  head-fusion: 1
-  fusion-loss-weight: 1.0
-  head-fusion-mode: linear
-  head-fusion-warmup-epochs: 0
-  image-dense-prompt: 0
-  morph-prompt: 0
-  polarity-augment: 0
-  topology-quality: 0
-  use-stc: 0
-  use-typed-stage2: 0
+  deployment-head: 3
   save-every: 0
   num-workers: 0
 
 arms:
   nofusion:
-    display_name: SSH roles without fusion auxiliary
+    display_name: specialised heads without fusion
     args:
       specialized-heads: 1
       head-fusion: 0
       fusion-loss-weight: 0.0
 
   native_control:
-    display_name: Native four heads, no role-specialized losses
+    display_name: native four heads, no role-specialised losses
     args:
       specialized-heads: 0
       head-fusion: 0
       fusion-loss-weight: 0.0
 
   notopo:
-    display_name: SSH roles without clDice/skeleton supervision
+    display_name: specialised heads without topology supervision
     args:
       specialized-heads: 1
       head-fusion: 1
       fusion-loss-weight: 1.0
       cl-dice-weight: 0.0
       skeleton-recall-weight: 0.0
-      # The specialized head-1 topology term defaults to 0.1; zero it too,
-      # otherwise this arm still trains soft-clDice and is not a true
-      # no-topology control.
       specialized-topology-weight: 0.0
-
-# The paper comparisons are against the existing fixed3 4-seed tables and
-# the existing official tables.  Those are not arms in this training matrix,
-# so no arm-to-arm contrasts are generated here.
-contrasts: []
 
 analysis:
   output_root: results/ablations/sacm_stc_fixed3_lean/analysis

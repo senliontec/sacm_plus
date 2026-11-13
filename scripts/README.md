@@ -158,18 +158,8 @@ local data and the local SAM checkpoint; it never downloads weights.
 
 The dense-scope × structure-scope factorial is configured in
 `configs/ablations/sacm_stc_scope_structure.yaml`; the runner contains no
-arm names or model hyperparameters.  The one-command overnight launcher
-audits the existing full checkpoints, then runs all 24 controlled jobs
-automatically on GPUs 4–7 (the overnight default; seeds 0–3, all six arms,
-300 epochs each); each job is followed by its 20-dataset evaluation and
-candidate diagnostics on `best_model.pth` (the only retained checkpoint):
-
-```bash
-# one command; self-daemonizes and prints PID/log
-bash scripts/run_sacm_stc_ablation_overnight.sh
-```
-
-Manual stages are also available:
+arm names or model hyperparameters.  Audit the existing checkpoints first,
+then run the factorial:
 
 ```bash
 bash scripts/run_sacm_stc_ablation.sh --stage audit --gpus 4,5,6,7
@@ -178,25 +168,9 @@ bash scripts/run_sacm_stc_ablation.sh --stage all --gpus 4,5,6,7
 
 Ablation runs use distinct `<arm>` variants under
 `results/runs/sacm_stc/`; diagnostics/analysis live under
-`results/ablations/sacm_stc/`, and the existing 800-epoch `all_dense` main
-result is not modified.  See
+`results/ablations/sacm_stc/`.  See
 [`../configs/ablations/README.md`](../configs/ablations/README.md) for the
-arm definitions, Aa−As / Sa−Ss decision rules, outputs, and diagnostics.
-
-## SACM-STC native-vs-legacy topology control
-
-`configs/ablations/sacm_stc_native_control.yaml` reuses the completed native
-arms and trains only the two legacy topology-source arms.  One command runs
-train → 20-dataset eval → 15-dataset paired analysis:
-
-```bash
-bash scripts/run_sacm_stc_native_control.sh
-```
-
-It refuses to start unless `das_ss` and `das_aa_mean` already have complete
-training and 20-dataset eval tables.  Results are written under
-`results/runs/sacm_stc/legacy_*/seed_*/` and
-`results/ablations/sacm_stc_native_control/analysis/`.
+arm definitions, decision rules, outputs, and diagnostics.
 
 ## Paper Table 2 (all 20 datasets)
 

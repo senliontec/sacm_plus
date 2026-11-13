@@ -68,8 +68,8 @@ fi
 
 if [ "$FORCE" -ne 1 ] && command -v pgrep >/dev/null 2>&1; then
   # Check actual training/eval workers, not stale outer wrapper shells.
-  # A leftover `run_sacm_stc_das_quick.sh` with no child must not block a
-  # data-only archive operation.
+  # A leftover wrapper with no child must not block a data-only archive
+  # operation.
   if pgrep -af 'baseline_zoo\.run_one|run_baseline_test\.py|run_sacm_stc_ablation\.py' \
       >/tmp/switch_best_only_active.$$ 2>/dev/null; then
     if [ -s "/tmp/switch_best_only_active.$$" ]; then

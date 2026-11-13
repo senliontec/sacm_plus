@@ -16,8 +16,8 @@
 #   bash scripts/pull_sacm_stc_ablation.sh --seeds "0 1 2 3"
 #   bash scripts/pull_sacm_stc_ablation.sh --arms "b0_selected_base ss_selected_dense_selected_structure"
 #   bash scripts/pull_sacm_stc_ablation.sh \
-#     --config configs/ablations/sacm_stc_das_quick.yaml \
-#     --arms "das_ss das_aa_mean das_aa_dep das_as_dep" --analyze
+#     --config configs/ablations/sacm_stc_scope_structure.yaml \
+#     --arms "b0_selected_base b3_all_dense_all_structure" --analyze
 #
 # Options:
 #   --config PATH          experiment YAML (default: scope_structure)

@@ -34,22 +34,20 @@ for the key arms rather than rerunning the whole matrix.
 
 ## Commands
 
-### Overnight one-command
+### Run the factorial
 
-The launcher self-daemonizes, runs the candidate audit, then launches all 24
-short runs. Each run trains for 300 epochs, then automatically gets its
-20-dataset evaluation and candidate diagnostics on
-`best_model.pth`; every completed run keeps only that checkpoint, and the
-paired analysis is written after all jobs finish.
+The runner audits the existing checkpoints, then launches the 24 short runs.
+Each run trains for 300 epochs and gets its 20-dataset evaluation and
+candidate diagnostics on `best_model.pth`; the paired analysis is written
+after the selected arms finish.
 
 ```bash
 # server, repo root
-bash scripts/run_sacm_stc_ablation_overnight.sh
+bash scripts/run_sacm_stc_ablation.sh --stage audit --gpus 4,5,6,7
+bash scripts/run_sacm_stc_ablation.sh --stage all --gpus 4,5,6,7
 ```
 
-It prints the PID and log path and returns immediately; closing the SSH
-session does not stop it. The default GPU set is `4,5,6,7`; use
-`--gpus 0,1,...` only to override it. Use `--skip-audit` to omit Step 0.
+`--resume` is the default; pass `--no-resume` to rerun completed stages.
 
 ### Manual stages
 
@@ -116,41 +114,13 @@ candidate-head diagnostics when present. All Dice/IoU/clDice/HD95 values are
 retained; the primary endpoint is pre-specified in the YAML
 (`analysis.primary_metric/primary_role`).
 
-### Overnight execution details
+### Execution details
 
 - 6 arms × 4 seeds = 24 jobs; each job runs train → 20-dataset eval →
   candidate diagnostics.
-- 8 GPUs: round-robin assignment, 3 jobs per GPU, at most 8 concurrent jobs;
-  jobs on one GPU run sequentially.
-- Default `--resume` skips completed stages. A failed GPU queue stops while
-  other GPUs continue; rerun the same command to fill missing results.
-- The launcher writes a timestamped driver log and config snapshot; the
-  existing `all_dense` tree is untouched.
-
-## Native-vs-legacy topology control
-
-`configs/ablations/sacm_stc_native_control.yaml` isolates the topology input
-path from the head-scope question.  It reuses the completed native arms
-(`das_ss`, `das_aa_mean`) and trains only two new legacy arms
-(`legacy_ss`, `legacy_aa_mean`):
-
-```text
-native    Stage-2 256 -> topology-resolution (current)
-training  Stage-2 256 -> 1024 -> topology-resolution (legacy)
-```
-
-One command, 8 new runs on 8 GPUs:
-
-```bash
-bash scripts/run_sacm_stc_native_control.sh
-```
-
-The wrapper refuses to start unless the native arms already have complete
-training and 20-dataset eval tables.  It resumes existing legacy runs, then
-writes `results/ablations/sacm_stc_native_control/analysis/ablation_report.md`.
-The primary contrasts are `das_ss - legacy_ss` and
-`das_aa_mean - legacy_aa_mean`; all four metrics and the 15-dataset role
-breakdown are retained.
+- Use `--resume` to skip completed stages; rerun the same command to fill
+  missing results.
+- The runner writes a timestamped driver log and config snapshot.
 
 ## Decision rules
 

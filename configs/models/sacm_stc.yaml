@@ -7,45 +7,39 @@ train_entrypoint: >-
   python -m baseline_zoo.run_one --model sacm_stc --stage train
   --data-root {split_root} --workdir {output_root}
   --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
-  --use-typed-stage2 0 --use-stc 0
-  --deep-sup-weight 0.3 --iou-loss-weight 0
-  --head-select gating
-  --stage2-loss-scope all --stage2-loss-aggregate deployment
-  --stage2-aux-weight 0.25
-  --skeleton-recall-weight 0.1 --cl-dice-weight 0.1
-  --topology-head all --topology-aggregate deployment
-  --topology-aux-weight 0.25 --topology-warmup-epochs 5
-  --binary-targets 0 --bce-pos-weight 2
+  --sam-checkpoint checkpoints/sam_vit_l_0b3195.pth
+  --bce-weight 0.7 --dice-weight 0.3 --bce-pos-weight 2
+  --binary-targets 0 --deploy-threshold 0.5
+  --stage2-loss-scope all --topology-head all
+  --cl-dice-weight 0.1 --skeleton-recall-weight 0.1
+  --specialized-heads 1 --specialized-head-weight 0.1
+  --specialized-topology-weight 0.1
+  --head-fusion 1 --fusion-loss-weight 1.0
+  --topology-resolution 512 --topology-warmup-epochs 5
+  --deep-sup-weight 0.3 --head-select gating --deployment-head 3
+  --num-workers 0 --save-every 0
 eval_entrypoint: >-
   python scripts/pipeline/run_baseline_test.py --method sacm_stc
-  --protocol {test_manifest}
-  --seed {seed}
-  --variant {preset}
-  --checkpoint {output_root}/best_model.pth
+  --protocol {test_manifest} --seed {seed}
+  --checkpoint {output_root}/best_model_fixed_candidate.pth
+  --sam-checkpoint checkpoints/sam_vit_l_0b3195.pth
   --pred-root {output_root}/predictions
-  --paper-root {output_root}
+  --paper-root {output_root}/eval
   --device cuda:{gpu} --use_wandb true --skip-visualize
 protocols: [seeded5, fixed]
 defaults:
-  epochs: 800
-  preset: all_dense
+  epochs: 200
 note: >-
-  SACM-STC (all-dense geometry variant): keeps the official four-candidate
-  Stage-2 structure, where every native mask token predicts a dense mask and
-  the Stage-1 gating order selects the deployment candidate. On top of that
-  it adds (1) dense deep supervision on the four Stage-1 coarse heads,
-  (2) Skeleton Recall and soft-clDice consistency on all four Stage-2 dense
-  candidates, (3) soft bilinear targets and (4) foreground-weighted BCE.
-  The network and the official SACM row are unchanged; the geometry losses
-  are consistency terms on the evaluated dense masks, not a test-time head
-  selector. This replaces the earlier typed-head prototype because the
-  specialized heads removed the official multi-candidate robustness; see
-  the local A/B evidence in the adapter deviations and results/diagnostics.
-  The faithful official SACM remains the main-table baseline
-  (`sacm_official`). The all-candidate dense/topology terms now use
-  deployment-aligned aggregation: the deployed slot keeps full weight and
-  the three auxiliary heads contribute a 0.25-weight mean term. The old
-  equal-weight arms diluted the deployed head by 4x; use
-  --stage2-loss-aggregate mean / --topology-aggregate mean to reproduce
-  them. Topology losses consume the native Stage-2 tensor before
-  resampling, avoiding the previous 256->1024->512 blur.
+  Canonical SACM-STC recipe.  The four native Stage-2 heads and the four
+  Stage-1 coarse heads are all supervised; soft-clDice and Skeleton Recall
+  regularise every Stage-2 candidate; the three auxiliary heads add
+  topology / boundary / recall losses; a zero-initialised linear fusion is
+  trained as an auxiliary output.  Deployment uses a derived checkpoint with
+  head_select=fixed, deployment_head=3 and head_fusion=0, produced by
+  scripts/pipeline/make_fixed3_checkpoint.py after training.  The kept
+  ablations are native four-head control (--specialized-heads 0),
+  no-fusion training (--head-fusion 0), no-topology control
+  (--cl-dice-weight 0 --skeleton-recall-weight 0
+  --specialized-topology-weight 0), and the dense/structure scope factorial
+  (--stage2-loss-scope, --topology-head).  sacm_official remains the
+  independent official baseline.
