@@ -1,4 +1,4 @@
-# SACM-STC (cleaned canonical recipe)
+# SACM-GCD (cleaned canonical recipe)
 
 ## Source
 
@@ -9,7 +9,7 @@
 - Derived from the faithful port:
   `src/baseline_zoo/models/sacm_official/segment_anything/`
 - Vendored path:
-  `src/baseline_zoo/models/sacm_stc/segment_anything/`
+  `src/baseline_zoo/models/sacm_gcd/segment_anything/`
 
 ## Canonical recipe (current best)
 
@@ -53,9 +53,9 @@ The historical 800-epoch result is
   factorial.
 
 The canonical 800-epoch pair is in
-`configs/ablations/sacm_stc_ssh_full_ab.yaml`; the lean ablation is in
-`configs/ablations/sacm_stc_fixed3_lean.yaml`; the scope factorial is in
-`configs/ablations/sacm_stc_scope_structure.yaml`.
+`configs/ablations/sacm_gcd_ssh_full_ab.yaml`; the lean ablation is in
+`configs/ablations/sacm_gcd_fixed3_lean.yaml`; the scope factorial is in
+`configs/ablations/sacm_gcd_scope_structure.yaml`.
 
 ## Fixes relative to the released official code
 
@@ -95,7 +95,7 @@ part of the released recipe.
 One-click 200-epoch verification:
 
 ```bash
-bash scripts/run_sacm_stc_expert_200.sh
+bash scripts/run_sacm_gcd_expert_200.sh
 ```
 
 The script trains four seeds, derives the fixed candidate-3 checkpoint,
@@ -104,4 +104,4 @@ evaluates 20 datasets, and summarizes against the official tables.  Use
 
 ## Runtime consumer
 
-`baseline_zoo.adapters.sacm_stc.SACMSTCAdapter`
+`baseline_zoo.adapters.sacm_gcd.SACMGCDAdapter`

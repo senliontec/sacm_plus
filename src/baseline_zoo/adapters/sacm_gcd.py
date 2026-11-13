@@ -1,4 +1,4 @@
-"""SACM-STC: geometry-consistent multi-candidate SACM decoder.
+"""SACM-GCD: geometry-consistent multi-candidate SACM decoder.
 
 Canonical recipe (the current best model):
 
@@ -34,9 +34,9 @@ import torch.nn.functional as F
 from PIL import Image
 
 from baseline_zoo.data import load_rgb
-from baseline_zoo.models.sacm_stc import build_sam_vit_l
-from baseline_zoo.models.sacm_stc.fusion import HeadFusion
-from baseline_zoo.models.sacm_stc.topology_losses import (
+from baseline_zoo.models.sacm_gcd import build_sam_vit_l
+from baseline_zoo.models.sacm_gcd.fusion import HeadFusion
+from baseline_zoo.models.sacm_gcd.topology_losses import (
     SkeletonRecallLoss,
     SoftclDiceLoss,
     TverskyLoss,
@@ -44,9 +44,9 @@ from baseline_zoo.models.sacm_stc.topology_losses import (
 from baseline_zoo.runtime import REPO_ROOT, BaselineAdapter
 
 
-class SACMSTCAdapter(BaselineAdapter):
-    id = 'sacm_stc'
-    display_name = 'SACM-STC'
+class SACMGCDAdapter(BaselineAdapter):
+    id = 'sacm_gcd'
+    display_name = 'SACM-GCD'
     official_source = 'kylechuuuuu/SACM (fixed derivative)'
     official_entrypoint = 'upstream train_sam.py + documented fixes'
     input_size = 1024

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Fail fast when an existing SSH run was trained with a different recipe.
 
-The fixed3 run reuses ``results/runs/sacm_stc_ssh_full_ab/ssh/seed_<s>`` when
+The fixed3 run reuses ``results/runs/sacm_gcd_ssh_full_ab/ssh/seed_<s>`` when
 the ablation runner sees a complete 800-epoch ``run_info.json``.  That skip
 predicate checks status and epoch budget only.  This script additionally
 compares the existing checkpoint's adapter config against the YAML arm, so a
@@ -11,8 +11,8 @@ base.
 It is read-only and is intended to run before training:
 
     python scripts/pipeline/check_ssh_recipe.py \
-        --run-root results/runs/sacm_stc_ssh_full_ab \
-        --config configs/ablations/sacm_stc_ssh_full_ab.yaml \
+        --run-root results/runs/sacm_gcd_ssh_full_ab \
+        --config configs/ablations/sacm_gcd_ssh_full_ab.yaml \
         --arm ssh --seeds 0 1 2 3 --epochs 800
 """
 

@@ -23,10 +23,10 @@ wins, and descriptive Wilcoxon p-values.
 
 Usage:
     python scripts/pipeline/summarize_fixed3_seeds.py \
-        --fixed3-root results/runs/sacm_stc_fixed3_800 \
+        --fixed3-root results/runs/sacm_gcd_fixed3_800 \
         --official-root results/runs/sacm_official/default \
         --seeds 0 1 2 3 \
-        --output-root results/ablations/sacm_stc_fixed3_800
+        --output-root results/ablations/sacm_gcd_fixed3_800
 """
 
 from __future__ import annotations
@@ -599,7 +599,7 @@ def build_summary(args) -> tuple[dict, str, str]:
 
     # Markdown report.
     lines = [
-        f'# SACM-STC fixed3 vs sacm_official — {epochs}-epoch summary',
+        f'# SACM-GCD fixed3 vs sacm_official — {epochs}-epoch summary',
         '',
         f'Generated: `{summary["generated_at"]}`',
         '',

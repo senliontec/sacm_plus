@@ -26,7 +26,7 @@ SACM/                              # 项目 = 分割算法平台（框架 + 算�
 ├── scripts/                      # 一键入口 + 分组工具
 │   ├── run_paper.sh / run_train.sh / run_eval.sh / run_report.sh / run_figures.sh
 │   ├── pipeline/                 # 评测/指标/协议解析
-│   ├── sacm_stc/                   # SACM-STC 训练/评测/消融引擎
+│   ├── sacm_gcd/                   # SACM-GCD 训练/评测/消融引擎
 │   └── data/                     # 数据构建 + 各数据集转换器
 ├── configs/                       # YAML 配置（presets.yaml，--config 叠加覆盖）
 ├── datasets/                      # 协议数据: seen/unseen/novel（gitignored）

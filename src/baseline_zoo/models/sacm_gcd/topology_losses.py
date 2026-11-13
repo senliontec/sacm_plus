@@ -1,4 +1,4 @@
-"""Binary topology losses for SACM-STC.
+"""Binary topology losses for SACM-GCD.
 
 These are local, binary-logit implementations.  ``SoftclDiceLoss`` is part of
 the typed recipe (the centerline head uses it with

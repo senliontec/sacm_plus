@@ -1,28 +1,28 @@
 #!/usr/bin/env bash
-# One-click SACM-STC fixed3 run:
+# One-click SACM-GCD fixed3 run:
 #   train SSH fixed3 base seeds 0-3 at 800 epochs
 #   derive the no-fusion fixed3 checkpoint for every seed
 #   evaluate fixed3 seeds 0-3 on the 20 protocol datasets
 #   summarize fixed3 against the already-completed sacm_official seeds 0-3
 #
 # The official eval tables are read from disk; this script never trains or
-# evaluates sacm_official.  It also does not train/evaluate sacm_stc full.
+# evaluates sacm_official.  It also does not train/evaluate sacm_gcd full.
 #
 # Default GPU placement:
 #   training:  GPUs 0-3
 #   fixed3 eval: GPUs 0-3 (after training; GPUs 4-7 stay free)
 #
 # Usage (server, repo root, preferably under tmux):
-#   bash scripts/run_sacm_stc_fixed3_seeds03_800.sh
-#   DRY_RUN=1 bash scripts/run_sacm_stc_fixed3_seeds03_800.sh
-#   EVAL_GPUS=4,5,6,7 bash scripts/run_sacm_stc_fixed3_seeds03_800.sh
+#   bash scripts/run_sacm_gcd_fixed3_seeds03_800.sh
+#   DRY_RUN=1 bash scripts/run_sacm_gcd_fixed3_seeds03_800.sh
+#   EVAL_GPUS=4,5,6,7 bash scripts/run_sacm_gcd_fixed3_seeds03_800.sh
 #
 # Env overrides:
 #   SEEDS="0 1 2 3"              EPOCHS=800
 #   TRAIN_GPUS=0,1,2,3           EVAL_GPUS=0,1,2,3
 #   OFFICIAL_ROOT=results/runs/sacm_official/default
-#   FIXED3_OUT_ROOT=results/runs/sacm_stc_fixed3_800
-#   SUMMARY_ROOT=results/ablations/sacm_stc_fixed3_800
+#   FIXED3_OUT_ROOT=results/runs/sacm_gcd_fixed3_800
+#   SUMMARY_ROOT=results/ablations/sacm_gcd_fixed3_800
 #   SKIP_TRAIN=0                 SKIP_EVAL=0
 #   RESUME=1                     DERIVE_ONLY=0
 #     RESUME=1 reuses existing complete 800-epoch SSH runs, but first checks
@@ -41,22 +41,22 @@ REPO="$(pwd)"
 # ---------------------------------------------------------------------------
 # Defaults and validation
 # ---------------------------------------------------------------------------
-MODEL="sacm_stc"
-CONFIG="${CONFIG:-configs/ablations/sacm_stc_ssh_full_ab.yaml}"
+MODEL="sacm_gcd"
+CONFIG="${CONFIG:-configs/ablations/sacm_gcd_ssh_full_ab.yaml}"
 SEEDS_STR="${SEEDS:-0 1 2 3}"
 SEEDS_STR="${SEEDS_STR//,/ }"
 EPOCHS="${EPOCHS:-800}"
 TRAIN_GPUS="${TRAIN_GPUS:-0,1,2,3}"
 EVAL_GPUS="${EVAL_GPUS:-0,1,2,3}"
 OFFICIAL_ROOT="${OFFICIAL_ROOT:-results/runs/sacm_official/default}"
-FIXED3_OUT_ROOT="${FIXED3_OUT_ROOT:-results/runs/sacm_stc_fixed3_800}"
-SUMMARY_ROOT="${SUMMARY_ROOT:-results/ablations/sacm_stc_fixed3_800}"
+FIXED3_OUT_ROOT="${FIXED3_OUT_ROOT:-results/runs/sacm_gcd_fixed3_800}"
+SUMMARY_ROOT="${SUMMARY_ROOT:-results/ablations/sacm_gcd_fixed3_800}"
 EXPECTED_DATASETS="${EXPECTED_DATASETS:-20}"
 MAX_USED_MIB="${MAX_USED_MIB:-2000}"
 MIN_FREE_GB="${MIN_FREE_GB:-30}"
 WANDB_PROJECT="${WANDB_PROJECT:-sacm}"
 WANDB_ENTITY="${WANDB_ENTITY:-buaazqk}"
-FIXED3_WANDB_GROUP="${FIXED3_WANDB_GROUP:-sacm_stc_fixed3_800}"
+FIXED3_WANDB_GROUP="${FIXED3_WANDB_GROUP:-sacm_gcd_fixed3_800}"
 
 as_bool() {
   case "${1,,}" in
@@ -159,13 +159,13 @@ fi
 LOCK_DIR="$REPO/results/runs/.locks"
 mkdir -p "$LOCK_DIR"
 if command -v flock >/dev/null 2>&1; then
-  exec 9>"$LOCK_DIR/sacm_stc_fixed3_800.lock"
+  exec 9>"$LOCK_DIR/sacm_gcd_fixed3_800.lock"
   if ! flock -n 9; then
     echo "ERROR: another fixed3 800-epoch driver is already running" >&2
     exit 3
   fi
 else
-  LOCK_MK="$LOCK_DIR/sacm_stc_fixed3_800.lockdir"
+  LOCK_MK="$LOCK_DIR/sacm_gcd_fixed3_800.lockdir"
   if ! mkdir "$LOCK_MK" 2>/dev/null; then
     echo "ERROR: another fixed3 800-epoch driver is already running" >&2
     exit 3
@@ -174,17 +174,17 @@ else
 fi
 
 STAMP="$(date +%Y%m%d_%H%M%S)"
-LOG_DIR="${LOG_DIR:-$REPO/results/logs/sacm_stc_fixed3_800_${STAMP}}"
+LOG_DIR="${LOG_DIR:-$REPO/results/logs/sacm_gcd_fixed3_800_${STAMP}}"
 mkdir -p "$LOG_DIR"
 exec > >(tee -a "$LOG_DIR/driver.log") 2>&1
 
 echo "============================================================"
-echo " SACM-STC fixed3 | seeds ${SEEDS_STR} | ${EPOCHS} epochs"
+echo " SACM-GCD fixed3 | seeds ${SEEDS_STR} | ${EPOCHS} epochs"
 echo " train:       GPUs ${TRAIN_GPUS}"
 echo " fixed3 eval: GPUs ${EVAL_GPUS}"
 echo " official:    ${OFFICIAL_ROOT_ABS} (existing eval tables, read-only)"
 echo " fixed3:      head_select=fixed, deployment_head=3, head_fusion=0"
-echo " no sacm_stc full; no official retraining"
+echo " no sacm_gcd full; no official retraining"
 echo " repo:        ${REPO}"
 echo " driver log:  ${LOG_DIR}/driver.log"
 if [ "$DRY_RUN" = 1 ]; then
@@ -387,12 +387,12 @@ if [ "$SKIP_TRAIN" = 1 ]; then
 else
   echo "[1/4] training SSH fixed3 base, seeds ${SEEDS_STR}, GPUs ${TRAIN_GPUS}"
   if [ "$DRY_RUN" = 1 ]; then
-    bash "$REPO/scripts/run_sacm_stc_ablation.sh" \
+    bash "$REPO/scripts/run_sacm_gcd_ablation.sh" \
       --config "$CONFIG_ABS" --stage train --arms ssh \
       --seeds "${SEED_ARGS[@]}" --gpus "$TRAIN_GPUS" \
       --epochs "$EPOCHS" "$RESUME_ARG" --dry-run
   else
-    if ! bash "$REPO/scripts/run_sacm_stc_ablation.sh" \
+    if ! bash "$REPO/scripts/run_sacm_gcd_ablation.sh" \
         --config "$CONFIG_ABS" --stage train --arms ssh \
         --seeds "${SEED_ARGS[@]}" --gpus "$TRAIN_GPUS" \
         --epochs "$EPOCHS" "$RESUME_ARG" \
@@ -507,8 +507,8 @@ launch_fixed3_eval() {
     --wandb_project "$WANDB_PROJECT"
     --wandb_entity "$WANDB_ENTITY"
     --wandb_group "$FIXED3_WANDB_GROUP"
-    --wandb_name "paper_metrics-sacm_stc-fixed3-seed${seed}"
-    --wandb_tags "sacm_stc,fixed3,${EPOCHS}ep,paper"
+    --wandb_name "paper_metrics-sacm_gcd-fixed3-seed${seed}"
+    --wandb_tags "sacm_gcd,fixed3,${EPOCHS}ep,paper"
     --metrics "dice,iou,cldice,hd95"
     --skip-visualize
   )
@@ -608,7 +608,7 @@ else
 fi
 echo " driver log:        ${LOG_DIR}/driver.log"
 echo " train log:         ${LOG_DIR}/train_ssh.log"
-echo " ablation logs:     ${REPO}/results/logs/sacm_stc_ablation/sacm_stc_ssh_full_ab/"
+echo " ablation logs:     ${REPO}/results/logs/sacm_gcd_ablation/sacm_gcd_ssh_full_ab/"
 echo " SSH runs:          ${RUN_ROOT}/ssh/seed_*/"
 echo " fixed3 ckpts:      ${RUN_ROOT}/ssh/seed_*/best_model_fixed3_nofusion.pth"
 echo " fixed3 eval:       ${FIXED3_OUT_ROOT_ABS}/eval/seed_*/"
@@ -617,7 +617,7 @@ echo " official (read):   ${OFFICIAL_ROOT_ABS}/seed_*/eval/"
 if [ "$SKIP_EVAL" = 0 ] && [ "$DRY_RUN" = 0 ]; then
   echo " fixed3 vs official: ${SUMMARY_ROOT_ABS}/summary.md"
 fi
-echo " W&B train group:   sacm_stc_ssh_full_ab"
+echo " W&B train group:   sacm_gcd_ssh_full_ab"
 echo " W&B fixed3 group:  ${FIXED3_WANDB_GROUP}"
 echo "============================================================"
 exit "$status"

@@ -1,7 +1,7 @@
 [project]
 name = "sacm-plus"
 version = "0.1.0"
-description = "SACM-STC: prompt-free curvilinear structure segmentation on SAM with multi-candidate dense decoding, topology consistency, and strict official baseline ports."
+description = "SACM-GCD: prompt-free curvilinear structure segmentation on SAM with multi-candidate dense decoding, topology consistency, and strict official baseline ports."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Apache-2.0" }

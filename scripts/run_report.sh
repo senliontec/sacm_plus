@@ -3,7 +3,7 @@
 #
 # Usage:
 #   bash scripts/run_report.sh --model all --seeds all
-#   bash scripts/run_report.sh --model sacm_stc --seeds 0
+#   bash scripts/run_report.sh --model sacm_gcd --seeds 0
 #   bash scripts/run_report.sh --model all --seeds all --dry-run
 set -euo pipefail
 cd "$(dirname "$0")/.." || exit 1

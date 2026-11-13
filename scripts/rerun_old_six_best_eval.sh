@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One-click best-only re-evaluation of the legacy six-arm SACM-STC matrix.
+# One-click best-only re-evaluation of the legacy six-arm SACM-GCD matrix.
 #
 # This does NOT retrain.  It:
 #   1. archives the old six-arm eval/analysis (best checkpoints stay);
@@ -24,7 +24,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.." || exit 1
 REPO="$(pwd)"
 
-CONFIG="configs/ablations/sacm_stc_scope_structure.yaml"
+CONFIG="configs/ablations/sacm_gcd_scope_structure.yaml"
 ARMS=(
   b0_selected_base
   b1_all_dense_base
@@ -65,7 +65,7 @@ fi
 missing=()
 for arm in "${ARMS[@]}"; do
   for seed in "${SEEDS[@]}"; do
-    path="$REPO/results/runs/sacm_stc/$arm/seed_$seed/best_model.pth"
+    path="$REPO/results/runs/sacm_gcd/$arm/seed_$seed/best_model.pth"
     if [ ! -f "$path" ]; then
       missing+=("$arm seed_$seed")
     fi
@@ -85,8 +85,8 @@ if [ "$DRY_RUN" -eq 1 ]; then
   echo "  gpus:  $GPU_LIST"
   echo "Would run:"
   echo "  bash scripts/switch_to_best_only.sh"
-  echo "  bash scripts/run_sacm_stc_ablation.sh --stage eval --config $CONFIG --seeds ${SEEDS[*]} --gpus $GPU_LIST"
-  echo "  bash scripts/run_sacm_stc_ablation.sh --stage analyze --config $CONFIG --seeds ${SEEDS[*]}"
+  echo "  bash scripts/run_sacm_gcd_ablation.sh --stage eval --config $CONFIG --seeds ${SEEDS[*]} --gpus $GPU_LIST"
+  echo "  bash scripts/run_sacm_gcd_ablation.sh --stage analyze --config $CONFIG --seeds ${SEEDS[*]}"
   exit 0
 fi
 
@@ -168,7 +168,7 @@ echo "============================================================"
 bash "$REPO/scripts/switch_to_best_only.sh"
 
 echo "[1/2] 20-dataset eval on best_model.pth"
-bash "$REPO/scripts/run_sacm_stc_ablation.sh" \
+bash "$REPO/scripts/run_sacm_gcd_ablation.sh" \
   --stage eval \
   --config "$CONFIG" \
   --arms "${ARMS[@]}" \
@@ -176,7 +176,7 @@ bash "$REPO/scripts/run_sacm_stc_ablation.sh" \
   --gpus "$GPU_LIST"
 
 echo "[2/2] paired analysis"
-bash "$REPO/scripts/run_sacm_stc_ablation.sh" \
+bash "$REPO/scripts/run_sacm_gcd_ablation.sh" \
   --stage analyze \
   --config "$CONFIG" \
   --arms "${ARMS[@]}" \
@@ -185,5 +185,5 @@ bash "$REPO/scripts/run_sacm_stc_ablation.sh" \
 echo "============================================================"
 echo " old-six best-only eval finished"
 echo " end: $(date -Is)"
-echo " report: results/ablations/sacm_stc/analysis/ablation_report.md"
+echo " report: results/ablations/sacm_gcd/analysis/ablation_report.md"
 echo "============================================================"

@@ -35,7 +35,7 @@ collector and report pipeline.
 | KnowSAM (`knowsam`) | OK | fixed exact-stem and protocol-group validation/test leakage in the unlabeled pool (CREMI volume / CHASEDB1 subject / CORN batch); CORN source root; protocol seeding; CPU-safe import/training path; equal labeled/unlabeled streams; stale staging cleared; `--epochs` wired to iteration budget; docs updated |
 | SegDINO (`segdino`) | OK with local-weight requirement | auto-detects a size-matched checkpoint under `checkpoints/` (no env setup); prediction reconstructs the saved backbone size without a gated download; DPT uses the selected backbone’s layer indices; strict checkpoint coverage check; `drop_last=True`; config stored in checkpoint |
 | SACM official (`sacm_official`) | OK | gradient clipping 1.0 is now effective (`--clip-grad-norm` → `grad_clip`); bilinear resize; sigmoid-threshold correction documented; UPSTREAM claims corrected |
-| SACM-STC (`sacm_stc`) | Fixed analysis variant (does not replace `sacm_official`) | SAM normalization + `no_mask_embed`; per-block Adapter-E LN; Eq.6 softmax-over-FFN fusion weights; Eq.10 Stage-2 descriptor reorder; all Stage-1/Stage-2 heads + per-head IoU supervised, IoU-head selection; batch-repeat/predictor/dead-code/weight-decay fixes; full list in `models/sacm_stc/UPSTREAM.md` |
+| SACM-GCD (`sacm_gcd`) | Fixed analysis variant (does not replace `sacm_official`) | SAM normalization + `no_mask_embed`; per-block Adapter-E LN; Eq.6 softmax-over-FFN fusion weights; Eq.10 Stage-2 descriptor reorder; all Stage-1/Stage-2 heads + per-head IoU supervised, IoU-head selection; batch-repeat/predictor/dead-code/weight-decay fixes; full list in `models/sacm_gcd/UPSTREAM.md` |
 | SAM ViT-L + U-Net (`sam_vit_l_unet`) | OK | augmentation moved back after the frozen encoder (matching the previous adapter); decoder-only checkpoint format restored; 1024 input guard restored |
 
 ## Shared runtime/pipeline fixes
@@ -56,15 +56,15 @@ collector and report pipeline.
   markers now record the checkpoint identity and are invalidated when the
   checkpoint changes.
 - Added the missing `fixed` protocol config and forwarded `PRESET` to
-  SACM-STC evaluation.
+  SACM-GCD evaluation.
 - Metric collection accepts 0/1 as well as 0/255 PNGs, includes GT files in
   the cache signature, and refuses to overwrite a complete table with a
   subset unless `--allow-partial-overwrite` is passed.
-- Reports select the requested SACM-STC preset and fail on missing
+- Reports select the requested SACM-GCD preset and fail on missing
   model/seed runs unless `--allow-missing` is passed.
 - `run_paper.sh --dry-run` no longer regenerates figures.
 - Eval resume now also requires a non-empty eval artifact
-  (`paper_metrics.csv` or SACM-STC `tables/all_metrics.csv`); a stale
+  (`paper_metrics.csv` or SACM-GCD `tables/all_metrics.csv`); a stale
   `.eval_done` can no longer hide deleted predictions/tables.
 - Per-dataset metric caches and report tables are written atomically
   (`.tmp` + `os.replace`), so an interrupted write cannot leave a
@@ -77,7 +77,7 @@ Unified interface:
 - **Data/protocol**: one `split_manifest.csv` membership check, 18 train /
   6 val, the same 20 frozen test roots and image stems for every model.
   Test roots come from a single parser (`scripts/pipeline/protocol_specs.py`);
-  `run_baseline_test.read_specs` delegates to it, so baseline and SACM-STC
+  `run_baseline_test.read_specs` delegates to it, so baseline and SACM-GCD
   evaluation resolve the same roots and fail identically on a conflicting
   dataset root.
 - **Adapter input contract**: original-resolution PIL image plus boolean
@@ -540,7 +540,7 @@ from random initialization.  See
 
 `sam_refiner` is a model-agnostic binary-mask post-processor (ICLR 2025,
 MIT), vendored with its modified SAM package and the one-click wrapper was removed in
-the SACM-STC cleanup; the vendored refiner remains under `src/core/postprocess/sam_refiner/`.  It is not a backbone baseline and is
+the SACM-GCD cleanup; the vendored refiner remains under `src/core/postprocess/sam_refiner/`.  It is not a backbone baseline and is
 not part of the main table; compare it only as a post-processing ablation.
 Defaults now follow the paper (one refinement pass, box margin 0.1,
 Gaussian amplitude 15, span 4); the released code defaults (5/0.0/30) are

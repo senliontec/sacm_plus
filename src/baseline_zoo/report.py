@@ -119,7 +119,7 @@ def load_run(run_root: Path, model: str, seed: int,
         return []
 
     rows: list[MetricRow] = []
-    # A preset selects one model variant (for example SACM-STC's all_dense
+    # A preset selects one model variant (for example SACM-GCD's all_dense
     # run).  Rows without a variant field remain eligible.
     filter_preset = preset
     with open(path, newline='') as f:

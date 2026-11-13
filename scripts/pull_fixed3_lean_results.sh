@@ -2,10 +2,10 @@
 # One-click pull of the fixed3 lean-ablation results.
 #
 # Pulls, by default:
-#   results/runs/sacm_stc_fixed3_lean/       (eval tables + run metadata)
-#   results/runs/sacm_stc_fixed3_800/eval/   (existing fixed3 4-seed eval)
-#   results/ablations/sacm_stc_fixed3_lean/  (summary.csv/md/html/json)
-#   results/logs/sacm_stc_fixed3_lean_*/     (driver/eval/derive logs)
+#   results/runs/sacm_gcd_fixed3_lean/       (eval tables + run metadata)
+#   results/runs/sacm_gcd_fixed3_800/eval/   (existing fixed3 4-seed eval)
+#   results/ablations/sacm_gcd_fixed3_lean/  (summary.csv/md/html/json)
+#   results/logs/sacm_gcd_fixed3_lean_*/     (driver/eval/derive logs)
 #
 # Predictions and checkpoints are excluded by default.  The script never uses
 # rsync --delete and never overwrites a newer local file.
@@ -23,10 +23,10 @@
 #   TARGET=/home/zkyd/code/sacm-plus
 #   SEEDS="0 1 2 3"
 #   EXPECTED_DATASETS=20
-#   LEAN_ROOT=results/runs/sacm_stc_fixed3_lean
-#   FIXED3_ROOT=results/runs/sacm_stc_fixed3_800/eval
-#   SUMMARY_ROOT=results/ablations/sacm_stc_fixed3_lean
-#   LOG_PREFIX=sacm_stc_fixed3_lean_
+#   LEAN_ROOT=results/runs/sacm_gcd_fixed3_lean
+#   FIXED3_ROOT=results/runs/sacm_gcd_fixed3_800/eval
+#   SUMMARY_ROOT=results/ablations/sacm_gcd_fixed3_lean
+#   LOG_PREFIX=sacm_gcd_fixed3_lean_
 #   WITH_LOGS=1 WITH_PREDICTIONS=0 WITH_CHECKPOINTS=0
 #   REQUIRE_COMPLETE=1
 set -euo pipefail
@@ -37,10 +37,10 @@ SERVER="${SERVER:-zkyd@172.16.1.7}"
 TARGET="${TARGET:-/home/zkyd/code/sacm-plus}"
 SEEDS_STR="${SEEDS:-0 1 2 3}"
 EXPECTED_DATASETS="${EXPECTED_DATASETS:-20}"
-LEAN_ROOT="${LEAN_ROOT:-results/runs/sacm_stc_fixed3_lean}"
-FIXED3_ROOT="${FIXED3_ROOT:-results/runs/sacm_stc_fixed3_800/eval}"
-SUMMARY_ROOT="${SUMMARY_ROOT:-results/ablations/sacm_stc_fixed3_lean}"
-LOG_PREFIX="${LOG_PREFIX:-sacm_stc_fixed3_lean_}"
+LEAN_ROOT="${LEAN_ROOT:-results/runs/sacm_gcd_fixed3_lean}"
+FIXED3_ROOT="${FIXED3_ROOT:-results/runs/sacm_gcd_fixed3_800/eval}"
+SUMMARY_ROOT="${SUMMARY_ROOT:-results/ablations/sacm_gcd_fixed3_lean}"
+LOG_PREFIX="${LOG_PREFIX:-sacm_gcd_fixed3_lean_}"
 WITH_LOGS="${WITH_LOGS:-1}"
 WITH_PREDICTIONS="${WITH_PREDICTIONS:-0}"
 WITH_CHECKPOINTS="${WITH_CHECKPOINTS:-0}"
@@ -56,7 +56,7 @@ Usage:
 Options:
   --dry-run               show rsync transfers; do not write
   --seeds "0 1 2 3"       seed list (default: 0 1 2 3)
-  --with-logs             pull results/logs/sacm_stc_fixed3_lean_* (default)
+  --with-logs             pull results/logs/sacm_gcd_fixed3_lean_* (default)
   --no-logs               skip logs
   --with-predictions      also pull predictions/ (large)
   --with-checkpoints      also pull model weights (large)

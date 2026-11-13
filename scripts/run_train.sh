@@ -2,8 +2,8 @@
 # Train specified models/seeds through the unified registry.
 #
 # Usage:
-#   bash scripts/run_train.sh --model sacm_stc --seeds 0
-#   bash scripts/run_train.sh --model unet,sacm_stc --seeds 0 1 --gpus 2,3
+#   bash scripts/run_train.sh --model sacm_gcd --seeds 0
+#   bash scripts/run_train.sh --model unet,sacm_gcd --seeds 0 1 --gpus 2,3
 #   bash scripts/run_train.sh --model all --seeds all --gpus 0,1,2,3 --resume
 #   bash scripts/run_train.sh --model unet --seeds 0 --dry-run
 set -euo pipefail

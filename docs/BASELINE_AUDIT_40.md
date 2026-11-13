@@ -8,7 +8,7 @@
 > notes, not current result claims.
 
 Date: 2026-10-28 (fix pass updated 2026-10-29)
-Scope: all 40 runnable baselines in `configs/models/` (SACM-STC excluded).
+Scope: all 40 runnable baselines in `configs/models/` (SACM-GCD excluded).
 Method: read-only comparison of the local paper (`parsing/`), official code
 (`3rd/`), port (`src/baseline_zoo`), config, `UPSTREAM.md`, and tests.
 No training or GPU jobs were run for this audit.
@@ -171,7 +171,7 @@ These need a method/paper decision rather than a mechanical patch:
 
 - **Reporting key mismatch fixed**: `visualize_predictions.py` used
   `sam-med2d`/`sam-octa`/`sacm` instead of `sam_med2d`/`sam_octa`/
-  `sacm_official`, and lacked `sam2_unet`/`sam_vit_l_unet`/`sacm_stc`; labels
+  `sacm_official`, and lacked `sam2_unet`/`sam_vit_l_unet`/`sacm_gcd`; labels
   now cover every model config.
 
 

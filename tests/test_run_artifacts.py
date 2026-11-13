@@ -138,7 +138,7 @@ def test_eval_root_stays_in_checkpoint_variant_run(tmp_path):
     script = _load(
         'run_baseline_test_under_test',
         'scripts/pipeline/run_baseline_test.py')
-    canonical = tmp_path / 'sacm_stc' / 'all_dense' / 'seed_0'
+    canonical = tmp_path / 'sacm_gcd' / 'all_dense' / 'seed_0'
     # No --paper-root: canonical eval directory.
     assert script.resolve_eval_root(None, canonical, canonical) == (
         canonical / 'eval')

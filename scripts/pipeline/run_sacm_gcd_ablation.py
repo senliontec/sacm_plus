@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Config-driven runner for the SACM-STC scope/structure ablation.
+"""Config-driven runner for the SACM-GCD scope/structure ablation.
 
 The experiment matrix lives in
-``configs/ablations/sacm_stc_scope_structure.yaml``.  This runner only:
+``configs/ablations/sacm_gcd_scope_structure.yaml``.  This runner only:
 
 * validates the YAML and protocol seeds;
 * builds ``baseline_zoo.run_one``, ``run_baseline_test.py`` and
-  ``diagnose_sacm_stc_candidates.py`` commands from the arm definitions;
+  ``diagnose_sacm_gcd_candidates.py`` commands from the arm definitions;
 * distributes jobs round-robin over the requested GPUs;
 * skips completed stages unless ``--no-resume`` is passed;
 * invokes the paired-analysis script after an ``all``/``analyze`` stage.
@@ -23,8 +23,8 @@ Stages:
     analyze   paired contrast tables only
 
 Example (server):
-    bash scripts/run_sacm_stc_ablation.sh --stage audit --gpus 4,5,6,7
-    bash scripts/run_sacm_stc_ablation.sh --stage all --gpus 4,5,6,7
+    bash scripts/run_sacm_gcd_ablation.sh --stage audit --gpus 4,5,6,7
+    bash scripts/run_sacm_gcd_ablation.sh --stage all --gpus 4,5,6,7
 """
 
 from __future__ import annotations
@@ -43,7 +43,7 @@ import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CONFIG = (REPO_ROOT / 'configs' / 'ablations' /
-                  'sacm_stc_scope_structure.yaml')
+                  'sacm_gcd_scope_structure.yaml')
 sys.path.insert(0, str(REPO_ROOT / 'src'))
 
 from baseline_zoo.protocols import load_protocol  # noqa: E402
@@ -71,9 +71,9 @@ def load_config(path: Path) -> dict:
     for key in ('name', 'protocol', 'method', 'seeds', 'arms'):
         if key not in config:
             raise SystemExit(f'{path}: missing required field {key!r}')
-    if str(config['method']) != 'sacm_stc':
+    if str(config['method']) != 'sacm_gcd':
         raise SystemExit(
-            'this runner currently supports method=sacm_stc; '
+            'this runner currently supports method=sacm_gcd; '
             f'got {config["method"]!r}')
     if not isinstance(config['arms'], dict) or not config['arms']:
         raise SystemExit(f'{path}: arms must be a non-empty mapping')
@@ -173,7 +173,7 @@ def _train_command(config, arm: str, seed: int, gpu: str,
     wandb = config.get('wandb') or {}
     command = [
         sys.executable, '-m', 'baseline_zoo.run_one',
-        '--model', 'sacm_stc', '--stage', 'train',
+        '--model', 'sacm_gcd', '--stage', 'train',
         '--data-root', str(split_root),
         '--workdir', str(run_root),
         '--epochs', str(epochs),
@@ -191,7 +191,7 @@ def _train_command(config, arm: str, seed: int, gpu: str,
             '--wandb_entity', str(wandb.get('entity', 'buaazqk')),
             '--wandb_group', str(wandb.get('group', config['name'])),
             '--wandb_name', f'{config["name"]}-{arm}-seed{seed}',
-            '--wandb_tags', str(wandb.get('tags', 'sacm_stc,ablation')),
+            '--wandb_tags', str(wandb.get('tags', 'sacm_gcd,ablation')),
             '--wandb_job_type', 'train',
         ]
     else:
@@ -223,7 +223,7 @@ def _eval_command(config, arm: str, seed: int, gpu: str,
     command = [
         sys.executable,
         str(REPO_ROOT / 'scripts' / 'pipeline' / 'run_baseline_test.py'),
-        '--method', 'sacm_stc',
+        '--method', 'sacm_gcd',
         '--protocol', str(protocol_path),
         '--seed', str(seed),
         '--variant', arm,
@@ -259,7 +259,7 @@ def _diagnose_command(config, checkpoint: Path, protocol_path: Path,
     return [
         sys.executable,
         str(REPO_ROOT / 'scripts' / 'pipeline' /
-            'diagnose_sacm_stc_candidates.py'),
+            'diagnose_sacm_gcd_candidates.py'),
         '--checkpoint', str(checkpoint),
         '--protocol', str(protocol_path),
         '--seed', str(seed),
@@ -500,14 +500,14 @@ def build_jobs(config: dict, protocol, stage: str, arms: list[str],
     diag_limit = int(diagnostics.get('max_per_dataset', 20))
     diag_policy = str(diagnostics.get('empty_metric_policy', 'penalty'))
     diag_root = _resolve(diagnostics.get(
-        'output_root', 'results/ablations/sacm_stc/candidate_diagnostics'))
+        'output_root', 'results/ablations/sacm_gcd/candidate_diagnostics'))
 
     if stage == 'audit':
         audit = config.get('audit') or {}
         variant = str(audit.get('variant', 'all_dense'))
         checkpoint_name = str(audit.get('checkpoint_name', 'best_model.pth'))
         output_root = _resolve(audit.get(
-            'output_root', 'results/ablations/sacm_stc/candidate_audit'))
+            'output_root', 'results/ablations/sacm_gcd/candidate_audit'))
         audit_splits = list(audit.get('splits', diag_splits))
         audit_limit = int(audit.get('max_per_dataset', diag_limit))
         audit_policy = str(audit.get(
@@ -687,7 +687,7 @@ def main(argv: list[str] | None = None) -> int:
     if epochs <= 0:
         raise SystemExit('epochs must be positive')
     stamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    log_root = _resolve('results/logs/sacm_stc_ablation') / config['name']
+    log_root = _resolve('results/logs/sacm_gcd_ablation') / config['name']
 
     print(f'ablation: {config["name"]}')
     print(f'  config: {config_path}')
@@ -704,7 +704,7 @@ def main(argv: list[str] | None = None) -> int:
         command = [
             sys.executable,
             str(REPO_ROOT / 'scripts' / 'pipeline' /
-                'analyze_sacm_stc_ablation.py'),
+                'analyze_sacm_gcd_ablation.py'),
             '--config', str(config_path),
             '--arms', *arms,
             '--seeds', *[str(seed) for seed in seeds],
@@ -730,7 +730,7 @@ def main(argv: list[str] | None = None) -> int:
         command = [
             sys.executable,
             str(REPO_ROOT / 'scripts' / 'pipeline' /
-                'analyze_sacm_stc_ablation.py'),
+                'analyze_sacm_gcd_ablation.py'),
             '--config', str(config_path),
             '--arms', *arms,
             '--seeds', *[str(seed) for seed in seeds],

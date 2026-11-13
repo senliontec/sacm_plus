@@ -37,15 +37,15 @@ LOWER_BETTER = {'hd95'}
 ROLE_ORDER = {'Seen': 0, 'Unseen': 1, 'Novel': 2}
 LABELS = {
     ('sacm_official', 'default'): 'SACM (official)',
-    ('sacm_stc', 'all_dense'): 'SACM-STC',
-    ('sacm_stc', 'final_full'): 'SACM-STC (full)',
-    ('sacm_stc', 'final_sel_sel'): 'SACM-STC (selected/selected)',
-    ('sacm_stc', 'final_sel_all'): 'SACM-STC (selected dense, all topology)',
-    ('sacm_stc', 'final_all_sel'): 'SACM-STC (all dense, selected topology)',
-    ('sacm_stc', 'final_all_all_mean'):
-        'SACM-STC (all/all, uniform control)',
-    ('sacm_stc', 'final_sel_none'): 'SACM-STC (selected, no topology)',
-    ('sacm_stc', 'final_all_none'): 'SACM-STC (all dense, no topology)',
+    ('sacm_gcd', 'all_dense'): 'SACM-GCD',
+    ('sacm_gcd', 'final_full'): 'SACM-GCD (full)',
+    ('sacm_gcd', 'final_sel_sel'): 'SACM-GCD (selected/selected)',
+    ('sacm_gcd', 'final_sel_all'): 'SACM-GCD (selected dense, all topology)',
+    ('sacm_gcd', 'final_all_sel'): 'SACM-GCD (all dense, selected topology)',
+    ('sacm_gcd', 'final_all_all_mean'):
+        'SACM-GCD (all/all, uniform control)',
+    ('sacm_gcd', 'final_sel_none'): 'SACM-GCD (selected, no topology)',
+    ('sacm_gcd', 'final_all_none'): 'SACM-GCD (all dense, no topology)',
 }
 
 
@@ -77,12 +77,12 @@ def _parse_models(values):
             model, variant = value.split(':', 1)
         else:
             model = value
-            # Most rows use variant=default; SACM-STC has only its method
+            # Most rows use variant=default; SACM-GCD has only its method
             # variant all_dense and must never be treated as a baseline alias.
-            variant = 'all_dense' if model == 'sacm_stc' else 'default'
-        if model == 'sacm_stc' and variant == 'default':
+            variant = 'all_dense' if model == 'sacm_gcd' else 'default'
+        if model == 'sacm_gcd' and variant == 'default':
             raise SystemExit(
-                'SACM-STC has no default variant; use sacm_stc:all_dense')
+                'SACM-GCD has no default variant; use sacm_gcd:all_dense')
         parsed.append((model, variant))
     return parsed
 
@@ -356,7 +356,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--repo-root', type=Path, default=None)
     parser.add_argument('--models', nargs='+', required=True,
-                        help='model:variant specs, e.g. sacm_stc:all_dense '
+                        help='model:variant specs, e.g. sacm_gcd:all_dense '
                              'sacm_official:default')
     parser.add_argument('--seeds', nargs='+', type=int, default=[0, 1, 2, 3])
     parser.add_argument('--expected-datasets', type=int, default=20)

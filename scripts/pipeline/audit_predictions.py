@@ -28,9 +28,9 @@ Prediction layout is auto-detected from one of::
 Typical use::
 
     python scripts/pipeline/audit_predictions.py \
-        --pred-root results/runs/sacm_stc/all_dense/seed_0/eval \
+        --pred-root results/runs/sacm_gcd/all_dense/seed_0/eval \
         --protocol data/sacm_3shot_seed0/protocol_manifest.csv \
-        --out results/audit/sacm_stc_all_dense_seed0
+        --out results/audit/sacm_gcd_all_dense_seed0
 
 The script is read-only with respect to the evaluation tree.  It never
 resizes a prediction to the GT shape; size mismatches are reported.

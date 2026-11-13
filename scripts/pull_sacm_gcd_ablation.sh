@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One-click pull of the completed SACM-STC ablation arms.
+# One-click pull of the completed SACM-GCD ablation arms.
 #
 # It probes the server first and only pulls arms whose seeds each have a
 # complete 20-dataset eval/tables/all_metrics.csv and a completed training
@@ -10,13 +10,13 @@
 # model weights by default).
 #
 # Usage (local repo root):
-#   bash scripts/pull_sacm_stc_ablation.sh
-#   bash scripts/pull_sacm_stc_ablation.sh --analyze
-#   bash scripts/pull_sacm_stc_ablation.sh --dry-run
-#   bash scripts/pull_sacm_stc_ablation.sh --seeds "0 1 2 3"
-#   bash scripts/pull_sacm_stc_ablation.sh --arms "b0_selected_base ss_selected_dense_selected_structure"
-#   bash scripts/pull_sacm_stc_ablation.sh \
-#     --config configs/ablations/sacm_stc_scope_structure.yaml \
+#   bash scripts/pull_sacm_gcd_ablation.sh
+#   bash scripts/pull_sacm_gcd_ablation.sh --analyze
+#   bash scripts/pull_sacm_gcd_ablation.sh --dry-run
+#   bash scripts/pull_sacm_gcd_ablation.sh --seeds "0 1 2 3"
+#   bash scripts/pull_sacm_gcd_ablation.sh --arms "b0_selected_base ss_selected_dense_selected_structure"
+#   bash scripts/pull_sacm_gcd_ablation.sh \
+#     --config configs/ablations/sacm_gcd_scope_structure.yaml \
 #     --arms "b0_selected_base b3_all_dense_all_structure" --analyze
 #
 # Options:
@@ -33,7 +33,7 @@
 #   EXPECTED_EPOCHS=300
 #
 # After the pull, --analyze runs the selected config:
-#   bash scripts/run_sacm_stc_ablation.sh --stage analyze \
+#   bash scripts/run_sacm_gcd_ablation.sh --stage analyze \
 #     --config <config> --arms <completed arms> --seeds <seeds>
 # The checkpoint name, epoch budget and analysis root default to the config's
 # ``eval_checkpoint``, ``epochs`` and ``analysis.output_root``.
@@ -44,7 +44,7 @@ REPO="$(pwd)"
 SERVER="${SERVER:-zkyd@172.16.1.7}"
 TARGET="${TARGET:-/home/zkyd/code/sacm-plus}"
 EXPECTED_DATASETS="${EXPECTED_DATASETS:-20}"
-CONFIG="${CONFIG:-configs/ablations/sacm_stc_scope_structure.yaml}"
+CONFIG="${CONFIG:-configs/ablations/sacm_gcd_scope_structure.yaml}"
 CHECKPOINT_NAME="${CHECKPOINT_NAME:-}"
 EXPECTED_EPOCHS="${EXPECTED_EPOCHS:-}"
 if [ -z "${PYTHON:-}" ]; then
@@ -137,7 +137,7 @@ import sys
 import yaml
 config = yaml.safe_load(open(sys.argv[1])) or {}
 print((config.get('analysis') or {}).get(
-    'output_root', 'results/ablations/sacm_stc/analysis') or '')
+    'output_root', 'results/ablations/sacm_gcd/analysis') or '')
 PY
 )" || { echo "ERROR: cannot read analysis.output_root" >&2; exit 2; }
 if [ -z "$CHECKPOINT_NAME" ]; then
@@ -228,9 +228,9 @@ seeds="$SEEDS"
 for arm in $arms; do
   ok=1
   for seed in $seeds; do
-    csv="$target/results/runs/sacm_stc/$arm/seed_$seed/eval/tables/all_metrics.csv"
-    manifest="$target/results/runs/sacm_stc/$arm/seed_$seed/eval/run_manifest.json"
-    run_info="$target/results/runs/sacm_stc/$arm/seed_$seed/run_info.json"
+    csv="$target/results/runs/sacm_gcd/$arm/seed_$seed/eval/tables/all_metrics.csv"
+    manifest="$target/results/runs/sacm_gcd/$arm/seed_$seed/eval/run_manifest.json"
+    run_info="$target/results/runs/sacm_gcd/$arm/seed_$seed/run_info.json"
     if [ ! -f "$csv" ]; then
       echo "  ${arm} seed ${seed}: missing eval/tables/all_metrics.csv" >&2
       ok=0
@@ -278,7 +278,7 @@ done
 REMOTE
   )"; then
     echo "ERROR: probe over SSH failed (remote bash/awk error)." >&2
-    echo "Inspect: ssh $SERVER 'ls $TARGET/results/runs/sacm_stc'" >&2
+    echo "Inspect: ssh $SERVER 'ls $TARGET/results/runs/sacm_gcd'" >&2
     exit 3
   fi
   while IFS= read -r line; do
@@ -309,7 +309,7 @@ fi
 
 MODEL_SPECS=()
 for arm in "${COMPLETED[@]}"; do
-  MODEL_SPECS+=("sacm_stc:${arm}")
+  MODEL_SPECS+=("sacm_gcd:${arm}")
 done
 MODEL_LIST="${MODEL_SPECS[*]}"
 SEED_LIST="${SEEDS[*]}"
@@ -330,7 +330,7 @@ if [ "$ANALYZE" -eq 1 ]; then
   else
     echo ""
     echo "=== local paired analysis ==="
-    bash "$REPO/scripts/run_sacm_stc_ablation.sh" --stage analyze \
+    bash "$REPO/scripts/run_sacm_gcd_ablation.sh" --stage analyze \
       --config "$CONFIG" \
       --arms "${COMPLETED[@]}" --seeds "${SEEDS[@]}"
     echo ""

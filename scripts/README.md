@@ -11,7 +11,7 @@ bash scripts/run_paper.sh --model all --seeds all --gpus 0,1,2,3 --resume
 
 `--model all` resolves every `status: available` model in
 `configs/models/` (the 41 official/reference baselines plus the corrected
-`sacm_stc` variant, including the
+`sacm_gcd` variant, including the
 appendix `sam2_unet`, the prompt-free `sam_adapter`/`samed`/`topolora`/
 `convlora`/`c2p`/`a2sam`/`kprism`, the non-SAM `jtfn`/`dscnet`/`rsrm`/`dka`/
 `scrwkv`/`flowsdf`/`tpsegformer`/`s2mnet`/`csunet`/`liot`/`dconnnet`,
@@ -26,7 +26,7 @@ Subsets and short runs:
 
 ```bash
 bash scripts/run_paper.sh --model unet --seeds 0 --gpus 2
-bash scripts/run_paper.sh --model unet,sacm_stc --seeds 0 1 --gpus 2,3
+bash scripts/run_paper.sh --model unet,sacm_gcd --seeds 0 1 --gpus 2,3
 bash scripts/run_paper.sh --model all --seeds all --dry-run
 ```
 
@@ -39,9 +39,9 @@ fragmentation, holes/Betti errors, skeleton errors, and failure flags:
 
 ```bash
 python scripts/pipeline/audit_predictions.py \
-  --pred-root results/runs/sacm_stc/all_dense/seed_0/eval \
+  --pred-root results/runs/sacm_gcd/all_dense/seed_0/eval \
   --protocol data/sacm_3shot_seed0/protocol_manifest.csv \
-  --out results/audit/sacm_stc_all_dense_seed0
+  --out results/audit/sacm_gcd_all_dense_seed0
 ```
 
 It writes `per_image.csv`, `per_dataset.csv`, `macro_summary.csv`,
@@ -66,22 +66,21 @@ message. Use `WANDB_MODE=offline` for local W&B files or
 `WANDB_MODE=disabled` to turn it off. Direct `run_one` also defaults to
 W&B; pass `--use_wandb false` to disable it for a single run.
 
-## SACM-STC canonical result layout
+## SACM-GCD canonical result layout
 
-SACM-STC has one canonical main variant: `all_dense`.  The historical
-`sacm_stc/default/` tree was only an evaluation alias of the `all_dense`
+SACM-GCD has one canonical main variant: `all_dense`.  The historical
+`sacm_gcd/default/` tree was only an evaluation alias of the `all_dense`
 checkpoint and has been archived.  Do not pull or build a separate
-`sacm_stc:default` row.  A clean main rerun writes both training and eval
+`sacm_gcd:default` row.  A clean main rerun writes both training and eval
 tables under:
 
 ```text
-results/runs/sacm_stc/all_dense/seed_<s>/
+results/runs/sacm_gcd/all_dense/seed_<s>/
 ```
 
 Ablation runs use their own `<arm>` variants and diagnostics/analysis live
-under `results/ablations/sacm_stc/`.  Use
-`bash scripts/archive_sacm_stc_main.sh` to preserve and move an old
-`all_dense` + `default` pair before rerunning.
+under `results/ablations/sacm_gcd/`.  Historical runs produced before the
+rename are kept as immutable archives and are not reused by new runs.
 
 ## Reproduction runs
 
@@ -89,11 +88,11 @@ Train and evaluate the proposed method and the official baseline separately,
 then build Table 2:
 
 ```bash
-# SACM-STC, seeds 0-3, GPUs 0-3 (one seed per GPU)
-bash scripts/run_sacm_stc_seeds03_gpu0123.sh
+# canonical SACM-GCD, seeds 0-3, 200 epochs, fixed candidate-3 deployment
+bash scripts/run_sacm_gcd_expert_200.sh
 
-# SACM-STC, seeds 0-3, GPUs 4-7
-bash scripts/run_sacm_stc_seeds03_gpu4567.sh
+# historical 800-epoch fixed3 recipe (new runs write new output roots)
+bash scripts/run_sacm_gcd_fixed3_seeds03_800.sh
 
 # official SACM, seeds 0-3, GPUs 4-7
 bash scripts/run_sacm_official_seeds03_gpu4567.sh
@@ -107,7 +106,7 @@ protocol test datasets with Dice/IoU/clDice/HD95.  The recorder writes
 `SEEDS="..."`, `RESUME=1` (skip completed jobs), `SKIP_TRAIN=1`,
 `SKIP_EVAL=1`, `EXPECTED_DATASETS=20`.
 
-## SACM-STC fixed3 vs sacm_official (800 epochs, seeds 0-3)
+## SACM-GCD fixed3 vs sacm_official (800 epochs, seeds 0-3)
 
 fixed3 is an **inference-only deployment** of the SSH checkpoint:
 `head_select=fixed`, `deployment_head=3` (the recall/Tversky expert), and
@@ -118,12 +117,12 @@ One command trains the SSH base for seeds 0-3 at 800 epochs, derives the
 fixed3 checkpoint for every seed, evaluates fixed3 on all 20 protocol
 datasets, and writes a four-seed comparison against the already-completed
 `sacm_official` eval tables.  It does **not** train/evaluate `sacm_official`
-and does **not** train/evaluate `sacm_stc full`:
+and does **not** train/evaluate `sacm_gcd full`:
 
 ```bash
-bash scripts/run_sacm_stc_fixed3_seeds03_800.sh
-DRY_RUN=1 bash scripts/run_sacm_stc_fixed3_seeds03_800.sh   # print commands
-EVAL_GPUS=4,5,6,7 bash scripts/run_sacm_stc_fixed3_seeds03_800.sh
+bash scripts/run_sacm_gcd_fixed3_seeds03_800.sh
+DRY_RUN=1 bash scripts/run_sacm_gcd_fixed3_seeds03_800.sh   # print commands
+EVAL_GPUS=4,5,6,7 bash scripts/run_sacm_gcd_fixed3_seeds03_800.sh
 ```
 
 Default GPU placement: train on GPUs 0-3, then evaluate fixed3 on the same
@@ -140,11 +139,11 @@ results/runs/sacm_official/default/seed_0..3/eval/tables/macro_metrics.csv
 Key outputs:
 
 ```text
-results/runs/sacm_stc_ssh_full_ab/ssh/seed_<s>/best_model.pth
-results/runs/sacm_stc_ssh_full_ab/ssh/seed_<s>/best_model_fixed3_nofusion.pth
-results/runs/sacm_stc_fixed3_800/eval/seed_<s>/tables/all_metrics.csv
-results/ablations/sacm_stc_fixed3_800/summary.md
-results/ablations/sacm_stc_fixed3_800/summary.json
+results/runs/sacm_gcd_ssh_full_ab/ssh/seed_<s>/best_model.pth
+results/runs/sacm_gcd_ssh_full_ab/ssh/seed_<s>/best_model_fixed3_nofusion.pth
+results/runs/sacm_gcd_fixed3_800/eval/seed_<s>/tables/all_metrics.csv
+results/ablations/sacm_gcd_fixed3_800/summary.md
+results/ablations/sacm_gcd_fixed3_800/summary.json
 ```
 
 The helpers are `pipeline/make_fixed3_checkpoint.py` (derive the no-fusion
@@ -154,21 +153,21 @@ checkpoint), `pipeline/check_ssh_recipe.py` (before reusing a complete
 per-role/per-seed tables, per-dataset wins, paired deltas).  The run uses
 local data and the local SAM checkpoint; it never downloads weights.
 
-## SACM-STC scope/structure ablation
+## SACM-GCD scope/structure ablation
 
 The dense-scope × structure-scope factorial is configured in
-`configs/ablations/sacm_stc_scope_structure.yaml`; the runner contains no
+`configs/ablations/sacm_gcd_scope_structure.yaml`; the runner contains no
 arm names or model hyperparameters.  Audit the existing checkpoints first,
 then run the factorial:
 
 ```bash
-bash scripts/run_sacm_stc_ablation.sh --stage audit --gpus 4,5,6,7
-bash scripts/run_sacm_stc_ablation.sh --stage all --gpus 4,5,6,7
+bash scripts/run_sacm_gcd_ablation.sh --stage audit --gpus 4,5,6,7
+bash scripts/run_sacm_gcd_ablation.sh --stage all --gpus 4,5,6,7
 ```
 
 Ablation runs use distinct `<arm>` variants under
-`results/runs/sacm_stc/`; diagnostics/analysis live under
-`results/ablations/sacm_stc/`.  See
+`results/runs/sacm_gcd/`; diagnostics/analysis live under
+`results/ablations/sacm_gcd/`.  See
 [`../configs/ablations/README.md`](../configs/ablations/README.md) for the
 arm definitions, decision rules, outputs, and diagnostics.
 
@@ -181,7 +180,7 @@ build the SACM-style per-dataset table with all four metrics:
 bash scripts/build_paper_table.sh
 ```
 
-Default methods are `sacm_stc:all_dense sacm_official:default`, seeds `0 1 2 3`.
+Default methods are `sacm_gcd:all_dense sacm_official:default`, seeds `0 1 2 3`.
 It reads each run's canonical `eval/tables/all_metrics.csv` and falls back to
 `per_dataset_4metrics.csv` only when that is absent.  It aggregates mean/std
 across seeds per dataset and per Seen/Unseen/Novel/All role (macro computed
@@ -255,8 +254,8 @@ scripts/
 ├── run_eval.sh
 ├── run_report.sh
 ├── run_figures.sh
-├── run_sacm_stc_seeds03_gpu0123.sh    # reproduction: SACM-STC seeds 0-3 (GPUs 0-3)
-├── run_sacm_stc_seeds03_gpu4567.sh    # reproduction: SACM-STC seeds 0-3 (GPUs 4-7)
+├── run_sacm_gcd_seeds03_gpu0123.sh    # reproduction: SACM-GCD seeds 0-3 (GPUs 0-3)
+├── run_sacm_gcd_seeds03_gpu4567.sh    # reproduction: SACM-GCD seeds 0-3 (GPUs 4-7)
 ├── run_sacm_official_seeds03_gpu4567.sh  # reproduction: SACM seeds 0-3
 ├── build_paper_table.sh    # Table 2 from recorded runs
 ├── pipeline/               # evaluation helpers used by the configs

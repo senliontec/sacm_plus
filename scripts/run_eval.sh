@@ -3,7 +3,7 @@
 # This never trains; it requires the checkpoint declared by each model config.
 #
 # Usage:
-#   bash scripts/run_eval.sh --model sacm_stc --seeds 0
+#   bash scripts/run_eval.sh --model sacm_gcd --seeds 0
 #   bash scripts/run_eval.sh --model unet,sacm_official --seeds 0 1
 #   bash scripts/run_eval.sh --model all --seeds all --gpus 0,1,2,3 --resume
 #   bash scripts/run_eval.sh --model unet --seeds 0 --dry-run

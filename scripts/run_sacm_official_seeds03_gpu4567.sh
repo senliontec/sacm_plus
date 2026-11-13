@@ -9,7 +9,7 @@
 #   configs/models/sacm_official.yaml
 # It intentionally preserves the upstream defects (no SAM pixel normalization,
 # all-zero dense prompt, 60->800 stretched schedule).  It is the official-code
-# row, not the corrected SACM-STC variant.
+# row, not the corrected SACM-GCD variant.
 #
 # The unified runner assigns one seed per GPU.  Training must finish for all
 # seeds before evaluation starts.

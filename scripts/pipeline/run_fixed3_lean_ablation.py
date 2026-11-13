@@ -2,7 +2,7 @@
 """One-click runner for the lean fixed3 ablation.
 
 The script trains the three new arms in
-``configs/ablations/sacm_stc_fixed3_lean.yaml``, derives fixed H3 checkpoints
+``configs/ablations/sacm_gcd_fixed3_lean.yaml``, derives fixed H3 checkpoints
 for the two SSH arms, evaluates every row with the paper metric pipeline, and
 writes one compact ablation table.
 
@@ -19,21 +19,21 @@ per-dataset analysis is deliberately out of scope for this lean sheet; the
 full report remains ``results/reports/final_fixed3_report.html``.
 
 Usage:
-    bash scripts/run_sacm_stc_fixed3_lean.sh
-    bash scripts/run_sacm_stc_fixed3_lean.sh --dry-run
-    SKIP_TRAIN=1 bash scripts/run_sacm_stc_fixed3_lean.sh
-    EVAL_GPUS=0,1,2,3 bash scripts/run_sacm_stc_fixed3_lean.sh
+    bash scripts/run_sacm_gcd_fixed3_lean.sh
+    bash scripts/run_sacm_gcd_fixed3_lean.sh --dry-run
+    SKIP_TRAIN=1 bash scripts/run_sacm_gcd_fixed3_lean.sh
+    EVAL_GPUS=0,1,2,3 bash scripts/run_sacm_gcd_fixed3_lean.sh
 
 Environment overrides:
     SEEDS="0 1 2 3"       EPOCHS=800
     TRAIN_GPUS=0,1,2,3,4,5,6,7
     EVAL_GPUS=0,1,2,3,4,5,6,7
-    CONFIG=configs/ablations/sacm_stc_fixed3_lean.yaml
-    LEAN_ROOT=results/runs/sacm_stc_fixed3_lean  # must match config
-    SSH_ROOT=results/runs/sacm_stc_ssh_full_ab/ssh
-    FIXED3_ROOT=results/runs/sacm_stc_fixed3_800/eval
+    CONFIG=configs/ablations/sacm_gcd_fixed3_lean.yaml
+    LEAN_ROOT=results/runs/sacm_gcd_fixed3_lean  # must match config
+    SSH_ROOT=results/runs/sacm_gcd_ssh_full_ab/ssh
+    FIXED3_ROOT=results/runs/sacm_gcd_fixed3_800/eval
     OFFICIAL_ROOT=results/runs/sacm_official/default
-    SUMMARY_ROOT=results/ablations/sacm_stc_fixed3_lean
+    SUMMARY_ROOT=results/ablations/sacm_gcd_fixed3_lean
     SKIP_TRAIN=0 SKIP_EVAL=0 DRY_RUN=0 RESUME=1
     FORCE_DERIVE=0 FORCE_EVAL=0
     EXPECTED_DATASETS=20
@@ -59,7 +59,7 @@ from pathlib import Path
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_CONFIG = REPO_ROOT / 'configs' / 'ablations' / 'sacm_stc_fixed3_lean.yaml'
+DEFAULT_CONFIG = REPO_ROOT / 'configs' / 'ablations' / 'sacm_gcd_fixed3_lean.yaml'
 METRICS = [
     ('dice', 'Dice', True),
     ('iou', 'IoU', True),
@@ -212,7 +212,7 @@ def _eval_command(job: EvalJob, gpu: str, seed: int,
     cmd = [
         sys.executable,
         str(REPO_ROOT / 'scripts' / 'pipeline' / 'run_baseline_test.py'),
-        '--method', 'sacm_stc',
+        '--method', 'sacm_gcd',
         '--protocol', str(
             REPO_ROOT / 'data' / f'sacm_3shot_seed{seed}' /
             'protocol_manifest.csv'),
@@ -225,9 +225,9 @@ def _eval_command(job: EvalJob, gpu: str, seed: int,
         '--use_wandb', 'true',
         '--wandb_project', wandb_project,
         '--wandb_entity', wandb_entity,
-        '--wandb_group', 'sacm_stc_fixed3_lean_eval',
-        '--wandb_name', f'paper_metrics-sacm_stc-{job.arm}-seed{seed}',
-        '--wandb_tags', 'sacm_stc,ablation,fixed3,lean,eval',
+        '--wandb_group', 'sacm_gcd_fixed3_lean_eval',
+        '--wandb_name', f'paper_metrics-sacm_gcd-{job.arm}-seed{seed}',
+        '--wandb_tags', 'sacm_gcd,ablation,fixed3,lean,eval',
         '--metrics', 'dice,iou,cldice,hd95',
         '--skip-visualize',
     ]
@@ -513,7 +513,7 @@ def main(argv: list[str] | None = None) -> int:
     eval_gpus = _parse_gpus(args.eval_gpus)
     expected = int(os.environ.get('EXPECTED_DATASETS', '20'))
     config_lean_root = _resolve(
-        config.get('output_root', 'results/runs/sacm_stc_fixed3_lean'))
+        config.get('output_root', 'results/runs/sacm_gcd_fixed3_lean'))
     lean_override = os.environ.get('LEAN_ROOT')
     if lean_override and _resolve(lean_override) != config_lean_root:
         raise SystemExit(
@@ -521,16 +521,16 @@ def main(argv: list[str] | None = None) -> int:
             f'{_resolve(lean_override)} != {config_lean_root}')
     lean_root = config_lean_root
     ssh_root = _resolve(os.environ.get(
-        'SSH_ROOT', 'results/runs/sacm_stc_ssh_full_ab/ssh'))
+        'SSH_ROOT', 'results/runs/sacm_gcd_ssh_full_ab/ssh'))
     fixed3_root = _resolve(os.environ.get(
-        'FIXED3_ROOT', 'results/runs/sacm_stc_fixed3_800/eval'))
+        'FIXED3_ROOT', 'results/runs/sacm_gcd_fixed3_800/eval'))
     official_root = _resolve(os.environ.get(
         'OFFICIAL_ROOT', 'results/runs/sacm_official/default'))
     summary_root = _resolve(os.environ.get(
-        'SUMMARY_ROOT', 'results/ablations/sacm_stc_fixed3_lean'))
+        'SUMMARY_ROOT', 'results/ablations/sacm_gcd_fixed3_lean'))
     stamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     log_dir = _resolve(os.environ.get(
-        'LOG_DIR', f'results/logs/sacm_stc_fixed3_lean_{stamp}'))
+        'LOG_DIR', f'results/logs/sacm_gcd_fixed3_lean_{stamp}'))
     output_root = summary_root
     wandb_project = os.environ.get(
         'WANDB_PROJECT', str((config.get('wandb') or {}).get('project',
@@ -582,7 +582,7 @@ def main(argv: list[str] | None = None) -> int:
     if not args.skip_train:
         train_cmd = [
             'bash', str(REPO_ROOT / 'scripts' /
-                        'run_sacm_stc_ablation.sh'),
+                        'run_sacm_gcd_ablation.sh'),
             '--config', str(config_path),
             '--stage', 'train',
             '--epochs', str(args.epochs),

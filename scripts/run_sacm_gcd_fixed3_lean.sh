@@ -3,15 +3,15 @@
 #   train nofusion / native_control / notopo (4 seeds, 800 epochs)
 #   derive fixed H3 for nofusion + notopo
 #   evaluate fixed3 / gating+fusion / nofusion / native_control / notopo
-#   write results/ablations/sacm_stc_fixed3_lean/summary.{csv,md,html}
+#   write results/ablations/sacm_gcd_fixed3_lean/summary.{csv,md,html}
 #
 # Usage (server, repo root):
-#   bash scripts/run_sacm_stc_fixed3_lean.sh
-#   bash scripts/run_sacm_stc_fixed3_lean.sh --dry-run
-#   SKIP_TRAIN=1 bash scripts/run_sacm_stc_fixed3_lean.sh
-#   TRAIN_GPUS=0,1,2,3 EVAL_GPUS=4,5,6,7 bash scripts/run_sacm_stc_fixed3_lean.sh
+#   bash scripts/run_sacm_gcd_fixed3_lean.sh
+#   bash scripts/run_sacm_gcd_fixed3_lean.sh --dry-run
+#   SKIP_TRAIN=1 bash scripts/run_sacm_gcd_fixed3_lean.sh
+#   TRAIN_GPUS=0,1,2,3 EVAL_GPUS=4,5,6,7 bash scripts/run_sacm_gcd_fixed3_lean.sh
 #
-# The Python driver reads configs/ablations/sacm_stc_fixed3_lean.yaml and
+# The Python driver reads configs/ablations/sacm_gcd_fixed3_lean.yaml and
 # uses the existing training/eval pipeline.  It does not modify model code.
 set -euo pipefail
 cd "$(dirname "$0")/.." || exit 1

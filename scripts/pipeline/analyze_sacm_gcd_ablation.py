@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""Paired analysis for the SACM-STC B0-B3 ablation.
+"""Paired analysis for the SACM-GCD B0-B3 ablation.
 
 Reads the canonical per-run tables written by ``run_baseline_test.py``:
 
-    results/runs/sacm_stc/<arm>/seed_<s>/eval/tables/macro_metrics.csv
-    results/runs/sacm_stc/<arm>/seed_<s>/eval/tables/all_metrics.csv
+    results/runs/sacm_gcd/<arm>/seed_<s>/eval/tables/macro_metrics.csv
+    results/runs/sacm_gcd/<arm>/seed_<s>/eval/tables/all_metrics.csv
 
 and, when present, the candidate diagnostics:
 
-    results/ablations/sacm_stc/candidate_diagnostics/<arm>/seed_<s>/
+    results/ablations/sacm_gcd/candidate_diagnostics/<arm>/seed_<s>/
         selection_by_role.csv
 
 The output is descriptive and paired by seed.  It never trains, selects
@@ -39,7 +39,7 @@ import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CONFIG = (REPO_ROOT / 'configs' / 'ablations' /
-                  'sacm_stc_scope_structure.yaml')
+                  'sacm_gcd_scope_structure.yaml')
 METRICS = ('dice', 'iou', 'cldice', 'hd95')
 ROLES = ('All', 'Seen', 'Unseen', 'Novel')
 DISPLAY = {'dice': 'Dice', 'iou': 'IoU', 'cldice': 'clDice', 'hd95': 'HD95'}
@@ -212,7 +212,7 @@ def _load_dataset(config, arm: str, seed: int) -> dict | None:
 def _load_candidate_role(config, arm: str, seed: int) -> dict | None:
     diagnostics = config.get('diagnostics') or {}
     root = _resolve(diagnostics.get(
-        'output_root', 'results/ablations/sacm_stc/candidate_diagnostics'))
+        'output_root', 'results/ablations/sacm_gcd/candidate_diagnostics'))
     path = root / arm / f'seed_{seed}' / 'selection_by_role.csv'
     if not path.is_file():
         return None
@@ -528,7 +528,7 @@ def main(argv: list[str] | None = None) -> int:
     arms = list(dict.fromkeys(arms + [
         arm for arm in required if arm in config['arms']]))
     output_root = _resolve(analysis.get(
-        'output_root', 'results/ablations/sacm_stc/analysis'))
+        'output_root', 'results/ablations/sacm_gcd/analysis'))
     samples = int(analysis.get('bootstrap_samples', 2000))
     bootstrap_seed = int(analysis.get('seed', 20261109))
 

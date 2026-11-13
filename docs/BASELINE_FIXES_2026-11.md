@@ -51,7 +51,7 @@ be applied to existing checkpoints.
 | LIOT | Default `--liot-eval-mode tile` uses 128×128 patches with averaging (stride 64 for 20-dataset throughput; `--liot-eval-stride 8` is release-exact). `whole` restores the old whole-image forward. | No (prediction-only) |
 | FlowSDF | Default `--flowsdf-val-mode tile` uses native tiled SDF validation with stride 128 so checkpoint selection matches test geometry; `whole` keeps the fast 128 resize. | Retrain to change the selected checkpoint; existing predictions can be re-evaluated |
 | KnowSAM | Default `--unlabeled-balance domain` round-robins the source domains instead of filling the 384-image pool with CORN/CRÉMI first; `source-order` restores the old policy. | Yes |
-| SACM-STC fairness | `MATCH_BASELINE_GEOMETRY=1` on `eval_sacm_stc_20.sh` forces square resize and disables the empty guard, matching the baseline operating point for an ablation. | No |
+| SACM-GCD fairness | `MATCH_BASELINE_GEOMETRY=1` on `eval_sacm_gcd_20.sh` forces square resize and disables the empty guard, matching the baseline operating point for an ablation. | No |
 | Resource budget | `run_config` now records `samples_per_epoch`, `batches_per_epoch`, `approx_optimizer_steps_per_epoch` and `approx_total_optimizer_steps`. | No |
 
 ## Remaining documented limitations
@@ -60,7 +60,7 @@ These are protocol/fidelity limitations, not silent bugs:
 
 - SACM official preserves the upstream lack of SAM normalization, zero dense
   prompt, and stretched 60→800 schedule.  It is an official-code row, not a
-  strong method baseline.  SACM-STC fixes correctness but also adds all-head
+  strong method baseline.  SACM-GCD fixes correctness but also adds all-head
   supervision, deep supervision and IoU-head selection; it is not a pure bug
   fix.
 - Support-based methods use own-domain train shots for Seen and a donor for

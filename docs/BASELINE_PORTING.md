@@ -78,7 +78,7 @@ prints them at the start of training and stores them in every checkpoint.
 | SegDINO | official DPT decoder, 256/ImageNet, BCEWithLogits, AdamW 1e-4/1e-4, 50 epochs, batch 4, no augmentation | timm DINOv3 instead of local hub repo; README/paper frozen backbone by default (`--segdino-train-backbone` reproduces released full-finetune); val Dice; GT-size export |
 | SegDINO v2 | official TPA/SAD decoder: four token projections, 8/4/2/1 bilinear branches, residual depthwise refinement, top-down fusion; 256/ImageNet, BCEWithLogits, AdamW 1e-4/1e-4, batch 4, 50 epochs | paper frozen DINOv3 encoder by default (released code trains all; `--segdino-v2-train-backbone`); released augmentation/loss (paper says no aug/CE); timm DINOv3-S loaded from local weights; 800 shared epochs and val-Dice selection; GT-size export |
 | SACM (official) | zero-prompt ViT-L + adapters, AdamW 3e-4/0.01, cosine 1e-6, BCE 0.7+Dice 0.3, 60 epochs, grad clip 1.0 | val Dice; GT-size export; activation checkpointing |
-| SACM-STC (`sacm_stc`) | official zero-prompt ViT-L + adapters with correctness fixes: SAM input normalization, `no_mask_embed`, per-block Adapter-E LN, Eq.6 softmax-over-FFN fusion weights, Eq.10 Stage-2 descriptor reorder, all-head Stage-1/Stage-2 + per-head IoU supervision, IoU-head selection, AdamW 3e-4 excluding norm/bias from decay, cosine 1e-6, BCE 0.7+Dice 0.3, grad clip 1.0 | separate analysis variant, **not** the main-table SACM; 1024×1024 resize, no augmentation and the 800 shared epochs are preserved; GT-size export; prediction-mode skips the base checkpoint; full list in `src/baseline_zoo/models/sacm_stc/UPSTREAM.md` |
+| SACM-GCD (`sacm_gcd`) | official zero-prompt ViT-L + adapters with correctness fixes: SAM input normalization, `no_mask_embed`, per-block Adapter-E LN, Eq.6 softmax-over-FFN fusion weights, Eq.10 Stage-2 descriptor reorder, all-head Stage-1/Stage-2 + per-head IoU supervision, IoU-head selection, AdamW 3e-4 excluding norm/bias from decay, cosine 1e-6, BCE 0.7+Dice 0.3, grad clip 1.0 | separate analysis variant, **not** the main-table SACM; 1024×1024 resize, no augmentation and the 800 shared epochs are preserved; GT-size export; prediction-mode skips the base checkpoint; full list in `src/baseline_zoo/models/sacm_gcd/UPSTREAM.md` |
 
 The shared 3-shot project budget in `configs/models/` is now **800 epochs**
 for most trainable baselines, including methods whose upstream recipe used
@@ -87,7 +87,7 @@ upstream recipe values where they describe official logic. Exceptions:
 CS-Net (`cs2net`) and JTFN retain their official **1000 epochs**; KnowSAM
 uses 50,000 iterations because its `--epochs` flag is an iteration budget
 in the official semi-supervised loop; training-free C2P, Matcher, PerSAM,
-and RSRM keep 0. SACM-STC is the proposed method, not a baseline, and is
+and RSRM keep 0. SACM-GCD is the proposed method, not a baseline, and is
 unchanged.
 
 `sam_adapter` is a prompt-free main-table baseline: the official FFT

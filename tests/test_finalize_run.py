@@ -151,5 +151,5 @@ def test_explicit_missing_checkpoint_fails(tmp_path):
 
 def test_canonical_seed_spelling(tmp_path):
     path = finalize_run._run_root(
-        'sacm_stc', 'all_dense', 0, root=tmp_path)
+        'sacm_gcd', 'all_dense', 0, root=tmp_path)
     assert path.name == 'seed_0'
