@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Evaluate SACM-GCD checkpoints on the validation split with a chosen head rule.
+"""Evaluate DCD checkpoints on the validation split with a chosen head rule.
 
 This is a diagnostic for the multi-candidate experiments.  It supports the
 non-typed Stage-2 path (four native dense candidates) with:
@@ -14,7 +14,7 @@ The typed Stage-2 path is evaluated through its configured deployment output
 (``typed_output``); a head-select override is ignored there.
 
 Usage:
-  PYTHONPATH=src python scripts/eval_sacm_gcd_val.py \
+  PYTHONPATH=src python scripts/eval_dcd_val.py \
     --checkpoint results/diagnostics/x/best_model.pth \
     --data-root data/sacm_3shot_seed0 --head-select mean --device cuda:0
 """
@@ -102,7 +102,7 @@ def main():
     args = parser.parse_args()
 
     device = torch.device(args.device)
-    adapter = load_adapter('sacm_gcd')
+    adapter = load_adapter('dcd')
     samples = load_split_samples(Path(args.data_root), args.split)
     print(f'val samples: {len(samples)} '
           f'datasets={sorted({s.dataset for s in samples})}', flush=True)

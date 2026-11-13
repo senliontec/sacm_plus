@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One-click canonical SACM-GCD expert recipe at 200 epochs.
+# One-click canonical DCD expert recipe at 200 epochs.
 #
 #   train specialised heads + linear fusion (4 seeds)
 #   derive the fixed-candidate-3 deployment checkpoint
@@ -7,15 +7,15 @@
 #   summarize against the existing official SACM tables
 #
 # Usage (server, repo root, preferably under tmux):
-#   bash scripts/run_sacm_gcd_expert_200.sh
-#   DRY_RUN=1 bash scripts/run_sacm_gcd_expert_200.sh
-#   SEEDS="0" bash scripts/run_sacm_gcd_expert_200.sh
+#   bash scripts/run_dcd_expert_200.sh
+#   DRY_RUN=1 bash scripts/run_dcd_expert_200.sh
+#   SEEDS="0" bash scripts/run_dcd_expert_200.sh
 #
 # Env overrides:
 #   SEEDS="0 1 2 3"       EPOCHS=200
 #   TRAIN_GPUS=0,1,2,3    EVAL_GPUS=0,1,2,3
-#   OUT_ROOT=results/runs/sacm_gcd_expert_200
-#   SUMMARY_ROOT=results/ablations/sacm_gcd_expert_200
+#   OUT_ROOT=results/runs/dcd_expert_200
+#   SUMMARY_ROOT=results/ablations/dcd_expert_200
 #   OFFICIAL_ROOT=results/runs/sacm_official/default
 #   EXPECTED_DATASETS=20  MAX_USED_MIB=2000  MIN_FREE_GB=30
 #   SKIP_TRAIN=0 SKIP_EVAL=0 RESUME=1 FORCE_DERIVE=0 FORCE_EVAL=0
@@ -29,15 +29,15 @@ SEEDS_STR="${SEEDS_STR//,/ }"
 EPOCHS="${EPOCHS:-200}"
 TRAIN_GPUS="${TRAIN_GPUS:-0,1,2,3}"
 EVAL_GPUS="${EVAL_GPUS:-0,1,2,3}"
-OUT_ROOT="${OUT_ROOT:-results/runs/sacm_gcd_expert_200}"
-SUMMARY_ROOT="${SUMMARY_ROOT:-results/ablations/sacm_gcd_expert_200}"
+OUT_ROOT="${OUT_ROOT:-results/runs/dcd_expert_200}"
+SUMMARY_ROOT="${SUMMARY_ROOT:-results/ablations/dcd_expert_200}"
 OFFICIAL_ROOT="${OFFICIAL_ROOT:-results/runs/sacm_official/default}"
 EXPECTED_DATASETS="${EXPECTED_DATASETS:-20}"
 MAX_USED_MIB="${MAX_USED_MIB:-2000}"
 MIN_FREE_GB="${MIN_FREE_GB:-30}"
 WANDB_PROJECT="${WANDB_PROJECT:-sacm}"
 WANDB_ENTITY="${WANDB_ENTITY:-buaazqk}"
-WANDB_GROUP="${WANDB_GROUP:-sacm_gcd_expert_200}"
+WANDB_GROUP="${WANDB_GROUP:-dcd_expert_200}"
 
 as_bool() {
   case "${1,,}" in
@@ -125,7 +125,7 @@ if [ "$ALLOW_LOW_DISK" != "1" ] && [ -n "$FREE_GB" ] \
 fi
 
 STAMP="$(date +%Y%m%d_%H%M%S)"
-LOG_ROOT="${LOG_ROOT:-$REPO/results/logs/sacm_gcd_expert_200_$STAMP}"
+LOG_ROOT="${LOG_ROOT:-$REPO/results/logs/dcd_expert_200_$STAMP}"
 mkdir -p "$LOG_ROOT" "$OUT_ROOT" "$SUMMARY_ROOT"
 LOCK_FILE="$OUT_ROOT/.run.lock"
 exec 9>"$LOCK_FILE"
@@ -163,7 +163,7 @@ if [ "$DRY_RUN" = 0 ] \
 fi
 
 COMMON=(
-  --model sacm_gcd
+  --model dcd
   --stage train
   --epochs "$EPOCHS"
   --sam-checkpoint checkpoints/sam_vit_l_0b3195.pth
@@ -183,7 +183,7 @@ COMMON=(
 )
 
 echo "============================================================"
-echo " SACM-GCD canonical expert recipe"
+echo " DCD canonical expert recipe"
 echo " seeds: ${SEED_ARGS[*]}  epochs: $EPOCHS"
 echo " train gpus: ${TRAIN_GPU_ARR[*]}  eval gpus: ${EVAL_GPU_ARR[*]}"
 echo " run root:   $OUT_ROOT"
@@ -222,8 +222,8 @@ train_one() {
     "${COMMON[@]}" \
     --data-root "data/sacm_3shot_seed$seed" \
     --workdir "$root" --seed "$seed" --device "cuda:$gpu" \
-    --wandb_name "sacm_gcd_expert_200_seed$seed" \
-    --wandb_tags "sacm_gcd,expert,200" \
+    --wandb_name "dcd_expert_200_seed$seed" \
+    --wandb_tags "dcd,expert,200" \
     "${extra[@]}" >>"$log" 2>&1
   echo "[train:$seed] done"
 }
@@ -268,7 +268,7 @@ eval_one() {
   local force=()
   [ "$FORCE_EVAL" = 1 ] && force+=(--no-resume)
   "$PYTHON" scripts/pipeline/run_baseline_test.py \
-    --method sacm_gcd \
+    --method dcd \
     --protocol "data/sacm_3shot_seed$seed/protocol_manifest.csv" \
     --seed "$seed" --variant expert_fixed200 \
     --checkpoint "$ckpt" --sam-checkpoint checkpoints/sam_vit_l_0b3195.pth \
@@ -278,7 +278,7 @@ eval_one() {
     --use_wandb true --wandb_project "$WANDB_PROJECT" \
     --wandb_entity "$WANDB_ENTITY" --wandb_group "${WANDB_GROUP}_eval" \
     --wandb_name "expert_fixed200_seed$seed" \
-    --wandb_tags "sacm_gcd,expert,200,eval" \
+    --wandb_tags "dcd,expert,200,eval" \
     --allow-stale-checkpoint "${force[@]}" \
     >>"$log" 2>&1
   echo "[eval:$seed] done"

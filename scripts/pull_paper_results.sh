@@ -5,8 +5,8 @@
 #   unet cs2net cwsam knowsam maskvsc nnwnet
 #   sacm_official sam_med2d sam_octa segdino
 # plus the special roots:
-#   sacm_gcd_ssh_full_ab/ssh
-#   sacm_gcd_fixed3_800/eval
+#   dcd_ssh_full_ab/ssh
+#   dcd_fixed3_800/eval
 #
 # The generic scripts/pull_results.sh handles the normal
 # <model>/<variant>/seed_<s>/eval/tables/all_metrics.csv layout.  fixed3 uses
@@ -24,7 +24,7 @@
 #   SEEDS="0 1 2 3"
 #   EXPECTED_DATASETS=20
 #   BASELINES="unet:default ... segdino:default"
-#   EXTRA_MODEL=sacm_gcd_ssh_full_ab:ssh
+#   EXTRA_MODEL=dcd_ssh_full_ab:ssh
 #   PULL_EXTRA=1 PULL_FIXED3=1 PULL_SUMMARY=1
 #   WITH_PREDICTIONS=0   pull prediction PNGs too (very large)
 #   REQUIRE_COMPLETE=0   exit 1 if any selected eval is missing/partial
@@ -38,7 +38,7 @@ TARGET="${TARGET:-/home/zkyd/code/sacm-plus}"
 SEEDS_STR="${SEEDS:-0 1 2 3}"
 EXPECTED_DATASETS="${EXPECTED_DATASETS:-20}"
 BASELINES="${BASELINES:-unet:default cs2net:default cwsam:default knowsam:default maskvsc:default nnwnet:default sacm_official:default sam_med2d:default sam_octa:default segdino:default}"
-EXTRA_MODEL="${EXTRA_MODEL:-sacm_gcd_ssh_full_ab:ssh}"
+EXTRA_MODEL="${EXTRA_MODEL:-dcd_ssh_full_ab:ssh}"
 PULL_EXTRA="${PULL_EXTRA:-1}"
 PULL_FIXED3="${PULL_FIXED3:-1}"
 PULL_SUMMARY="${PULL_SUMMARY:-1}"
@@ -142,8 +142,8 @@ fi
 # 2. fixed3 uses a special eval/seed_<s> layout, not model/variant/seed.
 # ---------------------------------------------------------------------------
 if [ "$PULL_FIXED3" = 1 ]; then
-  remote_fixed3="$TARGET/results/runs/sacm_gcd_fixed3_800"
-  local_fixed3="$REPO/results/runs/sacm_gcd_fixed3_800"
+  remote_fixed3="$TARGET/results/runs/dcd_fixed3_800"
+  local_fixed3="$REPO/results/runs/dcd_fixed3_800"
   if ssh "${SSH_OPTS[@]}" "$SERVER" "test -d '$remote_fixed3'"; then
     echo "[2/3] pulling fixed3 eval/seed_<s> tables"
     mkdir -p "$local_fixed3"
@@ -171,8 +171,8 @@ fi
 # 3. Optional fixed3 vs official summary (small, read-only analysis).
 # ---------------------------------------------------------------------------
 if [ "$PULL_SUMMARY" = 1 ]; then
-  remote_summary="$TARGET/results/ablations/sacm_gcd_fixed3_800"
-  local_summary="$REPO/results/ablations/sacm_gcd_fixed3_800"
+  remote_summary="$TARGET/results/ablations/dcd_fixed3_800"
+  local_summary="$REPO/results/ablations/dcd_fixed3_800"
   if ssh "${SSH_OPTS[@]}" "$SERVER" "test -d '$remote_summary'"; then
     echo "[3/3] pulling fixed3 summary"
     mkdir -p "$local_summary"
@@ -216,7 +216,7 @@ specs = sys.argv[4].split()
 pull_fixed3 = sys.argv[5] == '1'
 
 if pull_fixed3:
-    specs = specs + ['sacm_gcd_fixed3_800:fixed3']
+    specs = specs + ['dcd_fixed3_800:fixed3']
 
 
 def rows_in(path):
@@ -233,7 +233,7 @@ for spec in specs:
     else:
         model, variant = spec, 'default'
     for seed in seeds:
-        if model == 'sacm_gcd_fixed3_800':
+        if model == 'dcd_fixed3_800':
             csv_path = (repo / 'results' / 'runs' / model / 'eval'
                         / f'seed_{seed}' / 'tables' / 'all_metrics.csv')
             pred_dir = (repo / 'results' / 'runs' / model
@@ -275,6 +275,6 @@ fi
 echo "============================================================"
 echo " Done."
 echo " local runs:      $REPO/results/runs"
-echo " fixed3 summary:  $REPO/results/ablations/sacm_gcd_fixed3_800"
-echo " fixed3 eval:     $REPO/results/runs/sacm_gcd_fixed3_800/eval/seed_*/tables/"
+echo " fixed3 summary:  $REPO/results/ablations/dcd_fixed3_800"
+echo " fixed3 eval:     $REPO/results/runs/dcd_fixed3_800/eval/seed_*/tables/"
 echo "============================================================"

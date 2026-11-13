@@ -71,13 +71,13 @@ def _verify_source(payload: dict, path: Path,
                    allow_native: bool = False) -> dict:
     adapter = _adapter_config(payload)
     stored_adapter = payload.get('adapter')
-    if stored_adapter and str(stored_adapter) != 'sacm_gcd':
+    if stored_adapter and str(stored_adapter) != 'dcd':
         raise SystemExit(
-            f'{path}: expected adapter=sacm_gcd, got {stored_adapter!r}')
+            f'{path}: expected adapter=dcd, got {stored_adapter!r}')
     method = payload.get('config', {}).get('method')
-    if method and str(method) != 'sacm_gcd':
+    if method and str(method) != 'dcd':
         raise SystemExit(
-            f'{path}: expected method=sacm_gcd, got {method!r}')
+            f'{path}: expected method=dcd, got {method!r}')
     specialized = int(adapter.get('specialized_heads', 0) or 0)
     if specialized != 1:
         if not (allow_native and specialized == 0):

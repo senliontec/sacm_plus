@@ -49,7 +49,7 @@ PORTED = set(available_adapters())
 # carries the unified split-hash field.
 CUSTOM_CHECKPOINTS = {'nnunet2d', 'nnwnet', 'knowsam'}
 SAM_CHECKPOINT_METHODS = {
-    'cwsam', 'sacm_official', 'sacm_gcd', 'sam_adapter', 'sam_med2d',
+    'cwsam', 'sacm_official', 'dcd', 'sam_adapter', 'sam_med2d',
     'sam_octa', 'sam_vit_l_unet', 'ucs'}
 
 
@@ -456,9 +456,9 @@ def main():
         args.data_root = args.protocol.parent
     args.variant = resolve_variant(
         args.method, args.checkpoint, args.variant)
-    if args.method == 'sacm_gcd' and args.variant == 'default':
+    if args.method == 'dcd' and args.variant == 'default':
         raise SystemExit(
-            'SACM-GCD has one canonical main variant: all_dense. '
+            'DCD has one canonical main variant: all_dense. '
             'The historical default/ tree was an eval alias and is archived; '
             'pass --variant all_dense or use the current run root.')
     canonical_run = run_root(args.method, args.variant, args.seed)

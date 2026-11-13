@@ -12,7 +12,7 @@
 - **未收录** 表示 `parsing/` 中没有对应论文目录；不是链接失效。
 - 同一篇论文在 `parsing/` 中可能存在大小写不同的重复目录，表中列主目录，并在备注中标出重复项。
 - 当前覆盖：42 个 adapter（41 个官方/参考 baseline + 1 个项目变体
-  SACM-GCD）中，19 个在 `parsing/` 有论文目录，其余标记为“未收录”。
+  DCD）中，19 个在 `parsing/` 有论文目录，其余标记为“未收录”。
 
 ## Baseline ↔ 3rd 代码 ↔ parsing 论文
 
@@ -49,8 +49,8 @@
 | `sam_adapter` | SAM-Adapter | `3rd/SAM-Adapter-PyTorch` | `parsing/[2023 iccvw] SAM-Adapter: Adapting Segment Anything in Underperformed Scenes` | 无作者训练权重，从 SAM ViT-L 训练 |
 | `topolora` | TopoLoRA-SAM | `3rd/Seglab` | `parsing/[2026 icpr] TopoLoRA-SAM: Topology-Aware Parameter-Efficient Adaptation of Foundation Segmenters for Thin-Structure and Cross-Domain Binary Semantic Segmentation` | 官方仓库是 Seglab，不是独立 TopoLoRA 目录；实现位于 `seglab/models/sam_peft/`；parsing 另有 arxiv 重复目录 |
 | `samed` | SAMed | `3rd/SAMed` | `parsing/[2023 arxiv] Customized Segment Anything Model for Medical Image Segmentation` | 官方 8 类权重未用于二值头；从 SAM ViT-B 训练 |
-| `sacm_official` | SACM (official) | `3rd/SACM` | `parsing/[2026 cvpr] Dual-level Adapter Boosting Prompt-free Curvilinear Structure Segmentation` | 官方 SACM baseline，不是 SACM-GCD |
-| `sacm_gcd` | SACM-GCD（结构任务组合） | `3rd/SACM` | `parsing/[2026 cvpr] Dual-level Adapter Boosting Prompt-free Curvilinear Structure Segmentation` | 本次提出的方法：SACM 原生四个 Stage-2 头固定分工为 dense/centerline/boundary/width，stable order，无 selector/fixed head，结构组合输出；官方 `sacm_official` 仍是主表 baseline；见 `models/sacm_gcd/SACM_GCD.md` |
+| `sacm_official` | SACM (official) | `3rd/SACM` | `parsing/[2026 cvpr] Dual-level Adapter Boosting Prompt-free Curvilinear Structure Segmentation` | 官方 SACM baseline，不是 DCD |
+| `dcd` | DCD（确定性候选解码） | `3rd/SACM` | `parsing/[2026 cvpr] Dual-level Adapter Boosting Prompt-free Curvilinear Structure Segmentation` | 本次提出的方法：四个 Stage-2 候选全监督 + 几何一致性损失 + 固定第三候选部署、无融合、无测试时选择器；官方 `sacm_official` 仍是主表 baseline；见 `models/dcd/DCD.md` |
 
 ### Training-free / semi-supervised
 

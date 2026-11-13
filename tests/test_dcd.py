@@ -1,4 +1,4 @@
-"""Core tests for the cleaned SACM-GCD adapter."""
+"""Core tests for the cleaned DCD adapter."""
 
 import argparse
 import sys
@@ -13,20 +13,20 @@ from PIL import Image
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / 'src'))
 
+from baseline_zoo.adapters.dcd import DCDAdapter  # noqa: E402
 from baseline_zoo.adapters.registry import (  # noqa: E402
     available_adapters,
     load_adapter,
 )
-from baseline_zoo.adapters.sacm_gcd import SACMGCDAdapter  # noqa: E402
-from baseline_zoo.models.sacm_gcd import build_sam_vit_b  # noqa: E402
-from baseline_zoo.models.sacm_gcd.fusion import HeadFusion  # noqa: E402
-from baseline_zoo.models.sacm_gcd.segment_anything.modeling.mask_decoder import (  # noqa: E402
+from baseline_zoo.models.dcd import build_sam_vit_b  # noqa: E402
+from baseline_zoo.models.dcd.fusion import HeadFusion  # noqa: E402
+from baseline_zoo.models.dcd.segment_anything.modeling.mask_decoder import (  # noqa: E402
     MaskDecoder,
 )
-from baseline_zoo.models.sacm_gcd.segment_anything.modeling.transformer import (  # noqa: E402
+from baseline_zoo.models.dcd.segment_anything.modeling.transformer import (  # noqa: E402
     TwoWayTransformer,
 )
-from baseline_zoo.models.sacm_gcd.topology_losses import (  # noqa: E402
+from baseline_zoo.models.dcd.topology_losses import (  # noqa: E402
     SkeletonRecallLoss,
     SoftclDiceLoss,
     TverskyLoss,
@@ -82,7 +82,7 @@ def _core_args(**overrides):
 
 
 def _configured_adapter(**overrides):
-    adapter = load_adapter('sacm_gcd')
+    adapter = load_adapter('dcd')
     args = _core_args(**overrides)
     adapter.args = args
     adapter.head_select = args.head_select
@@ -104,16 +104,16 @@ def _configured_adapter(**overrides):
     return adapter
 
 
-def test_sacm_gcd_registered():
-    assert 'sacm_gcd' in available_adapters()
-    adapter = load_adapter('sacm_gcd')
-    assert adapter.id == 'sacm_gcd'
-    model = load_models()['sacm_gcd']
+def test_dcd_registered():
+    assert 'dcd' in available_adapters()
+    adapter = load_adapter('dcd')
+    assert adapter.id == 'dcd'
+    model = load_models()['dcd']
     assert model.available
     assert model.defaults['epochs'] == 200
 
 
-def test_sacm_gcd_all_heads_receive_gradient():
+def test_dcd_all_heads_receive_gradient():
     decoder = _tiny_decoder()
     image = torch.randn(1, 256, 8, 8, requires_grad=True)
     image_pe = torch.randn(1, 256, 8, 8)
@@ -145,7 +145,7 @@ def test_sacm_gcd_all_heads_receive_gradient():
         assert any(float(g.abs().sum()) > 0 for g in grads), name
 
 
-def test_sacm_gcd_forward_selects_highest_iou(monkeypatch):
+def test_dcd_forward_selects_highest_iou(monkeypatch):
     decoder = _tiny_decoder()
     masks = torch.arange(4, dtype=torch.float32).view(1, 4, 1, 1)
     masks = masks.expand(1, 4, 4, 4).clone()
@@ -167,7 +167,7 @@ def test_sacm_gcd_forward_selects_highest_iou(monkeypatch):
     assert torch.allclose(out_iou[0, 0], iou[0, 2])
 
 
-def test_sacm_gcd_preprocess_scales_01_to_sam_range():
+def test_dcd_preprocess_scales_01_to_sam_range():
     mean = torch.tensor([123.675, 116.28, 103.53]).view(-1, 1, 1)
     std = torch.tensor([58.395, 57.12, 57.375]).view(-1, 1, 1)
 
@@ -179,7 +179,7 @@ def test_sacm_gcd_preprocess_scales_01_to_sam_range():
         def preprocess(x):
             return (x - mean) / std
 
-    adapter = load_adapter('sacm_gcd')
+    adapter = load_adapter('dcd')
     images = torch.rand(1, 3, 4, 4)
     out = adapter._sam_preprocess(FakeSam, images)
     assert torch.allclose(out, ((images * 255.0) - mean) / std)
@@ -188,7 +188,7 @@ def test_sacm_gcd_preprocess_scales_01_to_sam_range():
     assert torch.allclose(out2, (normalized - mean) / std)
 
 
-def test_sacm_gcd_build_wiring_and_predictor(monkeypatch):
+def test_dcd_build_wiring_and_predictor(monkeypatch):
     model = build_sam_vit_b(checkpoint=None, use_adapter=True)
     assert model.mask_decoder.adapter_num_layers == 12
     assert model.image_encoder.depth == 12
@@ -212,7 +212,7 @@ def test_sacm_gcd_build_wiring_and_predictor(monkeypatch):
     monkeypatch.setattr(model.mask_decoder, 'predict_masks',
                         fake_predict_masks)
 
-    from baseline_zoo.models.sacm_gcd.segment_anything.predictor import (
+    from baseline_zoo.models.dcd.segment_anything.predictor import (
         SamPredictor,
     )
     predictor = SamPredictor(model)
@@ -223,7 +223,7 @@ def test_sacm_gcd_build_wiring_and_predictor(monkeypatch):
     assert len(seen['adapter_features']) == 12
 
 
-def test_sacm_gcd_prediction_skips_missing_base_checkpoint(monkeypatch):
+def test_dcd_prediction_skips_missing_base_checkpoint(monkeypatch):
     captured = {}
 
     class Dummy:
@@ -231,21 +231,21 @@ def test_sacm_gcd_prediction_skips_missing_base_checkpoint(monkeypatch):
             captured.update(kwargs)
 
     monkeypatch.setattr(
-        'baseline_zoo.adapters.sacm_gcd.build_sam_vit_l', Dummy)
-    adapter = load_adapter('sacm_gcd')
+        'baseline_zoo.adapters.dcd.build_sam_vit_l', Dummy)
+    adapter = load_adapter('dcd')
     adapter.prediction_mode = True
     args = _core_args(sam_checkpoint=Path('/does/not/exist.pth'))
     adapter.build_model(args)
     assert captured['checkpoint'] is None
 
 
-def test_sacm_gcd_head_select_defaults_to_checkpoint():
-    adapter = load_adapter('sacm_gcd')
+def test_dcd_head_select_defaults_to_checkpoint():
+    adapter = load_adapter('dcd')
     args = build_parser(adapter).parse_args([])
     assert args.head_select is None
 
 
-def test_sacm_gcd_config_roundtrip():
+def test_dcd_config_roundtrip():
     adapter = _configured_adapter()
     cfg = adapter.save_config(adapter.args)
     assert cfg['specialized_heads'] == 1
@@ -262,7 +262,7 @@ def test_sacm_gcd_config_roundtrip():
     assert restored.topology_resolution == 32
 
 
-def test_sacm_gcd_topology_losses_are_finite_and_differentiable():
+def test_dcd_topology_losses_are_finite_and_differentiable():
     target = (torch.rand(1, 1, 32, 32) > 0.5).float()
     logits = torch.randn(1, 1, 32, 32, requires_grad=True)
     for loss in (SoftclDiceLoss(), SkeletonRecallLoss(),
@@ -272,7 +272,7 @@ def test_sacm_gcd_topology_losses_are_finite_and_differentiable():
         value.backward(retain_graph=True)
 
 
-def test_sacm_gcd_fixed_head_selection_resolution():
+def test_dcd_fixed_head_selection_resolution():
     adapter = _configured_adapter(head_select='gating')
     assert adapter.selected_candidate_index() == 0
     adapter.head_select = 'fixed'
@@ -283,7 +283,7 @@ def test_sacm_gcd_fixed_head_selection_resolution():
         adapter.selected_candidate_index()
 
 
-def test_sacm_gcd_candidate_scope_indices():
+def test_dcd_candidate_scope_indices():
     adapter = _configured_adapter(
         stage2_loss_scope='all', topology_head='all')
     assert adapter._stage2_loss_indices(4) == [0, 1, 2, 3]
@@ -304,18 +304,18 @@ def test_sacm_gcd_candidate_scope_indices():
     assert adapter._topology_indices(4) == [3]
 
 
-def test_sacm_gcd_deployment_aggregate_keeps_deployed_weight():
+def test_dcd_deployment_aggregate_keeps_deployed_weight():
     losses = [torch.tensor(float(i)) for i in range(4)]
-    total = SACMGCDAdapter._aggregate_head_losses(
+    total = DCDAdapter._aggregate_head_losses(
         losses, [0, 1, 2, 3], anchor=0)
     # deployed head 0 at full weight + 0.25 * mean(1, 2, 3)
     assert torch.allclose(total, torch.tensor(0.0 + 0.25 * 2.0))
-    selected = SACMGCDAdapter._aggregate_head_losses(
+    selected = DCDAdapter._aggregate_head_losses(
         losses, [2], anchor=0)
     assert torch.allclose(selected, torch.tensor(2.0))
 
 
-def test_sacm_gcd_topology_loss_uses_native_stage2():
+def test_dcd_topology_loss_uses_native_stage2():
     adapter = _configured_adapter()
     stage2 = torch.randn(1, 4, 8, 8, requires_grad=True)
     masks = (torch.rand(1, 1, 64, 64) > 0.5).float()
@@ -325,7 +325,7 @@ def test_sacm_gcd_topology_loss_uses_native_stage2():
     assert stage2.grad is not None
 
 
-def test_sacm_gcd_head_fusion_starts_as_identity():
+def test_dcd_head_fusion_starts_as_identity():
     heads = torch.randn(1, 4, 8, 8)
     fusion = HeadFusion()
     assert torch.allclose(fusion(heads), heads[:, 0:1])
@@ -335,7 +335,7 @@ def test_sacm_gcd_head_fusion_starts_as_identity():
     assert not torch.allclose(fusion(heads), heads[:, 0:1])
 
 
-def test_sacm_gcd_specialized_head_loss_is_finite():
+def test_dcd_specialized_head_loss_is_finite():
     adapter = _configured_adapter()
     stage2 = torch.randn(1, 4, 8, 8, requires_grad=True)
     masks = (torch.rand(1, 1, 64, 64) > 0.5).float()
@@ -345,7 +345,7 @@ def test_sacm_gcd_specialized_head_loss_is_finite():
     assert stage2.grad is not None
 
 
-def test_sacm_gcd_train_step_loss_is_finite(monkeypatch):
+def test_dcd_train_step_loss_is_finite(monkeypatch):
     adapter = _configured_adapter(head_fusion=0)
     adapter.args.bce_weight = 0.7
     adapter.args.dice_weight = 0.3
@@ -366,7 +366,7 @@ def test_sacm_gcd_train_step_loss_is_finite(monkeypatch):
     loss.backward()
 
 
-def test_sacm_gcd_predict_candidates(tmp_path, monkeypatch):
+def test_dcd_predict_candidates(tmp_path, monkeypatch):
     adapter = _configured_adapter()
     stage2 = torch.randn(1, 4, 8, 8)
 
@@ -386,7 +386,7 @@ def test_sacm_gcd_predict_candidates(tmp_path, monkeypatch):
     assert out.shape == (4, 6, 7)
 
 
-def test_sacm_gcd_predict_selects_gating_and_fixed(tmp_path, monkeypatch):
+def test_dcd_predict_selects_gating_and_fixed(tmp_path, monkeypatch):
     adapter = _configured_adapter(head_select='gating')
     adapter.args.deploy_threshold = 0.5
     logits = torch.full((1, 4, 2, 2), -10.0)

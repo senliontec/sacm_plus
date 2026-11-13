@@ -13,7 +13,7 @@
 #
 # Usage:
 #   bash scripts/pull_results.sh
-#   bash scripts/pull_results.sh --models "sacm_gcd:all_dense sacm_official:default" --seeds "0 1"
+#   bash scripts/pull_results.sh --models "dcd:all_dense sacm_official:default" --seeds "0 1"
 #   bash scripts/pull_results.sh --watch 300
 #   bash scripts/pull_results.sh --until-complete --interval 300
 #   bash scripts/pull_results.sh --status
@@ -40,11 +40,11 @@ SERVER="${SERVER:-zkyd@172.16.1.7}"
 TARGET="${TARGET:-/home/zkyd/code/sacm-plus}"
 EXPECTED_DATASETS="${EXPECTED_DATASETS:-20}"
 
-# SACM-GCD has one canonical main variant, all_dense.  The historical
+# DCD has one canonical main variant, all_dense.  The historical
 # default/ tree was only an eval alias of the all_dense checkpoint; it is
-# archived by scripts/archive_sacm_gcd_main.sh and must not be pulled or
+# archived by scripts/archive_dcd_main.sh and must not be pulled or
 # presented as a separate method.
-DEFAULT_MODELS=(sacm_gcd:all_dense sacm_official:default unet:default cs2net:default maskvsc:default)
+DEFAULT_MODELS=(dcd:all_dense sacm_official:default unet:default cs2net:default maskvsc:default)
 DEFAULT_SEEDS=(0 1 2 3)
 
 MODEL_FILTERS=()
@@ -69,7 +69,7 @@ Usage:
 
 Options:
   --models LIST        model or model:variant list; default: all models
-                       e.g. "sacm_gcd:all_dense sacm_official:default"
+                       e.g. "dcd:all_dense sacm_official:default"
   --seeds LIST         seed list; default: all seeds
   --datasets LIST      only with --with-predictions; dataset filter
   --with-predictions   also pull predictions/ (can be very large)
@@ -283,7 +283,7 @@ check_coverage() {
       variant="${spec#*:}"
     else
       model="$spec"
-      if [ "$model" = "sacm_gcd" ]; then
+      if [ "$model" = "dcd" ]; then
         variant="all_dense"
       else
         variant="default"
@@ -415,4 +415,4 @@ fi
 echo ""
 echo "Local results: $REPO/results/runs"
 echo "Quick status:  bash scripts/pull_results.sh --status"
-echo "Paper table:   MODELS=\"sacm_gcd:all_dense sacm_official:default unet:default cs2net:default maskvsc:default\" bash scripts/build_paper_table.sh"
+echo "Paper table:   MODELS=\"dcd:all_dense sacm_official:default unet:default cs2net:default maskvsc:default\" bash scripts/build_paper_table.sh"

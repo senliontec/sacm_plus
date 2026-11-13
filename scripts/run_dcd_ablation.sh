@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# One-click entrypoint for the config-driven SACM-GCD ablation.
+# One-click entrypoint for the config-driven DCD ablation.
 #
 # The experiment matrix (arms, epochs, flags, contrasts, diagnostics) lives
-# in configs/ablations/sacm_gcd_scope_structure.yaml.  This wrapper only
+# in configs/ablations/dcd_scope_structure.yaml.  This wrapper only
 # selects the interpreter, loads the self-hosted W&B environment, and calls
 # the generic Python runner.
 #
 # Usage (server, repo root):
-#   bash scripts/run_sacm_gcd_ablation.sh --stage audit --gpus 4,5,6,7
-#   bash scripts/run_sacm_gcd_ablation.sh --stage all --gpus 4,5,6,7
-#   bash scripts/run_sacm_gcd_ablation.sh --stage eval --gpus 4,5 --arms b3_all_dense_all_structure
-#   bash scripts/run_sacm_gcd_ablation.sh --stage all --dry-run
+#   bash scripts/run_dcd_ablation.sh --stage audit --gpus 4,5,6,7
+#   bash scripts/run_dcd_ablation.sh --stage all --gpus 4,5,6,7
+#   bash scripts/run_dcd_ablation.sh --stage eval --gpus 4,5 --arms b3_all_dense_all_structure
+#   bash scripts/run_dcd_ablation.sh --stage all --dry-run
 #
 # When --gpus is omitted the default is GPU_LIST=4,5,6,7 (the server's
 # ablation cards); pass --gpus explicitly to use a different set.
@@ -77,4 +77,4 @@ case "$STAGE" in
     ;;
 esac
 
-exec "$PYTHON" scripts/pipeline/run_sacm_gcd_ablation.py "$@"
+exec "$PYTHON" scripts/pipeline/run_dcd_ablation.py "$@"

@@ -1,6 +1,6 @@
 # Reproducibility
 
-SACM-GCD now has an explicit deterministic mode. It is enabled by default for
+DCD now has an explicit deterministic mode. It is enabled by default for
 training and evaluation.
 
 ## What is fixed
@@ -53,12 +53,12 @@ mean ± std; do not treat a single-seed sub-point difference as evidence.
 
 ```bash
 SEED=0
-RUN_ROOT="results/runs/sacm_gcd/all_dense/seed_${SEED}"
+RUN_ROOT="results/runs/dcd/all_dense/seed_${SEED}"
 PYTHONHASHSEED=0 CUBLAS_WORKSPACE_CONFIG=:4096:8 \
 GPU=7 PRESET=full_typed EPOCHS=300 VAL_INTERVAL=1 SKIP_TEST=true \
 OUTPUT_ROOT="$RUN_ROOT" \
 TRAIN_ROOT="data/sacm_3shot_seed${SEED}" \
-bash scripts/run_sacm_gcd_seeds03_gpu0123.sh
+bash scripts/run_dcd_seeds03_gpu0123.sh
 ```
 
 Keep the same `SEED`, `PRESET`, `TRAIN_ROOT`, `EVAL_INPUT_MODE`,
@@ -87,10 +87,10 @@ bitwise guaranteed.
   semantics; a NaN-based table silently drops empty predictions.
 - The report skips runs whose `run_manifest.json` status is not `done`.
   Use `--allow-partial` only for diagnostics, never for a paper table.
-- SACM-GCD defaults to aspect-preserving `aspect_pad` plus an empty guard.
+- DCD defaults to aspect-preserving `aspect_pad` plus an empty guard.
   Baseline rows use their official geometry/guards.  For a matched
   comparison set `MATCH_BASELINE_GEOMETRY=1` when invoking
-  `scripts/run_eval.sh --model sacm_gcd` and report that ablation separately.
+  `scripts/run_eval.sh --model dcd` and report that ablation separately.
 - `REUSE_EVAL_MODEL=1` only changes process/model-loading lifetime; each
   dataset still uses the same seeded DataLoader generator and the same
   deterministic settings.  `PAPER_METRICS_ONLY=1` computes the same Dice,

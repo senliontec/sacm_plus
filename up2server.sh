@@ -8,7 +8,7 @@ set -euo pipefail
 
 SERVER="zkyd@172.16.1.7"
 # The server checkout keeps its historical name so existing data, checkpoints
-# and workdirs remain addressable.  SACM-GCD is the method name; the server
+# and workdirs remain addressable.  DCD is the method name; the server
 # directory itself does not need to be renamed.
 TARGET="${TARGET:-/home/zkyd/code/sacm-plus}"
 SRC="$(cd "$(dirname "$0")" && pwd)"

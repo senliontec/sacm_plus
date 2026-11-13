@@ -1,13 +1,13 @@
-# SACM-GCD
+# DCD
 
-SACM-GCD is a prompt-free curvilinear-structure segmentation method built on
+DCD is a prompt-free curvilinear-structure segmentation method built on
 the SACM baseline and Segment Anything Model (SAM). The repository also
 contains a self-contained zoo of official/reference baselines, a shared
 3-shot / 20-dataset evaluation protocol, and the scripts used for paper
 tables.
 
-- Proposed method: `src/baseline_zoo/models/sacm_gcd/` (registry id
-  `sacm_gcd`).
+- Proposed method: `src/baseline_zoo/models/dcd/` (registry id
+  `dcd`).
 - Official comparison row: `src/baseline_zoo/models/sacm_official/`
   (registry id `sacm_official`). The official implementation is kept
   independent and is not replaced by the proposed method.
@@ -59,24 +59,24 @@ W&B is self-hosted and online by default. Credentials are loaded from
 `scripts/wandb_env.sh`; use `WANDB_MODE=offline` or `WANDB_MODE=disabled`
 only when intentionally logging offline/not logging.
 
-## SACM-GCD: train and evaluate
+## DCD: train and evaluate
 
 One seed per GPU, four seeds, then the 20-dataset evaluation:
 
 ```bash
 # GPUs 0-3
-bash scripts/run_sacm_gcd_seeds03_gpu0123.sh
+bash scripts/run_dcd_seeds03_gpu0123.sh
 
 # GPUs 4-7
-bash scripts/run_sacm_gcd_seeds03_gpu4567.sh
+bash scripts/run_dcd_seeds03_gpu4567.sh
 ```
 
-Both scripts use `configs/models/sacm_gcd.yaml` and write to
-`results/runs/sacm_gcd/all_dense/seed_*/`. Useful environment overrides:
+Both scripts use `configs/models/dcd.yaml` and write to
+`results/runs/dcd/all_dense/seed_*/`. Useful environment overrides:
 `GPU_LIST`, `SEEDS`, `RESUME=1`, `SKIP_TRAIN=1`, `SKIP_EVAL=1`,
 `EXPECTED_DATASETS=20`.
 
-The current SACM-GCD configuration keeps the official four-candidate
+The current DCD configuration keeps the official four-candidate
 Stage-2 decoder (all four native mask tokens predict dense masks, Stage-1
 gating selects the deployment candidate), adds dense deep supervision and
 Skeleton Recall / soft-clDice consistency on the four dense candidates, and
@@ -115,7 +115,7 @@ results/runs/<method>/<variant>/seed_<seed>/
 
 Use `scripts/build_paper_table.sh` after the runs to build the SACM-style
 per-dataset table (`MODELS` defaults to
-`sacm_gcd:all_dense sacm_official:default`).
+`dcd:all_dense sacm_official:default`).
 
 ## Evaluation details
 
@@ -141,7 +141,7 @@ holes/Betti, skeleton errors).
 
 ```bash
 CUDA_VISIBLE_DEVICES="" PYTHONPATH=src pytest tests -q
-bash scripts/run_train.sh --model sacm_gcd --seeds 0 --gpus 0 --dry-run
+bash scripts/run_train.sh --model dcd --seeds 0 --gpus 0 --dry-run
 ```
 
 The training/evaluation entrypoints seed Python/NumPy/PyTorch, use
@@ -161,4 +161,4 @@ manifest, config) next to every run.
 If you use the official SACM implementation, cite its paper and repository.
 The official baseline code is preserved under
 `src/baseline_zoo/models/sacm_official/`; the proposed method lives under
-`src/baseline_zoo/models/sacm_gcd/`.
+`src/baseline_zoo/models/dcd/`.

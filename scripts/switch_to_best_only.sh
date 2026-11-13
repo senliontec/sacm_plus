@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# One-click switch from the old six-arm SACM-GCD eval tables to best-only
+# One-click switch from the old six-arm DCD eval tables to best-only
 # results.
 #
 # What it does:
-#   1. archives the six legacy SACM-GCD eval directories and the old
+#   1. archives the six legacy DCD eval directories and the old
 #      scope/structure analysis directory;
 #   2. preserves all training directories and best checkpoints;
 #   3. removes temporary resume/periodic/backup checkpoints from results/runs;
@@ -22,7 +22,7 @@
 #
 # Env overrides:
 #   MAIN_VARIANT=das_as_dep
-#   PAPER_MODELS="sacm_gcd:das_as_dep sacm_official:default ..."
+#   PAPER_MODELS="dcd:das_as_dep sacm_official:default ..."
 #   PAPER_DATASETS="CHASEDB1 ... WIRE"
 set -euo pipefail
 cd "$(dirname "$0")/.." || exit 1
@@ -33,11 +33,11 @@ PAPER_TABLE=0
 CLEAN_TEMP=1
 FORCE=0
 STAMP="$(date +%Y%m%d_%H%M%S)"
-ARCHIVE="results/archive/sacm_gcd_old_six_eval_${STAMP}"
+ARCHIVE="results/archive/dcd_old_six_eval_${STAMP}"
 LOG_ROOT="results/logs"
 LOCK_FILE="$LOG_ROOT/switch_to_best_only.lock"
 MAIN_VARIANT="${MAIN_VARIANT:-das_as_dep}"
-PAPER_MODELS="${PAPER_MODELS:-sacm_gcd:${MAIN_VARIANT} sacm_official:default unet:default cs2net:default maskvsc:default}"
+PAPER_MODELS="${PAPER_MODELS:-dcd:${MAIN_VARIANT} sacm_official:default unet:default cs2net:default maskvsc:default}"
 PAPER_DATASETS="${PAPER_DATASETS:-CHASEDB1 CrackTree200 CREMI DCA1 DRIVE CHCrack5k FIVES HRF LES-AV OCTA-500 DeepGlobe ROAD TopoMortar TYRE WIRE}"
 
 OLD_ARMS=(
@@ -70,7 +70,7 @@ if [ "$FORCE" -ne 1 ] && command -v pgrep >/dev/null 2>&1; then
   # Check actual training/eval workers, not stale outer wrapper shells.
   # A leftover wrapper with no child must not block a data-only archive
   # operation.
-  if pgrep -af 'baseline_zoo\.run_one|run_baseline_test\.py|run_sacm_gcd_ablation\.py' \
+  if pgrep -af 'baseline_zoo\.run_one|run_baseline_test\.py|run_dcd_ablation\.py' \
       >/tmp/switch_best_only_active.$$ 2>/dev/null; then
     if [ -s "/tmp/switch_best_only_active.$$" ]; then
       echo "ERROR: training/eval processes are still running:" >&2
@@ -134,7 +134,7 @@ fi
 MOVED_EVAL=0
 for arm in "${OLD_ARMS[@]}"; do
   for seed in 0 1 2 3; do
-    src="results/runs/sacm_gcd/${arm}/seed_${seed}/eval"
+    src="results/runs/dcd/${arm}/seed_${seed}/eval"
     dst="${ARCHIVE}/runs/${arm}/seed_${seed}/eval"
     if move_path "$src" "$dst"; then
       MOVED_EVAL=$((MOVED_EVAL + 1))
@@ -143,7 +143,7 @@ for arm in "${OLD_ARMS[@]}"; do
 done
 echo "legacy eval directories moved: $MOVED_EVAL"
 
-if move_path "results/ablations/sacm_gcd" "${ARCHIVE}/ablations/sacm_gcd"; then
+if move_path "results/ablations/dcd" "${ARCHIVE}/ablations/dcd"; then
   :
 else
   echo "old scope/structure analysis already absent"
@@ -153,7 +153,7 @@ if [ "$DRY_RUN" -eq 0 ]; then
   cat > "${ARCHIVE}/README.md" <<EOF
 # Archived legacy six-arm eval
 
-These eval artifacts were produced by the old six-arm SACM-GCD scope/structure
+These eval artifacts were produced by the old six-arm DCD scope/structure
 matrix and are not best-only results.  They are retained for audit only.
 
 Archived at: ${STAMP}
@@ -238,8 +238,8 @@ echo "============================================================"
 echo " switch_to_best_only finished"
 echo " archive: $ARCHIVE"
 echo " best-only reports:"
-echo "   results/ablations/sacm_gcd_das/analysis/ablation_report.md"
-echo "   results/ablations/sacm_gcd_native_control/analysis/ablation_report.md"
+echo "   results/ablations/dcd_das/analysis/ablation_report.md"
+echo "   results/ablations/dcd_native_control/analysis/ablation_report.md"
 echo " verify status: $VERIFY_STATUS"
 echo " paper status: $PAPER_STATUS"
 echo "============================================================"

@@ -1,8 +1,8 @@
-"""SACM-GCD: structure-task composition on the SACM decoder.
+"""DCD: structure-task composition on the SACM decoder.
 
 ``segment_anything/`` is derived from
 ``baseline_zoo.models.sacm_official.segment_anything`` (upstream
-``kylechuuuuu/SACM``).  It provides the SACM-GCD typed Stage-2 extension;
+``kylechuuuuu/SACM``).  It provides the DCD typed Stage-2 extension;
 the faithful port ``sacm_official`` remains the main-table baseline.
 """
 

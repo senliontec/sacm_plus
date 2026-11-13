@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Audit the four Stage-2 candidates of a SACM-GCD checkpoint.
+"""Audit the four Stage-2 candidates of a DCD checkpoint.
 
 This is an analysis-only tool.  It never trains and it never changes the
 deployed prediction rule.  For each image it runs one forward pass, exports
@@ -16,11 +16,11 @@ stratified subset of each test dataset.  Use ``--max-per-dataset 0`` for all
 test images, or ``--splits val`` for the faster go/no-go audit.
 
 Example:
-    PYTHONPATH=src python scripts/pipeline/diagnose_sacm_gcd_candidates.py \
-      --checkpoint results/runs/sacm_gcd/all_dense/seed_0/best_model.pth \
+    PYTHONPATH=src python scripts/pipeline/diagnose_dcd_candidates.py \
+      --checkpoint results/runs/dcd/all_dense/seed_0/best_model.pth \
       --protocol data/sacm_3shot_seed0/protocol_manifest.csv \
       --seed 0 --splits val test --max-per-dataset 20 \
-      --output-dir results/ablations/sacm_gcd/candidate_audit/seed_0
+      --output-dir results/ablations/dcd/candidate_audit/seed_0
 
 Inputs are the canonical protocol manifest and a training checkpoint.  The
 checkpoint must use the gating or fixed Stage-2 selector; aggregate selectors
@@ -571,7 +571,7 @@ def main(argv: list[str] | None = None) -> int:
     manifest_rows = limited
 
     device = torch.device(args.device)
-    adapter = load_adapter('sacm_gcd')
+    adapter = load_adapter('dcd')
     adapter, model, _model_args, payload, _ = _load_checkpoint(
         adapter, checkpoint, data_root, seed, device, protocol)
     if adapter.head_select not in ('gating', 'fixed'):

@@ -11,12 +11,12 @@ Seen/Unseen/Novel/All macro rows, best bold and second best underlined.
 Examples:
   python scripts/build_results_tex.py
   python scripts/build_results_tex.py --seeds 0 1 2 3
-  python scripts/build_results_tex.py --seeds 0 --models sacm_gcd:all_dense
+  python scripts/build_results_tex.py --seeds 0 --models dcd:all_dense
   python scripts/build_results_tex.py --with-std --no-bold
   python scripts/build_results_tex.py --out results.tex
 
 The default method list matches the server runs:
-  sacm_gcd:all_dense sacm_official:default unet:default cs2net:default
+  dcd:all_dense sacm_official:default unet:default cs2net:default
   maskvsc:default
 """
 from __future__ import annotations
@@ -39,7 +39,7 @@ from build_paper_table import (  # noqa: E402
 )
 
 DEFAULT_MODELS = [
-    'sacm_gcd:all_dense',
+    'dcd:all_dense',
     'sacm_official:default',
     'unet:default',
     'cs2net:default',
@@ -47,7 +47,7 @@ DEFAULT_MODELS = [
 ]
 METHOD_LABELS = {
     ('sacm_official', 'default'): 'SACM (official)',
-    ('sacm_gcd', 'all_dense'): 'SACM-GCD',
+    ('dcd', 'all_dense'): 'DCD',
     ('unet', 'default'): 'U-Net',
     ('cs2net', 'default'): 'CS2Net',
     ('maskvsc', 'default'): 'MaskVSC',

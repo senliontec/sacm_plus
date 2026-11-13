@@ -1,10 +1,10 @@
-id: sacm_gcd
-display_name: SACM-GCD
+id: dcd
+display_name: DCD
 family: sam
 status: available
 checkpoint: "{output_root}/best_model.pth"
 train_entrypoint: >-
-  python -m baseline_zoo.run_one --model sacm_gcd --stage train
+  python -m baseline_zoo.run_one --model dcd --stage train
   --data-root {split_root} --workdir {output_root}
   --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
   --sam-checkpoint checkpoints/sam_vit_l_0b3195.pth
@@ -19,7 +19,7 @@ train_entrypoint: >-
   --deep-sup-weight 0.3 --head-select gating --deployment-head 3
   --num-workers 0 --save-every 0
 eval_entrypoint: >-
-  python scripts/pipeline/run_baseline_test.py --method sacm_gcd
+  python scripts/pipeline/run_baseline_test.py --method dcd
   --protocol {test_manifest} --seed {seed}
   --checkpoint {output_root}/best_model_fixed_candidate.pth
   --sam-checkpoint checkpoints/sam_vit_l_0b3195.pth
@@ -30,7 +30,7 @@ protocols: [seeded5, fixed]
 defaults:
   epochs: 200
 note: >-
-  Canonical SACM-GCD recipe.  The four native Stage-2 heads and the four
+  Canonical DCD recipe.  The four native Stage-2 heads and the four
   Stage-1 coarse heads are all supervised; soft-clDice and Skeleton Recall
   regularise every Stage-2 candidate; the three auxiliary heads add
   topology / boundary / recall losses; a zero-initialised linear fusion is

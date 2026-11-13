@@ -25,7 +25,7 @@ Implementation/provenance: `src/core/postprocess/UPSTREAM.md`.
 ## Historical status
 
 The Deep Closing training and post-processing scripts were removed in the
-SACM-GCD cleanup.  Deep Closing is not part of the deployed SACM-GCD model.  The
+DCD cleanup.  Deep Closing is not part of the deployed DCD model.  The
 design description above is retained as a historical note; no runnable
 command is provided.
 

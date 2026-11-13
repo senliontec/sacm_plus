@@ -7,16 +7,16 @@ table; per-role/per-dataset and P0 head audit go to supplementary.
 
 ```bash
 # server, repo root; trains, derives H3, evaluates, writes summary
-bash scripts/run_sacm_gcd_fixed3_lean.sh
+bash scripts/run_dcd_fixed3_lean.sh
 # inspect without launching anything
-bash scripts/run_sacm_gcd_fixed3_lean.sh --dry-run
+bash scripts/run_dcd_fixed3_lean.sh --dry-run
 ```
 
 Outputs:
 
-- `results/ablations/sacm_gcd_fixed3_lean/summary.md`
-- `results/ablations/sacm_gcd_fixed3_lean/summary.csv`
-- `results/ablations/sacm_gcd_fixed3_lean/summary.html`
+- `results/ablations/dcd_fixed3_lean/summary.md`
+- `results/ablations/dcd_fixed3_lean/summary.csv`
+- `results/ablations/dcd_fixed3_lean/summary.html`
 
 Pull the completed ablation back to the local repo:
 
@@ -45,12 +45,12 @@ main paper.
 
 ## 2. Train the three new arms
 
-Config: `configs/ablations/sacm_gcd_fixed3_lean.yaml`
+Config: `configs/ablations/dcd_fixed3_lean.yaml`
 
 ```bash
 # server, repo root; 12 jobs on 8 GPUs, round-robin
-bash scripts/run_sacm_gcd_ablation.sh \
-  --config configs/ablations/sacm_gcd_fixed3_lean.yaml \
+bash scripts/run_dcd_ablation.sh \
+  --config configs/ablations/dcd_fixed3_lean.yaml \
   --stage train \
   --gpus 0,1,2,3,4,5,6,7 \
   --seeds 0 1 2 3
@@ -71,7 +71,7 @@ For each arm in `nofusion notopo`, each seed 0–3:
 arm=nofusion
 seed=0
 gpu=0
-run_root="results/runs/sacm_gcd_fixed3_lean/${arm}/seed_${seed}"
+run_root="results/runs/dcd_fixed3_lean/${arm}/seed_${seed}"
 
 python scripts/pipeline/make_fixed3_checkpoint.py \
   --input "${run_root}/best_model.pth" \
@@ -79,7 +79,7 @@ python scripts/pipeline/make_fixed3_checkpoint.py \
   --deployment-head 3
 
 python scripts/pipeline/run_baseline_test.py \
-  --method sacm_gcd \
+  --method dcd \
   --protocol "data/sacm_3shot_seed${seed}/protocol_manifest.csv" \
   --seed "${seed}" \
   --variant "${arm}_fixed3" \
@@ -104,20 +104,20 @@ native heads evaluated with fixed H3 in supplementary.
 ```bash
 # repeat for seed 0-3; use the checkpoint's existing config
 python scripts/pipeline/run_baseline_test.py \
-  --method sacm_gcd \
+  --method dcd \
   --protocol data/sacm_3shot_seed0/protocol_manifest.csv \
   --seed 0 \
   --variant native_control \
-  --checkpoint results/runs/sacm_gcd_fixed3_lean/native_control/seed_0/best_model.pth \
-  --pred-root results/runs/sacm_gcd_fixed3_lean/native_control/seed_0/predictions \
-  --paper-root results/runs/sacm_gcd_fixed3_lean/native_control/seed_0/eval \
+  --checkpoint results/runs/dcd_fixed3_lean/native_control/seed_0/best_model.pth \
+  --pred-root results/runs/dcd_fixed3_lean/native_control/seed_0/predictions \
+  --paper-root results/runs/dcd_fixed3_lean/native_control/seed_0/eval \
   --device cuda:0 \
   --skip-visualize
 ```
 
-- **fixed3**: read the existing `results/runs/sacm_gcd_fixed3_800/eval/seed_*/`.
+- **fixed3**: read the existing `results/runs/dcd_fixed3_800/eval/seed_*/`.
 - **gating + fusion**: evaluate the existing SSH checkpoint
-  `results/runs/sacm_gcd_ssh_full_ab/ssh/seed_*/best_model.pth` as-is; no
+  `results/runs/dcd_ssh_full_ab/ssh/seed_*/best_model.pth` as-is; no
   retraining.
 - **official**: read the existing `results/runs/sacm_official/default/seed_*/`.
 - **P0 H0/H1/H2/H3**: optional supplementary head audit; derive each head with

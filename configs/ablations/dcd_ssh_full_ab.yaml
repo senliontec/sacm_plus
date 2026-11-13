@@ -9,23 +9,23 @@
 # make_fixed3_checkpoint.py (head_select=fixed, deployment_head=3,
 # head_fusion=0).  The historical result is 56.66 / 43.05 / 63.42 / 64.28.
 schema_version: 1
-name: sacm_gcd_ssh_full_ab
+name: dcd_ssh_full_ab
 description: >-
   Same-seed 800-epoch pair: native four-head control vs the canonical
   specialised-head + linear-fusion recipe.
 protocol: seeded5
-method: sacm_gcd
+method: dcd
 seeds: [0, 1, 2, 3]
 epochs: 800
 eval_checkpoint: best_model.pth
 expected_datasets: 20
-output_root: results/runs/sacm_gcd_ssh_full_ab
+output_root: results/runs/dcd_ssh_full_ab
 
 wandb:
   project: sacm
   entity: buaazqk
-  group: sacm_gcd_ssh_full_ab
-  tags: sacm_gcd,ssh,full,800ep,pair
+  group: dcd_ssh_full_ab
+  tags: dcd,ssh,full,800ep,pair
   use_wandb: true
 
 common_train_args:
@@ -71,7 +71,7 @@ contrasts:
     label: specialised heads + fusion vs native four-head control
 
 analysis:
-  output_root: results/ablations/sacm_gcd_ssh_full_ab/analysis
+  output_root: results/ablations/dcd_ssh_full_ab/analysis
   primary_metric: dice
   primary_role: All
   metrics:

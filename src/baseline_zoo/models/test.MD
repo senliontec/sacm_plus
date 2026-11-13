@@ -28,7 +28,7 @@ From this file's directory: `../../../../3rd`
 ├── knowsam               -> 3rd/KnowSAM ⭐⭐
 ├── segdino               -> 3rd/segdino ⭐⭐
 ├── sacm_official         -> 3rd/SACM ⭐⭐⭐⭐
-├── sacm_gcd             -> 3rd/SACM (corrected derivative of sacm_official) ⭐⭐⭐⭐
+├── dcd             -> 3rd/SACM (corrected derivative of sacm_official) ⭐⭐⭐⭐
 
 
 .

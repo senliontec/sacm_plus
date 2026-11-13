@@ -8,23 +8,23 @@
 #
 # Only the named factor changes; all shared arguments stay identical.
 schema_version: 1
-name: sacm_gcd_fixed3_lean
+name: dcd_fixed3_lean
 description: >-
   Lean fixed3 ablation: no-fusion training, native four-head control, and
   no-topology supervision at the shared 800-epoch budget.
 protocol: seeded5
-method: sacm_gcd
+method: dcd
 seeds: [0, 1, 2, 3]
 epochs: 800
 eval_checkpoint: best_model.pth
 expected_datasets: 20
-output_root: results/runs/sacm_gcd_fixed3_lean
+output_root: results/runs/dcd_fixed3_lean
 
 wandb:
   project: sacm
   entity: buaazqk
-  group: sacm_gcd_fixed3_lean
-  tags: sacm_gcd,ablation,fixed3,lean,800ep
+  group: dcd_fixed3_lean
+  tags: dcd,ablation,fixed3,lean,800ep
   use_wandb: true
 
 common_train_args:
@@ -74,7 +74,7 @@ arms:
       specialized-topology-weight: 0.0
 
 analysis:
-  output_root: results/ablations/sacm_gcd_fixed3_lean/analysis
+  output_root: results/ablations/dcd_fixed3_lean/analysis
   primary_metric: cldice
   primary_role: All
   metrics: [dice, iou, cldice, hd95]

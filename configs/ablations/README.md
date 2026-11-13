@@ -1,6 +1,6 @@
-# SACM-GCD ablation configs
+# DCD ablation configs
 
-`configs/ablations/sacm_gcd_scope_structure.yaml` is the single source of
+`configs/ablations/dcd_scope_structure.yaml` is the single source of
 truth for the dense-scope × structure-scope factorial.  The runner does not
 contain arm names or hyperparameters; edit the YAML and rerun.
 
@@ -43,8 +43,8 @@ after the selected arms finish.
 
 ```bash
 # server, repo root
-bash scripts/run_sacm_gcd_ablation.sh --stage audit --gpus 4,5,6,7
-bash scripts/run_sacm_gcd_ablation.sh --stage all --gpus 4,5,6,7
+bash scripts/run_dcd_ablation.sh --stage audit --gpus 4,5,6,7
+bash scripts/run_dcd_ablation.sh --stage all --gpus 4,5,6,7
 ```
 
 `--resume` is the default; pass `--no-resume` to rerun completed stages.
@@ -54,7 +54,7 @@ bash scripts/run_sacm_gcd_ablation.sh --stage all --gpus 4,5,6,7
 Step 0, audit the existing 800-epoch full checkpoints (no training):
 
 ```bash
-bash scripts/run_sacm_gcd_ablation.sh --stage audit --gpus 4,5,6,7
+bash scripts/run_dcd_ablation.sh --stage audit --gpus 4,5,6,7
 ```
 
 If the candidates are nearly identical / oracle regret is negligible, do
@@ -63,21 +63,21 @@ not spend the full matrix budget; reconsider the framing first.
 Full controlled run (24 short runs = 6 arms × 4 seeds):
 
 ```bash
-bash scripts/run_sacm_gcd_ablation.sh --stage all --gpus 4,5,6,7
+bash scripts/run_dcd_ablation.sh --stage all --gpus 4,5,6,7
 ```
 
 Useful variants:
 
 ```bash
 # only the two all-dense structural-scope arms (As/Aa) on four seeds
-bash scripts/run_sacm_gcd_ablation.sh --stage all --gpus 4,5,6,7 \
+bash scripts/run_dcd_ablation.sh --stage all --gpus 4,5,6,7 \
   --arms b2_all_dense_selected_structure,b3_all_dense_all_structure --seeds 0 1 2 3
 
 # inspect commands without launching anything
-bash scripts/run_sacm_gcd_ablation.sh --stage all --dry-run
+bash scripts/run_dcd_ablation.sh --stage all --dry-run
 
 # re-run completed stages
-bash scripts/run_sacm_gcd_ablation.sh --stage all --no-resume
+bash scripts/run_dcd_ablation.sh --stage all --no-resume
 ```
 
 `--resume` is on by default.  Training/eval stages source
@@ -86,27 +86,27 @@ bash scripts/run_sacm_gcd_ablation.sh --stage all --no-resume
 ## Outputs and separation from the main runs
 
 ```text
-results/runs/sacm_gcd/<arm>/seed_<s>/                 # training + eval
-results/runs/sacm_gcd/<arm>/seed_<s>/eval/tables/     # 20-dataset results
-results/ablations/sacm_gcd/candidate_diagnostics/<arm>/seed_<s>/
-results/ablations/sacm_gcd/candidate_audit/seed_<s>/  # Step 0, full runs
-results/ablations/sacm_gcd/analysis/                  # arm summary + contrasts
-results/ablations/sacm_gcd/config_snapshot_<stamp>.yaml
-results/logs/sacm_gcd_ablation/                       # driver/child logs
+results/runs/dcd/<arm>/seed_<s>/                 # training + eval
+results/runs/dcd/<arm>/seed_<s>/eval/tables/     # 20-dataset results
+results/ablations/dcd/candidate_diagnostics/<arm>/seed_<s>/
+results/ablations/dcd/candidate_audit/seed_<s>/  # Step 0, full runs
+results/ablations/dcd/analysis/                  # arm summary + contrasts
+results/ablations/dcd/config_snapshot_<stamp>.yaml
+results/logs/dcd_ablation/                       # driver/child logs
 ```
 
-New runs write under `results/runs/sacm_gcd/<arm>/`; historical 800-epoch
+New runs write under `results/runs/dcd/<arm>/`; historical 800-epoch
 results produced before the rename are kept as immutable archives and are not
 reused by new runs. Ablation runs use distinct arm variants, and W&B uses the
-`sacm_gcd_scope_structure` group, so they cannot be confused with the main
+`dcd_scope_structure` group, so they cannot be confused with the main
 row.
 
 Morning checks:
 
 ```bash
-cat results/ablations/sacm_gcd/analysis/ablation_report.md
-cat results/ablations/sacm_gcd/analysis/arm_summary.csv
-find results/ablations/sacm_gcd/candidate_diagnostics -name summary.json | wc -l
+cat results/ablations/dcd/analysis/ablation_report.md
+cat results/ablations/dcd/analysis/arm_summary.csv
+find results/ablations/dcd/candidate_diagnostics -name summary.json | wc -l
 ```
 
 The analysis report contains the arm-wise mean/std, paired seed differences,

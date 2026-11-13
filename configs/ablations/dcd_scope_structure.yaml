@@ -1,4 +1,4 @@
-# SACM-GCD dense-scope × structure-scope factorial ablation.
+# DCD dense-scope × structure-scope factorial ablation.
 #
 # Six arms are the full 2 x 3 factorial:
 #
@@ -27,24 +27,24 @@
 # the deployed slot keeps full weight and auxiliary candidates contribute a
 # 0.25-weight mean term.
 schema_version: 1
-name: sacm_gcd_scope_structure
+name: dcd_scope_structure
 description: >-
-  2x3 SACM-GCD dense-scope × structure-scope factorial at a matched
+  2x3 DCD dense-scope × structure-scope factorial at a matched
   300-epoch budget (seeds 0-3).
 protocol: seeded5
-method: sacm_gcd
+method: dcd
 seeds: [0, 1, 2, 3]
 epochs: 300
 # Every completed training run keeps only best_model.pth.  .resume_state.pth is
 # a temporary crash-resume snapshot and is deleted when training finishes.
 eval_checkpoint: best_model.pth
 expected_datasets: 20
-output_root: results/runs/sacm_gcd
+output_root: results/runs/dcd
 wandb:
   project: sacm
   entity: buaazqk
-  group: sacm_gcd_scope_structure
-  tags: sacm_gcd,ablation,scope_structure
+  group: dcd_scope_structure
+  tags: dcd,ablation,scope_structure
   use_wandb: true
 
 # Applied to every arm.  Arm-specific args override these values.
@@ -154,11 +154,11 @@ diagnostics:
   splits: [val, test]
   max_per_dataset: 20
   empty_metric_policy: penalty
-  output_root: results/ablations/sacm_gcd/candidate_diagnostics
+  output_root: results/ablations/dcd/candidate_diagnostics
 
 # Step 0: audit the existing 800-epoch full checkpoints before launching any
 # training.  Local checkpoints are not present; run this on the server where
-# results/runs/sacm_gcd/all_dense/seed_<s>/best_model.pth exists.
+# results/runs/dcd/all_dense/seed_<s>/best_model.pth exists.
 audit:
   variant: all_dense
   seeds: [0, 1, 2, 3]
@@ -166,10 +166,10 @@ audit:
   splits: [val, test]
   max_per_dataset: 20
   empty_metric_policy: penalty
-  output_root: results/ablations/sacm_gcd/candidate_audit
+  output_root: results/ablations/dcd/candidate_audit
 
 analysis:
-  output_root: results/ablations/sacm_gcd/analysis
+  output_root: results/ablations/dcd/analysis
   primary_metric: dice
   primary_role: All
   metrics: [dice, iou, cldice, hd95]

@@ -31,7 +31,7 @@ def test_registry_contains_all_self_contained_models():
         'nnunet2d',
         'nnwnet',
         'persam',
-        'rsrm', 's2mnet', 'sacm_official', 'sacm_gcd',
+        'rsrm', 's2mnet', 'sacm_official', 'dcd',
         'sam2_unet',
         'sam_adapter', 'sam_med2d', 'sam_octa', 'sam_vit_l_unet', 'samed',
         'sansa',
@@ -139,13 +139,13 @@ def test_seeded_protocol_expands_five_splits():
 
 
 def test_plan_uses_seed_specific_train_and_test_roots(capsys):
-    rc = main(['plan', '--model', 'sacm_gcd', '--seeds', '0', '1'])
+    rc = main(['plan', '--model', 'dcd', '--seeds', '0', '1'])
     output = capsys.readouterr().out
     assert rc == 0
     assert 'data/sacm_3shot_seed0' in output
     assert 'data/sacm_3shot_seed1' in output
-    assert 'results/runs/sacm_gcd/all_dense/seed_0' in output
-    assert 'results/runs/sacm_gcd/all_dense/seed_1' in output
+    assert 'results/runs/dcd/all_dense/seed_0' in output
+    assert 'results/runs/dcd/all_dense/seed_1' in output
 
 
 def test_plan_expands_unet_seed_paths(capsys):
@@ -158,7 +158,7 @@ def test_plan_expands_unet_seed_paths(capsys):
 
 
 def test_train_dry_run_does_not_create_marker(capsys):
-    rc = main(['train', '--model', 'sacm_gcd', '--seeds', '0', '--dry-run'])
+    rc = main(['train', '--model', 'dcd', '--seeds', '0', '--dry-run'])
     output = capsys.readouterr().out
     assert rc == 0
     assert 'dry-run:' in output
@@ -186,7 +186,7 @@ def test_select_cuda_device_targets_job_gpu(monkeypatch):
 
 
 def test_plan_rejects_unknown_seed(capsys):
-    rc = main(['plan', '--model', 'sacm_gcd', '--seeds', '9'])
+    rc = main(['plan', '--model', 'dcd', '--seeds', '9'])
     assert rc == 2
     assert 'unknown' in capsys.readouterr().err
 

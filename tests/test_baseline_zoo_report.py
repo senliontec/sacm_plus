@@ -20,8 +20,8 @@ FIELDS = ['dice_mean', 'dice_std', 'iou_mean', 'iou_std',
           'cldice_mean', 'cldice_std', 'hd95_mean', 'hd95_std']
 
 
-def _write_sacm_gcd(root, seed):
-    path = (root / 'sacm_gcd' / 'all_dense' / f'seed_{seed}' /
+def _write_dcd(root, seed):
+    path = (root / 'dcd' / 'all_dense' / f'seed_{seed}' /
             'eval' / 'tables')
     path.mkdir(parents=True)
     rows = [
@@ -69,28 +69,28 @@ def test_write_csv_is_atomic_on_failure(tmp_path):
 
 
 def test_load_runs_reads_both_schemas(tmp_path):
-    _write_sacm_gcd(tmp_path, 0)
+    _write_dcd(tmp_path, 0)
     _write_baseline(tmp_path, 0)
-    rows, missing = load_runs(['sacm_gcd', 'unet'], [0], tmp_path)
+    rows, missing = load_runs(['dcd', 'unet'], [0], tmp_path)
     assert missing == []
     assert len(rows) == 12  # 3 datasets × 4 metrics
     assert {(row.model, row.role) for row in rows} == {
-        ('sacm_gcd', 'Seen'), ('sacm_gcd', 'Novel'), ('unet', 'Seen')}
+        ('dcd', 'Seen'), ('dcd', 'Novel'), ('unet', 'Seen')}
 
 
-def test_explicit_preset_selects_sacm_gcd_variant(tmp_path):
-    _write_sacm_gcd(tmp_path, 0)
+def test_explicit_preset_selects_dcd_variant(tmp_path):
+    _write_dcd(tmp_path, 0)
     _write_baseline(tmp_path, 0)
-    rows, missing = load_runs(['sacm_gcd'], [0], tmp_path,
+    rows, missing = load_runs(['dcd'], [0], tmp_path,
                               preset='all_dense')
     assert missing == []
-    assert {row.model for row in rows} == {'sacm_gcd'}
+    assert {row.model for row in rows} == {'dcd'}
 
 
 def test_row_method_mismatch_raises(tmp_path):
     path = (tmp_path / 'unet' / 'default' / 'seed_0' / 'eval' / 'tables')
     path.mkdir(parents=True)
-    row = {'method': 'sacm_gcd', 'dataset': 'DRIVE', 'role': 'Seen',
+    row = {'method': 'dcd', 'dataset': 'DRIVE', 'role': 'Seen',
            'dice_mean': 0.8}
     with open(path / 'all_metrics.csv', 'w', newline='') as f:
         writer = csv.DictWriter(f, fieldnames=list(row))
@@ -101,9 +101,9 @@ def test_row_method_mismatch_raises(tmp_path):
 
 
 def test_configured_variant_does_not_fall_back_to_legacy_default(tmp_path):
-    """A configured all_dense run must not silently read sacm_gcd/seed_0."""
-    _write_sacm_gcd(tmp_path, 0)
-    legacy = tmp_path / 'sacm_gcd' / 'seed_0' / 'eval' / 'tables'
+    """A configured all_dense run must not silently read dcd/seed_0."""
+    _write_dcd(tmp_path, 0)
+    legacy = tmp_path / 'dcd' / 'seed_0' / 'eval' / 'tables'
     legacy.mkdir(parents=True)
     with open(legacy / 'all_metrics.csv', 'w', newline='') as f:
         writer = csv.DictWriter(
@@ -113,23 +113,23 @@ def test_configured_variant_does_not_fall_back_to_legacy_default(tmp_path):
                          'dice_mean': 0.9})
     # Remove the canonical run so only the legacy directory remains.
     for path in sorted(
-            (tmp_path / 'sacm_gcd' / 'all_dense').rglob('*'), reverse=True):
+            (tmp_path / 'dcd' / 'all_dense').rglob('*'), reverse=True):
         path.unlink() if path.is_file() else path.rmdir()
-    rows, missing = load_runs(['sacm_gcd'], [0], tmp_path)
+    rows, missing = load_runs(['dcd'], [0], tmp_path)
     assert rows == []
     assert missing == [
-        str(tmp_path / 'sacm_gcd' / 'all_dense' / 'seed_0')]
+        str(tmp_path / 'dcd' / 'all_dense' / 'seed_0')]
 
 
 def test_manifest_dataset_mismatch_warns(tmp_path, capsys):
-    _write_sacm_gcd(tmp_path, 0)
-    manifest_path = (tmp_path / 'sacm_gcd' / 'all_dense' / 'seed_0' /
+    _write_dcd(tmp_path, 0)
+    manifest_path = (tmp_path / 'dcd' / 'all_dense' / 'seed_0' /
                      'eval' / 'run_manifest.json')
     manifest_path.write_text(json.dumps({
         'status': 'done', 'variant': 'all_dense',
         'datasets': ['DRIVE', 'WIRE', 'MISSING'],
     }))
-    rows, missing = load_runs(['sacm_gcd'], [0], tmp_path)
+    rows, missing = load_runs(['dcd'], [0], tmp_path)
     assert missing == []
     assert len(rows) == 8
     out = capsys.readouterr().out
@@ -138,30 +138,30 @@ def test_manifest_dataset_mismatch_warns(tmp_path, capsys):
 
 
 def test_manifest_variant_mismatch_raises(tmp_path):
-    _write_sacm_gcd(tmp_path, 0)
-    manifest_path = (tmp_path / 'sacm_gcd' / 'all_dense' / 'seed_0' /
+    _write_dcd(tmp_path, 0)
+    manifest_path = (tmp_path / 'dcd' / 'all_dense' / 'seed_0' /
                      'eval' / 'run_manifest.json')
     manifest_path.write_text(json.dumps({
         'status': 'done', 'variant': 'default',
         'datasets': ['DRIVE', 'WIRE'],
     }))
     with pytest.raises(SystemExit, match='manifest variant'):
-        load_runs(['sacm_gcd'], [0], tmp_path)
+        load_runs(['dcd'], [0], tmp_path)
 
 
 def test_write_report_outputs_tables(tmp_path):
-    _write_sacm_gcd(tmp_path, 0)
+    _write_dcd(tmp_path, 0)
     _write_baseline(tmp_path, 0)
-    rows, _ = load_runs(['sacm_gcd', 'unet'], [0], tmp_path)
+    rows, _ = load_runs(['dcd', 'unet'], [0], tmp_path)
     out = tmp_path / 'tables'
     paths = write_report(rows, out)
 
     assert all(path.is_file() for path in paths.values())
     text = paths['main_results'].read_text()
-    assert 'sacm_gcd' in text and 'unet' in text
+    assert 'dcd' in text and 'unet' in text
     assert '80.00' in text
 
     with open(paths['macro_metrics'], newline='') as f:
         macro = list(csv.DictReader(f))
     assert len(macro) == 12
-    assert {'sacm_gcd', 'unet'} == {row['model'] for row in macro}
+    assert {'dcd', 'unet'} == {row['model'] for row in macro}

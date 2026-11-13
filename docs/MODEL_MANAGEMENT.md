@@ -8,7 +8,7 @@
 
 | 名称 | 架构 | 用途 |
 |---|---|---|
-| `sam_l` | SAM ViT-L + 完整 SACM-GCD 架构 | 默认（论文主模型） |
+| `sam_l` | SAM ViT-L + 完整 DCD 架构 | 默认（论文主模型） |
 | `sam_b` | SAM ViT-B + 同架构开关 | 调试/快速实验（CPU 友好） |
 | `sam_h` | SAM ViT-H + 同架构开关 | 容量上限实验 |
 
@@ -87,7 +87,7 @@ CLI 增加 `--model_config path` 覆盖——已列入技术债表，验证后�
 - **阶段 B（验证后做）**：损失组装也模型化——spec 增加
   `aux_losses(model, outputs, targets) -> (aux_loss, aux_terms)`，
   通用层（BCE/Dice/clDice 作用于主掩膜）留在训练循环，SAM 特有的
-  深监督/IoU 移入 `src/baseline_zoo/models/sacm_gcd/`。届时吸纳单输出模型（U-Net）时
+  深监督/IoU 移入 `src/baseline_zoo/models/dcd/`。届时吸纳单输出模型（U-Net）时
   训练循环真正零改动
 
 ## 6. 纪律

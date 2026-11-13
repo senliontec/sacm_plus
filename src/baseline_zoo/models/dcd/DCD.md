@@ -1,4 +1,8 @@
-# SACM-GCD (cleaned canonical recipe)
+# DCD: Deterministic Candidate Decoding
+
+DCD is the cleaned canonical recipe: train all four Stage-2 candidates with
+dense and geometry-consistent losses, then deploy one fixed candidate at
+inference (no test-time selector, no fusion).
 
 ## Source
 
@@ -9,7 +13,7 @@
 - Derived from the faithful port:
   `src/baseline_zoo/models/sacm_official/segment_anything/`
 - Vendored path:
-  `src/baseline_zoo/models/sacm_gcd/segment_anything/`
+  `src/baseline_zoo/models/dcd/segment_anything/`
 
 ## Canonical recipe (current best)
 
@@ -53,9 +57,9 @@ The historical 800-epoch result is
   factorial.
 
 The canonical 800-epoch pair is in
-`configs/ablations/sacm_gcd_ssh_full_ab.yaml`; the lean ablation is in
-`configs/ablations/sacm_gcd_fixed3_lean.yaml`; the scope factorial is in
-`configs/ablations/sacm_gcd_scope_structure.yaml`.
+`configs/ablations/dcd_ssh_full_ab.yaml`; the lean ablation is in
+`configs/ablations/dcd_fixed3_lean.yaml`; the scope factorial is in
+`configs/ablations/dcd_scope_structure.yaml`.
 
 ## Fixes relative to the released official code
 
@@ -95,7 +99,7 @@ part of the released recipe.
 One-click 200-epoch verification:
 
 ```bash
-bash scripts/run_sacm_gcd_expert_200.sh
+bash scripts/run_dcd_expert_200.sh
 ```
 
 The script trains four seeds, derives the fixed candidate-3 checkpoint,
@@ -104,4 +108,4 @@ evaluates 20 datasets, and summarizes against the official tables.  Use
 
 ## Runtime consumer
 
-`baseline_zoo.adapters.sacm_gcd.SACMGCDAdapter`
+`baseline_zoo.adapters.dcd.DCDAdapter`

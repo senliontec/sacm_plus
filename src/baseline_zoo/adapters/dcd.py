@@ -1,4 +1,9 @@
-"""SACM-GCD: geometry-consistent multi-candidate SACM decoder.
+"""DCD: Deterministic Candidate Decoding.
+
+DCD trains all four native Stage-2 candidates with dense and geometry-
+consistent losses, then deploys one fixed candidate at inference instead of
+using a test-time selector or fusion.  The four heads are parallel
+hypotheses during training, not an ensemble at inference.
 
 Canonical recipe (the current best model):
 
@@ -34,9 +39,9 @@ import torch.nn.functional as F
 from PIL import Image
 
 from baseline_zoo.data import load_rgb
-from baseline_zoo.models.sacm_gcd import build_sam_vit_l
-from baseline_zoo.models.sacm_gcd.fusion import HeadFusion
-from baseline_zoo.models.sacm_gcd.topology_losses import (
+from baseline_zoo.models.dcd import build_sam_vit_l
+from baseline_zoo.models.dcd.fusion import HeadFusion
+from baseline_zoo.models.dcd.topology_losses import (
     SkeletonRecallLoss,
     SoftclDiceLoss,
     TverskyLoss,
@@ -44,9 +49,9 @@ from baseline_zoo.models.sacm_gcd.topology_losses import (
 from baseline_zoo.runtime import REPO_ROOT, BaselineAdapter
 
 
-class SACMGCDAdapter(BaselineAdapter):
-    id = 'sacm_gcd'
-    display_name = 'SACM-GCD'
+class DCDAdapter(BaselineAdapter):
+    id = 'dcd'
+    display_name = 'DCD'
     official_source = 'kylechuuuuu/SACM (fixed derivative)'
     official_entrypoint = 'upstream train_sam.py + documented fixes'
     input_size = 1024
