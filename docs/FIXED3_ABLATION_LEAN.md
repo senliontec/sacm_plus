@@ -18,6 +18,18 @@ Outputs:
 - `results/ablations/sacm_stc_fixed3_lean/summary.csv`
 - `results/ablations/sacm_stc_fixed3_lean/summary.html`
 
+Pull the completed ablation back to the local repo:
+
+```bash
+# local repo root; enter the server password once if prompted
+bash scripts/pull_fixed3_lean_results.sh
+bash scripts/pull_fixed3_lean_results.sh --dry-run
+```
+
+The pull includes the four new eval tables plus the existing fixed3 eval,
+skips predictions/checkpoints by default, and exits non-zero if any seed lacks
+a 20-dataset `all_metrics.csv` or the summary is missing.
+
 ## 1. Paper table (fill from 4-seed `all_metrics.csv`)
 
 | Method | Dice | IoU | clDice | HD95 | Role in the paper |

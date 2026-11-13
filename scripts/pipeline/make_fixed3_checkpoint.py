@@ -18,6 +18,9 @@ Usage:
     python scripts/pipeline/make_fixed3_checkpoint.py \
         --input results/runs/.../seed_0/best_model.pth \
         --output results/runs/.../seed_0/best_model_fixed3_nofusion.pth
+
+For the strict native-control probe, pass ``--allow-native`` to accept a
+checkpoint with ``specialized_heads=0`` and derive the same fixed candidate.
 """
 
 from __future__ import annotations
@@ -64,7 +67,8 @@ def _adapter_config(payload: dict) -> dict:
     return adapter
 
 
-def _verify_source(payload: dict, path: Path) -> dict:
+def _verify_source(payload: dict, path: Path,
+                   allow_native: bool = False) -> dict:
     adapter = _adapter_config(payload)
     stored_adapter = payload.get('adapter')
     if stored_adapter and str(stored_adapter) != 'sacm_stc':
@@ -76,9 +80,11 @@ def _verify_source(payload: dict, path: Path) -> dict:
             f'{path}: expected method=sacm_stc, got {method!r}')
     specialized = int(adapter.get('specialized_heads', 0) or 0)
     if specialized != 1:
-        raise SystemExit(
-            f'{path}: fixed3 requires an SSH checkpoint with '
-            f'specialized_heads=1; got {specialized}')
+        if not (allow_native and specialized == 0):
+            raise SystemExit(
+                f'{path}: fixed3 requires an SSH checkpoint with '
+                f'specialized_heads=1; got {specialized} '
+                f'(use --allow-native for a native control checkpoint)')
     state = payload.get('model_state_dict')
     if not isinstance(state, dict) or not state:
         raise SystemExit(f'{path}: checkpoint has no model_state_dict')
@@ -157,7 +163,8 @@ def build_fixed3(args: argparse.Namespace) -> dict:
         }
 
     payload = _load_checkpoint(source)
-    adapter = _verify_source(payload, source)
+    adapter = _verify_source(
+        payload, source, allow_native=bool(getattr(args, 'allow_native', False)))
     state = payload.get('model_state_dict')
     fusion_keys = sorted(
         str(key) for key in state if str(key).startswith('head_fusion.'))
@@ -203,6 +210,9 @@ def main(argv: list[str] | None = None) -> int:
                         help='derived fixed3 checkpoint to write')
     parser.add_argument('--deployment-head', type=int, default=3,
                         help='candidate to deploy (default: 3)')
+    parser.add_argument('--allow-native', action='store_true',
+                        help='allow specialized_heads=0 native control '
+                             'checkpoint (for strict control experiments)')
     parser.add_argument('--force', action='store_true',
                         help='overwrite an already derived output')
     args = parser.parse_args(argv)
