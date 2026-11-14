@@ -35,6 +35,15 @@ for variant in "${VARIANT_ARGS[@]}"; do
     aug_photo)       aug=photo; extra="" ;;
     aug_mild)        aug=mild;  extra="" ;;
     aug_strong)      aug=strong; extra="" ;;
+    aug_crop)        aug=crop;  extra="" ;;
+    aug_elastic)     aug=elastic; extra="" ;;
+    aug_cutout)      aug=cutout; extra="" ;;
+    aug_standard)    aug=standard; extra="" ;;
+    aug_mild_p25)    aug=mild; extra="--aug-flip-prob 0.25" ;;
+    aug_mild_p75)    aug=mild; extra="--aug-flip-prob 0.75" ;;
+    aug_photo_half)  aug=photo; extra="--aug-photo-strength 0.5" ;;
+    aug_photo_2x)    aug=photo; extra="--aug-photo-strength 2.0" ;;
+    aug_noise0)      aug=mild; extra="--aug-noise-std 0" ;;
     no_specialized)  aug=mild;  extra="--specialized-heads 0" ;;
     no_fusion)       aug=mild;  extra="--head-fusion 0" ;;
     no_topology)     aug=mild;  extra="--cl-dice-weight 0 --skeleton-recall-weight 0 --specialized-topology-weight 0" ;;

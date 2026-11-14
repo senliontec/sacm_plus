@@ -38,12 +38,19 @@ def test_augmentation_modes():
         out_images, out_masks = augment_batch(images, masks, rng, mode)
         assert out_images.shape == images.shape
         assert out_masks.shape == masks.shape
+        assert torch.isfinite(out_images).all()
+        assert torch.isfinite(out_masks).all()
         assert out_images.min() >= 0 and out_images.max() <= 1
-        assert out_masks.unique().tolist() in ([0.0], [1.0], [0.0, 1.0])
+        assert out_masks.min() >= 0 and out_masks.max() <= 1
     none_images, none_masks = augment_batch(
         images, masks, random.Random(0), 'none')
     assert torch.equal(none_images, images)
     assert torch.equal(none_masks, masks)
+    neutral_images, neutral_masks = augment_batch(
+        images, masks, random.Random(0), 'mild', flip_prob=0.0,
+        photo_strength=0.0, noise_std=0.0)
+    assert torch.allclose(neutral_images, images)
+    assert torch.equal(neutral_masks, masks)
     try:
         augment_batch(images, masks, random.Random(0), 'bad')
     except ValueError:

@@ -38,9 +38,12 @@ defaults:
 note: >-
   SPA-SAM = DCD four-candidate scaffold + structure-preserving augmentation
   (synchronized flips, mild photometric, optional rot90/blur); fixed
-  candidate 3 deployment.  Ablations: --train-aug none|flip|photo|mild|strong
-  plus the inherited DCD structural switches (specialized-heads,
-  head-fusion, topology weights, stage2-loss-scope, topology-head).
+  candidate 3 deployment.  Ablations: --train-aug
+  none|flip|photo|mild|strong|crop|elastic|cutout|standard plus the
+  inherited DCD structural switches (specialized-heads, head-fusion,
+  topology weights, stage2-loss-scope, topology-head) and the
+  --aug-flip-prob / --aug-photo-strength / --aug-noise-std intensity knobs.
+  crop/elastic/cutout/standard are destructive negative controls.
   The canonical recipe is unchanged from DCD except --train-aug mild.
   The archived four-seed best used 50 epochs (57.39/43.76/66.34/62.95);
   pass --epochs 50 to reproduce that exact local result.  The default 800

@@ -27,6 +27,41 @@ variants:
   aug_strong:
     train_aug: strong
     description: Mild + 90-degree rotations + mild blur.
+  # Destructive negative controls: these should hurt clDice/HD95 and are
+  # evidence that structure-preserving augmentation is necessary.
+  aug_crop:
+    train_aug: crop
+    description: Random resized crop; destroys thin curvilinear continuity.
+  aug_elastic:
+    train_aug: elastic
+    description: Smooth random elastic displacement; topology-destroying control.
+  aug_cutout:
+    train_aug: cutout
+    description: Random rectangular image erasing; occlusion control.
+  aug_standard:
+    train_aug: standard
+    description: Arbitrary rotation + random crop + strong photometric + blur.
+  # Intensity/probability controls for the canonical augmentation policy.
+  aug_mild_p25:
+    train_aug: mild
+    extra_args: "--aug-flip-prob 0.25"
+    description: Lower flip probability.
+  aug_mild_p75:
+    train_aug: mild
+    extra_args: "--aug-flip-prob 0.75"
+    description: Higher flip probability.
+  aug_photo_half:
+    train_aug: photo
+    extra_args: "--aug-photo-strength 0.5"
+    description: Half-strength photometric perturbation.
+  aug_photo_2x:
+    train_aug: photo
+    extra_args: "--aug-photo-strength 2.0"
+    description: Double-strength photometric perturbation.
+  aug_noise0:
+    train_aug: mild
+    extra_args: "--aug-noise-std 0"
+    description: Remove Gaussian noise from the canonical mild policy.
   no_specialized:
     train_aug: mild
     extra_args: "--specialized-heads 0"

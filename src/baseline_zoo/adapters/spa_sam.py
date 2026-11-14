@@ -10,16 +10,20 @@ policy applied during training:
 * ``flip``: synchronized horizontal / vertical flips;
 * ``photo``: mild brightness / contrast / gamma / noise;
 * ``mild``: flips + photometric (default);
-* ``strong``: mild + 90-degree rotations + mild blur.
+* ``strong``: mild + 90-degree rotations + mild blur;
+* ``crop`` / ``elastic`` / ``cutout`` / ``standard``: deliberately
+  destructive negative controls for ICCV ablations.  They are never used by
+  the canonical model; they exist to show that topology-preserving
+  augmentation is necessary on thin curvilinear structures.
 
 All DCD structural ablations remain available: ``--specialized-heads 0``,
 ``--head-fusion 0``, zero topology weights, ``--stage2-loss-scope`` and
-``--topology-head``.  Crops, elastic warps, cutout and mixup are excluded
-because they destroy thin curvilinear structures.
+``--topology-head``.  The canonical recipe excludes crops and elastic warps.
 """
 
 from __future__ import annotations
 
+import math
 import random
 from pathlib import Path
 
@@ -38,52 +42,159 @@ from baseline_zoo.models.spa_sam.topology_losses import (
 )
 from baseline_zoo.runtime import REPO_ROOT, BaselineAdapter
 
-AUG_MODES = ('none', 'flip', 'photo', 'mild', 'strong')
+AUG_MODES = (
+    'none', 'flip', 'photo', 'mild', 'strong',
+    # Deliberately destructive negative controls, ablation-only.
+    'crop', 'elastic', 'cutout', 'standard',
+)
 
 
-def _photometric(images: torch.Tensor, rng: random.Random) -> torch.Tensor:
+def _photometric(images: torch.Tensor, rng: random.Random,
+                 strength: float = 1.0,
+                 noise_std: float = 0.01) -> torch.Tensor:
     if rng.random() < 0.4:
         mean = images.mean(dim=(1, 2, 3), keepdim=True)
-        contrast = 0.8 + 0.4 * rng.random()
-        brightness = 0.8 + 0.4 * rng.random()
+        contrast = 1.0 + (rng.random() - 0.5) * 0.4 * strength
+        brightness = 1.0 + (rng.random() - 0.5) * 0.4 * strength
         images = ((images - mean) * contrast + mean) * brightness
     if rng.random() < 0.3:
-        gamma = 0.8 + 0.4 * rng.random()
+        gamma = 1.0 + (rng.random() - 0.5) * 0.4 * strength
         images = images.clamp(0.0, 1.0).pow(gamma)
     if rng.random() < 0.2:
-        images = images + torch.randn_like(images) * 0.01
+        images = images + torch.randn_like(images) * noise_std * strength
     return images.clamp(0.0, 1.0)
 
 
-def _flips(images: torch.Tensor, masks: torch.Tensor, rng: random.Random
-           ) -> tuple[torch.Tensor, torch.Tensor]:
-    if rng.random() < 0.5:
+def _flips(images: torch.Tensor, masks: torch.Tensor, rng: random.Random,
+           flip_prob: float = 0.5) -> tuple[torch.Tensor, torch.Tensor]:
+    if rng.random() < flip_prob:
         images = torch.flip(images, dims=[3])
         masks = torch.flip(masks, dims=[3])
-    if rng.random() < 0.5:
+    if rng.random() < flip_prob:
         images = torch.flip(images, dims=[2])
         masks = torch.flip(masks, dims=[2])
     return images, masks
 
 
+def _random_resized_crop(images: torch.Tensor, masks: torch.Tensor,
+                         rng: random.Random, min_scale: float = 0.5
+                         ) -> tuple[torch.Tensor, torch.Tensor]:
+    """Destructive control: random scale/aspect crop, then resize back."""
+    out_images, out_masks = [], []
+    height, width = images.shape[-2:]
+    for index in range(images.shape[0]):
+        scale = min_scale + (1.0 - min_scale) * rng.random()
+        aspect = math.exp((2.0 * rng.random() - 1.0) * math.log(4.0 / 3.0))
+        area = scale * height * width
+        crop_h = min(height, max(8, int(round(math.sqrt(area / aspect)))))
+        crop_w = min(width, max(8, int(round(math.sqrt(area * aspect)))))
+        y0 = rng.randrange(0, height - crop_h + 1)
+        x0 = rng.randrange(0, width - crop_w + 1)
+        image = images[index:index + 1, :, y0:y0 + crop_h, x0:x0 + crop_w]
+        mask = masks[index:index + 1, :, y0:y0 + crop_h, x0:x0 + crop_w]
+        out_images.append(F.interpolate(
+            image, (height, width), mode='bilinear', align_corners=False))
+        out_masks.append(F.interpolate(
+            mask, (height, width), mode='bilinear', align_corners=False))
+    return torch.cat(out_images), torch.cat(out_masks)
+
+
+def _random_rotate(images: torch.Tensor, masks: torch.Tensor,
+                   rng: random.Random, max_angle: float = 25.0
+                   ) -> tuple[torch.Tensor, torch.Tensor]:
+    """Destructive control: arbitrary-angle rotation with border padding."""
+    batch = images.shape[0]
+    device, dtype = images.device, images.dtype
+    angles = torch.tensor([
+        (2.0 * rng.random() - 1.0) * max_angle * math.pi / 180.0
+        for _ in range(batch)], device=device, dtype=dtype)
+    cos, sin = torch.cos(angles), torch.sin(angles)
+    theta = torch.zeros(batch, 2, 3, device=device, dtype=dtype)
+    theta[:, 0, 0] = cos
+    theta[:, 0, 1] = -sin
+    theta[:, 1, 0] = sin
+    theta[:, 1, 1] = cos
+    grid = F.affine_grid(theta, images.shape, align_corners=False)
+    return (F.grid_sample(images, grid, align_corners=False,
+                          padding_mode='border'),
+            F.grid_sample(masks, grid, align_corners=False,
+                          padding_mode='border'))
+
+
+def _elastic(images: torch.Tensor, masks: torch.Tensor, rng: random.Random,
+             alpha: float = 0.05) -> tuple[torch.Tensor, torch.Tensor]:
+    """Destructive control: smooth random elastic displacement."""
+    del rng  # the displacement field uses the deterministic torch RNG
+    batch, _, height, width = images.shape
+    device, dtype = images.device, images.dtype
+    displacement = torch.randn(
+        batch, 2, 8, 8, device=device, dtype=dtype)
+    displacement = F.interpolate(
+        displacement, size=(height, width), mode='bilinear',
+        align_corners=False).clamp(-2.0, 2.0) * (2.0 * alpha)
+    ys = torch.linspace(-1.0, 1.0, height, device=device,
+                        dtype=dtype).view(1, 1, height, 1)
+    xs = torch.linspace(-1.0, 1.0, width, device=device,
+                        dtype=dtype).view(1, 1, 1, width)
+    ys = ys.expand(batch, 1, height, width)
+    xs = xs.expand(batch, 1, height, width)
+    grid = torch.cat([xs + displacement[:, 0:1],
+                      ys + displacement[:, 1:2]], dim=1)
+    grid = grid.permute(0, 2, 3, 1)
+    return (F.grid_sample(images, grid, align_corners=False,
+                          padding_mode='border'),
+            F.grid_sample(masks, grid, align_corners=False,
+                          padding_mode='border'))
+
+
+def _cutout(images: torch.Tensor, masks: torch.Tensor,
+            rng: random.Random) -> tuple[torch.Tensor, torch.Tensor]:
+    """Destructive control: erase one random image rectangle."""
+    height, width = images.shape[-2:]
+    for index in range(images.shape[0]):
+        cut_h = max(8, int(height * (0.10 + 0.20 * rng.random())))
+        cut_w = max(8, int(width * (0.10 + 0.20 * rng.random())))
+        y0 = rng.randrange(0, max(1, height - cut_h + 1))
+        x0 = rng.randrange(0, max(1, width - cut_w + 1))
+        images[index:index + 1, :, y0:y0 + cut_h, x0:x0 + cut_w] = 0.0
+    return images, masks
+
+
 def augment_batch(images: torch.Tensor, masks: torch.Tensor,
-                  rng: random.Random, mode: str = 'mild'
+                  rng: random.Random, mode: str = 'mild', *,
+                  flip_prob: float = 0.5, photo_strength: float = 1.0,
+                  noise_std: float = 0.01, crop_min_scale: float = 0.5,
+                  elastic_alpha: float = 0.05
                   ) -> tuple[torch.Tensor, torch.Tensor]:
-    """Apply one topology-preserving augmentation variant."""
+    """Apply one augmentation variant; destructive modes are ablation-only."""
     if mode not in AUG_MODES:
         raise ValueError(f'unsupported augmentation mode: {mode!r}')
     if mode == 'none':
         return images, masks
     if mode in ('flip', 'mild', 'strong'):
-        images, masks = _flips(images, masks, rng)
+        images, masks = _flips(images, masks, rng, flip_prob)
     if mode in ('mild', 'strong', 'photo'):
-        images = _photometric(images, rng)
+        images = _photometric(images, rng, photo_strength, noise_std)
     if mode == 'strong':
         k = int(rng.randrange(4))
         if k:
             images = torch.rot90(images, k, dims=[2, 3])
             masks = torch.rot90(masks, k, dims=[2, 3])
         if rng.random() < 0.2:
+            images = F.avg_pool2d(images, 3, 1, 1)
+        images = images.clamp(0.0, 1.0)
+    elif mode == 'crop':
+        images, masks = _random_resized_crop(
+            images, masks, rng, crop_min_scale)
+    elif mode == 'elastic':
+        images, masks = _elastic(images, masks, rng, elastic_alpha)
+    elif mode == 'cutout':
+        images, masks = _cutout(images, masks, rng)
+    elif mode == 'standard':
+        images, masks = _random_rotate(images, masks, rng, 25.0)
+        images, masks = _random_resized_crop(images, masks, rng, 0.6)
+        images = _photometric(images, rng, 1.5, 0.02)
+        if rng.random() < 0.3:
             images = F.avg_pool2d(images, 3, 1, 1)
         images = images.clamp(0.0, 1.0)
     return images, masks
@@ -136,8 +247,9 @@ class SpaSamAdapter(BaselineAdapter):
         'sigmoid (> 0.5); upstream thresholded raw logits at 0.5.',
         'Training uses a structure-preserving augmentation policy: '
         'synchronized flips, optional 90-degree rotations, mild blur and '
-        'photometric perturbations.  Crops and elastic warps are excluded '
-        'because they destroy thin curvilinear structures.',
+        'photometric perturbations.  The canonical recipe excludes crops '
+        'and elastic warps because they destroy thin curvilinear structures; '
+        'crop/elastic/cutout/standard are destructive ablation controls.',
         'Inference is unchanged: fixed candidate 3 with fusion disabled, '
         'single-pass, threshold 0.5.  This model is physically independent '
         'of DCD: it owns its adapter and model package.',
@@ -167,6 +279,11 @@ class SpaSamAdapter(BaselineAdapter):
         self.topology_warmup_epochs = 5
         self.deep_sup_weight = 0.3
         self.train_aug = 'mild'
+        self.aug_flip_prob = 0.5
+        self.aug_photo_strength = 1.0
+        self.aug_noise_std = 0.01
+        self.aug_crop_min_scale = 0.5
+        self.aug_elastic_alpha = 0.05
 
     def add_args(self, parser):
         parser.add_argument(
@@ -242,7 +359,24 @@ class SpaSamAdapter(BaselineAdapter):
             '--train-aug', choices=list(AUG_MODES), default='mild',
             help='structure-preserving augmentation variant: none (DCD '
                  'control), flip, photo, mild (flips + photometric, default) '
-                 'or strong (mild + rot90 + mild blur)')
+                 'or strong (mild + rot90 + mild blur); crop, elastic, cutout '
+                 'and standard are destructive ICCV ablation controls')
+        parser.add_argument(
+            '--aug-flip-prob', type=float, default=0.5,
+            help='probability of each synchronized flip')
+        parser.add_argument(
+            '--aug-photo-strength', type=float, default=1.0,
+            help='multiplier on photometric perturbation strength')
+        parser.add_argument(
+            '--aug-noise-std', type=float, default=0.01,
+            help='Gaussian noise standard deviation at strength 1.0')
+        parser.add_argument(
+            '--aug-crop-min-scale', type=float, default=0.5,
+            help='minimum random-resized-crop area scale for the destructive '
+                 'crop control')
+        parser.add_argument(
+            '--aug-elastic-alpha', type=float, default=0.05,
+            help='elastic displacement magnitude for the destructive control')
         parser.set_defaults(grad_clip=1.0)
 
     def _read_aug(self, args) -> None:
@@ -250,6 +384,25 @@ class SpaSamAdapter(BaselineAdapter):
         if self.train_aug not in AUG_MODES:
             raise SystemExit(
                 f'unsupported train-aug: {self.train_aug!r}')
+        self.aug_flip_prob = float(getattr(
+            args, 'aug_flip_prob', 0.5))
+        self.aug_photo_strength = float(getattr(
+            args, 'aug_photo_strength', 1.0))
+        self.aug_noise_std = float(getattr(args, 'aug_noise_std', 0.01))
+        self.aug_crop_min_scale = float(getattr(
+            args, 'aug_crop_min_scale', 0.5))
+        self.aug_elastic_alpha = float(getattr(
+            args, 'aug_elastic_alpha', 0.05))
+        if not 0.0 <= self.aug_flip_prob <= 1.0:
+            raise SystemExit('--aug-flip-prob must be in [0, 1]')
+        if self.aug_photo_strength < 0:
+            raise SystemExit('--aug-photo-strength must be non-negative')
+        if self.aug_noise_std < 0:
+            raise SystemExit('--aug-noise-std must be non-negative')
+        if not 0.0 < self.aug_crop_min_scale <= 1.0:
+            raise SystemExit('--aug-crop-min-scale must be in (0, 1]')
+        if not 0.0 <= self.aug_elastic_alpha <= 0.5:
+            raise SystemExit('--aug-elastic-alpha must be in [0, 0.5]')
 
     @staticmethod
     def _resolved_head_select(args):
@@ -417,6 +570,11 @@ class SpaSamAdapter(BaselineAdapter):
             'topology_resolution': self.topology_resolution,
             'topology_warmup_epochs': self.topology_warmup_epochs,
             'train_aug': self.train_aug,
+            'aug_flip_prob': self.aug_flip_prob,
+            'aug_photo_strength': self.aug_photo_strength,
+            'aug_noise_std': self.aug_noise_std,
+            'aug_crop_min_scale': self.aug_crop_min_scale,
+            'aug_elastic_alpha': self.aug_elastic_alpha,
         }
 
     def restore_config(self, args, config):
@@ -430,7 +588,9 @@ class SpaSamAdapter(BaselineAdapter):
                 'stage2_loss_scope', 'topology_head', 'topology_source',
                 'cl_dice_weight', 'skeleton_recall_weight',
                 'topology_resolution', 'topology_warmup_epochs',
-                'train_aug'):
+                'train_aug', 'aug_flip_prob', 'aug_photo_strength',
+                'aug_noise_std', 'aug_crop_min_scale',
+                'aug_elastic_alpha'):
             if key in config:
                 setattr(args, key, config[key])
         saved_size = config.get('input_size')
@@ -522,7 +682,13 @@ class SpaSamAdapter(BaselineAdapter):
             masks.append(mask_tensor)
         images = torch.stack(images).to(self.device)
         masks = torch.stack(masks).to(self.device)
-        return augment_batch(images, masks, rng, self.train_aug)
+        return augment_batch(
+            images, masks, rng, self.train_aug,
+            flip_prob=self.aug_flip_prob,
+            photo_strength=self.aug_photo_strength,
+            noise_std=self.aug_noise_std,
+            crop_min_scale=self.aug_crop_min_scale,
+            elastic_alpha=self.aug_elastic_alpha)
 
     def _mask_criterion(self, logits, target, bce_weight, dice_weight):
         pos_weight = float(getattr(
