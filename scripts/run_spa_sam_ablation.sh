@@ -50,6 +50,7 @@ for variant in "${VARIANT_ARGS[@]}"; do
   echo "============================================================"
   TRAIN_AUG="$aug" \
   EXTRA_ARGS="$extra" \
+  VARIANT="$variant" \
   RUN_ROOT="results/runs/spa_sam_ablation/${variant}" \
   SUMMARY_ROOT="results/ablations/spa_sam_ablation/${variant}" \
   WANDB_GROUP="spa_sam_ablation_${variant}" \

@@ -18,13 +18,18 @@
 #   SEEDS, EPOCHS, TRAIN_GPUS, EVAL_GPUS, TRAIN_AUG
 #   RUN_ROOT=results/runs/spa_sam/default
 #   SUMMARY_ROOT=results/ablations/spa_sam_800
+#   VARIANT=default (eval provenance; ablation driver sets the variant name)
 #   DCD_ROOT (optional: existing DCD 4-seed eval root)
 #   SACM_ROOT (optional: existing SACM 4-seed eval root)
 #   RESUME=1 SKIP_TRAIN=0 SKIP_EVAL=0 DERIVE_ONLY=0
 #   FORCE_DERIVE=0 FORCE_EVAL=0 DRY_RUN=0
 #   USE_WANDB=1 WANDB_MODE=online WANDB_PROJECT=sacm WANDB_ENTITY=buaazqk
-#   WANDB_GROUP=spa_sam_800  WANDB_PREFIX=spa-sam
+#   WANDB_GROUP=spa_sam_${EPOCHS}  WANDB_PREFIX=spa-sam
 #   EXTRA_ARGS=""  (forwarded to training; used by the ablation driver)
+#
+# Reproduction note: the archived local 4-seed SPA-SAM best used 50 epochs
+# (57.39 / 43.76 / 66.34 / 62.95).  Run EPOCHS=50 for that exact recipe;
+# the default 800 is the budget-matched comparison with DCD-800.
 set -euo pipefail
 cd "$(dirname "$0")/.." || exit 1
 REPO="$(pwd)"
@@ -36,12 +41,13 @@ TRAIN_GPUS="${TRAIN_GPUS:-0,1,2,3}"
 EVAL_GPUS="${EVAL_GPUS:-4,5,6,7}"
 TRAIN_AUG="${TRAIN_AUG:-mild}"
 RUN_ROOT="${RUN_ROOT:-results/runs/spa_sam/default}"
-SUMMARY_ROOT="${SUMMARY_ROOT:-results/ablations/spa_sam_800}"
+SUMMARY_ROOT="${SUMMARY_ROOT:-results/ablations/spa_sam_${EPOCHS}}"
+VARIANT="${VARIANT:-default}"
 DCD_ROOT="${DCD_ROOT:-results/runs/sacm_stc_fixed3_800}"
 SACM_ROOT="${SACM_ROOT:-results/runs/sacm/default}"
 WANDB_PROJECT="${WANDB_PROJECT:-sacm}"
 WANDB_ENTITY="${WANDB_ENTITY:-buaazqk}"
-WANDB_GROUP="${WANDB_GROUP:-spa_sam_800}"
+WANDB_GROUP="${WANDB_GROUP:-spa_sam_${EPOCHS}}"
 WANDB_PREFIX="${WANDB_PREFIX:-spa-sam}"
 EXTRA_ARGS="${EXTRA_ARGS:-}"
 
@@ -52,7 +58,7 @@ as_bool() {
     *) echo "ERROR: expected 0/1, got '$1'" >&2; exit 2 ;;
   esac
 }
-RESUME=$(as_bool "${RESUME:-1}")
+RESUME=$(as_bool "${RESUME:-0}")
 SKIP_TRAIN=$(as_bool "${SKIP_TRAIN:-0}")
 SKIP_EVAL=$(as_bool "${SKIP_EVAL:-0}")
 DERIVE_ONLY=$(as_bool "${DERIVE_ONLY:-0}")
@@ -60,6 +66,21 @@ FORCE_DERIVE=$(as_bool "${FORCE_DERIVE:-0}")
 FORCE_EVAL=$(as_bool "${FORCE_EVAL:-0}")
 DRY_RUN=$(as_bool "${DRY_RUN:-0}")
 USE_WANDB=$(as_bool "${USE_WANDB:-1}")
+if [ "$DERIVE_ONLY" = 1 ]; then
+  SKIP_TRAIN=1
+  SKIP_EVAL=1
+fi
+
+abspath() {
+  case "$1" in
+    /*) printf '%s\n' "$1" ;;
+    *) printf '%s\n' "$REPO/$1" ;;
+  esac
+}
+RUN_ROOT_ABS=$(abspath "$RUN_ROOT")
+SUMMARY_ROOT_ABS=$(abspath "$SUMMARY_ROOT")
+DCD_ROOT_ABS=$(abspath "$DCD_ROOT")
+SACM_ROOT_ABS=$(abspath "$SACM_ROOT")
 
 read -r -a SEED_ARGS <<< "$SEEDS_STR"
 read -r -a TRAIN_GPU_ARGS <<< "${TRAIN_GPUS//,/ }"
@@ -184,7 +205,7 @@ if [ "$DERIVE_ONLY" = 0 ] && [ "$SKIP_TRAIN" = 0 ]; then
   for i in "${!SEED_ARGS[@]}"; do
     seed="${SEED_ARGS[$i]}"
     gpu="${TRAIN_GPU_ARGS[$((i % ${#TRAIN_GPU_ARGS[@]}))]}"
-    workdir="$REPO/$RUN_ROOT/seed_${seed}"
+    workdir="$RUN_ROOT_ABS/seed_${seed}"
     log="$LOG_DIR/train_seed${seed}.log"
     cmd=("$PYTHON" -m baseline_zoo.run_one --model spa_sam --stage train
       --data-root "$REPO/data/sacm_3shot_seed${seed}"
@@ -205,7 +226,15 @@ if [ "$DERIVE_ONLY" = 0 ] && [ "$SKIP_TRAIN" = 0 ]; then
       --wandb_project "$WANDB_PROJECT" --wandb_entity "$WANDB_ENTITY"
       --wandb_group "$WANDB_GROUP"
       --wandb_name "${WANDB_PREFIX}-seed${seed}")
-    if [ "$RESUME" = 1 ]; then cmd+=(--resume); fi
+    if [ "$RESUME" = 1 ]; then
+      if [ -f "$workdir/.resume_state.pth" ] \
+         || [ -f "$workdir/best_model.pth" ]; then
+        cmd+=(--resume)
+      else
+        echo "  [warn] RESUME=1 but seed ${seed} has no checkpoint;" \
+             "starting from scratch" >&2
+      fi
+    fi
     if [ "${#EXTRA_ARRAY[@]}" -gt 0 ]; then cmd+=("${EXTRA_ARRAY[@]}"); fi
     printf '+ '; printf '%q ' "${cmd[@]}"; printf '\n'
     if [ "$DRY_RUN" = 0 ]; then
@@ -227,7 +256,7 @@ fi
 echo "[stage] fixed3 derivation"
 for i in "${!SEED_ARGS[@]}"; do
   seed="${SEED_ARGS[$i]}"
-  workdir="$REPO/$RUN_ROOT/seed_${seed}"
+  workdir="$RUN_ROOT_ABS/seed_${seed}"
   input="$workdir/best_model.pth"
   output="$workdir/best_model_fixed3.pth"
   cmd=("$PYTHON" -m baseline_zoo.models.spa_sam.derive_fixed3
@@ -243,10 +272,11 @@ if [ "$SKIP_EVAL" = 0 ]; then
   for i in "${!SEED_ARGS[@]}"; do
     seed="${SEED_ARGS[$i]}"
     gpu="${EVAL_GPU_ARGS[$((i % ${#EVAL_GPU_ARGS[@]}))]}"
-    workdir="$REPO/$RUN_ROOT/seed_${seed}"
+    workdir="$RUN_ROOT_ABS/seed_${seed}"
     log="$LOG_DIR/eval_seed${seed}.log"
     cmd=("$PYTHON" scripts/pipeline/run_baseline_test.py
       --method spa_sam
+      --variant "$VARIANT"
       --protocol "$REPO/data/sacm_3shot_seed${seed}/protocol_manifest.csv"
       --seed "$seed"
       --checkpoint "$workdir/best_model_fixed3.pth"
@@ -276,16 +306,20 @@ if [ "$SKIP_EVAL" = 0 ]; then
   fi
 fi
 
-echo "[stage] summary"
-summary_cmd=("$PYTHON" scripts/pipeline/summarize_spa_sam.py
-  --root "$REPO/$RUN_ROOT" --out "$REPO/$SUMMARY_ROOT")
-if [ -n "$DCD_ROOT" ] && [ -d "$REPO/$DCD_ROOT" ]; then
-  summary_cmd+=(--dcd-root "$REPO/$DCD_ROOT")
+if [ "$SKIP_EVAL" = 0 ]; then
+  echo "[stage] summary"
+  summary_cmd=("$PYTHON" scripts/pipeline/summarize_spa_sam.py
+    --root "$RUN_ROOT_ABS" --out "$SUMMARY_ROOT_ABS")
+  if [ -n "$DCD_ROOT" ] && [ -d "$DCD_ROOT_ABS" ]; then
+    summary_cmd+=(--dcd-root "$DCD_ROOT_ABS")
+  fi
+  if [ -n "$SACM_ROOT" ] && [ -d "$SACM_ROOT_ABS" ]; then
+    summary_cmd+=(--sacm-root "$SACM_ROOT_ABS")
+  fi
+  printf '+ '; printf '%q ' "${summary_cmd[@]}"; printf '\n'
+  if [ "$DRY_RUN" = 0 ]; then "${summary_cmd[@]}"; fi
+else
+  echo "[stage] summary skipped (SKIP_EVAL=1)"
 fi
-if [ -n "$SACM_ROOT" ] && [ -d "$REPO/$SACM_ROOT" ]; then
-  summary_cmd+=(--sacm-root "$REPO/$SACM_ROOT")
-fi
-printf '+ '; printf '%q ' "${summary_cmd[@]}"; printf '\n'
-if [ "$DRY_RUN" = 0 ]; then "${summary_cmd[@]}"; fi
 
 echo "DONE  logs: ${LOG_DIR}  summary: ${SUMMARY_ROOT}/summary.md"

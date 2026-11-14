@@ -42,3 +42,6 @@ note: >-
   plus the inherited DCD structural switches (specialized-heads,
   head-fusion, topology weights, stage2-loss-scope, topology-head).
   The canonical recipe is unchanged from DCD except --train-aug mild.
+  The archived four-seed best used 50 epochs (57.39/43.76/66.34/62.95);
+  pass --epochs 50 to reproduce that exact local result.  The default 800
+  epochs is the budget-matched comparison against DCD-800.

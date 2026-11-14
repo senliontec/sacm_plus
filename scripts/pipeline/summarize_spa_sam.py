@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import math
 import statistics
 from pathlib import Path
 
@@ -14,14 +15,33 @@ ROLES = ('Seen', 'Unseen', 'Novel', 'All')
 DISPLAY = {'dice': 'Dice', 'iou': 'IoU', 'cldice': 'clDice', 'hd95': 'HD95'}
 
 
+def _number(value):
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return float('nan')
+    return number if math.isfinite(number) else float('nan')
+
+
+def _finite(values):
+    numbers = []
+    for value in values:
+        if value is None:
+            continue
+        number = _number(value)
+        if math.isfinite(number):
+            numbers.append(number)
+    return numbers
+
+
 def mean(values):
-    values = [float(v) for v in values if v is not None]
-    return statistics.mean(values) if values else float('nan')
+    numbers = _finite(values)
+    return statistics.mean(numbers) if numbers else float('nan')
 
 
 def std(values):
-    values = [float(v) for v in values if v is not None]
-    return statistics.stdev(values) if len(values) > 1 else 0.0
+    numbers = _finite(values)
+    return statistics.stdev(numbers) if len(numbers) > 1 else 0.0
 
 
 def read_rows(path):
@@ -37,7 +57,7 @@ def role_macro(rows, role):
 
 
 def dataset_macro(rows):
-    return {row['dataset']: {m: float(row.get(f'{m}_mean', 'nan'))
+    return {row['dataset']: {m: _number(row.get(f'{m}_mean'))
                              for m in METRICS} for row in rows}
 
 
@@ -93,8 +113,12 @@ def epochs(root):
     return values[0] if values and len(set(values)) == 1 else None
 
 
-def fmt(value):
-    return 'nan' if value is None or value != value else f'{value:.2f}'
+def fmt(metric, value):
+    """Dice/IoU/clDice are shown as percentages; HD95 stays in pixels."""
+    number = _number(value)
+    if not math.isfinite(number):
+        return 'nan'
+    return f'{number:.2f}' if metric == 'hd95' else f'{100.0 * number:.2f}'
 
 
 def main(argv=None):
@@ -163,35 +187,45 @@ def main(argv=None):
               '| Method | Dice | IoU | clDice | HD95 |',
               '|---|---:|---:|---:|---:|']
     lines.append(f"| {args.name} | " + ' | '.join(
-        f'{fmt(macro[m])} ± {fmt(macro_std[m])}' for m in METRICS) + ' |')
+        f'{fmt(m, macro[m])} ± {fmt(m, macro_std[m])}'
+        for m in METRICS) + ' |')
     for name, values in baseline.items():
         lines.append(f'| {name} | ' + ' | '.join(
-            fmt(values[m]) for m in METRICS) + ' |')
+            fmt(m, values[m]) for m in METRICS) + ' |')
     lines += ['', '## Per seed', '',
               '| Seed | Dice | IoU | clDice | HD95 |',
               '|---|---:|---:|---:|---:|']
     for seed in seeds:
         lines.append(f'| {seed} | ' + ' | '.join(
-            fmt(per_seed[seed][m]) for m in METRICS) + ' |')
+            fmt(m, per_seed[seed][m]) for m in METRICS) + ' |')
     lines += ['', '## Per role (seed mean)', '',
               '| Role | Dice | IoU | clDice | HD95 |',
               '|---|---:|---:|---:|---:|']
     for role in ROLES:
         lines.append(f'| {role} | ' + ' | '.join(
-            fmt(roles[role][m]) for m in METRICS) + ' |')
+            fmt(m, roles[role][m]) for m in METRICS) + ' |')
     if dcd_datasets is not None:
         lines += ['', '## Per-dataset wins vs DCD (seed mean)', '']
         for m in METRICS:
-            wins = sum(1 for v in dcd_datasets.values()
-                       if v['delta'][m] > 0)
-            losses = sum(1 for v in dcd_datasets.values()
-                         if v['delta'][m] < 0)
-            delta = mean(v['delta'][m] for v in dcd_datasets.values())
-            unit = '' if m == 'hd95' else ' pp'
+            if m == 'hd95':
+                wins = sum(1 for v in dcd_datasets.values()
+                           if v['delta'][m] < 0)
+                losses = sum(1 for v in dcd_datasets.values()
+                             if v['delta'][m] > 0)
+                delta_text = f'{mean(v["delta"][m] for v in dcd_datasets.values()):.2f}'
+            else:
+                wins = sum(1 for v in dcd_datasets.values()
+                           if v['delta'][m] > 0)
+                losses = sum(1 for v in dcd_datasets.values()
+                             if v['delta'][m] < 0)
+                delta_text = (
+                    f'{100.0 * mean(v["delta"][m] for v in dcd_datasets.values()):.2f} pp')
             lines.append(f'- {DISPLAY[m]}: {wins} wins / {losses} losses, '
-                         f'mean delta {delta:.2f}{unit}')
-    lines += ['', 'Seeds use distinct official 3-shot splits; evaluation uses '
-              'no target labels or support images.', '']
+                         f'mean delta {delta_text}')
+    lines += ['', 'Dice/IoU/clDice are percentages; HD95 is in pixels. '
+              'macro.csv stores raw fractions.',
+              'Seeds use distinct official 3-shot splits; evaluation uses no '
+              'target labels or support images.', '']
     (args.out / 'summary.md').write_text('\n'.join(lines), encoding='utf-8')
     print(f'wrote {args.out}/summary.md')
     print(f'wrote {args.out}/macro.csv')
