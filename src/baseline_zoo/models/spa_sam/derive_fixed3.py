@@ -1,8 +1,8 @@
-"""Derive the inference-only fixed candidate-3 checkpoint for TubeToken.
+"""Derive the inference-only fixed candidate-3 checkpoint for SPA-SAM.
 
-The baseline helper only accepts ``adapter=dcd``.  This method-local helper
-performs the same configuration rewrite and removes the unused fusion keys,
-while preserving every structure-control tensor.
+This SPA-SAM-local helper performs the standard fixed3 configuration rewrite
+and removes the unused fusion keys.  It is independent of the DCD helper so
+that changes to either baseline cannot affect the other.
 """
 
 from __future__ import annotations
@@ -41,9 +41,9 @@ def derive(input_path: Path, output_path: Path, head: int = 3,
     payload = torch.load(source, map_location='cpu', weights_only=False)
     if not isinstance(payload, dict):
         raise SystemExit('checkpoint must be a mapping')
-    if str(payload.get('adapter')) != 'tube_token':
+    if str(payload.get('adapter')) != 'spa_sam':
         raise SystemExit(
-            f'expected adapter=tube_token, got {payload.get("adapter")!r}')
+            f'expected adapter=spa_sam, got {payload.get("adapter")!r}')
     config = payload.get('config')
     if not isinstance(config, dict):
         raise SystemExit('checkpoint has no config mapping')

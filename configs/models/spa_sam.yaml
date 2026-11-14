@@ -1,0 +1,44 @@
+id: spa_sam
+display_name: SPA-SAM
+family: sam
+status: available
+checkpoint: "{output_root}/best_model_fixed3.pth"
+train_entrypoint: >-
+  python -m baseline_zoo.run_one --model spa_sam --stage train
+  --data-root {split_root} --workdir {output_root}
+  --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
+  --sam-checkpoint checkpoints/sam_vit_l_0b3195.pth
+  --bce-weight 0.7 --dice-weight 0.3 --bce-pos-weight 2
+  --binary-targets 0 --deploy-threshold 0.5
+  --stage2-loss-scope all --topology-head all
+  --cl-dice-weight 0.1 --skeleton-recall-weight 0.1
+  --specialized-heads 1 --specialized-head-weight 0.1
+  --specialized-topology-weight 0.1
+  --head-fusion 1 --fusion-loss-weight 1.0
+  --topology-resolution 512 --topology-warmup-epochs 5
+  --deep-sup-weight 0.3 --head-select gating --deployment-head 3
+  --adapter-dim-ratio 0.1 --num-workers 0 --save-every 0
+  --train-aug mild
+  && python -m baseline_zoo.models.spa_sam.derive_fixed3
+  --input {output_root}/best_model.pth
+  --output {output_root}/best_model_fixed3.pth
+  --deployment-head 3
+eval_entrypoint: >-
+  python scripts/pipeline/run_baseline_test.py --method spa_sam
+  --protocol {test_manifest} --seed {seed}
+  --checkpoint {output_root}/best_model_fixed3.pth
+  --sam-checkpoint checkpoints/sam_vit_l_0b3195.pth
+  --pred-root {output_root}/predictions
+  --paper-root {output_root}/eval
+  --device cuda:{gpu} --use_wandb true --skip-visualize
+protocols: [seeded5, fixed]
+defaults:
+  epochs: 800
+  preset: spa_all_dense
+note: >-
+  SPA-SAM = DCD four-candidate scaffold + structure-preserving augmentation
+  (synchronized flips, mild photometric, optional rot90/blur); fixed
+  candidate 3 deployment.  Ablations: --train-aug none|flip|photo|mild|strong
+  plus the inherited DCD structural switches (specialized-heads,
+  head-fusion, topology weights, stage2-loss-scope, topology-head).
+  The canonical recipe is unchanged from DCD except --train-aug mild.

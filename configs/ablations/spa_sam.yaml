@@ -1,0 +1,49 @@
+# SPA-SAM ablation matrix.
+#
+# The executable driver is scripts/run_spa_sam_ablation.sh.  This file is the
+# canonical description of the variants so the paper tables and the driver
+# stay in sync.
+id: spa_sam_ablation
+model: spa_sam
+epochs: 800
+seeds: [0, 1, 2, 3]
+deployment:
+  head_select: fixed
+  deployment_head: 3
+  head_fusion: 0
+variants:
+  aug_none:
+    train_aug: none
+    description: DCD control with no augmentation.
+  aug_flip:
+    train_aug: flip
+    description: Synchronized horizontal/vertical flips only.
+  aug_photo:
+    train_aug: photo
+    description: Photometric perturbations only.
+  aug_mild:
+    train_aug: mild
+    description: Flips + photometric; canonical SPA-SAM recipe.
+  aug_strong:
+    train_aug: strong
+    description: Mild + 90-degree rotations + mild blur.
+  no_specialized:
+    train_aug: mild
+    extra_args: "--specialized-heads 0"
+    description: Native four-head control under mild augmentation.
+  no_fusion:
+    train_aug: mild
+    extra_args: "--head-fusion 0"
+    description: No-fusion training under mild augmentation.
+  no_topology:
+    train_aug: mild
+    extra_args: "--cl-dice-weight 0 --skeleton-recall-weight 0 --specialized-topology-weight 0"
+    description: No topology losses under mild augmentation.
+  dense_selected:
+    train_aug: mild
+    extra_args: "--stage2-loss-scope selected"
+    description: Dense loss only on the selected deployment head.
+  topo_deployment:
+    train_aug: mild
+    extra_args: "--topology-head deployment"
+    description: Topology loss only on the fixed deployment head.

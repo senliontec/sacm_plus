@@ -37,6 +37,7 @@ _ADAPTERS = {
     'sacm': ('baseline_zoo.adapters.sacm',
                       'SACMAdapter'),
     'dcd': ('baseline_zoo.adapters.dcd', 'DCDAdapter'),
+    'spa_sam': ('baseline_zoo.adapters.spa_sam', 'SpaSamAdapter'),
     'sam_octa': ('baseline_zoo.adapters.sam_octa', 'SAMOCTAAdapter'),
     'sansa': ('baseline_zoo.adapters.sansa', 'SANSAAdapter'),
     's2mnet': ('baseline_zoo.adapters.s2mnet', 'S2MNetAdapter'),
