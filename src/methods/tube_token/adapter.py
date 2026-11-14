@@ -52,6 +52,7 @@ class TubeTokenAdapter(DCDAdapter):
         self.train_aug = 'none'
         self.aux_eval_off = False
         self.self_prompt_blend = 0.0
+        self.self_prompt_gate = False
         self._clean_images = None
         self.head_feature_dim = 32
         self.head_coarse_size = 512
@@ -130,7 +131,8 @@ class TubeTokenAdapter(DCDAdapter):
                             help='weight of the coarse dense loss in the '
                                  'self-prompt cascade')
         parser.add_argument(
-            '--train-aug', choices=['none', 'mild'], default='none',
+            '--train-aug', choices=['none', 'mild', 'strong'],
+            default='none',
             help='structure-preserving training augmentation')
         parser.add_argument(
             '--aux-eval-off', action='store_true',
@@ -140,6 +142,10 @@ class TubeTokenAdapter(DCDAdapter):
             '--self-prompt-blend', type=float, default=0.0,
             help='inference blend weight of the coarse branch logits with '
                  'the self-prompt refined logits (0 = refined only)')
+        parser.add_argument(
+            '--self-prompt-gate', action='store_true',
+            help='inference: use the refined branch only where the coarse '
+                 'branch is uncertain')
         parser.add_argument('--head-feature-dim', type=int, default=32)
         parser.add_argument('--head-coarse-size', type=int, default=512)
         parser.add_argument('--head-render-size', type=int, default=1024)
@@ -210,13 +216,15 @@ class TubeTokenAdapter(DCDAdapter):
         self.self_prompt_coarse_weight = float(
             getattr(args, 'self_prompt_coarse_weight', 0.25))
         self.train_aug = str(getattr(args, 'train_aug', 'none'))
-        if self.train_aug not in ('none', 'mild'):
+        if self.train_aug not in ('none', 'mild', 'strong'):
             raise SystemExit(
                 f'unsupported train-aug: {self.train_aug!r}')
         self.aux_eval_off = bool(
             getattr(args, 'aux_eval_off', False))
         self.self_prompt_blend = float(
             getattr(args, 'self_prompt_blend', 0.0))
+        self.self_prompt_gate = bool(
+            getattr(args, 'self_prompt_gate', False))
         self.head_feature_dim = int(
             getattr(args, 'head_feature_dim', 32))
         self.head_coarse_size = int(
@@ -411,11 +419,11 @@ class TubeTokenAdapter(DCDAdapter):
 
     def prepare_train_batch(self, samples, rng):
         images, masks = super().prepare_train_batch(samples, rng)
-        if self.train_aug != 'mild':
+        if self.train_aug == 'none':
             self._clean_images = None
             return images, masks
         # Keep a clean view for the structural prompt; the SAM decoder still
-        # sees the photometrically augmented view.  Geometry is shared.
+        # sees the augmented view.  Geometry is shared.
         clean = images
         if rng.random() < 0.5:
             images = torch.flip(images, dims=[3])
@@ -425,6 +433,15 @@ class TubeTokenAdapter(DCDAdapter):
             images = torch.flip(images, dims=[2])
             clean = torch.flip(clean, dims=[2])
             masks = torch.flip(masks, dims=[2])
+        if self.train_aug == 'strong':
+            k = int(rng.randrange(4))
+            if k:
+                images = torch.rot90(images, k, dims=[2, 3])
+                clean = torch.rot90(clean, k, dims=[2, 3])
+                masks = torch.rot90(masks, k, dims=[2, 3])
+            if rng.random() < 0.2:
+                images = torch.nn.functional.avg_pool2d(
+                    images, 3, 1, 1)
         # Mild photometric variation for cross-domain robustness.
         if rng.random() < 0.4:
             mean = images.mean(dim=(1, 2, 3), keepdim=True)
@@ -524,6 +541,20 @@ class TubeTokenAdapter(DCDAdapter):
                 index = self._selected_stage2_index()
                 logits = base[:, index:index + 1]
             return logits, None, cache
+        if (self.self_prompt_gate and cache is not None
+                and 'stage2_coarse' in cache):
+            coarse = cache['stage2_coarse']
+            if self.head_fusion:
+                refined_logits = self._fused_heads(model, stage2)
+                coarse_logits = self._fused_heads(model, coarse)
+            else:
+                index = self._selected_stage2_index()
+                refined_logits = stage2[:, index:index + 1]
+                coarse_logits = coarse[:, index:index + 1]
+            p = torch.sigmoid(coarse_logits)
+            gate = (4.0 * p * (1.0 - p)).clamp(0.0, 1.0)
+            logits = (1.0 - gate) * coarse_logits + gate * refined_logits
+            return logits, None, cache
         if (self.self_prompt_blend > 0.0 and cache is not None
                 and 'stage2_coarse' in cache):
             weight = min(1.0, max(0.0, self.self_prompt_blend))
@@ -605,25 +636,18 @@ class TubeTokenAdapter(DCDAdapter):
         return (torch.sigmoid(canvas)[0].cpu().numpy() > threshold)
 
     def predict_sample(self, model, prepared, sample):
-        if (self.prediction_mode and self.tile_inference
-                and (self.deploy_mode == 'head'
-                     or self.structure_mode == 'post')):
+        if self.prediction_mode and self.tile_inference:
             tiled = self._predict_tiled(model, sample)
             if tiled is not None:
                 return tiled
         logits, structure, cache = self._deploy_logits(model, prepared)
-        final_mode = bool(
-            getattr(self, 'prediction_mode', False)
-            and (self.deploy_mode == 'head'
-                 or (self.structure_mode == 'post'
-                     and structure is not None
-                     and cache is not None)))
-        if final_mode and self.tta_flip:
+        if self.prediction_mode and self.tta_flip:
             flipped = torch.flip(prepared, dims=[3])
             flip_logits, _, _ = self._deploy_logits(model, flipped)
             logits = 0.5 * (
                 logits + torch.flip(flip_logits, dims=[3]))
-        if (final_mode and self.guided_upsample
+        if (getattr(self, 'prediction_mode', False)
+                and self.guided_upsample
                 and self.deploy_mode != 'head'):
             logits = self._guided_refine(logits, prepared)
         with Image.open(sample.mask_path) as mask:
@@ -634,7 +658,8 @@ class TubeTokenAdapter(DCDAdapter):
         probs = torch.sigmoid(logits)[0, 0]
         threshold = float(
             getattr(self.args, 'deploy_threshold', 0.5))
-        if final_mode and structure is not None:
+        if (getattr(self, 'prediction_mode', False)
+                and structure is not None):
             u = (4.0 * probs * (1.0 - probs)).clamp(0.0, 1.0)
             t = model.structure_control.decision_threshold(
                 structure, (height, width), base=threshold,
