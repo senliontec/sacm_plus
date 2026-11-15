@@ -15,7 +15,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+from baseline_zoo.runtime import REPO_ROOT
 PIPELINE = REPO_ROOT / 'scripts' / 'pipeline'
 sys.path.insert(0, str(PIPELINE))
 
@@ -49,8 +49,8 @@ def main(argv=None) -> int:
     specs = dataset_specs(args.protocol, selected, REPO_ROOT)
     prediction_root = (args.workdir / f'predictions{args.tag}' /
                        'curvimix')
-    predict_cmd = [sys.executable, '-m', 'methods.curvimix.run_one',
-                   '--stage', 'predict',
+    predict_cmd = [sys.executable, '-m', 'baseline_zoo.run_one',
+                   '--model', 'curvimix', '--stage', 'predict',
                    '--checkpoint', args.checkpoint,
                    '--workdir', args.workdir,
                    '--pred-root', prediction_root,

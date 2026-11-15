@@ -1,9 +1,8 @@
 """Derive the inference-only fixed candidate-3 checkpoint for CurviMix-SAM.
 
-CurviMix-SAM uses the same deployment rule as DCD/SPA-SAM, but keeps its own
-checkpoint rewrite helper so the new method is not coupled to baseline
-helper code.  Only configuration fields and the unused fusion tensors are
-changed; all candidate-head weights are preserved.
+This CurviMix-local helper performs the standard fixed3 configuration rewrite
+and removes the unused fusion keys.  It is independent of every other baseline
+so that changes to another model cannot affect CurviMix-SAM.
 """
 
 from __future__ import annotations

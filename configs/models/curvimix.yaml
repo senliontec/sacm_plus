@@ -4,7 +4,7 @@ family: sam
 status: available
 checkpoint: "{output_root}/best_model_fixed3.pth"
 train_entrypoint: >-
-  python -m methods.curvimix.run_one --stage train
+  python -m baseline_zoo.run_one --model curvimix --stage train
   --data-root {split_root} --workdir {output_root}
   --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
   --sam-checkpoint checkpoints/sam_vit_l_0b3195.pth
@@ -19,23 +19,24 @@ train_entrypoint: >-
   --deep-sup-weight 0.3 --head-select gating --deployment-head 3
   --adapter-dim-ratio 0.1 --num-workers 0 --save-every 0
   --train-aug mild --copy-paste-prob 0.5
-  && python -m methods.curvimix.derive_fixed3
+  && python -m baseline_zoo.models.curvimix.derive_fixed3
   --input {output_root}/best_model.pth
   --output {output_root}/best_model_fixed3.pth
   --deployment-head 3
 eval_entrypoint: >-
-  python -m methods.curvimix.evaluate
+  python -m baseline_zoo.models.curvimix.evaluate
   --data-root {split_root} --protocol {test_manifest}
   --workdir {output_root}
   --checkpoint {output_root}/best_model_fixed3.pth
   --seed {seed} --device cuda:{gpu} --use-wandb 0
 protocols: [seeded5, fixed]
 defaults:
-  epochs: 50
+  epochs: 200
   preset: curvimix
 note: >-
-  CurviMix-SAM is a new local model outside baseline_zoo model content.  It
-  uses the DCD four-candidate scaffold and SPA-SAM mild augmentation, and adds
+  CurviMix-SAM is a self-contained baseline model.  It owns its model code and
+  adapter; no SPA-SAM/DCD/SACM model is imported at runtime.  It uses the
+  four-candidate scaffold and mild augmentation, and adds
   structure-aware copy-paste: intact curvilinear structures from other
   training images are pasted with flips / rot90 / translation only.  Donors
   come from the training split only.  Deployment is fixed candidate 3 with

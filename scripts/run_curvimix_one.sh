@@ -54,7 +54,7 @@ mkdir -p "$WORKDIR"
 LOG="$REPO/results/logs/curvimix_seed${SEED}_${EPOCHS}.log"
 echo "CurviMix-SAM seed=$SEED epochs=$EPOCHS gpu=$GPU workdir=$WORKDIR" > "$LOG"
 
-"$PYTHON" -m methods.curvimix.run_one --stage train \
+"$PYTHON" -m baseline_zoo.run_one --model curvimix --stage train \
   --data-root "$DATA_ROOT" --workdir "$WORKDIR" \
   --epochs "$EPOCHS" --seed "$SEED" --device "cuda:$GPU" \
   --use_wandb "$USE_WANDB" \
@@ -76,13 +76,13 @@ echo "CurviMix-SAM seed=$SEED epochs=$EPOCHS gpu=$GPU workdir=$WORKDIR" > "$LOG"
   --wandb_group "curvimix_${EPOCHS}" --wandb_name "curvimix-seed${SEED}" \
   >> "$LOG" 2>&1
 
-"$PYTHON" -m methods.curvimix.derive_fixed3 \
+"$PYTHON" -m baseline_zoo.models.curvimix.derive_fixed3 \
   --input "$WORKDIR/best_model.pth" \
   --output "$WORKDIR/best_model_fixed3.pth" \
   --deployment-head 3 >> "$LOG" 2>&1
 
 if [ "$EVAL" != 0 ]; then
-  eval_args=("$PYTHON" -m methods.curvimix.evaluate
+  eval_args=("$PYTHON" -m baseline_zoo.models.curvimix.evaluate
     --data-root "$DATA_ROOT"
     --protocol "$DATA_ROOT/protocol_manifest.csv"
     --workdir "$WORKDIR"
