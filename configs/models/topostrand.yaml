@@ -1,0 +1,48 @@
+id: topostrand
+display_name: TopoStrand-SAM
+family: sam
+status: available
+checkpoint: "{output_root}/best_model_fixed3.pth"
+train_entrypoint: >-
+  python -m methods.topostrand.run_one --stage train
+  --data-root {split_root} --workdir {output_root}
+  --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
+  --sam-checkpoint checkpoints/sam_vit_l_0b3195.pth
+  --bce-weight 0.7 --dice-weight 0.3 --bce-pos-weight 2
+  --binary-targets 0 --deploy-threshold 0.5
+  --stage2-loss-scope all --topology-head all
+  --cl-dice-weight 0.1 --skeleton-recall-weight 0.1
+  --specialized-heads 1 --specialized-head-weight 0.1
+  --specialized-topology-weight 0.1
+  --head-fusion 1 --fusion-loss-weight 1.0
+  --topology-resolution 512 --topology-warmup-epochs 5
+  --deep-sup-weight 0.3 --head-select gating --deployment-head 3
+  --adapter-dim-ratio 0.1 --num-workers 0 --save-every 0
+  --train-aug mild --copy-paste-prob 0.5
+  --deployed-tversky-weight 0.1 --area-loss-weight 0.1
+  && python -m methods.topostrand.derive_fixed3
+  --input {output_root}/best_model.pth
+  --output {output_root}/best_model_fixed3.pth
+  --deployment-head 3
+eval_entrypoint: >-
+  python -m methods.topostrand.evaluate_routed
+  --data-root {split_root} --protocol {test_manifest}
+  --workdir {output_root}
+  --checkpoint {output_root}/best_model_fixed3.pth
+  --seed {seed} --device cuda:{gpu} --use-wandb 0
+  --tta-flip --tile 1024 --stride 896
+  --routing-skel-ratio 1.0 --routing-area-ratio 0.7 --tag _routed
+protocols: [seeded5, fixed]
+defaults:
+  epochs: 200
+  preset: topostrand
+note: >-
+  TopoStrand-SAM is an independent 3-shot curvilinear model.  It keeps the
+  frozen SAM ViT-L / four-candidate scaffold and fixed3 deployment, then adds:
+  (1) width-calibrated deployment losses, a precision-heavy Tversky term and
+  foreground-area calibration on deployment slot 3; (2) a label-free
+  resolution-consensus decoder that chooses full view, native-resolution
+  tiling, or their agreement based on predicted skeleton/area statistics.
+  Structure-aware copy-paste is inherited as the data engine.  No target
+  labels/supports are used.  CAPE and copy-paste scale jitter are optional
+  ablations; the canonical recipe uses precision/area calibration + routing.
