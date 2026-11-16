@@ -1,0 +1,450 @@
+# UCS: Universal Model for Curvilinear Structure Segmentation
+
+Kai Zhu, Li Chen, Dianshuo Li, Yunxiang Cao, Jun Cheng, Senior Member, IEEE
+
+Abstract—Curvilinear structure segmentation (CSS) is essential in various domains, including medical imaging, landscape analysis, industrial surface inspection, and plant analysis. While existing methods achieve high performance within specific domains, their generalizability is limited. On the other hand, large-scale models such as Segment Anything Model (SAM) exhibit strong generalization but are not optimized for curvilinear structures. Existing adaptations of SAM primarily focus on general object segmentation and lack specialized design for CSS tasks. To bridge this gap, we propose the Universal Curvilinear structure Segmentation (UCS) model, which adapts SAM to CSS tasks while further enhancing its cross-domain generalization. UCS features a novel encoder architecture integrating a pretrained SAM encoder with two innovations: a Sparse Adapter, strategically inserted to inherit the pre-trained SAM encoder's generalization capability while minimizing the number of fine-tuning parameters, and a Prompt Generation module, which leverages Fast Fourier Transform with a high-pass filter to generate curve-specific prompts. Furthermore, the UCS incorporates a mask decoder that eliminates reliance on manual interaction through a dual-compression module: a Hierarchical Feature Compression module, which aggregates the outputs of the sampled encoder to enhance detail preservation, and a Guidance Feature Compression module, which extracts and compresses image-driven guidance features. Evaluated on a comprehensive multi-domain dataset, including an in-house dataset covering eight natural curvilinear structures, UCS demonstrates state-ofthe-art generalization and open-set segmentation performance across medical, engineering, natural, and plant imagery, establishing a new benchmark for universal CSS. The source code is available at https://github.com/kylechuuuuu/UCS.
+
+Index Terms—Curvilinear structure segmentation, domain adaptation, universal segmentation, sparse adapter.
+
+## I. INTRODUCTION
+
+thicknesses, pose challenges in segmentation tasks, requiring precise extraction of their locations and distributions for further analysis and processing.
+
+![](images/cbae8a66a80a67c7016a72f6d5296719213e931f5acd872a849153b4dd8c1eb9.jpg)  
+Fig. 1. Comparison of F1-score across diverse segmentation models and datasets, where \* denotes in-house dataset.
+
+Widely present across diverse domains, their accurate segmentation is essential for many applications. In medical images [3], [4], the accurate extraction of blood vessels facilitates the early diagnosis and monitoring of vascular diseases, directly impacting patient care and treatment planning. In pavement engineering [5]–[8], detecting cracks ensures structural integrity and operational safety, minimizing the risk and reducing maintenance costs. Similarly, in plant biology [9], the accurate segmentation of leaf venation enables an understanding of the adaptive and ecological significance of leaf vein network structure, representing an essential component of plant phenotyping in ecological and genetic studies [10].
+
+Although curvilinear structures across various domains share similar geometric characteristics, their representations exhibit substantial variations depending on the specific domain. This domain gap poses a considerable challenge for curvilinear structure segmentation. In this work, we use the term universal in a task-specific sense: a single model that can be trained once and then applied, without architecture changes to segment curvilinear structures across heterogeneous domains (e.g., medical, engineering, natural, and plant imagery)
+
+![](images/403e96b87aadc99b0bc2a76aa5eac97fc90cb8901bce4e462e3d7084bc57f87e.jpg)  
+(a) Inputs  
+(b) Results  
+Fig. 2. Visualization results of curvilinear segmentation by UCS across various scenarios. These images are selected from our in-house dataset and represent key examples from eight scene categories. The (a) shows the input images, while the (b) presents the corresponding segmentation results.
+
+and imaging modalities (e.g., fundus, OCTA, X-ray, RGB) under both seen and unseen scenarios. Developing such a universal model that can overcome cross-domain limitations is essential. It would enable cross-domain applications and drive innovation in transfer learning, open-set segmentation, and resource-efficient model deployment, while also highlighting the remaining challenges in extending universality to even broader modalities such as MRI or CT.
+
+Given the need for such a universal model, we first examined the characteristics and limitations of traditional curvilinear structure segmentation approaches. These methods [8], [11]-[16] typically require domain-specific training, and the domain gap between datasets limits their direct application to novel domains, impeding their wider adoption for curvilinear structure segmentation across diverse fields. Additionally, the trend of large-scale models has had a profound impact across the field of AI. The emergence of general-purpose AI models, such as GPT-4V [17], DINO [18], SegGPT [19], APE [20], SAM [21], facilitates the use of foundation model to solve multiple different downstream tasks.
+
+The SAM [21] marks a significant advancement in extending the capabilities of segmentation models, offering powerful zero-shot capabilities and flexible prompting mechanisms. Thus, many works [22]-[27] have explored the application of SAM in several research fields. MedSAM [23] and SAM-Med2d [24] have explored applying SAM to medical image segmentation. SAM for Remote Sensing [26] has adapted SAM's prior knowledge to the remote sensing domain. Although these methods have achieved promising results in their respective domains, these methods are domain-specific and lack multi-domain applicability.
+
+In contrast, we propose UCS, which leverages the pretrained knowledge of SAM to enable cross-domain curvilinear structure segmentation. Extensive experiments demonstrate that UCS achieves remarkable domain adaptation capability through fine-tuning on limited data (3,244 images), successfully segmenting curvilinear structures in both seen and unseen domains. As illustrated in Fig. 2, UCS exhibits exceptional zero-shot generalization across images from diverse scenes. In summary, our main contributions are summarized as follows:
+
+1) We introduce UCS, the first universal framework for cross-domain curvilinear structure segmentation. It achieves state-of-the-art zero-shot performance and robust generalization to unseen domains with fine-tuning on limited data.
+
+2) We introduce an encoder built upon a pretrained image encoder, featuring two key innovations: (1) Different from one-block, one-adapter idea, the adapters are sparsely inserted at the encoder blocks. This Sparse Adapter inherits the SAM encoder's generalization capabilities and minimizes the number of fine-tuning parameters. (2) The Prompt Generation (PG) module integrated a Fast Fourier Transform with a high-pass filter to extract high-frequency responses via a residual connection. It's designed to generate domain-adaptive initial prompts by exploiting frequency-domain representations of the input data.
+
+3) We propose a mask decoder that enhances feature representation and eliminates reliance on manual interaction through a dual-compression module: (1) Hierarchical Feature Compression (HFC) module compresses the sampled encoder outputs with an interval of 6 and adds them to the decoder layer outputs. It provides multi-layered information, enriching the feature space available to the decoder. (2) The Guidance Feature Compression (GFC) module employed Principal Component Analysis (PCA) to extract the guidance features of the decoder layer. It enables image-based automatic segmentation and eliminates the need for manual prompts.
+
+4) Extensive experiments demonstrate that UCS achieves excellent performance across multiple in-house and public benchmark datasets, confirming its robustness and cross-domain generalization.
+
+## II. RELATED WORK
+
+## A. Curvilinear Structure Segmentation with CNN
+
+Since the invention of U-Net [12], designed to integrate low-level and high-level information for image segmentation, numerous U-Net variants have been proposed. Among these, the FR-UNet [15] enhances the connectivity of U-Net segmentation through a multi-resolution convolution interactive mechanism and a dual-threshold iterative algorithm.
+
+Building upon U-Net, several CNN-based models have been optimized to achieve more accurate segmentation. Wang et al. [28] integrated VGG into U-Net and enhanced the performance of curve segmentation by cyclically sampling patches of varying sizes from the images. Xu et al. [29] proposed an N-pair consistency loss function and introduced geometric transformation data augmentation to facilitate semi-supervised learning for curvilinear segmentation tasks.
+
+In the medical field, extensive research has focused on developing more accurate vessel segmentation methods. Zhang et al. [30] introduces a unified multi-task learning framework for joint segmentation and registration, effectively enhancing the accuracy and robustness of vessel segmentation and registration through a bi-fusion of structure and deformation at multiple scales. VSR-Net [31] leverages CNN for initial coarse segmentation of vessel-like structures, followed by a graph clustering approach to dynamically rehabilitate subsection ruptures, thereby enhancing topological integrity and segmentation quality. Zhou et al. [32] proposed a backboneagnostic MaskVSC method to reconstruct the retinal vascular network by simulating missing sections of blood vessels and using this simulation to train the model to predict the missing parts and their connections.
+
+In the crack segmentation field, DeepCrack [33] introduced a deep convolutional neural network that optimizes crack segmentation through hierarchical convolutional fusion of multi-scale deep features. Crack Segmentation with Super-Resolution [8] jointly learns semantic segmentation and superresolution tasks to segment cracks from low-resolution images. By incorporating boundary combo loss to address the class imbalance, CSSR achieves crack segmentation while enhancing image resolution. SFIAN [34] effectively models irregular crack objects through selective feature fusion and irregularityaware mechanisms, achieving pavement crack detection.
+
+## B. Curvilinear Structure Segmentation with Transformer
+
+The emergence of Transformer architectures has demonstrated capabilities in modeling long-range dependencies, offering promising potential to overcome the receptive field limitations of CNN [35]. This characteristic has led researchers to explore Transformer architectures for curvilinear segmentation tasks.
+
+In retinal vascular segmentation, the Group Transformer Network [36] includes a set of bottleneck structures that reduce the computational complexity of the Transformer, facilitating the combination of CNN and Transformer. Yu et al. [37] first predicted the gamma values through CNN to adjust the intensity distribution of retinal images and the channel-attention Vision Transformer (ViT) enhanced edge feature maps both spatially and channel-wise. TUnet-LBF [38] integrates Transformer Unet and local binary energy function model for coarse to fine segmentation of retinal vessels. The Stimulus-Guided Adaptive Transformer Network [11] introduces a hybrid CNN-Transformer architecture with the Stimulus-Guided Adaptive Pooling Transformer to enhance global context capture and suppress redundant information. This approach effectively distinguishes blood vessels from lesions and handles blurred regions in fundus images. In crack segmentation, Qi et al. [39] introduced an end-to-end model based on ViT and level set theory for segmenting bridge pavement defects, achieving precise segmentation by merging the outputs of two parallel decoders.
+
+## C. Segmentation with Large-Scale Model
+
+While CNN-based methods and Transformer hybrid models excel in their trained domains, the recent push towards universal models signals a shift towards large-scale model architectures. Thus, developing vision systems that can transfer to new concepts or domains has become a vital research topic [20]. Many open-vocabulary models [40]–[42] leverage large pretrained multimodal models (e.g., CLIP [43]) to extract or transfer visual semantic knowledge. Beyond utilizing these foundational models, approaches like DenseCLIP [44] and GroupViT [45] demonstrate that fine-tuning these models or training them from scratch can also yield superior zero-shot performance.
+
+The SAM marks a significant advancement in extending the capabilities of segmentation models. As a result, SAM has become a popular baseline in the segmentation domain. Several works have investigated the application and adaptation of SAM to different domains. SAM-Med2d [24] bridges the domain gap between natural and medical images by fine-tuning SAM on a large-scale medical dataset with 4.6 million images and 19.7 million masks. EviPrompt [22] takes a trainingfree approach, using a single reference image-annotation pair to minimize labeling and computational costs. Both explore distinct strategies for adapting SAM to medical image segmentation. HQ-SAM [25] focuses on improving SAM's capability for fine-grained segmentation by introducing a learnable, highquality output token. This token is injected into SAM's mask decoder and designed to predict high-quality masks, enhancing its ability to handle detailed segmentation tasks. Building on SAM's strengths, we aim to address these gaps and explore its application for curvilinear structure segmentation across diverse domains.
+
+## III. METHOD
+
+This section presents the proposed universal curvilinear structure segmentation model, UCS. As illustrated in Fig. 3, UCS comprises two primary components: a SAM-based image encoder and a mask decoder. To achieve this, we first introduce the Sparse Adapter (SA) module, which is sparsely inserted at the 5th, 11th, 17th, 23rd encoder blocks, inheriting the SAM encoder's generalization capabilities and minimizing the number of fine-tuning parameters. Furthermore, the PG module implements an FFT with high-pass filter to supply curve-specific prompts to each encoder block (Sec. III-A). Secondly, we propose the HFC and GFC module, using sample strategy and PCA to supply multi-layered and extract the guidance information (Sec. III-B). Finally, we design the loss functions to supervise the training of UCS (Sec. III-C).
+
+![](images/276bd8f58357949dd3fcd4f3a8b34ea2ee1d375d42a6f5554724ffc654358e6d.jpg)  
+Fig. 3. The proposed UCS model architecture. We freeze the image encoder and insert a learnable Sparse Adapter (SA) in specific encoder blocks, namely the 5th, 11th, 17th, and 23rd blocks, as shown in (a). The Prompt Generation (PG) module, illustrated in (b), integrates a Fast Fourier Transform with a high-pass filter to transform high frequency into dynamic prompts using a residual connection. The Hierarchical Feature Compression (HFC) module, shown in (c), compresses the outputs of the sampled encoders and adds them to the decoder layer. The Guidance Feature Compression (GFC) extracts image-driven guidance features. During training, the pretrained weights of the SAM encoder are frozen, and the rest of the model is trained.
+
+![](images/74bbfbb1d5c7bc1c28021f6a8c0bfae042ad4d6db78966153ee07dcff09a2efb.jpg)  
+Fig. 4. (a) Previous adapter approach (b) Our Sparse Adapter.
+
+## A. Image Encoder
+
+The refinement of the image encoder incorporates two key components: the Sparse Adapter module and the Prompt Generation module.
+
+1) Sparse Adapter: Adapter has proven to be an effective strategy for fine-tuning large models for downstream tasks [46], [47]. By eliminating the need for full-parameter training, they preserve the model's original knowledge and prevent catastrophic forgetting. Existing adapters are typically designed for single-domain adaptation, limiting their ability to generalize across diverse domains. For example, SAM-Med2D [24] improves segmentation performance but is limited to the medical domain. SAM-Adapter [27] shows performance gains in shadow and camouflaged segmentation based on datasets from the same domain as the fine-tuning data.
+
+![](images/8cb79497ab81607713b9b53dcab70677be197f925e1ab5f4a52273d277165971.jpg)  
+Fig. 5. Structure of the Adapter.
+
+To address these limitations, we propose the Sparse Adapter. As shown in Fig. 4, unlike previous approaches [24], [27] that insert adapter layers into each encoder block (left side), we insert the adapter only at specific blocks (right side), reducing the number of learnable parameters in the encoder backbone. This design stems from two fundamental considerations: (1) the requirement to prioritize learning generalized curvilinear patterns rather than domain-specific features and (2) the necessity to maintain parameter efficiency while preserving the pretrained encoder's generalization capacity. This will be demonstrated in the ablation study (Table VI).
+
+Fig. 5 illustrates the adapter's placement after the Multihead Attention layer. The adapter is implemented as a residual branch placed adjacent to the MLP: it first projects the incoming features to a lower-dimensional space, applies an activation, and then projects them back to the original dimension. The adapter's operation can be mathematically expressed as:
+
+$$
+\mathbf { y } = \mathbf { W } _ { 2 } \cdot \sigma ( \mathbf { W } _ { 1 } \cdot \mathbf { x } ) ,\tag{1}
+$$
+
+![](images/a5c6ca749aca1e60bee4418a2bfbe525aba80c620edfc53a269fb2adf9415ada.jpg)  
+(a) Inputs
+
+![](images/55ea6ce09d5d1b248042750daa3af32b9e1baa8ecc8bd8ec56bc285a9eedc1d5.jpg)  
+(b) High-Pass Results  
+Fig. 6. (a) Input image. (b) Result after FFT-based high-pass filtering. The high-pass output preserves and enhances curvilinear structures (e.g., vessels, cracks).
+
+where $\mathbf { x } \in \mathbb { R } ^ { d }$ and $\mathbf { y } \in \mathbb { R } ^ { d }$ are the input and output features, respectively. $\mathbf { W } _ { 1 } \in \mathbb { R } ^ { r \times d }$ and $\mathbf { W } _ { 2 } \in \mathbb { R } ^ { d \times r }$ are the downprojection and up-projection matrices, respectively. r is the bottleneck ratio set to 0.1 in this study. σ denotes the GELU activation function.
+
+2) Prompt Generation: In segmentation tasks involving small objects, such as curvilinear structures, fine structural information tends to attenuate as the number of encoder blocks increases. In order to preserve fine-grained structural details, the PG module, as depicted in Fig. 3(b), is designed to generate domain-adaptive initial prompts by exploiting frequencydomain representations of the input data. This is effective because curvilinear structures typically differ from the slowly varying background (low-frequency content), so an FFT-based high-pass filter suppresses the background while preserving the high-frequency curve details, which is illustrated in Fig. 6.
+
+To simplify things, the PG module extracts curve-related cues directly from input images. Specifically, the module transforms the input data into the frequency domain using an FFT. Subsequently, a central rectangular mask is then constructed to suppress low-frequency components, forming a high-pass filter that highlights high-frequency details in the transformed data. The high-pass filter $H ( u , v )$ is defined over frequency coordinates $( u , v )$ , with dimensions determined by the input width w, height h, and a tunable parameter rate (0.25 in this study). The filter is expressed as:
+
+$$
+H ( u , v ) = \left\{ { \begin{array} { l l } { 0 , } & { { \mathrm { i f ~ } } | u - { \frac { w } { 2 } } | < { \frac { \sqrt { w \cdot h \cdot r a t e } } { 2 } } , } \\ { \operatorname { a n d ~ } | v - { \frac { h } { 2 } } | < { \frac { \sqrt { w \cdot h \cdot r a t e } } { 2 } } , } \\ { 1 , } & { { \mathrm { o t h e r w i s e } } . } \end{array} } \right.\tag{2}
+$$
+
+Subsequently, an inverse FFT is applied to transform the filtered frequency signal back into the spatial domain. As shown in Fig. 3(b), for the input image X, the prompt embedding X at each encoder block can be represented as:
+
+$$
+\hat { \bf X } _ { i } = M L P _ { i } ( L ( E ( X ) ) + I F F T ( H ( F F T ( { \bf X } ) ) ) )\tag{3}
+$$
+
+where MLPi, E, IFFT, H, and FFT represent the $_ { i - }$ th Multilayer Perceptron, Patch Embedding layer, Inverse Fast Fourier Transform, high-pass filter, and Fast Fourier Transform, respectively.
+
+## B. Mask Decoder
+
+The mask decoder needs to balance global context and local detail for universal curvilinear structure segmentation.
+
+![](images/c22c7f1dda082da4422990b8b0289b0b34a4026eb2391d7b8fda257a6aff7dd6.jpg)  
+${ \mathrm { F i g } } .$ 7. Cosine similarity vs. sampling interval for encoder block feature maps.
+
+![](images/7e62d06c383bd1ffcf74f5da0c91096714ce02492a4949871291964d2479f1fc.jpg)  
+(a)
+
+![](images/40a46cf5c09bcf93ee2db3b6759142601e86d3f87b8c55046b032c7101ce861f.jpg)  
+(b)  
+Fig. 8. Top 5 eigenvalues of the image after PCA.
+
+We achieve this with a dual-compression architecture using Hierarchical Feature Compression for fine-grained detail and Guidance Feature Compression for automated image-based segmentation. Finally, Mask Embedding integrates these features for refined output.
+
+1) Hierarchical Feature Compression: The purpose of the HFC module is to enrich the decoder by integrating and supplementing features from various blocks of the image encoder. The pipeline of this module is shown in Fig. 3(c). HFC performs interval sampling by sampler on the encoder layer's outputs. Given N(24 in this study) encoder blocks, we sample features at intervals of $\Delta$ (6 in this study). The sample block works as concatenated along the channel dimension to produce a unified feature representation:
+
+$$
+F _ { s a m p l e d } = C a t ( F _ { l _ { 1 } } , \ldots , F _ { l _ { i } } ) , \quad l _ { i } = i \Delta - 1\tag{4}
+$$
+
+where $F _ { l _ { i } }$ denotes the $l _ { i } { - } t h$ block features.
+
+We calculated the cosine similarity between the feature map of the first encoder block and each subsequent encoder block, from encoder block $F _ { l _ { 1 } }$ to encoder block $F _ { l _ { i } }$ . The cosine similarity is computed as:
+
+$$
+{ \mathrm { C o s i n e ~ S i m i l a r i t y } } = { \frac { F _ { l _ { 1 } } \cdot F _ { l _ { i } } } { \| F _ { l _ { 1 } } \| \| F _ { l _ { i } } \| } } , \quad i = 1 , 2 , \ldots , i\tag{5}
+$$
+
+As shown in Fig. 7, a line graph illustrates the relationship between cosine similarity and the sampling interval for encoder block feature maps. The graph demonstrates a clear downward trend in cosine similarity as the sampling interval increases. Notably, the cosine similarity falls below 0.5 when the sampling interval reaches 6.
+
+TABLE I  
+DETAILS OF THE DATASETS FOR EXPERIMENTS.
+<table><tr><td>Split</td><td>Distribution</td><td>Dataset</td><td>Modality</td><td>Domain</td><td>Target</td></tr><tr><td rowspan="7">Train</td><td></td><td>DRIVE [48]</td><td>Fundus</td><td>Medical</td><td>Vessels</td></tr><tr><td></td><td>CHASEDB1 [49]</td><td>Fundus</td><td>Medical</td><td>Vessels</td></tr><tr><td></td><td>CORN-1 [50]</td><td>Nerve</td><td>Medical</td><td>Fibers</td></tr><tr><td></td><td>CRACKTREE200 [51]RGB</td><td></td><td>Engineering</td><td>Cracks</td></tr><tr><td></td><td>CRACKFOREST [5] RGB</td><td></td><td>Engineering</td><td>Cracks</td></tr><tr><td></td><td>XCAD [52]</td><td>X-ray</td><td>Medical</td><td>Vessels</td></tr><tr><td></td><td>ROSSA [53]</td><td>OCTA</td><td>Medical</td><td>Vessels</td></tr><tr><td rowspan="8">Test</td><td>Seen</td><td>Crack</td><td>RGB</td><td>Engineering</td><td>Crack</td></tr><tr><td>Unseen</td><td>Branch</td><td>RGB</td><td>Plant</td><td>Branch</td></tr><tr><td>Unseen</td><td>Floor</td><td>RGB</td><td>Engineering</td><td>Floor</td></tr><tr><td>Unseen</td><td>Scratch</td><td>RGB</td><td>Engineering</td><td>Scratch</td></tr><tr><td>Unseen</td><td>Soil</td><td>RGB</td><td>Natural</td><td>Soil</td></tr><tr><td>Unseen</td><td>Wire</td><td>RGB</td><td>Engineering</td><td>Wire</td></tr><tr><td>Unseen</td><td>Leaf</td><td>RGB</td><td>Plant</td><td>Venation</td></tr><tr><td>Unseen</td><td>Tyre</td><td>RGB</td><td>Engineering</td><td>Tread line</td></tr><tr><td rowspan="7">Test (Public)</td><td>unseen</td><td>TubeTK [54]</td><td>MRA</td><td>Medical</td><td>Vessels</td></tr><tr><td>Seen</td><td>OCTA500_3M [55]</td><td>OCTA</td><td>Medical</td><td>Vessel</td></tr><tr><td>Seen</td><td>OCTA500_6M [55]</td><td>OCTA</td><td>Medical</td><td>Vessel</td></tr><tr><td>Seen</td><td>CSD [56]</td><td>RGB</td><td>Engineering</td><td>Crack</td></tr><tr><td>Seen</td><td>DCA1 [57]</td><td>X-ray</td><td>Medical</td><td>Vessels</td></tr><tr><td>Seen</td><td>STARE [58]</td><td>Fundus</td><td>Medical</td><td>Vessel</td></tr><tr><td>Seen</td><td>FIVES [59]</td><td>Fundus</td><td>Medical</td><td>Vessel</td></tr></table>
+
+2) Guidance Feature Compression: Unlike the segmentation of general objects, the elongated and intertwined characteristics of curvilinear structures make SAM's original three interactive prompting methods less effective. Specifically, boxbased prompts are not suitable for elongated curves. Pointbased and mask-based prompts are cumbersome and imprecise, requiring laborious manual placement.
+
+Using a 15×15 sliding window, we compute the covariance matrix of pixel intensities across the image and map the top five eigenvalues back to their spatial coordinates. As illustrated in Fig.8, regions associated with the highest eigenvalues consistently align with curvilinear structures, validating PCA's effectiveness in identifying their principal characteristics.
+
+Inspired by PCA and its ability to reduce dimensionality while retaining principal components, we propose the GFC module and integrate it into GFC to automatically capture dominant features. Considering that the dimension of the outputs of the prompt encoder and decoder layer $X \in \mathbb { R } ^ { 5 \times 2 5 6 }$ PCA is applied to perform dimensionality reduction and guidance feature extraction with the following formula:
+
+$$
+\mathbf { X } ^ { \prime } = ( \mathbf { X } - \boldsymbol { \mu } ) \cdot \mathbf { V } _ { k } ^ { C } ,\tag{6}
+$$
+
+where $\mu$ is the mean of X, C is the covariance matrix of the $\left( \mathbf { X } - { \boldsymbol { \mu } } \right)$ , and $\mathbf { V } _ { k } ^ { C }$ is the projection matrix formed by the k (5 in this study) eigenvectors of $\mathbf { C } . \mathbf { X } ^ { \prime } \in \mathbb { R } ^ { 5 \times 5 }$ represents the output of GFC. An ablation study, detailed in TableV, further demonstrates the impact of this approach on segmentation performance.
+
+## C. Loss Formulation
+
+A total loss function is designed by combining Focal Loss [60], Dice Loss [61], and Mask IoU Loss [62] for segmentation of curvilinear structures. It's defined as:
+
+$$
+\mathcal { L } _ { \mathrm { t o t a l } } = \alpha \cdot \mathcal { L } _ { \mathrm { f o c a l } } + \beta \ \cdot \mathcal { L } _ { \mathrm { d i c e } } + \gamma \cdot \mathcal { L } _ { \mathrm { I o U } } ,\tag{7}
+$$
+
+where $\alpha , \beta , \gamma$ are the weight coefficients for Focal Loss, Dice Loss, and Mask IoU Loss, respectively.
+
+The calculation formulas for these loss functions are as follows:
+
+$$
+\begin{array}{c} \begin{array}{c} \left\{ \begin{array} { l l } { \displaystyle \mathcal { L } _ { \mathrm { f o c a l } } = - \frac { 1 } { N } \sum _ { i = 1 } ^ { N } \left\{ ( 1 - p _ { i } ) ^ { \zeta } \log ( p _ { i } ) , \begin{array} { l l } { \mathrm { i f } \ y _ { i } = 1 } \\ { p _ { i } ^ { \zeta } \log ( 1 - p _ { i } ) , } \end{array} \right.} \end{array}   \\ { \displaystyle \mathcal { L } _ { \mathrm { d i c e } } = 1 - \frac { 2 \sum _ { i = 1 } ^ { N } p _ { i } y _ { i } + \epsilon } { \sum _ { i = 1 } ^ { N } p _ { i } ^ { 2 } + \sum _ { i = 1 } ^ { N } y _ { i } ^ { 2 } + \epsilon } } \\ { \displaystyle \mathcal { L } _ { \mathrm { I o U } } = 1 - \frac { \sum _ { i = 1 } ^ { N } p _ { i } y _ { i } } { \sum _ { i = 1 } ^ { N } p _ { i } + \sum _ { i = 1 } ^ { N } y _ { i } - \sum _ { i = 1 } ^ { N } p _ { i } y _ { i } + \epsilon } } \end{array} \right.  \end{array}\tag{8}
+$$
+
+where ζ and € are the focusing parameter and smoothing term with default values. Typical values for $\alpha , \ \beta ,$ and $\gamma$ are determined empirically. For instance, we empirically set $\alpha ~ = ~ 2 0 . 0 , ~ \beta ~ = ~ 1 . 0 $ and $\gamma ~ = ~ 1 . 0$ , which showed good performance in our experiments.
+
+## IV. EXPERIMENT AND EVALUATION
+
+## A. Experimental Setup
+
+1) Train Dataset: We curated a comprehensive training set by gathering existing datasets for curvilinear segmentation: DRIVE [48], CHASEDB1 [49], CORN-1 [50] CRACKTREE200 [51], CRACKFOREST [5], XCAD [52]. and ROSSA [53]. These datasets, referred to as the Train Dataset, consist of 3,244 annotated image-mask pairs, providing a solid foundation for training.
+
+2) Test Dataset: We created a novel In-House Test Dataset to evaluate open-set segmentation capabilities across diverse and challenging scenarios. This dataset is publicly available at IEEE DataPort (doi: https://dx.doi.org/10.21227/1n2q-6770). This dataset comprises images of curvilinear structures captured across eight distinct natural scene categories: branch, crack, floor, scratch, soil, wire, leaf, and tyre. Representative images from these categories are shown in Fig. 2(a). Each image in the dataset was annotated with pixel-level accuracy through manual labeling to ensure high-quality ground truth masks.
+
+Additionally, we collected seven additional benchmark datasets for curvilinear segmentation to evaluate our model, collectively referred to as the Public Test Dataset: OCTA500\_3M [55], OCTA500\_6M1 [55], CSD2, DCA1 [57], TubeTk [54], STARE [58], and FIVES [59]. The combination of the In-House Test Dataset and the Public Test Dataset forms a comprehensive benchmark, enabling the evaluation of segmentation performance on diverse and unseen domains. Here, "seen" and "unseen" refer to imaging modalities or segmentation targets that are, respectively, present or absent in the training set. The details of the training and test splits, included datasets, imaging modalities, and the corresponding segmentation targets are summarized in Table I.
+
+![](images/63a8c87836dee0eb0ba6f58c000b2267db7beb61bba6c620118d940451425fbd.jpg)  
+Fig. 9. Qualitative comparison of UCS with other methods across datasets from diverse domains. The left text identifies the image dataset, while the bottom text denotes the segmentation model used. The results are presented as pixel-level comparisons with the ground truth, where black, white, red, and green pixels represent true negatives (TN), true positives (TP), false negatives (FN), and false positives (FP), respectively.
+
+3) Implementation Details: UCS and the comparison models were either fine-tuned or trained on the Train Dataset until convergence to ensure a fair evaluation of their generalization capabilities.
+
+UCS was implemented using PyTorch 2.4.0 and CUDA 11.8. To augment the data, we employed horizontal flipping and random cropping techniques. The model was trained for 10 epochs with an initial learning rate was set to $1 \times 1 0 ^ { - 4 }$ and the model was trained using the Adam optimizer with a batch size of 1. The binarization threshold was set to 0.5. The comparison models were trained or fine-tuned with default hyperparameters from their open-source implementations. All models, including UCS and the comparison models, were trained on an NVIDIA GeForce RTX 3090 GPU.
+
+4) Evaluation metrics: For pixel-based evaluation, we employ the F1-score, Precision, and Recall metrics, which are widely adopted in existing semantic segmentation methods [11], [15], [33], [34], [37], [65].
+
+## B. One Model Weight for All
+
+We compared with nine different representative models, providing a comprehensive analysis of performance across different architectures. Specifically, we benchmarked our method against general CNN-based frameworks such as UNetvgg16 [12], UNet-resnet101 [12], UNet++ [14], CSNet [66], CS2Net [67], CSSR [8], FR-UNet [15], BCU-Net [16], as well as larger Transformer-based architectures, including SAM-Med2d [24], Rein [42], and HQ-SAM [25]. Moreover, since foundation models (SAM-Med2d [24], Rein [42], and HQ-SAM [25]) are designed for general purposes, we evaluate both their original pretrained weights and their fine-tuned versions on the Train Dataset for a comprehensive comparison.
+
+1) Comparison on In-House Test Dataset: The open-set segmentation performance was evaluated on the In-House Test
+
+TABLE II  
+COMPARISON RESULTS ON THE IN-HOUSE TEST DATASET. HERE, ‡ AND † DENOTE TEST RESULTS FOR MODELS TRAINED AND FINE-TUNED ON THE TRAIN DATASET, RESPECTIVELY. THE BEST AND SECOND-BEST PERFORMANCES ARE BOLDED AND UNDERLINED, RESPECTIVELY.
+<table><tr><td rowspan="2">Method</td><td rowspan="2">Year</td><td colspan="2">BRANCH</td><td colspan="2"></td><td colspan="2">CRACK</td><td colspan="2">FLOOR</td><td colspan="2"></td><td colspan="2">SCRATCH</td><td colspan="2">SOIL</td><td colspan="2">WIRE</td><td colspan="2"></td><td colspan="2">LEAF</td><td colspan="2">TYRE</td></tr><tr><td>F1 ↑</td><td>Pre ↑</td><td>Rec</td><td>F1 ↑</td><td>Pre ↑</td><td>Rec ↑</td><td>F1 ↑ Pre ↑</td><td>Rec ↑</td><td>F1 ↑</td><td>Pre ↑</td><td>Rec ↑</td><td>F1 ↑</td><td>Pre ↑</td><td>Rec ↑</td><td>F1 ↑</td><td>Pre ↑</td><td>Rec ↑</td><td>F1 ↑</td><td>Pre ↑</td><td>Rec ↑</td><td>F1 ↑ Pre ↑</td><td>Rec ↑</td></tr><tr><td>UNet-vgg16 [12] </td><td>2015</td><td>25.41</td><td>38.31</td><td>19.01 22.19 11.25</td><td>47.70</td><td>14.46</td><td>50.21</td><td>54.88</td><td>46.28</td><td>32.38</td><td>51.42 23.64</td><td>13.64</td><td>12.87</td><td>14.52</td><td>28.72</td><td>39.03</td><td>22.73</td><td>29.74</td><td>48.61</td><td>21.43</td><td>44.04</td><td>33.44 64.48</td></tr><tr><td>UNet-resnet101 [12]</td><td>2015</td><td>16.43</td><td>30.43</td><td>34.96</td><td>68.33</td><td>23.49</td><td>18.68</td><td>63.31</td><td>10.96</td><td>20.51 60.66</td><td>12.34</td><td>10.64</td><td>44.04</td><td>6.05</td><td>30.61</td><td>56.82</td><td>20.95</td><td>22.03</td><td>72.97</td><td>12.97</td><td>29.45 39.60</td><td>23.44</td></tr><tr><td>UNet++ [14] ↓</td><td>2018</td><td>36.69</td><td>41.35</td><td>25.00 41.15</td><td>46.21</td><td>37.10</td><td>52.50</td><td>45.70</td><td>61.69 34.40</td><td>49.22</td><td>26.44</td><td>18.31</td><td>10.55</td><td>69.38</td><td>31.42</td><td>40.01</td><td>25.86</td><td>21.01</td><td>26.81</td><td>77.32 46.02</td><td>32.76</td><td>77.32</td></tr><tr><td>CSNet [66] </td><td>2019</td><td>31.16</td><td>54.61 29.20</td><td>25.80</td><td>54.12</td><td>24.23</td><td>46.88</td><td>49.44</td><td>54.83 35.60</td><td>44.81</td><td>35.40</td><td>19.10</td><td>15.90</td><td>31.66</td><td>29.33</td><td>35.09</td><td>32.63</td><td>11.91</td><td>14.92</td><td>12.19 28.72</td><td>19.99</td><td>70.02</td></tr><tr><td>CS2Net [67] ‡</td><td>2020</td><td>35.62</td><td>52.87 34.77</td><td>24.42</td><td>49.38</td><td>22.87</td><td>44.14</td><td>47.97</td><td>52.63</td><td>35.42 44.17</td><td>36.21</td><td>13.53</td><td>9.91</td><td>30.72</td><td>27.12</td><td>30.38</td><td>33.68</td><td>13.65</td><td>15.29</td><td>14.64 25.58</td><td>17.53</td><td>65.10</td></tr><tr><td>CSSR [8] ‡</td><td>2021 2022</td><td>48.18</td><td>39.34</td><td>62.15 54.44</td><td>42.60</td><td>75.40</td><td>46.96</td><td>43.28</td><td>51.34</td><td>27.21 27.58</td><td>26.85</td><td>32.07</td><td>20.39</td><td>75.14</td><td>20.86</td><td>22.40</td><td>19.52</td><td>13.29</td><td>8.84</td><td>26.82 29.22</td><td>28.31</td><td>30.20</td></tr><tr><td>FR-UNet [15] ‡</td><td>2023</td><td>42.01</td><td>32.53 40.65</td><td>59.28 43.85</td><td>33.82</td><td>62.33</td><td>50.08</td><td>40.11</td><td>69.27</td><td>36.97 44.97</td><td>31.48</td><td>17.51</td><td>9.86</td><td>77.97</td><td>40.95</td><td>36.70</td><td>46.33</td><td>26.91</td><td>30.03</td><td>24.38 42.40</td><td>32.12</td><td>62.36</td></tr><tr><td>BCU-Net [16] ‡</td><td></td><td>36.86</td><td></td><td>33.72 39.94</td><td>52.35</td><td>32.29</td><td>47.76</td><td>53.54</td><td>43.10 36.36</td><td>53.39</td><td>27.57</td><td>24.32</td><td>23.71</td><td>24.98</td><td>32.58</td><td>42.12</td><td>26.57</td><td>28.14 35.72</td><td>23.22</td><td>42.37</td><td>35.55</td><td>52.42</td></tr><tr><td>SAM-Med2d [24] †</td><td>2023</td><td>49.29</td><td>46.67</td><td>52.23 49.29</td><td>65.96</td><td>39.35</td><td>52.91</td><td>61.97</td><td>46.16 44.02</td><td>60.03</td><td>34.75</td><td>30.58</td><td>45.91</td><td>22.93</td><td>41.22</td><td>59.29 31.59</td><td>31.30</td><td>48.32</td><td>23.15</td><td>45.02</td><td>62.35</td><td>35.23</td></tr><tr><td>Rein [42]</td><td>2024</td><td>42.46</td><td>35.21</td><td>53.48 52.07</td><td>54.36</td><td>49.97</td><td>52.76</td><td>56.28</td><td>49.67 40.07</td><td>33.14</td><td>50.67</td><td>33.59</td><td>32.95</td><td>34.27</td><td>47.21</td><td>42.26 53.47</td><td></td><td>33.48 49.21</td><td>25.37</td><td>41.95</td><td>32.41</td><td>59.46</td></tr><tr><td>HQ-SAM [25] ↑</td><td>2024 2025</td><td>49.01 50.10</td><td>43.74 44.50</td><td>55.73 54.45</td><td>48.95</td><td>63.94</td><td>51.99</td><td>42.72</td><td>66.39 39.33</td><td>30.43</td><td>55.59</td><td>34.91</td><td>23.88</td><td>64.91</td><td>50.64</td><td>46.04</td><td>56.26</td><td>42.20</td><td>37.20 48.76</td><td>43.08</td><td>30.37</td><td>74.07</td></tr><tr><td>CWSAM [68] † KnowSAM [69] ↑</td><td>2025</td><td>47.50</td><td>42.00</td><td>56.80 55.60 54.00 53.30</td><td>49.80</td><td>65.10</td><td>53.10</td><td>43.60</td><td>67.20</td><td>40.20 31.50 38.40</td><td>56.80</td><td>35.80</td><td>24.60</td><td>66.40</td><td>51.70</td><td>47.10</td><td>57.40</td><td>43.50</td><td>38.00 49.60</td><td>44.00</td><td>31.20</td><td>75.10</td></tr><tr><td></td><td></td><td></td><td></td><td></td><td>47.50</td><td>62.50</td><td>50.20</td><td>41.80</td><td>65.50</td><td>29.60</td><td>53.90</td><td>34.00</td><td>22.90</td><td>63.80</td><td>49.50</td><td>45.00</td><td>55.80</td><td>41.00 36.50</td><td>46.50</td><td>42.00</td><td>29.80</td><td>73.50</td></tr><tr><td>UCS (Ours)</td><td></td><td>65.59</td><td>64.63</td><td>66.59 |69.31</td><td>73.78</td><td>65.35</td><td>|73.55</td><td>76.24</td><td>71.05</td><td>|93.63 93.82</td><td>93.45</td><td>|82.11</td><td>82.30</td><td>82.06</td><td>|65.32</td><td>75.49</td><td>57.56</td><td>74.22</td><td>69.47 79.69</td><td>|85.46</td><td>93.11</td><td>78.97</td></tr></table>
+
+TABLE III
+
+COMPARISON RESULTS ON THE PUBLIC TEST DATASET.
+<table><tr><td rowspan="2">Method</td><td rowspan="2"> Year</td><td rowspan="2">F1 ↑</td><td colspan="2">OCTA500_3M</td><td colspan="4">OCTA500_6M F1 ↑</td><td colspan="4">CSD</td><td colspan="4">DCA1</td><td colspan="4">TubeTK</td><td colspan="4">STARE</td><td colspan="4">FIVES</td></tr><tr><td></td><td>Pre ↑</td><td>Rec ↑</td><td></td><td>Pre ↑</td><td>Rec</td><td>F1↑</td><td>Pre ↑</td><td>Rec ↑</td><td></td><td>F1 ↑</td><td>Pre ↑</td><td>Rec ↑</td><td></td><td>F1 ↑</td><td>Pre ↑</td><td></td><td>Rec ↑</td><td>F1 ↑</td><td>Pre ↑</td><td></td><td>Rec ↑</td><td>F1 ↑</td><td>Pre ↑</td><td>Rec ↑</td></tr><tr><td>UNet-vgg16 [12] ↓</td><td>2015 1‡</td><td>40.71</td><td>80.45</td><td>28.15</td><td></td><td>53.23</td><td>79.05</td><td>41.67</td><td>23.92</td><td>49.96</td><td>15.73</td><td>47.12</td><td></td><td>72.05</td><td>35.44</td><td>14.94</td><td>80.04</td><td></td><td>15.39</td><td>47.45</td><td>87.70</td><td></td><td>32.23</td><td>60.29</td><td>74.64</td><td>50.57</td></tr><tr><td>UNet-resnet101 [12]</td><td>2015</td><td>30.26</td><td>56.35</td><td>30.12</td><td></td><td>43.95</td><td>74.11</td><td>31.24</td><td>18.79</td><td>40.61</td><td>12.23</td><td>42.33</td><td></td><td>60.10</td><td>34.50</td><td>3.95</td><td></td><td>46.20</td><td>2.90</td><td>40.19</td><td>47.60</td><td></td><td>34.78</td><td>22.41</td><td>49.33</td><td>14.50</td></tr><tr><td>UNet++ [14] </td><td>2018</td><td>75.57</td><td>71.15</td><td>78.54</td><td></td><td>74.33</td><td>72.89</td><td>74.33</td><td>30.71</td><td>45.64</td><td>22.27</td><td>44.12</td><td></td><td>62.20</td><td>34.00</td><td>35.44</td><td>60.26</td><td></td><td>29.34</td><td>50.44</td><td></td><td>70.26</td><td>39.34</td><td>58.13</td><td>80.65</td><td>45.89</td></tr><tr><td>CSNet [66] ‡</td><td>2019</td><td>68.10</td><td>72.50</td><td>64.00</td><td></td><td>64.00</td><td>78.00</td><td>55.00</td><td>25.00</td><td>45.00</td><td>18.00</td><td>55.05</td><td></td><td>60.30</td><td>50.20</td><td>34.50</td><td>51.00</td><td></td><td>33.00</td><td>45.50</td><td></td><td>61.00</td><td>38.00</td><td>42.00</td><td>66.00</td><td>33.00</td></tr><tr><td>CS2Net [67] ‡</td><td>2020</td><td>69.60</td><td>73.00</td><td>65.50</td><td></td><td>65.50</td><td>78.00</td><td>56.50</td><td>24.50</td><td>44.50</td><td>16.50</td><td>56.22</td><td></td><td>61.10</td><td>51.00</td><td>34.00</td><td>50.50</td><td></td><td>32.50</td><td>44.00</td><td></td><td>60.50</td><td>37.50</td><td>39.50</td><td>63.50</td><td>30.50</td></tr><tr><td>CSSR [8] ‡</td><td>2021</td><td>59.28</td><td>82.44</td><td>45.70</td><td></td><td>70.92</td><td>63.53</td><td>80.05</td><td>42.15</td><td>62.63</td><td>31.76</td><td>62.45</td><td></td><td>70.10</td><td>55.90</td><td>16.72</td><td>76.88</td><td></td><td>74.40</td><td>11.72</td><td></td><td>66.88</td><td>64.40</td><td>27.16</td><td>79.18</td><td>16.39</td></tr><tr><td>FR-UNet [15] X</td><td>2022</td><td>76.23</td><td>82.78</td><td>68.70</td><td></td><td>70.25</td><td>96.11</td><td>55.35</td><td>35.67</td><td>45.11</td><td>29.50</td><td>61.78</td><td></td><td>75.00</td><td>52.20</td><td>16.53</td><td>55.90</td><td></td><td>76.70</td><td>11.53</td><td>66.70</td><td></td><td>66.70</td><td>59.71</td><td>67.29</td><td>55.63</td></tr><tr><td>BCU-Net [16] 1</td><td>2023</td><td>69.44</td><td>70.08</td><td>68.81</td><td></td><td>66.98</td><td>68.88</td><td>64.29</td><td>22.11</td><td>54.16</td><td>12.83</td><td>56.30</td><td></td><td>63.00</td><td>48.90</td><td>41.89</td><td>70.79</td><td></td><td>33.91</td><td>46.89</td><td>70.79</td><td>33.91</td><td></td><td>34.16</td><td>73.70</td><td>19.99</td></tr><tr><td></td><td></td><td>72.38</td><td>72.04</td><td>72.73</td><td></td><td>70.90</td><td>74.40</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td>SAM-Med2d [24] ↑ Rein [42]</td><td>2023 2024</td><td>77.32</td><td>74.13</td><td>80.79</td><td></td><td>77.83</td><td>75.20</td><td>67.69 80.64</td><td>41.10</td><td>49.85 52.42</td><td>34.69</td><td>65.50</td><td></td><td>72.10</td><td>59.20</td><td>49.99</td><td>73.67</td><td></td><td>43.14</td><td>54.99</td><td>73.67</td><td>43.14</td><td></td><td>60.24</td><td>78.36</td><td>48.47 70.22</td></tr><tr><td>HQ-SAM [25]</td><td>2024</td><td>80.29</td><td>75.35</td><td>85.93</td><td></td><td>78.68</td><td>76.74</td><td>80.73</td><td>47.59 49.19</td><td>63.77</td><td>43.58 40.03</td><td>71.80 73.20</td><td>82.00</td><td>77.00</td><td>67.50 65.00</td><td>31.30 31.25</td><td>86.00</td><td></td><td>33.00</td><td>26.30</td><td>76.00</td><td>23.00</td><td></td><td>70.80</td><td>73.69</td><td>70.62</td></tr><tr><td>CWSAM [68]</td><td>2025</td><td>81.20</td><td>76.20</td><td>86.80</td><td></td><td>79.60</td><td>77.50</td><td>81.50</td><td>50.30</td><td>64.80</td><td>41.20</td><td>74.10</td><td></td><td>83.50</td><td>66.50</td><td>47.88</td><td>98.73 82.42</td><td></td><td>25.48 40.63</td><td>26.25</td><td>88.73 72.42</td><td>15.48 30.63</td><td></td><td>73.07 74.20</td><td>75.69 76.80</td><td>71.70</td></tr><tr><td>KnowSAM [69]</td><td>2025</td><td></td><td>72.30 67.50</td><td>77.90</td><td></td><td>70.70</td><td>69.00</td><td>72.90</td><td>41.10</td><td>55.50</td><td>33.00</td><td>64.40</td><td></td><td>72.20</td><td>57.70</td><td>52.20</td><td>68.80</td><td></td><td>48.60</td><td>42.88 57.20</td><td>68.80</td><td>48.60</td><td></td><td>62.00</td><td>64.60</td><td>59.50</td></tr><tr><td>UCS (Ours)</td><td></td><td></td><td>84.45 82.73</td><td>86.23</td><td></td><td>82.48</td><td>82.73</td><td>82.15</td><td>74.95</td><td>81.66</td><td>69.27</td><td>75.45</td><td>87.52</td><td></td><td>66.43</td><td>57.59</td><td>62.73</td><td></td><td>62.15</td><td>73.92</td><td>88.61</td><td>63.43</td><td>79.67</td><td></td><td>90.73</td><td>71.02</td></tr></table>
+
+Dataset, which includes a wide range of curvilinear structures from diverse real-world scenarios.
+
+Table II provides a comprehensive comparison of our proposed UCS method against several state-of-the-art segmentation models on the In-House Test Dataset, evaluating performance across eight diverse categories. Our UCS method demonstrates strong performance, achieving F1-score ranging from 65.32 (WIRE) to 93.63 (SCRATCH), significantly outperforming existing approaches. Across the categories listed from left to right in Table II, UCS outperforms the second-best comparison model by 16.30, 14.86, 20.64, 49.61, 47.20, 14.68, 32.02, and 39.44 on the F1-score, respectively. For example, in the CRACK category, UCS achieves an F1-score of 69.31, surpassing HQ-SAM's F1-score of 54.45 by a notable margin of 14.86 points. These results underscore UCS's exceptional generalization capability, establishing it as a new benchmark for curvilinear structure segmentation tasks.
+
+2) Comparison on Public Test Dataset: To verify the consistency of performance gains, we conducted experiments on the Public Test Dataset.
+
+Table III compares UCS with other segmentation models on the Public Test dataset. UCS attains the highest F1-score on all seven public benchmarks (OCTA500\_3M, OCTA500\_6M, CSD, DCA1, TubeTK, STARE, and FIVES). Although UCS does not always achieve the top precision or recall individually (e.g., FR-UNet reports higher precision on OCTA500\_3M and OCTA500\_6M), this is a consequence of different models operating at different points on the precision-recall spectrum. Some methods over-segment and therefore obtain high recall but lower precision, while others produce conservative, highly precise masks that miss thin or fragmented structures and thus have lower recall. The F1-score, as the harmonic mean of precision and recall, captures the balance between these behaviors. UCS is deliberately biased toward recovering fine, continuous curvilinear structures—accepting a modest rise in false positives to secure higher recall and better structural coherence——so its precision may not always be maximal, but its overall F1 is consistently superior. The particularly large margin on CSD ( 24.7 F1 points over the next best) further underscores UCS's effectiveness on crack-like patterns and its strong cross-domain generalisation.
+
+Fig. 9 presents a visual comparison of segmentation results across a range of datasets. In the FIVES dataset, our method clearly outperforms others, exhibiting precise delineation of vascular structures with minimal red (false negatives) and green (false positives) pixels. In the LEAF dataset, our approach segments the delicate vein patterns, while other methods produce incomplete or fragmented results, primarily showing red pixels indicating significant false negatives. In the SOIL dataset, other methods exhibit significant noise and incomplete segmentation. Our method provides a complete and clean segmentation. Overall, the proposed UCS consistently outperforms competing methods by delivering higher true positive rates, lower false positives, and superior structural coherence across all examined domains.
+
+![](images/38f24e542798ebb6f4f5f81628e7564a2a828122c6f20666c044c715477a8319.jpg)  
+Fig. 10. Visualization of image degradation and segmentation results post-degradation. Columns 1, 4, and 7 show the results of the degradation methods indicated by the text at the bottom, with the segmentation results of FR-UNet and UCS (Ours) displayed to their right.
+
+## C. Robustness Study
+
+We evaluated UCS's robustness by testing its segmentation performance under simple and realistic image degradations.
+
+1) Simple Degradations: Gaussian noise is random fluctuations following a normal distribution and is added to the input images with a zero mean and varying standard deviations (σ =10, 15). The noisy image is defined as:
+
+$$
+I _ { y } = I + N ( 0 , \sigma ^ { 2 } )\tag{9}
+$$
+
+Motion Blur refers to image degradation caused by relative motion between the camera and the scene during exposure, typically simulated by convolving the image with a motion blur kernel. The kernel is defined as:
+
+$$
+K ( L , \phi ) = \left\{ { \begin{array} { l l } { { \frac { 1 } { L } } } & { { \mathrm { i f ~ } \sqrt { x ^ { 2 } + y ^ { 2 } } \leq \frac { L } { 2 } \mathrm { ~ a n d ~ } \frac { y } { x } = \tan ( \phi ) , } } \\ { { 0 } } & { { \mathrm { o t h e r w i s e . } } } \end{array} } \right.\tag{10}
+$$
+
+where x, y are the coordinates in the kernel, L denotes the kernel dimensions, which are set to 7, 11, and 15 in this experiment, $\phi \in [ 0 , \pi )$ represents the motion direction, and φ is randomly assigned.
+
+2) Realistic Degradations: We employed three advanced degradation models: sRGB-Real-Noise-Synthesizing (sRNS) [70], DASR [72], and DANET [71]. sRNS improves the realism of degradation by modeling spatial correlations and signal dependencies through three specialized networks. DASR predicts degradation parameters such as Gaussian blur, downsampling, Poisson noise, and JPEG compression through a lightweight regression network, which dynamically simulates realistic degradation effects, including blurring and noise artifacts. DANET generates realistic degradations by learning the joint distribution of clean and degraded images via adversarial training, effectively capturing both spatial correlations and intensity variations.
+
+As shown in Table IV, UCS consistently achieves high segmentation accuracy across various degradation methods and levels. Gaussian noise with σ=10 and σ=15 leads to a slight decline in the F1-score, dropping from 77.74 to 76.55 and 75.30 on the Public test dataset, and from 74.69 to 74.05 and 73.37 on the In-House test dataset. Motion blur with increasing lengths $( \mathrm { L } { = } 7 , \mathrm { L } { = } 1 1 , \mathrm { L } { = } 1 5 )$ further impacts performance, with the F1-score on the Public test dataset reducing to 74.28, 73.49, and 70.37, respectively, and on the In-House test dataset declining to 73.13, 71.98, and 70.29. Among deep learningbased degradation models, sRNS causes the most significant F1-score drop, with scores decreasing to 67.75 and 70.09 on both two major datasets. DASR and DANET lead to moderate performance drop, with F1-score of 75.15 and 72.68 on the Public test dataset, and 70.76 and 70.74 on the In-House test dataset, respectively.
+
+TABLE IV  
+PERFORMANCE UNDER VARIOUS DEGENERATION ON THE PUBLIC TEST DATASET (PUBLIC) AND THE IN-HOUSE TEST DATASET (IN-HOUSE).
+<table><tr><td rowspan="2">Degradation</td><td colspan="3">Public</td><td colspan="3">In-House</td></tr><tr><td>F1 ↑</td><td>Pre ↑</td><td>Rec ↑</td><td>F1 ↑</td><td>Pre ↑</td><td>Rec ↑</td></tr><tr><td></td><td>77.74</td><td>84.51</td><td>71.27</td><td>74.69</td><td>78.61</td><td>71.16</td></tr><tr><td>Gaussian(σ=10)</td><td>76.55</td><td>83.19</td><td>70.91</td><td>74.05</td><td>76.72</td><td>71.56</td></tr><tr><td>Gaussian(σ=15)</td><td>75.30</td><td>81.52</td><td>69.97</td><td>73.37</td><td>76.19</td><td>70.75</td></tr><tr><td>Motion(L=7)</td><td>74.28</td><td>78.61</td><td>70.40</td><td>73.13</td><td>72.49</td><td>73.80</td></tr><tr><td>Motion(L=11)</td><td>73.49</td><td>76.70</td><td>70.53</td><td>71.98</td><td>70.49</td><td>73.54</td></tr><tr><td>Motion(L=15)</td><td>70.37</td><td>75.04</td><td>66.25</td><td>70.29</td><td>68.20</td><td>72.52</td></tr><tr><td>sRNS [70]</td><td>67.75</td><td>84.26</td><td>56.59</td><td>70.09</td><td>70.02</td><td>70.16</td></tr><tr><td>DASR [72]</td><td>75.15</td><td>80.49</td><td>70.47</td><td>70.68</td><td>68.50</td><td>73.02</td></tr><tr><td>DANET [71]</td><td>72.68</td><td>80.80</td><td>66.04</td><td>70.74</td><td>70.92</td><td>70.57</td></tr></table>
+
+TABLE V
+
+ABLATION OF SA, PG, HFC, AND GFC MODULES.
+<table><tr><td rowspan="2">Model</td><td colspan="3">Module</td><td colspan="3">Public</td><td colspan="3">In-House</td></tr><tr><td></td><td>|SA PG HFC</td><td>GFC|</td><td>F1 ↑</td><td>Pre ↑</td><td>Rec ↑|</td><td>F1 ↑</td><td>Pre ↑</td><td>Rec ↑</td></tr><tr><td rowspan="5">Base</td><td>=</td><td>= 1</td><td>=</td><td>33.07</td><td>39.57</td><td>28.41</td><td>29.95</td><td>31.87</td><td>28.25</td></tr><tr><td>√</td><td>= 1</td><td></td><td>45.45</td><td>65.93</td><td>36.80</td><td>40.92</td><td>57.87</td><td>31.65</td></tr><tr><td>√</td><td>√ 1</td><td></td><td>61.57</td><td>82.53</td><td>49.10</td><td>59.54</td><td>72.99</td><td>50.28</td></tr><tr><td>√</td><td>√</td><td>V =</td><td>67.78</td><td>81.19</td><td>58.18</td><td>66.35</td><td>76.00</td><td>58.87</td></tr><tr><td>√</td><td>√ √</td><td>L</td><td>77.74</td><td>84.51</td><td>71.27</td><td>74.69</td><td>78.61</td><td>71.16</td></tr></table>
+
+Fig. 10 provides a qualitative comparison of segmentation results under various image degradations. We observe that UCS consistently outperforms FR-UNet in handling degraded images. For example, under Motion blur, FR-UNet fails to capture the leaf veins, resulting in fragmented segmentation with many red pixels (false negatives), whereas UCS accurately segments the veins. Similarly, with sRNS noise, FR-UNet exhibits numerous green pixels (false positives), while UCS maintains accurate segmentation. Under DANet degradation, FR-UNet produces significant red and green errors, struggling to preserve details, while UCS delivers sharper segmentation. These results demonstrate the superior robustness of UCS against diverse image degradations.
+
+## D. Ablation Study
+
+1) The Impact of Different Components: Table V presents a comprehensive ablation study, assessing the contributions of each module within the UCS framework. The analysis reveals a progressive performance enhancement with the sequential integration of each component. Specifically, the SA module demonstrably improves F1-score by 12.36 and 10.97 on the public and in-house datasets, respectively. Subsequent inclusion of the PG module further augments performance, yielding precision gains of 16.60 and 15.12, alongside recall improvements of 12.30 and 18.63. The HFC module leads to a consistent increase in recall, with gains of 9.08 and 8.59 observed across both datasets. Finally, the GFC module exhibits a pronounced impact on recall, achieving increments of 13.09 and 12.19, while exhibiting modest precision gains of 3.32 and 2.61. In summation, these results illustrate the incremental and complementary contributions of each UCS module.
+
+![](images/350f5ccf0f9e94961bfc01fd9e3f04e906f3db844eacdc97e19093ec720a8d90.jpg)  
+Fig. 11. The impact of different cutoff rates on the F1 on WIRE datasets. Performance peaks at a cutoff rate of 0.25 and subsequently declines.
+
+TABLE VI  
+PERFORMANCE COMPARISON OF DIFFERENT ADAPTER SPARSE STRATEGIES IN THE ENCODER BLOCKS, WHERE - DENOTES THE ORIGINAL SAM MODEL.
+<table><tr><td rowspan="2">Sparse Adapter Number</td><td colspan="3">Public</td><td colspan="3">In-House</td></tr><tr><td>F1 ↑</td><td>Pre ↑</td><td>Rec ↑</td><td>F1 ↑</td><td>Pre ↑</td><td>Rec ↑</td></tr><tr><td>=</td><td>33.07</td><td>39.57</td><td>28.41</td><td>29.95</td><td>31.87</td><td>28.25</td></tr><tr><td>24</td><td>33.74</td><td>42.50</td><td>27.98</td><td>27.56</td><td>28.13</td><td>27.02</td></tr><tr><td>12</td><td>34.75</td><td>45.03</td><td>28.29</td><td>29.66</td><td>31.26</td><td>28.22</td></tr><tr><td>8</td><td>34.28</td><td>48.98</td><td>26.34</td><td>35.86</td><td>48.67</td><td>28.39</td></tr><tr><td>6</td><td>36.72</td><td>50.18</td><td>28.95</td><td>38.20</td><td>53.73</td><td>29.63</td></tr><tr><td>4</td><td>45.45</td><td>65.93</td><td>36.80</td><td>40.92</td><td>57.87</td><td>31.65</td></tr><tr><td>3</td><td>30.79</td><td>48.69</td><td>22.51</td><td>26.33</td><td>36.81</td><td>20.49</td></tr></table>
+
+2) The Impact of Cutoff Rate: To determine the optimal cutoff rate for the Prompt Generation (PG) module, we conducted an ablation study using a grid search approach. As illustrated in Fig. 11, the F1 score peaks when the cutoff rate is set to 0.25. As the rate increases beyond this point, performance begins to decline. This trend suggests that a lower cutoff rate fails to adequately filter out low-frequency noise, whereas a higher rate may inadvertently remove essential high-frequency structural details along with the noise. Therefore, a cutoff rate of 0.25 strikes the optimal balance, maximizing the extraction of relevant curvilinear features while minimizing interference from irrelevant information.
+
+3) Impact of Sparse Adapter Strategy: Table VI shows that the 4-adapter sparse configuration yields the best trade-off between performance and parameter efficiency: it improves F1 by 12.38 points on the public dataset and by 10.97 points on the in-house dataset versus the original SAM baseline. Overly dense adaptation (24 adapters) degrades performance, while extreme sparsity (3 adapters) also harms results, indicating a sweet spot for the number of adapters.
+
+![](images/5427a554cf3b835dca64b05268f0ac48966e2065b00b1182bb306735962c6da0.jpg)  
+Fig. 12. The F1 of the sparse adapter versus adapters inserted in all encoder blocks across three-stage training epochs.
+
+![](images/382711c7d9b1c4da31f3087c256a2eeda91ef604c15b7c091d3ee6756d5493bd.jpg)  
+(a)
+
+![](images/da8d0a862a01cd9e26060a5b4529b270bd6b080bcf539272f82702a05d7bbdae.jpg)  
+(b)  
+Fig. 13. Visualization of t-SNE embeddings for (a) CWSAM and (b) UCS on the eight In-House Test Dataset. Different colors represent different curvilinear structure categories.
+
+To verify the effectiveness of the Sparse Adapter strategy in mitigating catastrophic forgetting during domain shifts, we conducted a sequential training experiment. The model was trained first on FIVES (Task 1), then fine-tuned on Wire (Task 2), and finally on DCA1 (Task 3). As illustrated in Fig. 12, both strategies exhibit similar evolutionary trends across the training epochs. However, the Sparse Adapter consistently outperforms the full insertion strategy, maintaining higher F1 scores throughout all stages. Specifically, when shifting to the second task, although both curves show a decline due to domain differences, the Sparse Adapter exhibits a much milder drop and superior stability. This demonstrates that by confining parameter updates to a smaller subspace, the sparse strategy reduces the risk of overfitting and retains better generalization capabilities compared to inserting adapters in every block.
+
+4) Visualization of t-SNE: Figure 13 illustrates the t-SNE embeddings derived from the In-House Test Dataset, comparing CWSAM (a) with UCS (b). A visual comparison reveals that UCS generates significantly more compact and distinctly separated clusters across different domains than CWSAM. For instance, in the CWSAM visualization (a), the green ('floor') and orange ('crack') clusters exhibit notable overlap indicating poor discrimination between these categories. In stark contrast, the UCS visualization (b) demonstrates a clear separation of these same green and orange clusters, with each forming a more cohesive group. Furthermore, other clusters, such as red ('leaf') and pink ('scratch'), also show improved compactness and reduced inter-mixing in the UCS plot. This enhanced separation and compactness signify an improved inter-domain discrimination and more consistent semantic representations for various curvilinear structure categories with UCS, which directly correlates with its superior cross-domain segmentation performance.
+
+TABLE VII  
+TRAINABLE PARAMETER FRACTION, F1 AND EFFICIENCY COMPARISON OF ADAPTATION METHODS ON WIRE DATASET.
+<table><tr><td>Method</td><td>Trainable Params(%)↓ F1↑ Params(M)↓FLOPs(GB)↓Runtime(ms)↓</td><td></td><td></td><td></td></tr><tr><td>SAM-Med2d</td><td>68.0</td><td>41.22</td><td>950.14</td><td>1690.34 538.32</td></tr><tr><td>HQ-SAM</td><td>1.30</td><td>50.64</td><td>312.34 1493.84</td><td>268.46</td></tr><tr><td>CWSAM</td><td>12.1</td><td>51.70</td><td>315.56 1468.74</td><td>350.51</td></tr><tr><td>UCS (Ours)</td><td>2.65</td><td>65.32</td><td>312.61 1497.88</td><td>239.56</td></tr></table>
+
+5) Number of Trainable Parameters: The sparse-adapter design updates only 2.65% of the model parameters by inserting lightweight adapters into four selected encoder blocks while keeping the rest of the pretrained encoder frozen. Paired with the Prompt Generation, Hierarchical Feature Compression and Guidance Feature Compression modules, this parameter-efficient adaptation preserves pretrained generalization and achieves the best empirical segmentation performance (e.g., F1 = 65.32) on our benchmarks. As shown in Table VII, the proposed approach attains the highest F1 while maintaining a very low fraction of trainable parameters, demonstrating superior parameter efficiency without sacrificing accuracy.
+
+## V. CONCLUSION
+
+In this paper, we introduce UCS, a universal segmentation model designed to segment arbitrary curvilinear structures across diverse domains, effectively bridging the domain gap. UCS features a novel architecture that integrates initial prompt information into each encoder block and fuses multi-level contextual features within the mask decoder, achieving a balance between global semantic understanding and precise local delineation. Comprehensive evaluations on both public and inhouse test datasets demonstrate that UCS outperforms stateof-the-art CNN-based and Transformer-based models in segmentation accuracy, while also exhibiting robust performance under various image degradation conditions. By focusing on cross-domain segmentation, UCS transcends specific downstream tasks, aligning with our goal of universal applicability. In the future, we will focus on further reducing training parameters to achieve efficient model deployment and lower computational costs and explore fusing multi-modal data to improve segmentation accuracy in complex scenarios.
+
+## REFERENCES
+
+[1] P. L. Rosin and G. A. West, "Curve segmentation and representation by superellipses," IEE Proceedings-Vision, Image and Signal Processing, vol. 142, no. 5, pp. 280–288, 1995.
+
+[2] L. M. Lorigo, O. D. Faugeras, W. E. L. Grimson, R. Keriven, R. Kikinis, A. Nabavi, and C.-F. Westin, "Curves: Curve evolution for vessel segmentation," Medical image analysis, vol. 5, no. 3, pp. 195–206, 2001.
+
+[3] J. A. Tyrrell, E. di Tomaso, D. Fuja, R. Tong, K. Kozak, R. K. Jain, and B. Roysam, "Robust 3-d modeling of vasculature imagery using superellipsoids," IEEE Transactions on Medical Imaging, vol. 26, no. 2, pp. 223–237, 2007.
+
+[4] V. Cherukuri, V. Kumar B.G., R. Bala, and V. Monga, "Deep retinal image segmentation with regularization under geometric priors," IEEE Transactions on Image Processing, vol. 29, pp. 2552–2567, 2020.
+
+[5] Y. Shi, L. Cui, Z. Qi, F. Meng, and Z. Chen, "Automatic road crack detection using random structured forests," IEEE Transactions on Intelligent Transportation Systems, vol. 17, no. 12, pp. 3434–3445, 2016.
+
+[6] F. Yang, L. Zhang, S. Yu, D. Prokhorov, X. Mei, and H. Ling, “Feature pyramid and hierarchical boosting network for pavement crack detection," IEEE Transactions on Intelligent Transportation Systems, vol. 21, no. 4, pp. 1525–1535, 2020.
+
+[7] Y. Liu, J. Yao, X. Lu, R. Xie, and L. Li, “Deepcrack: A deep hierarchical feature learning architecture for crack segmentation,"Neurocomputing, vol. 338, pp. 139–153, 2019.
+
+[8] Y. Kondo and N. Ukita, "Crack segmentation for low-resolution images using joint learning with super-resolution," in 2021 17th international conference on machine vision and applications (MVA). IEEE, 2021, pp. 1–6.
+
+[9] M. G. Larese, R. Namías, R. M. Craviotto, M. R. Arango, C. Gallo, and P. M. Granitto, “Automatic classification of legumes using leaf vein image features," Pattern Recognition, vol. 47, no. 1, pp. 158–168, 2014.
+
+[10] J. Bühler, L. Rishmawi, D. Pflugfelder, G. Huber, H. Scharr, M. Hülskamp, M. Koornneef, U. Schurr, and S. Jahnke, "Phenovein—a tool for leaf vein segmentation and analysis," Plant Physiology, vol. 169, no. 4, pp. 2359–2370, 2015.
+
+[11] J. Lin, X. Huang, H. Zhou, Y. Wang, and Q. Zhang, "Stimulus-guided adaptive transformer network for retinal blood vessel segmentation in fundus images," Medical Image Analysis, vol. 89, pp. 102 929–102 943, 2023.
+
+[12] O. Ronneberger, P. Fischer, and T. Brox, “"U-net: Convolutional networks for biomedical image segmentation," in Medical image computing and computer-assisted intervention-MICCAI 2015: 18th international conference, Munich, Germany, October 5-9, 2015, proceedings, part III 18. Springer, 2015, pp. 234–241.
+
+[13] T. Shi, N. Boutry, Y. Xu, and T. Géraud, "Local intensity order transformation for robust curvilinear object segmentation," IEEE Transactions on Image Processing, vol. 31, pp. 2557–2569, 2022.
+
+[14] Z. Zhou, M. M. R. Siddiquee, N. Tajbakhsh, and J. Liang, "Unet++: Redesigning skip connections to exploit multiscale features in image segmentation," IEEE Transactions on Medical Imaging, vol. 39, no. 6, pp. 1856–1867, 2020.
+
+[15] W. Liu, H. Yang, T. Tian, Z. Cao, X. Pan, W. Xu, Y. Jin, and F. Gao, “Full-resolution network and dual-threshold iteration for retinal vessel and coronary angiograph segmentation," IEEE journal of biomedical and health informatics, vol. 26, no. 9, pp. 4623–4634, 2022.
+
+[16] H. Zhang, X. Zhong, G. Li, W. Liu, J. Liu, D. Ji, X. Li, and J. Wu, “Bcu-net: Bridging convnext and u-net for medical image segmentation," Computers in Biology and Medicine, vol. 159, pp. 106 960–106976, 2023.
+
+[17] A. Open, "Gpt-4v (ision) system card. 2023," URL https://cdn. openai. com/papers/GPTV\_System\_Card. pdf, 2023.
+
+[18] F. Li, H. Zhang, H. Xu, S. Liu, L. Zhang, L. M. Ni, and H.-Y. Shum, “Mask dino: Towards a unified transformer-based framework for object detection and segmentation," in 2023 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR), 2023, pp. 3041– 3050.
+
+[19] X. Wang, X. Zhang, Y. Cao, W. Wang, C. Shen, and T. Huang, “Seggpt: Towards segmenting everything in context," in 2023 IEEE/CVF International Conference on Computer Vision (ICCV), 2023, pp. 1130– 1140.
+
+[20] Y. Shen, C. Fu, P. Chen, M. Zhang, K. Li, X. Sun, Y. Wu, S. Lin, and R. Ji, “Aligning and prompting everything all at once for universal visual perception," in 2024 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR), 2024, pp. 13 193–13 203.
+
+[21] A. Kirillov, E. Mintun, N. Ravi, H. Mao, C. Rolland, L. Gustafson, T. Xiao, S. Whitehead, A. C. Berg, W.-Y. Lo, P. Dollár, and R. Girshick, "Segment anything," in 2023 IEEE/CVF International Conference on Computer Vision (ICCV), 2023, pp. 3992–4003.
+
+[22] Y. Xu, J. Tang, A. Men, and Q. Chen, "Eviprompt: A training-free evidential prompt generation method for adapting segment anything model in medical images," IEEE Transactions on Image Processing, vol. 33, pp. 6204–6215, 2024.
+
+[23] J. Ma, Y. He, F. Li, L. Han, C. You, and B. Wang, "Segment anything in medical images," Nature Communications, vol. 15, no. 1, pp. 654–663, 2024.
+
+[24] J. Cheng, J. Ye, Z. Deng, J. Chen, T. Li, H. Wang, Y. Su, Z. Huang, J. Chen, L. Jiang et al., “Sam-med2d," arXiv preprint arXiv:2308.16184, 2023.
+
+[25] L. Ke, M. Ye, M. Danelljan, Y. liu, Y.-W. Tai, C.-K. Tang, and F. Yu, "Segment anything in high quality," in Advances in Neural Information Processing Systems, vol. 36, 2023, pp. 29 914–29 934.
+
+[26] L. P. Osco, Q. Wu, E. L. de Lemos, W. N. Gonçalves, A. P. M. Ramos, J. Li, and J. Marcato, "The segment anything model (sam) for remote sensing applications: From zero to one shot," International Journal of Applied Earth Observation and Geoinformation, vol. 124, pp. 103 540– 10 358, 2023.
+
+[27] T. Chen, L. Zhu, C. Ding, R. Cao, Y. Wang, S. Zhang, Z. Li, L. Sun, Y. Zang, and P. Mao, "Sam-adapter: Adapting segment anything in underperformed scenes," in 2023 IEEE/CVF International Conference on Computer Vision Workshops (ICCVW), 2023, pp. 3359–3367.
+
+[28] F. Wang, Y. Gu, W. Liu, Y. Yu, S. He, and J. Pan, "Context-aware spatio-recurrent curvilinear structure segmentation," in 2019 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR), 2019, pp. 12 640–12 649.
+
+[29] X. Xu, M. C. Nguyen, Y. Yazici, K. Lu, H. Min, and C.-S. Foo, “Semicurv: Semi-supervised curvilinear structure segmentation," IEEE Transactions on Image Processing, vol. 31, pp. 5109–5120, 2022.
+
+[30] J. Zhang, T. Fu, D. Xiao, J. Fan, H. Song, D. Ai, and J. Yang, "Bifusion of structure and deformation at multi-scale for joint segmentation and registration," IEEE Transactions on Image Processing, vol. 33, pp. 3676–3691, 2024.
+
+[31] H. Ye, X. Zhang, Y. Hu, H. Fu, and J. Liu, "Vsr-net: Vessel-like structure rehabilitation network with graph clustering," IEEE Transactions on Image Processing, vol. 34, pp. 1090–1105, 2025.
+
+[32] Y. Zhou, T. S. Ahmed, M. Wang, E. A. Newman, L. Schmetterer, H. Fu, J. Cheng, and B. Tan, "Masked vascular structure segmentation and completion in retinal images," IEEE Transactions on Medical Imaging, pp. 1–13, 2025.
+
+[33] Q. Zou, Z. Zhang, Q. Li, X. Qi, Q. Wang, and S. Wang, "Deepcrack: Learning hierarchical convolutional features for crack detection,"IEEE Transactions on Image Processing, vol. 28, no. 3, pp. 1498–1512, 2019.
+
+[34] X. Cheng, T. He, F. Shi, M. Zhao, X. Liu, and S. Chen, “Selective feature fusion and irregular-aware network for pavement crack detection,"IEEE Transactions on Intelligent Transportation Systems, vol. 25, no. 5, pp. 3445–3456, 2024.
+
+[35] J. Li, S. Zha, C. Chen, M. Ding, T. Zhang, and H. Yu, "Attention guided global enhancement and local refinement network for semantic segmentation," IEEE Transactions on Image Processing, vol. 31, pp. 3211–3223, 2022.
+
+[36] Y. Li, S. Wang, J. Wang, G. Zeng, W. Liu, Q. Zhang, Q. Jin, and Y. Wang, “Gt u-net: A u-net like group transformer network for tooth root segmentation," in Machine Learning in Medical Imaging. Cham: Springer International Publishing, 2021, pp. 386–395.
+
+[37] H. Yu, J.-h. Shim, J. Kwak, J. W. Song, and S.-J. Kang, "Vision transformer-based retina vessel segmentation with deep adaptive gamma correction," in ICASSP 2022-2022 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP). IEEE, 2022, pp. 1456-1460.
+
+[38] H. Zhang, W. Ni, Y. Luo, Y. Feng, R. Song, and X. Wang, "Tunet-lbf: Retinal fundus image fine segmentation model based on transformer unet network and lbf," Computers in Biology and Medicine, vol. 159, pp. 106 937–106 949, 2023.
+
+[39] H. Qi, X. Kong, Z. Jin, J. Zhang, and Z. Wang, "A vision-transformerbased convex variational network for bridge pavement defect segmentation," IEEE Transactions on Intelligent Transportation Systems, vol. 25, no. 10, pp. 13 820–13 832, 2024.
+
+[40] D. Huynh, J. Kuen, Z. Lin, J. Gu, and E. Elhamifar, "Open-vocabulary instance segmentation via robust cross-modal pseudo-labeling," in 2022 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR), 2022, pp. 7010–7021.
+
+[41] H. Zhang, F. Li, X. Zou, S. Liu, C. Li, J. Yang, and L. Zhang, “A simple framework for open-vocabulary segmentation and detection," in 2023 IEEE/CVF International Conference on Computer Vision (ICCV), 2023, pp. 1020–1031.
+
+[42] Z. Wei, L. Chen, Y. Jin, X. Ma, T. Liu, P. Ling, B. Wang, H. Chen, and J. Zheng, "Stronger, fewer, & superior: Harnessing vision foundation models for domain generalized semantic segmentation," in 2024 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR), 2024, pp. 28 619–28 630.
+
+[43] C. Jia, Y. Yang, Y. Xia, Y.-T. Chen, Z. Parekh, H. Pham, Q. Le, Y.-H. Sung, Z. Li, and T. Duerig, "Scaling up visual and vision-language representation learning with noisy text supervision," in International conference on machine learning. PMLR, 2021, pp. 4904–4916.
+
+[44] Y. Rao, W. Zhao, G. Chen, Y. Tang, Z. Zhu, G. Huang, J. Zhou, and J. Lu, “Denseclip: Language-guided dense prediction with context-aware
+
+prompting," in 2022 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR), 2022, pp. 18 061–18 070.
+
+[45] J. Xu, S. De Mello, S. Liu, W. Byeon, T. Breuel, J. Kautz, and X. Wang, “Groupvit: Semantic segmentation emerges from text supervision," in 2022 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR), 2022, pp. 18 113–18 123.
+
+[46] Z. Chen, Y. Duan, W. Wang, J. He, T. Lu, J. Dai, and Y. Qiao, "Vision transformer adapter for dense predictions," arXiv preprint arXiv:2205.08534, 2022.
+
+[47] J. Wu, W. Ji, Y. Liu, H. Fu, M. Xu, Y. Xu, and Y. Jin, "Medical sam adapter: Adapting segment anything model for medical image segmentation," arXiv preprint arXiv:2304.12620, 2023.
+
+[48] J. Staal, M. Abramoff, M. Niemeijer, M. Viergever, and B. van Ginneken, “Ridge-based vessel segmentation in color images of the retina," IEEE Transactions on Medical Imaging, vol. 23, no. 4, pp. 501–509, 2004.
+
+[49] C. G. Owen, A. R. Rudnicka, R. Mullen, S. A. Barman, D. Monekosso, P. H. Whincup, J. Ng, and C. Paterson, "Measuring retinal vessel tortuosity in 10-year-old children: validation of the computer-assisted image analysis of the retina (caiar) program," Investigative ophthalmology & visual science, vol. 50, no. 5, pp. 2004–2010, 2009.
+
+[50] L. Mou, Y. Zhao, L. Chen, J. Cheng, Z. Gu, H. Hao, H. Qi, Y. Zheng, A. Frangi, and J. Liu, “Cs-net: Channel and spatial attention network for curvilinear structure segmentation," in Medical Image Computing and Computer Assisted Intervention – MICCAI 2019. Cham: Springer International Publishing, 2019, pp. 721–730.
+
+[51] Q. Zou, Y. Cao, Q. Li, Q. Mao, and S. Wang, "Cracktree: Automatic crack detection from pavement images," Pattern Recognition Letters, vol. 33, no. 3, pp. 227–238, 2012.
+
+[52] Y. Ma, Y. Hua, H. Deng, T. Song, H. Wang, Z. Xue, H. Cao, R. Ma, and H. Guan, "Self-supervised vessel segmentation via adversarial learning," in 2021 IEEE/CVF International Conference on Computer Vision (ICCV), 2021, pp. 7516–7525.
+
+[53] H. Ning, C. Wang, X. Chen, and S. Li, “An accurate and efficient neural network for octa vessel segmentation and a new dataset," in ICASSP 2024 - 2024 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP), 2024, pp. 1966–1970.
+
+[54] A. Güngör, B. Askin, D. A. Soydan, C. B. Top, E. U. Saritas, and T. Çukur, "Deq-mpi: A deep equilibrium reconstruction with learned consistency for magnetic particle imaging," IEEE Transactions on Medical Imaging, vol. 43, no. 1, pp. 321–334, 2024.
+
+[55] M. Li, K. Huang, Q. Xu, J. Yang, Y. Zhang, Z. Ji, K. Xie, S. Yuan, Q. Liu, and Q. Chen, “Octa-500: A retinal dataset for optical coherence tomography angiography study," Medical Image Analysis, vol. 93, pp. 103 092–103 108, 2024.
+
+[56] L. Middha, "Kaggle crack segmentation dataset," 2020, accessed: 2020. [Online]. Available: https://www.kaggle.com/datasets/lakshaymiddha/ crack-segmentation-dataset
+
+[57] F. Cervantes-Sanchez, I. Cruz-Aceves, A. Hernandez-Aguirre, M. A. Hernandez-Gonzalez, and S. E. Solorio-Meza, “Automatic segmentation of coronary arteries in x-ray angiograms using multiscale analysis and artificial neural networks," Applied Sciences, vol. 9, no. 24, 2019.
+
+[58] A. Hoover, V. Kouznetsova, and M. Goldbaum, "Locating blood vessels in retinal images by piecewise threshold probing of a matched filter response," IEEE Transactions on Medical Imaging, vol. 19, no. 3, pp. 203–210, 2000.
+
+[59] K. Jin, X. Huang, J. Zhou, Y. Li, Y. Yan, Y. Sun, Q. Zhang, Y. Wang, and J. Ye, "Fives: A fundus image dataset for artificial intelligence based vessel segmentation," Scientific data, vol. 9, no. 1, pp. 475–483, 2022.
+
+[60] T.-Y. Lin, P. Goyal, R. Girshick, K. He, and P. Dollár, "Focal loss for dense object detection," IEEE Transactions on Pattern Analysis and Machine Intelligence, vol. 42, no. 2, pp. 318–327, 2020.
+
+[61] F. Milletari, N. Navab, and S.-A. Ahmadi, "V-net: Fully convolutional neural networks for volumetric medical image segmentation,"in 2016 Fourth International Conference on 3D Vision (3DV), 2016, pp. 565– 571.
+
+[62] K. He, G. Gkioxari, P. Dollár, and R. Girshick, "Mask r-cnn," in 2017 IEEE International Conference on Computer Vision (ICCV), 2017, pp. 2980–2988.
+
+[63] M. Eisenbach, R. Stricker, D. Seichter, K. Amende, K. Debes, M. Sesselmann, D. Ebersbach, U. Stoeckert, and H.-M. Gross, "How to get pavement distress detection ready for deep learning? a systematic approach," in 2017 International Joint Conference on Neural Networks (IJCNN), 2017, pp. 2039–2047.
+
+[64] R. Amhaz, S. Chambon, J. Idier, and V. Baltazart, “"Automatic crack detection on two-dimensional pavement images: An algorithm based on
+
+minimal path selection," IEEE Transactions on Intelligent Transportation Systems, vol. 17, no. 10, pp. 2718–2729, 2016.
+
+[65] Z. Al-Huda, B. Peng, M. A. Al-antari, R. N. A. Algburi, R. A. Saleh, and K. Moghalles, "Mdau-net: A multi-scale u-net with dual attention module for pavement crack segmentation," in 2023 18th International Conference on Intelligent Systems and Knowledge Engineering (ISKE). IEEE, 2023, pp. 170–177.
+
+[66] L. Mou, Y. Zhao, L. Chen, J. Cheng, Z. Gu, H. Hao, H. Qi, Y. Zheng, A. Frangi, and J. Liu, "Cs-net: Channel and spatial attention network for curvilinear structure segmentation," in Medical Image Computing and Computer Assisted Intervention – MICCAI 2019, D. Shen, T. Liu, T. M. Peters, L. H. Staib, C. Essert, S. Zhou, P.-T. Yap, and A. Khan, Eds. Cham: Springer International Publishing, 2019, pp. 721–730.
+
+[67] L. Mou, Y. Zhao, H. Fu, Y. Liu, J. Cheng, Y. Zheng, P. Su, J. Yang, L. Chen, A. F. Frangi, M. Akiba, and J. Liu, "Cs2-net: Deep learning segmentation of curvilinear structures in medical imaging," Medical Image Analysis, vol. 67, p. 101874, 2021. [Online]. Available: https://www.sciencedirect.com/science/article/pii/S1361841520302383
+
+[68] X. Pu, H. Jia, L. Zheng, F. Wang, and F. Xu, "Classwise-sam-adapter: Parameter efficient fine-tuning adapts segment anything to sar domain for semantic segmentation," IEEE Journal of Selected Topics in Applied Earth Observations and Remote Sensing, 2025.
+
+[69] K. Huang, T. Zhou, H. Fu, Y. Zhang, Y. Zhou, C. Gong, and D. Liang, "Learnable prompting sam-induced knowledge distillation for semisupervised medical image segmentation," IEEE Transactions on Medical Imaging, vol. 44, no. 5, pp. 2295–2306, 2025.
+
+[70] Z. Fu, L. Guo, and B. Wen, “srgb real noise synthesizing with neighboring correlation-aware noise model," in 2023 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR), 2023, pp. 1683– 1691.
+
+[71] Z. Yue, Q. Zhao, L. Zhang, and D. Meng, "Dual adversarial network: Toward real-world noise removal and noise generation," in Computer Vision – ECCV 2020. Cham: Springer International Publishing, 2020, pp. 41–58.
+
+[72] J. Liang, H. Zeng, and L. Zhang, "Efficient and degradation-adaptive network for real-world image super-resolution," in Computer Vision – ECCV 2022. Cham: Springer Nature Switzerland, 2022, pp. 574–591.

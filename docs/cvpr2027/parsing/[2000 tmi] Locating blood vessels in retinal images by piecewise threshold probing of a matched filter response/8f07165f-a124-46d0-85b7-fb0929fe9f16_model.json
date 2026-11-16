@@ -1,0 +1,5498 @@
+[
+    {
+        "layout_dets": [
+            {
+                "cls_id": 6,
+                "label": "doc_title",
+                "score": 0.9703,
+                "bbox": [
+                    336,
+                    100,
+                    1396,
+                    195
+                ],
+                "index": 1
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9268,
+                "bbox": [
+                    303,
+                    223,
+                    1429,
+                    265
+                ],
+                "index": 2
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.816,
+                "bbox": [
+                    521,
+                    265,
+                    1218,
+                    305
+                ],
+                "index": 3
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.738,
+                "bbox": [
+                    646,
+                    305,
+                    1090,
+                    347
+                ],
+                "index": 4
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.7307,
+                "bbox": [
+                    620,
+                    345,
+                    1114,
+                    384
+                ],
+                "index": 5
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.6572,
+                "bbox": [
+                    690,
+                    383,
+                    1044,
+                    420
+                ],
+                "index": 6
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.8171,
+                "bbox": [
+                    447,
+                    421,
+                    1288,
+                    462
+                ],
+                "index": 7
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9447,
+                "bbox": [
+                    394,
+                    497,
+                    1340,
+                    533
+                ],
+                "index": 8
+            },
+            {
+                "cls_id": 17,
+                "label": "paragraph_title",
+                "score": 0.9203,
+                "bbox": [
+                    426,
+                    590,
+                    589,
+                    624
+                ],
+                "index": 9
+            },
+            {
+                "cls_id": 0,
+                "label": "abstract",
+                "score": 0.9904,
+                "bbox": [
+                    186,
+                    638,
+                    826,
+                    1183
+                ],
+                "index": 10
+            },
+            {
+                "cls_id": 17,
+                "label": "paragraph_title",
+                "score": 0.9402,
+                "bbox": [
+                    390,
+                    1209,
+                    623,
+                    1242
+                ],
+                "index": 11
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9884,
+                "bbox": [
+                    187,
+                    1274,
+                    827,
+                    1657
+                ],
+                "index": 12
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9835,
+                "bbox": [
+                    188,
+                    1656,
+                    827,
+                    1849
+                ],
+                "index": 13
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9693,
+                "bbox": [
+                    910,
+                    592,
+                    1543,
+                    657
+                ],
+                "index": 14
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9881,
+                "bbox": [
+                    909,
+                    657,
+                    1547,
+                    974
+                ],
+                "index": 15
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9885,
+                "bbox": [
+                    909,
+                    973,
+                    1547,
+                    1322
+                ],
+                "index": 16
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9884,
+                "bbox": [
+                    909,
+                    1322,
+                    1549,
+                    1742
+                ],
+                "index": 17
+            },
+            {
+                "cls_id": 17,
+                "label": "paragraph_title",
+                "score": 0.9409,
+                "bbox": [
+                    1107,
+                    1766,
+                    1352,
+                    1798
+                ],
+                "index": 18
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9647,
+                "bbox": [
+                    912,
+                    1828,
+                    1549,
+                    1896
+                ],
+                "index": 19
+            },
+            {
+                "cls_id": 8,
+                "label": "footer",
+                "score": 0.9288,
+                "bbox": [
+                    186,
+                    2023,
+                    526,
+                    2050
+                ],
+                "index": 20
+            },
+            {
+                "cls_id": 16,
+                "label": "number",
+                "score": 0.9151,
+                "bbox": [
+                    840,
+                    2015,
+                    897,
+                    2047
+                ],
+                "index": 21
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    518,
+                    105,
+                    1214,
+                    148
+                ],
+                "score": 1.0,
+                "text": "Locating Blood Vessels in Retinal Images"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    342,
+                    150,
+                    1393,
+                    190
+                ],
+                "score": 0.999,
+                "text": "by Piece-wise Threshold Probing of a Matched Filter Response"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    308,
+                    225,
+                    1424,
+                    263
+                ],
+                "score": 0.992,
+                "text": "Adam Hoover, Ph.D.*, Valentina Kouznetsova, Ph.D.*, Michael Goldbaum, M.D."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    527,
+                    264,
+                    1210,
+                    306
+                ],
+                "score": 0.985,
+                "text": "+Electrical and Computer Engineering Department"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    651,
+                    304,
+                    1081,
+                    349
+                ],
+                "score": 1.0,
+                "text": "Department of Ophthalmology"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    625,
+                    345,
+                    1107,
+                    384
+                ],
+                "score": 0.989,
+                "text": "University of California, San Diego"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    696,
+                    385,
+                    1036,
+                    419
+                ],
+                "score": 0.996,
+                "text": "La Jolla, CA 92093-0407"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    453,
+                    425,
+                    1282,
+                    458
+                ],
+                "score": 0.997,
+                "text": "hoover or vkouznet@vision.ucsd.edu, mgoldbaum@ucsd.edu"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    402,
+                    502,
+                    1334,
+                    528
+                ],
+                "score": 0.996,
+                "text": "Key words: medical image processing, retinal imaging, blood vessel segmentation"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    429,
+                    597,
+                    582,
+                    629
+                ],
+                "score": 1.0,
+                "text": "ABSTRACT"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    245,
+                    640,
+                    821,
+                    672
+                ],
+                "score": 0.998,
+                "text": "We describe an automated method to locate and"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    194,
+                    674,
+                    817,
+                    703
+                ],
+                "score": 0.998,
+                "text": "outline blood vessels in images of the ocular fundus."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    192,
+                    704,
+                    819,
+                    736
+                ],
+                "score": 1.0,
+                "text": "Such a tool should prove useful to eyecare specialists"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    189,
+                    738,
+                    822,
+                    768
+                ],
+                "score": 0.984,
+                "text": "for purposes of patient screening, treatment"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    193,
+                    770,
+                    820,
+                    798
+                ],
+                "score": 1.0,
+                "text": "evaluation, and clinical study. Our method differs from"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    191,
+                    801,
+                    821,
+                    830
+                ],
+                "score": 0.998,
+                "text": "previously known methods in that it uses local and"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    192,
+                    833,
+                    820,
+                    862
+                ],
+                "score": 0.987,
+                "text": "global vessel features cooperatively to segment the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    192,
+                    864,
+                    821,
+                    893
+                ],
+                "score": 0.991,
+                "text": "vessel network. A comparison of our method against"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    192,
+                    894,
+                    821,
+                    927
+                ],
+                "score": 0.993,
+                "text": "hand-labeled ground truth segmentations of five"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    192,
+                    927,
+                    821,
+                    958
+                ],
+                "score": 0.978,
+                "text": "images yielded 65% sensitivity and 81% specificity. A"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    192,
+                    961,
+                    821,
+                    988
+                ],
+                "score": 0.984,
+                "text": "previously known technique yielded 69% sensitivity"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    192,
+                    990,
+                    823,
+                    1021
+                ],
+                "score": 0.99,
+                "text": "and 63% specificity. For a baseline, we also compared"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    192,
+                    1022,
+                    819,
+                    1054
+                ],
+                "score": 0.998,
+                "text": "the ground truth against a second hand labeling,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    190,
+                    1054,
+                    821,
+                    1085
+                ],
+                "score": 0.996,
+                "text": "yielding 80% sensitivity and 90% specificity. These"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    191,
+                    1085,
+                    822,
+                    1117
+                ],
+                "score": 0.997,
+                "text": "numbers indicate our method improves upon the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    191,
+                    1117,
+                    820,
+                    1147
+                ],
+                "score": 0.99,
+                "text": "previously known technique, but that further"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    195,
+                    1151,
+                    521,
+                    1176
+                ],
+                "score": 0.999,
+                "text": "improvement is still possible."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    394,
+                    1216,
+                    619,
+                    1248
+                ],
+                "score": 0.999,
+                "text": "INTRODUCTION"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    243,
+                    1273,
+                    821,
+                    1307
+                ],
+                "score": 0.989,
+                "text": "Blood vessel appearance is an important indicator"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    192,
+                    1306,
+                    820,
+                    1339
+                ],
+                "score": 0.999,
+                "text": "for many diagnoses, including diabetes, hypertension,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    192,
+                    1338,
+                    820,
+                    1371
+                ],
+                "score": 0.989,
+                "text": "and arteriosclerosis. Vessels and arteries have many"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    192,
+                    1370,
+                    820,
+                    1402
+                ],
+                "score": 0.996,
+                "text": "observable features, including diameter, color,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    190,
+                    1400,
+                    822,
+                    1436
+                ],
+                "score": 0.98,
+                "text": "tortuosity (relative curvature), and opacity"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    193,
+                    1433,
+                    824,
+                    1466
+                ],
+                "score": 0.997,
+                "text": "(reflectivity). Artery-vein crossings and patterns of"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    192,
+                    1465,
+                    821,
+                    1498
+                ],
+                "score": 0.999,
+                "text": "small vessels can also serve as diagnostic indicators."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    193,
+                    1498,
+                    822,
+                    1529
+                ],
+                "score": 0.992,
+                "text": "An accurate delineation of the boundaries of blood"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    194,
+                    1532,
+                    821,
+                    1559
+                ],
+                "score": 0.988,
+                "text": "vessels makes precise measurements of these features"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    192,
+                    1562,
+                    824,
+                    1593
+                ],
+                "score": 0.985,
+                "text": "possible. These measurements may then be applied to a"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    192,
+                    1593,
+                    824,
+                    1626
+                ],
+                "score": 0.991,
+                "text": "variety of tasks, including diagnosis, treatment"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    193,
+                    1626,
+                    534,
+                    1656
+                ],
+                "score": 1.0,
+                "text": "evaluation, and clinical study."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    243,
+                    1656,
+                    822,
+                    1687
+                ],
+                "score": 0.999,
+                "text": "We describe an automated method to locate and"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    193,
+                    1687,
+                    821,
+                    1720
+                ],
+                "score": 0.983,
+                "text": "outline blood vessels in images of the ocular fundus."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    193,
+                    1720,
+                    820,
+                    1753
+                ],
+                "score": 0.976,
+                "text": "With this tool, eyecare specialists can potentially"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    193,
+                    1755,
+                    820,
+                    1782
+                ],
+                "score": 0.999,
+                "text": "screen larger populations for vessel abnormalities."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    193,
+                    1784,
+                    820,
+                    1815
+                ],
+                "score": 0.992,
+                "text": "Precise measurements may be more easily recorded,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    193,
+                    1816,
+                    821,
+                    1844
+                ],
+                "score": 0.99,
+                "text": "for instance for evaluation of treatment or for clinical"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    917,
+                    596,
+                    1539,
+                    623
+                ],
+                "score": 0.996,
+                "text": "study. Observations based upon such a tool would also"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    916,
+                    628,
+                    1349,
+                    655
+                ],
+                "score": 1.0,
+                "text": "be more systematically reproduceable."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    964,
+                    657,
+                    1541,
+                    687
+                ],
+                "score": 0.997,
+                "text": "Previous methods to segment blood vessels"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    916,
+                    691,
+                    1540,
+                    718
+                ],
+                "score": 0.997,
+                "text": "automatically have concentrated primarily on their"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    914,
+                    720,
+                    1542,
+                    751
+                ],
+                "score": 0.994,
+                "text": "local attributes. Vessels may be characterized by the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    916,
+                    752,
+                    1541,
+                    782
+                ],
+                "score": 0.994,
+                "text": "expected color (reddish), shape (curvilinear), gradient"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    916,
+                    784,
+                    1541,
+                    814
+                ],
+                "score": 0.984,
+                "text": "(strength of boundary), and contrast (with"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    916,
+                    817,
+                    1543,
+                    847
+                ],
+                "score": 0.997,
+                "text": "background). Unfortunately, this description is not"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    917,
+                    850,
+                    1541,
+                    877
+                ],
+                "score": 0.995,
+                "text": "exclusive. For suitable ranges of these attributes, other"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    915,
+                    880,
+                    1542,
+                    909
+                ],
+                "score": 0.973,
+                "text": "image manifestations, such as the boundaries of the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    915,
+                    912,
+                    1542,
+                    941
+                ],
+                "score": 0.992,
+                "text": "optic nerve and some hemorrhages and lesions, can"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    918,
+                    946,
+                    1401,
+                    970
+                ],
+                "score": 0.989,
+                "text": "exhibit the same local attributes as vessels."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    964,
+                    973,
+                    1541,
+                    1005
+                ],
+                "score": 0.998,
+                "text": "Figure 1 shows an example retinal image, along"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    915,
+                    1006,
+                    1542,
+                    1035
+                ],
+                "score": 0.99,
+                "text": "with an image showing the result of the matched filter"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    916,
+                    1038,
+                    1542,
+                    1068
+                ],
+                "score": 0.982,
+                "text": "convolution described in [1]. The strength of the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    916,
+                    1071,
+                    1541,
+                    1098
+                ],
+                "score": 0.993,
+                "text": "matched filter response (MFR) is coded in greyscale:"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    915,
+                    1101,
+                    1541,
+                    1130
+                ],
+                "score": 0.999,
+                "text": "the darker a pixel, the stronger the response. Notice"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    916,
+                    1133,
+                    1542,
+                    1164
+                ],
+                "score": 0.98,
+                "text": "that the strong responses in the center of the MFR"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    916,
+                    1165,
+                    1543,
+                    1195
+                ],
+                "score": 0.994,
+                "text": "image, which are obviously not vessel, are"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    916,
+                    1197,
+                    1542,
+                    1226
+                ],
+                "score": 1.0,
+                "text": "unfortunately much stronger than the responses on the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    916,
+                    1228,
+                    1542,
+                    1258
+                ],
+                "score": 0.98,
+                "text": "left side of the MFR image, which are vessel."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    917,
+                    1260,
+                    1544,
+                    1290
+                ],
+                "score": 0.989,
+                "text": "Therefore, applying a single global threshold does not"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    917,
+                    1293,
+                    1521,
+                    1320
+                ],
+                "score": 0.989,
+                "text": "provide adequate classification, as shown in Figure 2."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    969,
+                    1324,
+                    1542,
+                    1351
+                ],
+                "score": 0.99,
+                "text": "We propose a novel method to segment blood"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    918,
+                    1355,
+                    1542,
+                    1383
+                ],
+                "score": 0.987,
+                "text": "vessels that compliments local vessel attributes with"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    917,
+                    1388,
+                    1542,
+                    1415
+                ],
+                "score": 0.989,
+                "text": "region-based attributes of the network structure. A"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    916,
+                    1418,
+                    1542,
+                    1449
+                ],
+                "score": 0.981,
+                "text": "piece of the blood vessel network is hypothesized by"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    915,
+                    1451,
+                    1542,
+                    1480
+                ],
+                "score": 0.982,
+                "text": "probing an area of the MFR image, iteratively"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    916,
+                    1482,
+                    1542,
+                    1513
+                ],
+                "score": 0.989,
+                "text": "decreasing the threshold. At each iteration, region-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    918,
+                    1517,
+                    1542,
+                    1541
+                ],
+                "score": 0.987,
+                "text": "based attributes of the piece are tested to consider"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    915,
+                    1546,
+                    1544,
+                    1576
+                ],
+                "score": 0.98,
+                "text": "probe continuation, and ultimately to decide if the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    915,
+                    1578,
+                    1546,
+                    1608
+                ],
+                "score": 0.984,
+                "text": "piece is vessel. Pixels from probes that are not"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    915,
+                    1608,
+                    1542,
+                    1641
+                ],
+                "score": 0.99,
+                "text": "classified as vessel are recycled for further probing."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    916,
+                    1642,
+                    1544,
+                    1671
+                ],
+                "score": 0.995,
+                "text": "The strength of this approach is that individual pixel"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    916,
+                    1673,
+                    1543,
+                    1704
+                ],
+                "score": 0.981,
+                "text": "labels are decided using local and region-based"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    916,
+                    1708,
+                    1041,
+                    1736
+                ],
+                "score": 1.0,
+                "text": "properties."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    1113,
+                    1773,
+                    1346,
+                    1797
+                ],
+                "score": 0.997,
+                "text": "RELATED WORK"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    967,
+                    1830,
+                    1543,
+                    1859
+                ],
+                "score": 0.993,
+                "text": "Previous methods to segment blood vessels"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    918,
+                    1862,
+                    1542,
+                    1890
+                ],
+                "score": 0.989,
+                "text": "generally fall into three categories: window-based"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    189,
+                    2027,
+                    524,
+                    2047
+                ],
+                "score": 0.979,
+                "text": "1091—8280/98/$5.00 © 1998 AMIA, Inc."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    839,
+                    2015,
+                    898,
+                    2055
+                ],
+                "score": 1.0,
+                "text": "931"
+            }
+        ],
+        "page_info": {
+            "page_no": 0,
+            "width": 1678,
+            "height": 2217
+        }
+    },
+    {
+        "layout_dets": [
+            {
+                "cls_id": 14,
+                "label": "image",
+                "score": 0.8402,
+                "bbox": [
+                    253,
+                    145,
+                    1406,
+                    622
+                ],
+                "index": 1
+            },
+            {
+                "cls_id": 7,
+                "label": "figure_title",
+                "score": 0.9528,
+                "bbox": [
+                    171,
+                    642,
+                    1471,
+                    712
+                ],
+                "index": 2
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9888,
+                "bbox": [
+                    149,
+                    768,
+                    786,
+                    1184
+                ],
+                "index": 3
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9886,
+                "bbox": [
+                    147,
+                    1183,
+                    786,
+                    1662
+                ],
+                "index": 4
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9863,
+                "bbox": [
+                    146,
+                    1661,
+                    785,
+                    1922
+                ],
+                "index": 5
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9843,
+                "bbox": [
+                    870,
+                    769,
+                    1509,
+                    962
+                ],
+                "index": 6
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9888,
+                "bbox": [
+                    869,
+                    961,
+                    1509,
+                    1440
+                ],
+                "index": 7
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9886,
+                "bbox": [
+                    868,
+                    1439,
+                    1509,
+                    1924
+                ],
+                "index": 8
+            },
+            {
+                "cls_id": 16,
+                "label": "number",
+                "score": 0.9116,
+                "bbox": [
+                    787,
+                    2042,
+                    849,
+                    2075
+                ],
+                "index": 9
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    175,
+                    645,
+                    1467,
+                    676
+                ],
+                "score": 0.991,
+                "text": "Figure 1: An example retinal image with obscured vessels (left) and matched filter response (right). The response"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    300,
+                    678,
+                    1021,
+                    709
+                ],
+                "score": 0.996,
+                "text": "is coded such that a darker value represents a stronger response."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    155,
+                    769,
+                    779,
+                    803
+                ],
+                "score": 0.989,
+                "text": "[1,2,3], classifier-based [4,5], and tracking-based [6,7]."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    156,
+                    801,
+                    781,
+                    835
+                ],
+                "score": 0.969,
+                "text": "Window-based methods, such as edge detection,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    154,
+                    833,
+                    781,
+                    865
+                ],
+                "score": 0.999,
+                "text": "estimate a match at each pixel for a given model"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    154,
+                    865,
+                    782,
+                    897
+                ],
+                "score": 0.977,
+                "text": "against the pixel's surrounding window. In [1], the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    154,
+                    896,
+                    782,
+                    930
+                ],
+                "score": 0.994,
+                "text": "cross section of a vessel in a retinal image was"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    154,
+                    929,
+                    781,
+                    962
+                ],
+                "score": 0.987,
+                "text": "modeled by a Gaussian shaped curve, and then"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    154,
+                    960,
+                    781,
+                    993
+                ],
+                "score": 0.999,
+                "text": "detected using rotated matched filters. In [2], a similar"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    154,
+                    991,
+                    781,
+                    1025
+                ],
+                "score": 0.991,
+                "text": "method was used for artery detection in angiograms. In"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    155,
+                    1024,
+                    782,
+                    1056
+                ],
+                "score": 0.988,
+                "text": "[3], a window surrounding a vessel was modeled by a"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    153,
+                    1056,
+                    781,
+                    1088
+                ],
+                "score": 0.992,
+                "text": "neural network trained on user-selected examples. The"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    155,
+                    1088,
+                    780,
+                    1118
+                ],
+                "score": 0.998,
+                "text": "drawback of these methods is that the large-scale"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    155,
+                    1120,
+                    783,
+                    1151
+                ],
+                "score": 0.994,
+                "text": "properties of vessels (i.e., their network structure) must"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    156,
+                    1151,
+                    674,
+                    1184
+                ],
+                "score": 0.989,
+                "text": "be ignored to insure computational feasibility."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    205,
+                    1181,
+                    780,
+                    1215
+                ],
+                "score": 0.998,
+                "text": "Classifier-based methods proceed in two steps."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    153,
+                    1213,
+                    783,
+                    1248
+                ],
+                "score": 0.997,
+                "text": "First, a low-level algorithm produces a segmentation of"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    153,
+                    1247,
+                    781,
+                    1279
+                ],
+                "score": 0.997,
+                "text": "spatially-connected regions. These candidate regions"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    152,
+                    1278,
+                    780,
+                    1311
+                ],
+                "score": 0.997,
+                "text": "are then classified as being vessel or not vessel. In [4],"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    151,
+                    1310,
+                    781,
+                    1343
+                ],
+                "score": 0.989,
+                "text": "regions segmented by user-assisted thresholding were"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    153,
+                    1341,
+                    780,
+                    1374
+                ],
+                "score": 0.996,
+                "text": "classified as blood vessel or leakage according to their"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    153,
+                    1373,
+                    781,
+                    1406
+                ],
+                "score": 0.998,
+                "text": "length to width ratio. In [5], regions segmented by the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    152,
+                    1405,
+                    781,
+                    1438
+                ],
+                "score": 0.999,
+                "text": "method in [1] were classified as vessel or not vessel"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    153,
+                    1438,
+                    781,
+                    1470
+                ],
+                "score": 0.994,
+                "text": "according to many properties, including their response"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    153,
+                    1470,
+                    781,
+                    1501
+                ],
+                "score": 0.995,
+                "text": "to a classic operator designed to detect roads in aerial"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    153,
+                    1502,
+                    781,
+                    1533
+                ],
+                "score": 0.99,
+                "text": "imagery [8]. The drawback of these methods is that the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    153,
+                    1534,
+                    781,
+                    1566
+                ],
+                "score": 0.996,
+                "text": "large-scale properties of vessels cannot be applied to"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    153,
+                    1565,
+                    781,
+                    1597
+                ],
+                "score": 0.994,
+                "text": "the problem until after the low-level segmentation has"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    153,
+                    1597,
+                    780,
+                    1630
+                ],
+                "score": 0.995,
+                "text": "already finished. Therefore, these properties cannot be"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    154,
+                    1631,
+                    749,
+                    1661
+                ],
+                "score": 0.996,
+                "text": "used to drive the segmentation, merely to evaluate it."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    204,
+                    1660,
+                    779,
+                    1694
+                ],
+                "score": 1.0,
+                "text": "Tracking-based methods utilize a profile model to"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    153,
+                    1693,
+                    781,
+                    1727
+                ],
+                "score": 0.992,
+                "text": "step along and segment a vessel incrementally. In [6], a"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    153,
+                    1726,
+                    781,
+                    1758
+                ],
+                "score": 0.993,
+                "text": "Hough transform is used to locate the papilla in a"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    152,
+                    1758,
+                    779,
+                    1791
+                ],
+                "score": 0.988,
+                "text": "retinal image. Vessel tracing proceeds iteratively from"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    153,
+                    1790,
+                    779,
+                    1821
+                ],
+                "score": 0.996,
+                "text": "the papilla, halting when the response to a one-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    153,
+                    1821,
+                    779,
+                    1854
+                ],
+                "score": 0.996,
+                "text": "dimensional (cross-section) matched filter falls below"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    153,
+                    1855,
+                    779,
+                    1885
+                ],
+                "score": 0.971,
+                "text": "a given threshold. In [7], a similar method was"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    154,
+                    1887,
+                    778,
+                    1918
+                ],
+                "score": 0.999,
+                "text": "employed to detect vessels in coronary arteriograms,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    879,
+                    774,
+                    1503,
+                    801
+                ],
+                "score": 1.0,
+                "text": "from user-given starting points. One drawback to these"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    879,
+                    805,
+                    1503,
+                    833
+                ],
+                "score": 0.993,
+                "text": "approaches is their proclivity for termination at branch"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    877,
+                    836,
+                    1505,
+                    867
+                ],
+                "score": 0.992,
+                "text": "points, which are not well-modeled by one-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    878,
+                    868,
+                    1504,
+                    896
+                ],
+                "score": 0.984,
+                "text": "dimensional filters. Another drawback is their reliance"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    877,
+                    900,
+                    1504,
+                    931
+                ],
+                "score": 0.993,
+                "text": "upon unsophisticated methods for locating starting"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    876,
+                    933,
+                    959,
+                    962
+                ],
+                "score": 1.0,
+                "text": "points."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    927,
+                    963,
+                    1504,
+                    993
+                ],
+                "score": 0.996,
+                "text": "In [9], a method for tracking edge paths is used to"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    877,
+                    996,
+                    1502,
+                    1024
+                ],
+                "score": 0.993,
+                "text": "segment arteries in cineangiograms. Edge paths are"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    875,
+                    1026,
+                    1504,
+                    1058
+                ],
+                "score": 1.0,
+                "text": "modeled as Markov chains. A sequential edge linking"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    876,
+                    1058,
+                    1504,
+                    1089
+                ],
+                "score": 0.979,
+                "text": "(SEL) algorithm is introduced to search the possible"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    875,
+                    1089,
+                    1504,
+                    1120
+                ],
+                "score": 0.992,
+                "text": "set of paths for the best fit to the Markov model. The"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    878,
+                    1123,
+                    1503,
+                    1150
+                ],
+                "score": 0.996,
+                "text": "probabilities of the model are adjusted to reflect the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    877,
+                    1154,
+                    1504,
+                    1184
+                ],
+                "score": 0.987,
+                "text": "properties of the desired path, such as the tolerance to"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    877,
+                    1187,
+                    1503,
+                    1215
+                ],
+                "score": 0.992,
+                "text": "local curvature. A strength of this approach is that the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    878,
+                    1220,
+                    1502,
+                    1247
+                ],
+                "score": 0.996,
+                "text": "grouping operation works upon actual gradient values,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    877,
+                    1251,
+                    1504,
+                    1278
+                ],
+                "score": 0.992,
+                "text": "as opposed to a thresholded response. Therefore, a"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    874,
+                    1281,
+                    1502,
+                    1312
+                ],
+                "score": 0.982,
+                "text": "segmentation decision is not reached until an arbitrary"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    876,
+                    1314,
+                    1502,
+                    1341
+                ],
+                "score": 0.994,
+                "text": "number of pixels is available for classification. A"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    876,
+                    1345,
+                    1504,
+                    1374
+                ],
+                "score": 0.992,
+                "text": "drawback to the approach is that branches are not"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    877,
+                    1378,
+                    1503,
+                    1406
+                ],
+                "score": 0.998,
+                "text": "modeled, so that each branch must be traced and"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    877,
+                    1410,
+                    1158,
+                    1437
+                ],
+                "score": 0.986,
+                "text": "classified independently."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    925,
+                    1439,
+                    1504,
+                    1470
+                ],
+                "score": 0.989,
+                "text": "In this work, we propose a new method for"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    877,
+                    1473,
+                    1502,
+                    1501
+                ],
+                "score": 0.994,
+                "text": "segmenting blood vessels in a retinal image. The MFR"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    877,
+                    1506,
+                    1503,
+                    1533
+                ],
+                "score": 0.97,
+                "text": "image, computed as described in [1], is thresholded"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    877,
+                    1538,
+                    1502,
+                    1566
+                ],
+                "score": 0.992,
+                "text": "using a novel probing technique. The probe examines"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    876,
+                    1570,
+                    1503,
+                    1597
+                ],
+                "score": 0.999,
+                "text": "the image in pieces, testing a number of region-based"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    875,
+                    1600,
+                    1503,
+                    1631
+                ],
+                "score": 0.995,
+                "text": "properties. If the probe decides a piece is vessel, then"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    876,
+                    1634,
+                    1503,
+                    1661
+                ],
+                "score": 0.991,
+                "text": "the constituent pixels are simultaneously segmented"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    877,
+                    1665,
+                    1502,
+                    1693
+                ],
+                "score": 0.998,
+                "text": "and classified. Contrasted against classifier-based"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    874,
+                    1696,
+                    1503,
+                    1727
+                ],
+                "score": 0.974,
+                "text": "methods, our probing method allows a pixel to be"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    876,
+                    1730,
+                    1502,
+                    1758
+                ],
+                "score": 0.985,
+                "text": "tested in multiple region configurations before final"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    876,
+                    1762,
+                    1502,
+                    1789
+                ],
+                "score": 0.991,
+                "text": "classification.Contrasted against tracking-based"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    876,
+                    1794,
+                    1502,
+                    1822
+                ],
+                "score": 0.997,
+                "text": "methods, our probing method is driven by a two-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    877,
+                    1826,
+                    1503,
+                    1853
+                ],
+                "score": 0.987,
+                "text": "dimensional matched filter response. Contrasted"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    877,
+                    1858,
+                    1502,
+                    1886
+                ],
+                "score": 0.998,
+                "text": "against [9], our probing method is region-based, and so"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    877,
+                    1892,
+                    1310,
+                    1916
+                ],
+                "score": 0.988,
+                "text": "naturally allows for multiple branches."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    788,
+                    2043,
+                    848,
+                    2083
+                ],
+                "score": 1.0,
+                "text": "932"
+            }
+        ],
+        "page_info": {
+            "page_no": 1,
+            "width": 1678,
+            "height": 2217
+        }
+    },
+    {
+        "layout_dets": [
+            {
+                "cls_id": 14,
+                "label": "image",
+                "score": 0.9811,
+                "bbox": [
+                    196,
+                    111,
+                    1535,
+                    657
+                ],
+                "index": 1
+            },
+            {
+                "cls_id": 7,
+                "label": "figure_title",
+                "score": 0.9615,
+                "bbox": [
+                    211,
+                    674,
+                    1524,
+                    744
+                ],
+                "index": 2
+            },
+            {
+                "cls_id": 17,
+                "label": "paragraph_title",
+                "score": 0.9318,
+                "bbox": [
+                    416,
+                    829,
+                    608,
+                    862
+                ],
+                "index": 3
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9879,
+                "bbox": [
+                    192,
+                    893,
+                    831,
+                    1187
+                ],
+                "index": 4
+            },
+            {
+                "cls_id": 14,
+                "label": "image",
+                "score": 0.9644,
+                "bbox": [
+                    200,
+                    1218,
+                    807,
+                    1842
+                ],
+                "index": 5
+            },
+            {
+                "cls_id": 7,
+                "label": "figure_title",
+                "score": 0.9274,
+                "bbox": [
+                    236,
+                    1841,
+                    640,
+                    1878
+                ],
+                "index": 6
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9809,
+                "bbox": [
+                    913,
+                    797,
+                    1549,
+                    895
+                ],
+                "index": 7
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9738,
+                "bbox": [
+                    914,
+                    894,
+                    1549,
+                    959
+                ],
+                "index": 8
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9805,
+                "bbox": [
+                    917,
+                    959,
+                    1551,
+                    1056
+                ],
+                "index": 9
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9788,
+                "bbox": [
+                    917,
+                    1056,
+                    1551,
+                    1153
+                ],
+                "index": 10
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9729,
+                "bbox": [
+                    917,
+                    1154,
+                    1551,
+                    1220
+                ],
+                "index": 11
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9881,
+                "bbox": [
+                    916,
+                    1220,
+                    1554,
+                    1538
+                ],
+                "index": 12
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9512,
+                "bbox": [
+                    919,
+                    1540,
+                    1476,
+                    1574
+                ],
+                "index": 13
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.6221,
+                "bbox": [
+                    1338,
+                    1542,
+                    1391,
+                    1574
+                ],
+                "index": 14,
+                "latex": "T _ { M N }"
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9701,
+                "bbox": [
+                    918,
+                    1576,
+                    1551,
+                    1639
+                ],
+                "index": 15
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9871,
+                "bbox": [
+                    914,
+                    1638,
+                    1555,
+                    1897
+                ],
+                "index": 16
+            },
+            {
+                "cls_id": 16,
+                "label": "number",
+                "score": 0.9208,
+                "bbox": [
+                    836,
+                    2022,
+                    896,
+                    2055
+                ],
+                "index": 17
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    217,
+                    677,
+                    1518,
+                    709
+                ],
+                "score": 0.992,
+                "text": "Figure 2: Matched filter response thresholded at two different values. There is a strong overlap between true"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    344,
+                    713,
+                    759,
+                    740
+                ],
+                "score": 0.991,
+                "text": "positive and false positive responses."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    422,
+                    835,
+                    605,
+                    867
+                ],
+                "score": 1.0,
+                "text": "ALGORITHM"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    250,
+                    895,
+                    825,
+                    926
+                ],
+                "score": 0.997,
+                "text": "The basic operation of the algorithm is to probe"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    198,
+                    926,
+                    823,
+                    958
+                ],
+                "score": 0.992,
+                "text": "regions in a matched filter response (MFR) image."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    200,
+                    961,
+                    824,
+                    989
+                ],
+                "score": 0.993,
+                "text": "During each probe, a set of criteria is tested to"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    201,
+                    993,
+                    824,
+                    1021
+                ],
+                "score": 0.993,
+                "text": "determine the threshold of the probe, and ultimately to"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    201,
+                    1025,
+                    825,
+                    1052
+                ],
+                "score": 0.989,
+                "text": "decide if the area being probed (termed a piece) is"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    200,
+                    1056,
+                    824,
+                    1084
+                ],
+                "score": 0.995,
+                "text": "blood vessel. A flowchart for the algorithm is shown in"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    200,
+                    1088,
+                    826,
+                    1116
+                ],
+                "score": 0.996,
+                "text": "Figure 3. A queue of points is initialized, each of"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    200,
+                    1119,
+                    825,
+                    1149
+                ],
+                "score": 0.967,
+                "text": "which will be used for a probe. Upon a probe's"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    201,
+                    1153,
+                    824,
+                    1181
+                ],
+                "score": 0.999,
+                "text": "completion, if the piece is determined to be vessel,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    244,
+                    1848,
+                    634,
+                    1873
+                ],
+                "score": 0.997,
+                "text": "Figure 3: Flowchart of algorithm."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    920,
+                    800,
+                    1544,
+                    831
+                ],
+                "score": 0.985,
+                "text": "then the endpoints of the piece are added to the queue."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    921,
+                    833,
+                    1546,
+                    860
+                ],
+                "score": 0.987,
+                "text": "In this way, different probes (and thusdifferent"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    920,
+                    863,
+                    1470,
+                    893
+                ],
+                "score": 0.988,
+                "text": "thresholds) can be applied throughout the image."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    972,
+                    897,
+                    1545,
+                    924
+                ],
+                "score": 0.982,
+                "text": "The following steps initialize a queue of pixels"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    920,
+                    927,
+                    1467,
+                    957
+                ],
+                "score": 0.997,
+                "text": "that are to be used as starting points for probing:"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    968,
+                    959,
+                    1546,
+                    991
+                ],
+                "score": 0.986,
+                "text": "Convolve the matched filter described in [1] with"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    970,
+                    993,
+                    1547,
+                    1024
+                ],
+                "score": 0.991,
+                "text": "the image, producing a matched filter response"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    971,
+                    1026,
+                    1134,
+                    1057
+                ],
+                "score": 1.0,
+                "text": "(MFR) image."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    967,
+                    1058,
+                    1547,
+                    1088
+                ],
+                "score": 0.999,
+                "text": "Using a histogram of the MFR image, threshold"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    969,
+                    1090,
+                    1547,
+                    1120
+                ],
+                "score": 0.969,
+                "text": "the image such that > TrhREs pixels are above the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    972,
+                    1124,
+                    1085,
+                    1150
+                ],
+                "score": 1.0,
+                "text": "threshold."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    970,
+                    1157,
+                    1546,
+                    1185
+                ],
+                "score": 0.985,
+                "text": "Thin the thresholded image (for instance, using the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    973,
+                    1190,
+                    1334,
+                    1218
+                ],
+                "score": 1.0,
+                "text": "algorithm given in [10], pg. 59)."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    968,
+                    1221,
+                    1549,
+                    1251
+                ],
+                "score": 0.978,
+                "text": "In the thinned image, erase (relabel as"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    970,
+                    1253,
+                    1549,
+                    1284
+                ],
+                "score": 0.981,
+                "text": "background) all branchpoints, breaking up the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    971,
+                    1286,
+                    1549,
+                    1316
+                ],
+                "score": 1.0,
+                "text": "entire foreground into segments that contain two"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    972,
+                    1319,
+                    1548,
+                    1346
+                ],
+                "score": 0.982,
+                "text": "endpoints each. Endpoints may be discovered as"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    971,
+                    1349,
+                    1549,
+                    1379
+                ],
+                "score": 0.997,
+                "text": "any pixel for which a traverse of the eight"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    972,
+                    1383,
+                    1546,
+                    1410
+                ],
+                "score": 0.987,
+                "text": "bordering pixels in clockwise order yields only"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    971,
+                    1416,
+                    1021,
+                    1442
+                ],
+                "score": 1.0,
+                "text": "one"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    1070,
+                    1413,
+                    1547,
+                    1443
+                ],
+                "score": 1.0,
+                "text": "foreground-to-backgroundtransition."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    970,
+                    1444,
+                    1547,
+                    1475
+                ],
+                "score": 0.987,
+                "text": "Similarly, branchpoints may be discovered as any"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    970,
+                    1477,
+                    1548,
+                    1507
+                ],
+                "score": 1.0,
+                "text": "pixel for which the same traverse yields more than"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    973,
+                    1513,
+                    1146,
+                    1534
+                ],
+                "score": 1.0,
+                "text": "two transitions."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    922,
+                    1540,
+                    1337,
+                    1575
+                ],
+                "score": 0.987,
+                "text": "• Discard segments with less than"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    1392,
+                    1540,
+                    1472,
+                    1575
+                ],
+                "score": 1.0,
+                "text": "pixels."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    969,
+                    1577,
+                    1548,
+                    1608
+                ],
+                "score": 0.998,
+                "text": "All remaining endpoints are placed in the probe"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    970,
+                    1613,
+                    1051,
+                    1640
+                ],
+                "score": 1.0,
+                "text": "queue."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    972,
+                    1640,
+                    1549,
+                    1671
+                ],
+                "score": 0.984,
+                "text": "Each pixel in the probe queue is used as a starting"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    921,
+                    1672,
+                    1548,
+                    1702
+                ],
+                "score": 0.997,
+                "text": "point for threshold probing. The probing is iterative;"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    922,
+                    1706,
+                    1549,
+                    1734
+                ],
+                "score": 0.993,
+                "text": "the iterations are used to determine an appropriate"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    922,
+                    1738,
+                    1549,
+                    1765
+                ],
+                "score": 0.996,
+                "text": "threshold for the area being probed. The initial"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    921,
+                    1767,
+                    1548,
+                    1797
+                ],
+                "score": 0.997,
+                "text": "threshold is the MFR image value at the starting pixel."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    922,
+                    1800,
+                    1548,
+                    1828
+                ],
+                "score": 0.985,
+                "text": "In each iteration, a region is grown from the start pixel,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    923,
+                    1832,
+                    1549,
+                    1859
+                ],
+                "score": 0.99,
+                "text": "using a conditional paint-fill technique. The paint-fill"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    923,
+                    1862,
+                    1550,
+                    1890
+                ],
+                "score": 0.99,
+                "text": "spreads across all connecting pixels that are not"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    837,
+                    2023,
+                    896,
+                    2060
+                ],
+                "score": 1.0,
+                "text": "933"
+            }
+        ],
+        "page_info": {
+            "page_no": 2,
+            "width": 1678,
+            "height": 2217
+        }
+    },
+    {
+        "layout_dets": [
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9878,
+                "bbox": [
+                    160,
+                    113,
+                    798,
+                    309
+                ],
+                "index": 1
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.8583,
+                "bbox": [
+                    627,
+                    312,
+                    691,
+                    342
+                ],
+                "index": 2,
+                "latex": "T _ { M A X } ,"
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9857,
+                "bbox": [
+                    162,
+                    310,
+                    798,
+                    471
+                ],
+                "index": 3
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9831,
+                "bbox": [
+                    162,
+                    472,
+                    797,
+                    598
+                ],
+                "index": 4
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9836,
+                "bbox": [
+                    163,
+                    601,
+                    798,
+                    729
+                ],
+                "index": 5
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.7989,
+                "bbox": [
+                    455,
+                    763,
+                    574,
+                    794
+                ],
+                "index": 6,
+                "latex": "> T _ { F R I N G E } ,"
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9853,
+                "bbox": [
+                    162,
+                    730,
+                    799,
+                    890
+                ],
+                "index": 7
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9877,
+                "bbox": [
+                    163,
+                    891,
+                    799,
+                    1146
+                ],
+                "index": 8
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.8016,
+                "bbox": [
+                    216,
+                    1179,
+                    375,
+                    1212
+                ],
+                "index": 9,
+                "latex": "p i e c e < T _ { T R E E } ,"
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9841,
+                "bbox": [
+                    163,
+                    1148,
+                    799,
+                    1306
+                ],
+                "index": 10
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.7927,
+                "bbox": [
+                    303,
+                    1339,
+                    358,
+                    1370
+                ],
+                "index": 11,
+                "latex": "T _ { M N }"
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.798,
+                "bbox": [
+                    596,
+                    1339,
+                    653,
+                    1370
+                ],
+                "index": 12,
+                "latex": "T _ { M A X }"
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9873,
+                "bbox": [
+                    161,
+                    1306,
+                    800,
+                    1566
+                ],
+                "index": 13
+            },
+            {
+                "cls_id": 17,
+                "label": "paragraph_title",
+                "score": 0.9359,
+                "bbox": [
+                    375,
+                    1591,
+                    589,
+                    1623
+                ],
+                "index": 14
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.5746,
+                "bbox": [
+                    297,
+                    1722,
+                    427,
+                    1753
+                ],
+                "index": 15,
+                "latex": "6 0 5 ~ \\times ~ 7 0 0"
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.987,
+                "bbox": [
+                    161,
+                    1656,
+                    802,
+                    1884
+                ],
+                "index": 16
+            },
+            {
+                "cls_id": 14,
+                "label": "image",
+                "score": 0.9786,
+                "bbox": [
+                    891,
+                    113,
+                    1509,
+                    615
+                ],
+                "index": 17
+            },
+            {
+                "cls_id": 7,
+                "label": "figure_title",
+                "score": 0.9612,
+                "bbox": [
+                    906,
+                    630,
+                    1444,
+                    701
+                ],
+                "index": 18
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9831,
+                "bbox": [
+                    882,
+                    764,
+                    1520,
+                    892
+                ],
+                "index": 19
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.7153,
+                "bbox": [
+                    890,
+                    1051,
+                    1217,
+                    1084
+                ],
+                "index": 20,
+                "latex": "T _ { M A X } = 3 5 0 0 , T _ { F R I N G E } = 0 . 3"
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9888,
+                "bbox": [
+                    883,
+                    891,
+                    1521,
+                    1306
+                ],
+                "index": 21
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.6424,
+                "bbox": [
+                    1145,
+                    1018,
+                    1510,
+                    1051
+                ],
+                "index": 22,
+                "latex": "T _ { T H R E S H } = 3 0 8 0 0 , \\ T _ { M I N } = 1 5 0 ,"
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.8454,
+                "bbox": [
+                    1016,
+                    1116,
+                    1105,
+                    1148
+                ],
+                "index": 23,
+                "latex": "T _ { T H R E S H } ,"
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.878,
+                "bbox": [
+                    1285,
+                    1050,
+                    1428,
+                    1083
+                ],
+                "index": 24,
+                "latex": "T _ { T R E E } = 2 0 0"
+            },
+            {
+                "cls_id": 15,
+                "label": "inline_formula",
+                "score": 0.631,
+                "bbox": [
+                    1314,
+                    1242,
+                    1405,
+                    1274
+                ],
+                "index": 25,
+                "latex": "T _ { T H R E S H } ."
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.989,
+                "bbox": [
+                    883,
+                    1305,
+                    1524,
+                    1913
+                ],
+                "index": 26
+            },
+            {
+                "cls_id": 16,
+                "label": "number",
+                "score": 0.9188,
+                "bbox": [
+                    808,
+                    2033,
+                    868,
+                    2065
+                ],
+                "index": 27
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    166,
+                    112,
+                    794,
+                    144
+                ],
+                "score": 0.994,
+                "text": "already labeled and that are above the current"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    165,
+                    145,
+                    793,
+                    177
+                ],
+                "score": 0.994,
+                "text": "threshold. Once the paint-fill is complete, the desired"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    166,
+                    178,
+                    793,
+                    210
+                ],
+                "score": 1.0,
+                "text": "attributes of the grown region are tested. If the region"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    166,
+                    212,
+                    792,
+                    243
+                ],
+                "score": 0.999,
+                "text": "passes the tests, then the threshold is decreased by one,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    168,
+                    246,
+                    791,
+                    274
+                ],
+                "score": 0.991,
+                "text": "and a new iteration begins. Each probe iteration"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    167,
+                    278,
+                    492,
+                    307
+                ],
+                "score": 1.0,
+                "text": "conducts the following tests:"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    218,
+                    312,
+                    625,
+                    340
+                ],
+                "score": 0.997,
+                "text": "If the piece size (in pixels) exceeds"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    695,
+                    311,
+                    793,
+                    340
+                ],
+                "score": 0.964,
+                "text": "then the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    218,
+                    345,
+                    793,
+                    372
+                ],
+                "score": 0.993,
+                "text": "probe halts. This requires multiple pieces (and"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    219,
+                    376,
+                    794,
+                    404
+                ],
+                "score": 0.988,
+                "text": "thus potentially multiple thresholds) to segment"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    219,
+                    408,
+                    792,
+                    435
+                ],
+                "score": 0.997,
+                "text": "the entire image. The effect is that the probe"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    220,
+                    440,
+                    741,
+                    468
+                ],
+                "score": 1.0,
+                "text": "adapts to the local strength of the MFR image."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    217,
+                    471,
+                    790,
+                    501
+                ],
+                "score": 0.976,
+                "text": "If the threshold reaches zero, then the probe halts."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    219,
+                    505,
+                    794,
+                    535
+                ],
+                "score": 0.998,
+                "text": "This happens when probing a small area (even one"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    218,
+                    537,
+                    794,
+                    567
+                ],
+                "score": 0.998,
+                "text": "pixel) interior to an area already classified as"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    218,
+                    568,
+                    299,
+                    598
+                ],
+                "score": 1.0,
+                "text": "vessel."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    219,
+                    604,
+                    793,
+                    631
+                ],
+                "score": 0.998,
+                "text": "If the piece touches (on its border) more than one"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    219,
+                    635,
+                    792,
+                    663
+                ],
+                "score": 0.991,
+                "text": "previously vessel-classified piece, then the probe"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    216,
+                    665,
+                    794,
+                    698
+                ],
+                "score": 0.996,
+                "text": "halts. This is particularly useful for bridging gaps"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    220,
+                    700,
+                    708,
+                    727
+                ],
+                "score": 0.994,
+                "text": "along vessels exhibiting weak MFR values."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    216,
+                    731,
+                    792,
+                    760
+                ],
+                "score": 1.0,
+                "text": "If the ratio border-pixels-touching-another-piece :"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    219,
+                    765,
+                    450,
+                    793
+                ],
+                "score": 1.0,
+                "text": "total-pixels-in-piece"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    575,
+                    764,
+                    793,
+                    792
+                ],
+                "score": 0.947,
+                "text": "then the piece is"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    219,
+                    797,
+                    796,
+                    824
+                ],
+                "score": 0.999,
+                "text": "fringing, and the probe halts. This prevents a"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    218,
+                    828,
+                    794,
+                    855
+                ],
+                "score": 0.999,
+                "text": "probe from searching along the borders of vessel"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    220,
+                    862,
+                    513,
+                    886
+                ],
+                "score": 0.999,
+                "text": "pieces already segmented."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    216,
+                    890,
+                    793,
+                    923
+                ],
+                "score": 0.992,
+                "text": "If the piece grows a loop, then the probe halts."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    218,
+                    925,
+                    795,
+                    955
+                ],
+                "score": 0.994,
+                "text": "Loops are detected by thinning the piece, and"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    218,
+                    956,
+                    796,
+                    986
+                ],
+                "score": 0.999,
+                "text": "counting the endpoints and branchpoints. If the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    219,
+                    989,
+                    796,
+                    1016
+                ],
+                "score": 0.989,
+                "text": "number of endpoints exceeds the number of"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    218,
+                    1018,
+                    793,
+                    1051
+                ],
+                "score": 0.987,
+                "text": "branchpoints by more than two, there is a loop."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    219,
+                    1051,
+                    794,
+                    1083
+                ],
+                "score": 0.995,
+                "text": "This test prevents a probe from searching along"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    219,
+                    1083,
+                    794,
+                    1112
+                ],
+                "score": 0.997,
+                "text": "circular MFRs, such as those caused by some"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    219,
+                    1115,
+                    506,
+                    1144
+                ],
+                "score": 1.0,
+                "text": "lesions and hemorrhages."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    214,
+                    1146,
+                    794,
+                    1178
+                ],
+                "score": 0.988,
+                "text": "If the ratio total-pixels-in-piece : branches-in-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    376,
+                    1182,
+                    795,
+                    1209
+                ],
+                "score": 0.982,
+                "text": "then the probe halts. This requires a"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    218,
+                    1212,
+                    794,
+                    1241
+                ],
+                "score": 0.986,
+                "text": "piece to have a minimum span of vessel(s) per"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    218,
+                    1242,
+                    795,
+                    1274
+                ],
+                "score": 0.994,
+                "text": "branch, and thus prevents over-branching down"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    220,
+                    1276,
+                    349,
+                    1305
+                ],
+                "score": 1.0,
+                "text": "false paths."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    219,
+                    1305,
+                    794,
+                    1338
+                ],
+                "score": 0.987,
+                "text": "Once the probe is complete, if the resulting region"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    168,
+                    1340,
+                    302,
+                    1368
+                ],
+                "score": 0.999,
+                "text": "has at least"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    359,
+                    1340,
+                    595,
+                    1368
+                ],
+                "score": 0.996,
+                "text": "pixels, but less than"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    654,
+                    1340,
+                    795,
+                    1368
+                ],
+                "score": 1.0,
+                "text": "pixels, then"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    168,
+                    1373,
+                    795,
+                    1400
+                ],
+                "score": 0.989,
+                "text": "the region is labeled as vessel. The endpoints of the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    169,
+                    1404,
+                    796,
+                    1432
+                ],
+                "score": 0.996,
+                "text": "vessel piece are added to the queue. If the region is not"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    168,
+                    1436,
+                    796,
+                    1464
+                ],
+                "score": 0.997,
+                "text": "determined to be vessel, then its pixels are left"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    168,
+                    1467,
+                    795,
+                    1496
+                ],
+                "score": 0.994,
+                "text": "unlabeled. In either case, the next point in the queue is"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    168,
+                    1500,
+                    794,
+                    1528
+                ],
+                "score": 0.998,
+                "text": "selected for probing. When the queue is empty, the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    168,
+                    1531,
+                    422,
+                    1559
+                ],
+                "score": 0.992,
+                "text": "algorithm is complete."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    379,
+                    1598,
+                    583,
+                    1626
+                ],
+                "score": 1.0,
+                "text": "EXPERIMENTS"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    218,
+                    1655,
+                    796,
+                    1688
+                ],
+                "score": 0.999,
+                "text": "Five retinal fundus slides were selected for testing"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    167,
+                    1688,
+                    795,
+                    1720
+                ],
+                "score": 0.987,
+                "text": "the described method. Each slide was digitized to"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    167,
+                    1725,
+                    291,
+                    1754
+                ],
+                "score": 0.96,
+                "text": "produce a"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    436,
+                    1726,
+                    795,
+                    1754
+                ],
+                "score": 0.986,
+                "text": "pixel image, 24-bits per pixel"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    167,
+                    1756,
+                    795,
+                    1784
+                ],
+                "score": 1.0,
+                "text": "(standard RGB). All five images contain abnormalities"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    168,
+                    1788,
+                    795,
+                    1816
+                ],
+                "score": 0.988,
+                "text": "that obscure or confuse the blood vessel appearance."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    168,
+                    1818,
+                    798,
+                    1847
+                ],
+                "score": 0.988,
+                "text": "This selection was made for two reasons. First, most of"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    167,
+                    1850,
+                    796,
+                    1879
+                ],
+                "score": 0.984,
+                "text": "the referenced methods have only been demonstrated"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    913,
+                    637,
+                    1439,
+                    662
+                ],
+                "score": 0.98,
+                "text": "Figure 4: A hand-labeled segmentation of the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    1036,
+                    668,
+                    1373,
+                    698
+                ],
+                "score": 0.994,
+                "text": "vessels in the example image."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    889,
+                    767,
+                    1514,
+                    793
+                ],
+                "score": 0.989,
+                "text": "upon normal vessel appearances, which are easier to"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    890,
+                    798,
+                    1515,
+                    826
+                ],
+                "score": 0.989,
+                "text": "discern. Second, some level of success with non-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    887,
+                    830,
+                    1515,
+                    858
+                ],
+                "score": 0.999,
+                "text": "normal vessel appearances must be established to"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    887,
+                    862,
+                    1193,
+                    890
+                ],
+                "score": 1.0,
+                "text": "recommend clinical usage."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    939,
+                    892,
+                    1515,
+                    922
+                ],
+                "score": 0.985,
+                "text": "Each of these five images was carefully labeled by"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    890,
+                    926,
+                    1517,
+                    954
+                ],
+                "score": 0.998,
+                "text": "hand, to produce a ground truth segmentation of"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    889,
+                    958,
+                    1515,
+                    985
+                ],
+                "score": 0.999,
+                "text": "vessels. An example is shown in Figure 4. Each of the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    890,
+                    990,
+                    1514,
+                    1017
+                ],
+                "score": 0.999,
+                "text": "five images was processed by the described algorithm,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    891,
+                    1023,
+                    1138,
+                    1050
+                ],
+                "score": 0.998,
+                "text": "using the parameters"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    1218,
+                    1050,
+                    1281,
+                    1083
+                ],
+                "score": 0.812,
+                "text": ", and"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    1429,
+                    1051,
+                    1516,
+                    1080
+                ],
+                "score": 0.987,
+                "text": ". These"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    889,
+                    1083,
+                    1516,
+                    1115
+                ],
+                "score": 1.0,
+                "text": "values were selected after exploratory experiments,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    891,
+                    1119,
+                    1010,
+                    1144
+                ],
+                "score": 1.0,
+                "text": "except for"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    1106,
+                    1118,
+                    1516,
+                    1145
+                ],
+                "score": 0.991,
+                "text": "which was selected as the average"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    890,
+                    1149,
+                    1515,
+                    1176
+                ],
+                "score": 0.998,
+                "text": "number of pixels labeled as vessel in the ground truth"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    891,
+                    1180,
+                    1515,
+                    1207
+                ],
+                "score": 0.993,
+                "text": "images. An example result is shown in Figure 5. For"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    890,
+                    1211,
+                    1516,
+                    1241
+                ],
+                "score": 1.0,
+                "text": "comparison, each of the five images was globally"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    890,
+                    1243,
+                    1313,
+                    1270
+                ],
+                "score": 1.0,
+                "text": "thresholded using the same value of"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    1411,
+                    1243,
+                    1517,
+                    1272
+                ],
+                "score": 1.0,
+                "text": "Figure 2"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    892,
+                    1276,
+                    1347,
+                    1303
+                ],
+                "score": 1.0,
+                "text": "(right) shows this result for the example."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    938,
+                    1304,
+                    1515,
+                    1336
+                ],
+                "score": 0.969,
+                "text": "Each global-segmented result and probing-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    891,
+                    1339,
+                    1516,
+                    1367
+                ],
+                "score": 0.991,
+                "text": "segmented result was compared against the ground"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    890,
+                    1372,
+                    1515,
+                    1399
+                ],
+                "score": 0.995,
+                "text": "truth, as follows. The percentage of pixels correctly"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    890,
+                    1403,
+                    1516,
+                    1430
+                ],
+                "score": 0.985,
+                "text": "segmented as vessel (true positive) was calculated as"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    890,
+                    1435,
+                    1517,
+                    1462
+                ],
+                "score": 0.995,
+                "text": "the number of pixels segmented as vessel that were"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    891,
+                    1467,
+                    1517,
+                    1494
+                ],
+                "score": 0.998,
+                "text": "within one pixel's distance of a pixel hand labeled as"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    891,
+                    1499,
+                    1517,
+                    1527
+                ],
+                "score": 0.983,
+                "text": "vessel, divided by the total number of pixels hand"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    890,
+                    1530,
+                    1516,
+                    1559
+                ],
+                "score": 0.997,
+                "text": "labeled as vessel. The percentage of pixels incorrectly"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    888,
+                    1562,
+                    1518,
+                    1591
+                ],
+                "score": 0.993,
+                "text": "segmented as vessel (false positive) was calculated as"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    889,
+                    1594,
+                    1518,
+                    1622
+                ],
+                "score": 0.99,
+                "text": "the number of pixels segmented as vessel that were not"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    890,
+                    1626,
+                    1517,
+                    1653
+                ],
+                "score": 0.981,
+                "text": "within one pixel's distance of a pixel hand labeled as"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    892,
+                    1658,
+                    1518,
+                    1685
+                ],
+                "score": 0.992,
+                "text": "vessel, divided by the total number of pixels hand"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    891,
+                    1690,
+                    1517,
+                    1718
+                ],
+                "score": 0.996,
+                "text": "labeled as vessel. The tolerance of one pixel in"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    891,
+                    1723,
+                    1518,
+                    1750
+                ],
+                "score": 0.995,
+                "text": "distance was used to help minimize measurement"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    891,
+                    1754,
+                    1518,
+                    1781
+                ],
+                "score": 0.999,
+                "text": "error. For all five images, the global-segmented result"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    889,
+                    1784,
+                    1519,
+                    1814
+                ],
+                "score": 0.987,
+                "text": "had 69% sensitivity (true positive rate) and 63%"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    892,
+                    1817,
+                    1517,
+                    1844
+                ],
+                "score": 0.989,
+                "text": "specificity (37% false positive rate). The probing-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    889,
+                    1847,
+                    1520,
+                    1875
+                ],
+                "score": 0.999,
+                "text": "segmented result had 65% sensitivity and 81%"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    890,
+                    1879,
+                    1017,
+                    1907
+                ],
+                "score": 1.0,
+                "text": "specificity."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    808,
+                    2032,
+                    869,
+                    2073
+                ],
+                "score": 1.0,
+                "text": "934"
+            }
+        ],
+        "page_info": {
+            "page_no": 3,
+            "width": 1678,
+            "height": 2217
+        }
+    },
+    {
+        "layout_dets": [
+            {
+                "cls_id": 14,
+                "label": "image",
+                "score": 0.9764,
+                "bbox": [
+                    193,
+                    79,
+                    811,
+                    591
+                ],
+                "index": 1
+            },
+            {
+                "cls_id": 7,
+                "label": "figure_title",
+                "score": 0.9569,
+                "bbox": [
+                    208,
+                    611,
+                    770,
+                    680
+                ],
+                "index": 2
+            },
+            {
+                "cls_id": 17,
+                "label": "paragraph_title",
+                "score": 0.9254,
+                "bbox": [
+                    401,
+                    763,
+                    615,
+                    795
+                ],
+                "index": 3
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9885,
+                "bbox": [
+                    190,
+                    827,
+                    825,
+                    1211
+                ],
+                "index": 4
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.988,
+                "bbox": [
+                    189,
+                    1211,
+                    827,
+                    1695
+                ],
+                "index": 5
+            },
+            {
+                "cls_id": 17,
+                "label": "paragraph_title",
+                "score": 0.904,
+                "bbox": [
+                    1069,
+                    101,
+                    1387,
+                    132
+                ],
+                "index": 6
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.9687,
+                "bbox": [
+                    912,
+                    165,
+                    1546,
+                    232
+                ],
+                "index": 7
+            },
+            {
+                "cls_id": 17,
+                "label": "paragraph_title",
+                "score": 0.924,
+                "bbox": [
+                    1130,
+                    261,
+                    1326,
+                    294
+                ],
+                "index": 8
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.98,
+                "bbox": [
+                    916,
+                    326,
+                    1542,
+                    485
+                ],
+                "index": 9
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.981,
+                "bbox": [
+                    916,
+                    487,
+                    1542,
+                    644
+                ],
+                "index": 10
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9804,
+                "bbox": [
+                    916,
+                    646,
+                    1542,
+                    773
+                ],
+                "index": 11
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9811,
+                "bbox": [
+                    916,
+                    774,
+                    1542,
+                    932
+                ],
+                "index": 12
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9809,
+                "bbox": [
+                    917,
+                    934,
+                    1542,
+                    1091
+                ],
+                "index": 13
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9795,
+                "bbox": [
+                    917,
+                    1093,
+                    1543,
+                    1220
+                ],
+                "index": 14
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9801,
+                "bbox": [
+                    917,
+                    1220,
+                    1544,
+                    1377
+                ],
+                "index": 15
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9814,
+                "bbox": [
+                    917,
+                    1379,
+                    1545,
+                    1570
+                ],
+                "index": 16
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9799,
+                "bbox": [
+                    917,
+                    1571,
+                    1544,
+                    1729
+                ],
+                "index": 17
+            },
+            {
+                "cls_id": 19,
+                "label": "reference_content",
+                "score": 0.9663,
+                "bbox": [
+                    918,
+                    1731,
+                    1544,
+                    1794
+                ],
+                "index": 18
+            },
+            {
+                "cls_id": 16,
+                "label": "number",
+                "score": 0.9169,
+                "bbox": [
+                    841,
+                    2040,
+                    900,
+                    2072
+                ],
+                "index": 19
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    213,
+                    615,
+                    766,
+                    646
+                ],
+                "score": 0.983,
+                "text": "Figure 5: The result of threshold probing on the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    339,
+                    650,
+                    520,
+                    678
+                ],
+                "score": 1.0,
+                "text": "example image."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    403,
+                    768,
+                    612,
+                    809
+                ],
+                "score": 0.999,
+                "text": "CONCLUSIONS"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    245,
+                    827,
+                    821,
+                    861
+                ],
+                "score": 0.992,
+                "text": "The described method segments roughly two-"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    194,
+                    859,
+                    819,
+                    893
+                ],
+                "score": 0.992,
+                "text": "thirds of the vessels in a retinal fundus image."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    195,
+                    894,
+                    820,
+                    924
+                ],
+                "score": 0.992,
+                "text": "Compared to a previously reported method [1], which"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    195,
+                    926,
+                    821,
+                    956
+                ],
+                "score": 0.999,
+                "text": "uses only a global threshold, the proposed method"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    194,
+                    956,
+                    821,
+                    989
+                ],
+                "score": 0.997,
+                "text": "produces roughly half the false positive responses, and"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    195,
+                    989,
+                    821,
+                    1019
+                ],
+                "score": 0.994,
+                "text": "a slightly decreased true positive response. The latter is"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    194,
+                    1019,
+                    820,
+                    1052
+                ],
+                "score": 0.996,
+                "text": "mainly attributable to the restriction upon the approach"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    195,
+                    1053,
+                    821,
+                    1084
+                ],
+                "score": 0.988,
+                "text": "to produce connected vessel segmentations. A global"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    194,
+                    1084,
+                    821,
+                    1116
+                ],
+                "score": 0.989,
+                "text": "threshold is likely to segment small groups of isolated"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    195,
+                    1116,
+                    821,
+                    1148
+                ],
+                "score": 0.993,
+                "text": "pixels, as in Figure 2. Although such pixels may"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    195,
+                    1148,
+                    821,
+                    1178
+                ],
+                "score": 0.996,
+                "text": "actually be correctly labeled, their utility for"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    196,
+                    1182,
+                    573,
+                    1210
+                ],
+                "score": 0.994,
+                "text": "measurement is probably limited."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    244,
+                    1211,
+                    821,
+                    1242
+                ],
+                "score": 0.99,
+                "text": "In order to explore our method of evaluation"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    197,
+                    1245,
+                    823,
+                    1273
+                ],
+                "score": 0.996,
+                "text": "further, a second person produced an additional set of"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    194,
+                    1275,
+                    822,
+                    1306
+                ],
+                "score": 0.999,
+                "text": "hand-labeled ground truth for the five test images. This"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    196,
+                    1309,
+                    822,
+                    1336
+                ],
+                "score": 1.0,
+                "text": "second set of ground truth was compared to the first set"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    194,
+                    1337,
+                    821,
+                    1372
+                ],
+                "score": 0.989,
+                "text": "of ground truth exactly as described above, yielding"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    194,
+                    1369,
+                    822,
+                    1402
+                ],
+                "score": 0.985,
+                "text": "80% sensitivity and 90% specificity. This suggests"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    195,
+                    1403,
+                    821,
+                    1433
+                ],
+                "score": 1.0,
+                "text": "some interesting conclusions. First, the vessels in the"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    195,
+                    1436,
+                    822,
+                    1466
+                ],
+                "score": 0.995,
+                "text": "images selected for testing may in fact be too difficult"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    195,
+                    1468,
+                    822,
+                    1498
+                ],
+                "score": 0.994,
+                "text": "to discern with 100% accuracy, so that our results must"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    194,
+                    1499,
+                    824,
+                    1530
+                ],
+                "score": 0.988,
+                "text": "be viewed accordingly. In contrast, our method of"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    194,
+                    1530,
+                    822,
+                    1565
+                ],
+                "score": 0.994,
+                "text": "evaluation may need to be changed so that competing"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    194,
+                    1562,
+                    822,
+                    1595
+                ],
+                "score": 1.0,
+                "text": "hand-labeled ground truths score near perfect, thus"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    195,
+                    1598,
+                    821,
+                    1625
+                ],
+                "score": 0.997,
+                "text": "more accurately reflecting the strength of automated"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    197,
+                    1629,
+                    821,
+                    1657
+                ],
+                "score": 0.998,
+                "text": "approaches. Finally, we note that in either case there is"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    195,
+                    1660,
+                    644,
+                    1689
+                ],
+                "score": 0.999,
+                "text": "still measurable room for improvement."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    1070,
+                    104,
+                    1385,
+                    141
+                ],
+                "score": 1.0,
+                "text": "ACKNOWLEDGMENTS"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    966,
+                    165,
+                    1541,
+                    197
+                ],
+                "score": 0.998,
+                "text": "This work was supported by NIH Library of"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    919,
+                    202,
+                    1258,
+                    227
+                ],
+                "score": 0.998,
+                "text": "Medicine grant LM 05759-09."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    1133,
+                    264,
+                    1323,
+                    295
+                ],
+                "score": 1.0,
+                "text": "REFERENCES"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    915,
+                    326,
+                    1541,
+                    358
+                ],
+                "score": 0.988,
+                "text": "[1] S. Chaudhuri, S. Chatterjee, N. Katz, M. Nelson"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    966,
+                    359,
+                    1541,
+                    389
+                ],
+                "score": 0.992,
+                "text": "and M. Goldbaum, `Detection of Blood Vessels"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    966,
+                    391,
+                    1542,
+                    422
+                ],
+                "score": 0.996,
+                "text": "in Retinal Images Using Two-Dimensional"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    967,
+                    425,
+                    1541,
+                    452
+                ],
+                "score": 0.992,
+                "text": "Matched Filters\", in IEEE Trans. on Medical"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    967,
+                    456,
+                    1492,
+                    486
+                ],
+                "score": 0.998,
+                "text": "Imaging, vol. 8, no. 3, Sep. 1989, pp. 263-269."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    916,
+                    486,
+                    1542,
+                    519
+                ],
+                "score": 0.984,
+                "text": "[2] T. Pappas and J. Lim, `A New Method for"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    966,
+                    519,
+                    1539,
+                    549
+                ],
+                "score": 0.99,
+                "text": "Estimation of Coronary Artery Dimensions in"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    968,
+                    551,
+                    1538,
+                    582
+                ],
+                "score": 0.993,
+                "text": "Angiograms\", in IEEE Trans. On Acoustics,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    967,
+                    585,
+                    1539,
+                    615
+                ],
+                "score": 0.999,
+                "text": "Speech, and Signal Processing, vol. 36, no. 9, Sep."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    970,
+                    617,
+                    1209,
+                    644
+                ],
+                "score": 0.988,
+                "text": "1988, pp. 1501-1513."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    916,
+                    647,
+                    1541,
+                    677
+                ],
+                "score": 0.988,
+                "text": "[3] R. Nekovei, Y. Sun, `Back-Propagation Network"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    968,
+                    681,
+                    1540,
+                    708
+                ],
+                "score": 0.995,
+                "text": "and its Configuration for Blood Vessel Detection"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    966,
+                    712,
+                    1543,
+                    741
+                ],
+                "score": 0.998,
+                "text": "in Angiograms\", in IEEE Trans. on Neural"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    968,
+                    745,
+                    1473,
+                    772
+                ],
+                "score": 0.998,
+                "text": "Networks, vol. 6, no. 1, Jan. 1995, pp. 64-72."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    916,
+                    774,
+                    1540,
+                    805
+                ],
+                "score": 0.979,
+                "text": "[4] S. Tamura, K. Tanaka, S. Ohmori, K. Okazaki, A."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    966,
+                    805,
+                    1541,
+                    838
+                ],
+                "score": 0.99,
+                "text": "Okada and M. Hoshi, `Semiautomatic Leakage"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    968,
+                    839,
+                    1541,
+                    869
+                ],
+                "score": 0.993,
+                "text": "Analyzing System for Time Series Fluorescein"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    967,
+                    871,
+                    1542,
+                    901
+                ],
+                "score": 0.975,
+                "text": "Ocular Fundus Angiography\", in Pattern"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    968,
+                    902,
+                    1493,
+                    933
+                ],
+                "score": 0.995,
+                "text": "Recognition, vol. 16, no. 2, 1983, pp. 149-162."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    917,
+                    932,
+                    1539,
+                    964
+                ],
+                "score": 0.999,
+                "text": "[5] B. Cote, W. Hart, M. Goldbaum, P. Kube and M."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    964,
+                    964,
+                    1542,
+                    997
+                ],
+                "score": 0.979,
+                "text": "Nelson, `Classification of Blood Vessels in"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    966,
+                    996,
+                    1541,
+                    1030
+                ],
+                "score": 0.987,
+                "text": "Ocular Fundus Images\", technical report,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    967,
+                    1029,
+                    1541,
+                    1062
+                ],
+                "score": 0.997,
+                "text": "Computer Science and Engineering Dept.,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    967,
+                    1064,
+                    1448,
+                    1091
+                ],
+                "score": 0.993,
+                "text": "University of California, San Diego, 1994."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    917,
+                    1092,
+                    1541,
+                    1125
+                ],
+                "score": 0.981,
+                "text": "[6] S. Tamura, Y. Okamoto and K. Yanashima,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    967,
+                    1124,
+                    1541,
+                    1157
+                ],
+                "score": 0.98,
+                "text": "`Zero-Crossing Interval Correction in Tracing"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    967,
+                    1156,
+                    1543,
+                    1188
+                ],
+                "score": 0.973,
+                "text": "Eye-Fundus Blood Vessels\", in Pattern"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    968,
+                    1190,
+                    1494,
+                    1220
+                ],
+                "score": 0.988,
+                "text": "Recognition, vol. 21, no. 3, 1988, pp. 227-233."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    916,
+                    1219,
+                    1544,
+                    1252
+                ],
+                "score": 0.987,
+                "text": "[7] Y. Sun, `Automated Identification of Vessel"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    966,
+                    1251,
+                    1543,
+                    1284
+                ],
+                "score": 0.994,
+                "text": "Contours in Coronary Arteriograms by an"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    970,
+                    1286,
+                    1542,
+                    1314
+                ],
+                "score": 0.989,
+                "text": "Adaptive Tracking Algorithm\", in IEEE Trans. on"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    967,
+                    1316,
+                    1541,
+                    1348
+                ],
+                "score": 0.995,
+                "text": "Medical Imaging, vol. 8, no. 1, March 1989, pp."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    967,
+                    1347,
+                    1045,
+                    1376
+                ],
+                "score": 1.0,
+                "text": "78-88."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    917,
+                    1379,
+                    1542,
+                    1412
+                ],
+                "score": 0.991,
+                "text": "[8] M. Fischer, J. Tenenbaum and H. Wolf,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    969,
+                    1414,
+                    1541,
+                    1441
+                ],
+                "score": 0.989,
+                "text": "`Detection of roads and linear structures in low"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    967,
+                    1445,
+                    1543,
+                    1476
+                ],
+                "score": 0.993,
+                "text": "resolution aerial imagery using a multisource"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    968,
+                    1479,
+                    1542,
+                    1506
+                ],
+                "score": 0.998,
+                "text": "knowledge integration technique\", in Computer"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    970,
+                    1511,
+                    1541,
+                    1538
+                ],
+                "score": 0.994,
+                "text": "Graphics and Image Processing, vol. 15, no. 3,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    970,
+                    1543,
+                    1182,
+                    1570
+                ],
+                "score": 0.997,
+                "text": "1981, pp. 201-223."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    917,
+                    1572,
+                    1543,
+                    1603
+                ],
+                "score": 0.982,
+                "text": "[9] P. Eichel, E. Delp, K. Koral and A. Buda, `A"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    968,
+                    1607,
+                    1544,
+                    1634
+                ],
+                "score": 0.998,
+                "text": "Method for a Fully Automatic Definition of"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    969,
+                    1639,
+                    1542,
+                    1666
+                ],
+                "score": 0.995,
+                "text": "Coronary Arterial Edges from Cineangiograms\","
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    968,
+                    1668,
+                    1542,
+                    1699
+                ],
+                "score": 0.996,
+                "text": "in IEEE Trans. on Medical Imaging, vol. 7, no. 4,"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    969,
+                    1702,
+                    1241,
+                    1730
+                ],
+                "score": 0.999,
+                "text": "Dec. 1988, pp. 313-320."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    917,
+                    1733,
+                    1543,
+                    1762
+                ],
+                "score": 0.993,
+                "text": "[10]R. Jain, R. Kasturi and B. G. Schunck, Machine"
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    971,
+                    1767,
+                    1287,
+                    1791
+                ],
+                "score": 0.999,
+                "text": "Vision, McGraw-Hill, 1995."
+            },
+            {
+                "label": "ocr_text",
+                "bbox": [
+                    842,
+                    2043,
+                    900,
+                    2080
+                ],
+                "score": 1.0,
+                "text": "935"
+            }
+        ],
+        "page_info": {
+            "page_no": 4,
+            "width": 1678,
+            "height": 2217
+        }
+    }
+]

@@ -1,0 +1,148 @@
+\section{Introduction}
+\label{sec:intro}
+
+Curvilinear structures are the skeletons of many natural and man-made
+objects: retinal and coronary vessels, neuronal membranes, pavement and
+concrete cracks, roads, wires, and masonry joints. Reliable segmentation of
+these structures underpins clinical diagnosis from fundus
+\cite{staal2004drive,hoover2000stare,budai2013robust} and OCTA images
+\cite{li2024octa500}, coronary analysis from X-ray angiography
+\cite{cervantes2019dca1}, infrastructure inspection from crack images
+\cite{liu2019deepcrack}, large-scale mapping from roads
+\cite{mnih2013machine}, and material analysis of wires, tire treads, and
+masonry joints \cite{zhu2026sacm,valverde2025topomortar}. Unlike generic
+objects, these targets are thin, elongated, and often low-contrast; they
+branch, merge, and are easily occluded. A prediction with high pixel-wise
+overlap can still be unusable if it disconnects a vessel at a stenosis or
+misses a hairline crack, so connectivity and topology are first-class
+criteria \cite{shit2021cldice,kirchhoff2024skeletonrecall}.
+At the same time, dense annotation is expensive and test domains vary widely
+in modality, resolution, and acquisition conditions, making
+annotation-efficient cross-domain segmentation the central practical
+challenge.
+
+\begin{figure}[t]
+\centering
+\setlength{\tabcolsep}{0.6pt}
+\offinterlineskip
+\renewcommand{\arraystretch}{0}
+\newlength{\FigOneW}\setlength{\FigOneW}{\dimexpr\columnwidth-14pt\relax}\divide\FigOneW by 4
+\newlength{\FigOneLabelW}\setlength{\FigOneLabelW}{9pt}
+\begin{tabular}{@{}c*{4}{c}@{}}
+\makebox[\FigOneLabelW][c]{\rotatebox{90}{\scriptsize Input}} & \includegraphics[width=\FigOneW]{../img/dcd_fig1/crack_raw.pdf} & \includegraphics[width=\FigOneW]{../img/dcd_fig1/octa_raw.pdf} & \includegraphics[width=\FigOneW]{../img/dcd_fig1/road_raw.pdf} & \includegraphics[width=\FigOneW]{../img/dcd_fig1/tyre_raw.pdf} \\[1pt]
+\makebox[\FigOneLabelW][c]{\rotatebox{90}{\scriptsize Prediction}} & \includegraphics[width=\FigOneW]{../img/dcd_fig1/crack_ours.pdf} & \includegraphics[width=\FigOneW]{../img/dcd_fig1/octa_ours.pdf} & \includegraphics[width=\FigOneW]{../img/dcd_fig1/road_ours.pdf} & \includegraphics[width=\FigOneW]{../img/dcd_fig1/tyre_ours.pdf} \\[9pt]
+\makebox[\FigOneLabelW]{} & \makebox[\FigOneW][c]{\scriptsize CHCrack5k} & \makebox[\FigOneW][c]{\scriptsize OCTA-500} & \makebox[\FigOneW][c]{\scriptsize ROAD} & \makebox[\FigOneW][c]{\scriptsize TYRE} \\
+\end{tabular}
+\caption{Cross-domain results of DCD. Each column shows a raw test image
+(top) and the DCD prediction overlaid in cyan (bottom). Trained on only
+18 images from six Seen datasets and deployed at a single fixed candidate
+rank (slot 3), DCD preserves thin structures and connectivity on two Unseen
+and two Novel datasets.}
+\label{fig:dcd_teaser}
+\end{figure}
+
+Deep encoder--decoder networks have substantially advanced curvilinear
+structure segmentation. U-Net \cite{ronneberger2015unet} established the
+dominant architecture, and attention-based and multi-scale variants such as
+CS-Net \cite{mou2019csnet} and CS2-Net \cite{mou2021cs2net} improved vessel
+and nerve delineation; crack-specific networks \cite{liu2019deepcrack} and
+hybrid transformer--convolution models \cite{zhou2025nnwnet} pushed in-domain
+accuracy further. Topology-aware objectives, notably centerline Dice
+\cite{shit2021cldice} and skeleton recall \cite{kirchhoff2024skeletonrecall},
+reduce fragmentation. These methods, however, are typically trained on large
+domain-specific datasets and degrade when the test distribution changes.
+
+The Segment Anything Model (SAM) \cite{kirillov2023sam} offers a strong
+promptable prior, but adapting it to curvilinear structures is not
+straightforward. Point or box prompts specify an object, whereas a
+curvilinear target is a dense network of branches, so prompting every branch
+is impractical. Prompt-free adaptation avoids this issue by replacing prompts
+with learned feature-level guidance. Lightweight adapters
+\cite{chen2023samadapter,zhong2024convlora}, few-shot tuning
+\cite{xiao2024catsam}, and high-quality mask decoding \cite{ke2023hqsam}
+have each improved SAM on downstream domains. For
+curvilinear structures, UCS \cite{zhu2023ucs} adapts SAM with a sparse
+adapter and FFT-based prompt generation, while SACM \cite{zhu2026sacm}
+combines dual-level adapters with a prompt-free decoder and trains on only
+18 annotated images, demonstrating that a frozen SAM with lightweight modules
+can generalize across twelve datasets.
+
+A less examined design choice is how such decoders turn multiple candidates
+into one mask. SAM returns several masks with predicted IoU scores
+\cite{kirillov2023sam}; HQ-SAM adds a quality token \cite{ke2023hqsam}; SACM
+ranks four candidate descriptors by their Stage-1 confidence, refines them in
+Stage-2, and selects the final mask with an MLP-based IoU predictor
+\cite{zhu2026sacm}. Multi-hypothesis segmentation likewise generates several
+plausible masks for one input \cite{kohl2018probunet}. These designs assume
+that a test-time score or selector remains reliable under domain shift. In
+practice, the selector is trained on the Seen distribution and must rank
+candidates on unseen modalities; its calibration can drift, and selecting for
+overlap may favor thicker, better-connected masks while sacrificing thin
+branches. The resulting output is input-dependent, adds inference complexity,
+and can undo the connectivity that the candidate heads were trained to
+preserve.
+
+We argue that the bottleneck of multi-candidate decoding is not generating
+more candidates but deploying them. We therefore propose Deterministic
+Candidate Decoding (DCD), which replaces test-time selection with a fixed
+deployment rule. DCD builds on a frozen SAM ViT-L encoder with block-internal
+Adapter-I modules, block-external Adapter-E features, and an Adapter-F fusion
+path \cite{zhu2026sacm}. A prompt-free mask decoder maintains four candidate
+heads. During training, every head receives dense supervision and
+complementary topology-aware objectives (soft clDice and skeleton recall),
+and the three auxiliary heads receive role-specific losses: topology,
+boundary-weighted overlap, and recall-heavy Tversky. A zero-initialised
+linear fusion is trained as an auxiliary output. At inference, gating is used
+only to order the candidates; DCD always deploys the candidate at a fixed
+rank (slot 3), chosen on the validation split and then frozen, removes the
+fusion branch, and produces a single mask in one forward pass with no
+per-image selection or fusion. The four candidates thus act as specialised
+experts during training, while deployment reduces to a deterministic
+single-output rule.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=\textwidth]{../img/fig_framework.pdf}
+\caption{Overview of DCD.  A frozen SAM ViT-L encoder is adapted with
+block-internal Adapter-I modules and block-external Adapter-E features.
+The prompt-free mask decoder updates four learnable mask tokens with a
+Two-way Transformer and fuses the Adapter-E features through Adapter-F:
+the features from all 24 blocks are pooled, softmax-weighted, projected,
+and added to the upsampled decoder feature.  Stage-1 produces four coarse
+masks, whose gating scores rank the candidate descriptors; Stage-2 then
+refines the ranked candidates with dense, topology, and role-specific
+losses.  At inference, gating only determines the candidate order, and
+DCD always deploys the same ranked slot (slot 3), with no test-time
+candidate selection or fusion.  The head-fusion branch is used only
+during training.  Predictions are resized to the input resolution and
+thresholded at 0.5.}
+\label{fig:dcd_framework}
+\end{figure*}
+
+We evaluate DCD under a strict 3-shot protocol. Training uses 18 images from
+six Seen datasets; the twelve evaluation datasets are never used for training
+or model selection. Eight are Unseen (the same structure class under a
+different dataset, modality, or acquisition condition) and four are Novel
+(structure classes absent from training). Against ten CNN-, transformer-, and
+SAM-based baselines, and averaged over four training seeds, DCD obtains
+58.76 Dice, 45.17 IoU, 66.02 clDice, and 63.13 HD95 in dataset-macro terms,
+ranking first on all four metrics among the compared methods. The gains are
+macro trends rather than uniform per-dataset wins; we report the per-dataset
+breakdown and the Dice--HD95 trade-off, including cases where DCD is not the
+best.
+
+Our contributions are threefold.
+\begin{itemize}
+\item We identify test-time candidate selection as the deployment bottleneck
+of multi-candidate prompt-free SAM decoders for curvilinear structure
+segmentation, and show that input-dependent selection can be replaced without
+retraining the candidate experts.
+\item We propose Deterministic Candidate Decoding (DCD), which trains four
+candidate heads with dense, topology-aware, and role-specific supervision,
+and deploys a single fixed-rank candidate at inference; gating only orders
+candidates and the fusion branch is used only during training.
+\item We establish a 3-shot benchmark over 8 Unseen and 4 Novel curvilinear
+datasets with ten baselines and four seeds, report all four metrics, and
+provide ablations that separate the deployment rule from fusion, native
+four-head decoding, and topology supervision.
+\end{itemize}

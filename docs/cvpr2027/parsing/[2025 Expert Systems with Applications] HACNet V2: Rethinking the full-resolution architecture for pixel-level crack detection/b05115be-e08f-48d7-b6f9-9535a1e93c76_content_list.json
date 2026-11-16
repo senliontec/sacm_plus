@@ -1,0 +1,2664 @@
+[
+    {
+        "type": "text",
+        "text": "HACNet V2: Rethinking the full-resolution architecture for pixel-level crack detection",
+        "text_level": 1,
+        "bbox": [
+            57,
+            206,
+            768,
+            248
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "image",
+        "img_path": "images/d0e76786dc4b83a2b30faa26517d1a8b2c8e07c1cf56bd50a8ec956eb2d8541d.jpg",
+        "image_caption": [],
+        "image_footnote": [],
+        "bbox": [
+            840,
+            185,
+            887,
+            221
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Hanshen Chen a,\\*O, Hao Chen bO",
+        "bbox": [
+            58,
+            262,
+            329,
+            278
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "a College of Intelligent Transportation, Zhejiang Institute of Communications, Hangzhou 311112, China",
+        "bbox": [
+            58,
+            287,
+            532,
+            298
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "b Special Equipment Institute, Hangzhou Vocational & Technical College, Hangzhou 310018, China",
+        "bbox": [
+            58,
+            298,
+            517,
+            311
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "ARTICLEINFO",
+        "text_level": 2,
+        "bbox": [
+            58,
+            340,
+            196,
+            351
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Keywords: Crack detection Semantic segmentation Full-resolution network Atrous convolution Crack-aware attention",
+        "bbox": [
+            58,
+            364,
+            176,
+            430
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "ABSTRACT",
+        "text_level": 2,
+        "bbox": [
+            336,
+            339,
+            438,
+            351
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Accurate and efficient pixel-level crack detection is essential for infrastructure health monitoring. Although recent encoder-decoder architectures have achieved notable results, their reliance on aggressive downsampling often compromises the measurement-grade spatial precision required for fine crack detection. To address this gap, we present HACNetV2, an enhanced full-resolution architecture that builds upon our previous HACNet. Through key architectural refinements and novel components, HACNetV2 achieves substantially improved efficiency and effectiveness compared to its predecessor. HACNetV2 employs a dual-branch structure that integrates full-resolution and high-resolution processing to maintain critical spatial detail without imposing a heavy computational burden. Additionally, we propose two novel components: the hybrid atrous spatial pyramid attention module (HybridASPA), which expands the receptive field while reducing computational complexity, and the crack-aware attention module (CrackAM), which enhances sensitivity to fine and complex crack features. Together, these components enable HACNetV2 to enhance feature representation effectively. The experimental results on the public BCL and CHCrack5K benchmark datasets demonstrate that HACNetV2 outperforms recent models, achieving superior mIoU and F1 scores while maintaining a lightweight structure with only 0.52 M parameters. Furthermore, HACNetV2 supports real-time inference capabilities, processing 480 × 480 images at 47 FPS on an RTX 3090 GPU.",
+        "bbox": [
+            332,
+            363,
+            939,
+            546
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "1. Introduction",
+        "text_level": 2,
+        "bbox": [
+            58,
+            582,
+            166,
+            596
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "The rapid development of global infrastructure, including tunnels, bridges, and pavements, has led to an ever-growing demand for effective maintenance solutions. Early identification and repair of defects are crucial for prolonging the lifespan of these structures while ensuring public safety. Among various structural defects, cracks are the most common and pose significant challenges for manual inspection because of their time-consuming and labor-intensive nature (Dorafshan & Maguire, 2018; Schnebele et al., 2015). Consequently, automatic crack detection has become a focal point for research.",
+        "bbox": [
+            57,
+            607,
+            487,
+            727
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Digital camera-based systems are particularly attractive due to their low cost, flexibility in deployment, and ease of integration with existing measurement setups, ranging from handheld devices to robotic or dronemounted inspection units. However, achieving accurate pixel-level crack detection still presents several challenges. First, cracks exhibit distinct characteristics depending on the material (e.g., concrete, asphalt, steel) and the surface texture, which can complicate detection (Tsai & Chatterjee, 2017). Secondly, variations in lighting, such as shadows, reflections, and glare, further hinder crack visibility, potentially leading to false positives or missed detections (Ranyal et al., 2024). Moreover; this issue is further complicated by the requirement that measured crack dimensions must be correlated with engineering standards and guidelines, such as those indicating that cracks wider than 0.2 mm may be safety-critical (Abou-Zeid et al., 2001; Toniolo & Di Prisco, 2017).",
+        "bbox": [
+            57,
+            727,
+            487,
+            820
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            509,
+            582,
+            939,
+            687
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "In the past decade, deep learning approaches have shown strong feature representation capabilities. Consequently, numerous convolutional neural network (CNN)-based crack segmentation networks have been proposed. Early CNN methods typically relied on patch-based classification (Makantasis et al., 2015). In this paradigm, individual patches are classified as 'crack' or 'non-crack' (background). To generate a refined crack mask, post-processing steps such as adaptive thresholding (Zhang et al., 2018) and connectivity analysis (Loupos et al., 2018) are commonly applied. This patch-based strategy is computationally costly and lacks global context, which motivated the subsequent development and adoption of end-to-end networks. These networks typically employ an encoder-decoder architecture (Ai et al., 2023); as illustrated in Fig. 1(a), which includes two main modules: an encoder and a decoder. The encoder expands the receptive field and extracts rich features through progressive downsampling, whereas the decoder reconstructs spatial details for precise pixel-level segmentation. The conventional encoder-decoder architecture may face segmentation errors, particularly with fine and low-contrast cracks. This is due to spatial resolution loss in the encoding stage and limited capacity to recover this information during decoding, even with techniques such as skip connections (Ronneberger et al., 2015) or max pooling index (Badrinarayanan et al., 2017) reuse. To increase accuracy, some researchers have proposed deeper CNN architectures (Yang et al., 2019) or sophisticated multiscale methods (Zou et al., 2018). However, these approaches often lead to larger and more complex models, which can be challenging to deploy on resource-constrained measurement instruments used in field applications.",
+        "bbox": [
+            507,
+            688,
+            941,
+            820
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "page_footnote",
+        "text": "0957-4174/© 2025 Elsevier Ltd. All rights are reserved, including those for text and data mining, AI training, and similar technologies.",
+        "bbox": [
+            57,
+            914,
+            791,
+            928
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "page_footnote",
+        "text": "Received 18 February 2025; Received in revised form 27 April 2025; Accepted 10 May 2025",
+        "bbox": [
+            57,
+            889,
+            568,
+            902
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "header",
+        "text": "Expert Systems With Applications 286 (2025) 128144",
+        "bbox": [
+            349,
+            41,
+            645,
+            56
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "header",
+        "text": "一",
+        "bbox": [
+            58,
+            75,
+            161,
+            143
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "header",
+        "text": "Contents lists available at ScienceDirect",
+        "bbox": [
+            379,
+            75,
+            623,
+            89
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "header",
+        "text": "ELSEVIER",
+        "bbox": [
+            60,
+            146,
+            161,
+            162
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "header",
+        "text": "Expert Systems With Applications",
+        "bbox": [
+            321,
+            105,
+            680,
+            127
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "header",
+        "text": "Expert Systems with Applications An International Journal",
+        "bbox": [
+            840,
+            68,
+            937,
+            158
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "header",
+        "text": "journal homepage: www.elsevier.com/locate/eswa",
+        "bbox": [
+            336,
+            146,
+            663,
+            160
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "page_footnote",
+        "text": "\\* Corresponding author.",
+        "bbox": [
+            67,
+            844,
+            206,
+            857
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "page_footnote",
+        "text": "E-mail addresses: chenhs@zjvtit.edu.cn (H. Chen), 2022010066@hzvtc.edu.cn (H. Chen).",
+        "bbox": [
+            75,
+            856,
+            561,
+            870
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "page_footnote",
+        "text": "https://doi.org/10.1016/j.eswa.2025.128144",
+        "bbox": [
+            57,
+            877,
+            309,
+            890
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            57,
+            65,
+            489,
+            290
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "Dilated convolutions have been proven effective in replacing downsampling for expanding the receptive field without compromising feature map resolution (Pelt & Sethian, 2018; Yu & Koltun, 2016). By employing dilated convolutions, a full-resolution network with an extensive receptive field can be constructed, alleviating spatial resolution loss in crack detection. However, research exploring this avenue remains limited. Our previous work, the hybrid atrous convolutional network (HACNet) (Chen & Lin, 2021); follows a similar philosophy. As illustrated in Fig. 1(b), it avoids conventional downsampling and upsampling by using hybrid connected atrous convolutions to expand the receptive field, making it well-suited for detecting fine cracks in small-scale training sets. It has been benchmarked against other methods in various studies (Bai et al., 2024; Yang et al., 2023; Zhang & Liu, 2024). However, it faces limitations in computational efficiency, primarily because the processing of entire feature maps at full resolution requires more computational resources than downsampling-based methods. Furthermore, by avoiding downsampling, it is unable to effectively model channel-wise feature dependencies, thereby constraining its overall feature representation capacity. These limitations restrict the construction of deeper and more powerful network architectures, thus hindering its effectiveness in achieving high precision on large-scale datasets.",
+        "bbox": [
+            77,
+            290,
+            487,
+            303
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "image",
+        "img_path": "images/adff6ce5cb7d55f393ee4fabebd9ded2d6a06cc75a48796a5b115e5be62daf7d.jpg",
+        "image_caption": [
+            "(a) Encoder-Decoder Networks"
+        ],
+        "image_footnote": [],
+        "bbox": [
+            63,
+            326,
+            480,
+            450
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "image",
+        "img_path": "images/f4cd564b8053f0090d15ca5812b5675af641ec5cba36169f8b4dc29cdcbde705.jpg",
+        "image_caption": [
+            "(b) HACNet"
+        ],
+        "image_footnote": [],
+        "bbox": [
+            63,
+            480,
+            480,
+            615
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "image",
+        "img_path": "images/30396817b5b6158bb8c1211cbda72d63914675275049356aa0ec28a07fff6a89.jpg",
+        "image_caption": [
+            "(C) HACNetV2 (Ours)",
+            "Fig. 1. Schematic comparison of the encoder-decoder networks, HACNet, and HACNetV2. Unlike the encoder-decoder architecture, HACNet avoids downsampling operations that reduce the data resolution. In HACNetV2, two separate resolution branches, combined with a simple CrackAM mechanism, are introduced to enhance model performance."
+        ],
+        "image_footnote": [],
+        "bbox": [
+            63,
+            639,
+            480,
+            846
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            507,
+            65,
+            941,
+            343
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "This presents a critical challenge: how can full-resolution network be accelerated while improving its performance across various crack detection scenarios? In this study, we address this issue by building upon HACNet as our baseline. Our preliminary experiments indicated that not all crack features require computationally expensive full-resolution convolution operations. To optimize this, we reduce the number of channels in its high-resolution structure to lower computational costs. A high-resolution branch at half the original image scale is then introduced to enhance feature representation, thereby improving both the accuracy and speed of crack detection. Additionally, recognizing the success of attention mechanisms in computer vision, we revisited existing channel attention mechanisms for crack detection. Our analysis revealed that some attention mechanisms originally designed for natural semantic scenes may be suboptimal for fine crack detection, which aligns with earlier studies (Lan & Dong, 2022; Sun et al., 2024). In natural semantic images, key features are densely distributed, allowing attention mechanisms to focus on multiple regions with rich information. In contrast, crack images typically contain sparse, elongated features, with most of the image area being background. On the basis of these observations, we propose a crack-aware attention module, named CrackAM, to ensure that both fine and coarse cracks receive appropriate attention. We also introduce the effective hybrid atrous spatial pyramid attention (HybridASPA), which integrates CrackAM to enable efficient multiscale feature aggregation. Our final built model, HACNetV2 (see Fig. 1(c)), achieves an improved balance between accuracy and speed. The key contributions of this work are summarized as follows:",
+        "bbox": [
+            507,
+            343,
+            941,
+            688
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "(1) We propose HACNetV2, a novel and efficient full-resolution crack detection network. It employs a dual-branch structure that integrates full-resolution and high-resolution processing, preserving critical spatial details while maintaining computational efficiency. Our results reaffirm that full-resolution networks can strike a balance between computational efficiency and segmentation performance in crack detection.",
+        "bbox": [
+            526,
+            698,
+            941,
+            791
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "(2) We propose CrackAM, a simple yet effective attention module specifically designed for crack segmentation. CrackAM employs channel attention to recalibrate feature responses across channels, emphasizing both fine and elongated crack details. This lightweight, hyperparameter-free module can be seamlessly integrated into crack detection networks as an add-on to improve segmentation quality.",
+        "bbox": [
+            526,
+            791,
+            941,
+            883
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "(3) HACNetV2 features a simple and straightforward architecture, with each HybridASPA block sharing the same structure, parameters, input/output channels, and resolution. The model is scalable, with increased channel capacity enhancing crack detection precision. For applications requiring lower spatial precision, using only the high-resolution branch still results in an 80.9 % mIoU with an inference speed of 492 FPS on the BCL dataset.",
+        "bbox": [
+            526,
+            883,
+            941,
+            938
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "header",
+        "text": "H. Chen and H. Chen",
+        "bbox": [
+            58,
+            42,
+            163,
+            54
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "header",
+        "text": "Expert Systems With Applications 286 (2025) 128144",
+        "bbox": [
+            689,
+            42,
+            939,
+            54
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "page_number",
+        "text": "2",
+        "bbox": [
+            494,
+            953,
+            505,
+            962
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            95,
+            65,
+            487,
+            118
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "(4) We introduce CHCrack5K, a large-scale benchmark for crack detection, integrated by merging 11 high-quality publicly available datasets. This newly assembled dataset consists of 5,014 labeled image samples and is designed to tackle the challenges posed by diverse materials, crack structures, and fluctuating lighting conditions.",
+        "bbox": [
+            75,
+            118,
+            489,
+            199
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "2. Related work",
+        "text_level": 2,
+        "bbox": [
+            58,
+            211,
+            171,
+            224
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "We briefly review existing model architectures relevant to our proposed method.",
+        "bbox": [
+            57,
+            238,
+            487,
+            264
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "2.1. Encoder-decoder networks for crack detection",
+        "text_level": 2,
+        "bbox": [
+            57,
+            278,
+            352,
+            291
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "Three classic encoder-decoder architectures—FCN (Long et al. 2015), U-Net (Ronneberger et al., 2015), and SegNet (Badrinarayanan et al., 2017)—have demonstrated strong performance in pixel-level crack detection (Huang et al., 2018; Liu et al., 2019). Subsequent research has focused on enhancing these architectures. One approach involves leveraging more powerful encoder backbones, including ResNet variants (Bang et al., 2019) and Vision Transformers (ViT) (Liu et al., 2023), to improve feature extraction capabilities. Another critical strategy focuses on multi-scale feature fusion to capture contextual information across different resolutions. Techniques such as spatial pyramid pooling (SPP) (Gu et al., 2023) and the explicit fusion of hierarchical convolutional features (Wang and Su, 2022) are commonly employed. For instance, Liu et al. (2019) proposed a DeepCrack network adapting the FCN architecture with guided filters (He et al., 2013), while Zou et al. (2018) introduced a distinct model, also termed DeepCrack, built upon SegNet, which specifically fuses features from corresponding encoder and decoder stages across scales.",
+        "bbox": [
+            57,
+            303,
+            487,
+            528
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "The prediction speed is also critical for practical engineering applications in crack detection. Previous studies have focused on speeding up encoder-decoder networks. For example, Chen et al. (2019) proposed a learnable automatic switch module (SWM) that selectively bypasses the decoder on the basis of the input image class, reducing computation by 31 %–87 % without sacrificing accuracy. Choi and Cha (2020) improved the speed by replacing standard convolutions with separable convolutions and using fewer channels. Li et al. (2023) introduced HrSegNet, a real-time, high-resolution crack detection network incorporating semantic guidance; its HrSegNet-B32 variant achieves real-time inference while preserving fine crack details. Most recently, CarNet (Li et al., 2024) introduced an olive-shaped encoder and a lightweight multiscale decoder to improve detection performance and computational efficiency.",
+        "bbox": [
+            57,
+            528,
+            489,
+            715
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "2.2. Full-resolution segmentation networks",
+        "text_level": 2,
+        "bbox": [
+            58,
+            726,
+            307,
+            740
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "Recent studies (Pelt and Sethian, 2018; Wang et al., 2018; Yu and Koltun, 2016) have shown that CNNs without downsampling layers can effectively capture semantic information for segmentation tasks. Yu and Koltun (2016) introduced dilated convolutions to aggregate multiscale contextual information while preserving resolution. Varying dilation rates allow feature capture at multiple scales, but their model suffers from grid artifacts (Wang et al., 2018). To alleviate these gridding artifacts, Hamaguchi et al. (2018) proposed a local feature extraction (LFE) network with dilation rates that increase and then decrease, yielding strong results in remote sensing imagery. However, the cascading atrous layers in this approach may struggle with long, narrow objects like cracks. Pelt and Sethian (2018) developed a mixed-scale dense network that combines dense connectivity with multiscale feature extraction, demonstrating improved accuracy and robustness in",
+        "bbox": [
+            57,
+            752,
+            489,
+            939
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "image analysis.",
+        "bbox": [
+            510,
+            65,
+            606,
+            79
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "In crack detection, few studies have focused on segmentation networks without downsampling. An early instance is CrackNet (Zhang et al., 2017), which aims for pixel-level accuracy by merging convolutional outputs with fully connected layers, but these layers are parameter-heavy and computationally intensive. CrackNet-V (Fei et al. 2020) improved this by replacing the fully connected layers with 3 × 3 convolutions and deepened the network. Despite this improvement, the authors noted that small filters across layers struggled to represent a large receptive field, resulting in a loss of spatial information in wide cracks. HACNet (Chen and Lin, 2021) utilizes atrous convolutions with exponentially increasing dilation rates to expand the receptive field and a hybrid connection to aggregate multi-level features. Although these approaches achieve high accuracy, they increase computational demands and latency, making real-time performance a challenge for fullresolution architectures.",
+        "bbox": [
+            507,
+            79,
+            941,
+            278
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "2.3. Attention modules in crack detection",
+        "text_level": 2,
+        "bbox": [
+            509,
+            291,
+            754,
+            303
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "Attention mechanisms have become a key component of modern deep learning, helping models focus on relevant features while ignoring irrelevant data. Inspired by their success in general vision tasks, attention-based methods have been adapted for crack detection (Ranyal et al., 2024). Liu et al. (2019) incorporated the SE attention module (Hu et al., 2018) to optimize multi-dilation features. Wang et al. (2024) used a coordinate attention module (Hou et al., 2021) to enhance the model's perception of various spatial information. Qu and Wang (2023) introduced the gating attention unit (Oktay, 2018) to reduce background noise and improve crack localization. Tiny-Crack-Net (Chu et al., 2022) explores the use of channel and spatial attention modules (Woo et al., 2018) to capture spatial relationships and contextual information for crack detection. CrackFormer (Liu et al., 2023) is a transformer-based encoder-decoder structure that uses a combination of multiple local self-attention modules and scaling-attention modules to capture finegrained crack features.",
+        "bbox": [
+            507,
+            317,
+            941,
+            528
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "However, crack detection differs significantly from natural image tasks (Chen et al., 2021). Cracks typically occupy a small portion of the image, unlike natural scenes where objects, textures, and features are more evenly distributed across the frame. Considering these distinctions, we rethink the channel attention mechanism in this work and propose a crack-aware attention module specifically tailored to the unique characteristics of crack images.",
+        "bbox": [
+            507,
+            528,
+            941,
+            621
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "3. Proposed approach",
+        "text_level": 2,
+        "bbox": [
+            509,
+            634,
+            660,
+            648
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "3.1. Network architecture",
+        "text_level": 2,
+        "bbox": [
+            510,
+            660,
+            665,
+            673
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "3.1.1. Revisiting HACNet",
+        "text_level": 2,
+        "bbox": [
+            510,
+            687,
+            665,
+            699
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "HACNet is a fully convolutional neural network designed to maintain full-resolution throughout its structure, ensuring fine-grained spatial information for crack segmentation. It comprises an input layer, two HybridASPPs, and an output head, sequentially. HybridASPP is a block of hybrid connected atrous convolutional layers that has a large receptive field. The output head consolidates the outputs from the Hybrid-ASPPs to generate the final prediction map. HACNet has the advantages of a simple structure and fewer parameters but does not adequately address computational inefficiency and limited feature representation. The reasons are as follows: (1) performing all convolution operations on full-resolution features results in high computational cost; (2) HACNet lacks the ability to effectively model channel-wise feature dependencies, which compromises discriminative feature representation.",
+        "bbox": [
+            507,
+            699,
+            941,
+            872
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "3.1.2. The proposed HACNetV2",
+        "text_level": 2,
+        "bbox": [
+            510,
+            885,
+            702,
+            897
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "The simplest method to reduce the computational cost of fullresolution networks is to decrease the number of internal channels or lower the input resolution. However, the former weakens feature representation, while the latter causes a loss of image detail, impacting the model's ability to restore spatial resolution. To resolve this, we propose HACNetV2, which combines a small-channel full-resolution branch with a high-resolution branch that operates at half the original image resolution. These two branches work in parallel, with their outputs fused to achieve an optimal balance between speed and performance. As depicted in ${ \\mathrm { F i g . ~ } } 2 ,$ HACNetV2 includes three main modules: (1) a full-resolution branch, (2) a high-resolution branch, and (3) a lightweight output head to predict the final mask. Both branches share nearly identical three-module cascaded designs, with hybrid atrous spatial pyramid attention (HybridASPA).",
+        "bbox": [
+            509,
+            897,
+            941,
+            938
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "header",
+        "text": "H. Chen and H. Chen",
+        "bbox": [
+            58,
+            42,
+            163,
+            54
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "header",
+        "text": "Expert Systems With Applications 286 (2025) 128144",
+        "bbox": [
+            689,
+            42,
+            939,
+            54
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "page_number",
+        "text": "3",
+        "bbox": [
+            494,
+            953,
+            505,
+            962
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            57,
+            65,
+            487,
+            211
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "Given an image with a size of $3 \\times H \\times W ,$ we first input the image into the initial layer of the full-resolution branch. This layer is a standard 1-D convolution, consisting of $5 \\times 1$ and 1 × 5 convolutions, followed by batch normalization (BN) (Ioffe and Szegedy, 2015) and a rectified linear unit (ReLU) (Nair and Hinton, 2010). This process produces initial feature maps with dimensions $C \\times H \\times W ;$ which are then passed to both the full-resolution and high-resolution branches. In HACNetV2, we set C to 32. Intermediate multi-level features from the high-resolution branch are upsampled and fused with those from the full-resolution branch before being passed the output head. The output head uses $\\textbf { a 1 } \\times \\textbf { 1 }$ convolution to reduce the multi-level features to a single channel, followed by concatenation and another 1 × 1 convolution to produce the final crack map. This design minimizes the computational cost and memory usage since the output head's convolution layers use only one",
+        "bbox": [
+            57,
+            211,
+            489,
+            398
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "output channel.",
+        "bbox": [
+            509,
+            65,
+            610,
+            78
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "HACNetV2 offers significant flexibility in its setup. The two branches operate independently, so removing one branch does not compromise functionality. In the experimental section, we show that even a single branch retains strong crack detection capabilities. Furthermore, HybridASPA's uniform input/output form allows the width and depth of branches to be adjusted for various levels of precision under limited computational resources. In the experimental section, we set the C = 48 to build more powerful network, referred to as HACNetV2-W. This flexibility makes HACNetV2 a versatile solution for a wide range of practical applications, accommodating diverse measurement scenarios and resource-limited environments.",
+        "bbox": [
+            507,
+            79,
+            941,
+            225
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "3.2. HybridASPA",
+        "text_level": 2,
+        "bbox": [
+            509,
+            249,
+            620,
+            262
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "Building upon the original HACNet's HybridASPP, we propose the Hybrid Atrous Spatial Pyramid Attention (HybridASPA). The Hybrid-ASPA retains the advantages of HybridASPP but has a reduced computational load and enhanced feature learning representation. The specific differences are illustrated in Fig. 3. Inspired by the bottleneck block structure introduced in ResNet (He et al., 2016), we replace each atrous convolution with a two-step process: a $^ \\mathrm { ~ 1 ~ } \\times \\mathrm { ~ 1 ~ }$ convolution to halve the number of channels, followed by ${ \\textbf { a 3 } } \\times 3$ atrous convolution to restore the original channel count, as illustrated in Fig. 3 (b). A standard $3 \\times 3$ convolution with C\\_in input channels and $C _ { \\ o { o u t } }$ output channels",
+        "bbox": [
+            507,
+            274,
+            941,
+            408
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "image",
+        "img_path": "images/8f3e5a5244fde6098280c007cecfa6cc81e1c32985052f5beed5d9535b58dc8e.jpg",
+        "image_caption": [
+            "Fig. 2. Architecture of HACNetV2. The model employs both a full-resolution branch and a high-resolution branch to enhance feature representations, followed by an output head that generates the crack map. The high-resolution branch is wider and contains twice as many feature maps as the full-resolution branch. The number of channels in each block is depicted beside the corresponding connections."
+        ],
+        "image_footnote": [],
+        "bbox": [
+            78,
+            423,
+            919,
+            889
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "header",
+        "text": "H. Chen and H. Chen",
+        "bbox": [
+            58,
+            42,
+            163,
+            54
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "header",
+        "text": "Expert Systems With Applications 286 (2025) 128144",
+        "bbox": [
+            689,
+            42,
+            941,
+            54
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "page_number",
+        "text": "4",
+        "bbox": [
+            494,
+            953,
+            504,
+            962
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "image",
+        "img_path": "images/e2d6fad125927a78adec051efce4e57a60730fe4577037dc600251ce40529bcc.jpg",
+        "image_caption": [
+            "(a) HybridASPP"
+        ],
+        "image_footnote": [],
+        "bbox": [
+            65,
+            65,
+            473,
+            197
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "image",
+        "img_path": "images/563ed941ae4310fed1025fa2ec11b2c1e453fb1f7a3b72e5b81d273c54eef1a2.jpg",
+        "image_caption": [
+            "(b) HybridASPA",
+            "Fig. 3. Comparison of the structures of HybridASPP and HybridASPA. Both modules maintain consistent spatial resolution throughout the entire process. HybridASPA is an enhanced version of HybridASPP, with lower computational complexity and stronger semantic representation. Here, $C _ { i } , H ,$ and W represent the number of channels, feature map height, and feature map width, respectively."
+        ],
+        "image_footnote": [],
+        "bbox": [
+            65,
+            213,
+            472,
+            349
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "requires C\\_in $\\times C _ { - }$ out $\\times 3 ^ { 2 }$ operations per pixel. By first reducing the channels to $C _ { - } \\dot { m } / 2$ with $\\textbf { a 1 } \\times \\textbf { 1 }$ convolution, the subsequent $3 \\times 3$ convolution processes on fewer channels, reducing computation by approximately 33 % and significantly speeding up the network. Additionally, instead of concatenating the outputs of atrous convolution layers, HybridASPA uses element-wise addition for feature map fusion, improving computational efficiency and memory usage. This addition acts as a skip branch, facilitating gradient flow and improving training. Consequently, the dropout layers are removed, as they are no longer necessary with this approach. To further improve feature representation, we incorporate the crack-aware attention module (CrackAM) into HybridASPA, which will be discussed in the following subsection.",
+        "bbox": [
+            57,
+            459,
+            489,
+            580
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "image",
+        "img_path": "images/9c4d53c28870aa549c7706234cf29b9c96d4002ffed60aba2c3bc3f574a2dba0.jpg",
+        "image_caption": [],
+        "image_footnote": [],
+        "bbox": [
+            65,
+            659,
+            531,
+            905
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            509,
+            65,
+            939,
+            105
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "For crack segmentation, achieving a large receptive field to capture contextual information is essential (Peng et al., 2017; Yu and Koltun, 2016). We use the effective receptive field (ERF) (Wang et al., 2018) as a toolkit to visualize and interpret why our HybridASPA design is effective on HACNetV2. As shown in Fig. 4(b), the visualized ERFs at the outputs of the first, second, third, and fourth atrous convolutional layers (marked as $\\mathbf { \\vec { b } } , \\mathbf { \\vec { c } } , \\mathbf { \\vec { d } } ,$ and $\\because e ^ { \\prime }$ in Fig. 3 and Fig. 4) are 3, 9, 27, and 81, respectively, with no gridding issues. These four hybrid-connected atrous layers, with exponentially increasing dilation rates, function as an equivalent stack of convolutions with progressively larger kernel sizes, as illustrated in Fig. 4(a). This design aggregates the $F _ { - } b , F _ { - } c , F _ { - } d ,$ and F\\_e feature maps simultaneously, resulting in larger receptive fields without added complexity.",
+        "bbox": [
+            507,
+            105,
+            939,
+            278
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "3.3. Crack-Aware Attention Module (CrackAM)",
+        "text_level": 2,
+        "bbox": [
+            509,
+            302,
+            793,
+            315
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "To provide a clear description of the proposed CrackAM, we first revisit squeeze-and-excitation (SE) (Hu et al., 2018) attention, which is widely used in computer vision.",
+        "bbox": [
+            507,
+            329,
+            939,
+            369
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "3.3.1. Revisiting squeeze-and-excitation attention",
+        "text_level": 2,
+        "bbox": [
+            509,
+            382,
+            800,
+            394
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "The SE attention block allows the model to focus on more informative features while suppressing less relevant features by adaptively recalibrating channel-wise feature responses. It consists of a squeeze module and an excitation module. The squeeze module compresses the input feature maps into a channel descriptor $z _ { - } c$ via global average pooling (GAP) to capture the global context:",
+        "bbox": [
+            507,
+            394,
+            941,
+            475
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "equation",
+        "img_path": "images/90069111fc72c04ac7d4773b937d16958ed830e9773535abe0cad263a3daf634.jpg",
+        "text": "$$\nZ _ { c } = \\frac { 1 } { ( H \\times W ) } \\sum _ { ( h = 1 ) } ^ { H } \\sum _ { ( w = 1 ) } ^ { W } X ( c , h , w )\\tag{1}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            509,
+            480,
+            707,
+            514
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "where X is the input feature map, h and w are the height and width of the feature map, respectively, and c denotes the channel index. Subsequently, the excitation module captures channel-wise dependencies and outputs channel weights via two fully connected layers with ReLU and sigmoid activations, respectively. The output feature map Y is computed by scaling X with these channel weights:",
+        "bbox": [
+            509,
+            524,
+            939,
+            593
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "image",
+        "img_path": "images/2a111b875e07ad5edf39fa1bff3a94d6b7aa004d192877d97ab9b22c2cf5e837.jpg",
+        "image_caption": [],
+        "image_footnote": [],
+        "bbox": [
+            554,
+            611,
+            742,
+            749
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "image",
+        "img_path": "images/4c7f835a689bbee758f7153129f1467c38e0d4bbb1d81b8b9c8f808a1c91aeb7.jpg",
+        "image_caption": [],
+        "image_footnote": [],
+        "bbox": [
+            746,
+            612,
+            929,
+            749
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "image",
+        "img_path": "images/f40d9cecd050e688a7546a3055c801ff99497125d4fce627f677c6cb4bff56be.jpg",
+        "image_caption": [],
+        "image_footnote": [],
+        "bbox": [
+            554,
+            752,
+            742,
+            890
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "image",
+        "img_path": "images/be0f6f8da93b30eaee3a6ce805a4f2c660a42fb05827ff56ab4ca5e2125704f3.jpg",
+        "image_caption": [
+            "(b)",
+            "Fig. 4. Illustration of equivalent receptive field sizes in HybridASPA. (a) Feature aggregation in HybridASPA. The length of each strip represents the receptive field size, and r denotes a set of dilation rates for each strip. (b) Visualization of corresponding ERFs at four points in HybridASPA."
+        ],
+        "image_footnote": [],
+        "bbox": [
+            746,
+            752,
+            929,
+            890
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "header",
+        "text": "H. Chen and H. Chen",
+        "bbox": [
+            58,
+            42,
+            163,
+            54
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "header",
+        "text": "Expert Systems With Applications 286 (2025) 128144",
+        "bbox": [
+            689,
+            42,
+            939,
+            54
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "page_number",
+        "text": "5",
+        "bbox": [
+            494,
+            954,
+            504,
+            962
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            57,
+            65,
+            305,
+            79
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "equation",
+        "img_path": "images/c48e2a71d9a4a0e484140e236d504a32032cbe8c6572afac44d3e6f8091dca54.jpg",
+        "text": "$$\n\\Upsilon = X \\odot \\sigma ( W _ { - } 2 \\delta ( W _ { - } 1 z ) )\\tag{2}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            57,
+            85,
+            206,
+            99
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "Here, W\\_1 and W\\_2 are the weights of the fully connected layers, denotes element-wise multiplication, δ represents the ReLU activation function, and σ is the sigmoid activation function, which normalizes outputs to the range of (0,1).",
+        "bbox": [
+            57,
+            105,
+            487,
+            158
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "SE blocks have limitations in crack detection. In the squeeze module, GAP tends to average out the feature map, which can diminish the influence of small but critical features such as tiny cracks. As a result, the channel attention weights assigned to channels representing small cracks may be lower, causing the network to pay less attention to them. Later works (Lee et al., 2019; Woo et al., 2018) attempted to improve the outputs of the squeeze module by incorporating both GAP and global max pooling (GMP). However, these standard global pooling methods may not effectively capture elongated structures. Specifically, GAP can dilute significantly elongated features, whereas GMP may be overly sensitive to high-value noise points, which is undesirable.",
+        "bbox": [
+            57,
+            158,
+            487,
+            305
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "3.3.2. The proposed CrackAM",
+        "text_level": 2,
+        "bbox": [
+            57,
+            317,
+            242,
+            330
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "To overcome the limitations of SE attention in crack detection, we propose a simple yet efficient CrackAM that emphasizes both subtle fine cracks and coarse crack features. CrackAM also comprises two components: a squeeze module and an excitation module. As shown in Fig. 5, the squeeze module in CrackAM employs directional pooling to better capture the elongated nature of cracks, which typically appear as vertical or horizontal features in infrastructure images. Specifically, we perform max pooling in the horizontal and vertical directions to emphasize the prominent features in each dimension. This helps preserve the structural integrity of cracks, regardless of their orientation.",
+        "bbox": [
+            57,
+            330,
+            487,
+            461
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "Given an input feature map $X \\in \\mathbb { R } ( C \\times H \\times W )$ , we first apply horizontal max pooling across the width dimension to capture prominent features along the horizontal axis. This operation yields a feature map $X _ { - } h \\in \\mathbb { R } ( C \\times H )$ , which can be formulated as",
+        "bbox": [
+            57,
+            462,
+            487,
+            515
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "equation",
+        "img_path": "images/a31140469aa1c63c46793130a1fae812e76253d2637600a8e4f13106b7dfef81.jpg",
+        "text": "$$\nX _ { \\mathit { - } h } \\left( i , c , h \\right) = \\operatorname* { m a x } _ { w } X ( i , c , h , w )\\tag{3}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            57,
+            522,
+            231,
+            538
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "Similarly, vertical max pooling is applied across the height dimension to capture the salient vertical features, resulting in $X _ { \\lrcorner } h \\in \\mathbb { R } ( C \\times W )$ as",
+        "bbox": [
+            57,
+            546,
+            485,
+            585
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "equation",
+        "img_path": "images/8e43f9f61a78608657021ea64c64bc46e9a156135d6718713f24aa7a5d7107c6.jpg",
+        "text": "$$\nX _ { - } \\nu ( i , c , w ) = \\operatorname* { m a x } _ { h } X ( i , c , h , w )\\tag{4}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            58,
+            592,
+            231,
+            611
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "Since cracks can appear at any location, both horizontal and vertical features are equally important. Therefore, we concatenate the results of these pooling operations and apply global average pooling to the combined directional features to generate channel-wise statistics:",
+        "bbox": [
+            57,
+            617,
+            487,
+            672
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "image",
+        "img_path": "images/e99237035c341ee58d86125e2e98bf25b57938988c5a97bffa01890a49d13138.jpg",
+        "image_caption": [
+            "Fig. 5. Schematic representation of the proposed CrackAM."
+        ],
+        "image_footnote": [],
+        "bbox": [
+            65,
+            703,
+            478,
+            916
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "equation",
+        "img_path": "images/d7abcbe00d5a29b08c9d07eafbf5fffa8697b93bc894d2ff86031fa674da0f23.jpg",
+        "text": "$$\nZ _ { - } c = \\frac { 1 } { ( W + H ) } \\sum _ { 1 } ^ { W + H } c o n c a t ( X _ { h } ( i , c , h ) , X _ { \\nu } ( i , c , w ) )\\tag{5}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            509,
+            73,
+            789,
+            104
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "To maintain low computational complexity, we follow the effective squeeze-excitation (eSE) approach (Lee & Park, 2020), where a 1D convolution is applied to capture channel interactions without reducing the dimensionality of the features. This leads to the following formulation for the squeeze module:",
+        "bbox": [
+            507,
+            112,
+            941,
+            179
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "equation",
+        "img_path": "images/e5cd3ade109f42f42e23e9228398e4fb50f16d4eef12b2d7de81a520add922c6.jpg",
+        "text": "$$\n\\Upsilon = X \\odot \\sigma ( C o n \\nu ^ { 1 \\times 1 } ( Z _ { c } ) )\\tag{6}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            509,
+            185,
+            653,
+            199
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "where $C o n \\nu ^ { 1 \\times 1 } \\left( \\cdot \\right)$ denotes a 1D convolution with a kernel of 1 across the channel domain.",
+        "bbox": [
+            509,
+            210,
+            939,
+            237
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "Compared with the SE modules used in crack detection models, CrackAM offers two primary advantages: (1) an improved squeeze module that ensures that both fine and coarse cracks receive adequate attention, and (2) lower computational complexity with no hyperparameters, enhancing efficiency. Thus, CrackAM can be seamlessly integrated into both the full-resolution and high-resolution branches of HACNetV2, enhancing crack detection performance across multiple resolutions.",
+        "bbox": [
+            507,
+            237,
+            941,
+            343
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "3.4. Loss function",
+        "text_level": 2,
+        "bbox": [
+            509,
+            356,
+            623,
+            370
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "Since most pixels in the images are non-crack (background), we adopt the same loss function as HACNet, combining binary crossentropy and Dice loss for training. For more details, please refer to the HACNet paper (Chen & Lin, 2021). HACNetV2 has three side-output layers and one fused prediction layer; as shown in Fig. 2. We implement a multi-layer supervision strategy (Lee et al., 2015); applying the overall loss to each output individually. This enables more robust optimization and ensures that the model can effectively handle the varied outputs from the different branches.",
+        "bbox": [
+            507,
+            383,
+            941,
+            503
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "4. Experiments and results",
+        "text_level": 2,
+        "bbox": [
+            510,
+            515,
+            694,
+            529
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "4.1. Datasets",
+        "text_level": 2,
+        "bbox": [
+            510,
+            542,
+            594,
+            554
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "Numerous public crack datasets exist, but most are relatively small in scale and quantity compared with general datasets (Pandey and Achara, 2024); such as ADE20K (Zhou et al., 2017), making it difficult to establish a fair benchmark for algorithm comparison. Furthermore, cracks exhibit different characteristics on various materials, such as concrete and asphalt, and are also influenced by the capturing equipment. To create a more realistic engineering application scenario, a promising approach is to combine these smaller datasets into a larger, comprehensive dataset. Therefore, in this experiment, we use two combined large datasets to validate the accuracy and robustness of the proposed HACNetV2.",
+        "bbox": [
+            507,
+            568,
+            941,
+            715
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "(1) BCL (bridge crack library) (Ye et al., 2021): This library serves as a benchmark for crack detection across various structural materials, including masonry, concrete, and steel. The raw images, captured using various devices such as mobile phones, SLR cameras, and consumer-grade cameras, are sourced from over 50 in-service bridges. These images are cropped to 256 × 256 pixels and meticulously annotated to ensure high-quality labeling. The dataset originally includes three folders: 2,036 crack samples for steel, 5769 samples for concrete and masonry, and 3,195 negative samples. We exclude the negative samples and randomly split the dataset into training, validation, and testing sets at a 7:1:2 ratio for each folder. This results in 5463 samples for training, 781 for validation, and 1,561 for testing.",
+        "bbox": [
+            526,
+            726,
+            941,
+            897
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "(2) CHCrack5K: We assemble a comprehensive crack dataset containing 5,014 annotated images by integrating 11 publicly available, high-quality, labeled datasets. Details of the datasets are provided in Table 1. Each dataset undergoes specific processing to standardize the samples at a resolution of 480 × 480 pixels. For datasets such as CFD (Shi et al., 2016), MCD-Crack (Chen and Zhou, 2023), and Road420 (Ge et al., 2024), padding is applied to maintain spatial structure. High-resolution datasets such as Crack500 (Yang et al., 2019) and SUT-Crack (Sabouri and Sepidbar, 2023) are resized and cropped. Other datasets, such as CrackTree260 (Zou et al., 2012) and Deep-Crack537 (Zhou et al., 2022) are resized, with the latter also requiring padding to achieve uniformity in dimensions. This combined dataset provides a diverse set of samples, encompassing various materials, crack structures, and fluctuating lighting conditions, thereby creating a more challenging and robust environment for crack detection. The dataset is randomly split into 3,510 training samples, 501 validation samples, and 1,003 testing samples.",
+        "bbox": [
+            526,
+            897,
+            941,
+            938
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "header",
+        "text": "H. Chen and H. Chen",
+        "bbox": [
+            57,
+            42,
+            163,
+            54
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "header",
+        "text": "Expert Systems With Applications 286 (2025) 128144",
+        "bbox": [
+            689,
+            42,
+            941,
+            54
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "page_number",
+        "text": "6",
+        "bbox": [
+            494,
+            953,
+            504,
+            962
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            95,
+            65,
+            489,
+            278
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "4.2. Evaluation metrics",
+        "text_level": 2,
+        "bbox": [
+            58,
+            291,
+            200,
+            303
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "Crack detection is a binary semantic segmentation task in which the goal is to separate cracks (foreground) from non-cracks (background). A threshold of 0.5 is applied to the network's probability map output to generate a binary crack map. The performance is evaluated via four common metrics: precision (P), recall (R), the F1score, and the mean intersection over union (mIoU). The formulas for these metrics are as follows:",
+        "bbox": [
+            55,
+            316,
+            489,
+            409
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "equation",
+        "img_path": "images/c15e39705cf5bd7b14cc8ea7e82d7ec53a03a18c8bc3b0b867b7be989db7175a.jpg",
+        "text": "$$\nP = \\frac { T P } { T P + F P } , R = \\frac { T P } { T P + F N }\\tag{7}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            57,
+            416,
+            218,
+            442
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "equation",
+        "img_path": "images/2567f35c74f21eaea3f6a7f4f8385905c3f5b1db41aa79db9337ea49eef14aac.jpg",
+        "text": "$$\nF _ { 1 } = \\frac { 2 ( P \\times R ) } { P + R } , m I o U = \\frac { 1 } { 2 } ( I o U _ { b } + I o U _ { f } )\\tag{8}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            57,
+            452,
+            280,
+            479
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "where TP, FP, TN, and FN are true positives, false positives, true negatives, and false negatives, respectively. mIoU is the average IoU of the background and foreground segments.",
+        "bbox": [
+            57,
+            488,
+            487,
+            528
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "Model speed is crucial for practical use. Latency is measured in frames per second (FPS) by averaging the processing time for all test images with a batch size of one on a single RTX 3090 GPU. Giga floatingpoint operations (GFLOPs) and parameters (Params) are used to assess computational complexity and model size.",
+        "bbox": [
+            57,
+            528,
+            489,
+            595
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "4.3. Experimental settings",
+        "text_level": 2,
+        "bbox": [
+            57,
+            607,
+            215,
+            621
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "The experiments are conducted on a workstation equipped with two Nvidia RTX 3090 GPUs, 48 GB of RAM, and an Intel E5-2620v4 CPU. HACNetV2 is implemented in Python using the PyTorch deep learning framework and runs on the Ubuntu 20.04 operating system. For simplicity, we use random flipping as the sole data augmentation method, avoiding more complex techniques such as cropping. HAC-NetV2 is trained from scratch using the \"He normal\" initialization method (He et al., 2015), without pre-trained weights. The initial learning rate is set at 0.0004, and it is reduced by 20 % every 30 epochs. Training uses the Adam optimizer (Kingma and Ba, 2014) with a minibatch size of 12, following a consistent schedule across both datasets. Training ends after 150 epochs, and the best-performing model on the validation set is selected for testing.",
+        "bbox": [
+            55,
+            635,
+            489,
+            728
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            507,
+            65,
+            941,
+            146
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "4.4. Ablation study",
+        "text_level": 2,
+        "bbox": [
+            509,
+            160,
+            631,
+            172
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "To evaluate the effectiveness of each component in HACNetV2, we conduct an ablation study on the BCL dataset.",
+        "bbox": [
+            509,
+            185,
+            939,
+            213
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "4.4.1. Effectiveness of two branches",
+        "text_level": 2,
+        "bbox": [
+            509,
+            225,
+            726,
+            239
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "In HACNetV2, the incorporation of features from the two branches functions similarly to an ensemble model, but it is more straightforward and efficient. To evaluate the impact of combining these branches, we first construct a model using only the full-resolution (FR) branch and then use only the high-resolution (HR) branch, which operates at half the original image resolution. Finally, we test two ensemble methods: one that involves training the two branches independently and averaging their outputs, and another that uses the HACNetV2 architecture, which integrates features from both branches under full end-to-end (E2E) training. The models are trained under consistent experimental conditions. Table 2 summarizes the results, where HACNet-FR and HACNet-HR represent models with only the FR or HR branch, respectively, and Ens\\_Indep denotes independently trained branches combined by averaging outputs. The results indicate that the E2E ensemble training of HACNetV2 achieves an mIoU of 82.39 %, which is 0.98 %, 1.49 %, and 0.64 % higher than those of the models using the FR and HR branches individually, as well as the Ens\\_Indep method, respectively.",
+        "bbox": [
+            507,
+            239,
+            941,
+            464
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "Fig. 6 visualizes the prediction results for five sample images, comparing single-branch models, the independently trained ensemble, and HACNetV2. As shown in the first and second rows, all the models generally identify cracks well. However, HACNetV2-HR exhibits some aliasing artifacts at the edges (highlighted in green boxes) due to the downsampling and upsampling processes. Upon closer examination of the detection results for each sample, it becomes evident that the fullresolution network shows advantages in identifying small cracks but has limited denoising capability. Conversely, the high-resolution network exhibits superior noise suppression. In summary, by integrating the two branches, HACNetV2 achieves a balanced approach that improves both fine detail detection and overall noise suppression.",
+        "bbox": [
+            507,
+            462,
+            941,
+            622
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "4.4.2. Effectiveness of CrackAM",
+        "text_level": 2,
+        "bbox": [
+            509,
+            634,
+            705,
+            648
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "To assess the superiority of CrackAM, we introduce five model variants for comparison: Baseline, +SE, +CBAM, +CoordAM, and + CrackAM. Among them, Baseline means that HACNetV2 does not introduce an attention mechanism. The terms + SE, +CBAM, and + CoordAM refer to replacing CrackAM in HACNetV2 with SE (Hu et al., 2018), CBAM (Woo et al., 2018), and CoordAM (Hou et al., 2021),",
+        "bbox": [
+            507,
+            648,
+            941,
+            728
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "Table 1",
+        "text_level": 2,
+        "bbox": [
+            57,
+            742,
+            107,
+            755
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "table",
+        "img_path": "images/a2c9d1b7dd3ddc816aa57aac4665dea468af0bfc18bbea5536230393fa15bbec.jpg",
+        "table_caption": [
+            "Overview of the CHCrack5K dataset. This table summarizes the 11 subsets included in the CHCrack5K dataset, providing details on the number of samples, the ratio of crack pixels, and pixel dimensions for each. The post-processing steps applied to create this dataset are also described."
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Dataset</td><td>Type</td><td>Device</td><td>Resolution</td><td>Post-Processing</td><td>% ofCracks</td><td>CreateSamples</td></tr><tr><td>CFD (Shi et al., 2016)</td><td>Urban roads</td><td>iPhone5</td><td>480 × 320</td><td>Padding</td><td>1.61</td><td>117</td></tr><tr><td>Crack500 (Yang et al., 2019)</td><td>Campus roads</td><td>Cell phones</td><td>2560 × 1440/...</td><td>Cut + Resize</td><td>2.66</td><td>1000</td></tr><tr><td>Road420 (Ge et al., 2024)</td><td>Various roads</td><td>iPhone14 Pro</td><td>448 × 480</td><td>Padding</td><td>2.12</td><td>420</td></tr><tr><td>MCD-Crack (Chen &amp; Zhou, 2023)</td><td>Various roads</td><td></td><td>480 × 320</td><td>Padding</td><td>2.12</td><td>235</td></tr><tr><td>SUT-Crack (Sabouri &amp; Sepidbar, 2023)</td><td>Various roads</td><td>Galaxy S20FE</td><td>3024 × 4032</td><td>Cut + Resize</td><td>0.88</td><td>260</td></tr><tr><td>CamCrack789 (Zhu et al., 2024)</td><td>Campus roads</td><td>Microsoft HD camera</td><td>640 × 640</td><td>Resize</td><td>2.87</td><td>789</td></tr><tr><td>DeepCrack537 (Zhou et al., 2022)</td><td></td><td></td><td>544 × 384</td><td>Padding + Resize</td><td>2.53</td><td>537</td></tr><tr><td>CrackTree260 (Zou et al., 2012)</td><td>Various roads</td><td>Area-array</td><td>800 × 600</td><td>Padding + Resize</td><td>0.71</td><td>260</td></tr><tr><td>CrackLS315 (Zou et al., 2018)</td><td></td><td>camera</td><td>512 × 512</td><td>Resize</td><td>0.29</td><td>315</td></tr><tr><td>CRKWH100 (Zou et al., 2018)</td><td></td><td></td><td>512 × 512</td><td>Resize</td><td>0.39</td><td>100</td></tr><tr><td>TunnelCrack (Liao et al., 2022)</td><td>Tunnels</td><td>Customized inspection system</td><td>512 × 512</td><td>Resize</td><td>0.21</td><td>981</td></tr></table>",
+        "bbox": [
+            60,
+            780,
+            937,
+            934
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "header",
+        "text": "H. Chen and H. Chen",
+        "bbox": [
+            57,
+            42,
+            163,
+            54
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "header",
+        "text": "Expert Systems With Applications 286 (2025) 128144",
+        "bbox": [
+            687,
+            42,
+            941,
+            54
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "page_number",
+        "text": "7",
+        "bbox": [
+            494,
+            953,
+            505,
+            962
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "table",
+        "img_path": "images/1d6ab056d0cf45c3e95a9c684d482495cc496b170c565dbf96ed1b3200d167db.jpg",
+        "table_caption": [
+            "Performance comparison of two branches with different connection patterns. Metrics including mIoU, $\\mathrm { { F } } _ { 1 } ,$ Precision (P), and Recall (R) are given as percentages. The greatest result for each metric is shown in bold."
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Method</td><td>Params</td><td>mIoU</td><td> $\\mathrm { F _ { 1 } }$ </td><td>P</td><td>R</td><td>GFLOPs</td><td>FPS</td></tr><tr><td>HACNetV2-FR</td><td>0.10</td><td>81.41</td><td>78.20</td><td>78.45</td><td>77.96</td><td>13.1</td><td>257</td></tr><tr><td>HACNetV2-HR</td><td>0.41</td><td>80.90</td><td>77.48</td><td>77.20</td><td>77.76</td><td>13.1</td><td>492</td></tr><tr><td>Ens_Indep</td><td>0.51</td><td>81.75</td><td>78.69</td><td>79.86</td><td>77.54</td><td>26.2</td><td>168</td></tr><tr><td>HACNetV2</td><td>0.52</td><td>82.39</td><td>79.59</td><td>78.05</td><td>81.19</td><td>26.7</td><td>161</td></tr></table>",
+        "bbox": [
+            60,
+            104,
+            937,
+            170
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "image",
+        "img_path": "images/470b750791dbb587e922009ff559aa004e14b0b5cd5e7f6060022da987bc0043.jpg",
+        "image_caption": [
+            "Fig. 6. Visualization of results from two branches with different connection patterns. The green boxes highlight different segmentation results. (For interpretation of the references to colour in this figure legend, the reader is referred to the web version of this article.)"
+        ],
+        "image_footnote": [],
+        "bbox": [
+            65,
+            199,
+            478,
+            461
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "respectively. Table 3 indicates that CrackAM leads to improvements in HACNetV2's performance. Specifically, CrackAM achieves an mIoU of 82.39 % and an F1 score of 79.59 %, which are 0.75 % and 1.09 % higher than the next best results obtained with SE attention, respectively. This supports the effectiveness of CrackAM within the HACNetV2 architecture.",
+        "bbox": [
+            57,
+            535,
+            489,
+            615
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "To further support these findings, we follow (Hu et al., 2018) to visualize the output activations from the attention blocks at different stages of HACNetV2 with CrackAM and SE. This analysis aims to illustrate how CrackAM improves results and why SE may underperform in the current crack detection context. Five sample images are selected, each featuring different types of cracks against various backgrounds. We then visualize their attention maps for HACNetV2 with CrackAM and SE, respectively. As shown in Fig. 7(a), HACNetV2 with CrackAM exhibits remarkable variability in activation values across channels in both the full-resolution and high-resolution layers. This variability shows that CrackAM dynamically adjusts attention weights across channels on the basis of crack-specific features, demonstrating enhanced sensitivity to localized patterns essential for accurately detecting fine or irregular cracks. In contrast, Fig. 7(b) shows that the SE model results in flat activation lines in some full-resolution layers for certain samples, indicating a lack of activation across multiple channels. These flat activation lines suggest that the SE model may suffer from “feature blindness\" in certain scenarios, causing critical crack features to be overlooked. This observed difference in activation patterns likely contributes to the higher segmentation metrics achieved by CrackAM as shown in Table 3. This reduced activation can lead to an inability to recognize important spatial information, particularly for fine or irregularly shaped cracks that necessitate careful attention to specific channels. These findings align with the analysis presented in Section 3.3.",
+        "bbox": [
+            57,
+            615,
+            489,
+            789
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "table",
+        "img_path": "images/eb90213ea4f3205eb24f42cf242e0dbd7484be0e8e5e5497217c2f1561407d2f.jpg",
+        "table_caption": [
+            "Ablation study on the attention modules in HACNetV2. Metrics including mIoU, F1, Precision (P), and Recall (R) are given as percentages. The greatest result for each metric is shown in bold."
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Method</td><td>mIoU</td><td> $\\mathrm { F _ { 1 } }$ </td><td>P</td><td>R</td></tr><tr><td>Baseline</td><td>81.40</td><td>78.20</td><td>77.58</td><td>78.82</td></tr><tr><td>+SE</td><td>81.64</td><td>78.50</td><td>80.72</td><td>76.39</td></tr><tr><td>+CBAM</td><td>81.12</td><td>77.78</td><td>78.48</td><td>77.10</td></tr><tr><td>+CoordAM</td><td>81.49</td><td>78.32</td><td>78.11</td><td>78.52</td></tr><tr><td>+CrackAM</td><td>82.39</td><td>79.59</td><td>78.05</td><td>81.19</td></tr></table>",
+        "bbox": [
+            60,
+            856,
+            484,
+            933
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            507,
+            190,
+            941,
+            336
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "4.5. Comparison with state-of-the-Art (SOTA) methods",
+        "text_level": 2,
+        "bbox": [
+            510,
+            356,
+            831,
+            370
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "We benchmark the performance of the proposed HACNetV2 against representative SOTA crack detection methods. For this comparison, several influential and publicly available baseline models are selected, as shown in Table 4. To resolve naming ambiguity, DeepCrack (Liu et al., 2019) and DeepCrack (Zou et al., 2018) are subsequently referred to as Liu-DeepCrack and Zou-DeepCrack, respectively. The comparison also includes a U-Net (Ronneberger et al., 2015) variant incorporating batch normalization and HACNet-D (Chen and Lin, 2021), a deeper version of the original HACNet. HACNetV2-W is a widened version of HACNetV2, increasing the channel capacity to 48. For consistency across experiments, we reimplement all the models following the same training schedule and data augmentation techniques outlined in Section 4.3.",
+        "bbox": [
+            509,
+            383,
+            941,
+            542
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "These methods are subsequently categorized based on inference speed, defining low-latency models as those achieving ≥60 FPS at a 480 × 480 pixel input resolution; and non-low-latency methods comprising the remaining models. Table 4 summarizes the performance comparison on the CHCrack5K and BCL datasets, including parameters, FLOPs, FPS, and accuracy. HACNetV2 has approximately 0.52 M parameters, which is considerably fewer than those of U-Net (31.04 M), CrackFormer (4.96 M), and other lightweight models such as HrSegNetB32 and CarNet. HACNet-D has the fewest parameters, but its FLOPs remain high because of the numerous direct convolution operations at full-resolution.",
+        "bbox": [
+            507,
+            542,
+            941,
+            674
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "4.5.1. Evaluation on BCL",
+        "text_level": 2,
+        "bbox": [
+            509,
+            687,
+            667,
+            699
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "The performance of each method is reported on the left side of Table 4. HACNetV2 achieves the highest mIoU and F1 scores among all the models, demonstrating superior accuracy and effectiveness. For example, HACNetV2 outperforms the previous HACNet-D by 1.86 % in mIoU while nearly halving the FLOPs. Compared with CrackFormer, HACNetV2 outperforms it by 1.79 % in mIoU while reducing GFLOPs by 36.1 %. HACNetV2-W further enhances performance, exceeding CrackFormer by 2.77 % in mIoU. Zou-DeepCrack achieves an mIoU of 79.11 %, while HACNetV2 exceeds it by 3.28 %.",
+        "bbox": [
+            507,
+            699,
+            941,
+            818
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "Fig. 8(a) provides visual comparisons on the BCL dataset. It can be observed that crack patterns exhibit significant differences between steel structures and concrete surfaces. HACNetV2 shows improved accuracy in delineating cracks, effectively suppressing noise, and capturing nuanced features in each sample. For the first and second concrete samples, HACNetV2 demonstrates clear separation with minimal background interference, emphasizing its effectiveness in detecting delicate and intricate crack patterns. In contrast, other methods exhibit limitations, either by missing subtle cracks or introducing excess noise that diminishes precision. For the steel bridge samples (shown in the third and fourth columns), HACNetV2 offers more accurate predictions of large and shallow cracks than the other methods do, highlighting its precision and robustness against background noise.",
+        "bbox": [
+            507,
+            818,
+            941,
+            939
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "header",
+        "text": "H. Chen and H. Chen",
+        "bbox": [
+            58,
+            42,
+            163,
+            54
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "header",
+        "text": "Expert Systems With Applications 286 (2025) 128144",
+        "bbox": [
+            689,
+            42,
+            941,
+            54
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "page_number",
+        "text": "8",
+        "bbox": [
+            494,
+            953,
+            505,
+            962
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "chart",
+        "img_path": "images/46b217be08b051906f32b9839120fc7a1a0ba3f73cc2c1d81a8a0a6b3c75cab1.jpg",
+        "content": "",
+        "chart_caption": [],
+        "chart_footnote": [],
+        "bbox": [
+            132,
+            66,
+            394,
+            223
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "chart",
+        "img_path": "images/4142ad7c3eea6b0b6b424ce6cc013b251153c05eef299187bfea23bc5a9bf1e6.jpg",
+        "content": "",
+        "chart_caption": [],
+        "chart_footnote": [],
+        "bbox": [
+            398,
+            68,
+            660,
+            219
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "chart",
+        "img_path": "images/8f3660963f822b634e1ddbf37c10fc640d568c3c9697495709fba50f57628c64.jpg",
+        "content": "",
+        "chart_caption": [],
+        "chart_footnote": [],
+        "bbox": [
+            665,
+            68,
+            926,
+            224
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "chart",
+        "img_path": "images/4883b366ae53d79ed3c7eb450f183d7fc43ff5c6fc6dffa5daa2ae0d45b4fb1f.jpg",
+        "content": "",
+        "chart_caption": [],
+        "chart_footnote": [],
+        "bbox": [
+            131,
+            221,
+            394,
+            384
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "chart",
+        "img_path": "images/ca9da29f9f4b839577c9394773db914074e5bcf60942fbfb6e87c346dfbfb204.jpg",
+        "content": "",
+        "chart_caption": [],
+        "chart_footnote": [],
+        "bbox": [
+            398,
+            223,
+            660,
+            384
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "chart",
+        "img_path": "images/59156660007852deabd90259679042363a04a42b58d719e0de6b6c938e8dd6b8.jpg",
+        "content": "",
+        "chart_caption": [],
+        "chart_footnote": [],
+        "bbox": [
+            663,
+            224,
+            924,
+            384
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "chart",
+        "img_path": "images/47f94f568e4976e85fd8fcdcdbe42973fa5ab5c9602ebf7d6ec70d7aeb01b987.jpg",
+        "content": "",
+        "chart_caption": [],
+        "chart_footnote": [],
+        "bbox": [
+            131,
+            392,
+            396,
+            552
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "chart",
+        "img_path": "images/0c657f002ffa42c0ae7eedaab890144190aafcab00702f24a5f20ac088a55384.jpg",
+        "content": "",
+        "chart_caption": [],
+        "chart_footnote": [],
+        "bbox": [
+            400,
+            393,
+            663,
+            553
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "chart",
+        "img_path": "images/15aabf51f3208f7fb7174af8515f3679e696c638466ec09148d52df893f6dc07.jpg",
+        "content": "",
+        "chart_caption": [],
+        "chart_footnote": [],
+        "bbox": [
+            665,
+            393,
+            927,
+            551
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "chart",
+        "img_path": "images/aaa91229a9be53021e294d11897d012a22d3ffac547a227d33f929a448242321.jpg",
+        "content": "",
+        "chart_caption": [],
+        "chart_footnote": [],
+        "bbox": [
+            134,
+            551,
+            396,
+            709
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "chart",
+        "img_path": "images/63e238bf869dd7745e5d5c32fe00aab6be1ae86f3135f4f933f3830e6eff7b15.jpg",
+        "content": "",
+        "chart_caption": [],
+        "chart_footnote": [],
+        "bbox": [
+            398,
+            551,
+            662,
+            708
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "chart",
+        "img_path": "images/1f2d8f2360613d5f5299256149efa10dbb51f2e05eeb5cc831591321fa9f6389.jpg",
+        "content": "",
+        "chart_caption": [
+            "Fig. 7. Comparison of output activations from attention blocks in HACNetV2 with CrackAM and SE. Each activation set is labeled according to the scheme: AttentionMethod\\_Branch\\_blockID. Notably, activations in the high-resolution branch exhibited greater fluctuations than those in the full-resolution branch."
+        ],
+        "chart_footnote": [],
+        "bbox": [
+            665,
+            551,
+            927,
+            712
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            57,
+            760,
+            487,
+            814
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "4.5.2. Evaluation on CHCrack5K",
+        "text_level": 2,
+        "bbox": [
+            58,
+            825,
+            257,
+            839
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "As shown on the right side of Table 4, HACNetV2 achieves an mIoU of 83.24 % with only 0.52 M parameters and 94.0 GFLOPs, outperforming all non-low-latency counterparts with regard to the mIoU, F1 score, and GFLOPs. Meanwhile, CrackFormer ranks second in both the mIoU and F1 scores on this dataset. Specifically, HACNetV2 exceeds CrackFormer's performance by 0.82 % in mIoU and operates nearly three times faster, while HACNetV2-W improves mIoU by 1.06 % over",
+        "bbox": [
+            57,
+            839,
+            489,
+            933
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "CrackFormer and runs over 1.7 times faster. The high computational load of CrackFormer stems from its deep and complex architecture, which is designed to enhance feature discrimination.",
+        "bbox": [
+            507,
+            760,
+            939,
+            800
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "The visual comparisons in Fig. 8(b) highlight the strengths of HAC-NetV2. In samples with subtle or thin cracks (columns 1-2), both HACNet-D and HACNetV2 show clear benefits, producing results that closely match the ground truth in terms of completeness. In contrast, other methods struggle to segment thin cracks properly from the background. This result highlights the clear advantages of high-resolution networks in detecting fine cracks. For samples with diverse crack sizes and complex backgrounds (columns 3–4), HACNetV2 preserves detail and accurately captures crack boundaries, outperforming alternative methods that struggle with noise or incomplete crack segmentation. This is due to HACNetV2's dual-branch structure, which maintains high spatial resolution and balances fine-grained detail detection with efficient feature extraction. This design makes HACNetV2 particularly effective at detecting both fine and large-scale cracks, thereby ensuring broad applicability across varied inspection scenarios.",
+        "bbox": [
+            507,
+            800,
+            941,
+            933
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "header",
+        "text": "H. Chen and H. Chen",
+        "bbox": [
+            58,
+            42,
+            163,
+            54
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "header",
+        "text": "Expert Systems With Applications 286 (2025) 128144",
+        "bbox": [
+            689,
+            42,
+            941,
+            54
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "page_number",
+        "text": "9",
+        "bbox": [
+            494,
+            953,
+            505,
+            962
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "table",
+        "img_path": "images/ef803399f1a584eaba43edc8679db4ce0986a242494ac3bc1aabca1e6b8435d1.jpg",
+        "table_caption": [
+            "Comparison of the performance of various methods on the CHCrack5K and BCL datasets. HACNetV2 achieves speed-accuracy trade-offs. The greatest result for each metric is shown in bold."
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td rowspan=\"2\"></td><td rowspan=\"2\">Method</td><td rowspan=\"2\">Params (M)</td><td colspan=\"6\">BCL (256 × 256)</td><td colspan=\"6\">CHCrack5K (480× 480)</td></tr><tr><td>mIoU</td><td> $\\mathrm { F _ { 1 } }$ </td><td>P</td><td>R</td><td>GFLOPs</td><td>FPS</td><td>mIoU</td><td> $\\mathrm { F _ { 1 } }$ </td><td>P</td><td>R</td><td>GFLOPs</td><td>FPS</td></tr><tr><td rowspan=\"4\">Low-latency</td><td>HrSegNetB32 (Li et al., 2023)</td><td>2.43</td><td>80.45</td><td>76.85</td><td>75.67</td><td>78.06</td><td>2.1</td><td>1017</td><td>80.43</td><td>76.29</td><td>79.99</td><td>72.92</td><td>7.2</td><td>678</td></tr><tr><td>Liu-DeepCrack (Liu et al., 2019)</td><td>14.72</td><td>79.81</td><td>75.86</td><td>77.88</td><td>73.95</td><td>40.2</td><td>416</td><td>79.29</td><td>74.56</td><td>78.81</td><td>70.75</td><td>141.6</td><td>144</td></tr><tr><td>CarNet (Li et al., 2024)</td><td>4.89</td><td>80.54</td><td>76.94</td><td>78.87</td><td>75.10</td><td>9.6</td><td>684</td><td>80.78</td><td>76.81</td><td>79.86</td><td>73.98</td><td>33.8</td><td>367</td></tr><tr><td>HACNetV2-HR</td><td>0.41</td><td>80.90</td><td>77.48</td><td>77.20</td><td>77.76</td><td>13.1</td><td>492</td><td>81.79</td><td>78.30</td><td>78.24</td><td>78.37</td><td>45.9</td><td>138</td></tr><tr><td rowspan=\"7\">Non-Low- latency</td><td>U-Net (Ronneberger et al., 2015)</td><td>31.04</td><td>80.52</td><td>76.94</td><td>76.55</td><td>77.33</td><td>109.5</td><td>189</td><td>81.83</td><td>78.34</td><td>82.16</td><td>74.87</td><td>385.0</td><td>59</td></tr><tr><td>Zou-DeepCrack (Zou et al., 2018)</td><td>30.90</td><td>79.11</td><td>74.88</td><td>73.78</td><td>76.02</td><td>274.3</td><td>51</td><td>81.32</td><td>77.62</td><td>78.20</td><td>77.04</td><td>964.3</td><td>16</td></tr><tr><td>CrackFormer (Liu et al., 2023)</td><td>4.96</td><td>80.60</td><td>77.04</td><td>77.26</td><td>76.82</td><td>41.8</td><td>55</td><td>82.42</td><td>79.22</td><td>78.78</td><td>79.66</td><td>146.8</td><td>17</td></tr><tr><td>HACNet-D (Chen &amp; Lin, 2021)</td><td>0.34</td><td>80.53</td><td>76.97</td><td>74.94</td><td>79.11</td><td>45.4</td><td>154</td><td>82.05</td><td>78.67</td><td>79.07</td><td>78.28</td><td>159.6</td><td>45</td></tr><tr><td>HACNetV2</td><td>0.52</td><td>82.39</td><td>79.59</td><td>78.05</td><td>81.19</td><td>26.7</td><td>161</td><td>83.24</td><td>80.36</td><td>80.60</td><td>80.12</td><td>94.0</td><td>47</td></tr><tr><td>HACNetV2-W</td><td>1.17</td><td>83.37</td><td>80.93</td><td>80.07</td><td>81.81</td><td>59.4</td><td>98</td><td>83.48</td><td>80.70</td><td>80.04</td><td>81.36</td><td>208.9</td><td>29</td></tr></table>",
+        "bbox": [
+            60,
+            103,
+            936,
+            340
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            57,
+            358,
+            487,
+            426
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "4.6. Discussion on inference efficiency",
+        "text_level": 2,
+        "bbox": [
+            58,
+            443,
+            284,
+            457
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "The top portion of Table 4 focuses on lightweight, low-latency models tested on the BCL and CHCrack5K datasets. Using only the high-resolution branch, HACNetV2-HR achieves the best performance among all the compared methods, including HrSegNetB32, Liu-DeepCrack, and CarNet, reaching an mIoU of 80.90 % on the BCL test set at 492 FPS. Compared with other lightweight networks, HACNetV2- HR also achieves superior results on CHCrack5K. HACNetV2 has the lowest FLOPs compared with the other methods listed in the bottom section of Table $^ { 4 , }$ indicating higher computational efficiency. Despite U-Net's FLOPS being significantly higher than that of HACNetV2, its inference speed is faster. This is because FLOPS does not directly correlate with the actual inference speed (Ma et al., 2018). A model with fewer FLOPS can exhibit higher inference latency due to inefficiencies in memory usage, lack of hardware optimization, or architectural features that hinder parallel execution.",
+        "bbox": [
+            57,
+            469,
+            489,
+            668
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Through inference efficiency analysis, we find that HACNetV2 is highly scalable. The lightweight model HACNetV2-HR is compact and efficient while maintaining competitive performance, making it well suited for real-time applications. Moreover, HACNetV2, a medium-sized model, delivers state-of-the-art results on both datasets, highlighting the effectiveness and efficiency of our network architecture. HACNetV2 processes 480 × 480 images at real-time speeds, achieving 47 FPS on a single RTX 3090, which is slightly faster than HACNet-D, with improved crack detection accuracy. By increasing the channel capacity to 48 in HACNetV2-W, the segmentation accuracy improves by 0.98 % on BCL and 0.24 % on CHCrack5K compared to the baseline HACNetV2. This enhancement makes the model suitable for applications requiring high detection accuracy, despite the increase in parameters and computational complexity.",
+        "bbox": [
+            57,
+            668,
+            489,
+            853
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "4.7. Analysis of limitations",
+        "text_level": 2,
+        "bbox": [
+            58,
+            871,
+            221,
+            885
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Despite its strengths, HACNetV2 encounters challenges when detecting extremely fine cracks, particularly in images with complex backgrounds. Fig. 9 (highlighted in yellow boxes) illustrates several failure cases, where shallow cracks, thin cracks, and cracks against intricate backgrounds (e.g., stains) are not accurately segmented. Red boxes indicate false positives, such as over-segmentation errors involving the edges of manhole covers and other structural elements. These limitations may be due to the limited representation of such cases in the training dataset, leading to an imbalance that impacts the learning process. Furthermore, current deep learning models, including HAC-NetV2, still face difficulties in generalizing to cracks of varying shapes within complex backgrounds that have limited visual cues. We believe that the accuracy and robustness of HACNetV2 could be further enhanced by (1) expanding the training dataset with more diverse labeled examples and (2) developing larger and deeper model architectures to enhance feature representation.",
+        "bbox": [
+            57,
+            897,
+            489,
+            938
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            507,
+            358,
+            941,
+            530
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "4.8. Results on real application",
+        "text_level": 2,
+        "bbox": [
+            510,
+            552,
+            697,
+            566
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "To verify the practical applicability of HACNetV2 without additional adjustments, we develop a simple, real-time crack detection device (see Fig. 10(a)). This system comprises a professional SONY ILX-LR1 camera equipped with a 40-mm SONY lens, a Jetson Orin AGX edge device, and an LCD touchscreen display for immediate visualization of detection results. We train the model on the entire CHCrack5K dataset, convert it into a TensorRT format, and deploy it on the Jetson Orin AGX platform. The ILX-LR1 captures real-time video streams at a resolution of 3840 × 2160. To accommodate computational constraints, each frame is centercropped and resized to 480 × 480 pixels before processing with HACNetV2.",
+        "bbox": [
+            507,
+            578,
+            941,
+            723
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "We conduct experiments on pavement roads in Hangzhou, China, to assess the model's performance under real-world conditions. As shown in Fig. 10(b), HACNetV2 successfully detects cracks in diverse and challenging scenarios, demonstrating its effectiveness and potential for practical, on-site deployment. Furthermore, the model achieves an inference speed of approximately 41 ms per image (\\~24 FPS) on the Jetson Orin AGX, ensuring near real-time performance. These results highlight HACNetV2's suitability for deployment on embedded platforms and IoT devices where computational and energy resources may be constrained.",
+        "bbox": [
+            507,
+            725,
+            941,
+            856
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "5. Conclusions and future work",
+        "text_level": 2,
+        "bbox": [
+            509,
+            871,
+            724,
+            885
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "Automatic pixel-level crack detection is an essential task in the field of infrastructure health monitoring. This study presents HACNetV2, a scalable and efficient high-resolution architecture designed for precise pixel-level crack detection. HACNetV2 achieves superior performance on the BCL and CHCrack5K benchmark datasets while maintaining low parameters and minimal computational cost. The key conclusions of this study are as follows: (1) Even without the use of downsampling and upsampling, the combination of a hybrid connection of atrous convolutional layers with exponentially increasing dilation rates and channel attention mechanisms effectively aggregates multiscale features across different receptive fields. This design improves the segmentation accuracy for cracks of various sizes. (2) The integration of full-resolution and high-resolution branches enables HACNetV2 to balance efficiency and performance. This structure not only retains the advantage of preserving more spatial detail but also benefits from strong representation learning. (3) CrackAM improves the model's sensitivity to subtle crack features, addressing the limitations of conventional attention mechanisms that may overlook sparse crack details. (4) Different crack detection scenarios impose varying requirements for detection accuracy and computational efficiency. The flexible architecture of HACNetV2 allows for easy parameter adjustments to meet these diverse real-world demands. We hope these insights contribute to advancements in other defect tasks that require detailed spatial information.",
+        "bbox": [
+            509,
+            897,
+            941,
+            938
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "header",
+        "text": "H. Chen and H. Chen",
+        "bbox": [
+            58,
+            42,
+            163,
+            54
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "header",
+        "text": "Expert Systems With Applications 286 (2025) 128144",
+        "bbox": [
+            689,
+            42,
+            941,
+            54
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "page_number",
+        "text": "10",
+        "bbox": [
+            492,
+            953,
+            509,
+            962
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "image",
+        "img_path": "images/55853f1614f697ebe0c88ef02be2d9be81d0dc04d1e95ee77cb31c1b17fcb47f.jpg",
+        "image_caption": [],
+        "image_footnote": [],
+        "bbox": [
+            85,
+            68,
+            531,
+            775
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "image",
+        "img_path": "images/d889d182744861ce832a7b851fe7823cba12798f95fe641fe149a670c8ea5613.jpg",
+        "image_caption": [
+            "Fig. 8. Visual comparison of BCL and CHCrack5K results from different methods. Four samples from each dataset are selected. The green boxes highlight different segment results. (For interpretation of the references to colour in this figure legend, the reader is referred to the web version of this article.)",
+            "(a) BCL",
+            "(b) CHCrack5K"
+        ],
+        "image_footnote": [],
+        "bbox": [
+            536,
+            68,
+            917,
+            775
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            57,
+            838,
+            487,
+            931
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            507,
+            838,
+            941,
+            931
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "header",
+        "text": "H. Chen and H. Chen",
+        "bbox": [
+            58,
+            42,
+            163,
+            54
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "header",
+        "text": "Expert Systems With Applications 286 (2025) 128144",
+        "bbox": [
+            689,
+            42,
+            939,
+            54
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "page_number",
+        "text": "11",
+        "bbox": [
+            492,
+            953,
+            507,
+            962
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "image",
+        "img_path": "images/b74ebe51cd16c672fe411a3b8acc5ecbd343d524fc4303e1ccdf1235d8574c7f.jpg",
+        "image_caption": [
+            "Fig. 9. Failure cases of the proposed method. The first two columns present samples from the BCL dataset, whereas the remaining samples are from the CHCrack5K dataset. The yellow boxes highlight incomplete crack detection, while the red boxes indicate false positive cases. (For interpretation of the references to colour in this figure legend, the reader is referred to the web version of this article.)"
+        ],
+        "image_footnote": [],
+        "bbox": [
+            70,
+            68,
+            478,
+            267
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "image",
+        "img_path": "images/b7adf58046effa5aa436cee3e6309433c10c0c6edc01a97ded3fb36e335a9607.jpg",
+        "image_caption": [
+            "(a)"
+        ],
+        "image_footnote": [],
+        "bbox": [
+            65,
+            375,
+            300,
+            554
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "image",
+        "img_path": "images/dfde4041b6a24fb7854c8d29fc606134bc7c9c8feca0ffe9acc279593f3e3e02.jpg",
+        "image_caption": [
+            "(b)",
+            "Fig. 10. Our self-developed detection device and the corresponding crack detection results in real-world pavement scenarios."
+        ],
+        "image_footnote": [],
+        "bbox": [
+            307,
+            374,
+            478,
+            553
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            57,
+            616,
+            487,
+            694
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Future efforts will explore more sophisticated architectures that integrate geometric constraints or foreground-background enhancement to further improve feature extraction and address variability in crack morphology. Additionally, we aim to integrate HACNetV2 into professional road and bridge inspection instruments. This integration will involve conducting extensive field experiments, assessing the model's performance in real-world measurement environments, and iteratively optimizing the network architecture based on empirical findings.",
+        "bbox": [
+            57,
+            694,
+            487,
+            802
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Declaration of competing interest",
+        "text_level": 2,
+        "bbox": [
+            58,
+            818,
+            280,
+            831
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "The authors declare that they have no known competing financial interests or personal relationships that could have appeared to influence the work reported in this paper.",
+        "bbox": [
+            57,
+            843,
+            487,
+            883
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Acknowledgments",
+        "text_level": 2,
+        "bbox": [
+            58,
+            899,
+            183,
+            911
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "This work was supported by the Zhejiang Provincial Natural Science",
+        "bbox": [
+            77,
+            924,
+            487,
+            938
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Foundation of China under Grant No. LTGG24F020003, in part by Natural Science Foundation of Xinjiang Uygur Autonomous Region under Grant No. 2024D01A52 and the Department of Education of Zhejiang Province, under Grant No. Y202352392.",
+        "bbox": [
+            509,
+            65,
+            941,
+            119
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "Data availability",
+        "text_level": 2,
+        "bbox": [
+            510,
+            132,
+            623,
+            145
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "The BCL dataset (Ye et al., 2021) is available at Doi: 10.7910/DVN/ RURXSH. The CHCrack5K dataset is available at https://github. com/hanshenchen/CHCrack5K. Code for the proposed HACNetV2 network is available at https://github.com/hanshenchen/HACNetV2.",
+        "bbox": [
+            509,
+            158,
+            939,
+            211
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "text",
+        "text": "References",
+        "text_level": 2,
+        "bbox": [
+            510,
+            224,
+            586,
+            237
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "list",
+        "sub_type": "ref_text",
+        "list_items": [
+            "Abou-Zeid, M., Fowler, D. W., Nawy, E. G., et al. (2001). Control of cracking in concrete structures. Report of ACI Committee, 224, 12–16.",
+            "Ai, D., Jiang, G., Lam, S. K., et al. (2023). Computer vision framework for crack detection of civil infrastructure—A review. Engineering Applications of Artificial Intelligence, 117, Article 105478. https://doi.org/10.1016/j.engappai.2022.105478",
+            "Badrinarayanan, V., Kendall, A., & Cipolla, R. (2017). SegNet: A deep convolutional encoder-decoder architecture for image segmentation. IEEE Transactions on Pattern Analysis and Machine Intelligence, 39, 2481–2495. https://doi.org/10.1109/ TPAMI.2016.2644615",
+            "Bai, S., Yang, L., Liu, Y., & Yu, H. (2024). DMF-Net: A dual-encoding multi-scale fusion network for pavement crack detection. IEEE Transactions on Instrumentation and Measurement, 25, 5981–5996. https://doi.org/10.1109/tits.2023.3331769",
+            "Bang, S., Park, S., Kim, H., & Kim, H. (2019). Encoder–decoder network for pixel-level road crack detection in black-box images. Computational Aided Civil Infrastructure Engineering, 34, 713–727. https://doi.org/10.1111/mice.12519",
+            "Chen, H., & Lin, H. (2021). An effective hybrid atrous convolutional network for pixellevel crack detection. IEEE Transactions on Instrumentation and Measurement, 70, 1-12. https://doi.org/10.1109/tim.2021.3075022",
+            "Chen, H., Lin, H., & Yao, M. (2019). Improving the efficiency of encoder-decoder architecture for pixel-level crack detection. IEEE Access, 7, 186657–186670. https:// doi.org/10.1109/access.2019.2961375",
+            "Chen, H., Su, Y., & He, W. (2021). Automatic crack segmentation using deep highresolution representation learning. Applied Optics, 60, 6080–6090. https://doi.org/ 10.1364/ao.423406",
+            "Chen, Y., & Zhou, Z. (2023). Multi-crack dataset. Data Science Bank, 1. https://doi.org/ 10.57760/sciencedb.07189",
+            "Choi, W., & Cha, Y. (2020). SDDNet: Real-time crack segmentation. IEEE Transactions on Industrial Electronics, 67, 8016–8025. https://doi.org/10.1109/tie.2019.2945265",
+            "Chu, H., Wang, W., & Deng, L. (2022). Tiny-Crack-Net: A multi-scale feature fusion network with attention mechanisms for segmentation of tiny cracks. Computational Aided Civil Infrastructure Engineering, 37, 1914–1931. https://doi.org/10.1111/ mice.12881",
+            "Dorafshan, S., & Maguire, M. (2018). Bridge inspection: Human performance, unmanned aerial systems and automation. Journal of Civil Structural Health Monitoring, 8, 443-476. https://doi.org/10.1007/s13349-018-0285-4",
+            "Fei, Y., Wang, K. C., Zhang, A., Chen, C., Li, J. Q., et al. (2020). Pixel-level cracking detection on 3D asphalt pavement images through deep-learning-based CrackNet-V. IEEE Transactions on Intelligent Transportation Systems, 21, 273–284. https://doi.org/ 10.1109/TITS.2019.2891167",
+            "Ge, K., Wang, C., Guo, Y. T., et al. (2024). Fine-tuning vision foundation model for crack segmentation in civil infrastructures. Construction and Building Materials, 431, Article 136573. https://doi.org/10.1016/j.conbuildmat.2024.136573",
+            "Gu, E., Xiao, G., Lian, F., et al. (2023). Segmentation and evaluation of crack image from aircraft fuel tank via atrous spatial pyramid fusion and hybrid attention network. IEEE Transactions on Instrumentation and Measurement, 72, 1–14. https://doi.org/ 10.1109/tim.2023.3272052",
+            "Hamaguchi, R., Fujita, A., Nemoto, K., et al. (2018). Effective use of dilated convolutions for segmenting small object instances in remote sensing imagery. In Proceedings of the IEEE Winter Conference on Applications of Computer Vision (pp. 1442–1450). https:// doi.org/10.1109/wacv.2018.00162",
+            "He, K., Sun, J., & Tang, X. (2013). Guided image filtering. IEEE Transactions on Pattern Analysis and Machine Intelligence, 35, 1397–1409. https://doi.org/10.1109/ TPAMI.2012.213",
+            "He, K., Zhang, X., Ren, S., et al. (2015). Delving deep into rectifiers: Surpassing humanlevel performance on ImageNet classification. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (pp. 1026–1034). https://doi.org/10.1109/ iccv.2015.123",
+            "He, K., Zhang, X., Ren, S., et al. (2016). Deep residual learning for image recognition. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (pp. 770–778). https://doi.org/10.1109/CVPR.2016.90",
+            "Hou, Q., Zhou, D., & Feng, J. (2021). Coordinate attention for efficient mobile network design. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (pp. 13713–13722). https://doi.org/10.1109/cvpr46437.2021.01350",
+            "Hu, J., Shen, L., & Sun, G. (2018). Squeeze-and-excitation networks. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (pp. 7132–7141). https:// doi.org/10.1109/cvpr.2018.00745"
+        ],
+        "bbox": [
+            510,
+            249,
+            934,
+            269
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "header",
+        "text": "H. Chen and H. Chen",
+        "bbox": [
+            58,
+            42,
+            163,
+            54
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "header",
+        "text": "Expert Systems With Applications 286 (2025) 128144",
+        "bbox": [
+            689,
+            42,
+            939,
+            54
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "page_number",
+        "text": "12",
+        "bbox": [
+            492,
+            953,
+            509,
+            962
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "list",
+        "sub_type": "ref_text",
+        "list_items": [
+            "Huang, H. W., Li, Q. T., & Zhang, D. M. (2018). Deep learning based image recognition for crack and leakage defects of metro shield tunnel. Tunnelling and Underground Space Technology, 77, 166–176. https://doi.org/10.1016/j.tust.2018.04.002",
+            "Ioffe, S., & Szegedy, C. (2015). Batch normalization: Accelerating deep network training by reducing internal covariate shift. In In: Proceedings of the International Conference on Machine Learning (pp. 448–456).",
+            "D. Kingma J. Ba Kingma, D., & Ba, J. (2014). Adam: A method for stochastic optimization. arXiv preprint arXiv:1412.6980. Doi: 10.48550/arXiv.1412.6980.",
+            "Lan, Z. X., & Dong, X. M. (2022). MiniCrack: A simple but efficient convolutional neural network for pixel-level narrow crack detection. Computers in Industry, 141, Article 103698.https://doi.org/10.1016/j.compind.2022.103698",
+            "Lee, H., Kim, H., & Nam, H. (2019). SRM: A style-based recalibration module for convolutional neural networks. In Proceedings of the International Conference on Computer Vision (pp. 1854–1862). https://doi.org/10.1109/iccv.2019.00194",
+            "Lee, Y., & Park, J. (2020). CenterMask: Real-time anchor-free instance segmentation. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (pp. 13906-13915). https://doi.org/10.1109/cvpr42600.2020.01392",
+            "Lee, Y. C., Xie, S., Gallagher, P., et al. (2015). Deeply-supervised nets. In Proceedings of the International Conference on Artificial Intelligence and Statistics (AISTATS) (pp. 562–570).",
+            "Li, Y., Ma, R., Liu, H., et al. (2023). Real-time high-resolution neural network with semantic guidance for crack segmentation. Automation in Construction, 156, Article 105112. https://doi.org/10.1016/j.autcon.2023.105112",
+            "Li, K., Yang, J., Ma, S., et al. (2024). Rethinking lightweight convolutional neural networks for efficient and high-quality pavement crack detection. IEEE Transactions on Intelligent Transportation Systems, 25, 237–250. https://doi.org/10.1109/ tits.2023.3307286",
+            "Liao, J., Yue, Y., Zhang, D., et al. (2022). Automatic tunnel crack inspection using an efficient mobile imaging module and a lightweight CNN. IEEE Transactions on Intelligent Transportation Systems, 23, 15190–15203. https://doi.org/10.1109/ tits.2021.3138428",
+            "Liu, Z., Cao, Y., Wang, Y., & Wang, W. (2019). Computer vision-based concrete crack detection using U-net fully convolutional networks. Automation in Construction, 104, 129-139. https://doi.org/10.1016/j.autcon.2019.04.005",
+            "Liu, W., Huang, Y., Li, Y., et al. (2019). FPCNet: Fast pavement crack detection network based on encoder-decoder architecture. arXiv preprint arXiv:1907.02248. Doi: 10.48550/arXiv.1907.02248.",
+            "Liu, H., Yang, J., Miao, X., et al. (2023). Crackformer network for pavement crack segmentation. IEEE Transactions on Intelligent Transportation Systems, 24, 9240–9252. https://doi.org/10.1109/TITS.2023.3245192",
+            "Liu, Y., Yao, J., Lu, X., et al. (2019). DeepCrack: A deep hierarchical feature learning architecture for crack segmentation. Neurocomputing, 338, 139–153. https://doi.org/ 10.1016/j.neucom.2019.01.036",
+            "Long, J., Shelhamer, E., & Darrell, T. (2015). Fully convolutional networks for semantic segmentation. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (pp. 3431–3440). https://doi.org/10.1109/CVPR.2015.7298965",
+            "Loupos, K., Doulamis, A. D., Stentoumis, C., Protopapadakis, E., et al. (2018). Autonomous robotic system for tunnel structural inspection and assessment International Journal of Intelligent Robotics and Applications, 2, 43–66. https://doi.org/ 10.1007/s41315-017-0031-9",
+            "Ma, N., Zhang, X., Zheng, H., & Sun, J. (2018). ShuffleNet V2: Practical guidelines for efficient CNN architecture design. In Proceedings of the European Conference on Computer Vision (pp. 116–131). https://doi.org/10.1007/978-3-030-01264-9\\_8",
+            "Makantasis, K., Protopapadakis, E., Doulamis, A., Doulamis, N., & Loupos, C. (2015, September). Deep convolutional neural networks for efficient vision based tunnel inspection. IEEE international conference on intelligent computer communication and processing (ICCP) (pp. 335-342). IEEE. Doi: 10.1109/ICCP.2015.7312681.",
+            "Nair, V., & Hinton, G. E. (2010). Rectified linear units improve restricted Boltzmann machines. In Proceedings of the International Conference on Machine Learning (pp. 807–814).",
+            "Oktay, O. (2018). Attention U-Net: Learning where to look for the pancreas. arXiv preprint arXiv:1804.03999. Doi: 10.48550/arXiv.1804.03999.",
+            "Pandey, R., & Achara, A. (2024). TrueDeep: A systematic approach of crack detection with less data. Expert Systems with Applications, 242, Article 122785. https://doi.org/ 10.1016/j.eswa.2023.122785",
+            "Pelt, P. M., & Sethian, J. A. (2018). A mixed-scale dense convolutional neural network for image analysis. Proceedings of the National Academy of Sciences, 115, 254–259. https://doi.org/10.1073/pnas.1715832114",
+            "Peng, C., Zhang, X., Yu, G., Luo, G., & Sun, J. (2017). Large kernel matters–improve semantic segmentation by global convolutional network. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (pp. 2–5). https://doi.org/ 10.1109/cvpr.2017.189",
+            "Qu, Z., & Wang, L. (2023). Gating attention convolutional networks with dense connection for pixel-level crack detection. Multimedia Systems, 29, 641–652. https:// doi.org/10.1007/s00530-022-01008-3",
+            "Ranyal, E., Sadhu, A., & Jain, K. (2024). Enhancing pavement health assessment: An attention-based approach for accurate crack detection, measurement, and mapping. Expert Systems with Applications, 247, Article 123314. https://doi.org/10.1016/j. eswa.2024.123314",
+            "Ronneberger, O., Fischer, P., & Brox, T. (2015). U-Net: Convolutional networks for biomedical image segmentation. In Proceedings of the International Conference on Medical Image Computing and Computer-Assisted Intervention (pp. 234–241). https:// doi.org/10.1007/978-3-319-24574-4 28",
+            "Sabouri, M., & Sepidbar, A. (2023). SUT-crack: A comprehensive dataset for pavement crack detection across all methods. Data Brief, 51, Article 109642. https://doi.org/ 10.1016/j.dib.2023.109642",
+            "Schnebele, E., Tanyu, B. F., Cervone, G., et al. (2015). Review of remote sensing methodologies for pavement management and assessment. European Transport Research Review, 7, 1-19. https://doi.org/10.1007/s12544-015-0156-6",
+            "Shi, Y., Cui, L., Qi, Z., et al. (2016). Automatic road crack detection using random structured forests. IEEE Transactions on Intelligent Transportation Systems, 17, 3434–3445. https://doi.org/10.1109/tits.2016.2552248",
+            "Sun, L., Yang, Y., Zhou, G., et al. (2024). An integration–competition network for bridge crack segmentation under complex scenes. Computational Aided Civil Infrastructure Engineering, 39, 617–634. https://doi.org/10.1111/mice.13113",
+            "Toniolo, G., & Di Prisco, M. (2017). Reinforced Concrete Design to Eurocode 2 (Volume 1). Berlin, Germany: Springer.",
+            "Tsai, Y. C., & Chatterjee, A. (2017). Comprehensive, quantitative crack detection algorithm performance evaluation system. Journal of Computing in Civil Engineering, 31, Article 04017047. https://doi.org/10.1061/(asce)cp.1943-5487.0000696",
+            "Wang, P., Chen, P., Yuan, Y., et al. (2018). Understanding convolution for semantic segmentation. In Proceedings of the IEEE Winter Conference on Applications of Computer Vision (pp. 1451–1460). https://doi.org/10.1109/wacv.2018.00163",
+            "Wang, X., Mao, Z., Liang, Z., et al. (2024). Multi-scale semantic map distillation for lightweight pavement crack detection. IEEE Transactions on Intelligent Transportation Systems. https://doi.org/10.1109/tits.2024.3405477",
+            "Wang, W., & Su, C. (2022). Automatic concrete crack segmentation model based on transformer. Automation in Construction, 139, Article 104275. https://doi.org/ 10.1016/j.autcon.2022.104275",
+            "Woo, S., Park, J., Lee, J. Y., et al. (2018). CBAM: Convolutional block attention module. In Proceedings of the European Conference on Computer Vision (pp. 3–19). https://doi. org/10.1007/978-3-030-01234-2\\_1",
+            "Yang, L., Huang, H., Kong, S., et al. (2023). PAF-NET: A progressive and adaptive fusion network for pavement crack segmentation. IEEE Transactions on Intelligent Transportation Systems, 24, 12686–12700. https://doi.org/10.1109/ tits.2023.3287533",
+            "Yang, F., Zhang, L., Yu, S., et al. (2019). Feature pyramid and hierarchical boosting network for pavement crack detection. IEEE Transactions on Intelligent Transportation Systems, 21, 1525–1535. https://doi.org/10.1109/tits.2019.2910595",
+            "Ye, X. W., Jin, T., Li, Z. X., et al. (2021). Structural crack detection from benchmark data sets using pruned fully convolutional networks. Journal of Structural Engineering, 147, Article 04721008. https://doi.org/10.1061/(asce)st.1943-541x.0003140",
+            "Yu, F., & Koltun, V. (2016). Multi-scale context aggregation by dilated convolutions. In: Proceedings of the International Conference on Learning Representations, San Juan, Puerto Rico.",
+            "Zhang, K., Cheng, H. D., & Zhang, B. (2018). Unified approach to pavement crack and sealed crack detection using preclassification based on transfer learning. Journal of Computing in Civil Engineering, 32(2), Article 04018001. https://doi.org/10.1061/ (ASCE)CP.1943-5487.0000736",
+            "Zhang, Y., & Liu, C. (2024). Network for robust and high-accuracy pavement crack segmentation. Automation in Construction, 162, Article 105375. https://doi.org/ 10.1016/j.autcon.2024.105375",
+            "Zhang, A., Wang, K. C. P., Li, B., et al. (2017). Automated pixel-level pavement crack detection on 3D asphalt surfaces using a deep-learning network. Computational Aided Civil Infrastructure Engineering, 32, 805–819. https://doi.org/10.1111/mice.12246",
+            "Zhou, Q., Qu, Z., Wang, S. Y., & Bao, K. H. (2022). A method of potentially promising network for crack detection with enhanced convolution and dynamic feature fusion IEEE Transactions on Intelligent Transportation Systems, 23, 18736–18745. https://doi. org/10.1109/tits.2022.3154746",
+            "Zhou, B., Zhao, H., Puig, X., Fidler, S., Barriuso, A., & Torralba, A. (2017). Scene parsing through ADE20K dataset. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (pp. 6–8). https://doi.org/10.1109/cvpr.2017.544",
+            "Zhu, G., Liu, J., Fan, Z., et al. (2024). A lightweight encoder–decoder network for automatic pavement crack detection. Computational-Aided Civil Infrastructure Engineering,39, 1743–1765. https://doi.org/10.1111/mice.13103",
+            "Zou, Q., Cao, Y., Li, Q., Mao, Q., & Wang, S. (2012). CrackTree: Automatic crack detection from pavement images. Pattern Recognition Letters, 33, 227–238. https:// doi.org/10.1016/j.patrec.2011.11.004",
+            "Zou, Q., Zhang, Z., Li, Q., et al. (2018). Deepcrack: Learning hierarchical convolutional features for crack detection. IEEE Transactions on Image Processing, 28, 1498–1512. https://doi.org/10.1109/tip.2018.2878966"
+        ],
+        "bbox": [
+            60,
+            66,
+            484,
+            97
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "header",
+        "text": "H. Chen and H. Chen",
+        "bbox": [
+            58,
+            42,
+            163,
+            54
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "header",
+        "text": "Expert Systems With Applications 286 (2025) 128144",
+        "bbox": [
+            689,
+            42,
+            939,
+            54
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "page_number",
+        "text": "13",
+        "bbox": [
+            492,
+            953,
+            509,
+            962
+        ],
+        "page_idx": 12
+    }
+]

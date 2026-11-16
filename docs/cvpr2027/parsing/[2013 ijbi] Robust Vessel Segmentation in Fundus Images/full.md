@@ -1,0 +1,364 @@
+Research Article
+
+# Robust Vessel Segmentation in Fundus Images
+
+A. Budai,1,2,3 R. Bock,1,3 A. Maier,1,3 J. Hornegger,1,3 and G. Michelson3,4,5
+
+1 Pattern Recognition Lab, Friedrich-Alexander University, Erlangen-Nuremberg, 91058 Erlangen, Germany   
+2 International Max Planck Research School for Optics and Imaging (IMPRS), 91058 Erlangen, Germany   
+3 Erlangen Graduate School in Advanced Optical Technologies (SAOT), 91052 Erlangen, Germany   
+4 Department of Ophthalmology, Friedrich-Alexander University, Erlangen-Nuremberg, 91058 Erlangen, Germany   
+5 Interdisciplinary Center of Ophthalmic Preventive Medicine and Imaging (IZPI), 91054 Erlangen, Germany
+
+Correspondence should be addressed to A. Budai; attila.budai@informatik.uni-erlangen.de
+
+Received 4 June 2013; Revised 18 September 2013; Accepted 21 September 2013
+
+Academic Editor: Yue Wang
+
+Copyright © 2013 A. Budai et al. This is an open access article distributed under the Creative Commons Attribution License, which permits unrestricted use, distribution, and reproduction in any medium, provided the original work is properly cited.
+
+One of the most common modalities to examine the human eye is the eye-fundus photograph. The evaluation of fundus photographs is carried out by medical experts during time-consuming visual inspection. Our aim is to accelerate this process using computer aided diagnosis. As a first step, it is necessary to segment structures in the images for tissue differentiation. As the eye is the only organ, where the vasculature can be imaged in an in vivo and noninterventional way without using expensive scanners, the vessel tree is one of the most interesting and important structures to analyze. The quality and resolution of fundus images are rapidly increasing. Thus, segmentation methods need to be adapted to the new challenges of high resolutions. In this paper, we present a method to reduce calculation time, achieve high accuracy, and increase sensitivity compared to the original Frangi method. This method contains approaches to avoid potential problems like specular reflexes of thick vessels. The proposed method is evaluated using the STARE and DRIVE databases and we propose a new high resolution fundus database to compare it to the state-of-theart algorithms. The results show an average accuracy above 94% and low computational needs. This outperforms state-of-the-art methods.
+
+## 1. Introduction
+
+In ophthalmology the most common way to examine the human eye is to take an eye-fundus photograph and to analyse it. During this kind of eye examinations a medical expert acquires a photo of the eye-background through the pupil with a fundus camera. The analysis of these images is commonly done by visual inspection. This process can require hours in front of a computer screen, in particular in case of medical screening. An example fundus image is shown in Figure 1.
+
+Our goal is to speed up the diagnosis by processing the images using computer algorithms to find and highlight the most important details. In addition we aim to automatically identify abnormalities and diseases with minimal human interaction. Due to the rapidly increasing spatial resolution of fundus images, the common image processing methods which were developed and tested using low resolution images have shown drawbacks in clinical use. For this purpose, a new generation of methods needs to be developed. These methods need to be able to operate on high resolution images with low computational complexity. In this paper, we would like to introduce a novel vessel segmentation method with low computational needs and a public available high resolution fundus database with manually generated gold standards for evaluation of retinal structure segmentation methods. The proposed algorithms include modifications to the method proposed by Frangi et al. [1] to decrease the running time and to segment specular reflexes of thick vessels, which are not visible in lower resolution fundus images.
+
+The structure of the paper is as follows. We describe the proposed methods in detail in Section 3. In Section 4, we present the evaluation methods and databases, including our proposed high resolution fundus database, while Section 5 presents the quantitative results. In Sections 6 and 7, the computational complexity and robustness of the proposed algorithm are analyzed. This is followed by a Discussion in Section 8 and the Conclusions in Section 9.
+
+![](images/d0f809822ed606aacc60dcc436efc806082b6ea1122f84760489f2689a1966e9.jpg)  
+FiGURE 1: An example of eye-fundus image: the macula is shown in the middle, the optic disk is to the right, and the blood vessels are entering and leaving the eye through the optic disk.
+
+## 2. Related Work
+
+Retinal vessel segmentation is a challenging task and has been in the focus of researches all over the world for years. During this time many different algorithms were published [2]. The segmentation algorithms can be classified into two main groups: in unsupervised and supervised methods. Unsupervised methods classify vessels using heuristics, while supervised methods learn a criteria system automatically using prelabeled data as gold standard. We focus on heuristic methods, as supervised methods need a large training set for each camera setup. Heuristic methods instead require a set of parameters, which need to be adapted to the camera setup. Thus, they are much more independent from the test dataset during their development. A more detailed review of the segmentation and other retinal image processing algorithms can be found in the articles published by Kirbas and Quek [2] and Patton et al. [3].
+
+Early, but one of the most common approaches for fundus images are the matched-filter approaches. One of the first methods was presented by Chaudhuri et al. [4]. It fits predefined vessel profiles with different sizes and orientations to the image to enhance vessels. Similar methods and improvements were published later on by different authors [5-8]. Early implementations of these methods were using a simple thresholding step to obtain a vessel segmentation. Sometimes these methods were combined with other approaches [9–12]. For example, Zhang et al. [12] combined matched filters with a method based on the Hessian matrix [1]. The matched filters provide high quality results, but the main disadvantage of these methods is their requirement for vessel profiles and comparisons of large regions for each pixel in the image, resulting in long computational time. The quality of the segmentation results heavily depends on the quality and size of the used vessel profile database. This can be specific towards ethnicity, camera setup, or even eye or vascular diseases, which reduces its applicability.
+
+Some of the algorithms are specialized to segment only one or more objects, which are marked by a user or in a preprocessing step. These methods are usually not analyzing the whole image but the neighborhood of the already segmented regions. Region growing [13, 14] and tracking algorithms [15-18] are good examples for such kind of segmentation methods. The region-growing approaches are trying to increase the segmented area with nearby pixels based on similarities and other criteria. These methods are one of the fastest approaches, while they may have problems at specific regions of the image, where the vessels have lower contrast compared to the nearby tissues, for example, vessel endings or thin vessels. In this case the region growing can segment large unwanted areas. Vessel tracking algorithms are more robust in those situations. They try to find a vessel-like structure in the already segmented region and track the given vessels. 'These algorithms can recognize vessel endings much easier, but they may have difficulties at bifurcations and vessel crossings, where the local structures do not look like usual vessels anymore. Hunter et al. [17] published a postprocessing step to solve some of these situations.
+
+Other common segmentation approaches are modelbased methods. The most known and commonly used ones are active contour-based methods, level-sets, and the socalled snakes [19]. The early snake-based algorithms start with an initial rough contour of the object, which is iteratively refined driven by multiple forces. In an optimal case, the forces reach their equilibrium exactly on the object boundaries. These methods are sensitive to their parameterization, while they may have problems if they have to segment thick and thin vessels in the same time. Thus, the parameters have to be set and refined manually by the user. The snakes in this form are mostly used in MR [20] or X-ray angiographic images [21] to segment pathologies and organs. The snakebased retinal vessel segmentation methods usually apply a vessel tracking framework to find the edges or the centerline of the vessels and track them using snakes [17, 22, 23]. This way the snakes are used to track only a vessel edge and the algorithm has less problems with vessel endings and different vessel thicknesses. Thus, their parameters are easier to optimize, but they inherit the problems of tracking algorithms with bifurcations and crossings.
+
+Level-set methods provide a more robust solution than snakes. They are usually used in combination with other vessel enhancement techniques incorporating a smoothness constraint in their level set functions [24, 25].
+
+For an automated segmentation method used in screening, the most important properties are robustness, efficiency, and the calculation time, because hundreds or thousands of images have to be processed each day. The state-of-the-art vessel segmentation methods [12, 22] usually have high computational needs and achieve an accuracy of 90% to 94% on eye-fundus images, with sensitivity of 60% to 70% and specificity above 99% on average [26]. This is due to the fact that approximately 85% of an image shows background structures. The high computational needs are due to multiple analysis of large regions to detect thick vessels. 'Thus, the computational needs of an algorithm is increasing exponentially with the diameter of the expected thickest vessel and the image resolution.
+
+We present an algorithm based on the vessel enhancement method published by Frangi et al. [1] in combination with a multiresolution framework to decrease the computational needs and to increase the sensitivity by using a hysteresis thresholding. The method published by Frangi et al. [1] is a mathematical model-based approach and extracts vesselness features based on measurements of the eigenvalues of the Hessian matrix. The Hessian matrix contains the secondorder derivatives in a local neighborhood. The method assumes that the vessels are tubular objects; thus, the ratio of the highest and lowest eigenvalue should be high, while this ratio is close to one in regions of constant values. The method was developed for CT angiography images, but it is applied in a wide variety of vessel segmentation algorithms and detection of tubular objects in different modalities [1, 27]. One of the disadvantages is the computational requirement. As Frangi et al. [1] proposed, the method calculates the Hessian matrix and the given measures for increasing neighborhood sizes, until the neighborhood is bigger than the expected thickest vessel. Given high resolution images, this can easily increase to 20 to 30 iterations per pixel.
+
+## 3. Methods
+
+All methods that were used to analyze the images are described in this section. First, we introduce the method proposed by Frangi et al. [1], which provides the basis of this work. This is followed by the description of the proposed method: the preprocessing steps in Section 3.2.1 and the used resolution hierarchy in Section 3.2.2. After that the vessel enhancement method is described to highlight the main differences to the Frangi method. We have chosen the method published by Frangi et al. [1] as a base for our own work, because it features some attractive properties.
+
+(i) High accuracy is expected based on preliminary research [1, 27]. For further information please see Section 5.1. In comparison, our implementation of this method achieved a high accuracy.
+
+(ii) No user interaction is required, except for setting a few parameters.
+
+(iii) It is able to segment nonconnected objects without complex initialization steps. This is necessary in case of some abnormalities and in case of young patients, where reflections may disconnect vessels.
+
+3.1. Frangi's Algorithm. To understand the proposed method, the reader should know the method by Frangi et al. [1]. Thus, in this section, we will introduce the method as it was published by Frangi et al. [1] in 1998.
+
+The Hessian matrix of an n dimensional continuous function $f$ contains the second-order derivatives. As we are working on a 2-dimensional image, our Hessian matrix is given as
+
+$$
+H \left( f \right) = \left( \begin{array} { c c } { \displaystyle \frac { \partial ^ { 2 } f } { \partial x ^ { 2 } } } & { \displaystyle \frac { \partial ^ { 2 } f } { \partial x \partial y } } \\ { \displaystyle \frac { \partial ^ { 2 } f } { \partial y \partial x } } & { \displaystyle \frac { \partial ^ { 2 } f } { \partial y ^ { 2 } } } \end{array} \right) .\tag{1}
+$$
+
+The Hessian matrix $H _ { 0 , s }$ is calculated at each pixel position $x _ { 0 }$ and scale s. Frangi used s as the standard deviation (σ) of Gaussians to approximate the second-order derivatives. A vesselness feature $V _ { 0 } ( s )$ is calculated at pixel position $x _ { 0 }$ from the eigenvalues $\lambda _ { 1 } < \lambda _ { 2 }$ of the Hessian matrix $H _ { 0 , s }$ using equations of “dissimilarity measure" $R _ { B }$ and “second order structuredness" S
+
+$$
+R _ { B } = { \frac { \lambda _ { 1 } } { \lambda _ { 2 } } } ,
+$$
+
+$$
+{ \cal S } = \sqrt { \lambda _ { 1 } ^ { 2 } + \lambda _ { 2 } ^ { 2 } } ,
+$$
+
+$$
+V _ { 0 } \left( s \right) = \left\{ \begin{array} { l l } { 0 , } \\ { \displaystyle \exp \left( - \frac { R _ { B } ^ { 2 } } { 2 \beta ^ { 2 } } \right) \left( 1 - \exp \left( - \frac { S ^ { 2 } } { 2 c ^ { 2 } } \right) \right) , } \end{array} \right.
+$$
+
+$$
+\begin{array} { r } { \mathrm { i f } \lambda _ { 2 } > 0 , } \end{array}\tag{2}
+$$
+
+where $\beta$ and c are constants which control the sensitivity of the filter. $R _ { B }$ accounts for the deviation from blob-like structures, but can not differentiate background noise from real vessels. Since the background pixels have a small magnitude of derivatives and, thus; small eigenvalues, S helps to distinguish between noise and background.
+
+The authors suggest to repeat the same calculations for varying sigma values from one to the thickest expected vessel thickness with an increment of 1.0 to enhance vessels with different thicknesses. The results are combined by a weighted maximum projection. In our implementation we added a thresholding step after the combination and optimized the parameters to reach the highest accuracy.
+
+3.2. Proposed Method. After the preprocessing steps, we apply the same equations as described by Frangi et al. [1] for each resolution level with the same predefined sigma value.
+
+Hence, we do not increase the sigma value linearly and apply the filter multiple times on the image as it was proposed by Frangi et al. [1]. In our case the sigma is always set to a small constant, while we apply the same method on copies of the input image with reduced resolutions. Thus, the parameter s of the original method corresponds to the resolution of the image, instead of the standard deviation of a Gaussian.
+
+The proposed algorithm of our method is illustrated in Figure 2. Each of the steps will be discussed in detail in the next sections.
+
+3.2.1. Preprocessing. The input images are digital color fundus photographs like the one in Figure 1. During the analysis we restrict ourselves to the green channel. It has the highest contrast between the vessels and the background, while it is not underilluminated or oversaturated like the other two channels, see Figure 3 for an example. Histogram stretching [28] and bilateral filtering [29] are applied to the green channel. The histogram stretching increases the contrast to make it easier for the algorithm to detect small changes and distinguish different tissues. The bilateral filtering [30] is a special denoising algorithm, which smooths intensity changes, while preserving the boundaries of different regions or tissues. This step reduces false positive detections caused by the texture of the background. After these modifications of the data, we can apply our resolution hierarchy described in the next section.
+
+![](images/8d55a7958f7c9bc581ae3973ab9c4bd7e88e21afcbbd6d5215da946c42104177.jpg)  
+FiGuRE 2: Pipeline of the proposed segmentation algorithm.
+
+3.2.2. Resolution Hierarchy. In a resolution hierarchy copies of the input image with reduced resolutions are generated; see Figure 4. By doing so, we calculate the Hessian matrix always for a small neighborhood which decreases the computational needs. The reduction is done by a subsampling followed by a low pass filtering to lower high jumps in intensities. The highest resolution level of the resolution hierarchy contains the original image, and all additional levels contain the image with a halved width and height compared to the previous level. For low resolution images, where the vessel thickness is not more than 5 to 10 pixels, 2 to 3 levels are sufficient, while images with higher resolutions may require additional levels. Compared to more than 20 iterations for the Frangi method, this means a speedup of a factor of 10. The vessel enhancement of the Frangi algorithm is applied on each resolution level with a standard deviation σ = 1.0.
+
+Sometimes the flash of the camera causes a shining centerline on thick vessels. An additional correction method was developed to remove these specular reflection artifacts in the reduced resolution levels. The resulting images of the vessel enhancement are resized again using bilinear interpolation to the same resolution as the input image. Figure 5 shows the result of this resizing on two different resolution copies of the same region. Figure 5(a) had a high resolution and the result shows finer details, but the thickest vessels are not enhanced correctly. Figure 5(b) had a much lower resolution. Thus, the fine details disappeared, but the extraction of thick vessels were more accurate.
+
+3.2.3. Specular Reflex Correction. As mentioned before, the flash of the camera may cause a bright specular reflex in the middle of thick vessels. Because of these reflections, the Hessian-based filter will have a much lower response. In our algorithm we developed a filter to be used on the highest level of our resolution pyramid to reduce the effect of these reflections. In this level only thick vessels are detected. We consider a 3×3 neighborhood for each pixel. If the center pixel has a lower value than two neighboring pixels in opposite directions in the vessel enhanced image, but higher value than the same two pixels in the fundus image of the same resolution level, then the center pixels are affected by specular reflex. In this case the two neighboring pixel's value will be interpolated to update the center pixel's value.
+
+3.2.4. Hysteresis Threshold. After the vessel enhancement is completed in each resolution level and the results are resized to original resolution, all of them are binarized by a thresholding algorithm proposed by Canny [31]. The method performs better than a single thresholding in cases where the intensity of the objects is at some places high, but in certain positions the contrast between object and background falls under noise level. In our case this object is the vessel tree, where thin vessels and boundary pixel intensities can have extreme low intensity values. This method uses two thresholding values instead of one to binarize a gray-scale image. Both threshold values have different roles in the thresholding process.
+
+(1) The first threshold is used to determine pixels with high intensities. It is required that this threshold is chosen in such a way that no background pixel can reach that value. Thus, we can label all the pixels above the threshold as "vessel pixels."
+
+(2) We label all pixels below the second threshold value as "background pixel" and all pixels in between the two thresholds are considered “potential vessel pixels." These potential vessel pixels are labeled as vessels only if they are connected to a pixel labeled “vessel pixel" through other potential vessel pixels.
+
+The thresholding values are computed for each image that a given percent of the pixels is segmented as “vessel pixels." Thus, the binarization is more robust to noise and intensity changes between images. 'They have to be optimized for each different protocol and field of view, where the ratio of vessel and background pixels is different in the resulting image. The binarization is used on each image separately.
+
+3.2.5. Postprocessing. The final segmented image is generated by applying a pixel-wise OR operator on the binarized images originated from the different resolution levels. This way if a vessel was detected in one of the images, then it will be visible in the combined binary image.
+
+![](images/fcbd3da701d58e4229d0e45b34f8ad1a8a47c33a53829e66d8aa333e6c65ebfd.jpg)  
+(a)
+
+![](images/c6eb07ccde057c0ee66cd20cd97000237cad6244b9bcee72834a15273af16d84.jpg)
+
+![](images/751c0d20023bfad7bab7647f2d5e3cef77f9a69f8a11c6ca6c7e560138c72ac4.jpg)  
+(c)
+
+(b)  
+![](images/c878f2005886cf884338d88e25ee62881eb9ab26d1cd0e6edce11fb733b33a4f.jpg)  
+(d)  
+FiGuRE 3: A fundus image (a) and its RGB decomposition showing the oversaturated red (b), the well-illuminated green (c), and the underilluminated blue (d) channels.
+
+![](images/7181a583666907f2c1d12df781a1fbd43c7db9c95768fa1c882296948038e35c.jpg)  
+FiGURE 4: Example of a Gaussian resolution hierarchy using only the green channel of the input image and its three reduced resolution versions.
+
+Afterwards a thinning function erodes the segmented region until it reaches the highest local gradient in the input image. This method avoids the slight oversegmentation in case that a thin vessel is detected in a higher level of the hierarchy.
+
+As a last step a small kernel (3 × 3) morphological closing operator is used to smooth the boundaries and object size analysis algorithms are applied to fill small holes in the vessel tree and remove small undesired objects. Some example of input images and the calculated segmentations are presented in Figures 6 and 7.
+
+## 4. Evaluation
+
+We applied the original Frangi vesselness extraction and our proposed framework on the commonly used DRIVE [26] and STARE [32] databases and on our high resolution public database [33] to compare our framework to the state-of-theart methods and to evaluate their effectivity. These databases contain manual segmentations of experts as gold standard. Based on these gold standards we calculated the sensitivity (Se), specificity (Sp), and accuracy (Acc) of each method. Both already existing databases contain an additional manual segmentation and the DRIVE database contains some measurements of multiple algorithms.
+
+We compare the computation time of the proposed algorithm and an implemented Frangi vesselness algorithm as proposed by Frangi et al. [1]. The two public databases were used to evaluate the efficiency and for comparison to other state-of-the-art algorithms. These two databases suffer from containing only low resolution images, while the proposed method was developed for high resolution images. Thus, the benefit of the resolution hierarchy is only slightly noticeable. Since high resolution images are becoming more common in clinical use, we evaluated our methods on the high resolution (3504 × 2336 pixels) images available [33], which were already used to evaluate other methods [6, 7]. The database contains 15 images of each healthy, diabetic retinopathy (DR), and glaucomatous eyes. The results of this evaluation are discussed in Section 5.2.
+
+The technical details of the used image data are shown in Table 1. For each method, we applied the same parameter optimization process using a small subset of each database to assure that differences are not due to parameter settings. This algorithm sets the parameters to reach the highest possible accuracy without aiming at high sensitivity. Since the parameter is done using a small subset of the images, the results can be improved using a larger training set. Optimization based on a small subset may result in suboptimal settings for the whole dataset, but it shows the generalization capabilities of the method.
+
+![](images/922817bd479d4a0d3a6a6e7903bd879b4439eb8f1af850c57b9bc54b4f3bb12b.jpg)  
+(a)
+
+![](images/a7ff13a51552a0c3f8760d7760ad045d0a681def31064b61b231ae645d803e0a.jpg)  
+(b)  
+FiGuRE 5: The resized vesselness images of two different resolution levels. In the highest resolution level (a) the enhanced image shows more details, while the result of a lower resolution level (b) shows a more accurate segmentation of thick vessels.
+
+TABLE 1: Details of used databases.
+<table><tr><td>Database</td><td>Images used</td><td>Resolution</td></tr><tr><td>DRIVE [26]</td><td>20</td><td> $5 6 5 \times 5 8 4$ </td></tr><tr><td>STARE [32]</td><td>20</td><td> $7 0 0 \times 6 0 5$ </td></tr><tr><td>High resolution fundus [33]</td><td>45</td><td> $3 5 0 4 \times 2 3 3 6$ </td></tr></table>
+
+For the evaluation of computation times we always used the same common notebook equipped with a 2.3 GHz processor and 4 GB RAM and a single core implementation of the algorithms.
+
+## 5. Results
+
+5.1. Accuracy. The metrics calculated on the two public databases to analyze the effectivity of the algorithms are shown in Tables 2 and 3. During our development and in our comparisons we aimed at the highest possible accuracy. Therefore, we optimized the parameters of both—the proposed and the Frangi—methods. 'Thus, the parameters of the Frangi method and the proposed method are set to deliver the highest possible accuracy. This can result in a decreased sensitivity to gain specificity in order to increase the overall accuracy. This way the proposed method was able to reach the best accuracy using the DRIVE and high resolution fundus databases.
+
+Both public databases contain a second manual segmentation made by a human observer, which was included in the comparison. We collected further results from published papers. For both databases the original method and the proposed method reached a high accuracy over 95% and 93%, respectively. As shown in Table 2, in case of the DRIVE database, this was enough to reach the highest accuracy. In case of the STARE database, as shown in Table 3, the sensitivity improved by 5% along with a slight increase in accuracy. Some examples of the segmentation results are shown in Figure 6.
+
+The proposed algorithm and the original Frangi method were further tested on the three datasets of our own public high resolution fundus database [33]. Figure 7 shows two examples of input images and segmentation results of this database. As these images have much higher resolutions, we use more resolution levels in the hierarchy and higher σ values in the original Frangi algorithm. This enables detection of vessels with a higher diameter, but also increases the computation times. Tables 4 and 5 show the sensitivity, specificity, and accuracy of these methods using the high resolution fundus dataset. Each datasets with manually segmented gold standard images is available online [33] for other researchers to test and compare their algorithms.
+
+TABLE 2: Comparison of the results using the DRIVE [26] public database. The proposed methods achieved the best accuracy (Acc) compared to the state-of-the-art solutions.
+<table><tr><td>Algorithm</td><td>Se</td><td>Sp</td><td>Acc</td></tr><tr><td>Proposed</td><td>0.644</td><td>0.987</td><td>0.9572</td></tr><tr><td>Frangi et al. [1]</td><td>0.660</td><td>0.985</td><td>0.9570</td></tr><tr><td>Marín et al. [34]</td><td>0.706</td><td>0.980</td><td>0.945</td></tr><tr><td>Human observer</td><td>0.776</td><td>0.972</td><td>0.947</td></tr><tr><td>Dizdaroglu et al. [24]</td><td>0.718</td><td>0.974</td><td>0.941</td></tr><tr><td>Soares et al. [35]</td><td>0.7283</td><td>0.9788</td><td>0.9466</td></tr><tr><td>Mendonça and Campilho [36]</td><td>0.7344</td><td>0.9764</td><td>0.9452</td></tr><tr><td>Staal et al. [37]</td><td>0.7194</td><td>0.9773</td><td>0.9442</td></tr><tr><td>Niemeijer et al. [38]</td><td></td><td></td><td>0.9416</td></tr><tr><td>Zana and Klein [39]</td><td></td><td></td><td>0.9377</td></tr><tr><td>Martinez-Perez et al. [40]</td><td>0.7246</td><td>0.9655</td><td>0.9344</td></tr><tr><td>Odstrčilík et al. [7]</td><td>0.7060</td><td>0.9693</td><td>0.9340</td></tr><tr><td>Espona et al. (subpixel accuracy) [41]</td><td>0.7313</td><td>0.9600</td><td>0.9325</td></tr><tr><td>Chaudhuri et al. [4]</td><td>0.6168</td><td>0.9741</td><td>0.9284</td></tr><tr><td>Al-Diri and Hunter [22]</td><td></td><td></td><td>0.9258</td></tr><tr><td>Espona et al. (pixel accuracy) [41] Jiang and Mojon [42]</td><td>0.6615</td><td>0.9575</td><td>0.9223</td></tr><tr><td>All background</td><td>一</td><td>一</td><td>0.9212 0.8727</td></tr></table>
+
+"" indicates that this information was not available.
+
+5.2. Performance. Tested on the two public databases, the proposed method has a reduced calculation time by 18% in case of the STARE database and 16% in case of the DRIVE database, as shown in Table 6. The computation times were not available for most of the algorithms used for comparison in Section 5.1. Thus, these methods are excluded from the performance test. The resolution hierarchy made our proposed method faster on the low resolution images than the Frangi method. The speed improvement of the hierarchy is actually higher, but we used additional time for postprocessings and improvements, like filling the holes caused by central reflexes in the vessels and using a hysteresis thresholding in each resolution.
+
+![](images/f7842b01de55d1e26c59226eb29cf6120273c0fccc398ac06b908ce659a13bdb.jpg)  
+(a)
+
+![](images/d5ff62e61a4a7fb28fd65285973af3468af834d048d57455a36b5c2f0a5f3fb5.jpg)  
+(b)
+
+![](images/5d91acd7f75179ed5b2eb59c1e754b2f5418709fdcf1f1cf059cf0c2afc1b1fd.jpg)  
+(c)
+
+![](images/6160f99b7423c6a7f3913ac65940cee385f4790105d8a0f1eb97467e6df9aa21.jpg)  
+(d)
+
+![](images/bbe8022a91364923f8e05ca4bfcfa5d06baf5478c8126d8cdaf67542008c2b81.jpg)  
+(e)
+
+![](images/dbfc70f542a81291b70568fb101a7d140410481928d55cb5170ad042d727a2cd.jpg)  
+(f)  
+FiGuRE 6: Example segmentation results on the DRIVE (upper row) and STARE (bottom row) public databases. From left to right: input fundus images, segmentation results, and gold standard images.
+
+![](images/22d38fd233907ef53dd5880389336dd2ab73dbc76d0131963ff0e05cc493adb8.jpg)  
+(a)
+
+![](images/05dcfa8681bb594e068d1acc96032d6a27be722a977919970f8967547af6898d.jpg)
+
+![](images/f4657b4a64745e9708175e312b00dac1e6a187a41ffdc2b45c11b085dc94908c.jpg)  
+(c)
+
+(b)  
+![](images/f2745e9960a0a0fbe29098d80efbda101f2b555376c2d23e3d9c9f7ca4a65725.jpg)  
+(d)  
+FiGuRE 7: Example segmentation results on high resolution images with different illumination and background structures.
+
+TABLE 3: Sensitivity (Se), specificity (Sp), and accuracy (Acc) of the methods measured on the STARE [32] database. The proposed modifications improved both the sensitivity and accuracy of the Frangi method.
+<table><tr><td>Algorithm</td><td>Se</td><td>Sp</td><td> $_ \mathrm { A c c }$ </td></tr><tr><td>Proposed</td><td>0.58</td><td>0.982</td><td>0.9386</td></tr><tr><td>Frangi et al. [1]</td><td>0.529</td><td>0.986</td><td>0.9370</td></tr><tr><td>Marín et al. [34]</td><td>0.694</td><td>0.981</td><td>0.952</td></tr><tr><td>Staal et al. [37]</td><td>0.6970</td><td>0.9810</td><td>0.9516</td></tr><tr><td>Zhang et al. [12]</td><td>0.07177</td><td>0.9753</td><td>0.9484</td></tr><tr><td>Soares et al. [35]</td><td>0.7165</td><td>0.9748</td><td>0.9480</td></tr><tr><td>Mendonça and Campilho [36]</td><td>0.6996</td><td>0.9730</td><td>0.9440</td></tr><tr><td>Martinez-Perez et al. [40]</td><td>0.7506</td><td>0.9569</td><td>0.9410</td></tr><tr><td>Chaudhuri et al. [4]</td><td>0.6134</td><td>0.9755</td><td>0.9384</td></tr><tr><td>Human observer</td><td>0.8949</td><td>0.9390</td><td>0.9354</td></tr><tr><td>Odstrčilík et al. [7]</td><td>0.7947</td><td>0.9512</td><td>0.9341</td></tr><tr><td>Hoover et al. [9]</td><td>0.6751</td><td>0.9367</td><td>0.9267</td></tr></table>
+
+TABLE 4: Overall sensitivity (Se), specificity (Sp), and accuracy (Acc) measured using our high resolution fundus database.
+<table><tr><td>Algorithm</td><td> $\mathrm { S e }$ </td><td> $\mathrm { S p }$ </td><td>Acc</td></tr><tr><td>Proposed</td><td>0.669</td><td>0.985</td><td>0.961</td></tr><tr><td>Frangi et al. [1]</td><td>0.622</td><td>0.982</td><td>0.954</td></tr><tr><td>Odstrčilík et al. [7]</td><td>0.774</td><td>0.966</td><td>0.949</td></tr></table>
+
+TABLE 5: Sensitivity (Se), specificity (Sp), and accuracy (Acc) measured for the three datasets separately in our high resolution database.
+<table><tr><td>Dataset</td><td>Algorithm</td><td> $\mathrm { S e }$ </td><td> $\underline { { \mathrm { S p } } }$ </td><td> $_ \mathrm { A c c }$ </td></tr><tr><td>Healthy</td><td>Proposed</td><td>0.662</td><td>0.992</td><td>0.961</td></tr><tr><td>Healthy</td><td>Frangi et al. [1]</td><td>0.621</td><td>0.989</td><td>0.955</td></tr><tr><td>Healthy</td><td>Odstrčilík et al. [7]</td><td>0.786</td><td>0.9750</td><td>0.953</td></tr><tr><td>Glaucomatous</td><td>Proposed</td><td>0.687</td><td>0.986</td><td>0.965</td></tr><tr><td>Glaucomatous</td><td>Frangi et al. [1]</td><td>0.654</td><td>0.984</td><td>0.961</td></tr><tr><td>Glaucomatous</td><td>Odstrčilík et al. [7]</td><td>0.790</td><td>0.964</td><td>0.949</td></tr><tr><td>Diabetic retinopathy</td><td>Proposed</td><td>0.658</td><td>0.977</td><td>0.955</td></tr><tr><td>Diabetic retinopathy</td><td>Frangi et al. [1]</td><td>0.590</td><td>0.972</td><td>0.946</td></tr><tr><td>Diabetic retinopathy</td><td>Odstrčilík et al. [7]</td><td>0.746</td><td>0.961</td><td>0.944</td></tr></table>
+
+As the computation times of hysteresis threshold is rapidly increasing with the resolution, we tested the runtime using high resolution images to see if the gain using the resolution hierarchy is higher than the additional requirements of the thresholding. Table 7 shows the computation times for these images.
+
+TABLE 6: Comparison of average runtime using two public databases. The effects of the proposed modifications on the calculation time in seconds as shown.
+<table><tr><td rowspan="2">Algorithm</td><td colspan="2">Runtime (in sec)</td><td colspan="2">Accuracy</td></tr><tr><td>STARE</td><td>DRIVE</td><td>STARE</td><td>DRIVE</td></tr><tr><td>Frangi et al. [1]</td><td>1.62</td><td>1.27</td><td>0.9370</td><td>0.9570</td></tr><tr><td>Proposed</td><td>1.31</td><td>1.04</td><td>0.9386</td><td>0.9572</td></tr><tr><td>Espona et al. (subpixel accuracy)* [41]</td><td></td><td>31.7</td><td></td><td>0.9325</td></tr><tr><td>Mendonça and Campilho [36]</td><td></td><td>150.0 [35]</td><td>0.9480</td><td>0.9466</td></tr><tr><td>Soares et al.* [35]</td><td>180.0</td><td>180.0</td><td>0.9480</td><td>0.9466</td></tr><tr><td>Staal et al.* [37]</td><td></td><td>900.0 [35]</td><td>0.9516</td><td>0.9442</td></tr></table>
+
+Entries marked by "\*”are results reported in the cited articles.
+
+TABLE 7: Comparison of average runtime using high resolution (3504 × 2336) images.
+<table><tr><td>Algorithm</td><td>Average runtime</td><td>Accuracy</td></tr><tr><td>Proposed method</td><td> $2 6 . 6 9 3 \pm 0 . 9 2 \mathrm { s e c }$ </td><td> $0 . 9 6 1 \pm 0 . 0 0 6$ </td></tr><tr><td>Original Frangi</td><td> $3 9 . 2 8 8 \pm 2 . 0 0 \mathrm { s e c }$ </td><td> $0 . 9 5 4 \pm 0 . 0 0 8$ </td></tr><tr><td>Odstrčilík et al. [7, 33]</td><td>18 minutes</td><td>0.949</td></tr></table>
+
+The results show a calculation time difference of about 33.3%, which was less than 20% in case of low resolution images. This means that our proposed method performs the segmentation in higher resolution images faster in comparison to the original Frangi method.
+
+## 6. Computational Complexity
+
+To see the difference in computational complexity of both methods, we calculated the mathematical complexity of the Frangi method [1] and our proposed methods. As all segmentation methods need some pre- and postprocessing, we decided to calculate the mathematical complexity of the main vessel extraction only, plus our proposed direct modifications.
+
+As a first step, we have to define the necessary parameters. Let n be the number of pixels in the input image, and define t as the highest expected vessel thickness which we would like to detect. With these two parameters, we can describe the complexity of the important components used in the algorithms:
+
+(i) rescaling: O(n) for each image;
+
+(ii) calculating Hessian matrix: $O ( t ^ { 2 } )$ for each pixel;
+
+(iii) eigenvalue analysis: after calculating the Hessian matrix, it is independent of the parameters: O(n) for each image;
+
+(iv) postprocessing using mathematical morphology, and other operations: $O ( n )$ for each image;
+
+(v) maximum image calculation: O(m · n) where m is the number of images;
+
+(vi) binarization by thresholding: O(n) for each image.
+
+In case of the original method, calculation of the Hessian matrix is done t times for each pixel, with increasing σ. After that all the images are summarized and thresholded. These methods result in a complexity of $O ( t ^ { 3 } \times n )   \colon t \times n$ pixels, and $O ( t ^ { 2 } )$ operations for each pixel, while the complexity of the other parts is neglectable.
+
+The proposed method uses the rescaling. This results in a maximal pixel number of $1 . 5 \times n$ to work on instead of $t \ \times \ n ,$ and t is always set to one. Thus, the Hessian matrix calculation is done with a predefined $\sigma = 1 . 0$ which reduces the complexity to O(n). After rescaling to the original resolution, postprocessing and binarization are done in linear complexity. This gives a computational complexity of $O ( \log ( t ) ~ * ~ n )$ : independently of the number of resolution levels, the maximal number of pixels is $1 . 5 \times n ,$ and σ is set to 1.0 which results in a computational complexity of $O ( n )$ before fusing the binarized images. With log(t) number of rescaled images, after the fusion, the complexity is O(log(t) \* n) with neglectable linear complexity of the postprocessing.
+
+## 7. Robustness
+
+To analyze the robustness and sensitivity of the method regarding changes in the parameters, we analyze it by further excluding some steps and changing the parameters.
+
+As Table 8 shows, the algorithm is robust against changes in the parameters of pre- or postprocessing, except that not all of the processing steps are skipped. This increases the false positive values due to the appearance of small segmented noisy regions and also increases false negatives by not segmenting regions of vessels with specular reflexes.
+
+The accuracy of the method improved surprisingly by increasing the σ to 2.0 for the vessel enhancement. Our analysis showed that the optimization using a small subset of images resulted in a suboptimal parameter set for the whole dataset. Changing the sigma value to 2.0 increased the sensitivity in multiple images, reaching an overall sensitivity over 0.7338 and accuracy over 0.9621.
+
+## 8. Discussion
+
+Our evaluation has shown that the proposed method not only has the highest accuracy using the high resolution images for which it was developed, but it has decent results using two lower resolution databases available online. 'This decrease is due to the slightly lower sensitivity caused by the lower image quality in the online databases. The proposed method has lower computational needs compared to the method proposed by Frangi et al. [1], as it was shown experimentally in Section 5.2 and mathematically proven in Section 6.
+
+Furthermore, as shown in Section 7, the method is only slightly sensitive to the σ parameter of the vessel enhancement and the thresholding parameters. Changing σ can result in 5% change in sensitivity, while changing most of the other parameters resulted in a small variation in both sensitivity and specificity with an accuracy change under 0.1%.
+
+Based on the results of Table 8, the pre- and postprocessing steps applied in the proposed method increased the overall accuracy of the segmentation by 1% to 2% by removing unwanted objects, filling some holes caused by specular reflexes, and smoothing the vessel edges.
+
+TABLE 8: Accuracy comparison of different settings using the high resolution fundus database.
+<table><tr><td>Algorithm</td><td>Accuracy</td><td>Absolute change</td></tr><tr><td>Proposed method</td><td> $0 . 9 6 1 8 \pm 0 . 0 0 6 5$ </td><td></td></tr><tr><td>Without preprocessing</td><td> $0 . 9 5 5 8 \pm 0 . 0 0 6 4$ </td><td>0.62%</td></tr><tr><td>Thresholds decreased by 1%</td><td> $0 . 9 6 1 4 \pm 0 . 0 0 6 1$ </td><td>0.04%</td></tr><tr><td>Thresholds increased by 1%</td><td> $0 . 9 6 0 7 \pm 0 . 0 0 6 2$ </td><td>0.11%</td></tr><tr><td>Without postprocessing</td><td> $0 . 9 4 0 1 \pm 0 . 0 0 8 5$ </td><td>2.25%</td></tr><tr><td>Doubled morphology kernel size</td><td> $0 . 9 6 1 6 \pm 0 . 0 0 6 0$ </td><td>0.02%</td></tr><tr><td>σ = 2.0 for Hessian</td><td> $\mathbf { 0 . 9 6 2 1 \pm 0 . 0 0 6 2 }$ </td><td>0.03%</td></tr><tr><td>σ = 3.0 for Hessian</td><td> $\mathbf { 0 . 9 6 2 1 \pm 0 . 0 0 6 1 }$ </td><td>0.03%</td></tr><tr><td>σ = 4.0 for Hessian</td><td> $0 . 9 6 1 7 \pm 0 . 0 0 6 4$ </td><td>0.01%</td></tr></table>
+
+## 9. Conclusion
+
+In this paper we presented a multiresolution method for segmenting blood vessels in fundus photographs. 'The proposed method and the Frangi method were evaluated using multiple online available databases with diverging image resolution. The proposed algorithm shows in each case an increase both in sensitivity and accuracy to segment vessels compared to the Frangi method with a decreased computational complexity.
+
+This gain in accuracy is mainly due to easier handling of central reflexes of thick vessels in lower resolution images, while the computational needs are significantly reduced by using the resolution hierarchy. 'This can be further improved by parallelization and implementation using a GPU.
+
+With the proposed modifications the algorithm is more applicable in complex automatic systems, and the segmentation results can be used as a basis for other algorithms to analyze abnormalities of the human eye. Additionally we introduced a new high resolution fundus image database [33] to evaluate segmentation and localization methods, where our algorithm reached an accuracy of over 96% on average.
+
+## Acknowledgments
+
+The authors gratefully acknowledge funding of the Erlangen Graduate School in Advanced Optical Technologies (SAOT) by the German National Science Foundation (DFG) in the framework of the excellence initiative. The authors gratefully acknowledge the aid and cooperation of the Department of Biomedical Engineering, FEEC, Brno University of Technology, Czech Republic.
+
+## References
+
+[1] A. F. Frangi, W. J. Niessen, K. L. Vincken, and M. A. Viergever, Multiscale Vessel Enhancement Filtering, Springer, Heidelberg, Germany, 1998.
+
+[2] C. Kirbas and F. Quek, "A review of vessel extraction techniques and algorithms," ACM Computing Surveys, vol. 36, no. 2, pp. 81– 121, 2004.
+
+[3] N. Patton, T. M. Aslam, T. MacGillivray et al., "Retinal image analysis: concepts, applications and potential," Progress in Retinal and Eye Research, vol. 25, no. 1, pp. 99–127, 2006.
+
+[4] S. Chaudhuri, S. Chatterjee, N. Katz, M. Nelson, and M. Goldbaum, "Detection of blood vessels in retinal images using two-dimensional matched filters," IEEE Transactions on Medical Imaging, vol. 8, no. 3, pp. 263–269, 1989.
+
+[5] M. Goldbaum, S. Moezzi, A. Taylor et al., "Automated diagnosis and image understanding with object extraction, object classification, and inferencing in retinal images," in Proceedings of the IEEE International Conference on Image Processing (ICIP '96), pp. 695–698, September 1996.
+
+[6] J. Odstrčilík, J. Jan, R. Kolar, and J. Gazarek, "Improvement of vessel segmentation by matched filtering in colour retinal images," in Proceedings of the World Congress on Medical Physics and Biomedical Engineering (IFMBE '09), pp. 327–3330, 2009.
+
+[7] J. Odstrčilík, R. Kolar, A. Budai et al., "Retinal vessel segmentation by improved matched filtering: evaluation on a new highresolution fundus image database," IET Image Processing, vol. 7, no. 4, pp. 373–383, 2013.
+
+[8] M. Sofka and C. V. Stewart, "Retinal vessel centerline extraction using multiscale matched filters, confidence and edge measures," IEEE Transactions on Medical Imaging, vol. 25, no. 12, pp. 1531–1546, 2006.
+
+[9] A. Hoover, V. Kouznetsova, and M. Goldbaum, "Locating blood vessels in retinal images by piecewise threshold probing of a matched filter response," IEEE Transactions on Medical Imaging, vol. 19, no. 3, pp. 203–210, 2000.
+
+[10] C.-H. Wu, G. Agam, and P. Stanchev, “A hybrid filtering approach to retinal vessel segmentation," in Proceedings of the 4th IEEE International Symposium on Biomedical Imaging (ISBI '07), pp. 604–607, April 2007.
+
+[11] G. B. Kande, P. V. Subbaiah, and T. S. Savithri, "Unsupervised fuzzy based vessel segmentation in pathological digital fundus images," Journal of Medical Systems, vol. 34, no. 5, pp. 849–858, 2010.
+
+[12] B. Zhang, L. Zhang, L. Zhang, and F. Karray, "Retinal vessel extraction by matched filter with first-order derivative of Gaussian," Computers in Biology and Medicine, vol. 40, no. 4, pp. 438–445, 2010.
+
+[13] R. Jain, R. Kasturi, and B. Schunk, Machine Vision, McGraw-Hill, New York, NY, USA, 1995.
+
+[14] S. Eiho, H. Sekiguchi, N. Sugimoto, T. Hanakawa, and S. Urayama, "Branch-based region growing method for blood vessel segmentation," in Proceedings of the International Congress for Photogrammetry and Remote Sensing, 2004.
+
+[15] M. J. Cree, D. Cornforth, and H. F. Jelinek, "Vessel segmentation and tracking using a two-dimensional model," in Proceedings of the International Conference on Image and Vision Computing New Zealand (IVCNZ '05), pp. 345–350, Dunedin, New Zealand, 2005.
+
+[16] F. K. H. Quek and C. Kirbas, "Vessel extraction in medical images by wave-propagation and traceback," IEEE Transactions on Medical Imaging, vol. 20, no. 2, pp. 117–131, 2001.
+
+[17] A. Hunter, J. Lowell, and D. Steel, "Tram-line filtering for retinal vessel segmentation," in Proceedings of the 3rd European Medical and Biological Engineering Conference, 2005.
+
+[18] O. Wink, W. J. Niessen, and M. A. Viergever, "Multiscale vessel tracking," IEEE Transactions on Medical Imaging, vol. 23, no. 1, pp. 130–133, 2004.
+
+[19] M. Kass, A. Witkin, and D. Terzopoulos, "Snakes: active contour models," International Journal of Computer Vision, vol. 1, no. 4, pp. 321–331, 1988.
+
+[20] D. Rueckert and P. Burger, "Contour fitting using stochastic and probabilistic relaxation for Cine MR Images," in Computer Assisted Radiology, pp. 137–142, Springer, Berlin, Germany, 1995.
+
+[21] M. Hinz, K. D. Toennies, M. Grohmann, and R. Pohle, "Active double-contour for segmentation of vessels in digital subtraction angiography," in Medical Imaging 2001 Image Processing, Proceedings of SPIE, pp. 1554–1562, February 2001.
+
+[22] B. Al-Diri and A. Hunter, "A ribbon of twins for extracting vessel boundaries," in Proceedings of the 3rd European Medical and Biological Engineering Conference (EMBEC '05), 2005.
+
+[23] R. Manniesing, M. A. Viergever, and W. J. Niessen, "Vessel axis tracking using topology constrained surface evolution,"IEEE Transactions on Medical Imaging, vol. 26, no. 3, pp. 309–316, 2007.
+
+[24] B. Dizdaroglu, E. Ataer-Cansizoglu, J. Kalpathy-Cramer, K. Keck, M. F. Chiang, and D. Erdogmus, "Level sets for retinal vasculature segmentation using seeds from ridges and edges from phase maps," in Proceedings of the IEEE International Workshop on Machine Learning for Signal Processing, IEEE, Santander, Spain, September 2012.
+
+[25] J. Brieva, E. Gonzalez, F. Gonzalez, A. Bousse, and J. J. Bellanger, "A level set method for vessel segmentation in coronary angiography," in Proceedings of the 27th IEEE Annual International Conference of the Engineering in Medicine and Biology Society (EMBS '05), pp. 6348–6351, IEEE, September 2005.
+
+[26] J. Staal, M. D. Abramoff, M. Niemeijer, M. A. Viergever, and B. van Ginneken, DRIVE public online database, http://www.isi .uu.nl/Research/Databases/DRIVE/.
+
+[27] L. Shi, B. Funt, and G. Hamarneh, "Quaternion color curvature," in Proceedings of the 16th Color Imaging Conference: Color Science and Engineering Systems, Technologies, and Applications, pp. 338–341, November 2008.
+
+[28] M. Petrou and C. Petrou, Image Processing: The Fundamentals, John Wiley & Sons, Chichester, UK, 2nd edition, 2010.
+
+[29] C. Tomasi and R. Manduchi, "Bilateral filtering for gray and color images," in Proceedings of the 6th IEEE International Conference on Computer Vision (ICCV '98), pp. 839–846, January 1998.
+
+[30] S. Paris, P. Kornprobst, J. Tumblin, and F. Durand, "Bilateral filtering: theory and applications," Foundations and Trends in Computer Graphics and Vision, vol. 4, no. 1, pp. 1–73, 2009.
+
+[31] J. Canny, "A computational approach to edge detection," IEEE Transactions on Pattern Analysis and Machine Intelligence, vol. 8, no. 6, pp. 679–698, 1986.
+
+[32] A. Hoover and M. Goldbaum, STARE public online database http://www.ces.clemson.edu/\~ahoover/stare/.
+
+[33] A. Budai and J. Odstrčilík, High Resolution Fundus Image Database, September 2013.
+
+[34] D. Marín, A. Aquino, M. E. Gegúndez-Arias, and J. M. Bravo, "A new supervised method for blood vessel segmentation in retinal images by using gray-level and moment invariants-based features," IEEE Transactions on Medical Imaging, vol. 30, no. 1, pp. 146–158, 2011.
+
+[35] J. V. B. Soares, J. J. G. Leandro, R. M. Cesar Jr., H. F. Jelinek, and M. J. Cree, "Retinal vessel segmentation using the 2-D
+
+Gabor wavelet and supervised classification" IEEE Transactions on Medical Imaging, vol. 25, no. 9, pp. 1214–1222, 2006.
+
+[36] A. M. Mendonça and A. Campilho, "Segmentation of retinal blood vessels by combining the detection of centerlines and morphological reconstruction," IEEE Transactions on Medical Imaging, vol. 25, no. 9, pp. 1200–1213, 2006.
+
+[37] J. Staal, M. D. Abràmoff, M. Niemeijer, M. A. Viergever, and B. van Ginneken, "Ridge-based vessel segmentation in color images of the retina," IEEE Transactions on Medical Imaging, vol. 23, no. 4, pp. 501–509, 2004.
+
+[38] M. Niemeijer, J. Staal, B. van Ginneken, M. Loog, and M. D. Abràmoff, "Comparative study of retinal vessel segmentation methods on a new publicly available database," in Medical Imaging 2004: Image Processing, J. Michael Fitzpatrick and M. Sonka, Eds., vol. 5370 of Proceedings of SPIE, pp. 648–656, February 2004.
+
+[39] F. Zana and J.-C. Klein, "Segmentation of vessel-like patterns using mathematical morphology and curvature evaluation, IEEE Transactions on Image Processing, vol. 10, no. 7, pp. 1010– 1019,2001.
+
+[40] M. E. Martinez-Perez, A. D. Hughes, S. A. Thom, A. A. Bharath, and K. H. Parker, "Segmentation of blood vessels from red-free and fluorescein retinal images," Medical Image Analysis, vol. 11, no. 1, pp. 47–61, 2007.
+
+[41] L. Espona, M. J. Carreira, M. G. Penedo, and M. Ortega, "Comparison of pixel and subpixel retinal vessel tree segmentation using a deformable contour model," in Progress in Pattern Recognition, Image Analysis and Applications, vol. 5197 of Lecture Notes in Computer Science, pp. 683–690, Springer, Berlin, Germany, 2008.
+
+[42] X. Jiang and D. Mojon, "Adaptive local thresholding by verification-based multithreshold probing with application to vessel detection in retinal images," IEEE Transactions on Pattern Analysis and Machine Intelligence, vol. 25, no. 1, pp. 131–137, 2003.

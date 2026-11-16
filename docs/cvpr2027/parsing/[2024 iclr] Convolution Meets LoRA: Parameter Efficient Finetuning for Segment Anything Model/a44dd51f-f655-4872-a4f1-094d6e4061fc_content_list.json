@@ -1,0 +1,3621 @@
+[
+    {
+        "type": "text",
+        "text": "CONVOLUTION MEETS LORA: PARAMETER EFFI-CIENT FINETUNING FOR SEGMENT ANYTHING MODEL",
+        "text_level": 1,
+        "bbox": [
+            171,
+            98,
+            823,
+            146
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Zihan Zhong\\*   \nTsinghua University   \nzhongzh22@mails.tsinghua.edu.cn",
+        "bbox": [
+            179,
+            170,
+            490,
+            213
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Zhiqiang Tang Amazon Web Services zqtang@amazon.com",
+        "bbox": [
+            642,
+            170,
+            816,
+            213
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Tong He Amazon Web Services htong@amazon.com",
+        "bbox": [
+            179,
+            233,
+            346,
+            276
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Haoyang Fang Amazon Web Services haoyfang@amazon.com",
+        "bbox": [
+            361,
+            234,
+            553,
+            277
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Chun Yuan   \nTsinghua University   \nyuanc@sz.tsinghua.edu.cn",
+        "bbox": [
+            570,
+            234,
+            812,
+            277
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "ABSTRACT",
+        "text_level": 2,
+        "bbox": [
+            450,
+            311,
+            547,
+            327
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "The Segment Anything Model (SAM) stands as a foundational framework for image segmentation. While it exhibits remarkable zero-shot generalization in typical scenarios, its advantage diminishes when applied to specialized domains like medical imagery and remote sensing. To address this limitation, this paper introduces Conv-LoRA, a simple yet effective parameter-efficient fine-tuning approach. By integrating ultra-lightweight convolutional parameters into Low-Rank Adaptation (LoRA), Conv-LoRA can inject image-related inductive biases into the plain ViT encoder, further reinforcing SAM's local prior assumption. Notably, Conv-LoRA not only preserves SAM's extensive segmentation knowledge but also revives its capacity of learning high-level image semantics, which is constrained by SAM's foreground-background segmentation pretraining. Comprehensive experimentation across diverse benchmarks spanning multiple domains underscores Conv-LoRA's superiority in adapting SAM to real-world semantic segmentation tasks.¹",
+        "bbox": [
+            228,
+            343,
+            767,
+            526
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "1 INTRODUCTION",
+        "text_level": 2,
+        "bbox": [
+            173,
+            551,
+            338,
+            566
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "The AI community have witnessed the explosion development of a series of foundation models in recent years, such as CLIP (Radford et al., 2021), GPT-4 (OpenAI, 2023) and ViT-22B (Dehghani et al., 2023). Recently, Segment Anything (SAM) (Kirillov et al., 2023), a promptable model pretrained on over 1 billion masks and 11 million images, emerged as a foundation model for image segmentation. Despite its impressive zero-shot performance on generic object segmentation, it doesn't perform well on many real-world segmentation tasks in certain domains (Tang et al., 2023; Ji et al., 2023; Zhou et al., 2023), such as natural images (Borji et al., 2019; Fan et al., 2020a), agriculture (Sriwastwa et al., 2018), remote sensing (Xu et al., 2018) and medical images (Fan et al., 2020b).",
+        "bbox": [
+            169,
+            582,
+            826,
+            695
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "Following the pretraining-finetuing paradigm (Dosovitskiy et al., 2020; He et al., 2022; Liu et al., 2021a), it is natural to finetune SAM on downstream tasks to enhance its performance. However, existing works (Zhang & Liu, 2023; Chen et al., 2023; Shaharabany et al., 2023) have failed to either analyze or address certain limitations inherent in SAM. 1) SAM's image encoder is a plain ViT, which is known to lack of vision-specific inductive biases (Chen et al., 2022) that are useful for dense predictions. 2) SAM's pretraining is essentially a binary mask prediction task that, where, given one prompt, it separates foreground object from background. The low-level mask prediction pretraining hinders SAM's ability to capture high-level image semantic information crucial for tasks like multi-class semantic segmentation.",
+        "bbox": [
+            169,
+            700,
+            826,
+            827
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "text",
+        "text": "To tackle the above limitations and still retain SAM's valuable segmentation knowledge acquired during pretraining, we finetune a small set of (extra) model parameters while freezing most of SAM's pretrained weights, hence parameter efficient finetuning (PEFT). This raises the question: Can PEFT enhance SAM encoder with image-related local prior and facilitate the acquisition of high-level semantic information?",
+        "bbox": [
+            169,
+            832,
+            826,
+            876
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "header",
+        "text": "Published as a conference paper at ICLR 2024",
+        "bbox": [
+            171,
+            32,
+            480,
+            47
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "page_footnote",
+        "text": "\\*Work done while interning at Amazon Web Services.",
+        "bbox": [
+            191,
+            883,
+            516,
+            897
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "page_footnote",
+        "text": "¹Our code is public available at https://github.com/autogluon/autogluon/tree/ master/examples/automm/Conv-LoRA",
+        "bbox": [
+            169,
+            897,
+            825,
+            924
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "page_number",
+        "text": "1",
+        "bbox": [
+            493,
+            948,
+            503,
+            959
+        ],
+        "page_idx": 0
+    },
+    {
+        "type": "image",
+        "img_path": "images/d45e99b986ce4e65bb2acd4814c6e3a2d3afd55e15667bdbd584253cdd92d583.jpg",
+        "image_caption": [],
+        "image_footnote": [],
+        "bbox": [
+            181,
+            107,
+            300,
+            169
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "image",
+        "img_path": "images/2953eb7b4323d47e001bf9b6fa587628ed14d71c6a747512acb14542121351a3.jpg",
+        "image_caption": [],
+        "image_footnote": [],
+        "bbox": [
+            310,
+            107,
+            429,
+            170
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "image",
+        "img_path": "images/381d0d7372137eb1c658b3a6da3b5a5fe17b6c66c5167199f3f26a1e01d273fa.jpg",
+        "image_caption": [],
+        "image_footnote": [],
+        "bbox": [
+            437,
+            107,
+            558,
+            170
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "image",
+        "img_path": "images/bba17f3453bc858cdab59ac5371deca3c3c76bd1a5e5196182bc854495639eda.jpg",
+        "image_caption": [],
+        "image_footnote": [],
+        "bbox": [
+            566,
+            107,
+            687,
+            170
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "image",
+        "img_path": "images/33ab446d95dbe6db453b12d75cfd124f68e689515112386aaace1d9bc8e26da6.jpg",
+        "image_caption": [],
+        "image_footnote": [],
+        "bbox": [
+            696,
+            107,
+            815,
+            169
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "image",
+        "img_path": "images/46ad3937322c64770b332a1a5006dafe8407cd92914b0dc3a4c4a29ced2481ef.jpg",
+        "image_caption": [
+            "RGB Images"
+        ],
+        "image_footnote": [],
+        "bbox": [
+            178,
+            195,
+            297,
+            257
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "image",
+        "img_path": "images/e416ec661ab7f592ea7e6e30f0dc333a88d4077307b000707529f659781476af.jpg",
+        "image_caption": [
+            "GT"
+        ],
+        "image_footnote": [],
+        "bbox": [
+            305,
+            195,
+            426,
+            257
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "image",
+        "img_path": "images/61fa5f29e877cbecf64929c8caac495ed61ea0385b3e77906a765d861f7a2dd9.jpg",
+        "image_caption": [
+            "VPT"
+        ],
+        "image_footnote": [],
+        "bbox": [
+            434,
+            195,
+            555,
+            257
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "image",
+        "img_path": "images/58bbd3beae4f2966832eeb6aa37b46ab730f39c0a80449f50a6fa06c2f049b63.jpg",
+        "image_caption": [
+            "LoRA"
+        ],
+        "image_footnote": [],
+        "bbox": [
+            563,
+            195,
+            683,
+            257
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "image",
+        "img_path": "images/4d1f38e1a1787df733b7aa28100b931c1dc66bb99d37d7be8cf1df6041ab22a2.jpg",
+        "image_caption": [
+            "Conv-LoRA",
+            "Figure 1: Comparison of VPT, LoRA, and Conv-LoRA (ours) in binary-class road segmentation (top) and multi-class transparent object segmentation (bottom). Conv-LoRA reinforces imagerelated local priors, allowing SAM to separate roads from adjacent buildings, while LoRA and VPT struggle in this regard. In the second row, VPT produces a reasonable mask for the bowls but erroneously assigns them to the jar/kettle class (indicated by object color), revealing SAM's limited high-level semantic understanding. Both LoRA and Conv-LoRA rectify this misclassification through finetuing SAM's image encoder, with Conv-LoRA delivering a cleaner mask with fewer boundary artifacts."
+        ],
+        "image_footnote": [],
+        "bbox": [
+            692,
+            195,
+            812,
+            257
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            169,
+            407,
+            825,
+            436
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "In this paper, we propose a new PEFT method named Conv-LoRA by diving into Low-Rank Adaptation (LoRA) (Hu et al., 2021). LoRA introduces slim trainable linear projection layers into each transformer layer of SAM's encoder, thereby helping recover its capacity to extract high-level semantic information. Our experiments demonstrate that LoRA surpasses the widely-adopted visual prompt tuning (VPT) (Jia et al., 2022), particularly in the multi-class semantic segmentation tasks. On top of LoRA, Conv-LoRA integrates lightweight convolution layers within its bottleneck structure. Convolution can introduce the image-related local prior (i.e. a pixel exhibits stronger correlation with its neighbors than the distant pixels) (Chen et al., 2022) through the local spatial operations.",
+        "bbox": [
+            169,
+            444,
+            826,
+            556
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "Furthermore, it is essential to inject the local prior into the appropriate scale(s) of image features, considering the potential variations in object scales. To this end, Conv-LoRA draws inspiration from the concept of Mixture-of-Experts (MoE) (Shazeer et al., 2017) and incorporates multiple parallel convolutional experts, each specializing in a distinct feature scale. Given that ViT processes image features at a fixed scale, typically downsampling them by a factor of 16 from the original resolution, each expert in Conv-LoRA initially recovers image features at a specific scale, applies convolutional operations, and then reverts the features to the default scale. Compared to ViT-adaptor (Chen et al., 2022) and vision-specific transformers like Swin Transformer (Liu et al., 2021a), Conv-LoRA provides an implicit way to enforce multi-scale local priors, assuming it can leverage image features at the default scale to reconstruct feature information at higher scales. Fortunately, SAM's supervised pretraining, which involves masks of various scales, enables the ViT to acquire knowledge of image features beyond the default scale.",
+        "bbox": [
+            169,
+            561,
+            826,
+            729
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "In the spirit of PEFT, we also remove the prompt encoder and add lightweight MLPs in the mask decoder for multi-class prediction. This simple modification has transformed SAM into an end-toend model that can be finetuned on both binary and multi-class semantic segmentation applications. Overall, our contribution can be summarized as follows:",
+        "bbox": [
+            169,
+            734,
+            826,
+            792
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "• We present an innovative PEFT technique Conv-LoRA. By incorporating supplementary convolution operations, Conv-LoRA reinforces the local prior of SAM from the perspective of handling the limitation of plain ViT.",
+        "bbox": [
+            215,
+            804,
+            825,
+            847
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "• Conv-LoRA uses MoE to model the process of dynamically selecting the proper feature scale to inject the vision-specific inductive biases.",
+        "bbox": [
+            215,
+            849,
+            825,
+            878
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "• Our investigations reveal that SAM's pretraining has impeded its ViT encoder's capacity to learn high-level image semantic information. However, LoRA demonstrates the potential to help SAM recover this crucial ability.",
+        "bbox": [
+            215,
+            882,
+            825,
+            924
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "header",
+        "text": "Published as a conference paper at ICLR 2024",
+        "bbox": [
+            173,
+            32,
+            480,
+            46
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "page_number",
+        "text": "2",
+        "bbox": [
+            493,
+            948,
+            504,
+            959
+        ],
+        "page_idx": 1
+    },
+    {
+        "type": "text",
+        "text": "• We conduct an extensive benchmark encompassing diverse domains, including natural images, agriculture, remote sensing, and healthcare. Conv-LoRA consistently exhibits superior performance over other PEFT techniques in various downstream tasks.",
+        "bbox": [
+            215,
+            103,
+            825,
+            147
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "2 RELATED WORK",
+        "text_level": 2,
+        "bbox": [
+            171,
+            172,
+            348,
+            188
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "Parameter Efficient Fine-Tuning (PEFT). Parameter Efficient Fine-Tuning (PEFT) minimizes computational and storage requirements by selectively fine-tuning a small subset of model parameters, while keeping the majority fixed. PEFT encompasses methods such as adapter-based techniques, selective parameter tuning, prompt-driven fine-tuning, and Low-Rank Adaptation (LoRA) emerging from Natural Language Processing (NLP). In the adapter paradigm (Houlsby et al., 2019; Hu et al., 2021; Sung et al., 2022), compact modules are inserted within transformer layers, and other approaches (Guo et al., 2020; Zaken et al., 2021) involve fine-tuning a small fraction of parameters from pre-trained backbones. Prompt tuning (Lester et al., 2021; Li & Liang, 2021) adds adaptable tokens to input or intermediate sequences, and LoRA (Hu et al., 2021) introduces trainable low-rank matrices into transformer layers for weight updates.",
+        "bbox": [
+            169,
+            207,
+            826,
+            348
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "PEFT techniques have also proven effective in the Computer Vision (CV) domain. Visual Prompt Tuning (VPT) (Jia et al., 2022) applies prompt tuning concepts (Lester et al., 2021) to image classification, while Scale and Shift Feature Modulation (SSF) (Lian et al., 2022) uses scale and shift parameters for modulating visual features in image classifiers. Convpass (Jie & Deng, 2022) introduces a convolutional bottleneck to enhance ViT's performance in image classification. In our study, we focus on developing PEFT for SAM in semantic segmentation tasks, specifically enforcing multi-scale local priors beyond the default scale, distinguishing our approach from Convpass.",
+        "bbox": [
+            169,
+            353,
+            826,
+            453
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "Segmentation Models. FCN (Long et al., 2015) is a key deep image segmentation model that directly generates pixel-wise segmentation maps from images. U-Net (Ronneberger et al., 2015) employs an encoder-decoder structure with skip connections to preserve fine-grained spatial information. Deeplab (Chen et al., 2017a) integrates atrous (dilated) convolutions for multi-scale context, while PSPNet (Zhao et al., 2017) uses a pyramid pooling module. DANet (Fu et al., 2019), SANet (Zhong et al., 2020), and EMA (Li et al., 2019) utilize attention mechanisms for contextual dependencies. Transformer architectures like PVT (Wang et al., 2021), Swin (Liu et al., 2021b), CvT (Wu et al., 2021), CoaT (Xu et al., 2021), LeViT (Graham et al., 2021), Segformer (Xie et al., 2021a), and PVT v2 (Wang et al., 2022) bring various improvements. SAM (Ji et al., 2023), a recent breakthrough in segmentation, offers a universal approach for segmenting diverse objects and regions in images. Fine-tuning SAM on downstream tasks is recommended due to a lack of high-level semantic information and potential domain bias in the pre-training dataset.",
+        "bbox": [
+            169,
+            458,
+            826,
+            626
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "Fine-tuning SAM. Some prior works (Chen et al., 2023; Zhang & Liu, 2023; Wu et al., 2023; Chai et al., 2023; Shaharabany et al., 2023; Hu et al., 2023; Wang et al., 2023) explore fine-tuning SAM for downstream tasks. These methods include tuning SAM's mask decoder or integrating parameterefficient tuning methods with SAM's image encoder. Some of them (e.g.,(Chen et al., 2023; Zhang & Liu, 2023; Shaharabany et al., 2023)) provide end-to-end solutions to automate SAM. Our method further addresses the structural limitation of SAM's image encoder for capturing visual-specific inductive biases by introducing convolution operations. And we unveil that SAM's pretraining hampers its ViT encoder's ability to learn high-level semantic information. We also transform SAM into an end-to-end semantic segmentation model with minor architectural adjustments.",
+        "bbox": [
+            169,
+            631,
+            826,
+            758
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "Mixture-of-Experts. Mixture-of-Expert (MoE) is designed to expand model capacity while introducing small computational overhead. An MoE layer leverages multiple experts to enhance model capacity, while using the gating network to regulate sparsity for computational savings. Feed-Forward Networks (FFN) are commonly employed as the default choice for experts (Shazeer et al., 2017; Riquelme et al., 2021; Bao et al., 2022; Du et al., 2022; Zhou et al., 2022; Fedus et al., 2022). Some efforts (Zuo et al., 2021; Zhou et al., 2022) focus on more efficient gating mechanisms.",
+        "bbox": [
+            169,
+            763,
+            826,
+            849
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "text",
+        "text": "In our work, we utilize the concept of MoE, not aiming at improving it. We compare MoE used in our work with original MoE in three aspects: 1) The original goal of MoE is to expand model capacity without excessively increasing computational overhead, whereas ours is to dynamically inject the local prior into the feature maps of different scales. 2) The structures of experts in MoE are typically the same, whereas ours are not. Each expert specializes in a specific scaling operation in our method. 3) While MoE is mostly employed during pre-training, we employ MoE as a part for parameter-efficient tuning on the downstream tasks.",
+        "bbox": [
+            169,
+            854,
+            826,
+            925
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "header",
+        "text": "Published as a conference paper at ICLR 2024",
+        "bbox": [
+            171,
+            32,
+            480,
+            47
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "page_number",
+        "text": "3",
+        "bbox": [
+            493,
+            948,
+            504,
+            960
+        ],
+        "page_idx": 2
+    },
+    {
+        "type": "image",
+        "img_path": "images/6d870fe2159839f1fedfd8e4b57964e94ef3c273c2ec69281c9b77cb6cb38b7a.jpg",
+        "image_caption": [
+            "Figure 2: LoRA vs. Conv-LoRA. Both LoRA and Conv-LoRA add an extra trainable encoderdecoder structure parallel to the frozen pre-trained weights. Inside the bottleneck of LoRA, Conv-LoRA inserts lightweight convolution operations managed by MoE with negligible extra parameters."
+        ],
+        "image_footnote": [],
+        "bbox": [
+            202,
+            101,
+            774,
+            251
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            169,
+            316,
+            825,
+            347
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "3 METHOD",
+        "text_level": 2,
+        "bbox": [
+            171,
+            366,
+            284,
+            382
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "3.1 CONV-LoRA",
+        "text_level": 2,
+        "bbox": [
+            171,
+            397,
+            308,
+            412
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "LoRA. First, let's briefly recap the design of LoRA (Hu et al., 2021), which uses an encoder-decoder structure to impose a low-rank constraint on the weight updates (fig. 2 (a)). It freezes the pretrained model weights and injects small trainable rank decomposition matrices into each layer of the transformer architecture. Specifically, given a pre-trained weight matrix $W _ { 0 } \\in \\mathbb { R } ^ { b \\times a }$ , LoRA adds a pair of linear encoder $W _ { e }$ and decoder $W _ { d } .$ i.e., trainable rank decomposition matrices, along its side. $W _ { e }$ and $W _ { d }$ satisfy the low rank constraints $W _ { e } \\in \\mathbb { R } ^ { r \\times a } , W _ { d } \\in \\mathbf { \\bar { R } } ^ { b \\times r }$ , and $r \\ll m i n ( a , b )$ With LoRA, the forward pass changes from $h = W _ { 0 } x$ to:",
+        "bbox": [
+            169,
+            424,
+            825,
+            522
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "equation",
+        "img_path": "images/9c30fb14898e68640b6e1d4bc72ea8816095b0dc2d208c0ffb552b2d3b51bef0.jpg",
+        "text": "$$\nh = W _ { 0 } x + W _ { d } W _ { e } x\\tag{1}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            426,
+            529,
+            571,
+            545
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "Conv-LoRA aims to incorporate convolution operations between the encoder and decoder components of LoRA (fig. 2 (b)). On one hand, convolution can inject the image-related local prior, addressing fundamental limitation of the vanilla ViT. On the other hand, the low-rank constraint ensures that the convolution layers remain exceedingly lightweight, preserving the PEFT nature of Conv-LoRA.",
+        "bbox": [
+            169,
+            560,
+            826,
+            631
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "A pivotal consideration in designing Conv-LoRA is determining the scale of feature maps at which to introduce the local prior. While the feature maps in ViT are uniform in scale, object masks typically encompass a wide range of scales. Therefore, it is crucial to apply convolution operations at the right scale. To tackle this challenge, we draw inspiration from the concept of Mixture of Experts (MoE) (Shazeer et al., 2017). MoE comprises multiple expert networks and a gating module that dynamically selects which expert(s) to activate during the forward pass (fig. 3). Adapting this concept to Conv-LoRA, each expert specializes in convolution at a specific scale of feature maps, and a compact gating module learns to dynamically choose the expert(s) based on the input data. Mathematically, with Conv-LoRA, eq. (1) changes to:",
+        "bbox": [
+            169,
+            636,
+            826,
+            763
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "equation",
+        "img_path": "images/15cf3cd46c483e99addd2c5841b8ba4bcf932f069e8ea3304e927d9afcb27c0e.jpg",
+        "text": "$$\nh = W _ { 0 } x + W _ { d } ( \\sum _ { i } ^ { n } G ( W _ { e } x ) _ { i } E _ { i } ( W _ { e } x ) )\\tag{2}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            359,
+            780,
+            635,
+            819
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "where $W _ { 0 } \\in \\mathbb { R } ^ { C _ { o u t } \\times C _ { i n } } , W _ { e } \\in \\mathbb { R } ^ { r \\times C _ { i n } } , W _ { d } \\in \\mathbb { R } ^ { C _ { o u t } \\times r } , x \\in \\mathbb { R } ^ { B \\times C _ { i n } \\times H \\times W }$ . B is batch size, $C _ { i n } / C _ { o u t }$ is the number of input / output channels, H and W correspond to the height and width. $E _ { i }$ is the $i _ { t h }$ expert of all n experts. G is the gating network with only top-k (default 1) values activated. Refer to appendix A for more details of gating.",
+        "bbox": [
+            169,
+            830,
+            825,
+            890
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "text",
+        "text": "Inside each expert, three key operations are arranged in sequence: an interpolation function that reconstructs feature maps at a specific scale, a $3 \\times { \\bar { 3 } }$ convolutional layer, and a subsequent interpolation operation to map the feature maps back to the default feature scale of ViT. Assume expert $E _ { i }$ is in charge of scale $s _ { i }$ , we can formulate it as:",
+        "bbox": [
+            169,
+            895,
+            826,
+            924
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "header",
+        "text": "Published as a conference paper at ICLR 2024",
+        "bbox": [
+            171,
+            32,
+            482,
+            47
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "page_number",
+        "text": "4",
+        "bbox": [
+            493,
+            948,
+            504,
+            959
+        ],
+        "page_idx": 3
+    },
+    {
+        "type": "image",
+        "img_path": "images/c078d6b9a5fd1f46bacc25b0644503ee8285003c4558e190eac9676cfb0a3888.jpg",
+        "image_caption": [
+            "Figure 3: MoE-Conv. It consists of n experts and a gating network for dynamic expert selection. Each expert reconstructs feature maps at a specific scale, applies convolution, and returns the feature maps to the default scale. Each expert specializes in one unique feature scale."
+        ],
+        "image_footnote": [],
+        "bbox": [
+            236,
+            106,
+            756,
+            237
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            169,
+            309,
+            825,
+            339
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "equation",
+        "img_path": "images/356e8f55718e510bfae92dcbe6ca25c6cd7c0a2c7e3c854957251f4d41511f1c.jpg",
+        "text": "$$\nE _ { i } ( x ) = { \\mathrm { I n t e r p o l a t e } } ( { \\mathrm { C o n v } } _ { 3 \\times 3 } ( { \\mathrm { I n t e r p o l a t e } } ( x , s _ { i } ) ) , 1 / s _ { i } )\\tag{3}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            313,
+            359,
+            684,
+            376
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "For instance, if $s _ { i } = 4 .$ , expert $E _ { i }$ would initially upscale the feature maps by a factor of 4x, apply the $\\mathrm { C o n v } _ { 3 \\times 3 }$ operation, and finally, downscale the feature maps by 4x.",
+        "bbox": [
+            169,
+            387,
+            825,
+            417
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "MoE vs. Multi-scale. In contrast to MoE, another method to address diverse scales is employing a multi-scale strategy. This approach utilizes multiple branches to concurrently inject local priors at various scales and aggregates the results. Although seemingly more straightforward, this method comes at a higher computational cost when compared to MoE. The efficiency of MoE stems from its capacity to selectively activate sparse experts, thereby minimizing computational overhead. Given our priority on efficient finetuning, we favor MoE as a discerning choice.",
+        "bbox": [
+            169,
+            422,
+            826,
+            508
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "3.2 END-TO-END MULTI-CLASS SEGMENTATION WITH SAM",
+        "text_level": 2,
+        "bbox": [
+            171,
+            525,
+            607,
+            540
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "SAM comprises three essential components: an image encoder, a prompt encoder, and a mask decoder. When provided with an image and a prompt, which can take the form of a point, box, mask, or text, the mask decoder generates a mask of the object associated with the given prompt. While this prompt-based approach renders SAM flexible for integration into larger systems, such as interactive segmentation or a combination of detection and subsequent segmentation, it does pose challenges in making SAM an end-to-end model in practical applications. To automate SAM, we freeze the prompt encoder, thus always constant prompt tokens to mask decoder, when finetuning it on downstream tasks. Moreover, the original mask decoder is designed to predict binary masks, distinguishing between foreground and background based on the given prompt. To adapt SAM for multi-class semantic segmentation tasks, we introduce a straightforward classification branch (depicted as the red dashed box in fig. 4) within the mask decoder. This extra branch is responsible for predicting classification scores. Additionally, we apply full fine-tuning to the mask decoder as it is a lightweight module. For more comprehensive information, refer to appendix B.",
+        "bbox": [
+            169,
+            551,
+            826,
+            733
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "4 EXPERIMENTS",
+        "text_level": 2,
+        "bbox": [
+            171,
+            752,
+            328,
+            768
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "text",
+        "text": "Settings. We perform several experiments using SAM on four real-world scenarios, including medical images, natural images, agriculture and remote sensing. We use the batch size of 4 and Adam optimizer with learning rate of $\\mathrm { \\bar { 1 } } \\times \\mathrm { 1 0 ^ { - 4 } }$ as default, with a weight decay of $1 \\times 1 0 ^ { - 4 }$ . A larger learning rate of $3 \\times 1 0 ^ { - 4 }$ is found useful for the datasets we use in agriculture and remote sensing. The random horizontal flip is applied during training as data augmentation. All the methods are trained for 30 epochs with structure loss $( \\mathrm { i . e . }$ , the combination of weighted IoU loss and binary cross entropy loss) unless otherwise specified. Additionally, our Conv-LoRA follows Shazeer et al. (2017) to introduce extra loss for balancing the utilization among the experts. The weight of the extra loss is set to 1.0 and 2.0 for binary-class and multi-class semantic segmentation respectively. We set the number of experts to be 8 by default, with each expert specializing in a scaling ratio within the continuous range from 1 to 8. And we apply Conv-LoRA to the query, key and value matrices in self-attention layers, same as how LoRA does.",
+        "bbox": [
+            169,
+            785,
+            826,
+            925
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "header",
+        "text": "Published as a conference paper at ICLR 2024",
+        "bbox": [
+            171,
+            32,
+            482,
+            47
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "page_number",
+        "text": "5",
+        "bbox": [
+            493,
+            948,
+            504,
+            960
+        ],
+        "page_idx": 4
+    },
+    {
+        "type": "image",
+        "img_path": "images/3ba31aa3041053bbbe7c3a37533880d88387323d57dfda9fe7cde4e2fa3ceba6.jpg",
+        "image_caption": [
+            "Figure 4: The modified SAM's mask decoder for multi-class semantic segmentation. The classification module (within the red dashed box) is new added compared to original SAM's mask decoder. N is the number of output mask tokens, K is the number of classes, C is the number of channels, H and W indicate the height and width of the feature map (we omit batch size' for simplicity)."
+        ],
+        "image_footnote": [],
+        "bbox": [
+            254,
+            104,
+            756,
+            242
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            169,
+            337,
+            825,
+            366
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "Datasets. Our experiments encompass semantic segmentation datasets from various domains, spanning natural images, medical images, agriculture, and remote sensing. In the natural image domain, we explore two specific tasks: camouflaged object segmentation (Fan et al., 2020a; Skurowski et al., 2018; Le et al., 2019) and shadow detection (Vicente et al., 2016). Within medical segmentation, we investigate polyp segmentation (Jha et al., 2020; Bernal et al., 2015; Tajbakhsh et al., 2015; Vázquez et al., 2017; Silva et al., 2014) and skin lesion segmentation (Codella et al., 2018). For agriculture and remote sensing, we employ the leaf disease segmentation (Rath, 2023) and road segmentation (Mnih, 2013) datasets as representative examples, respectively. We also explore multi-class transparent object segmentation using Trans10K-v1 (Xie et al., 2020) with 3 classes and Trans10K-v2 (Xie et al., 2021b) with 12 fine-grained classes. Further details about each dataset can be found in appendix C.",
+        "bbox": [
+            169,
+            372,
+            826,
+            526
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "Baselines. We compare our method with the following methods: 1) Fine-tune SAM's mask decoder only. 2) BitFit (Zaken et al., 2021), which only fine-tunes bias terms in the pre-trained model. 3) Adapter (Houlsby et al., 2019), which inserts the trainable bottleneck layers between the transformer layers. 4) SAM-Adapter (Chen et al., 2023), which further tunes the patch embedded features and learns an extra embedding for high-frequency components for low-level semantic segmentation tasks. And it is one of the pioneer works that apply PEFT method to SAM. 5) VPT (Jia et al., 2022), which inserts learnable tokens to hidden states for each transformer layer. 6) LST (Sung et al., 2022), which inserts a trainable side network parallel to the frozen backbone. To control the number of trainable parameters, the side adapter network employs a pre-trained ViT-Tiny model, similar to SAN (Xu et al., 2023). The features from the frozen backbone and the side adapter network are fused at the global attention layers of SAM. 7) SSF (Lian et al., 2022), which inserts learnable scale and shift parameters to modulate visual features during training. 8) LoRA (Hu et al., 2021) inserts trainable bottleneck layers parallel to the frozen linear weight.",
+        "bbox": [
+            169,
+            531,
+            826,
+            714
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "To adhere to the page limit, we select representative datasets of different domains to report the main experiment results. Refer to appendix D for the full experiment results. All the experiments for PEFT methods are run for three times to ease the randomness. The average values and the standard error are reported in table 1.",
+        "bbox": [
+            169,
+            719,
+            826,
+            777
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "4.1 BINARY-CLASS SEMANTIC SEGMENTATION",
+        "text_level": 2,
+        "bbox": [
+            171,
+            797,
+            516,
+            813
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "text",
+        "text": "In table 1, all PEFT methods consistently outperform fine-tuning the mask decoder alone, underscoring the importance of finetuning the image encoder of SAM. Furthermore, Conv-LoRA surpasses other PEFT techniques across diverse datasets from different domains. Compared to other PEFT methods, Conv-LoRA uses lightweight convolution operations to strengthen the vision-specific local prior, which turns out effective in boosting the segmentation performance. The substantial performance gaps between SAM trained from scratch and Conv-LoRA also underscore the considerable assistance provided by SAM's pretraining knowledge in enhancing downstream task performance.",
+        "bbox": [
+            169,
+            827,
+            826,
+            925
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "header",
+        "text": "Published as a conference paper at ICLR 2024",
+        "bbox": [
+            171,
+            32,
+            482,
+            47
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "page_number",
+        "text": "6",
+        "bbox": [
+            493,
+            948,
+            504,
+            960
+        ],
+        "page_idx": 5
+    },
+    {
+        "type": "table",
+        "img_path": "images/2a762f4b0e7ec2f6fd1f536e80c0fe4a91748bd2aee5b2f37a9160aa3770664c.jpg",
+        "table_caption": [
+            "Table 1: Results on binary semantic segmentation. ‘# Params (M) / Ratio (%)' represents the number of trainable parameters and its proportion relative to the total number. Domain Specific is a placeholder referring to methods that specifically designed for the tasks. Underlined' denotes the better results compared to PEFT methods. See appendix D for more details. Compared to LoRA, Conv-LoRA incurs negligible parameter overhead, but delivers a clear performance boost."
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td rowspan=\"2\">Method</td><td rowspan=\"2\">#Params (M) / Ratio (%)</td><td colspan=\"6\">Medical</td><td colspan=\"4\">Natural Images</td><td colspan=\"2\">Agriculture</td><td colspan=\"2\">Remote Sensing</td></tr><tr><td colspan=\"2\">Kvasir</td><td colspan=\"2\">CVC-612</td><td colspan=\"2\">ISIC 2017</td><td colspan=\"3\">CAMO</td><td colspan=\"2\">SBU Leaf</td><td colspan=\"2\">Road</td></tr><tr><td></td><td></td><td>Sα↑</td><td>Eφ↑</td><td>Sα ↑</td><td>Eφ↑</td><td>Jac ↑ Dice ↑</td><td>Sα ↑</td><td>Eφ↑</td><td>F↑</td><td>BER↓</td><td>IoU ↑</td><td>Dice ↑</td><td>IoU↑</td><td>Dice ↑</td></tr><tr><td>Domain Specific</td><td>*/ 100%</td><td>90.9</td><td>94.4</td><td>92.6</td><td>95.5</td><td>80.1</td><td>87.5</td><td>80.8 85.8</td><td>73.1</td><td>3.56</td><td>62.3</td><td>74.1</td><td>59.1</td><td>73.0</td></tr><tr><td>SAM trained from scratch</td><td>641.09 / 100%</td><td>78.5</td><td>82.4</td><td>85.9</td><td>91.6</td><td>73.8</td><td>82.5 61.9</td><td>67.0</td><td>40.5</td><td>5.53</td><td>52.1</td><td>65.5</td><td>55.6</td><td>71.1</td></tr><tr><td>decoder-only</td><td>3.51 / 0.55%</td><td>86.5</td><td>89.5</td><td>85.5</td><td>89.9</td><td>69.7</td><td>79.5</td><td>78.5 83.1</td><td>69.8</td><td>14.58</td><td>50.8</td><td>63.8</td><td>48.6</td><td>65.1</td></tr><tr><td>BitFit</td><td>3.96 / 0.62%</td><td>90.8 ± 0.57 93.8 ± 0.9889.0 ± 0.40 91.6 ± 0.987</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>76.4 ± 0.45 84.7 ± 0.3586.8 ± 0.33 90.7 ± .28 81.5 ± 0.193.16 ± 0.12871.4 ± 1.15 81.7 ± .01|60.6 ± 0.15 75.2 ± 0.11</td><td></td></tr><tr><td>Adapter</td><td>3.92 / 0.61%</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>91.2 ± 023 94.0 ± 0.16|89.3 ± 0.43 92.0 ± 0.6376.7 ± 066 85.0 ± 0.56|87.7 ± 0.10 91.3 ± 0.40 82.8 ± .352.84 ± 0.09372.1 ± 0.47 82.4 ± 0.3661.5 ± 0.11 75.9 ± 0.12</td><td></td></tr><tr><td>VPT</td><td>4.00 / 0.62%</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>91.5 ± 0.23 94.3 ± 0.0691.0 ± 0.94 93.7 ± 1.4176.9 ± 0.94 85.1 ± 0.7587.4 ± 0.60 91.4 ± 0.68 82.1 ± 0.752.70 ± 0.05573.6 ± 0.26 83.8 ± 0.2660.2 ± 1.87 74.9 ± 1.50</td><td></td></tr><tr><td>LST</td><td>11.49 / 1.77%</td><td>89.7 ± 0.25 93.3 ± 0.3789.4 ± 0.37 92.4 ± 0.54</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>76.4 ± 1.05 84.9 ± 0.79|83.3 ± 0.28 88.0 ± 0.23 77.1 ± 0.023.18 ± 0.01270.2 ± 0.87 81.1 ± 0.8260.2 ± 0.26 74.9 ± 0.22</td><td></td></tr><tr><td>SAM-Adapter</td><td>3.98 / 0.62%</td><td>89.6 ± 0.24 92.5 ± 0.1089.6 ± 0.22 92.4 ± 1.06</td><td></td><td></td><td></td><td>76.1 ± 0.45 84.6 ± 0.37|85.6 ± 0.26 89.6 ± 0.55 79.8 ± 0.893.14 ± 0.063</td><td></td><td></td><td></td><td></td><td></td><td></td><td>71.4 ± 0.20 82.1 ± 0.1060.6 ± 0.06 75.2 ± 0.04</td><td></td></tr><tr><td>SSF</td><td>4.42 / 0.69%</td><td></td><td></td><td></td><td></td><td>91.3 ± 0.87 93.9 ± 1.49|89.6 ± 0.3791.9 ± 0.7976.6 ± 0.19 85.0 ± 0.1487.5 ± 0.11 91.4 ± 0.16 82.6 ± 0.123.19 ± 0.046</td><td></td><td></td><td></td><td></td><td></td><td></td><td>71.5 ± 0.6381.8 ± 0.4461.6 ± 0.03 76.0 ± 0.02</td><td></td></tr><tr><td>LoRA</td><td>4.00 / 0.62%</td><td></td><td></td><td></td><td></td><td>91.2 ± 0.28 93.8 ± 0.290.7 ± 0.04 92.5 ± 0.4176.6 ± 0.23 84.9 ± 0.22|88.0 ± 0.24 91.9 ± 0.42 82.8 ± 0.162.74 ± 0.079</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>73.7 ± 0.20 83.6 ± 0.1362.2 ± 0.21 76.5 ± 0.18</td></tr><tr><td>Conv-LoRA</td><td>4.02 / 0.63%</td><td>92.0 ± 0.1594.7 ± 0.1691.3 ± 0.6994.0 ± 0.78</td><td></td><td></td><td></td><td>77.6 ± 0.5785.7 ± 0.36 88.3 ± 0.4092.4 ± 0.31 84.0 ± 0.342.54 ± 0.081</td><td></td><td></td><td></td><td></td><td></td><td></td><td>74.5 ± 0.39 84.3 ± 0.3462.6 ± 0.36 76.8 ± 0.27</td><td></td></tr></table>",
+        "bbox": [
+            171,
+            101,
+            825,
+            275
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "table",
+        "img_path": "images/6074037c8d27acfdfb59281c2a2c19e93a77201ac5ec2d295cec8eea75bcf47b.jpg",
+        "table_caption": [
+            "Table 2: Results on multi-class semantic segmentation. The tables are the results for three-class and twelve-class semantic segmentation respectively."
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td rowspan=\"3\"></td><td rowspan=\"2\">Method</td><td rowspan=\"2\" colspan=\"2\">#Params (M) / Ratio (%)</td><td colspan=\"4\">Easy mIoU↑</td><td rowspan=\"2\"></td><td colspan=\"4\">Hard MBER↓</td><td rowspan=\"2\"></td><td rowspan=\"2\"></td></tr><tr><td></td><td></td><td>MAE↓</td><td>MBER↓</td><td>Acc ↑</td><td>mIoU↑</td><td>MAE↓</td></tr><tr><td></td><td>TransLab</td><td colspan=\"2\">42.19 / 100%</td><td>95.77</td><td>92.23</td><td>0.036</td><td>3.12</td><td>83.04</td><td>72.10</td><td>0.166</td><td></td><td>13.30</td><td></td></tr><tr><td>decoder-only</td><td colspan=\"2\">3.51 / 0.55%</td><td>94.68</td><td>88.54</td><td colspan=\"2\">0.050</td><td>4.24</td><td>83.53</td><td>68.30</td><td colspan=\"2\">0.186</td><td>14.37</td><td></td></tr><tr><td>VPT LoRA</td><td colspan=\"2\">4.00 / 0.62% 4.00 / 0.62%</td><td>98.31</td><td>95.73 96.26</td><td>0.017 0.016</td><td></td><td>1.52</td><td>90.42</td><td>83.38</td><td colspan=\"2\">0.083</td><td>7.21 6.35</td><td></td></tr><tr><td>Conv-LoRA</td><td colspan=\"2\">4.02/ 0.63%</td><td>98.44 98.63</td><td>96.45</td><td>0.015</td><td></td><td>1.35 1.27</td><td>91.94 93.05</td><td>83.95 84.37</td><td>0.083 0.075</td><td>6.25</td><td></td><td></td></tr><tr><td>Method</td><td colspan=\"9\"># Params (M) /</td><td></td><td></td><td></td><td></td></tr><tr><td></td><td>Ratio (%)</td><td>Acc↑</td><td>mIoU↑</td><td>shelf 54.36</td><td>jar</td><td>freezer</td><td>window</td><td colspan=\"2\">Category IoU ↑ door eyeglass</td><td>cup</td><td>wall</td><td>bowl</td><td>bottle</td><td>box</td></tr><tr><td>TransLab Trans2Seg</td><td>42.19 / 100% 56.20 / 100%</td><td>92.67 94.14</td><td>69.00 72.15</td><td>93.90 95.35 53.43</td><td>64.48 67.82</td><td>65.14 64.20</td><td>54.58 59.64</td><td>57.72 60.56</td><td>79.85 88.52</td><td>81.61</td><td>72.82</td><td>69.63</td><td>77.50</td><td>56.43 57.17</td></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>86.67</td><td>75.99</td><td>73.98</td><td>82.43</td><td></td></tr><tr><td>decoder-only</td><td>3.51 / 0.55%</td><td>90.66</td><td>49.97</td><td>93.66</td><td>32.75</td><td>39.96</td><td>35.87 50.70</td><td>45.89</td><td>57.38</td><td>73.16</td><td>69.36</td><td>54.23</td><td>56.58</td><td>33.77</td></tr><tr><td>VPT</td><td>4.00 / 0.62%</td><td>94.42</td><td>62.81</td><td>97.41</td><td>29.76</td><td>52.82 62.09</td><td>55.54</td><td>63.61</td><td>81.12</td><td>83.40</td><td>79.61</td><td>65.29</td><td>72.92</td><td>44.77</td></tr><tr><td>LoRA</td><td>4.00 / 0.62%</td><td>94.80</td><td>66.01</td><td>97.50</td><td>42.17</td><td>57.82 64.35</td><td>53.44</td><td>64.08</td><td>87.28</td><td>85.28</td><td>80.43</td><td>63.67</td><td>77.97</td><td>49.56</td></tr><tr><td>Conv-LoRA</td><td>4.02 / 0.63%</td><td>95.07</td><td>67.09</td><td>97.66</td><td>50.51</td><td>58.44 51.70</td><td>55.69</td><td>65.22</td><td>85.23</td><td>84.84</td><td>80.97</td><td>72.84</td><td>79.83</td><td>52.73</td></tr></table>",
+        "bbox": [
+            173,
+            375,
+            823,
+            558
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "Additionally, while Conv-LoRA outperforms certain domain-specific methods that are having more trainable parameters, it may still fall short on specific datasets. It's important to note that Conv-LoRA aims to be a general-purpose PEFT method for adapting SAM to various domains rather than competing with these domain-specific models. Tailoring SAM for specific domain applications with more intricate adjustments might yield superior performance compared to specialized model designs.",
+        "bbox": [
+            169,
+            614,
+            826,
+            700
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "4.2 MULTI-CLASS SEMANTIC SEGMENTATION",
+        "text_level": 2,
+        "bbox": [
+            171,
+            722,
+            508,
+            736
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "In table 2, while decoder-only fine-tuning approaches achieve comparable segmentation accuracy with domain-specific methods, they exhibit a substantial gap in terms of mIoU metrics. While accuracy measures pixel-level segmentation performance, mIoU takes mask class information into account. We suspect that SAM's image encoder encounters challenges in extracting high-level semantic information that is valuable for classification tasks. Moreover, fine-tuning the image encoder using PEFT methods results in a significant boost in mIoU, indicating a restoration of its capability to learn high-level image semantics.",
+        "bbox": [
+            169,
+            750,
+            826,
+            848
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "text",
+        "text": "Additionally, we conduct linear probing experiments on SAM's image encoder. Specifically, we freeze SAM's ViT-B encoder and train only a linear head on ImageNet-1K. Similarly, we perform linear probing for the ViT-B pretrained with MAE (He et al., 2022). The results reveal that SAM's image encoder exhibits significantly lower ImageNet-1K accuracy compared to the MAE encoder (54.2% vs. 67.7%). Given that SAM's image encoder is initialized using an MAE encoder, we hypothesize the pre-training focused on low-level foreground-background mask prediction adversely affects the ViT encoder's ability to capture high-level semantic information for classification.",
+        "bbox": [
+            169,
+            854,
+            826,
+            925
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "header",
+        "text": "Published as a conference paper at ICLR 2024",
+        "bbox": [
+            171,
+            32,
+            480,
+            47
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "page_number",
+        "text": "7",
+        "bbox": [
+            493,
+            948,
+            504,
+            959
+        ],
+        "page_idx": 6
+    },
+    {
+        "type": "chart",
+        "img_path": "images/9c37fbba991ba407920032e055bd872cd6b8582a7952d18164c357993cefe894.jpg",
+        "content": "",
+        "chart_caption": [],
+        "chart_footnote": [],
+        "bbox": [
+            178,
+            107,
+            472,
+            338
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "chart",
+        "img_path": "images/948adc675307a4828ba90db5d92a4c56e186c0b5cc3976d794cb162eb8fe67d7.jpg",
+        "content": "",
+        "chart_caption": [
+            "Figure 5: Mean attention distance of each attention head, with each dot indicating the mean distance across images for one of the 16 heads at one layer. In contrast to MAE, SAM retains the ability to incorporate local information even in deeper layers."
+        ],
+        "chart_footnote": [],
+        "bbox": [
+            482,
+            108,
+            772,
+            337
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            171,
+            404,
+            825,
+            434
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "To be specific, SAM was trained on a dataset that exclusively comprises segmentation masks without explicit semantic information. In theory, to minimize loss, the fundamental objective for its encoder is to project pixels into a metric space where pixels from the same object are in close proximity, while those from distinct objects are distantly positioned. This projection requires an implicit understanding of objectness', focusing on proximity within an image rather than preserving consistent representations of the same-type object across different images. This introduces a potential challenge in aligning representations with semantics across diverse images.",
+        "bbox": [
+            169,
+            439,
+            826,
+            539
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "4.3 ABLATION STUDY",
+        "text_level": 2,
+        "bbox": [
+            171,
+            555,
+            343,
+            570
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "SAM's local prior assumption. SAM's local prior is grounded in its extensive segmentation pretraining. Through supervised training on a vast dataset encompassing 1 billion high-quality masks and 11 million images, SAM has honed a robust capability to discern and capture local features within images. Notably, SAM's encoder retains the ViT architecture, which inherently lacks a dedicated local prior. However, this deficiency is effectively compensated by the significant local prior acquired through segmentation pretraining.",
+        "bbox": [
+            169,
+            582,
+            825,
+            669
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "We analyze using the mean attention distance as a metric. In fig. 5, SAM exhibits numerous heads in the deep blocks with short mean attention distances, suggesting its heightened focus on local information during the later stages of the encoder. In contrast, the MAE pretrained ViT, representing SAM's initialization, displays consistently long mean attention distances among attention heads in the later stages. Consequently, SAM's segmentation pretraining induces a transformative shift in ViT's attention heads, steering them from a global-oriented to a local-oriented configuration. This transformation underscores the efficacy of SAM's approach in imbuing the model with a distinctive local prior, enhancing its ability to capture fine-grained details within images.",
+        "bbox": [
+            169,
+            672,
+            826,
+            786
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "MoE vs. Multi-scale. Conv-LoRA leverages MoE to dynamically inject the local prior into feature maps of different scales (fig. 6 (a)), as the optimal scale remains unclear. Here we explore the impact of a multi-scale strategy, which fuses the features from all scales simultaneously (fig. 6 (b)).",
+        "bbox": [
+            169,
+            791,
+            826,
+            835
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "text",
+        "text": "We compare performance and training costs in table 3. Dynamic MoE outperforms multi-scale direct addition in terms of performance. This could be attributed to the preference for specific scales’ feature maps based on different inputs. When injecting the local prior into feature maps of all scales simultaneously, the discrepancy of the importance diminishes as the information from critical feature maps is smoothed out. However, with dynamic selection of the top-1 experts for each forward pass, the information from these crucial scales takes precedence and isn't diluted by other",
+        "bbox": [
+            169,
+            840,
+            826,
+            925
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "header",
+        "text": "Published as a conference paper at ICLR 2024",
+        "bbox": [
+            171,
+            32,
+            480,
+            47
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "page_number",
+        "text": "8",
+        "bbox": [
+            493,
+            948,
+            504,
+            960
+        ],
+        "page_idx": 7
+    },
+    {
+        "type": "table",
+        "img_path": "images/46340fac1ff50fdca32967826581691d1e36105ddcbb6e59494087c9fda8d50a.jpg",
+        "table_caption": [
+            "scales. Dynamic MoE also provides a 1.54x speedup and reduces memory usage by 1.7GB during training. In summary, the comparison underscores the effectiveness and efficiency of MoE.",
+            "Table 3: MoE vs. Multi-scale, the latter fuses features from all scales simultaneously. The performance and the training cost illustrate the effectiveness and efficiency of dynamic selecting the experts, i.e., injecting the local prior into the feature maps of different scales dynamically."
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td rowspan=\"2\">Method</td><td colspan=\"4\">ISIC 2017</td><td rowspan=\"2\">Method</td><td rowspan=\"2\">Training Speed (Iter / s) ↑</td><td rowspan=\"2\">Training Memory (GB) ↓</td></tr><tr><td>Jac ↑</td><td>T-Jac ↑</td><td>Dice ↑</td><td>Acc ↑</td></tr><tr><td>Multi-scale</td><td>77.4</td><td>69.5</td><td>85.4</td><td>93.7</td><td>Multi-scale</td><td>0.79</td><td>23.4</td></tr><tr><td>MoE</td><td>77.9</td><td>70.3</td><td>85.9</td><td>93.9</td><td>MoE</td><td>1.22</td><td>21.7</td></tr></table>",
+        "bbox": [
+            176,
+            155,
+            820,
+            203
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "The Optimal' Scale of Feature Map for Different Datasets. While we are unable to definitively determine the optimal scale for introducing the local prior, we could check whether the optimal' scale within a given range varies indeed across different datasets.",
+        "bbox": [
+            171,
+            272,
+            825,
+            316
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "Specifically, we simply modify Conv-LoRA: use only one expert and a specific scaling ratio. We set the scaling ratio to 1, 2, 4 respectively. The experiments are conducted on Leaf Disease Segmentation dataset and ISIC 2017 dataset.",
+        "bbox": [
+            171,
+            321,
+            825,
+            364
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "table",
+        "img_path": "images/47c2c006b39f417063f8ddc4414e429644b515d1425962acc10bfd2860b542b1.jpg",
+        "table_caption": [
+            "Table 4: Comparison of the optimal’ scale of feature map for local prior injection across different datasets. We modify Conv-LoRA to use one expert with a specific scaling ratio."
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td rowspan=\"2\">Scaling Ratio</td><td colspan=\"3\">Leaf</td><td colspan=\"4\">ISIC 2017</td></tr><tr><td>IoU ↑</td><td>Dice ↑</td><td>Acc ↑</td><td>Jac ↑</td><td>T-Jac ↑</td><td>Dice ↑</td><td>Acc ↑</td></tr><tr><td>1</td><td>73.6</td><td>83.4</td><td>95.5</td><td>76.8</td><td>69.1</td><td>85.0</td><td>93.7</td></tr><tr><td>2</td><td>73.8</td><td>83.7</td><td>95.8</td><td>77.3</td><td>69.7</td><td>85.4</td><td>93.8</td></tr><tr><td>4</td><td>74.0</td><td>83.7</td><td>95.9</td><td>76.9</td><td>68.4</td><td>85.1</td><td>93.7</td></tr><tr><td>8</td><td>73.2</td><td>83.1</td><td>96.0</td><td>76.9</td><td>68.3</td><td>85.2</td><td>93.6</td></tr></table>",
+        "bbox": [
+            235,
+            383,
+            756,
+            479
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "In table 4, the optimal’ scale indeed varies across the different datasets. The scaling ratio set to 4 is optimal for Leaf Disease Segmentation dataset, whereas it is set to 2 for ISIC 2017 dataset. These results further confirms our assumption and the necessity for our dynamic local prior injection based on different inputs.",
+        "bbox": [
+            169,
+            535,
+            826,
+            593
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "For more ablation experiments, analyses (e.g., further analyses of local prior and MoE) and visualization, refer to appendix E through appendix I.",
+        "bbox": [
+            169,
+            598,
+            825,
+            628
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "5 CONCLUSION",
+        "text_level": 2,
+        "bbox": [
+            171,
+            657,
+            321,
+            672
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "Parameter efficient finetuning (PEFT) is a popular way when adapting foundation models to various downstream tasks. We present Conv-LoRA, a novel PEFT approach for applying SAM to downstream segmentation applications. Conv-LoRA is simple, generic, and obtains promising results over multiple domains including natural images, agriculture, remote sensing, and healthcare Moreover, ours shed light on several aspects of SAM: 1) although the large-scale supervised segmentation pretraining can provide image-related local prior knowledge from the data perspective, injecting lightweight convolution operations in the ViT encoder can further boost the exploitation of local prior from another perspective of architecture; 2) the foreground-background segmentation pretraining prevents the image encoder from learning high-level semantic information, which can be alleviated through finetuning relatively few parameters in the encoder.",
+        "bbox": [
+            169,
+            694,
+            826,
+            835
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "Our efforts primarily focus on developing a general PEFT method for SAM, showing stronger performance than existing PEFT methods in a broad spectrum of benchmarks, other than directly competing with state-of-the-art (SOTA) models in specialized domains. Given that SAM fine-tuned with Conv-LoRA may not yet consistently outperform domain-specific SOTA models, we believe that tailoring the mask decoder and prompt encoder beyond image encoder finetuning, and combining Conv-LoRA with other PEFT methods can be promising directions for domain-specific applications.",
+        "bbox": [
+            169,
+            840,
+            826,
+            925
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "header",
+        "text": "Published as a conference paper at ICLR 2024",
+        "bbox": [
+            171,
+            32,
+            480,
+            47
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "page_number",
+        "text": "9",
+        "bbox": [
+            493,
+            948,
+            504,
+            960
+        ],
+        "page_idx": 8
+    },
+    {
+        "type": "text",
+        "text": "ACKNOWLEDGEMENTS",
+        "text_level": 2,
+        "bbox": [
+            171,
+            103,
+            369,
+            117
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "We thank all the anonymous reviewers for their helpful comments. This work was supported by the National Key R&D Program of China (2022YFB4701400/4701402), SSTIC Grant (KJZD20230923115106012), Shenzhen Key Laboratory (ZDSYS20210623092001004), and Beijing Key Lab of Networked Multimedia.",
+        "bbox": [
+            169,
+            133,
+            826,
+            190
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "text",
+        "text": "REFERENCES",
+        "text_level": 2,
+        "bbox": [
+            173,
+            210,
+            289,
+            226
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "list",
+        "sub_type": "ref_text",
+        "list_items": [
+            "Hangbo Bao, Wenhui Wang, Li Dong, Qiang Liu, Owais Khan Mohammed, Kriti Aggarwal, Subhojit Som, Songhao Piao, and Furu Wei. Vlmo: Unified vision-language pre-training with mixture-of-modality-experts. Advances in Neural Information ProcessingSystems, 35:32897– 32912, 2022.",
+            "Anil Batra, Suriya Singh, Guan Pang, Saikat Basu, CV Jawahar, and Manohar Paluri. Improved road connectivity by joint learning of orientation and segmentation. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pp. 10385–10393, 2019.",
+            "Jorge Bernal, F Javier Sánchez, Gloria Fernández-Esparrach, Debora Gil, Cristina Rodríguez, and Fernando Vilariño. Wm-dova maps for accurate polyp highlighting in colonoscopy: Validation vs. saliency maps from physicians. Computerized medical imaging and graphics, 43:99–111, 2015.",
+            "Daniel Bolya, Cheng-Yang Fu, Xiaoliang Dai, Peizhao Zhang, Christoph Feichtenhofer, and Judy Hoffman. Token merging: Your vit but faster. arXiv preprint arXiv:2210.09461, 2022.",
+            "Ali Borji, Ming-Ming Cheng, Qibin Hou, Huaizu Jiang, and Jia Li. Salient object detection: A survey. Computational visual media, 5:117–150, 2019.",
+            "Shurong Chai, Rahul Kumar Jain, Shiyu Teng, Jiaqing Liu, Yinhao Li, Tomoko Tateyama, and Yen-wei Chen. Ladder fine-tuning approach for sam integrating complementary network. arXiv preprint arXiv:2306.12737, 2023.",
+            "Liang-Chieh Chen, George Papandreou, Iasonas Kokkinos, Kevin Murphy, and Alan L Yuille. Deeplab: Semantic image segmentation with deep convolutional nets, atrous convolution, and fully connected crfs. IEEE transactions on pattern analysis and machine intelligence, 40(4): 834–848, 2017a.",
+            "Liang-Chieh Chen, George Papandreou, Florian Schroff, and Hartwig Adam. Rethinking atrous convolution for semantic image segmentation. arXiv preprint arXiv:1706.05587, 2017b.",
+            "Tianrun Chen, Lanyun Zhu, Chaotao Ding, Runlong Cao, Shangzhan Zhang, Yan Wang, Zejian Li, Lingyun Sun, Papa Mao, and Ying Zang. Sam fails to segment anything?-sam-adapter: Adapting sam in underperformed scenes: Camouflage, shadow, and more. arXiv preprint arXiv:2304.09148, 2023.",
+            "Zhe Chen, Yuchen Duan, Wenhai Wang, Junjun He, Tong Lu, Jifeng Dai, and Yu Qiao. Vision transformer adapter for dense predictions. arXiv preprint arXiv:2205.08534, 2022.",
+            "Bowen Cheng, Alex Schwing, and Alexander Kirillov. Per-pixel classification is not all you need for semantic segmentation. Advances in Neural Information Processing Systems, 34:17864–17875, 2021.",
+            "Bowen Cheng, Ishan Misra, Alexander G Schwing, Alexander Kirillov, and Rohit Girdhar. Maskedattention mask transformer for universal image segmentation. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition, pp. 1290–1299, 2022.",
+            "Noel CF Codella, David Gutman, M Emre Celebi, Brian Helba, Michael A Marchetti, Stephen W Dusza, Aadi Kalloo, Konstantinos Liopyris, Nabin Mishra, Harald Kittler, et al. Skin lesion analysis toward melanoma detection: A challenge at the 2017 international symposium on biomedical imaging (isbi), hosted by the international skin imaging collaboration (isic). In 2018 IEEE 15th international symposium on biomedical imaging (ISBI 2018), pp. 168–172. IEEE, 2018."
+        ],
+        "bbox": [
+            173,
+            234,
+            825,
+            289
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "header",
+        "text": "Published as a conference paper at ICLR 2024",
+        "bbox": [
+            171,
+            32,
+            480,
+            46
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "page_number",
+        "text": "10",
+        "bbox": [
+            490,
+            948,
+            509,
+            960
+        ],
+        "page_idx": 9
+    },
+    {
+        "type": "list",
+        "sub_type": "ref_text",
+        "list_items": [
+            "Mostafa Dehghani, Josip Djolonga, Basil Mustafa, Piotr Padlewski, Jonathan Heek, Justin Gilmer, Andreas Peter Steiner, Mathilde Caron, Robert Geirhos, Ibrahim Alabdulmohsin, et al. Scaling vision transformers to 22 billion parameters. In International Conference on Machine Learning, pp. 7480–7512. PMLR, 2023.",
+            "Alexey Dosovitskiy, Lucas Beyer, Alexander Kolesnikov, Dirk Weissenborn, Xiaohua Zhai, Thomas Unterthiner, Mostafa Dehghani, Matthias Minderer, Georg Heigold, Sylvain Gelly, et al. An image is worth 16x16 words: Transformers for image recognition at scale. arXiv preprint arXiv:2010.11929, 2020.",
+            "Nan Du, Yanping Huang, Andrew M Dai, Simon Tong, Dmitry Lepikhin, Yuanzhong Xu, Maxim Krikun, Yanqi Zhou, Adams Wei Yu, Orhan Firat, et al. Glam: Efficient scaling of language models with mixture-of-experts. In International Conference on Machine Learning, pp. 5547– 5569. PMLR, 2022.",
+            "Deng-Ping Fan, Ge-Peng Ji, Guolei Sun, Ming-Ming Cheng, Jianbing Shen, and Ling Shao. Camouflaged object detection. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition, pp. 2777–2787, 2020a.",
+            "Deng-Ping Fan, Ge-Peng Ji, Tao Zhou, Geng Chen, Huazhu Fu, Jianbing Shen, and Ling Shao. Pranet: Parallel reverse attention network for polyp segmentation. In International conference on medical image computing and computer-assisted intervention, pp. 263–273. Springer, 2020b.",
+            "Deng-Ping Fan, Ge-Peng Ji, Ming-Ming Cheng, and Ling Shao. Concealed object detection. IEEE Transactions on Pattern Analysis and Machine Intelligence, 44(10):6024–6042, 2022. doi: 10. 1109/TPAMI.2021.3085766.",
+            "William Fedus, Barret Zoph, and Noam Shazeer. Switch transformers: Scaling to trillion parameter models with simple and efficient sparsity. The Journal of Machine Learning Research, 23(1): 5232–5270, 2022.",
+            "Jun Fu, Jing Liu, Haijie Tian, Yong Li, Yongjun Bao, Zhiwei Fang, and Hanqing Lu. Dual attention network for scene segmentation. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition, pp. 3146–3154, 2019.",
+            "Benjamin Graham, Alaaeldin El-Nouby, Hugo Touvron, Pierre Stock, Armand Joulin, Hervé Jégou, and Matthijs Douze. Levit: a vision transformer in convnet's clothing for faster inference. In Proceedings of the IEEE/CVF international conference on computer vision, pp. 12259–12269, 2021.",
+            "Demi Guo, Alexander M Rush, and Yoon Kim. Parameter-efficient transfer learning with diff pruning. arXiv preprint arXiv:2012.07463, 2020.",
+            "Kaiming He, Xinlei Chen, Saining Xie, Yanghao Li, Piotr Dollár, and Ross Girshick. Masked autoencoders are scalable vision learners. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition, pp. 16000–16009, 2022.",
+            "Neil Houlsby, Andrei Giurgiu, Stanislaw Jastrzebski, Bruna Morrone, Quentin De Laroussilhe, Andrea Gesmundo, Mona Attariyan, and Sylvain Gelly. Parameter-efficient transfer learning for nlp. In International Conference on Machine Learning, pp. 2790–2799. PMLR, 2019.",
+            "Edward J Hu, Yelong Shen, Phillip Wallis, Zeyuan Allen-Zhu, Yuanzhi Li, Shean Wang, Lu Wang, and Weizhu Chen. Lora: Low-rank adaptation of large language models. arXiv preprint arXiv:2106.09685, 2021.",
+            "Xinrong Hu, Xiaowei Xu, and Yiyu Shi. How to efficiently adapt large segmentation model (sam) to medical images. arXiv preprint arXiv:2306.13731, 2023.",
+            "Debesh Jha, Pia H Smedsrud, Michael A Riegler, Pål Halvorsen, Thomas de Lange, Dag Johansen, and Håvard D Johansen. Kvasir-seg: A segmented polyp dataset. In MultiMedia Modeling: 26th International Conference, MMM 2020, Daejeon, South Korea, January 5–8, 2020, Proceedings, Part II 26, pp. 451–462. Springer, 2020."
+        ],
+        "bbox": [
+            171,
+            103,
+            825,
+            160
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "header",
+        "text": "Published as a conference paper at ICLR 2024",
+        "bbox": [
+            171,
+            32,
+            482,
+            47
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "page_number",
+        "text": "11",
+        "bbox": [
+            490,
+            948,
+            508,
+            959
+        ],
+        "page_idx": 10
+    },
+    {
+        "type": "list",
+        "sub_type": "ref_text",
+        "list_items": [
+            "Wei Ji, Jingjing Li, Qi Bi, Wenbo Li, and Li Cheng. Segment anything is not always perfect: An investigation of sam on different real-world applications. arXiv preprint arXiv:2304.05750, 2023.",
+            "Menglin Jia, Luming Tang, Bor-Chun Chen, Claire Cardie, Serge Belongie, Bharath Hariharan, and Ser-Nam Lim. Visual prompt tuning. In European Conference on Computer Vision, pp. 709–727. Springer, 2022.",
+            "Shibo Jie and Zhi-Hong Deng. Convolutional bypasses are better vision transformer adapters. arXiv preprint arXiv:2207.07039, 2022.",
+            "Alexander Kirillov, Eric Mintun, Nikhila Ravi, Hanzi Mao, Chloe Rolland, Laura Gustafson, Tete Xiao, Spencer Whitehead, Alexander C Berg, Wan-Yen Lo, et al. Segment anything. arXiv preprint arXiv:2304.02643, 2023.",
+            "Trung-Nghia Le, Tam V Nguyen, Zhongliang Nie, Minh-Triet Tran, and Akihiro Sugimoto. Anabranch network for camouflaged object segmentation. Computer vision and image understanding, 184:45–56, 2019.",
+            "Brian Lester, Rami Al-Rfou, and Noah Constant. The power of scale for parameter-efficient prompt tuning. arXiv preprint arXiv:2104.08691, 2021.",
+            "Xia Li, Zhisheng Zhong, Jianlong Wu, Yibo Yang, Zhouchen Lin, and Hong Liu. Expectationmaximization attention networks for semantic segmentation. In Proceedings of the IEEE/CVF International Conference on Computer Vision, pp. 9167–9176, 2019.",
+            "Xiang Lisa Li and Percy Liang. Prefix-tuning: Optimizing continuous prompts for generation. arXiv preprint arXiv:2101.00190, 2021.",
+            "Dongze Lian, Daquan Zhou, Jiashi Feng, and Xinchao Wang. Scaling & shifting your features: A new baseline for efficient model tuning. Advances in Neural Information Processing Systems, 35: 109–123, 2022.",
+            "Weicong Liang, Yuhui Yuan, Henghui Ding, Xiao Luo, Weihong Lin, Ding Jia, Zheng Zhang, Chao Zhang, and Han Hu. Expediting large-scale vision transformer for dense prediction without finetuning. Advances in Neural Information Processing Systems, 35:35462–35477, 2022.",
+            "Ze Liu, Yutong Lin, Yue Cao, Han Hu, Yixuan Wei, Zheng Zhang, Stephen Lin, and Baining Guo. Swin transformer: Hierarchical vision transformer using shifted windows. In Proceedings of the IEEE/CVF international conference on computer vision, pp. 10012–10022, 2021a.",
+            "Ze Liu, Yutong Lin, Yue Cao, Han Hu, Yixuan Wei, Zheng Zhang, Stephen Lin, and Baining Guo. Swin transformer: Hierarchical vision transformer using shifted windows. In Proceedings of the IEEE/CVF international conference on computer vision, pp. 10012–10022, 2021b.",
+            "Jonathan Long, Evan Shelhamer, and Trevor Darrell. Fully convolutional networks for semantic segmentation. In Proceedings of the IEEE conference on computer vision and pattern recognition, pp. 3431–3440, 2015.",
+            "Volodymyr Mnih. Machine learning for aerial image labeling. University of Toronto (Canada), 2013.",
+            "OpenAI. Gpt-4 technical report, 2023.",
+            "Namuk Park and Songkuk Kim. How do vision transformers work? arXiv preprint arXiv:2202.06709, 2022.",
+            "Alec Radford, Jong Wook Kim, Chris Hallacy, Aditya Ramesh, Gabriel Goh, Sandhini Agarwal, Girish Sastry, Amanda Askell, Pamela Mishkin, Jack Clark, et al. Learning transferable visual models from natural language supervision. In International conference on machine learning, pp. 8748–8763. PMLR, 2021.",
+            "Maithra Raghu, Thomas Unterthiner, Simon Kornblith, Chiyuan Zhang, and Alexey Dosovitskiy. Do vision transformers see like convolutional neural networks? Advances in Neural Information Processing Systems, 34:12116–12128, 2021."
+        ],
+        "bbox": [
+            173,
+            103,
+            825,
+            133
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "header",
+        "text": "Published as a conference paper at ICLR 2024",
+        "bbox": [
+            171,
+            32,
+            482,
+            47
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "page_number",
+        "text": "12",
+        "bbox": [
+            490,
+            948,
+            509,
+            959
+        ],
+        "page_idx": 11
+    },
+    {
+        "type": "list",
+        "sub_type": "ref_text",
+        "list_items": [
+            "SovitRanjanRath. Leafdiseasesegmentationdataset,2023. URL https://www.kaggle.com/datasets/sovitrath/ leaf-disease-segmentation-with-trainvalid-split.",
+            "Carlos Riquelme, Joan Puigcerver, Basil Mustafa, Maxim Neumann, Rodolphe Jenatton, André Susano Pinto, Daniel Keysers, and Neil Houlsby. Scaling vision with sparse mixture of experts. Advances in Neural Information Processing Systems, 34:8583–8595, 2021.",
+            "Olaf Ronneberger, Philipp Fischer, and Thomas Brox. U-net: Convolutional networks for biomedical image segmentation. In Medical Image Computing and Computer-Assisted Intervention-MICCAI 2015: 18th International Conference, Munich, Germany, October 5-9, 2015, Proceedings, Part III 18, pp. 234–241. Springer, 2015.",
+            "Tal Shaharabany, Aviad Dahan, Raja Giryes, and Lior Wolf. Autosam: Adapting sam to medical images by overloading the prompt encoder. arXiv preprint arXiv:2306.06370, 2023.",
+            "Noam Shazeer, Azalia Mirhoseini, Krzysztof Maziarz, Andy Davis, Quoc Le, Geoffrey Hinton, and Jeff Dean. Outrageously large neural networks: The sparsely-gated mixture-of-experts layer. arXiv preprint arXiv:1701.06538, 2017.",
+            "Juan Silva, Aymeric Histace, Olivier Romain, Xavier Dray, and Bertrand Granado. Toward embedded detection of polyps in wce images for early diagnosis of colorectal cancer. International journal of computer assisted radiology and surgery, 9:283–293, 2014.",
+            "Przemysław Skurowski, Hassan Abdulameer, J Błaszczyk, Tomasz Depta, Adam Kornacki, and P Kozieł. Animal camouflage analysis: Chameleon database. Unpublished manuscript, 2(6):7, 2018.",
+            "Apurva Sriwastwa, Shikha Prakash, Swati Swarit, Khushboo Kumari, Sitanshu Sekhar Sahu, et al. Detection of pests using color based image segmentation. In 2018 Second International Conference on Inventive Communication and Computational Technologies (ICICCT), pp. 1393–1396. IEEE, 2018.",
+            "Yi-Lin Sung, Jaemin Cho, and Mohit Bansal. Lst: Ladder side-tuning for parameter and memory efficient transfer learning. Advances in Neural Information Processing Systems, 35:12991–13005, 2022.",
+            "Christian Szegedy, Wei Liu, Yangqing Jia, Pierre Sermanet, Scott Reed, Dragomir Anguelov, Dumitru Erhan, Vincent Vanhoucke, and Andrew Rabinovich. Going deeper with convolutions. In Proceedings of the IEEE conference on computer vision and pattern recognition, pp. 1–9, 2015.",
+            "Nima Tajbakhsh, Suryakanth R Gurudu, and Jianming Liang. Automated polyp detection in colonoscopy videos using shape and context information. IEEE transactions on medical imaging, 35(2):630–644, 2015.",
+            "Lv Tang, Haoke Xiao, and Bo Li. Can sam segment anything? when sam meets camouflaged object detection. arXiv preprint arXiv:2304.04709, 2023.",
+            "David Vázquez, Jorge Bernal, F Javier Sánchez, Gloria Fernández-Esparrach, Antonio M López, Adriana Romero, Michal Drozdzal, Aaron Courville, et al. A benchmark for endoluminal scene segmentation of colonoscopy images. Journal of healthcare engineering, 2017, 2017.",
+            "Tomás F Yago Vicente, Le Hou, Chen-Ping Yu, Minh Hoai, and Dimitris Samaras. Large-scale training of shadow detectors with noisily-annotated shadow examples. In Computer Vision-ECCV 2016: 14th European Conference, Amsterdam, The Netherlands, October 11-14, 2016, Proceedings, Part VI 14, pp. 816–832. Springer, 2016.",
+            "An Wang, Mobarakol Islam, Mengya Xu, Yang Zhang, and Hongliang Ren. Sam meets robotic surgery: An empirical study on generalization, robustness and adaptation. arXiv preprint arXiv:2308.07156, 2023."
+        ],
+        "bbox": [
+            171,
+            103,
+            825,
+            146
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "header",
+        "text": "Published as a conference paper at ICLR 2024",
+        "bbox": [
+            171,
+            32,
+            482,
+            47
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "page_number",
+        "text": "13",
+        "bbox": [
+            490,
+            948,
+            509,
+            960
+        ],
+        "page_idx": 12
+    },
+    {
+        "type": "list",
+        "sub_type": "ref_text",
+        "list_items": [
+            "Wenhai Wang, Enze Xie, Xiang Li, Deng-Ping Fan, Kaitao Song, Ding Liang, Tong Lu, Ping Luo, and Ling Shao. Pyramid vision transformer: A versatile backbone for dense prediction without convolutions. In Proceedings of the IEEE/CVF international conference on computer vision, pp. 568–578, 2021.",
+            "Wenhai Wang, Enze Xie, Xiang Li, Deng-Ping Fan, Kaitao Song, Ding Liang, Tong Lu, Ping Luo, and Ling Shao. Pvt v2: Improved baselines with pyramid vision transformer. Computational Visual Media, 8(3):415–424, 2022.",
+            "Haiping Wu, Bin Xiao, Noel Codella, Mengchen Liu, Xiyang Dai, Lu Yuan, and Lei Zhang. Cvt: Introducing convolutions to vision transformers. In Proceedings of the IEEE/CVF international conference on computer vision, pp. 22–31, 2021.",
+            "Junde Wu, Rao Fu, Huihui Fang, Yuanpei Liu, Zhaowei Wang, Yanwu Xu, Yueming Jin, and Tal Arbel. Medical sam adapter: Adapting segment anything model for medical image segmentation. arXiv preprint arXiv:2304.12620, 2023.",
+            "Enze Xie, Wenjia Wang, Wenhai Wang, Mingyu Ding, Chunhua Shen, and Ping Luo. Segmenting transparent objects in the wild. In Computer Vision-ECCV 2020: 16th European Conference, Glasgow, UK, August 23–28, 2020, Proceedings, Part XIII 16, pp. 696–711. Springer, 2020.",
+            "Enze Xie, Wenhai Wang, Zhiding Yu, Anima Anandkumar, Jose M Alvarez, and Ping Luo. Segformer: Simple and efficient design for semantic segmentation with transformers. Advances in Neural Information Processing Systems, 34:12077–12090, 2021a.",
+            "Enze Xie, Wenjia Wang, Wenhai Wang, Peize Sun, Hang Xu, Ding Liang, and Ping Luo. Segmenting transparent object in the wild with transformer. arXiv preprint arXiv:2101.08461, 2021b.",
+            "Mengde Xu, Zheng Zhang, Fangyun Wei, Han Hu, and Xiang Bai. Side adapter network for openvocabulary semantic segmentation. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pp. 2945–2954, 2023.",
+            "Weijian Xu, Yifan Xu, Tyler Chang, and Zhuowen Tu. Co-scale conv-attentional image transformers. In Proceedings of the IEEE/CVF International Conference on Computer Vision, pp. 9981– 9990, 2021.",
+            "Yongyang Xu, Zhong Xie, Yaxing Feng, and Zhanlong Chen. Road extraction from high-resolution remote sensing imagery using deep learning. Remote Sensing, 10(9):1461, 2018.",
+            "Elad Ben Zaken, Shauli Ravfogel, and Yoav Goldberg. Bitfit: Simple parameter-efficient fine-tuning for transformer-based masked language-models. arXiv preprint arXiv:2106.10199, 2021.",
+            "Kaidong Zhang and Dong Liu. Customized segment anything model for medical image segmentation. arXiv preprint arXiv:2304.13785, 2023.",
+            "Yundong Zhang, Huiye Liu, and Qiang Hu. Transfuse: Fusing transformers and cnns for medical image segmentation. In Medical Image Computing and Computer Assisted Intervention–MICCAI 2021: 24th International Conference, Strasbourg, France, September 27–October 1, 2021, Proceedings, Part I 24, pp. 14–24. Springer, 2021.",
+            "Hengshuang Zhao, Jianping Shi, Xiaojuan Qi, Xiaogang Wang, and Jiaya Jia. Pyramid scene parsing network. In Proceedings of the IEEE conference on computer vision and pattern recognition, pp. 2881–2890, 2017.",
+            "Zilong Zhong, Zhong Qiu Lin, Rene Bidart, Xiaodan Hu, Ibrahim Ben Daya, Zhifeng Li, Wei-Shi Zheng, Jonathan Li, and Alexander Wong. Squeeze-and-attention networks for semantic segmentation. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition, pp. 13065–13074, 2020.",
+            "Tao Zhou, Yizhe Zhang, Yi Zhou, Ye Wu, and Chen Gong. Can sam segment polyps? arXiv preprint arXiv:2304.07583, 2023."
+        ],
+        "bbox": [
+            173,
+            103,
+            825,
+            159
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "header",
+        "text": "Published as a conference paper at ICLR 2024",
+        "bbox": [
+            171,
+            32,
+            482,
+            47
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "page_number",
+        "text": "14",
+        "bbox": [
+            490,
+            948,
+            509,
+            959
+        ],
+        "page_idx": 13
+    },
+    {
+        "type": "list",
+        "sub_type": "ref_text",
+        "list_items": [
+            "Yanqi Zhou, Tao Lei, Hanxiao Liu, Nan Du, Yanping Huang, Vincent Zhao, Andrew M Dai, Quoc V Le, James Laudon, et al. Mixture-of-experts with expert choice routing. Advances in Neural Information Processing Systems, 35:7103–7114, 2022.",
+            "Lei Zhu, Ke Xu, Zhanghan Ke, and Rynson WH Lau. Mitigating intensity bias in shadow detection via feature decomposition and reweighting. In Proceedings of the IEEE/CVF International Conference on Computer Vision, pp. 4702–4711, 2021.",
+            "Simiao Zuo, Xiaodong Liu, Jian Jiao, Young Jin Kim, Hany Hassan, Ruofei Zhang, Tuo Zhao, and Jianfeng Gao. Taming sparsely activated transformer with stochastic experts. arXiv preprint arXiv:2110.04260, 2021."
+        ],
+        "bbox": [
+            174,
+            104,
+            825,
+            146
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "header",
+        "text": "Published as a conference paper at ICLR 2024",
+        "bbox": [
+            171,
+            32,
+            480,
+            46
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "page_number",
+        "text": "15",
+        "bbox": [
+            490,
+            948,
+            509,
+            960
+        ],
+        "page_idx": 14
+    },
+    {
+        "type": "text",
+        "text": "A GATING NETWORK OF CONV-LORA",
+        "text_level": 2,
+        "bbox": [
+            171,
+            102,
+            514,
+            117
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "In order to calculate the gating scores $G ( x ) \\ \\in \\ \\mathbb { R } ^ { B \\times k } , \\ \\mathrm { i . e . }$ , the scores for B samples in a batch assigned to k experts, we need to calculate the values $\\dot { H } ( \\boldsymbol { x } ) \\dot { } \\in \\mathbb { R } ^ { B \\times n }$ of n experts first. As the size of input x is $\\boldsymbol { B } \\times \\boldsymbol { r } \\times \\boldsymbol { H } \\times \\boldsymbol { W }$ (we use x to represent $W _ { e } x$ in eq. (2) for simplicity), we apply global average pooling (denoted as AvgPool') followed by a reshaping operation (denoted as Reshape'), to obtain $\\boldsymbol { x } _ { h } \\in \\mathbf { \\bar { \\mathbb { R } } } ^ { B \\times r }$ . Specifically, the size of x is changed to $\\boldsymbol { B } \\times \\boldsymbol { r } \\times 1 \\times 1$ after AvgPool', and then changed to B × r after Reshape'. Then, following (Shazeer et al., 2017), we apply the trainable gating weight $W _ { g } \\in \\mathbb { R } ^ { r \\times n }$ , and the noise term $W _ { n o i s e } \\in \\mathbb { R } ^ { r \\times n }$ to calculate $H ( x )$",
+        "bbox": [
+            169,
+            132,
+            825,
+            233
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "equation",
+        "img_path": "images/8fc2abda624fe8036b64eeb8ffb95a05c6c1c467f412055a7c9f804d49d20e00.jpg",
+        "text": "$$\n\\begin{array} { c } { x _ { h } = \\mathrm { R e s h a p e } ( \\operatorname { A v g P o o l } ( x ) , ( B , r ) ) } \\\\ { H ( x ) _ { i } = ( x _ { h } \\cdot W _ { g } ) _ { i } + \\mathrm { S t a n d a r d N o r m a l } ( ) \\cdot \\mathrm { S o f t p l u s } ( ( x _ { h } \\cdot W _ { n o i s e } ) _ { i } ) } \\end{array}\\tag{4}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            271,
+            250,
+            725,
+            284
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "We keep only the top k values (denoted as KeepTopK') based on $H ( x ) _ { i }$ of each expert $E _ { i } ,$ setting the rest $\\mathrm { t o } - \\infty ,$ whose corresponding gate values is equal to 0 after a Softmax’ operation (If $G ( x ) _ { \\mathcal { I } }$ is 0, we need not compute $\\bar { E _ { j } ( x ) ) }$",
+        "bbox": [
+            171,
+            311,
+            825,
+            354
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "equation",
+        "img_path": "images/d05b028918a7e638ac68f45bdd273d37fbabf60ce91378ce6d2fea6fca186409.jpg",
+        "text": "$$\nG ( x ) = { \\mathrm { S o f t m a x } } ( { \\mathrm { K e e p T o p K } } ( H ( x ) , k ) )\n$$",
+        "text_format": "latex",
+        "bbox": [
+            390,
+            371,
+            656,
+            387
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "equation",
+        "img_path": "images/dc4f99590d1981431f25c09a2dca56711a497ac924c49b3dca029649d6887a20.jpg",
+        "text": "$$\n\\mathrm { w h e r e ~ K e e p T o p K } ( v , k ) _ { i } = \\left\\{ { v _ { i } } \\begin{array} { l l } { { \\ } } & { { \\mathrm { i f } \\ v _ { i } \\ { \\mathrm { i s ~ i n ~ t h e ~ t o p } } \\ k \\ { \\mathrm { e l e m e n t s ~ o f } } \\ v . } } \\\\ { { - \\infty } } & { { \\mathrm { o t h e r w i s e . } } } \\end{array} \\right.\\tag{5}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            267,
+            392,
+            725,
+            425
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "B MASK DECODER FOR MULTI-CLASS SEGMENTATION",
+        "text_level": 2,
+        "bbox": [
+            171,
+            443,
+            650,
+            459
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "SAM's mask decoder follows the design in mask-based segmentation, wherein the image is grouped into N (i.e., the number of output tokens in fig. 4) regions represented by binary masks. However, unlike other mask-based methods such as Maskformer (Cheng et al., 2021) and Mask2former (Cheng et al., 2022), SAM does not incorporate a classification module; it solely identifies the foreground, lacking the ability for multi-class segmentation. What we need to do is straightforward: incorporate a classification branch to obtain class predictions for the corresponding N masks.",
+        "bbox": [
+            169,
+            474,
+            825,
+            560
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "During training, we need to match the set of N mask predictions and the set of ground truth segments. We follow the design in Mask2Former (Cheng et al., 2022), which proposes a memoryfriendly way for bipartite matching between the predictions and ground truths. It efficiently alleviates the memory demands in semantic segmentation tasks that necessitate high-resolution mask prediction, particularly for SAM involving the processing of high-resolution input images (1024 × 1024). For the masks that are not allocated to any ground truths, an extra ‘no object' category is introduced to ensure the one-to-one matching. Hence, the classification branch should produce $K + 1$ class predictions, assuming there are originally $K$ categories. For semantic inference, we can exclude the no object' category and perform a straightforward matrix multiplication between the masks and the classification predictions to obtain pixel-wise predictions.",
+        "bbox": [
+            169,
+            565,
+            826,
+            705
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "Following Mask2Former, we use binary cross-entropy loss $\\mathcal { L } _ { c e }$ and dice loss $\\mathcal { L } _ { d i c e }$ for mask loss, cross entropy loss $\\mathcal { L } _ { c l s }$ for classification predictions:",
+        "bbox": [
+            169,
+            710,
+            825,
+            741
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "equation",
+        "img_path": "images/6ad7acec73ad09b86970ce537d1ad663be8c7d98a9631ef842626f79255dec46.jpg",
+        "text": "$$\n\\mathcal { L } _ { m u l t i - c l a s s } = \\lambda _ { m a s k } \\mathcal { L } _ { m a s k } + \\lambda _ { c l s } \\mathcal { L } _ { c l s } + \\lambda _ { M o E } \\mathcal { L } _ { M o E }\\tag{6}\n$$",
+        "text_format": "latex",
+        "bbox": [
+            310,
+            757,
+            686,
+            773
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "where $\\mathcal { L } _ { m a s k } = \\lambda _ { c e } \\mathcal { L } _ { c e } + \\lambda _ { d i c e } \\mathcal { L } _ { d i c e }$",
+        "bbox": [
+            171,
+            801,
+            426,
+            816
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "C DATASET DETAILS",
+        "text_level": 2,
+        "bbox": [
+            171,
+            837,
+            366,
+            852
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "Polyp Segmentation (medical images) Polyp Segmentation, the task to identify abnormal growths known as polyps within gastrointestinal endoscopic images, plays a critical role in early colorectal cancer diagnosis and treatment planning, and it presents a formidable challenge due to the considerable diversity in polyp shapes and sizes. We choose two polyp segmentation datasets: Kvasir (Jha et al., 2020) and CVC-ClinicDB/CVC-612 (Bernal et al., 2015). Kvasir contains 1000 images and CVC-ClinicDB, also called CVC-612, includes 612 open-access images. Fan et al. (2020b) divides the images into a 9:1 ratio for training and testing. Additionally, we randomly divide a validation set comprising 20% of the images from the training set, for validation during training. Furthermore, we also use images from CVC-ColonDB (Tajbakhsh et al., 2015), EndoScene (Vázquez et al., 2017) and ETIS (Silva et al., 2014) for testing following the setting in (Fan et al., 2020b). We consistently train all methods for 30 epochs, unless otherwise specified for specific datasets.",
+        "bbox": [
+            169,
+            867,
+            826,
+            925
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "header",
+        "text": "Published as a conference paper at ICLR 2024",
+        "bbox": [
+            171,
+            32,
+            480,
+            47
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "page_number",
+        "text": "16",
+        "bbox": [
+            490,
+            948,
+            509,
+            960
+        ],
+        "page_idx": 15
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            169,
+            103,
+            826,
+            203
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "Skin Lesion Segmentation (medical images) Skin Lesion Segmentation involves the segmentation of various types of skin lesions within medical images, serving a crucial role in the early diagnosis and treatment of skin disorders, notably skin cancer. However, this task is particularly challenging due to ambiguous boundaries and color variations. We choose ISIC 2017 (Codella et al., 2018) for skin lesion segmentation. ISIC 2017 provides 2000 images for training, 150 images for validation and 600 images for testing.",
+        "bbox": [
+            169,
+            208,
+            826,
+            294
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "Camouflaged Object Segmentation (natural images) Camouflaged Object Segmentation focuses on identifying objects that are concealed within complex or visually cluttered backgrounds, which is more challenging comparing to traditional object segmentation. We choose three camouflaged object detection datasets: COD10K (Fan et al., 2020a), CHAMELEON (Skurowski et al., 2018), and CAMO (Le et al., 2019). COD10K contains 3040 training and 2026 testing samples. CHAMELEON includes 76 images collected from the Internet for testing. And CAMO provides 1000 images for training and 250 for testing. Following (Fan et al., 2020a), we train on the combined dataset consists of the training images from COD10K and CAMO for 20 epochs, and test on the three datasets Addtionally, we randomly split 10% of the images from the training set for validation.",
+        "bbox": [
+            169,
+            299,
+            826,
+            426
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "Shadow Detection (natural images) Shadow Detection focuses on the recognition of shadow regions within a scene and can facilitate the estimation of lighting conditions or the removal of shadows. We choose SBU (Vicente et al., 2016), which is the largest annotated shadow dataset. SBU contains 4085 and 638 images for training and testing. We randomly split 10% of the images from the training set for validation and we train the methods for 10 epochs with balanced binary cross entropy loss.",
+        "bbox": [
+            169,
+            431,
+            826,
+            516
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "Leaf Segmentation (agriculture) Leaf segmentation involves the identification of individual plant leaves within agricultural images and plays a crucial role in advancing automation for plant diseases control and high quality food production. We choose a Leaf Disease Segmentation dataset (Rath, 2023), which contains 498 images for training and 90 images for testing. We randomly split the training images into 80% for training, 20% for validation.",
+        "bbox": [
+            169,
+            521,
+            826,
+            593
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "Road Segmentation (remote sensing) Road segmentation detects road or street regions within images or video frames, and is crucial for applications in autonomous driving, traffic analysis, and urban planning. We choose Massachusetts Roads Dataset (Mnih, 2013), which contains 1107 images for training, 13 images for validation and 48 images for testing. And we train the methods for 20 epochs.",
+        "bbox": [
+            169,
+            598,
+            826,
+            669
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "Multiclass Semantic Segmentation (natural images) We choose Trans10K-v1 (Xie et al., 2020) and Trans10K-v2 (Xie et al., 2021b) dataset for multi-class transparent object segmentation. Trans10Kv1 dataset contains 10428 images, with background as one category and two more categories of transparent objects: Transparent Things (e.g., cups, bottles) and Stuff (e.g., windows). Trans10Kv2 dataset is based on Trans10K-v1 dataset, with more fine-grained categories annotations. The dataset contains background plus two main categories divided into 11 fine-grained categories: 1) Transparent Things containing cup, bottle, jar, bowl and eyeglass. 2) Transparent Stuff containing windows, shelf, box, freezer, glass walls and glass doors. In respect to fine-grained categories and high diversity, Trans10K-v2 is more challenging than Trans10K-v1. All the datasets use 5000, 1000 and 4428 images for training, validation and testing, respectively.",
+        "bbox": [
+            169,
+            674,
+            826,
+            815
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "D FULL EXPERIMENT RESULTS",
+        "text_level": 2,
+        "bbox": [
+            171,
+            835,
+            454,
+            852
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "Here are the full experiment results for binary semantic segmentation. Our Conv-LoRA demonstrates superiority across diverse datasets from various domains compared to other PEFT methods. Noted that models indicated in italics in the following tables are specifically designed for the corresponding tasks. We re-run the experiments on all the datasets using the model code provided by the authors. We choose methods that are either widely established or relatively novel within their respective domains. With the exception of the Leaf Segmentation dataset, which is sourced from Kaggle, we utilize the author's provided sample code to conduct our experiments.",
+        "bbox": [
+            169,
+            867,
+            826,
+            925
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "header",
+        "text": "Published as a conference paper at ICLR 2024",
+        "bbox": [
+            171,
+            32,
+            480,
+            47
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "page_number",
+        "text": "17",
+        "bbox": [
+            490,
+            948,
+            509,
+            960
+        ],
+        "page_idx": 16
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            169,
+            103,
+            826,
+            147
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "Polyp Segmentation:",
+        "bbox": [
+            171,
+            152,
+            321,
+            169
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "image",
+        "img_path": "images/9c427e7700711b3b4faf20c6307b2e0a3a9a655d61907530b5651cf59963c362.jpg",
+        "image_caption": [
+            "Table 5: Quantitative results for Polyp Segmentation."
+        ],
+        "image_footnote": [],
+        "bbox": [
+            174,
+            186,
+            823,
+            404
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "Skin Lesion Segmentation:",
+        "text_level": 2,
+        "bbox": [
+            171,
+            462,
+            362,
+            477
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "table",
+        "img_path": "images/513a174d014de885c0a0d80ea31f73e422c8174ace8fc8415d44f4ebb20d0131.jpg",
+        "table_caption": [
+            "Table 6: Quantitative results for Skin Lesion Segmentation"
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td rowspan=\"2\">Method</td><td rowspan=\"2\"># Params (M) / Ratio(%)</td><td colspan=\"4\">ISIC 2017</td></tr><tr><td>Jac ↑</td><td>T-Jac ↑</td><td>Dice ↑</td><td>Acc ↑</td></tr><tr><td>Transfuse (Zhang et al., 2021)</td><td>26.30 / 100%</td><td>80.1</td><td>74.5</td><td>87.5</td><td>94.7</td></tr><tr><td>decoder-only</td><td>3.51 / 0.55%</td><td>69.7</td><td>56.6</td><td>79.5</td><td>91.2</td></tr><tr><td>BitFit</td><td>3.96 / 0.62%</td><td> $7 6 . 4 \\pm \\ : 0 . 4 5$ </td><td>68.2 ± 0.70</td><td>84.7 ± 0.35</td><td>93.5 ± 0.16</td></tr><tr><td>Adapter</td><td>3.92 / 0.61%</td><td> $7 6 . 7 \\pm \\ : 0 . 6 6$ </td><td>68.0 ± 1.09</td><td>85.0 ± 0.56</td><td>93.6 ± 0.17</td></tr><tr><td>VPT</td><td>4.00 / 0.62%</td><td> $7 6 . 9 \\pm { 0 . 9 4 }$ </td><td>68.4 ± 1.44</td><td>85.1 ± 0.75</td><td> $9 3 . 7 \\pm { 0 . 4 3 }$ </td></tr><tr><td>LST</td><td>11.49 / 1.77%</td><td> $7 6 . 4 \\pm { \\ : } 1 . 0 5$ </td><td> $6 6 . 7 \\pm { } _ { 2 . 0 8 }$ </td><td>84.9 ± 0.79</td><td> $9 3 . 5 \\pm { 0 . 3 0 }$ </td></tr><tr><td>SAM-Adapter</td><td>3.98 / 0.62%</td><td> $7 6 . 1 \\pm \\ : 0 . 4 5$ </td><td> $6 7 . 2 \\pm { _ { 0 . 7 7 } }$ </td><td>84.6 ± 0.37</td><td>93.4 ± 0.18</td></tr><tr><td>SSF</td><td>4.42 / 0.69%</td><td> $7 6 . 6 \\pm \\ : 0 . 1 9$ </td><td> $6 8 . 3 \\pm { 0 . 6 2 }$ </td><td>85.0 ± 0.14</td><td> $9 3 . 6 \\pm { 0 . 1 2 }$ </td></tr><tr><td>LoRA</td><td>4.00 / 0.62%</td><td> $7 6 . 6 \\pm \\ : 0 . 2 3$ </td><td> $6 8 . 6 \\pm \\ : 0 . 3 2$ </td><td>84.9 ± 0.22</td><td>93.6 ± 0.03</td></tr><tr><td>Conv-LoRA</td><td>4.02 / 0.63%</td><td> $7 7 . 6 \\pm \\ : 0 . 5 7$ </td><td> ${ \\bf 6 9 . 6 \\pm 0 . 9 0 }$ </td><td>85.7 ± 0.36</td><td>93.9 ± 0.18</td></tr></table>",
+        "bbox": [
+            227,
+            497,
+            767,
+            654
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "Camouflaged Object Segmentation:",
+        "text_level": 2,
+        "bbox": [
+            173,
+            713,
+            424,
+            728
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "image",
+        "img_path": "images/812a25302205119d3c9fb212bfd5426fad1f9d7c9fcab1003d2070a466306336.jpg",
+        "image_caption": [
+            "Table 7: Quantitative results for Camouflage Detection."
+        ],
+        "image_footnote": [],
+        "bbox": [
+            173,
+            747,
+            823,
+            847
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "text",
+        "text": "Shadow Detection:",
+        "text_level": 2,
+        "bbox": [
+            171,
+            909,
+            308,
+            924
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "header",
+        "text": "Published as a conference paper at ICLR 2024",
+        "bbox": [
+            171,
+            32,
+            482,
+            47
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "page_number",
+        "text": "18",
+        "bbox": [
+            490,
+            948,
+            509,
+            960
+        ],
+        "page_idx": 17
+    },
+    {
+        "type": "table",
+        "img_path": "images/5721d55248e1dca8355b7d837d134b7710caecf59b65269ae06123f5067763f2.jpg",
+        "table_caption": [
+            "Table 8: Quantitative results for Shadow Detection."
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Method</td><td># Params (M) / / Ratio(%)</td><td>SBU BER↓</td></tr><tr><td>FDRNet(Zhu et al., 2021)</td><td>10.77 / 100%</td><td>3.56</td></tr><tr><td>decoder-only</td><td>3.51 / 0.55%</td><td>14.58</td></tr><tr><td>BitFit</td><td>3.96 / 0.62%</td><td> $3 . 1 6 \\pm \\ : 0 . 1 2 8$ </td></tr><tr><td>Adapter</td><td>3.92 / 0.61%</td><td> $2 . 8 4 \\pm \\mathrm { { _ { 0 . 0 9 3 } } }$ </td></tr><tr><td>VPT</td><td>4.00 / 0.62%</td><td> $2 . 7 0 \\pm \\ : _ { 0 . 0 5 5 }$ </td></tr><tr><td>LST</td><td>11.49 / 1.77%</td><td> $3 . 1 8 \\pm \\ : 0 . 0 1 2$ </td></tr><tr><td>SAM-Adapter</td><td>3.98 / 0.62%</td><td> $3 . 1 4 \\pm \\mathrm { { 0 . 0 6 3 } }$ </td></tr><tr><td>SSF</td><td>4.42 / 0.69%</td><td> $3 . 1 9 \\pm \\mathrm { _ { 0 . 0 4 6 } }$ </td></tr><tr><td>LoRA</td><td>4.00 / 0.62%</td><td> $2 . 7 4 \\pm \\ : _ { 0 . 0 7 9 }$ </td></tr><tr><td>Conv-LoRA</td><td>4.02 / 0.63%</td><td> $2 . 5 4 \\pm \\ : _ { 0 . 0 8 1 }$ </td></tr></table>",
+        "bbox": [
+            333,
+            101,
+            660,
+            258
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "text",
+        "text": "Leaf Segmentation:",
+        "text_level": 2,
+        "bbox": [
+            171,
+            323,
+            313,
+            338
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "table",
+        "img_path": "images/934d9c25e5a660270ea8ceef0e79044d32130b5d00bce5c309a3ce813b3032d1.jpg",
+        "table_caption": [
+            "Table 9: Quantitative results for Leaf Segmentation."
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Method</td><td># Params (M) / Ratio (%)</td><td></td><td>Leaf</td><td>Acc ↑</td></tr><tr><td>DeepLabv3 (Chen et al., 2017b)</td><td>41.99 / 100%</td><td>IoU ↑ 62.3</td><td>Dice ↑ 74.1</td><td>94.0</td></tr><tr><td>decoder-only</td><td>3.51 / 0.55%</td><td>50.8</td><td>63.8</td><td>89.6</td></tr><tr><td>BitFit</td><td>3.96 / 0.62%</td><td></td><td></td><td> $9 5 . 5 \\pm { \\ : } 0 . 3 0$ </td></tr><tr><td>Adapter</td><td>3.92 / 0.61%</td><td> $7 1 . 4 \\pm { _ { 1 . 1 5 } }$   $7 2 . 1 \\pm { 0 . 4 7 }$ </td><td> $8 1 . 7 \\pm { } _ { 1 . 0 1 }$   $8 2 . 4 \\pm { \\ : } _ { 0 . 3 6 }$ </td><td> $9 5 . 3 \\pm { 0 . 1 8 }$ </td></tr><tr><td>VPT</td><td>4.00 / 0.62%</td><td> $7 3 . 6 \\pm \\ : 0 . 2 6$ </td><td> $8 3 . 8 \\pm { \\ : } _ { 0 . 2 6 }$ </td><td> $9 5 . 9 \\pm { \\ : } 0 . 1 4$ </td></tr><tr><td>LST</td><td>11.49 / 1.77%</td><td> $7 0 . 2 \\pm { 0 . 8 7 }$ </td><td> $8 1 . 1 \\pm { 0 . 8 2 }$ </td><td> $9 5 . 3 \\pm { \\ : } 0 . 3 5$ </td></tr><tr><td>SAM-Adapter</td><td>3.98 / 0.62%</td><td> $7 1 . 4 \\pm { \\ : } 0 . 2 0$ </td><td> $8 2 . 1 \\pm { \\ : } 0 . 1 0$ </td><td> $9 5 . 3 \\pm { \\ : 0 . 0 5 }$ </td></tr><tr><td>SSF</td><td>4.42 / 0.69%</td><td> $7 1 . 5 \\pm { \\ : } 0 . 6 3$ </td><td> $8 1 . 8 \\pm { _ { 0 . 4 4 } }$ </td><td> $9 5 . 5 \\pm { \\ : } _ { 0 . 2 6 }$ </td></tr><tr><td>LoRA</td><td>4.00 / 0.62%</td><td> $7 3 . 7 \\pm { 0 . 2 0 }$ </td><td> $8 3 . 6 \\pm { \\ : } 0 . 1 3$ </td><td>95.7 ± 0.07</td></tr><tr><td>Conv-LoRA</td><td>4.02 / 0.63%</td><td>74.5 ± 0.39</td><td>84.3 ± 0.34</td><td>96.0 ± 0.07</td></tr></table>",
+        "bbox": [
+            269,
+            364,
+            723,
+            512
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "text",
+        "text": "Road Segmentation:",
+        "text_level": 2,
+        "bbox": [
+            173,
+            577,
+            318,
+            592
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "table",
+        "img_path": "images/294ba79ae31178f91e8ef6b5076cf7b2d2f2825de9fe64549f268bb56bb10dd7.jpg",
+        "table_caption": [
+            "Table 10: Quantitative results for Road Segmentation."
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Method</td><td># Params (M) / Ratio (%)</td><td>IoU ↑</td><td>Road Dice ↑</td><td>Acc ↑</td></tr><tr><td>LinkNet34MTL(Batra et al., 2019)</td><td>22.00 / 100%</td><td>59.1</td><td>73.0</td><td>97.7</td></tr><tr><td>decoder-only</td><td>3.51 / 0.55%</td><td>48.6</td><td>65.1</td><td>96.4</td></tr><tr><td>BitFit</td><td>3.96 / 0.62%</td><td>60.6 ± 0.15</td><td>75.2 ± 0.11</td><td>97.5 ± 0.02</td></tr><tr><td>Adapter</td><td>3.92 / 0.61%</td><td>61.5 ± 0.11</td><td>75.9 ± 0.12</td><td>97.6 ± 0.01</td></tr><tr><td>VPT</td><td>4.00 / 0.62%</td><td>60.2 ± 1.87</td><td>74.9 ± 1.50</td><td>97.4 ± 0.22</td></tr><tr><td>LST</td><td>11.49 / 1.77%</td><td>60.2 ± 0.26</td><td>74.9 ± 0.22</td><td>97.5 ± 0.01</td></tr><tr><td>SAM-Adapter</td><td>3.98 / 0.62%</td><td>60.6 ± 0.06</td><td>75.2 ± 0.04</td><td>97.5 ± 0.01</td></tr><tr><td>SSF</td><td>4.42 / 0.69%</td><td>61.6 ± 0.03</td><td>76.0 ± 0.02</td><td>97.6 ± 0.01</td></tr><tr><td>LoRA</td><td>4.00 / 0.62%</td><td>62.2 ± 0.21</td><td>76.5 ± 0.18</td><td>97.6 ± 0.02</td></tr><tr><td>Conv-LoRA</td><td>4.02 / 0.63%</td><td>62.6 ± 0.36</td><td>76.8 ± 0.27</td><td>97.7 ± 0.05</td></tr></table>",
+        "bbox": [
+            269,
+            618,
+            723,
+            760
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "text",
+        "text": "E ADDITIONAL ABLATION",
+        "text_level": 2,
+        "bbox": [
+            171,
+            828,
+            413,
+            843
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "text",
+        "text": "The Rank of LoRA. The performance of SAM for twelve-class segmentation could be improved by introducing more extra parameters (table 11). However, this may disobey the rule of parameter efficiency’ of PEFT. Exploring the design of a more efficient way for introducing classification prior' for SAM is a worthwhile endeavor for the future.",
+        "bbox": [
+            169,
+            867,
+            826,
+            924
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "header",
+        "text": "Published as a conference paper at ICLR 2024",
+        "bbox": [
+            171,
+            32,
+            480,
+            47
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "page_number",
+        "text": "19",
+        "bbox": [
+            490,
+            948,
+            509,
+            960
+        ],
+        "page_idx": 18
+    },
+    {
+        "type": "table",
+        "img_path": "images/4d91aa06cf66d32e987247c525229c5ee098e5c1d47361e0be27353af15435f5.jpg",
+        "table_caption": [
+            "Table 11: The performance trend when increasing the rank r of LoRA for twelve-class segmentation."
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td rowspan=\"2\">LoRA</td><td rowspan=\"2\">#Params (M)</td><td colspan=\"2\">Test</td></tr><tr><td>Acc ↑</td><td>mIoU↑</td></tr><tr><td> $r = 3$ </td><td>4.00</td><td>94.80</td><td>66.01</td></tr><tr><td> $r = 6$ </td><td>4.49</td><td>95.15</td><td>66.24</td></tr><tr><td> $r = 1 2$ </td><td>5.48</td><td>95.23</td><td>66.69</td></tr><tr><td> $r = 2 4$ </td><td>7.44</td><td>95.14</td><td>67.02</td></tr></table>",
+        "bbox": [
+            338,
+            101,
+            660,
+            205
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "image",
+        "img_path": "images/53823f62d8fca7caa78f0c4c70f41e7d999d6f9d82c94ac58f14597883552535.jpg",
+        "image_caption": [
+            "Figure 6: Comparison between (a) MoE, which uses the gating network to dynamically select the experts, and (b) Multi-scale, which selects all the experts simultaneously."
+        ],
+        "image_footnote": [],
+        "bbox": [
+            202,
+            268,
+            790,
+            434
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "table",
+        "img_path": "images/2781a9d4e7897bfcf7392c7f1cd4803d9c828863e543a9edd6b84c30d466f348.jpg",
+        "table_caption": [
+            "Combined with Other PEFT Methods. We also evaluate the combination of Conv-LoRA and VPT on Poly Segmentation in table 12. This combination achieves superior or competitive performance, demonstrating the potential of introducing Conv-LoRA in addition to other PEFT methods. As a future work, such a combination might motivate techniques that further reduce the number of trainable parameters while ensuring the enhanced performance.",
+            "Table 12: Performance of combining Conv-LoRA and VPT on Polyp Segmentation."
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td rowspan=\"2\">Method</td><td rowspan=\"2\"># Params / Ratio(%)</td><td colspan=\"4\">CVC-ColonDB</td><td colspan=\"4\">ETIS</td></tr><tr><td> $S _ { \\alpha }$  ↑</td><td> $E _ { \\phi }$  ↑</td><td> $F _ { \\beta } ^ { \\omega }$  ↑</td><td>MAE↓</td><td> $S _ { \\alpha } \\uparrow$ </td><td> $E _ { \\phi }$  ↑</td><td>Fw ↑</td><td>MAE↓</td></tr><tr><td>VPT</td><td>4.00 / 0.62%</td><td>85.0</td><td>88.4</td><td>75.0</td><td>3.6</td><td>86.5</td><td>87.4</td><td>70.1</td><td>1.9</td></tr><tr><td>Conv-LoRA</td><td>4.03 / 0.63%</td><td>85.1</td><td>88.8</td><td>75.7</td><td>3.4</td><td>86.8</td><td>88.5</td><td>70.2</td><td>1.7</td></tr><tr><td>Conv-LoRA+VPT</td><td>4.23 / 0.66 %</td><td>86.0</td><td>89.0</td><td>76.8</td><td>3.5</td><td>87.7</td><td>88.1</td><td>70.3</td><td>1.7</td></tr></table>",
+        "bbox": [
+            173,
+            593,
+            823,
+            671
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "text",
+        "text": "MoE-Conv vs. Blocks with Various Kernel sizes. We further compare the design of our MoE-Conv and convolutional blocks with various kernel sizes. Convolutional blocks with various kernel sizes are commonly used in multi-scale feature fusion. Here we follow the Inception module proposed by (Szegedy et al., 2015), which consists of multiple kernel sizes with $1 \\times 1 , 3 \\times 3 , 5 \\times 5$ To ensure a fair relative comparison, we opt for four experts in MoE-Conv to align with the branch number of the Inception structure. We conduct experiments on Leaf Dataset and ISIC 2017 Dataset twice for evaluation.",
+        "bbox": [
+            169,
+            724,
+            826,
+            823
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "table",
+        "img_path": "images/ed396264f17d38dcc932a9be72d9dec1754cf5551edfdcf3530bd7ad935dd64a.jpg",
+        "table_caption": [
+            "Table 13: MoE-Conv vs. Blocks with Various Kernel sizes (indicated as Inception’)."
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td rowspan=\"2\">Method</td><td rowspan=\"2\"># Params / Ratio(%)</td><td colspan=\"3\">Leaf</td><td colspan=\"4\">ISIC 2017</td></tr><tr><td>IoU↑</td><td>Dice ↑</td><td>Acc ↑</td><td>Jac ↑</td><td>T-Jac ↑</td><td>Dice ↑</td><td>Acc ↑</td></tr><tr><td>Inception</td><td>4.01 / 0.63%</td><td>72.1</td><td>82.3</td><td>95.0</td><td>76.9</td><td>68.5</td><td>84.9</td><td>93.3</td></tr><tr><td>MoE-Conv</td><td>4.01 / 0.63%</td><td>74.0</td><td>83.8</td><td>95.6</td><td>77.4</td><td>69.5</td><td>85.5</td><td>93.9</td></tr></table>",
+        "bbox": [
+            238,
+            835,
+            759,
+            895
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "header",
+        "text": "Published as a conference paper at ICLR 2024",
+        "bbox": [
+            171,
+            32,
+            482,
+            47
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "page_number",
+        "text": "20",
+        "bbox": [
+            488,
+            946,
+            509,
+            960
+        ],
+        "page_idx": 19
+    },
+    {
+        "type": "text",
+        "text": "In table 13, MoE-Conv outperforms the design of convolutional blocks with various kernel sizes. We attribute this to convolutions with various kernel sizes only operate on the default feature scale. Maybe a larger kernel size can inject some approximate local prior in features of a smaller scale, but it probably can't bring local prior into features of larger scales than the default. The features in ViT are downscaled 16x from the original image, so injecting priors in larger scale features are generally more useful, as evidenced in table 4, where the optimal scale is usually larger than the default scale.",
+        "bbox": [
+            169,
+            103,
+            826,
+            189
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "text",
+        "text": "Computational Cost. In table 14, we compare the training / inference speed and per epoch training time with the ISIC 2017 dataset and a single V100 GPU. While Conv-LoRA is slower in speed than others, it achieves robust performance gains across various semantic segmentation tasks (table 1). We find that the main cost comes from the upscale and downscale operations. A possible future direction is exploring how to inject local prior without explicitly scaling up and down features. We also notice that there are some other orthogonal works, like token merging (Liang et al., 2022; Bolya et al., 2022), that may accelerate Conv-LoRA.",
+        "bbox": [
+            169,
+            194,
+            826,
+            294
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "table",
+        "img_path": "images/12aa86d97652f6d120919bc5c6a07743c0b744231759ccb25d4f771aa57d068d.jpg",
+        "table_caption": [
+            "Table 14: Computational cost comparison."
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td>Method</td><td colspan=\"2\">Training iter/s min/epoch</td><td>Inference iter/s</td></tr><tr><td rowspan=\"3\">BitFit Adapter VPT</td><td>1.82</td><td>18.3</td><td>4.62</td></tr><tr><td>1.73</td><td>19.3</td><td>4.38</td></tr><tr><td>1.41 1.64</td><td>23.6</td><td>4.39</td></tr><tr><td colspan=\"2\">LoRA Conv-LoRA</td><td>20.3 1.22 27.3</td><td>4.62 3.64</td></tr></table>",
+        "bbox": [
+            369,
+            308,
+            629,
+            398
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "text",
+        "text": "F LOCAL PRIOR ANALYSIS",
+        "text_level": 2,
+        "bbox": [
+            171,
+            454,
+            416,
+            469
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "text",
+        "text": "We elaborate on SAM's local prior assumption' mentioned in our abstract in section 4.3. Additionally, as our Conv-LoRA is designed to reinforce existing inductive biases within the features, we investigate the presence of these biases in the features.",
+        "bbox": [
+            169,
+            486,
+            825,
+            530
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "text",
+        "text": "We use two metrics: 1) Mean attention distance, which reflects the extent of local or global information that a self-attention layer is aggregating (Dosovitskiy et al., 2020; Raghu et al., 2021). We calculate the attention distance for each attention head, defined as the average distance between the position of the query patch and the locations to which it attends, weighted by the attention weights. Then we calculate the average attention distance for each layer by computing the mean across 500 randomly sampled images from downstream semantic segmentation tasks. 2) Relative log amplitudes (Park & Kim, 2022), which reflects whether the model tends to reduce or amplify high-frequency signals (e.g., edges, textures) in feature map. We compute the relative log amplitudes of the Fourier-transformed feature map in each layer and average them across layers. Then we calculate the mean of the relative log amplitudes over 100 randomly sampled segmentation images.",
+        "bbox": [
+            169,
+            535,
+            826,
+            676
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "text",
+        "text": "Inductive biases of the features. Extensive pre-training on large-scale datasets has been demonstrated to equip ViTs with inductive biases (Dosovitskiy et al., 2020; Raghu et al., 2021). SAM's large-scale segmentation pretraining further amplifies these inductive biases within the features.",
+        "bbox": [
+            169,
+            681,
+            825,
+            724
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "text",
+        "text": "To evaluate the inductive biases of the features, we conduct comprehensive comparisons among randomly initialized ViT, MAE pretrained ViT, and SAM ViT. We use mean attention distance and relative log amplitudes for evaluation. In fig. 7, as the training progresses from randomly initialized ViT to MAE ViT and ultimately to SAM ViT, we observe a consistent trend: the mean attention distance decreases, while the high-frequency signals in the features increase, indicating a focus on local information. These findings further confirm the presence of inductive biases in features following large-scale pre-training. Furthermore, the findings affirm the rationality of Conv-LoRA in reinforcing the inherent inductive biases within the features.",
+        "bbox": [
+            169,
+            731,
+            826,
+            843
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "text",
+        "text": "G MOE ANALYSIS",
+        "text_level": 2,
+        "bbox": [
+            171,
+            863,
+            348,
+            878
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "text",
+        "text": "What does MoE learn? MoE learns to dynamically select an appropriate scale for injecting local priors based on input features. To illuminate its functionality, we conduct an analysis by tracking the frequency of each expert's selection across different datasets during inference. The detailed results are presented in fig. 8.",
+        "bbox": [
+            169,
+            895,
+            826,
+            925
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "header",
+        "text": "Published as a conference paper at ICLR 2024",
+        "bbox": [
+            171,
+            32,
+            480,
+            47
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "page_number",
+        "text": "21",
+        "bbox": [
+            488,
+            948,
+            508,
+            959
+        ],
+        "page_idx": 20
+    },
+    {
+        "type": "chart",
+        "img_path": "images/d30f88f0136897ccad31bffbcb83a43034aeeb1f994f2c0ea19472ed6f29b95c.jpg",
+        "content": "",
+        "chart_caption": [],
+        "chart_footnote": [],
+        "bbox": [
+            178,
+            102,
+            472,
+            333
+        ],
+        "page_idx": 21
+    },
+    {
+        "type": "chart",
+        "img_path": "images/e5620d25597abc9443804265739c2bbe8ef3bb8d93aa746131e8310b42158101.jpg",
+        "content": "",
+        "chart_caption": [
+            "Figure 7: Evaluation of inductive biases within features. Left: Mean attention distance average over all attention heads. Right: Relative log amplitudes of Fourier transformed feature maps. Compared to randomly initialized ViT, SAM and MAE could learn the inductive biases from large-scale data pre-training. And SAM could further amplifies these biases within the features."
+        ],
+        "chart_footnote": [],
+        "bbox": [
+            480,
+            106,
+            771,
+            333
+        ],
+        "page_idx": 21
+    },
+    {
+        "type": "text",
+        "text": "",
+        "bbox": [
+            169,
+            449,
+            825,
+            479
+        ],
+        "page_idx": 21
+    },
+    {
+        "type": "text",
+        "text": "Notably, distinct datasets exhibit preferences for different experts. For instance, in Leaf Segmentation, MoE tends to favor experts with upsampling ratios of 3 and 4, while on the ISIC 2017 dataset, it tends to select the expert with an upsampling ratio of 2. Connecting these insights with the optimal scale ablation results in table 4, it become evident that MoE selects the expert adaptively for each sample, and consequently, the distributions of MoE selection across datasets reflect their different data distributions. This observation supports that MoE behaves adaptively and effectively with respect to each sample's property. This adaptability reinforces the significance of MoE in tailoring its selection to the unique characteristics of diverse datasets, enhancing its effectiveness in local prior injection.",
+        "bbox": [
+            169,
+            484,
+            826,
+            612
+        ],
+        "page_idx": 21
+    },
+    {
+        "type": "chart",
+        "img_path": "images/4c74e74f3e79189c998f0bd3c593ba652ed416b674f1104fbf0ced4ee2f977ea.jpg",
+        "content": "",
+        "chart_caption": [],
+        "chart_footnote": [],
+        "bbox": [
+            178,
+            631,
+            472,
+            862
+        ],
+        "page_idx": 21
+    },
+    {
+        "type": "chart",
+        "img_path": "images/7d064d6ea2a41429384542cf1f0a745830afb4dd5dbd3d83af3859fd686a0e01.jpg",
+        "content": "",
+        "chart_caption": [
+            "Figure 8: The number of times each expert is selected during inference for on Leaf Dataset and ISIC 2017 Dataset. Distinct datasets exhibit preferences for different experts."
+        ],
+        "chart_footnote": [],
+        "bbox": [
+            482,
+            633,
+            774,
+            862
+        ],
+        "page_idx": 21
+    },
+    {
+        "type": "header",
+        "text": "Published as a conference paper at ICLR 2024",
+        "bbox": [
+            171,
+            32,
+            482,
+            47
+        ],
+        "page_idx": 21
+    },
+    {
+        "type": "page_number",
+        "text": "22",
+        "bbox": [
+            488,
+            946,
+            509,
+            959
+        ],
+        "page_idx": 21
+    },
+    {
+        "type": "text",
+        "text": "H LOW-DATA REGIME EXPERIMENTS",
+        "text_level": 2,
+        "bbox": [
+            171,
+            102,
+            501,
+            118
+        ],
+        "page_idx": 22
+    },
+    {
+        "type": "text",
+        "text": "Convolutional layers could introduce inductive biases, thereby enhancing data efficiency during finetuning. Therefore, we undertake experiments in a low-data regime to validate whether Conv-LoRA can indeed improve data efficiency in semantic segmentation.",
+        "bbox": [
+            169,
+            133,
+            826,
+            178
+        ],
+        "page_idx": 22
+    },
+    {
+        "type": "text",
+        "text": "Specifically, we conduct experiments under the few-shot setting, wherein acquiring data for downstream tasks is challenging, and only a limited number of training samples per task are available. Our experiments are performed on the Trans10K-v2 dataset, which is used for twelve-class transparent object segmentation. We randomly select the training samples, to meet the settings of 1, 2, 4, 8, and 16 shots (i.e., the number of labeled training examples per class), and the experiments are run for 100 epochs.",
+        "bbox": [
+            169,
+            183,
+            826,
+            267
+        ],
+        "page_idx": 22
+    },
+    {
+        "type": "table",
+        "img_path": "images/deaec3f82aa9f0e2faf0dd9fe37b8f0d48b72a5fa6fccd211ed8957cbc6522b6.jpg",
+        "table_caption": [
+            "Table 15: Results of few-shot learning on multi-class semantic segmentation. ‘Shot' indicates the number of labeled training examples per class."
+        ],
+        "table_footnote": [],
+        "table_body": "<table><tr><td rowspan=1 colspan=1>Method</td><td rowspan=1 colspan=1># Params/ Ratio(%)</td><td rowspan=1 colspan=1>Shot</td><td rowspan=1 colspan=1>mIoU↑</td></tr><tr><td rowspan=1 colspan=1>LoRAConv-LoRA</td><td rowspan=1 colspan=1>4.00 / 0.62%4.02 / 0.63%</td><td rowspan=1 colspan=1>1/2/4/8/161/2/4/8/16</td><td rowspan=1 colspan=1>13.32/18.01/22.70/25.89/38.1114.53/19.81/23.05/26.02/38.63</td></tr></table>",
+        "bbox": [
+            271,
+            280,
+            725,
+            343
+        ],
+        "page_idx": 22
+    },
+    {
+        "type": "text",
+        "text": "In table 15, the performance improvement of Conv-LoRA compared to LoRA, is particularly pronounced in an extremely low-data setting (e.g., 1-shot). The result demenstrates that the introduction of inductive biases in Conv-LoRA contribute to improved data efficiency.",
+        "bbox": [
+            169,
+            407,
+            825,
+            452
+        ],
+        "page_idx": 22
+    },
+    {
+        "type": "text",
+        "text": "I MORE VISUALIZATION RESULTS",
+        "text_level": 2,
+        "bbox": [
+            171,
+            469,
+            477,
+            487
+        ],
+        "page_idx": 22
+    },
+    {
+        "type": "text",
+        "text": "Conv-LoRA vs. LoRA Feature. We visualize the feature maps from the fine-tuned SAM's image encoder, which incorporates LoRA and our Conv-LoRA respectively. In fig. 9, the image features from SAM's image encoder equipped with Conv-LoRA could provide more fine-grained information, e.g., slim edges, which is beneficial to later mask prediction. This further demonstrates the effectiveness of reinforcing the image-related local priors with network architecture.",
+        "bbox": [
+            169,
+            501,
+            826,
+            573
+        ],
+        "page_idx": 22
+    },
+    {
+        "type": "image",
+        "img_path": "images/f552e8ced1c4f3836f6c97d4cc4b5ca32c4a0990276c277126694749c5b704f6.jpg",
+        "image_caption": [
+            "Figure 9: Feature map visualization for binary-class and multi-class semantic segmentation. Compared to LoRA, applying Conv-LoRA to SAM's image encoder could capture more fine-grained details."
+        ],
+        "image_footnote": [],
+        "bbox": [
+            204,
+            597,
+            787,
+            765
+        ],
+        "page_idx": 22
+    },
+    {
+        "type": "text",
+        "text": "Mask prediction. We also provide more visualization results for the mask prediction across various datasets when applying different PEFT methods (VPT, LoRA and Conv-LoRA). This further confirms the superiority of our Conv-LoRA.",
+        "bbox": [
+            169,
+            844,
+            826,
+            887
+        ],
+        "page_idx": 22
+    },
+    {
+        "type": "header",
+        "text": "Published as a conference paper at ICLR 2024",
+        "bbox": [
+            171,
+            32,
+            482,
+            47
+        ],
+        "page_idx": 22
+    },
+    {
+        "type": "page_number",
+        "text": "23",
+        "bbox": [
+            488,
+            946,
+            509,
+            960
+        ],
+        "page_idx": 22
+    },
+    {
+        "type": "image",
+        "img_path": "images/c38e413b4f6abb5fe2fc33a1e0d7f0e160c508ba4339fcfa2fc91eee0891a10a.jpg",
+        "image_caption": [],
+        "image_footnote": [],
+        "bbox": [
+            439,
+            159,
+            558,
+            324
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "image",
+        "img_path": "images/6b46387c2d3b217fca0812db7e44a672c773dce8519110221c5086343cfd0d02.jpg",
+        "image_caption": [],
+        "image_footnote": [],
+        "bbox": [
+            696,
+            159,
+            816,
+            324
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "image",
+        "img_path": "images/255d85973e487609ba4481f9f4f4c4c5f664cc0bdd128395675955600ae645b5.jpg",
+        "image_caption": [],
+        "image_footnote": [],
+        "bbox": [
+            181,
+            159,
+            302,
+            228
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "image",
+        "img_path": "images/e2a105530f11000ccbe0ef2ae2bb2552e99addfe85d1b46eed93eb2745f535c0.jpg",
+        "image_caption": [],
+        "image_footnote": [],
+        "bbox": [
+            310,
+            159,
+            429,
+            228
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "image",
+        "img_path": "images/26ab845d49bebc7d7c8db847690b43cd3d94805044ed73b7756dbd2681f88db1.jpg",
+        "image_caption": [],
+        "image_footnote": [],
+        "bbox": [
+            181,
+            253,
+            302,
+            321
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "image",
+        "img_path": "images/63ad36569fe08a94ee0bb0511765becd83a2f2f7b48cb608a9f2cc49589a678b.jpg",
+        "image_caption": [],
+        "image_footnote": [],
+        "bbox": [
+            310,
+            253,
+            429,
+            323
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "image",
+        "img_path": "images/077f9e3ac59271a114069d6c57e87475189b6a1138c6b37198e75dea36b3dcef.jpg",
+        "image_caption": [],
+        "image_footnote": [],
+        "bbox": [
+            566,
+            159,
+            687,
+            324
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "image",
+        "img_path": "images/eec71319d855792678ac2220e5988bb4ce98280bfb5a3ae11b69f805146d50e2.jpg",
+        "image_caption": [],
+        "image_footnote": [
+            "RGB Image"
+        ],
+        "bbox": [
+            181,
+            348,
+            302,
+            419
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "image",
+        "img_path": "images/84dca369911f82dc792e8761b8298d2511ffea5023c635043f62db21451fd8a1.jpg",
+        "image_caption": [],
+        "image_footnote": [
+            "GT"
+        ],
+        "bbox": [
+            308,
+            348,
+            431,
+            420
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "image",
+        "img_path": "images/adcc19f48b2cfca3a6ecdc1e0eba832f18345290d02183f665b0a6d0b8d9ffa4.jpg",
+        "image_caption": [],
+        "image_footnote": [
+            "VPT"
+        ],
+        "bbox": [
+            437,
+            348,
+            558,
+            419
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "image",
+        "img_path": "images/5f5b8d08b9ff06643db48aa6853f4a6893cd879842741a48b970f18841030be5.jpg",
+        "image_caption": [],
+        "image_footnote": [
+            "LoRA"
+        ],
+        "bbox": [
+            566,
+            348,
+            687,
+            419
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "image",
+        "img_path": "images/c1537b6fa028d49e4418c4b81f96b5d881a96605fe8228f660d1ea8a9536f832.jpg",
+        "image_caption": [],
+        "image_footnote": [
+            "Conv-LoRA"
+        ],
+        "bbox": [
+            696,
+            347,
+            816,
+            419
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "image",
+        "img_path": "images/63d6e81c451a8c934b774312e3d4a8e2f0ba18ff3c952bbc0843cf19fdf7bab2.jpg",
+        "image_caption": [
+            "Figure 10: Visualization Results on Skin Lesion Segmentation."
+        ],
+        "image_footnote": [],
+        "bbox": [
+            181,
+            583,
+            302,
+            646
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "image",
+        "img_path": "images/e5766d81d993e76c7223917b5959d4acda1a7607e6ea9c64ade0f71596ddd0ee.jpg",
+        "image_caption": [],
+        "image_footnote": [],
+        "bbox": [
+            310,
+            583,
+            429,
+            646
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "image",
+        "img_path": "images/61daf14bf3550daed365eb3e21eedad2d4a6eb824f8fa760f42374ea2d6d9820.jpg",
+        "image_caption": [],
+        "image_footnote": [],
+        "bbox": [
+            439,
+            583,
+            558,
+            646
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "image",
+        "img_path": "images/3b1947d4f9b93cf6c3bc2eb38a6a271987e326a1dfc3f0813ff724526d0c4bad.jpg",
+        "image_caption": [],
+        "image_footnote": [],
+        "bbox": [
+            568,
+            583,
+            687,
+            647
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "image",
+        "img_path": "images/228d36df6fcb319e00df1a12054cb40eecc2feb82668521e861a9d6c5a6a6439.jpg",
+        "image_caption": [],
+        "image_footnote": [],
+        "bbox": [
+            181,
+            671,
+            302,
+            734
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "image",
+        "img_path": "images/544683d60b4b0705d4dafed84a141df48cee7d9969156ea0b46fea5f36f047d4.jpg",
+        "image_caption": [],
+        "image_footnote": [],
+        "bbox": [
+            310,
+            671,
+            429,
+            733
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "image",
+        "img_path": "images/3c6fbb476faeddfe18ec59bd0b66b407dfcdb75b2e7d782819acefd8908c0b49.jpg",
+        "image_caption": [],
+        "image_footnote": [],
+        "bbox": [
+            439,
+            671,
+            558,
+            734
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "image",
+        "img_path": "images/9d99b9a70f0cc4adc8dc26e01d395388aea049af2b13cde82c11c6f277273fcb.jpg",
+        "image_caption": [],
+        "image_footnote": [],
+        "bbox": [
+            697,
+            584,
+            816,
+            645
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "image",
+        "img_path": "images/a078eb6d19a787e9368aa63048a5c5c2b571a70ec48b7ab47e27b3510e9d297c.jpg",
+        "image_caption": [],
+        "image_footnote": [],
+        "bbox": [
+            566,
+            671,
+            687,
+            734
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "image",
+        "img_path": "images/f0cd54a3bd7518b33541a6c9085e862a036b3c7788ae7ae6ec82b6a58429c605.jpg",
+        "image_caption": [],
+        "image_footnote": [
+            "RGB Image"
+        ],
+        "bbox": [
+            181,
+            758,
+            302,
+            821
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "image",
+        "img_path": "images/88fa5a4b7ae257bc8432b58e6297803d7c3161ccb02721c70f19b15331e0a1d0.jpg",
+        "image_caption": [],
+        "image_footnote": [],
+        "bbox": [
+            696,
+            671,
+            816,
+            734
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "image",
+        "img_path": "images/ae790b00223cf31603fe5e210e789e235832b6ad1d0370ba2941b5887e3d114f.jpg",
+        "image_caption": [],
+        "image_footnote": [
+            "GT"
+        ],
+        "bbox": [
+            310,
+            758,
+            429,
+            821
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "image",
+        "img_path": "images/e392ef257eee2972d03d8884103cae44b99adffbfd3e8ca4f9647651c425dcf4.jpg",
+        "image_caption": [],
+        "image_footnote": [
+            "VPT"
+        ],
+        "bbox": [
+            439,
+            758,
+            558,
+            821
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "image",
+        "img_path": "images/0d0ec05d3f8f84d041f4b0c2ec71537bf817112c0923ea445ed1087023cfa072.jpg",
+        "image_caption": [],
+        "image_footnote": [
+            "LoRA"
+        ],
+        "bbox": [
+            568,
+            758,
+            687,
+            821
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "image",
+        "img_path": "images/f9deca1ed08c94fd9a28d35479247701cd4a70b43ac66558272288406cdd414e.jpg",
+        "image_caption": [],
+        "image_footnote": [
+            "Conv-LoRA"
+        ],
+        "bbox": [
+            696,
+            760,
+            816,
+            821
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "text",
+        "text": "Figure 11: Visualization Results on Camouflaged Object Segmentation.",
+        "bbox": [
+            261,
+            854,
+            735,
+            871
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "header",
+        "text": "Published as a conference paper at ICLR 2024",
+        "bbox": [
+            171,
+            32,
+            482,
+            47
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "page_number",
+        "text": "24",
+        "bbox": [
+            488,
+            946,
+            509,
+            959
+        ],
+        "page_idx": 23
+    },
+    {
+        "type": "image",
+        "img_path": "images/2fd4ad5119b7930fb401429a122d693cb9b49e52531dd6d89423455cbc09fd9d.jpg",
+        "image_caption": [],
+        "image_footnote": [],
+        "bbox": [
+            181,
+            109,
+            300,
+            172
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "image",
+        "img_path": "images/3a48b3e299153fb9f107b5959581837a3c200beb52d8629ad17e2eb35d519405.jpg",
+        "image_caption": [],
+        "image_footnote": [],
+        "bbox": [
+            310,
+            111,
+            429,
+            171
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "image",
+        "img_path": "images/70ff3d66828293c765d37bf582f274c97e1213ded8468418edcd6e3d387e027b.jpg",
+        "image_caption": [],
+        "image_footnote": [],
+        "bbox": [
+            441,
+            109,
+            558,
+            171
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "image",
+        "img_path": "images/776e856df3735f53911e2a045f1606a6b542961ea2252e00d922aae852f61e6c.jpg",
+        "image_caption": [],
+        "image_footnote": [],
+        "bbox": [
+            568,
+            111,
+            686,
+            171
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "image",
+        "img_path": "images/ad93edd4b5664649c07433c2e15d065d97207ac41b92911ed920926bdea9877e.jpg",
+        "image_caption": [],
+        "image_footnote": [],
+        "bbox": [
+            697,
+            111,
+            815,
+            171
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "image",
+        "img_path": "images/562521dbd8fa56373bb3b62c24e2d494e0fbce6fed7c9f5746dd31ee537d2b10.jpg",
+        "image_caption": [],
+        "image_footnote": [],
+        "bbox": [
+            181,
+            196,
+            300,
+            260
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "image",
+        "img_path": "images/77bc757a7b07f04c7dfcb5361a7c49d526424f3570b50dc5d634ff24364215a4.jpg",
+        "image_caption": [],
+        "image_footnote": [],
+        "bbox": [
+            310,
+            196,
+            429,
+            260
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "image",
+        "img_path": "images/68569ae0729dda7f055c474b79c1bba2efbe98960e10f01b471de20a142a842c.jpg",
+        "image_caption": [],
+        "image_footnote": [],
+        "bbox": [
+            437,
+            196,
+            558,
+            261
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "image",
+        "img_path": "images/8091daa8ab0f499136b823cdd41e6c9e34247c30cadebff9d42391dc0d1d1c95.jpg",
+        "image_caption": [],
+        "image_footnote": [],
+        "bbox": [
+            566,
+            196,
+            687,
+            261
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "image",
+        "img_path": "images/278fd7778fa67c7f071db67cbc459ba93900fd81d19c67051684bef0c2856526.jpg",
+        "image_caption": [],
+        "image_footnote": [],
+        "bbox": [
+            696,
+            196,
+            816,
+            260
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "image",
+        "img_path": "images/0cbedc60325e7b4831e217a1e7b55726f2b9b574dd55f6acb006c346c4fb3db2.jpg",
+        "image_caption": [],
+        "image_footnote": [
+            "RGB Image"
+        ],
+        "bbox": [
+            179,
+            285,
+            300,
+            348
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "image",
+        "img_path": "images/24b261c71e6260cad9954f5446f7b6b7bb93bd90aabf4d02f52b08812841edd1.jpg",
+        "image_caption": [],
+        "image_footnote": [
+            "GT"
+        ],
+        "bbox": [
+            308,
+            285,
+            428,
+            347
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "image",
+        "img_path": "images/edff22b8c879e4d3cf444b5444a4ff2af9efb7d35546c6f49cc80cf305e1ec06.jpg",
+        "image_caption": [],
+        "image_footnote": [
+            "VPT"
+        ],
+        "bbox": [
+            437,
+            285,
+            555,
+            347
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "image",
+        "img_path": "images/159b662e86fc0f3898358d6fb0131369db1218c4886079085830e5f649590c38.jpg",
+        "image_caption": [],
+        "image_footnote": [
+            "LoRA"
+        ],
+        "bbox": [
+            566,
+            285,
+            686,
+            347
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "image",
+        "img_path": "images/4d54586f74f11c7a08e7d9db4dc48819ebeb5dd796011595c46750c73be2fc02.jpg",
+        "image_caption": [],
+        "image_footnote": [
+            "Conv-LoRA"
+        ],
+        "bbox": [
+            694,
+            285,
+            813,
+            347
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "image",
+        "img_path": "images/5861745a41c307e931451743bcaa79e1a9b3f9eff294d09a5e1e0e684e1e114a.jpg",
+        "image_caption": [
+            "Figure 12: Visualization Results on Leaf Disease Segmentation."
+        ],
+        "image_footnote": [],
+        "bbox": [
+            181,
+            415,
+            302,
+            477
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "image",
+        "img_path": "images/9ddd04ec997459b6a97ae5b75645b8d62eb918816f3574af9f9ef93eb1444d1f.jpg",
+        "image_caption": [],
+        "image_footnote": [],
+        "bbox": [
+            310,
+            415,
+            429,
+            478
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "image",
+        "img_path": "images/6f616454c72e34f163cf2ceb56e0f0e2da55d2554e12e95275debcb5fb909a0f.jpg",
+        "image_caption": [],
+        "image_footnote": [],
+        "bbox": [
+            439,
+            415,
+            558,
+            478
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "image",
+        "img_path": "images/b164aa9ab41afbc448c3e61309ac8d04fa29ea5c664a5cc49c9b654a35ca97e4.jpg",
+        "image_caption": [],
+        "image_footnote": [],
+        "bbox": [
+            568,
+            415,
+            686,
+            478
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "image",
+        "img_path": "images/684841235f0f05957a7976498379a3d814af7152949512c597bf319e7d5e9391.jpg",
+        "image_caption": [],
+        "image_footnote": [],
+        "bbox": [
+            696,
+            415,
+            815,
+            478
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "image",
+        "img_path": "images/98793fe682fd5ffc145f6e00b53b429cfda650ff4916b1e57c2bfa539195acfa.jpg",
+        "image_caption": [],
+        "image_footnote": [],
+        "bbox": [
+            181,
+            502,
+            302,
+            565
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "image",
+        "img_path": "images/492c1b10220a7d9ed7683ee64bfc7bd0feef289832b7d73ce25a28a822e13495.jpg",
+        "image_caption": [],
+        "image_footnote": [],
+        "bbox": [
+            310,
+            502,
+            429,
+            565
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "image",
+        "img_path": "images/be271bbdf98b8260dbd4a55c4f656a7c317d00513355e7f459ffa4b22a6e2805.jpg",
+        "image_caption": [],
+        "image_footnote": [],
+        "bbox": [
+            439,
+            502,
+            558,
+            565
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "image",
+        "img_path": "images/104a8fc7c2d994a62095d36cc2a93e205219989bbf684df82c7332d8fea816eb.jpg",
+        "image_caption": [],
+        "image_footnote": [],
+        "bbox": [
+            566,
+            502,
+            687,
+            565
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "image",
+        "img_path": "images/823a98250a78409559bfacc1f37b3fe99ad1c8d385e9cb19d475ad71e2be735d.jpg",
+        "image_caption": [],
+        "image_footnote": [],
+        "bbox": [
+            696,
+            503,
+            815,
+            565
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "image",
+        "img_path": "images/d7bd3c38806182faf55da3adbaccbaa5da3172c0062b2cf50b3aa9523427d4e7.jpg",
+        "image_caption": [],
+        "image_footnote": [
+            "RGB Image"
+        ],
+        "bbox": [
+            181,
+            590,
+            302,
+            652
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "image",
+        "img_path": "images/f117d4f837f308b966293d24184bb309e263fb0e8ea33a43105e8c4e2c9e7466.jpg",
+        "image_caption": [],
+        "image_footnote": [
+            "GT"
+        ],
+        "bbox": [
+            310,
+            590,
+            429,
+            654
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "image",
+        "img_path": "images/662350840d915ec4d3ffec088b2bf52ca53339ac2a1fe3672bc93fa15a4210be.jpg",
+        "image_caption": [],
+        "image_footnote": [
+            "VPT"
+        ],
+        "bbox": [
+            437,
+            590,
+            558,
+            654
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "image",
+        "img_path": "images/51db512d85ef97192150a3dfbf67c5d0a39e88e68443effa2e20218d5a520fc3.jpg",
+        "image_caption": [],
+        "image_footnote": [
+            "LoRA"
+        ],
+        "bbox": [
+            566,
+            590,
+            687,
+            654
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "image",
+        "img_path": "images/663026b57cf6128a192d9d87365632fd589293a2ee1c4b776b98fd3fb50cd7d4.jpg",
+        "image_caption": [],
+        "image_footnote": [
+            "Conv-LoRA"
+        ],
+        "bbox": [
+            696,
+            590,
+            815,
+            654
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "image",
+        "img_path": "images/435d70bd39a4d5a163d8d53b70c6f2c01d99fdb1f2961de41db0b13816204062.jpg",
+        "image_caption": [
+            "Figure 13: Visualization Results on Remote Sensing."
+        ],
+        "image_footnote": [],
+        "bbox": [
+            178,
+            722,
+            297,
+            782
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "image",
+        "img_path": "images/9bae33a9d8c72a0257e03740a828f2155587af301d11453b0362f679e11ab99c.jpg",
+        "image_caption": [],
+        "image_footnote": [],
+        "bbox": [
+            305,
+            722,
+            426,
+            784
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "image",
+        "img_path": "images/f2cc5f4cc60095274626ab434823cfe861e21c69fc24b5230234be2e9f792f8e.jpg",
+        "image_caption": [],
+        "image_footnote": [],
+        "bbox": [
+            436,
+            722,
+            555,
+            784
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "image",
+        "img_path": "images/fca4c95fe1333c8ca0496800d60ef54b95d02107a680b043adb797ff9650c1d7.jpg",
+        "image_caption": [],
+        "image_footnote": [],
+        "bbox": [
+            563,
+            722,
+            683,
+            784
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "image",
+        "img_path": "images/6049455425456546fde00d78ed49480bf43b280cd637f21145178e008d8d6992.jpg",
+        "image_caption": [],
+        "image_footnote": [
+            "RGB Image"
+        ],
+        "bbox": [
+            178,
+            806,
+            297,
+            871
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "image",
+        "img_path": "images/77880acc09ae7ca5bb8606a40470e7f2e7c60313319871590cd1902ed1025683.jpg",
+        "image_caption": [],
+        "image_footnote": [
+            "GT"
+        ],
+        "bbox": [
+            305,
+            808,
+            426,
+            871
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "image",
+        "img_path": "images/872544bbb7baaf17f62ed202790ccc9554d0739d165be1ae9b845af3b8cbaa6a.jpg",
+        "image_caption": [],
+        "image_footnote": [
+            "VPT",
+            "LoRA"
+        ],
+        "bbox": [
+            434,
+            808,
+            555,
+            871
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "image",
+        "img_path": "images/5f93c54f3080aab08b0161fe11a97e84957e5de7f33a8579e75b1cc341fcfda8.jpg",
+        "image_caption": [],
+        "image_footnote": [],
+        "bbox": [
+            563,
+            808,
+            684,
+            871
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "image",
+        "img_path": "images/7ccb804e5a1823ae7d56ba309a60fc660acf3fe9269a7d7a458cc358db48a363.jpg",
+        "image_caption": [],
+        "image_footnote": [],
+        "bbox": [
+            692,
+            722,
+            812,
+            784
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "image",
+        "img_path": "images/527726505f40f0fefc3ce81223364990e24479b376af9b2ed8bf85f8baf267ab.jpg",
+        "image_caption": [],
+        "image_footnote": [
+            "Conv-LoRA"
+        ],
+        "bbox": [
+            692,
+            808,
+            812,
+            871
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "text",
+        "text": "Figure 14: Visualization Results on Multi-class Transparent Object Segmentation.",
+        "bbox": [
+            228,
+            904,
+            767,
+            919
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "header",
+        "text": "Published as a conference paper at ICLR 2024",
+        "bbox": [
+            173,
+            32,
+            482,
+            46
+        ],
+        "page_idx": 24
+    },
+    {
+        "type": "page_number",
+        "text": "25",
+        "bbox": [
+            488,
+            946,
+            509,
+            960
+        ],
+        "page_idx": 24
+    }
+]
