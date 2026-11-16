@@ -15,25 +15,20 @@ All manuscripts must be in English.
 Please refer to the author guidelines on the \confName\ \confYear\ web page for a
 discussion of the policy on dual submissions.
 
-\begin{figure}[t]
+\begin{figure*}[t]
 \centering
-\setlength{\tabcolsep}{0.6pt}
-\offinterlineskip
-\renewcommand{\arraystretch}{0}
-\newlength{\FigOneW}\setlength{\FigOneW}{\dimexpr\columnwidth-14pt\relax}\divide\FigOneW by 4
-\newlength{\FigOneLabelW}\setlength{\FigOneLabelW}{9pt}
-\begin{tabular}{@{}c*{4}{c}@{}}
-\makebox[\FigOneLabelW][c]{\rotatebox{90}{\scriptsize Input}} & \includegraphics[width=\FigOneW]{../img/dcd_fig1/crack_raw.pdf} & \includegraphics[width=\FigOneW]{../img/dcd_fig1/octa_raw.pdf} & \includegraphics[width=\FigOneW]{../img/dcd_fig1/road_raw.pdf} & \includegraphics[width=\FigOneW]{../img/dcd_fig1/tyre_raw.pdf} \\[1pt]
-\makebox[\FigOneLabelW][c]{\rotatebox{90}{\scriptsize Prediction}} & \includegraphics[width=\FigOneW]{../img/dcd_fig1/crack_ours.pdf} & \includegraphics[width=\FigOneW]{../img/dcd_fig1/octa_ours.pdf} & \includegraphics[width=\FigOneW]{../img/dcd_fig1/road_ours.pdf} & \includegraphics[width=\FigOneW]{../img/dcd_fig1/tyre_ours.pdf} \\[9pt]
-\makebox[\FigOneLabelW]{} & \makebox[\FigOneW][c]{\scriptsize CHCrack5k} & \makebox[\FigOneW][c]{\scriptsize OCTA-500} & \makebox[\FigOneW][c]{\scriptsize ROAD} & \makebox[\FigOneW][c]{\scriptsize TYRE} \\
-\end{tabular}
-\caption{Cross-domain results of DCD. Each column shows a raw test image
-(top) and the DCD prediction overlaid in cyan (bottom). Trained on only
-18 images from six Seen datasets and deployed with a single fixed candidate
-head, DCD preserves thin structures and connectivity on two Unseen and two
-Novel datasets.}
-\label{fig:dcd_teaser}
-\end{figure}
+\includegraphics[width=\textwidth]{../img/fig_framework.pdf}
+\caption{Overview of DCD.  A frozen SAM ViT-L encoder is adapted with
+dual-level adapters: block-internal Adapter-I modules and block-external
+Adapter-E features, which are fused into a prompt-free mask decoder.
+Stage-1 produces four coarse masks, and Stage-2 refines four candidates with
+dense, topology, and role-specific losses.  Gating orders the four
+candidates during training, while deployment always uses the same fixed
+candidate (slot 3); the auxiliary head-fusion branch is used only during
+training.  Predictions are resized to the input resolution and thresholded
+at 0.5.}
+\label{fig:dcd_framework}
+\end{figure*}
 
 \subsection{Paper length}
 Papers, excluding the references section, must be no longer than eight pages in length.
