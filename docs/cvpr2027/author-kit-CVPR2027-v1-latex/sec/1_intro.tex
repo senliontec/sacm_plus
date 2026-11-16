@@ -9,10 +9,31 @@ This style guide now has several important modifications (for example, you are n
 
 All manuscripts must be in English.
 
+
 \subsection{Dual submission}
 
 Please refer to the author guidelines on the \confName\ \confYear\ web page for a
 discussion of the policy on dual submissions.
+
+\begin{figure}[t]
+\centering
+\setlength{\tabcolsep}{0.6pt}
+\offinterlineskip
+\renewcommand{\arraystretch}{0}
+\newlength{\FigOneW}\setlength{\FigOneW}{\dimexpr\columnwidth-14pt\relax}\divide\FigOneW by 4
+\newlength{\FigOneLabelW}\setlength{\FigOneLabelW}{9pt}
+\begin{tabular}{@{}c*{4}{c}@{}}
+\makebox[\FigOneLabelW][c]{\rotatebox{90}{\scriptsize Input}} & \includegraphics[width=\FigOneW]{../img/dcd_fig1/crack_raw.pdf} & \includegraphics[width=\FigOneW]{../img/dcd_fig1/octa_raw.pdf} & \includegraphics[width=\FigOneW]{../img/dcd_fig1/road_raw.pdf} & \includegraphics[width=\FigOneW]{../img/dcd_fig1/tyre_raw.pdf} \\[1pt]
+\makebox[\FigOneLabelW][c]{\rotatebox{90}{\scriptsize Prediction}} & \includegraphics[width=\FigOneW]{../img/dcd_fig1/crack_ours.pdf} & \includegraphics[width=\FigOneW]{../img/dcd_fig1/octa_ours.pdf} & \includegraphics[width=\FigOneW]{../img/dcd_fig1/road_ours.pdf} & \includegraphics[width=\FigOneW]{../img/dcd_fig1/tyre_ours.pdf} \\[9pt]
+\makebox[\FigOneLabelW]{} & \makebox[\FigOneW][c]{\scriptsize CHCrack5k} & \makebox[\FigOneW][c]{\scriptsize OCTA-500} & \makebox[\FigOneW][c]{\scriptsize ROAD} & \makebox[\FigOneW][c]{\scriptsize TYRE} \\
+\end{tabular}
+\caption{Cross-domain results of DCD. Each column shows a raw test image
+(top) and the DCD prediction overlaid in cyan (bottom). Trained on only
+18 images from six Seen datasets and deployed with a single fixed candidate
+head, DCD preserves thin structures and connectivity on two Unseen and two
+Novel datasets.}
+\label{fig:dcd_teaser}
+\end{figure}
 
 \subsection{Paper length}
 Papers, excluding the references section, must be no longer than eight pages in length.
@@ -39,11 +60,9 @@ Reviewers:
 note that the ruler measurements do not align well with lines in the paper --- this turns out to be very difficult to do well when the paper contains many figures and equations, and, when done, looks ugly.
 Use fractional references (\eg, this line is $087.5$), although in most cases the approximate location would be adequate.
 
-
 \subsection{Paper ID}
 Make sure that the Paper ID from the submission system is visible in the version submitted for review (replacing the ``*****'' you see in this document).
 If you are using the \LaTeX\ template, \textbf{make sure to update paper ID in the appropriate place in the tex file}.
-
 
 \subsection{Mathematics}
 
@@ -89,7 +108,6 @@ An example of a bad paper just asking to be rejected:
    [1] Removed for blind review
 \end{quote}
 
-
 An example of an acceptable paper:
 \begin{quote}
 \begin{center}
@@ -103,14 +121,14 @@ An example of an acceptable paper:
 \end{quote}
 
 If you are making a submission to another conference at the same time that covers similar or overlapping material, you may need to refer to that submission to explain the differences, just as you would if you had previously published related work.
-In such cases, include the anonymized parallel submission~\cite{Authors14} as supplemental material and cite it as
+In such cases, include the anonymized parallel submission as supplemental material and cite it as
 \begin{quote}
 [1] Authors. ``The frobnicatable foo filter'', F\&G 2014 Submission ID 324, Supplied as supplemental material {\tt fg324.pdf}.
 \end{quote}
 
 Finally, you may feel you need to tell the reader that more details can be found elsewhere and refer them to a technical report.
 For conference submissions, the paper must stand on its own, and not {\em require} the reviewer to go to a tech report for further details.
-Thus, you may say in the body of the paper ``further details may be found in~\cite{Authors14b}''.
+Thus, you may say in the body of the paper ``further details may be found in the supplemental material''.
 Then submit the tech report as supplemental material.
 Again, do not assume that the reviewers will read this material.
 
@@ -150,16 +168,6 @@ FAQ\medskip\\
 However, for your results, you should not identify yourself and should not mention your participation in the challenge.
 Instead, present your results referring to the method proposed in your paper and draw conclusions based on the experimental comparison with other results.\medskip\\
 
-\begin{figure}[t]
-  \centering
-  \fbox{\rule{0pt}{2in} \rule{0.9\linewidth}{0pt}}
-   %\includegraphics[width=0.8\linewidth]{egfigure.eps}
-
-   \caption{Example of caption.
-   It is set in Roman so that mathematics (always set in Roman: $B \sin A = A \sin B$) may be included without an ugly clash.}
-   \label{fig:onecol}
-\end{figure}
-
 \subsection{Miscellaneous}
 
 \noindent
@@ -179,24 +187,8 @@ If you use the \verb'\etal' macro provided, then you need not worry about double
 However, use it only when there are three or more authors.
 Thus, the following is correct:
    ``Frobnication has been trendy lately.
-   It was introduced by Alpher~\cite{Alpher02}, and subsequently developed by
-   Alpher and Fotheringham-Smythe~\cite{Alpher03}, and Alpher \etal~\cite{Alpher04}.''
+   It was introduced by Alpher, and subsequently developed by
+   Alpher and Fotheringham-Smythe, and Alpher \etal.''
 
-This is incorrect: ``... subsequently developed by Alpher \etal~\cite{Alpher03} ...'' because reference~\cite{Alpher03} has only two authors.
+This is incorrect: ``... subsequently developed by Alpher \etal ...'' because that reference has only two authors.
 
-\begin{figure*}
-  \centering
-  \begin{subfigure}{0.68\linewidth}
-    \fbox{\rule{0pt}{2in} \rule{.9\linewidth}{0pt}}
-    \caption{An example of a subfigure.}
-    \label{fig:short-a}
-  \end{subfigure}
-  \hfill
-  \begin{subfigure}{0.28\linewidth}
-    \fbox{\rule{0pt}{2in} \rule{.9\linewidth}{0pt}}
-    \caption{Another example of a subfigure.}
-    \label{fig:short-b}
-  \end{subfigure}
-  \caption{Example of a short caption, which should be centered.}
-  \label{fig:short}
-\end{figure*}

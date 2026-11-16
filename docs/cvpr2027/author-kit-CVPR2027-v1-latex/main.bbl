@@ -1,95 +1,136 @@
-\begin{thebibliography}{16}
+\begin{thebibliography}{20}
 \providecommand{\natexlab}[1]{#1}
 \providecommand{\url}[1]{\texttt{#1}}
 \expandafter\ifx\csname urlstyle\endcsname\relax
   \providecommand{\doi}[1]{doi: #1}\else
   \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
 
-\bibitem[Alpher(2002)]{Alpher02}
-FirstName Alpher.
-\newblock Frobnication.
-\newblock \emph{IEEE TPAMI}, 12\penalty0 (1):\penalty0 234--778, 2002.
+\bibitem[Budai et~al.(2013)Budai, Bock, Maier, Hornegger, and
+  Michelson]{budai2013robust}
+Attila Budai, R{\"u}diger Bock, Andreas Maier, Joachim Hornegger, and Georg
+  Michelson.
+\newblock Robust vessel segmentation in fundus images.
+\newblock \emph{International Journal of Biomedical Imaging}, 2013:\penalty0
+  154860, 2013.
 
-\bibitem[Alpher and Fotheringham-Smythe(2003)]{Alpher03}
-FirstName Alpher and FirstName Fotheringham-Smythe.
-\newblock Frobnication revisited.
-\newblock \emph{Journal of Foo}, 13\penalty0 (1):\penalty0 234--778, 2003.
-
-\bibitem[Alpher and Gamow(2005)]{Alpher05}
-FirstName Alpher and FirstName Gamow.
-\newblock Can a computer frobnicate?
-\newblock In \emph{CVPR}, pages 234--778, 2005.
-
-\bibitem[Alpher et~al.(2004)Alpher, Fotheringham-Smythe, and Gamow]{Alpher04}
-FirstName Alpher, FirstName Fotheringham-Smythe, and FirstName Gamow.
-\newblock Can a machine frobnicate?
-\newblock \emph{Journal of Foo}, 14\penalty0 (1):\penalty0 234--778, 2004.
+\bibitem[Chen and Chen(2025)]{chen2025hacnetv2}
+Hanshen Chen and Hao Chen.
+\newblock {HACNet V2}: Rethinking the full-resolution architecture for
+  pixel-level crack detection.
+\newblock \emph{Expert Systems with Applications}, 286:\penalty0 128144, 2025.
 
 \bibitem[Cheng et~al.(2023)Cheng, Ye, Deng, Chen, Li, Wang, Su, Huang, Chen,
-  Sun, He, Zhang, Zhu, and Qiao]{cheng2023sammed2d}
+  Jiang, Sun, He, Zhang, Zhu, and Qiao]{cheng2023sammed2d}
 Junlong Cheng, Jin Ye, Zhongying Deng, Jianpin Chen, Tianbin Li, Haoyu Wang,
-  Yanzhou Su, Ziyan Huang, Jilong Chen, Lei Jiangand~Hui Sun, Junjun He,
-  Shaoting Zhang, Min Zhu, and Yu Qiao.
-\newblock Sam-med2d, 2023.
+  Yanzhou Su, Ziyan Huang, Jilong Chen, Lei Jiang, Hui Sun, Junjun He, Shaoting
+  Zhang, Min Zhu, and Yu Qiao.
+\newblock {SAM-Med2D}.
+\newblock \emph{arXiv preprint arXiv:2308.16184}, 2023.
+
+\bibitem[Hoover et~al.(2000)Hoover, Kouznetsova, and Goldbaum]{hoover2000stare}
+A.~D. Hoover, V. Kouznetsova, and M. Goldbaum.
+\newblock Locating blood vessels in retinal images by piecewise threshold
+  probing of a matched filter response.
+\newblock \emph{IEEE Transactions on Medical Imaging}, 19\penalty0
+  (3):\penalty0 203--210, 2000.
 
 \bibitem[Huang et~al.(2025)Huang, Zhou, Fu, Zhang, Zhou, Gong, and
-  Liang]{10843257}
+  Liang]{huang2025knowsam}
 Kaiwen Huang, Tao Zhou, Huazhu Fu, Yizhe Zhang, Yi Zhou, Chen Gong, and Dong
   Liang.
-\newblock Learnable prompting sam-induced knowledge distillation for
+\newblock Learnable prompting {SAM}-induced knowledge distillation for
   semi-supervised medical image segmentation.
 \newblock \emph{IEEE Transactions on Medical Imaging}, 44\penalty0
   (5):\penalty0 2295--2306, 2025.
 
-\bibitem[LastName(2014{\natexlab{a}})]{Authors14}
-FirstName LastName.
-\newblock The frobnicatable foo filter, 2014{\natexlab{a}}.
-\newblock Face and Gesture submission ID 324. Supplied as supplemental material
-  {\tt fg324.pdf}.
+\bibitem[Jin et~al.(2022)Jin, Huang, Zhou, Li, Yan, Sun, Zhang, Wang, and
+  Ye]{jin2022fives}
+Kai Jin, Xingru Huang, Jingxing Zhou, Yunxiang Li, Yan Yan, Yibao Sun, Qianni
+  Zhang, Yaqi Wang, and Juan Ye.
+\newblock {FIVES}: A fundus image dataset for artificial intelligence based
+  vessel segmentation.
+\newblock \emph{Scientific Data}, 9:\penalty0 475, 2022.
 
-\bibitem[LastName(2014{\natexlab{b}})]{Authors14b}
-FirstName LastName.
-\newblock Frobnication tutorial, 2014{\natexlab{b}}.
-\newblock Supplied as supplemental material {\tt tr.pdf}.
+\bibitem[Li et~al.(2024)Li, Huang, Xu, Yang, Zhang, Ji, Xie, Yuan, Liu, and
+  Chen]{li2024octa500}
+Mingchao Li, Kun Huang, Qiuzhuo Xu, Jiadong Yang, Yuhan Zhang, Zexuan Ji, Keren
+  Xie, Songtao Yuan, Qinghuai Liu, and Qiang Chen.
+\newblock {OCTA-500}: A retinal dataset for optical coherence tomography
+  angiography study.
+\newblock \emph{Medical Image Analysis}, 93:\penalty0 103092, 2024.
+
+\bibitem[Liu et~al.(2019)Liu, Yao, Lu, Xie, and Li]{liu2019deepcrack}
+Yahui Liu, Jian Yao, Xiaohu Lu, Renping Xie, and Li Li.
+\newblock {DeepCrack}: A deep hierarchical feature learning architecture for
+  crack segmentation.
+\newblock \emph{Neurocomputing}, 338:\penalty0 139--153, 2019.
+
+\bibitem[Ma et~al.(2021)Ma, Hua, Deng, Song, Wang, Xue, Cao, Ma, and
+  Guan]{ma2021ssvs}
+Yuxin Ma, Yang Hua, Hanming Deng, Tao Song, Hao Wang, Zhengui Xue, Heng Cao,
+  Ruhui Ma, and Haibing Guan.
+\newblock Self-supervised vessel segmentation via adversarial learning.
+\newblock In \emph{IEEE/CVF International Conference on Computer Vision
+  (ICCV)}, pages 7516--7525, 2021.
+
+\bibitem[Mnih(2013)]{mnih2013machine}
+Volodymyr Mnih.
+\newblock \emph{Machine Learning for Aerial Image Labeling}.
+\newblock PhD thesis, University of Toronto, 2013.
 
 \bibitem[Mou et~al.(2021)Mou, Zhao, Fu, Liu, Cheng, Zheng, Su, Yang, Chen,
-  Frangi, Akiba, and Liu]{MOU2021101874}
+  Frangi, Akiba, and Liu]{mou2021cs2net}
 Lei Mou, Yitian Zhao, Huazhu Fu, Yonghuai Liu, Jun Cheng, Yalin Zheng, Pan Su,
   Jianlong Yang, Li Chen, Alejandro~F. Frangi, Masahiro Akiba, and Jiang Liu.
-\newblock Cs2-net: Deep learning segmentation of curvilinear structures in
+\newblock {CS2-Net}: Deep learning segmentation of curvilinear structures in
   medical imaging.
 \newblock \emph{Medical Image Analysis}, 67:\penalty0 101874, 2021.
 
-\bibitem[Pu et~al.(2025)Pu, Jia, Zheng, Wang, and Xu]{10849617}
+\bibitem[Orlando et~al.(2018)Orlando, Breda, van Keer, Blaschko, Blanco, and
+  Bulant]{orlando2018glaucoma}
+Jos{\'e}~Ignacio Orlando, Jo{\~a}o~Barbosa Breda, Karel van Keer, Matthew~B.
+  Blaschko, Pablo~J. Blanco, and Carlos~A. Bulant.
+\newblock Towards a glaucoma risk index based on simulated hemodynamics from
+  fundus images.
+\newblock In \emph{Medical Image Computing and Computer Assisted Intervention
+  (MICCAI)}, pages 65--73. Springer, 2018.
+
+\bibitem[Pu et~al.(2025)Pu, Jia, Zheng, Wang, and Xu]{pu2025cwsam}
 Xinyang Pu, Hecheng Jia, Linghao Zheng, Feng Wang, and Feng Xu.
-\newblock Classwise-sam-adapter: Parameter-efficient fine-tuning adapts segment
-  anything to sar domain for semantic segmentation.
+\newblock {ClassWise-SAM-Adapter}: Parameter-efficient fine-tuning adapts
+  segment anything to {SAR} domain for semantic segmentation.
 \newblock \emph{IEEE Journal of Selected Topics in Applied Earth Observations
   and Remote Sensing}, 18:\penalty0 4791--4804, 2025.
 
 \bibitem[Ronneberger et~al.(2015)Ronneberger, Fischer, and
-  Brox]{10.1007/978-3-319-24574-4_28}
+  Brox]{ronneberger2015unet}
 Olaf Ronneberger, Philipp Fischer, and Thomas Brox.
-\newblock U-net: Convolutional networks for biomedical image segmentation.
+\newblock {U-Net}: Convolutional networks for biomedical image segmentation.
 \newblock In \emph{Medical Image Computing and Computer-Assisted Intervention
-  -- MICCAI 2015}, pages 234--241, Cham, 2015. Springer International
-  Publishing.
+  -- MICCAI 2015}, pages 234--241. Springer, 2015.
 
-\bibitem[Wang et~al.(2024)Wang, Chen, Ning, and Li]{10446904}
+\bibitem[Valverde et~al.(2025)Valverde, Koga, Otsuka, and
+  Dahl]{valverde2025topomortar}
+Juan~Miguel Valverde, Motoya Koga, Nijihiko Otsuka, and Anders~Bjorholm Dahl.
+\newblock {TopoMortar}: A dataset to evaluate topology accuracy in image
+  segmentation.
+\newblock In \emph{36th British Machine Vision Conference (BMVC)}. BMVA, 2025.
+
+\bibitem[Wang et~al.(2024)Wang, Chen, Ning, and Li]{wang2024sam_octa}
 Chengliang Wang, Xinrun Chen, Haojian Ning, and Shiying Li.
-\newblock Sam-octa: A fine-tuning strategy for applying foundation model octa
-  image segmentation tasks.
-\newblock In \emph{ICASSP 2024 - 2024 IEEE International Conference on
-  Acoustics, Speech and Signal Processing (ICASSP)}, pages 1771--1775, 2024.
+\newblock {SAM-OCTA}: A fine-tuning strategy for applying foundation model
+  {OCTA} image segmentation tasks.
+\newblock In \emph{IEEE International Conference on Acoustics, Speech and
+  Signal Processing (ICASSP)}, pages 1771--1775, 2024.
 
-\bibitem[Yang et~al.(2025)Yang, Wang, Xing, Chen, and
-  Zhu]{yang2025segdinoefficientdesignmedical}
+\bibitem[Yang et~al.(2025)Yang, Wang, Xing, Chen, and Zhu]{yang2025segdino}
 Sicheng Yang, Hongqiu Wang, Zhaohu Xing, Sixiang Chen, and Lei Zhu.
-\newblock Segdino: An efficient design for medical and natural image
-  segmentation with dino-v3, 2025.
+\newblock {SegDINO}: An efficient design for medical and natural image
+  segmentation with {DINO-V3}.
+\newblock \emph{arXiv preprint arXiv:2509.00833}, 2025.
 
 \bibitem[Zhou et~al.(2025{\natexlab{a}})Zhou, Ahmed, Wang, Newman, Schmetterer,
-  Fu, Cheng, and Tan]{10887048}
+  Fu, Cheng, and Tan]{zhou2025maskvsc}
 Yi Zhou, Thiara~Sana Ahmed, Meng Wang, Eric~A. Newman, Leopold Schmetterer,
   Huazhu Fu, Jun Cheng, and Bingyao Tan.
 \newblock Masked vascular structure segmentation and completion in retinal
@@ -97,14 +138,14 @@ Yi Zhou, Thiara~Sana Ahmed, Meng Wang, Eric~A. Newman, Leopold Schmetterer,
 \newblock \emph{IEEE Transactions on Medical Imaging}, 44\penalty0
   (6):\penalty0 2492--2503, 2025{\natexlab{a}}.
 
-\bibitem[Zhou et~al.(2025{\natexlab{b}})Zhou, Li, Lu, and Xu]{11092944}
+\bibitem[Zhou et~al.(2025{\natexlab{b}})Zhou, Li, Lu, and Xu]{zhou2025nnwnet}
 Yanfeng Zhou, Lingrui Li, Le Lu, and Minfeng Xu.
-\newblock nnwnet: Rethinking the use of transformers in biomedical image
+\newblock {nnWNet}: Rethinking the use of transformers in biomedical image
   segmentation and calling for a unified evaluation benchmark.
-\newblock In \emph{2025 IEEE/CVF Conference on Computer Vision and Pattern
+\newblock In \emph{IEEE/CVF Conference on Computer Vision and Pattern
   Recognition (CVPR)}, pages 20852--20862, 2025{\natexlab{b}}.
 
-\bibitem[Zhu et~al.(2026)Zhu, Chen, and Cheng]{Zhu_2026_CVPR}
+\bibitem[Zhu et~al.(2026)Zhu, Chen, and Cheng]{zhu2026sacm}
 Kai Zhu, Li Chen, and Jun Cheng.
 \newblock Dual-level adapter boosting prompt-free curvilinear structure
   segmentation.
