@@ -1,0 +1,111 @@
+{
+  "generated_at_utc": "2026-11-15T14:42:25.344044+00:00",
+  "subset": [
+    "CHASEDB1",
+    "CHCrack5k",
+    "CREMI",
+    "CrackTree200",
+    "DCA1",
+    "DRIVE",
+    "DeepCrack",
+    "FIVES",
+    "HRF",
+    "LES-AV",
+    "OCTA-500",
+    "ROAD",
+    "STARE",
+    "TopoMortar",
+    "WIRE",
+    "XCAD"
+  ],
+  "excluded": [
+    "CORN",
+    "TYRE",
+    "DeepGlobe",
+    "LEAF"
+  ],
+  "seeds": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "n_datasets": 16,
+  "metrics": [
+    "dice",
+    "iou",
+    "cldice",
+    "hd95"
+  ],
+  "roles": {
+    "CHASEDB1": "Seen",
+    "CHCrack5k": "Unseen",
+    "CREMI": "Seen",
+    "CrackTree200": "Seen",
+    "DCA1": "Seen",
+    "DRIVE": "Seen",
+    "DeepCrack": "Unseen",
+    "FIVES": "Unseen",
+    "HRF": "Unseen",
+    "LES-AV": "Unseen",
+    "OCTA-500": "Unseen",
+    "ROAD": "Novel",
+    "STARE": "Unseen",
+    "TopoMortar": "Novel",
+    "WIRE": "Novel",
+    "XCAD": "Unseen"
+  },
+  "main_models": {
+    "fixed3": "results/runs/sacm_stc_fixed3_800/eval",
+    "SACM official": "results/runs/sacm/default",
+    "SAM-OCTA": "results/runs/sam_octa/default",
+    "CWSAM": "results/runs/cwsam/default",
+    "nnWNet": "results/runs/nnwnet/default",
+    "U-Net": "results/runs/unet/default",
+    "MaskVSC": "results/runs/maskvsc/default",
+    "CS2Net": "results/runs/cs2net/default",
+    "KnowSAM": "results/runs/knowsam/default",
+    "SegDINO": "results/runs/segdino/default",
+    "SAM-Med2d": "results/runs/sam_med2d/default"
+  },
+  "ablation_arms": {
+    "fixed3": {
+      "root": "results/runs/sacm_stc_fixed3_800/eval",
+      "glob": "tables/all_metrics.csv",
+      "label": "DCD fixed3"
+    },
+    "gating_fusion": {
+      "root": "results/runs/sacm_stc_fixed3_lean/gating_fusion",
+      "glob": "eval/tables/all_metrics.csv",
+      "label": "gating + fusion"
+    },
+    "nofusion": {
+      "root": "results/runs/sacm_stc_fixed3_lean/nofusion",
+      "glob": "eval_fixed3/tables/all_metrics.csv",
+      "label": "w/o fusion training"
+    },
+    "native_control": {
+      "root": "results/runs/sacm_stc_fixed3_lean/native_control",
+      "glob": "eval/tables/all_metrics.csv",
+      "label": "native four-head control"
+    },
+    "notopo": {
+      "root": "results/runs/sacm_stc_fixed3_lean/notopo",
+      "glob": "eval_fixed3/tables/all_metrics.csv",
+      "label": "w/o topology loss"
+    },
+    "official": {
+      "root": "results/runs/sacm/default",
+      "glob": "eval/tables/all_metrics.csv",
+      "label": "SACM official"
+    }
+  },
+  "candidate_audit_available": false,
+  "notes": [
+    "16-dataset subset is user-specified; not full benchmark.",
+    "std is across 4 seeds.",
+    "HD95 lower is better.",
+    "p-values descriptive, no multiple correction.",
+    "fixed3 vs gating has HD95 tradeoff; nofusion is close to fixed3."
+  ]
+}

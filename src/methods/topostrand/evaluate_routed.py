@@ -52,27 +52,32 @@ def _prep(image: Image.Image, size: int) -> torch.Tensor:
 
 @torch.no_grad()
 def _tile_mask(adapter, model, image: Image.Image, tile: int, stride: int,
-               flip: bool, threshold: float) -> np.ndarray:
+               flip: bool, rot90: bool, threshold: float) -> np.ndarray:
     width, height = image.size
     logits = torch.zeros((1, 1, height, width), dtype=torch.float32)
     weight = torch.zeros((1, 1, height, width), dtype=torch.float32)
+    rotations = (0, 1, 2, 3) if rot90 else (0,)
+    flips = (None, (3,), (2,), (2, 3)) if flip else (None,)
     for y in _starts(height, tile, stride):
         for x in _starts(width, tile, stride):
             crop = image.crop(
                 (x, y, min(x + tile, width), min(y + tile, height)))
             cw, ch = crop.size
             view = _prep(crop, adapter.input_size).to(adapter.device)
-            if flip:
-                parts = []
-                for dims in (None, [3], [2], [2, 3]):
-                    item = view if dims is None else torch.flip(view, dims=dims)
+            parts = []
+            for rotation in rotations:
+                rotated = view if rotation == 0 else torch.rot90(
+                    view, rotation, dims=[2, 3])
+                for dims in flips:
+                    item = rotated if dims is None else torch.flip(
+                        rotated, dims=list(dims))
                     part = adapter._deploy_logits(model, item)
                     if dims is not None:
-                        part = torch.flip(part, dims=dims)
+                        part = torch.flip(part, dims=list(dims))
+                    if rotation:
+                        part = torch.rot90(part, -rotation, dims=[2, 3])
                     parts.append(part)
-                part = torch.stack(parts).mean(0)
-            else:
-                part = adapter._deploy_logits(model, view)
+            part = torch.stack(parts).mean(0)
             part = F.interpolate(
                 part, size=(ch, cw), mode='bilinear', align_corners=False)
             logits[0, 0, y:y + ch, x:x + cw] += part[0, 0].cpu()
@@ -111,13 +116,28 @@ def main(argv=None) -> int:
     parser.add_argument('--device', default='cuda:0')
     parser.add_argument('--use-wandb', type=int, choices=[0, 1], default=0)
     parser.add_argument('--tta-flip', action='store_true')
+    parser.add_argument(
+        '--tta-rot90', action='store_true',
+        help='full-view 4-rotation TTA; with --tta-flip this becomes 8 views')
     parser.add_argument('--tile-flip', action='store_true')
+    parser.add_argument(
+        '--tile-rot90', action='store_true',
+        help='apply 4-rotation TTA inside native-resolution tiles')
     parser.add_argument('--tile', type=int, default=1024)
     parser.add_argument('--stride', type=int, default=896)
     parser.add_argument('--routing-skel-ratio', type=float, default=1.0)
     parser.add_argument('--routing-area-ratio', type=float, default=0.7)
     parser.add_argument(
-        '--postprocess', choices=['none', 'close1', 'close2'], default='close2',
+        '--routing-mode', choices=['auto', 'full', 'tile', 'and', 'union'],
+        default='auto',
+        help='high-resolution routing: auto uses the skeleton/area rule; '
+             'full/tile/and/union force one branch for inference ablations')
+    parser.add_argument(
+        '--threshold', type=float, default=None,
+        help='override the checkpoint deployment threshold for inference')
+    parser.add_argument(
+        '--postprocess', choices=['none', 'close1', 'close2', 'close3'],
+        default='close2',
         help='label-free topology-preserving morphological closing')
     parser.add_argument('--tag', default='_routed')
     parser.add_argument('--datasets', nargs='+', default=None)
@@ -125,11 +145,17 @@ def main(argv=None) -> int:
 
     adapter, model = _load_model(args.checkpoint, args.data_root, args.device)
     adapter.tta_flip = bool(args.tta_flip)
+    adapter.tta_rot90 = bool(args.tta_rot90)
     selected = set(args.datasets) if args.datasets else None
     specs = dataset_specs(args.protocol, selected, REPO_ROOT)
     pred_root = args.workdir / f'predictions{args.tag}' / 'topostrand'
     threshold = float(getattr(adapter.args, 'deploy_threshold', 0.5))
-    routed = {'full': 0, 'tile': 0, 'and': 0}
+    if args.threshold is not None:
+        threshold = float(args.threshold)
+        adapter.args.deploy_threshold = threshold
+    routed = {'full': 0, 'tile': 0, 'and': 0, 'union': 0}
+    print(f'routing_mode={args.routing_mode} threshold={threshold:.3f} '
+          f'postprocess={args.postprocess}', flush=True)
     for spec in specs:
         dataset, _, root = spec.partition(':')
         root = Path(root)
@@ -145,27 +171,41 @@ def main(argv=None) -> int:
             with torch.no_grad():
                 full = adapter.predict_sample(model, prepared, sample)
             if (image.size[0] > args.tile or image.size[1] > args.tile):
-                tiled = _tile_mask(
-                    adapter, model, image, args.tile, args.stride,
-                    args.tile_flip, threshold)
-                if tiled.shape != full.shape:
-                    raise RuntimeError(
-                        f'{dataset}/{sample.image_path.name}: '
-                        f'{tiled.shape} != {full.shape}')
-                fs = float(skeletonize(full).sum())
-                ts = float(skeletonize(tiled).sum())
-                area_ratio = (float(tiled.sum()) /
-                              max(float(full.sum()), 1.0))
-                skel_ratio = ts / max(fs, 1.0)
-                if skel_ratio <= args.routing_skel_ratio:
+                if args.routing_mode == 'full':
                     out = full
                     routed['full'] += 1
-                elif area_ratio < args.routing_area_ratio:
-                    out = tiled
-                    routed['tile'] += 1
                 else:
-                    out = full & tiled
-                    routed['and'] += 1
+                    tiled = _tile_mask(
+                        adapter, model, image, args.tile, args.stride,
+                        args.tile_flip, args.tile_rot90, threshold)
+                    if tiled.shape != full.shape:
+                        raise RuntimeError(
+                            f'{dataset}/{sample.image_path.name}: '
+                            f'{tiled.shape} != {full.shape}')
+                    if args.routing_mode == 'tile':
+                        out = tiled
+                        routed['tile'] += 1
+                    elif args.routing_mode == 'and':
+                        out = full & tiled
+                        routed['and'] += 1
+                    elif args.routing_mode == 'union':
+                        out = full | tiled
+                        routed['union'] += 1
+                    else:
+                        fs = float(skeletonize(full).sum())
+                        ts = float(skeletonize(tiled).sum())
+                        area_ratio = (float(tiled.sum()) /
+                                      max(float(full.sum()), 1.0))
+                        skel_ratio = ts / max(fs, 1.0)
+                        if skel_ratio <= args.routing_skel_ratio:
+                            out = full
+                            routed['full'] += 1
+                        elif area_ratio < args.routing_area_ratio:
+                            out = tiled
+                            routed['tile'] += 1
+                        else:
+                            out = full & tiled
+                            routed['and'] += 1
             else:
                 out = full
                 routed['full'] += 1
@@ -174,7 +214,8 @@ def main(argv=None) -> int:
                     f'{dataset}/{sample.image_path.name}: '
                     f'{out.shape} != {(gt_h, gt_w)}')
             if args.postprocess != 'none':
-                radius = 1 if args.postprocess == 'close1' else 2
+                radius = {'close1': 1, 'close2': 2, 'close3': 3}[
+                    args.postprocess]
                 out = binary_closing(out, disk(radius))
             Image.fromarray((out.astype(np.uint8) * 255), mode='L').save(
                 out_dir / f'{sample.stem}.png')

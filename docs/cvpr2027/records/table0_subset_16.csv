@@ -1,0 +1,21 @@
+dataset,role,included,domain,note
+CHASEDB1,Seen,yes,fundus,16-dataset working subset
+CHCrack5k,Unseen,yes,crack,16-dataset working subset
+CREMI,Seen,yes,EM neuron,16-dataset working subset
+CrackTree200,Seen,yes,crack,16-dataset working subset
+DCA1,Seen,yes,coronary angiography,16-dataset working subset
+DRIVE,Seen,yes,fundus,16-dataset working subset
+DeepCrack,Unseen,yes,crack,16-dataset working subset
+FIVES,Unseen,yes,fundus,16-dataset working subset
+HRF,Unseen,yes,fundus,16-dataset working subset
+LES-AV,Unseen,yes,fundus,16-dataset working subset
+OCTA-500,Unseen,yes,OCTA,16-dataset working subset
+ROAD,Novel,yes,road / aerial,16-dataset working subset
+STARE,Unseen,yes,fundus,16-dataset working subset
+TopoMortar,Novel,yes,masonry / topology,16-dataset working subset
+WIRE,Novel,yes,wire,16-dataset working subset
+XCAD,Unseen,yes,X-ray angiography,16-dataset working subset
+CORN,Seen,no,fundus,excluded from the 16-dataset working subset
+TYRE,Novel,no,tyre,excluded from the 16-dataset working subset
+DeepGlobe,Novel,no,satellite,excluded from the 16-dataset working subset
+LEAF,Novel,no,leaf,excluded from the 16-dataset working subset

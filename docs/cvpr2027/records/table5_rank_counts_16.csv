@@ -1,0 +1,45 @@
+model,metric,top1_count,top3_count,n_datasets
+DCD (fixed3),dice,6,12,16
+DCD (fixed3),iou,6,12,16
+DCD (fixed3),cldice,10,15,16
+DCD (fixed3),hd95,4,11,16
+SACM official,dice,0,11,16
+SACM official,iou,0,11,16
+SACM official,cldice,0,10,16
+SACM official,hd95,3,12,16
+SAM-OCTA,dice,4,8,16
+SAM-OCTA,iou,4,9,16
+SAM-OCTA,cldice,3,10,16
+SAM-OCTA,hd95,2,7,16
+CWSAM,dice,0,6,16
+CWSAM,iou,0,5,16
+CWSAM,cldice,0,7,16
+CWSAM,hd95,0,4,16
+nnWNet,dice,4,6,16
+nnWNet,iou,4,6,16
+nnWNet,cldice,2,3,16
+nnWNet,hd95,3,5,16
+U-Net,dice,1,2,16
+U-Net,iou,1,2,16
+U-Net,cldice,1,2,16
+U-Net,hd95,0,3,16
+MaskVSC,dice,0,0,16
+MaskVSC,iou,0,0,16
+MaskVSC,cldice,0,0,16
+MaskVSC,hd95,0,1,16
+CS2Net,dice,0,2,16
+CS2Net,iou,0,2,16
+CS2Net,cldice,0,1,16
+CS2Net,hd95,1,1,16
+KnowSAM,dice,0,0,16
+KnowSAM,iou,0,0,16
+KnowSAM,cldice,0,0,16
+KnowSAM,hd95,0,0,16
+SegDINO,dice,0,0,16
+SegDINO,iou,0,0,16
+SegDINO,cldice,0,0,16
+SegDINO,hd95,2,2,16
+SAM-Med2d,dice,1,1,16
+SAM-Med2d,iou,1,1,16
+SAM-Med2d,cldice,0,0,16
+SAM-Med2d,hd95,1,2,16

@@ -1,0 +1,20 @@
+kind,name,source_path
+main_model,fixed3,results/runs/sacm_stc_fixed3_800/eval
+main_model,SACM official,results/runs/sacm/default
+main_model,SAM-OCTA,results/runs/sam_octa/default
+main_model,CWSAM,results/runs/cwsam/default
+main_model,nnWNet,results/runs/nnwnet/default
+main_model,U-Net,results/runs/unet/default
+main_model,MaskVSC,results/runs/maskvsc/default
+main_model,CS2Net,results/runs/cs2net/default
+main_model,KnowSAM,results/runs/knowsam/default
+main_model,SegDINO,results/runs/segdino/default
+main_model,SAM-Med2d,results/runs/sam_med2d/default
+ablation_arm,fixed3,results/runs/sacm_stc_fixed3_800/eval/*/tables/all_metrics.csv
+ablation_arm,gating_fusion,results/runs/sacm_stc_fixed3_lean/gating_fusion/*/eval/tables/all_metrics.csv
+ablation_arm,nofusion,results/runs/sacm_stc_fixed3_lean/nofusion/*/eval_fixed3/tables/all_metrics.csv
+ablation_arm,native_control,results/runs/sacm_stc_fixed3_lean/native_control/*/eval/tables/all_metrics.csv
+ablation_arm,notopo,results/runs/sacm_stc_fixed3_lean/notopo/*/eval_fixed3/tables/all_metrics.csv
+ablation_arm,official,results/runs/sacm/default/*/eval/tables/all_metrics.csv
+analysis_json,model_analysis,results/reports/_model_analysis.json
+protocol,seed0_protocol,data/sacm_3shot_seed0/protocol_manifest.csv

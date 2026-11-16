@@ -994,7 +994,9 @@ class TopoStrandAdapter(_TopoStrandBase):
         self.copy_paste_intensity_match = True
         self.copy_paste_scale_jitter = 0.0
         self.tta_flip = False
+        self.tta_rot90 = False
         self.tta_select = False
+        self.selection_mix = 0.0
         self._source_bank = None
 
     def add_args(self, parser):
@@ -1019,6 +1021,10 @@ class TopoStrandAdapter(_TopoStrandBase):
             '--tta-select', action='store_true',
             help='with --tta-flip, choose the candidate whose binary mask is '
                  'most stable across the four views; label-free selector')
+        parser.add_argument(
+            '--selection-mix', type=float, default=0.0,
+            help='checkpoint selection score: (1-mix)*val Dice + '
+                 'mix*val clDice; 0 keeps validation Dice')
 
     def _read_copy_paste(self, args) -> None:
         self.copy_paste_prob = float(getattr(
@@ -1038,7 +1044,20 @@ class TopoStrandAdapter(_TopoStrandBase):
         self._read_copy_paste(args)
         self.tta_flip = bool(getattr(args, 'tta_flip', False))
         self.tta_select = bool(getattr(args, 'tta_select', False))
+        self.selection_mix = float(getattr(args, 'selection_mix', 0.0))
+        if not 0.0 <= self.selection_mix <= 1.0:
+            raise SystemExit('--selection-mix must be in [0, 1]')
         return model
+
+    def selection_score(self, metrics, per_dataset):
+        """Optionally balance validation Dice and clDice at checkpoint time."""
+        if self.selection_mix > 0.0:
+            dice = float(metrics.get('dice', float('nan')))
+            cldice = float(metrics.get('cldice', float('nan')))
+            if math.isfinite(dice) and math.isfinite(cldice):
+                return ((1.0 - self.selection_mix) * dice
+                        + self.selection_mix * cldice)
+        return super().selection_score(metrics, per_dataset)
 
     def save_config(self, args):
         config = super().save_config(args)
@@ -1049,6 +1068,7 @@ class TopoStrandAdapter(_TopoStrandBase):
             'copy_paste_scale_jitter': self.copy_paste_scale_jitter,
             'tta_flip': int(self.tta_flip),
             'tta_select': int(self.tta_select),
+            'selection_mix': self.selection_mix,
         })
         return config
 
@@ -1058,7 +1078,7 @@ class TopoStrandAdapter(_TopoStrandBase):
         # enable it even when the trained checkpoint recorded 0.
         for key in (
                 'copy_paste_prob', 'copy_paste_intensity_match',
-                'copy_paste_scale_jitter'):
+                'copy_paste_scale_jitter', 'selection_mix'):
             if key in config:
                 setattr(args, key, config[key])
 
@@ -1201,23 +1221,44 @@ class TopoStrandAdapter(_TopoStrandBase):
         return stage2[:, index:index + 1]
 
     def predict_sample(self, model, prepared, sample):
-        if not self.tta_flip:
+        if not (self.tta_flip or self.tta_rot90):
             return super().predict_sample(model, prepared, sample)
-        views = (
-            (prepared, None),
-            (torch.flip(prepared, dims=[3]), (3,)),
-            (torch.flip(prepared, dims=[2]), (2,)),
-            (torch.flip(prepared, dims=[2, 3]), (2, 3)),
-        )
+        if self.tta_select and self.tta_rot90:
+            raise RuntimeError('--tta-rot90 is not supported with --tta-select')
+
+        if self.tta_select:
+            views = (
+                (prepared, None),
+                (torch.flip(prepared, dims=[3]), (3,)),
+                (torch.flip(prepared, dims=[2]), (2,)),
+                (torch.flip(prepared, dims=[2, 3]), (2, 3)),
+            )
+        else:
+            # Each view stores its forward rotation and flip so the logits can
+            # be mapped back before averaging.
+            rotations = (0, 1, 2, 3) if self.tta_rot90 else (0,)
+            flips = (None, (3,), (2,), (2, 3)) if self.tta_flip else (None,)
+            views = []
+            for rotation in rotations:
+                rotated = prepared if rotation == 0 else torch.rot90(
+                    prepared, rotation, dims=[2, 3])
+                for flip in flips:
+                    view = rotated if flip is None else torch.flip(
+                        rotated, dims=list(flip))
+                    views.append((view, rotation, flip))
+
         with Image.open(sample.mask_path) as mask:
             width, height = mask.size
         threshold = float(getattr(self.args, 'deploy_threshold', 0.5))
         if not self.tta_select:
             total = None
-            for view, dims in views:
+            for view, rotation, flip in views:
                 logits = self._deploy_logits(model, view)
-                if dims is not None:
-                    logits = torch.flip(logits, dims=list(dims))
+                if flip is not None:
+                    logits = torch.flip(logits, dims=list(flip))
+                if rotation:
+                    logits = torch.rot90(
+                        logits, -rotation, dims=[2, 3])
                 total = logits if total is None else total + logits
             logits = total / len(views)
             logits = F.interpolate(
