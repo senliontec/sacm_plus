@@ -1,4 +1,4 @@
-\begin{thebibliography}{20}
+\begin{thebibliography}{26}
 \providecommand{\natexlab}[1]{#1}
 \providecommand{\url}[1]{\texttt{#1}}
 \expandafter\ifx\csname urlstyle\endcsname\relax
@@ -13,6 +13,14 @@ Attila Budai, R{\"u}diger Bock, Andreas Maier, Joachim Hornegger, and Georg
 \newblock \emph{International Journal of Biomedical Imaging}, 2013:\penalty0
   154860, 2013.
 
+\bibitem[Cervantes-Sanchez et~al.(2019)Cervantes-Sanchez, Cruz-Aceves,
+  Hernandez-Aguirre, Hernandez-Gonzalez, and Solorio-Meza]{cervantes2019dca1}
+Fernando Cervantes-Sanchez, Ivan Cruz-Aceves, Arturo Hernandez-Aguirre,
+  Martha~Alicia Hernandez-Gonzalez, and Sergio~Eduardo Solorio-Meza.
+\newblock Automatic segmentation of coronary arteries in {X}-ray angiograms
+  using multiscale analysis and artificial neural networks.
+\newblock \emph{Applied Sciences}, 9\penalty0 (24):\penalty0 5507, 2019.
+
 \bibitem[Chen and Chen(2025)]{chen2025hacnetv2}
 Hanshen Chen and Hao Chen.
 \newblock {HACNet V2}: Rethinking the full-resolution architecture for
@@ -26,6 +34,12 @@ Junlong Cheng, Jin Ye, Zhongying Deng, Jianpin Chen, Tianbin Li, Haoyu Wang,
   Zhang, Min Zhu, and Yu Qiao.
 \newblock {SAM-Med2D}.
 \newblock \emph{arXiv preprint arXiv:2308.16184}, 2023.
+
+\bibitem[{CREMI Team}(2016)]{cremi2016}
+{CREMI Team}.
+\newblock {CREMI}: {MICCAI} challenge on circuit reconstruction from electron
+  microscopy images.
+\newblock \url{https://cremi.org/}, 2016.
 
 \bibitem[Hoover et~al.(2000)Hoover, Kouznetsova, and Goldbaum]{hoover2000stare}
 A.~D. Hoover, V. Kouznetsova, and M. Goldbaum.
@@ -71,12 +85,21 @@ Yuxin Ma, Yang Hua, Hanming Deng, Tao Song, Hao Wang, Zhengui Xue, Heng Cao,
   Ruhui Ma, and Haibing Guan.
 \newblock Self-supervised vessel segmentation via adversarial learning.
 \newblock In \emph{IEEE/CVF International Conference on Computer Vision
-  (ICCV)}, pages 7516--7525, 2021.
+  (ICCV)}, pages 7536--7545, 2021.
 
 \bibitem[Mnih(2013)]{mnih2013machine}
 Volodymyr Mnih.
 \newblock \emph{Machine Learning for Aerial Image Labeling}.
 \newblock PhD thesis, University of Toronto, 2013.
+
+\bibitem[Mou et~al.(2019)Mou, Zhao, Chen, Cheng, Gu, Hao, Qi, Zheng, Frangi,
+  and Liu]{mou2019csnet}
+Lei Mou, Yitian Zhao, Li Chen, Jun Cheng, Zaiwang Gu, Huaying Hao, Hong Qi,
+  Yalin Zheng, Alejandro Frangi, and Jiang Liu.
+\newblock {CS-Net}: Channel and spatial attention network for curvilinear
+  structure segmentation.
+\newblock In \emph{Medical Image Computing and Computer-Assisted Intervention
+  -- MICCAI 2019}, pages 721--730. Springer, 2019.
 
 \bibitem[Mou et~al.(2021)Mou, Zhao, Fu, Liu, Cheng, Zheng, Su, Yang, Chen,
   Frangi, Akiba, and Liu]{mou2021cs2net}
@@ -95,6 +118,16 @@ Jos{\'e}~Ignacio Orlando, Jo{\~a}o~Barbosa Breda, Karel van Keer, Matthew~B.
 \newblock In \emph{Medical Image Computing and Computer Assisted Intervention
   (MICCAI)}, pages 65--73. Springer, 2018.
 
+\bibitem[Owen et~al.(2009)Owen, Rudnicka, Mullen, Barman, Monekosso, Whincup,
+  Ng, and Paterson]{owen2009chasedb1}
+Christopher~G. Owen, Alicja~R. Rudnicka, Robert Mullen, Sarah~A. Barman,
+  Dorothy Monekosso, Peter~H. Whincup, Jeffrey Ng, and Carl Paterson.
+\newblock Measuring retinal vessel tortuosity in 10-year-old children:
+  Validation of the computer-assisted image analysis of the retina ({CAIAR})
+  program.
+\newblock \emph{Investigative Ophthalmology \& Visual Science}, 50\penalty0
+  (5):\penalty0 2004--2010, 2009.
+
 \bibitem[Pu et~al.(2025)Pu, Jia, Zheng, Wang, and Xu]{pu2025cwsam}
 Xinyang Pu, Hecheng Jia, Linghao Zheng, Feng Wang, and Feng Xu.
 \newblock {ClassWise-SAM-Adapter}: Parameter-efficient fine-tuning adapts
@@ -108,6 +141,14 @@ Olaf Ronneberger, Philipp Fischer, and Thomas Brox.
 \newblock {U-Net}: Convolutional networks for biomedical image segmentation.
 \newblock In \emph{Medical Image Computing and Computer-Assisted Intervention
   -- MICCAI 2015}, pages 234--241. Springer, 2015.
+
+\bibitem[Staal et~al.(2004)Staal, Abr{\`a}moff, Niemeijer, Viergever, and van
+  Ginneken]{staal2004drive}
+Joes Staal, Michael~D. Abr{\`a}moff, Meindert Niemeijer, Max~A. Viergever, and
+  Bram van Ginneken.
+\newblock Ridge-based vessel segmentation in color images of the retina.
+\newblock \emph{IEEE Transactions on Medical Imaging}, 23\penalty0
+  (4):\penalty0 501--509, 2004.
 
 \bibitem[Valverde et~al.(2025)Valverde, Koga, Otsuka, and
   Dahl]{valverde2025topomortar}
@@ -151,5 +192,11 @@ Kai Zhu, Li Chen, and Jun Cheng.
   segmentation.
 \newblock In \emph{Proceedings of the IEEE/CVF Conference on Computer Vision
   and Pattern Recognition (CVPR)}, pages 36300--36310, 2026.
+
+\bibitem[Zou et~al.(2012)Zou, Cao, Li, Mao, and Wang]{zou2012cracktree}
+Qin Zou, Yu Cao, Qingquan Li, Qingzhou Mao, and Song Wang.
+\newblock {CrackTree}: Automatic crack detection from pavement images.
+\newblock \emph{Pattern Recognition Letters}, 33\penalty0 (3):\penalty0
+  227--238, 2012.
 
 \end{thebibliography}

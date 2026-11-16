@@ -1,0 +1,81 @@
+PMID- 24416040
+OWN - NLM
+STAT- PubMed-not-MEDLINE
+DCOM- 20140113
+LR  - 20211021
+IS  - 1687-4188 (Print)
+IS  - 1687-4196 (Electronic)
+IS  - 1687-4188 (Linking)
+VI  - 2013
+DP  - 2013
+TI  - Robust vessel segmentation in fundus images.
+PG  - 154860
+LID - 10.1155/2013/154860 [doi]
+LID - 154860
+AB  - One of the most common modalities to examine the human eye is the eye-fundus 
+      photograph. The evaluation of fundus photographs is carried out by medical 
+      experts during time-consuming visual inspection. Our aim is to accelerate this 
+      process using computer aided diagnosis. As a first step, it is necessary to 
+      segment structures in the images for tissue differentiation. As the eye is the 
+      only organ, where the vasculature can be imaged in an in vivo and 
+      noninterventional way without using expensive scanners, the vessel tree is one of 
+      the most interesting and important structures to analyze. The quality and 
+      resolution of fundus images are rapidly increasing. Thus, segmentation methods 
+      need to be adapted to the new challenges of high resolutions. In this paper, we 
+      present a method to reduce calculation time, achieve high accuracy, and increase 
+      sensitivity compared to the original Frangi method. This method contains 
+      approaches to avoid potential problems like specular reflexes of thick vessels. 
+      The proposed method is evaluated using the STARE and DRIVE databases and we 
+      propose a new high resolution fundus database to compare it to the 
+      state-of-the-art algorithms. The results show an average accuracy above 94% and 
+      low computational needs. This outperforms state-of-the-art methods.
+FAU - Budai, A
+AU  - Budai A
+AD  - Pattern Recognition Lab, Friedrich-Alexander University, Erlangen-Nuremberg, 
+      91058 Erlangen, Germany ; International Max Planck Research School for Optics and 
+      Imaging (IMPRS), 91058 Erlangen, Germany ; Erlangen Graduate School in Advanced 
+      Optical Technologies (SAOT), 91052 Erlangen, Germany.
+FAU - Bock, R
+AU  - Bock R
+AD  - Pattern Recognition Lab, Friedrich-Alexander University, Erlangen-Nuremberg, 
+      91058 Erlangen, Germany ; Erlangen Graduate School in Advanced Optical 
+      Technologies (SAOT), 91052 Erlangen, Germany.
+FAU - Maier, A
+AU  - Maier A
+AD  - Pattern Recognition Lab, Friedrich-Alexander University, Erlangen-Nuremberg, 
+      91058 Erlangen, Germany ; Erlangen Graduate School in Advanced Optical 
+      Technologies (SAOT), 91052 Erlangen, Germany.
+FAU - Hornegger, J
+AU  - Hornegger J
+AD  - Pattern Recognition Lab, Friedrich-Alexander University, Erlangen-Nuremberg, 
+      91058 Erlangen, Germany ; Erlangen Graduate School in Advanced Optical 
+      Technologies (SAOT), 91052 Erlangen, Germany.
+FAU - Michelson, G
+AU  - Michelson G
+AD  - Erlangen Graduate School in Advanced Optical Technologies (SAOT), 91052 Erlangen, 
+      Germany ; Department of Ophthalmology, Friedrich-Alexander University, 
+      Erlangen-Nuremberg, 91058 Erlangen, Germany ; Interdisciplinary Center of 
+      Ophthalmic Preventive Medicine and Imaging (IZPI), 91054 Erlangen, Germany.
+LA  - eng
+PT  - Journal Article
+DEP - 20131212
+PL  - United States
+TA  - Int J Biomed Imaging
+JT  - International journal of biomedical imaging
+JID - 101250756
+PMC - PMC3876700
+EDAT- 2014/01/15 06:00
+MHDA- 2014/01/15 06:01
+PMCR- 2013/12/12
+CRDT- 2014/01/14 06:00
+PHST- 2013/06/04 00:00 [received]
+PHST- 2013/09/18 00:00 [revised]
+PHST- 2013/09/21 00:00 [accepted]
+PHST- 2014/01/14 06:00 [entrez]
+PHST- 2014/01/15 06:00 [pubmed]
+PHST- 2014/01/15 06:01 [medline]
+PHST- 2013/12/12 00:00 [pmc-release]
+AID - 10.1155/2013/154860 [doi]
+PST - ppublish
+SO  - Int J Biomed Imaging. 2013;2013:154860. doi: 10.1155/2013/154860. Epub 2013 Dec 
+      12.

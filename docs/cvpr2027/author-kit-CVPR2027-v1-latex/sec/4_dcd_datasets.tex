@@ -1,0 +1,74 @@
+\section{Datasets and Evaluation Protocol}
+\label{sec:datasets}
+
+\paragraph{Training data.}
+We follow the same 3-shot protocol as SACM~\cite{zhu2026sacm}.  From each of
+six Seen curvilinear benchmarks---DRIVE~\cite{staal2004drive},
+CHASEDB1~\cite{owen2009chasedb1}, DCA1~\cite{cervantes2019dca1},
+CrackTree200~\cite{zou2012cracktree}, CREMI~\cite{cremi2016}, and
+CORN~\cite{mou2019csnet}---we randomly sample three images for training and
+hold out one image for validation.  This yields 18 training and 6 validation
+images in total.  The support set is resampled independently for each of the
+four training seeds, while all test sets are fixed across seeds.  The six
+datasets cover retinal vessels, coronary vessels, cracks, neuron boundaries,
+and corneal nerves, spanning fundus, X-ray, EM, and microscopy images.
+
+\paragraph{Evaluation data.}
+We evaluate on 12 datasets that are never used for training or model
+selection.  The eight Unseen datasets---CHCrack5k~\cite{chen2025hacnetv2},
+DeepCrack~\cite{liu2019deepcrack}, FIVES~\cite{jin2022fives},
+HRF~\cite{budai2013robust}, LES-AV~\cite{orlando2018glaucoma},
+OCTA-500~\cite{li2024octa500}, STARE~\cite{hoover2000stare}, and
+XCAD~\cite{ma2021ssvs}---contain the same structure classes as the training
+data (vessels or cracks) but come from different datasets, modalities, and
+acquisition conditions.  The four Novel
+datasets---ROAD~\cite{mnih2013machine},
+TopoMortar~\cite{valverde2025topomortar}, WIRE$^{\dagger}$~\cite{zhu2026sacm},
+and TYRE$^{\dagger}$~\cite{zhu2026sacm}---contain structure classes that never appear during
+training (roads, mortar joints, wires, and tire treads).
+Table~\ref{tab:datasets} summarizes the modalities, targets, and sample
+counts.  Images range from $300\times300$ (DCA1) to $3504\times2336$ (HRF)
+pixels; all inputs are resized to $1024\times1024$ for training and
+inference, and predictions are resized back to the ground-truth resolution
+for evaluation.  Empty-ground-truth images are removed from CHCrack5k, and
+CREMI uses 2D membrane boundaries derived from the raw neuron IDs rather
+than the official 3D leaderboard.
+
+\begin{table}[t]
+\centering
+\caption{Datasets used in our experiments.  ``Samples'' denotes the number
+of training images for Seen datasets and test images for Unseen and Novel
+datasets.  $^{\dagger}$In-house dataset.}
+\label{tab:datasets}
+\scriptsize
+\setlength{\tabcolsep}{2.2pt}
+\begin{tabular}{@{}lllllr@{}}
+\toprule
+Split & Distribution & Dataset & Modality & Target & Samples \\
+\midrule
+\multirow{6}{*}{Train}
+ & Seen & DRIVE~\cite{staal2004drive} & Fundus & Vessel & 3 \\
+ & Seen & CHASEDB1~\cite{owen2009chasedb1} & Fundus & Vessel & 3 \\
+ & Seen & DCA1~\cite{cervantes2019dca1} & X-ray & Vessel & 3 \\
+ & Seen & CrackTree200~\cite{zou2012cracktree} & RGB & Crack & 3 \\
+ & Seen & CREMI~\cite{cremi2016} & Microscopy & Boundary & 3 \\
+ & Seen & CORN~\cite{mou2019csnet} & Microscopy & Nerve & 3 \\
+\midrule
+\multirow{8}{*}{Test (Unseen)}
+ & Unseen & CHCrack5k~\cite{chen2025hacnetv2} & RGB & Crack & 990 \\
+ & Unseen & DeepCrack~\cite{liu2019deepcrack} & RGB & Crack & 237 \\
+ & Unseen & FIVES~\cite{jin2022fives} & Fundus & Vessel & 200 \\
+ & Unseen & HRF~\cite{budai2013robust} & Fundus & Vessel & 45 \\
+ & Unseen & LES-AV~\cite{orlando2018glaucoma} & Fundus & Vessel & 22 \\
+ & Unseen & OCTA-500~\cite{li2024octa500} & OCTA & Vessel & 300 \\
+ & Unseen & STARE~\cite{hoover2000stare} & Fundus & Vessel & 20 \\
+ & Unseen & XCAD~\cite{ma2021ssvs} & X-ray & Vessel & 126 \\
+\midrule
+\multirow{4}{*}{Test (Novel)}
+ & Novel & ROAD~\cite{mnih2013machine} & Aerial & Road line & 49 \\
+ & Novel & TopoMortar~\cite{valverde2025topomortar} & RGB & Mortar & 350 \\
+ & Novel & WIRE$^{\dagger}$~\cite{zhu2026sacm} & RGB & Wire & 31 \\
+ & Novel & TYRE$^{\dagger}$~\cite{zhu2026sacm} & RGB & Tread line & 36 \\
+\bottomrule
+\end{tabular}
+\end{table}
