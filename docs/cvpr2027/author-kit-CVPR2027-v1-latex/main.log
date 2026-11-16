@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.28 (TeX Live 2025/Debian) (preloaded format=pdflatex 2026.7.20)  16 NOV 2026 19:45
+This is pdfTeX, Version 3.141592653-2.6-1.40.28 (TeX Live 2025/Debian) (preloaded format=pdflatex 2026.7.20)  16 NOV 2026 20:00
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -505,14 +505,14 @@ LaTeX Font Info:    Trying to load font information for U+msb on input line 48.
 File: umsb.fd 2013/01/14 v3.01 AMS symbols B
 )
 (./sec/sec_abstract.tex
-LaTeX Font Info:    Trying to load font information for OT1+pcr on input line 2
-9.
+LaTeX Font Info:    Trying to load font information for OT1+pcr on input line 3
+2.
 
 (/usr/share/texlive/texmf-dist/tex/latex/psnfss/ot1pcr.fd
 File: ot1pcr.fd 2001/06/04 font definitions for OT1/pcr.
 )
 LaTeX Font Info:    Font shape `OT1/pcr/m/it' in size <10> not available
-(Font)              Font shape `OT1/pcr/m/sl' tried instead on input line 29.
+(Font)              Font shape `OT1/pcr/m/sl' tried instead on input line 32.
 ) (./sec/1_intro.tex
 \FigOneW=\skip58
 \FigOneLabelW=\skip59
@@ -579,181 +579,181 @@ g1/tyre_ours.pdf>] [2 <../img/fig_framework.pdf>] [3])
 (./sec/4_dcd_tables.tex) (./sec/4_dcd_figure.tex
 \PW=\skip60
 \LabelW=\skip61
-<../img/dcd_fig6/fig5x6/r02_gt.pdf, id=259, 216.81pt x 216.81pt>
+<../img/dcd_fig6/fig5x6/r02_gt.pdf, id=261, 216.81pt x 216.81pt>
 File: ../img/dcd_fig6/fig5x6/r02_gt.pdf Graphic file (type pdf)
 <use ../img/dcd_fig6/fig5x6/r02_gt.pdf>
 Package pdftex.def Info: ../img/dcd_fig6/fig5x6/r02_gt.pdf  used on input line 
 19.
 (pdftex.def)             Requested size: 36.35599pt x 36.35435pt.
-<../img/dcd_fig6/fig5x6/r02_unet.pdf, id=260, 216.81pt x 216.81pt>
+<../img/dcd_fig6/fig5x6/r02_unet.pdf, id=262, 216.81pt x 216.81pt>
 File: ../img/dcd_fig6/fig5x6/r02_unet.pdf Graphic file (type pdf)
 <use ../img/dcd_fig6/fig5x6/r02_unet.pdf>
 Package pdftex.def Info: ../img/dcd_fig6/fig5x6/r02_unet.pdf  used on input lin
 e 19.
 (pdftex.def)             Requested size: 36.35599pt x 36.35435pt.
-<../img/dcd_fig6/fig5x6/r02_samocta.pdf, id=261, 216.81pt x 216.81pt>
+<../img/dcd_fig6/fig5x6/r02_samocta.pdf, id=263, 216.81pt x 216.81pt>
 File: ../img/dcd_fig6/fig5x6/r02_samocta.pdf Graphic file (type pdf)
 <use ../img/dcd_fig6/fig5x6/r02_samocta.pdf>
 Package pdftex.def Info: ../img/dcd_fig6/fig5x6/r02_samocta.pdf  used on input 
 line 19.
 (pdftex.def)             Requested size: 36.35599pt x 36.35435pt.
-<../img/dcd_fig6/fig5x6/r02_cwsam.pdf, id=262, 216.81pt x 216.81pt>
+<../img/dcd_fig6/fig5x6/r02_cwsam.pdf, id=264, 216.81pt x 216.81pt>
 File: ../img/dcd_fig6/fig5x6/r02_cwsam.pdf Graphic file (type pdf)
 <use ../img/dcd_fig6/fig5x6/r02_cwsam.pdf>
 Package pdftex.def Info: ../img/dcd_fig6/fig5x6/r02_cwsam.pdf  used on input li
 ne 19.
 (pdftex.def)             Requested size: 36.35599pt x 36.35435pt.
-<../img/dcd_fig6/fig5x6/r02_sacm.pdf, id=263, 216.81pt x 216.81pt>
+<../img/dcd_fig6/fig5x6/r02_sacm.pdf, id=265, 216.81pt x 216.81pt>
 File: ../img/dcd_fig6/fig5x6/r02_sacm.pdf Graphic file (type pdf)
 <use ../img/dcd_fig6/fig5x6/r02_sacm.pdf>
 Package pdftex.def Info: ../img/dcd_fig6/fig5x6/r02_sacm.pdf  used on input lin
 e 19.
 (pdftex.def)             Requested size: 36.35599pt x 36.35435pt.
-<../img/dcd_fig6/fig5x6/r02_dcd.pdf, id=264, 216.81pt x 216.81pt>
+<../img/dcd_fig6/fig5x6/r02_dcd.pdf, id=266, 216.81pt x 216.81pt>
 File: ../img/dcd_fig6/fig5x6/r02_dcd.pdf Graphic file (type pdf)
 <use ../img/dcd_fig6/fig5x6/r02_dcd.pdf>
 Package pdftex.def Info: ../img/dcd_fig6/fig5x6/r02_dcd.pdf  used on input line
  19.
 (pdftex.def)             Requested size: 36.35599pt x 36.35435pt.
-<../img/dcd_fig6/fig5x6/r03_gt.pdf, id=265, 216.81pt x 216.81pt>
+<../img/dcd_fig6/fig5x6/r03_gt.pdf, id=267, 216.81pt x 216.81pt>
 File: ../img/dcd_fig6/fig5x6/r03_gt.pdf Graphic file (type pdf)
 <use ../img/dcd_fig6/fig5x6/r03_gt.pdf>
 Package pdftex.def Info: ../img/dcd_fig6/fig5x6/r03_gt.pdf  used on input line 
 20.
 (pdftex.def)             Requested size: 36.35599pt x 36.35435pt.
-<../img/dcd_fig6/fig5x6/r03_unet.pdf, id=266, 216.81pt x 216.81pt>
+<../img/dcd_fig6/fig5x6/r03_unet.pdf, id=268, 216.81pt x 216.81pt>
 File: ../img/dcd_fig6/fig5x6/r03_unet.pdf Graphic file (type pdf)
 <use ../img/dcd_fig6/fig5x6/r03_unet.pdf>
 Package pdftex.def Info: ../img/dcd_fig6/fig5x6/r03_unet.pdf  used on input lin
 e 20.
 (pdftex.def)             Requested size: 36.35599pt x 36.35435pt.
-<../img/dcd_fig6/fig5x6/r03_samocta.pdf, id=267, 216.81pt x 216.81pt>
+<../img/dcd_fig6/fig5x6/r03_samocta.pdf, id=269, 216.81pt x 216.81pt>
 File: ../img/dcd_fig6/fig5x6/r03_samocta.pdf Graphic file (type pdf)
 <use ../img/dcd_fig6/fig5x6/r03_samocta.pdf>
 Package pdftex.def Info: ../img/dcd_fig6/fig5x6/r03_samocta.pdf  used on input 
 line 20.
 (pdftex.def)             Requested size: 36.35599pt x 36.35435pt.
-<../img/dcd_fig6/fig5x6/r03_cwsam.pdf, id=268, 216.81pt x 216.81pt>
+<../img/dcd_fig6/fig5x6/r03_cwsam.pdf, id=270, 216.81pt x 216.81pt>
 File: ../img/dcd_fig6/fig5x6/r03_cwsam.pdf Graphic file (type pdf)
 <use ../img/dcd_fig6/fig5x6/r03_cwsam.pdf>
 Package pdftex.def Info: ../img/dcd_fig6/fig5x6/r03_cwsam.pdf  used on input li
 ne 20.
 (pdftex.def)             Requested size: 36.35599pt x 36.35435pt.
-<../img/dcd_fig6/fig5x6/r03_sacm.pdf, id=269, 216.81pt x 216.81pt>
+<../img/dcd_fig6/fig5x6/r03_sacm.pdf, id=271, 216.81pt x 216.81pt>
 File: ../img/dcd_fig6/fig5x6/r03_sacm.pdf Graphic file (type pdf)
 <use ../img/dcd_fig6/fig5x6/r03_sacm.pdf>
 Package pdftex.def Info: ../img/dcd_fig6/fig5x6/r03_sacm.pdf  used on input lin
 e 20.
 (pdftex.def)             Requested size: 36.35599pt x 36.35435pt.
-<../img/dcd_fig6/fig5x6/r03_dcd.pdf, id=270, 216.81pt x 216.81pt>
+<../img/dcd_fig6/fig5x6/r03_dcd.pdf, id=272, 216.81pt x 216.81pt>
 File: ../img/dcd_fig6/fig5x6/r03_dcd.pdf Graphic file (type pdf)
 <use ../img/dcd_fig6/fig5x6/r03_dcd.pdf>
 Package pdftex.def Info: ../img/dcd_fig6/fig5x6/r03_dcd.pdf  used on input line
  20.
 (pdftex.def)             Requested size: 36.35599pt x 36.35435pt.
-<../img/dcd_fig6/fig5x6/r04_gt.pdf, id=271, 216.81pt x 216.81pt>
+<../img/dcd_fig6/fig5x6/r04_gt.pdf, id=273, 216.81pt x 216.81pt>
 File: ../img/dcd_fig6/fig5x6/r04_gt.pdf Graphic file (type pdf)
 <use ../img/dcd_fig6/fig5x6/r04_gt.pdf>
 Package pdftex.def Info: ../img/dcd_fig6/fig5x6/r04_gt.pdf  used on input line 
 21.
 (pdftex.def)             Requested size: 36.35599pt x 36.35435pt.
-<../img/dcd_fig6/fig5x6/r04_unet.pdf, id=272, 216.81pt x 216.81pt>
+<../img/dcd_fig6/fig5x6/r04_unet.pdf, id=274, 216.81pt x 216.81pt>
 File: ../img/dcd_fig6/fig5x6/r04_unet.pdf Graphic file (type pdf)
 <use ../img/dcd_fig6/fig5x6/r04_unet.pdf>
 Package pdftex.def Info: ../img/dcd_fig6/fig5x6/r04_unet.pdf  used on input lin
 e 21.
 (pdftex.def)             Requested size: 36.35599pt x 36.35435pt.
-<../img/dcd_fig6/fig5x6/r04_samocta.pdf, id=273, 216.81pt x 216.81pt>
+<../img/dcd_fig6/fig5x6/r04_samocta.pdf, id=275, 216.81pt x 216.81pt>
 File: ../img/dcd_fig6/fig5x6/r04_samocta.pdf Graphic file (type pdf)
 <use ../img/dcd_fig6/fig5x6/r04_samocta.pdf>
 Package pdftex.def Info: ../img/dcd_fig6/fig5x6/r04_samocta.pdf  used on input 
 line 21.
 (pdftex.def)             Requested size: 36.35599pt x 36.35435pt.
-<../img/dcd_fig6/fig5x6/r04_cwsam.pdf, id=274, 216.81pt x 216.81pt>
+<../img/dcd_fig6/fig5x6/r04_cwsam.pdf, id=276, 216.81pt x 216.81pt>
 File: ../img/dcd_fig6/fig5x6/r04_cwsam.pdf Graphic file (type pdf)
 <use ../img/dcd_fig6/fig5x6/r04_cwsam.pdf>
 Package pdftex.def Info: ../img/dcd_fig6/fig5x6/r04_cwsam.pdf  used on input li
 ne 21.
 (pdftex.def)             Requested size: 36.35599pt x 36.35435pt.
-<../img/dcd_fig6/fig5x6/r04_sacm.pdf, id=275, 216.81pt x 216.81pt>
+<../img/dcd_fig6/fig5x6/r04_sacm.pdf, id=277, 216.81pt x 216.81pt>
 File: ../img/dcd_fig6/fig5x6/r04_sacm.pdf Graphic file (type pdf)
 <use ../img/dcd_fig6/fig5x6/r04_sacm.pdf>
 Package pdftex.def Info: ../img/dcd_fig6/fig5x6/r04_sacm.pdf  used on input lin
 e 21.
 (pdftex.def)             Requested size: 36.35599pt x 36.35435pt.
-<../img/dcd_fig6/fig5x6/r04_dcd.pdf, id=276, 216.81pt x 216.81pt>
+<../img/dcd_fig6/fig5x6/r04_dcd.pdf, id=278, 216.81pt x 216.81pt>
 File: ../img/dcd_fig6/fig5x6/r04_dcd.pdf Graphic file (type pdf)
 <use ../img/dcd_fig6/fig5x6/r04_dcd.pdf>
 Package pdftex.def Info: ../img/dcd_fig6/fig5x6/r04_dcd.pdf  used on input line
  21.
 (pdftex.def)             Requested size: 36.35599pt x 36.35435pt.
-<../img/dcd_fig6/fig5x6/r05_gt.pdf, id=277, 216.81pt x 216.81pt>
+<../img/dcd_fig6/fig5x6/r05_gt.pdf, id=279, 216.81pt x 216.81pt>
 File: ../img/dcd_fig6/fig5x6/r05_gt.pdf Graphic file (type pdf)
 <use ../img/dcd_fig6/fig5x6/r05_gt.pdf>
 Package pdftex.def Info: ../img/dcd_fig6/fig5x6/r05_gt.pdf  used on input line 
 22.
 (pdftex.def)             Requested size: 36.35599pt x 36.35435pt.
-<../img/dcd_fig6/fig5x6/r05_unet.pdf, id=278, 216.81pt x 216.81pt>
+<../img/dcd_fig6/fig5x6/r05_unet.pdf, id=280, 216.81pt x 216.81pt>
 File: ../img/dcd_fig6/fig5x6/r05_unet.pdf Graphic file (type pdf)
 <use ../img/dcd_fig6/fig5x6/r05_unet.pdf>
 Package pdftex.def Info: ../img/dcd_fig6/fig5x6/r05_unet.pdf  used on input lin
 e 22.
 (pdftex.def)             Requested size: 36.35599pt x 36.35435pt.
-<../img/dcd_fig6/fig5x6/r05_samocta.pdf, id=279, 216.81pt x 216.81pt>
+<../img/dcd_fig6/fig5x6/r05_samocta.pdf, id=281, 216.81pt x 216.81pt>
 File: ../img/dcd_fig6/fig5x6/r05_samocta.pdf Graphic file (type pdf)
 <use ../img/dcd_fig6/fig5x6/r05_samocta.pdf>
 Package pdftex.def Info: ../img/dcd_fig6/fig5x6/r05_samocta.pdf  used on input 
 line 22.
 (pdftex.def)             Requested size: 36.35599pt x 36.35435pt.
-<../img/dcd_fig6/fig5x6/r05_cwsam.pdf, id=280, 216.81pt x 216.81pt>
+<../img/dcd_fig6/fig5x6/r05_cwsam.pdf, id=282, 216.81pt x 216.81pt>
 File: ../img/dcd_fig6/fig5x6/r05_cwsam.pdf Graphic file (type pdf)
 <use ../img/dcd_fig6/fig5x6/r05_cwsam.pdf>
 Package pdftex.def Info: ../img/dcd_fig6/fig5x6/r05_cwsam.pdf  used on input li
 ne 22.
 (pdftex.def)             Requested size: 36.35599pt x 36.35435pt.
-<../img/dcd_fig6/fig5x6/r05_sacm.pdf, id=281, 216.81pt x 216.81pt>
+<../img/dcd_fig6/fig5x6/r05_sacm.pdf, id=283, 216.81pt x 216.81pt>
 File: ../img/dcd_fig6/fig5x6/r05_sacm.pdf Graphic file (type pdf)
 <use ../img/dcd_fig6/fig5x6/r05_sacm.pdf>
 Package pdftex.def Info: ../img/dcd_fig6/fig5x6/r05_sacm.pdf  used on input lin
 e 22.
 (pdftex.def)             Requested size: 36.35599pt x 36.35435pt.
-<../img/dcd_fig6/fig5x6/r05_dcd.pdf, id=282, 216.81pt x 216.81pt>
+<../img/dcd_fig6/fig5x6/r05_dcd.pdf, id=284, 216.81pt x 216.81pt>
 File: ../img/dcd_fig6/fig5x6/r05_dcd.pdf Graphic file (type pdf)
 <use ../img/dcd_fig6/fig5x6/r05_dcd.pdf>
 Package pdftex.def Info: ../img/dcd_fig6/fig5x6/r05_dcd.pdf  used on input line
  22.
 (pdftex.def)             Requested size: 36.35599pt x 36.35435pt.
-<../img/dcd_fig6/fig5x6/r06_gt.pdf, id=283, 216.81pt x 216.81pt>
+<../img/dcd_fig6/fig5x6/r06_gt.pdf, id=285, 216.81pt x 216.81pt>
 File: ../img/dcd_fig6/fig5x6/r06_gt.pdf Graphic file (type pdf)
 <use ../img/dcd_fig6/fig5x6/r06_gt.pdf>
 Package pdftex.def Info: ../img/dcd_fig6/fig5x6/r06_gt.pdf  used on input line 
 23.
 (pdftex.def)             Requested size: 36.35599pt x 36.35435pt.
-<../img/dcd_fig6/fig5x6/r06_unet.pdf, id=284, 216.81pt x 216.81pt>
+<../img/dcd_fig6/fig5x6/r06_unet.pdf, id=286, 216.81pt x 216.81pt>
 File: ../img/dcd_fig6/fig5x6/r06_unet.pdf Graphic file (type pdf)
 <use ../img/dcd_fig6/fig5x6/r06_unet.pdf>
 Package pdftex.def Info: ../img/dcd_fig6/fig5x6/r06_unet.pdf  used on input lin
 e 23.
 (pdftex.def)             Requested size: 36.35599pt x 36.35435pt.
-<../img/dcd_fig6/fig5x6/r06_samocta.pdf, id=285, 216.81pt x 216.81pt>
+<../img/dcd_fig6/fig5x6/r06_samocta.pdf, id=287, 216.81pt x 216.81pt>
 File: ../img/dcd_fig6/fig5x6/r06_samocta.pdf Graphic file (type pdf)
 <use ../img/dcd_fig6/fig5x6/r06_samocta.pdf>
 Package pdftex.def Info: ../img/dcd_fig6/fig5x6/r06_samocta.pdf  used on input 
 line 23.
 (pdftex.def)             Requested size: 36.35599pt x 36.35435pt.
-<../img/dcd_fig6/fig5x6/r06_cwsam.pdf, id=286, 216.81pt x 216.81pt>
+<../img/dcd_fig6/fig5x6/r06_cwsam.pdf, id=288, 216.81pt x 216.81pt>
 File: ../img/dcd_fig6/fig5x6/r06_cwsam.pdf Graphic file (type pdf)
 <use ../img/dcd_fig6/fig5x6/r06_cwsam.pdf>
 Package pdftex.def Info: ../img/dcd_fig6/fig5x6/r06_cwsam.pdf  used on input li
 ne 23.
 (pdftex.def)             Requested size: 36.35599pt x 36.35435pt.
-<../img/dcd_fig6/fig5x6/r06_sacm.pdf, id=287, 216.81pt x 216.81pt>
+<../img/dcd_fig6/fig5x6/r06_sacm.pdf, id=289, 216.81pt x 216.81pt>
 File: ../img/dcd_fig6/fig5x6/r06_sacm.pdf Graphic file (type pdf)
 <use ../img/dcd_fig6/fig5x6/r06_sacm.pdf>
 Package pdftex.def Info: ../img/dcd_fig6/fig5x6/r06_sacm.pdf  used on input lin
 e 23.
 (pdftex.def)             Requested size: 36.35599pt x 36.35435pt.
-<../img/dcd_fig6/fig5x6/r06_dcd.pdf, id=288, 216.81pt x 216.81pt>
+<../img/dcd_fig6/fig5x6/r06_dcd.pdf, id=290, 216.81pt x 216.81pt>
 File: ../img/dcd_fig6/fig5x6/r06_dcd.pdf Graphic file (type pdf)
 <use ../img/dcd_fig6/fig5x6/r06_dcd.pdf>
 Package pdftex.def Info: ../img/dcd_fig6/fig5x6/r06_dcd.pdf  used on input line
@@ -761,73 +761,73 @@ Package pdftex.def Info: ../img/dcd_fig6/fig5x6/r06_dcd.pdf  used on input line
 (pdftex.def)             Requested size: 36.35599pt x 36.35435pt.
 ) (./sec/4_dcd_deployment.tex
 \QualW=\skip62
-<../img/dcd_deploy_qual/octa_raw.pdf, id=292, 158.99399pt x 158.99399pt>
+<../img/dcd_deploy_qual/octa_raw.pdf, id=294, 158.99399pt x 158.99399pt>
 File: ../img/dcd_deploy_qual/octa_raw.pdf Graphic file (type pdf)
 <use ../img/dcd_deploy_qual/octa_raw.pdf>
 Package pdftex.def Info: ../img/dcd_deploy_qual/octa_raw.pdf  used on input lin
 e 18.
 (pdftex.def)             Requested size: 81.80937pt x 81.8088pt.
-<../img/dcd_deploy_qual/octa_gating.pdf, id=293, 158.99399pt x 158.99399pt>
+<../img/dcd_deploy_qual/octa_gating.pdf, id=295, 158.99399pt x 158.99399pt>
 File: ../img/dcd_deploy_qual/octa_gating.pdf Graphic file (type pdf)
 <use ../img/dcd_deploy_qual/octa_gating.pdf>
 Package pdftex.def Info: ../img/dcd_deploy_qual/octa_gating.pdf  used on input 
 line 19.
 (pdftex.def)             Requested size: 81.80937pt x 81.8088pt.
-<../img/dcd_deploy_qual/octa_dcd.pdf, id=294, 158.99399pt x 158.99399pt>
+<../img/dcd_deploy_qual/octa_dcd.pdf, id=296, 158.99399pt x 158.99399pt>
 File: ../img/dcd_deploy_qual/octa_dcd.pdf Graphic file (type pdf)
 <use ../img/dcd_deploy_qual/octa_dcd.pdf>
 Package pdftex.def Info: ../img/dcd_deploy_qual/octa_dcd.pdf  used on input lin
 e 20.
 (pdftex.def)             Requested size: 81.80937pt x 81.8088pt.
-<../img/dcd_deploy_qual/topo_raw.pdf, id=295, 158.99399pt x 158.99399pt>
+<../img/dcd_deploy_qual/topo_raw.pdf, id=297, 158.99399pt x 158.99399pt>
 File: ../img/dcd_deploy_qual/topo_raw.pdf Graphic file (type pdf)
 <use ../img/dcd_deploy_qual/topo_raw.pdf>
 Package pdftex.def Info: ../img/dcd_deploy_qual/topo_raw.pdf  used on input lin
 e 21.
 (pdftex.def)             Requested size: 81.80937pt x 81.8088pt.
-<../img/dcd_deploy_qual/topo_gating.pdf, id=296, 158.99399pt x 158.99399pt>
+<../img/dcd_deploy_qual/topo_gating.pdf, id=298, 158.99399pt x 158.99399pt>
 File: ../img/dcd_deploy_qual/topo_gating.pdf Graphic file (type pdf)
 <use ../img/dcd_deploy_qual/topo_gating.pdf>
 Package pdftex.def Info: ../img/dcd_deploy_qual/topo_gating.pdf  used on input 
 line 22.
 (pdftex.def)             Requested size: 81.80937pt x 81.8088pt.
-<../img/dcd_deploy_qual/topo_dcd.pdf, id=297, 158.99399pt x 158.99399pt>
+<../img/dcd_deploy_qual/topo_dcd.pdf, id=299, 158.99399pt x 158.99399pt>
 File: ../img/dcd_deploy_qual/topo_dcd.pdf Graphic file (type pdf)
 <use ../img/dcd_deploy_qual/topo_dcd.pdf>
 Package pdftex.def Info: ../img/dcd_deploy_qual/topo_dcd.pdf  used on input lin
 e 23.
 (pdftex.def)             Requested size: 81.80937pt x 81.8088pt.
-<../img/dcd_deploy_qual/hrf_raw.pdf, id=298, 158.99399pt x 158.99399pt>
+<../img/dcd_deploy_qual/hrf_raw.pdf, id=300, 158.99399pt x 158.99399pt>
 File: ../img/dcd_deploy_qual/hrf_raw.pdf Graphic file (type pdf)
 <use ../img/dcd_deploy_qual/hrf_raw.pdf>
 Package pdftex.def Info: ../img/dcd_deploy_qual/hrf_raw.pdf  used on input line
  32.
 (pdftex.def)             Requested size: 81.80937pt x 81.8088pt.
-<../img/dcd_deploy_qual/hrf_gating.pdf, id=299, 158.99399pt x 158.99399pt>
+<../img/dcd_deploy_qual/hrf_gating.pdf, id=301, 158.99399pt x 158.99399pt>
 File: ../img/dcd_deploy_qual/hrf_gating.pdf Graphic file (type pdf)
 <use ../img/dcd_deploy_qual/hrf_gating.pdf>
 Package pdftex.def Info: ../img/dcd_deploy_qual/hrf_gating.pdf  used on input l
 ine 33.
 (pdftex.def)             Requested size: 81.80937pt x 81.8088pt.
-<../img/dcd_deploy_qual/hrf_dcd.pdf, id=300, 158.99399pt x 158.99399pt>
+<../img/dcd_deploy_qual/hrf_dcd.pdf, id=302, 158.99399pt x 158.99399pt>
 File: ../img/dcd_deploy_qual/hrf_dcd.pdf Graphic file (type pdf)
 <use ../img/dcd_deploy_qual/hrf_dcd.pdf>
 Package pdftex.def Info: ../img/dcd_deploy_qual/hrf_dcd.pdf  used on input line
  34.
 (pdftex.def)             Requested size: 81.80937pt x 81.8088pt.
-<../img/dcd_deploy_qual/tyre_raw.pdf, id=301, 158.99399pt x 158.99399pt>
+<../img/dcd_deploy_qual/tyre_raw.pdf, id=303, 158.99399pt x 158.99399pt>
 File: ../img/dcd_deploy_qual/tyre_raw.pdf Graphic file (type pdf)
 <use ../img/dcd_deploy_qual/tyre_raw.pdf>
 Package pdftex.def Info: ../img/dcd_deploy_qual/tyre_raw.pdf  used on input lin
 e 35.
 (pdftex.def)             Requested size: 81.80937pt x 81.8088pt.
-<../img/dcd_deploy_qual/tyre_gating.pdf, id=302, 158.99399pt x 158.99399pt>
+<../img/dcd_deploy_qual/tyre_gating.pdf, id=304, 158.99399pt x 158.99399pt>
 File: ../img/dcd_deploy_qual/tyre_gating.pdf Graphic file (type pdf)
 <use ../img/dcd_deploy_qual/tyre_gating.pdf>
 Package pdftex.def Info: ../img/dcd_deploy_qual/tyre_gating.pdf  used on input 
 line 36.
 (pdftex.def)             Requested size: 81.80937pt x 81.8088pt.
-<../img/dcd_deploy_qual/tyre_dcd.pdf, id=303, 158.99399pt x 158.99399pt>
+<../img/dcd_deploy_qual/tyre_dcd.pdf, id=305, 158.99399pt x 158.99399pt>
 File: ../img/dcd_deploy_qual/tyre_dcd.pdf Graphic file (type pdf)
 <use ../img/dcd_deploy_qual/tyre_dcd.pdf>
 Package pdftex.def Info: ../img/dcd_deploy_qual/tyre_dcd.pdf  used on input lin
@@ -874,7 +874,7 @@ Package rerunfilecheck Info: File `main.brf' has not changed.
 Here is how much of TeX's memory you used:
  15698 strings out of 467533
  267925 string characters out of 5422138
- 798359 words of memory out of 5000000
+ 799359 words of memory out of 5000000
  44306 multiletter control sequences out of 15000+600000
  669439 words of font info for 122 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
@@ -894,10 +894,10 @@ texlive/texmf-dist/fonts/type1/urw/helvetic/uhvb8a.pfb></usr/share/texlive/texm
 f-dist/fonts/type1/urw/helvetic/uhvr8a.pfb></usr/share/texlive/texmf-dist/fonts
 /type1/urw/times/utmb8a.pfb></usr/share/texlive/texmf-dist/fonts/type1/urw/time
 s/utmr8a.pfb></usr/share/texlive/texmf-dist/fonts/type1/urw/times/utmri8a.pfb>
-Output written on main.pdf (9 pages, 19663461 bytes).
+Output written on main.pdf (9 pages, 19663452 bytes).
 PDF statistics:
- 660 PDF objects out of 1000 (max. 8388607)
- 466 compressed objects within 5 object streams
+ 662 PDF objects out of 1000 (max. 8388607)
+ 468 compressed objects within 5 object streams
  65 named destinations out of 1000 (max. 500000)
  432 words of extra memory for PDF output out of 10000 (max. 10000000)
 
