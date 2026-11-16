@@ -4,9 +4,11 @@ All models are trained with 18 3-shot images from six Seen datasets;
 Unseen and Novel datasets are never used for training or model selection.
 Table~\ref{tab:dcd_main} reports the macro results on the 12 evaluation
 datasets (8 Unseen and 4 Novel).  DCD obtains 58.76/45.17/66.02/63.13 and is
-best on all four metrics.  Table~\ref{tab:dcd_ablation} isolates the effect of
-the deployment rule: DCD improves Dice, IoU, and clDice over gating+fusion,
-while its HD95 change is mixed.  These are macro trends; the per-dataset
+best on all four metrics.  Table~\ref{tab:dcd_ablation} separates the
+deployment rule from the training components: DCD improves Dice, IoU, and
+clDice over gating+fusion, while its HD95 change is mixed.  SACM is a
+baseline, not an ablation, and is therefore reported in
+Table~\ref{tab:dcd_main}.  These are macro trends; the per-dataset
 breakdown is reported in Tables~\ref{tab:per_dataset_unseen_i}--\ref{tab:per_dataset_novel}.
 
 \begin{table*}[t]
@@ -41,11 +43,14 @@ SACM~\cite{zhu2026sacm} & 56.24 $\pm$ 0.92 & 42.88 $\pm$ 0.95 & 62.26 $\pm$ 2.20
 
 \begin{table}[t]
 \centering
-\caption{Ablation on the same 12 evaluation datasets (8 Unseen and 4 Novel;
-Seen used for training only).  Four-seed mean absolute values, not deltas.
-Dice/IoU/clDice in \%, HD95 in pixels (lower is better).  Ours is not
-uniformly best: \emph{w/o fusion} has lower HD95, and \emph{w/o topology}
-is slightly higher on Dice/IoU.}
+\caption{Deployment-rule and training-component ablation on the same 12
+evaluation datasets (8 Unseen and 4 Novel; Seen used for training only).
+Four-seed mean absolute values, not deltas.  Dice/IoU/clDice in \%, HD95
+in pixels (lower is better).  ``gating + fusion'' selects and fuses
+candidates at test time; the following rows remove one training component.
+Ours uses the fixed third candidate.  Ours is not uniformly best:
+\emph{w/o fusion} has lower HD95, and \emph{w/o topology} is slightly
+higher on Dice/IoU.}
 \label{tab:dcd_ablation}
 \scriptsize
 \setlength{\tabcolsep}{2.5pt}
@@ -53,13 +58,15 @@ is slightly higher on Dice/IoU.}
 \toprule
 Setting & Dice $\uparrow$ & IoU $\uparrow$ & clDice $\uparrow$ & HD95 $\downarrow$ \\
 \midrule
-gating + fusion & 57.54 & 44.06 & 64.96 & 63.10 \\
-w/o fusion training & 58.64 & 45.06 & 65.76 & 62.77 \\
-native four-head control & 57.54 & 44.02 & 64.72 & 64.56 \\
-w/o topology loss & 58.84 & 45.44 & 65.76 & 63.15 \\
-SACM~\cite{zhu2026sacm} & 56.24 & 42.88 & 62.26 & 69.20 \\
+\multicolumn{5}{l}{\emph{Alternative deployment}}\\
+gating + fusion (test time) & 57.54 & 44.06 & 64.96 & 63.10 \\
 \midrule
-\textbf{Ours} & 58.76 & 45.17 & 66.02 & 63.13 \\
+\multicolumn{5}{l}{\emph{Training ablations}}\\
+w/o fusion loss & 58.64 & 45.06 & 65.76 & 62.77 \\
+native four heads & 57.54 & 44.02 & 64.72 & 64.56 \\
+w/o topology supervision & 58.84 & 45.44 & 65.76 & 63.15 \\
+\midrule
+\textcolor{red!80!black}{\textbf{Ours}} & \textcolor{red!80!black}{\textbf{58.76}} & \textcolor{red!80!black}{\textbf{45.17}} & \textcolor{red!80!black}{\textbf{66.02}} & \textcolor{red!80!black}{\textbf{63.13}} \\
 \bottomrule
 \end{tabular*}
 \end{table}

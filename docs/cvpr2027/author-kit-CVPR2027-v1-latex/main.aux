@@ -419,6 +419,7 @@
 \@LN{334}{3}
 \@LN{335}{3}
 \@LN{336}{3}
+\@LN{337}{3}
 \citation{wang2024sam_octa}
 \citation{pu2025cwsam}
 \citation{zhou2025nnwnet}
@@ -428,7 +429,6 @@
 \citation{huang2025knowsam}
 \citation{yang2025segdino}
 \citation{cheng2023sammed2d}
-\citation{zhu2026sacm}
 \citation{zhu2026sacm}
 \bibstyle{ieeenat_fullname}
 \bibdata{main}
@@ -472,14 +472,13 @@
 \@writefile{brf}{\backcite{cheng2023sammed2d}{{5}{2}{table.caption.3}}}
 \@writefile{brf}{\backcite{zhu2026sacm}{{5}{2}{table.caption.3}}}
 \@LN@col{1}
-\@LN{337}{4}
 \@LN{338}{4}
 \@LN{339}{4}
 \@LN{340}{4}
 \@LN{341}{4}
 \@LN{342}{4}
-\@writefile{toc}{\contentsline {section}{\numberline {6}\hskip -1em.~Qualitative Results}{5}{section.6}\protected@file@percent }
 \@LN{343}{4}
+\@writefile{toc}{\contentsline {section}{\numberline {6}\hskip -1em.~Qualitative Results}{5}{section.6}\protected@file@percent }
 \@LN{344}{4}
 \@LN{345}{4}
 \@LN{346}{4}
@@ -489,14 +488,14 @@
 \@LN{350}{4}
 \@LN{351}{4}
 \@LN{352}{4}
-\@writefile{toc}{\contentsline {section}{\numberline {7}\hskip -1em.~Dataset-Level Effect of the Deployment Rule}{5}{section.7}\protected@file@percent }
 \@LN{353}{4}
+\@writefile{toc}{\contentsline {section}{\numberline {7}\hskip -1em.~Dataset-Level Effect of the Deployment Rule}{5}{section.7}\protected@file@percent }
 \@LN{354}{4}
 \@LN{355}{4}
 \@LN{356}{4}
 \@LN{357}{4}
-\@LN@col{2}
 \@LN{358}{4}
+\@LN@col{2}
 \@LN{359}{4}
 \@LN{360}{4}
 \@LN{361}{4}
@@ -520,6 +519,7 @@
 \@LN{379}{4}
 \@LN{380}{4}
 \@LN{381}{4}
+\@LN{382}{4}
 \bibcite{jin2022fives}{{6}{2022}{{Jin et~al.}}{{Jin, Huang, Zhou, Li, Yan, Sun, Zhang, Wang, and Ye}}}
 \bibcite{li2024octa500}{{7}{2024}{{Li et~al.}}{{Li, Huang, Xu, Yang, Zhang, Ji, Xie, Yuan, Liu, and Chen}}}
 \bibcite{liu2019deepcrack}{{8}{2019}{{Liu et~al.}}{{Liu, Yao, Lu, Xie, and Li}}}
@@ -528,7 +528,6 @@
 \bibcite{mou2021cs2net}{{11}{2021}{{Mou et~al.}}{{Mou, Zhao, Fu, Liu, Cheng, Zheng, Su, Yang, Chen, Frangi, Akiba, and Liu}}}
 \bibcite{orlando2018glaucoma}{{12}{2018}{{Orlando et~al.}}{{Orlando, Breda, van Keer, Blaschko, Blanco, and Bulant}}}
 \bibcite{pu2025cwsam}{{13}{2025}{{Pu et~al.}}{{Pu, Jia, Zheng, Wang, and Xu}}}
-\bibcite{ronneberger2015unet}{{14}{2015}{{Ronneberger et~al.}}{{Ronneberger, Fischer, and Brox}}}
 \@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Per-dataset results on the four Novel datasets (ROAD, TopoMortar, WIRE, TYRE). Four-seed mean; Dice/IoU/clDice in \%, HD95 in pixels (lower is better). Best results are red bold; second-best results are underlined. $^{\dagger }$In-house dataset.}}{6}{table.caption.4}\protected@file@percent }
 \newlabel{tab:per_dataset_novel}{{3}{6}{Per-dataset results on the four Novel datasets (ROAD, TopoMortar, WIRE, TYRE). Four-seed mean; Dice/IoU/clDice in \%, HD95 in pixels (lower is better). Best results are red bold; second-best results are underlined. $^{\dagger }$In-house dataset}{table.caption.4}{}}
 \newlabel{tab:per_dataset_novel@cref}{{[table][3][]3}{[1][4][]6}{}{}{}}
@@ -558,11 +557,9 @@
 \@writefile{brf}{\backcite{cheng2023sammed2d}{{6}{4}{table.caption.5}}}
 \@writefile{brf}{\backcite{zhu2026sacm}{{6}{4}{table.caption.5}}}
 \@LN@col{1}
-\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces Ablation on the same 12 evaluation datasets (8 Unseen and 4 Novel; Seen used for training only). Four-seed mean absolute values, not deltas. Dice/IoU/clDice in \%, HD95 in pixels (lower is better). Ours is not uniformly best: \emph  {w/o fusion} has lower HD95, and \emph  {w/o topology} is slightly higher on Dice/IoU.}}{6}{table.caption.6}\protected@file@percent }
-\newlabel{tab:dcd_ablation}{{5}{6}{Ablation on the same 12 evaluation datasets (8 Unseen and 4 Novel; Seen used for training only). Four-seed mean absolute values, not deltas. Dice/IoU/clDice in \%, HD95 in pixels (lower is better). Ours is not uniformly best: \emph {w/o fusion} has lower HD95, and \emph {w/o topology} is slightly higher on Dice/IoU}{table.caption.6}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces Deployment-rule and training-component ablation on the same 12 evaluation datasets (8 Unseen and 4 Novel; Seen used for training only). Four-seed mean absolute values, not deltas. Dice/IoU/clDice in \%, HD95 in pixels (lower is better). ``gating + fusion'' selects and fuses candidates at test time; the following rows remove one training component. Ours uses the fixed third candidate. Ours is not uniformly best: \emph  {w/o fusion} has lower HD95, and \emph  {w/o topology} is slightly higher on Dice/IoU.}}{6}{table.caption.6}\protected@file@percent }
+\newlabel{tab:dcd_ablation}{{5}{6}{Deployment-rule and training-component ablation on the same 12 evaluation datasets (8 Unseen and 4 Novel; Seen used for training only). Four-seed mean absolute values, not deltas. Dice/IoU/clDice in \%, HD95 in pixels (lower is better). ``gating + fusion'' selects and fuses candidates at test time; the following rows remove one training component. Ours uses the fixed third candidate. Ours is not uniformly best: \emph {w/o fusion} has lower HD95, and \emph {w/o topology} is slightly higher on Dice/IoU}{table.caption.6}{}}
 \newlabel{tab:dcd_ablation@cref}{{[table][5][]5}{[1][5][]6}{}{}{}}
-\@writefile{brf}{\backcite{zhu2026sacm}{{6}{5}{table.caption.6}}}
-\@LN{382}{5}
 \@LN{383}{5}
 \@LN{384}{5}
 \@LN{385}{5}
@@ -571,10 +568,10 @@
 \@LN{388}{5}
 \@LN{389}{5}
 \@LN{390}{5}
+\@LN@col{2}
 \@LN{391}{5}
 \@LN{392}{5}
 \@LN{393}{5}
-\@LN@col{2}
 \@LN{394}{5}
 \@LN{395}{5}
 \@LN{396}{5}
@@ -599,9 +596,7 @@
 \@LN{415}{5}
 \@LN{416}{5}
 \@LN{417}{5}
-\@LN{418}{5}
-\@LN{419}{5}
-\@LN{420}{5}
+\bibcite{ronneberger2015unet}{{14}{2015}{{Ronneberger et~al.}}{{Ronneberger, Fischer, and Brox}}}
 \bibcite{valverde2025topomortar}{{15}{2025}{{Valverde et~al.}}{{Valverde, Koga, Otsuka, and Dahl}}}
 \bibcite{wang2024sam_octa}{{16}{2024}{{Wang et~al.}}{{Wang, Chen, Ning, and Li}}}
 \bibcite{yang2025segdino}{{17}{2025}{{Yang et~al.}}{{Yang, Wang, Xing, Chen, and Zhu}}}
@@ -612,6 +607,9 @@
 \@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Qualitative comparison of Ours (DCD) with four baselines on five representative curvilinear datasets. The first column shows the raw input. In the prediction panels, white denotes true positives, red outlines false negatives, and green outlines false positives; black denotes background. Yellow insets magnify the same local region in each prediction column.}}{7}{figure.caption.7}\protected@file@percent }
 \newlabel{fig:dcd_showcase}{{2}{7}{Qualitative comparison of Ours (DCD) with four baselines on five representative curvilinear datasets. The first column shows the raw input. In the prediction panels, white denotes true positives, red outlines false negatives, and green outlines false positives; black denotes background. Yellow insets magnify the same local region in each prediction column}{figure.caption.7}{}}
 \newlabel{fig:dcd_showcase@cref}{{[figure][2][]2}{[1][5][]7}{}{}{}}
+\@LN{418}{6}
+\@LN{419}{6}
+\@LN{420}{6}
 \@LN{421}{6}
 \@LN{422}{6}
 \@LN{423}{6}
@@ -639,14 +637,15 @@
 \@LN{445}{6}
 \@LN{446}{6}
 \@LN{447}{6}
+\@LN@col{2}
 \@LN{448}{6}
 \@LN{449}{6}
 \@LN{450}{6}
 \@LN{451}{6}
-\@LN@col{2}
 \@LN{452}{6}
 \@LN{453}{6}
-\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Dataset-level trade-off of the deterministic deployment rule. Each point is one of the 12 evaluation datasets; the horizontal axis is the Dice gain of DCD (fixed candidate 3) over gating+fusion, and the vertical axis is the HD95 gain. Positive values indicate DCD is better. Blue circles and orange diamonds denote Unseen and Novel datasets, respectively. The four quadrants contain datasets where DCD improves both metrics (2), only Dice (6), only HD95 (2), or neither (2). The HD95 gain of TopoMortar (+24.1 px) is clipped and marked with an arrow. Values are four-seed means.}}{8}{figure.caption.8}\protected@file@percent }
-\newlabel{fig:dcd_deployment}{{3}{8}{Dataset-level trade-off of the deterministic deployment rule. Each point is one of the 12 evaluation datasets; the horizontal axis is the Dice gain of DCD (fixed candidate 3) over gating+fusion, and the vertical axis is the HD95 gain. Positive values indicate DCD is better. Blue circles and orange diamonds denote Unseen and Novel datasets, respectively. The four quadrants contain datasets where DCD improves both metrics (2), only Dice (6), only HD95 (2), or neither (2). The HD95 gain of TopoMortar (+24.1 px) is clipped and marked with an arrow. Values are four-seed means}{figure.caption.8}{}}
+\@LN{454}{6}
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Dataset-level effect of the deterministic deployment rule. Each row is one of the 12 evaluation datasets; the hollow marker is gating+fusion and the filled marker is DCD. The line length is the gain; positive values indicate DCD is better. Dice gains are in percentage points and HD95 gains in pixels. Unseen datasets are above the dashed line, Novel datasets below it. DCD improves Dice on 8/12 datasets and HD95 on 4/12; the large HD95 gain on TopoMortar contrasts with HD95 losses on several other datasets. Absolute values are reported in Table~5; all values are four-seed means.}}{8}{figure.caption.8}\protected@file@percent }
+\newlabel{fig:dcd_deployment}{{3}{8}{Dataset-level effect of the deterministic deployment rule. Each row is one of the 12 evaluation datasets; the hollow marker is gating+fusion and the filled marker is DCD. The line length is the gain; positive values indicate DCD is better. Dice gains are in percentage points and HD95 gains in pixels. Unseen datasets are above the dashed line, Novel datasets below it. DCD improves Dice on 8/12 datasets and HD95 on 4/12; the large HD95 gain on TopoMortar contrasts with HD95 losses on several other datasets. Absolute values are reported in Table~5; all values are four-seed means}{figure.caption.8}{}}
 \newlabel{fig:dcd_deployment@cref}{{[figure][3][]3}{[1][5][]8}{}{}{}}
 \gdef \@abspage@last{8}
