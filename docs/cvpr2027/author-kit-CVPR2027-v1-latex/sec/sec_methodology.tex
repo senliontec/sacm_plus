@@ -1,0 +1,127 @@
+\section{Method}
+\label{sec:method}
+
+\begin{figure*}[!t]
+\centering
+\includegraphics[width=\textwidth]{../img/fig_framework.pdf}
+\caption{Overview of DCD.  A frozen SAM ViT-L encoder is adapted with
+block-internal Adapter-I and block-external Adapter-E features, which
+Adapter-F fuses into the decoder.  Stage-1 ranks four candidate masks by
+gating confidence, and Stage-2 refines them with dense, topology, and
+role-specific losses.  At inference, DCD deploys a fixed slot (slot~3),
+without a test-time selector or the training-only fusion branch.}
+\label{fig:dcd_framework}
+\end{figure*}
+
+\subsection{Overview}
+\label{sec:method_overview}
+
+Given a support set
+$\mathcal{D}_{\mathrm{tr}}=\{(x_i,y_i)\}_{i=1}^{18}$ drawn from six training
+datasets, DCD learns a prompt-free segmenter that predicts one binary mask for
+an unseen image, without points, boxes, or target-domain support images. Evaluation
+covers unseen datasets, which contain the same structure classes but differ in
+dataset source, modality, or acquisition conditions, and novel classes, which
+are absent from training.
+
+DCD follows the prompt-free pipeline of SACM~\cite{zhu2026sacm}. The SAM
+ViT-L encoder remains frozen and is adapted by two lightweight modules:
+Adapter-I inside each Transformer block and Adapter-E at each block boundary,
+both with a bottleneck ratio of 0.1. Adapter-F pools the 24 block-level
+features with learned softmax weights and adds the result to the upsampled
+decoder feature; the prompt encoder is frozen and the dense prompt is a
+learned no-mask embedding. The decoder keeps four candidate heads. Stage-1
+ranks them by confidence, Stage-2 refines them under role-specific
+supervision, and inference returns one fixed ranked slot. The architecture is
+inherited from SACM; the question studied here is how its candidates should
+be trained and deployed. Figure~\ref{fig:dcd_framework} gives an overview.
+
+\subsection{Candidate Experts and Role Supervision}
+\label{sec:method_candidates}
+
+The decoder contains one IoU token and four mask tokens. A Two-way Transformer
+updates these tokens with the image feature and the dense prompt, and four
+Stage-1 MLPs produce coarse masks $M_k^{(1)}$, $k=0,\dots,3$. We rank the
+candidates by their maximum spatial activation,
+\begin{equation}
+\begin{aligned}
+g_k&=\max_{u}M_k^{(1)}(u),\\
+w&=\mathrm{softmax}(g),\qquad
+s=\mathrm{argsort}(w)~\text{descending},
+\end{aligned}
+\label{eq:gating}
+\end{equation}
+and reorder the mask-token descriptors by $s$ before four Stage-2 heads
+produce the refined masks $M_k^{(2)}$, $k=0,\dots,3$. Slot~0 is thus the
+gating champion and slot~3 the last-ranked candidate on every image.
+
+All Stage-2 heads share the decoder feature but have separate output MLPs and
+different objectives, so they specialize. During training, the champion
+(slot~0) anchors the dense and topology terms with full weight, while the
+other three heads share a total weight of 0.25. Every Stage-2 head receives a
+dense BCE+Dice loss and, after a short warmup, is also regularized by
+soft-clDice~\cite{shit2021cldice} and Skeleton
+Recall~\cite{kirchhoff2024skeletonrecall}; every Stage-1 head is
+deep-supervised with the dense loss. The three auxiliary Stage-2 slots
+additionally receive role losses,
+\begin{equation}
+\mathcal{L}_{\mathrm{role}}
+=0.1\!\left(\ell_{\mathrm{clDice}}(M_1^{(2)},y)
++\ell_{\mathrm{bnd}}(M_2^{(2)},y)
++\ell_{\mathrm{tv}}(M_3^{(2)},y)\right),
+\label{eq:role}
+\end{equation}
+where slot~1 is pushed toward topology by an extra soft-clDice term, slot~2
+toward boundaries by a BCE+Dice loss whose pixels are weighted by $1+4B$ on a
+$5\times5$ boundary band~$B$, and slot~3 toward recall by a Tversky loss with
+$\alpha=0.3$ and $\beta=0.7$. A zero-initialized $1\times1$ convolution fuses
+the four refined masks into an auxiliary output, which equals the champion at
+initialization and is discarded after training. The total objective is
+\begin{equation}
+\mathcal{L}=\mathcal{L}_{\mathrm{dense}}
++\mathcal{L}_{\mathrm{top}}+\mathcal{L}_{\mathrm{role}}
++\ell_{\mathrm{dense}}(M_{\mathrm{fus}},y)
++\mathcal{L}_{\mathrm{ds}},
+\label{eq:total}
+\end{equation}
+where $\mathcal{L}_{\mathrm{dense}}$ and $\mathcal{L}_{\mathrm{top}}$ denote
+the anchored dense and topology terms, and $\mathcal{L}_{\mathrm{ds}}$ is the
+deep supervision of the four Stage-1 heads. Exact weights, resolutions, and the
+warmup schedule are listed in the supplement.
+
+\subsection{Deterministic Deployment}
+\label{sec:method_deploy}
+
+Training uses gating both to order the candidates and to anchor the losses.
+For deployment we derive an inference-only checkpoint in which the selection
+rule is fixed and the fusion branch is removed; the candidate and adapter
+weights are unchanged, so no retraining is required. Gating still computes the order $s$,
+but DCD returns the Stage-2 mask in slot~3, the last position in the gating
+order,
+\begin{equation}
+\hat y=\mathbb{1}\!\left[\sigma\!\left(M_3^{(2)}\right)>0.5\right].
+\label{eq:deploy}
+\end{equation}
+The per-candidate IoU predictor is neither supervised nor deployed, and the
+fused output is discarded. A single forward pass produces one mask, which is
+resized to the ground-truth resolution. The slot is selected on the validation
+split and then frozen for all test datasets and seeds.
+
+Fixing the slot is motivated by two observations. First, slot~3 is the
+recall-oriented Tversky expert; fixing its rank preserves the learned
+specialization while removing the selector's per-image variability. Second,
+a selector trained jointly with the candidate heads can co-adapt with them:
+the heads specialize, but the selector is optimized to prefer whichever
+candidate is most stable on the training distribution, and its calibration
+can drift under a change in modality or acquisition conditions. Fixed deployment removes this second decision point, while the
+candidate experts themselves are unchanged.
+
+\subsection{Implementation Details}
+\label{sec:method_impl}
+
+We train for 200 epochs with AdamW (learning rate $3\times10^{-4}$ with
+cosine decay to $10^{-6}$, weight decay $0.01$), batch size 1, and gradient
+clipping 1.0. Inputs are $1024\times1024$ pixels. Each seed uses 18 training
+images and six validation images, and checkpoints are selected by validation
+Dice. No augmentation is used, and predictions are thresholded at 0.5. The
+full hyperparameter set is given in the supplement.

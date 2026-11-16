@@ -1,0 +1,200 @@
+\section{Method Details}
+\label{sec:supp_method}
+
+This supplement provides the architecture, exact loss definitions, and
+training hyperparameters that are summarized in the main paper.
+
+\subsection{Adapter Architecture}
+\label{sec:supp_adapters}
+
+The image encoder is a SAM ViT-L with 24 Transformer blocks and token width
+$C=1024$. All pretrained encoder parameters are frozen. Adapter-I is inserted
+into the residual MLP path of each block and refines the tokens locally:
+\begin{equation}
+\begin{aligned}
+a^{I}_l(u)&=W^{up}_l\,\sigma\!\left(W^{down}_l\,\mathrm{LN}(u)\right),\\
+u&\leftarrow u+\mathrm{MLP}(\mathrm{LN}(u))+a^{I}_l(u),
+\end{aligned}
+\end{equation}
+where $\sigma$ is GELU and the bottleneck width is $0.1C$. Adapter-E is
+applied at each block boundary:
+\begin{equation}
+e_l=a^{E}_l\!\left(\mathrm{LN}(x_l)\right),
+\qquad
+x_{l+1}=x_l+e_l .
+\end{equation}
+The 24 adapter outputs $\{e_l\}_{l=1}^{24}$ are passed to the decoder.
+Adapter-F aggregates them into a multi-layer structural descriptor:
+\begin{equation}
+\begin{aligned}
+z_l&=W_l\,\mathrm{GAP}(e_l),\\
+\alpha&=\mathrm{softmax}\!\left(\mathrm{FFN}([z_1;\dots;z_{24}])\right),\\
+f&=\sum_{l=1}^{24}\alpha_l e_l,
+\end{aligned}
+\qquad
+F\leftarrow F+\mathrm{MLP}_{F}(f),
+\end{equation}
+where $F$ is the upsampled decoder feature. The prompt encoder is frozen; no
+sparse prompt is used, and the dense prompt is the learned no-mask embedding.
+This adapter design follows SACM~\cite{zhu2026sacm}.
+
+\subsection{Candidate Decoding}
+\label{sec:supp_candidates}
+
+The mask decoder contains one IoU token and four mask tokens. A Two-way
+Transformer updates these tokens with the image feature and the dense prompt.
+Four Stage-1 output MLPs produce coarse masks
+\begin{equation}
+M_k^{(1)}=\mathrm{MLP}_k^{(1)}(t_k;F),
+\qquad k=0,\dots,3,
+\end{equation}
+where $t_k$ is the $k$-th mask-token descriptor. Stage-1 confidence is the
+maximum spatial activation,
+\begin{equation}
+\begin{aligned}
+g_k&=\max_{u}M_k^{(1)}(u),\\
+w&=\mathrm{softmax}(g),\qquad
+s=\mathrm{argsort}(w)~\text{descending}.
+\end{aligned}
+\end{equation}
+The descriptors are reordered according to $s$, and four Stage-2 output MLPs
+produce the refined masks in ranked order:
+\begin{equation}
+M_j^{(2)}=\mathrm{MLP}_j^{(2)}\!\left(t_{s_j};F\right),
+\qquad j=0,\dots,3.
+\end{equation}
+Thus slot~0 is the gating champion, and slot~3 is the last-ranked candidate
+on every image. The decoder also contains an IoU prediction head for each
+candidate. It is not supervised during training and is not used at inference.
+
+\subsection{Training Objective}
+\label{sec:supp_losses}
+
+Every Stage-2 head receives the dense mask loss
+\begin{equation}
+\ell_{\mathrm{dense}}(\hat y,y)
+=0.7\,\mathrm{BCE}_{w=2}(\hat y,y)+0.3\,(1-\mathrm{Dice}(\hat y,y)),
+\label{eq:supp_dense}
+\end{equation}
+where BCE uses a foreground weight of 2 and the targets are soft bilinear
+masks. Training uses gating selection, so the gating champion (slot~0) is the
+anchor and keeps full weight. The remaining three heads form an averaged
+auxiliary term with a total weight of $0.25$:
+\begin{equation}
+\mathcal{L}_{\mathrm{dense}}
+=\ell_{\mathrm{dense}}(M_0^{(2)},y)
++\frac{0.25}{3}\sum_{k=1}^{3}\ell_{\mathrm{dense}}(M_k^{(2)},y).
+\label{eq:supp_dense_total}
+\end{equation}
+All four Stage-2 heads also receive soft-clDice~\cite{shit2021cldice} and
+Skeleton Recall~\cite{kirchhoff2024skeletonrecall} at $512\times512$
+resolution:
+\begin{equation}
+\mathcal{L}_{\mathrm{top}}
+=\sum_{k=0}^{3}\beta_k
+\left(0.1\,\ell_{\mathrm{clDice}}(M_k^{(2)},y)
++0.1\,\ell_{\mathrm{skel}}(M_k^{(2)},y)\right),
+\label{eq:supp_top}
+\end{equation}
+with $\beta_0=1$ and $\beta_{k>0}=0.25/3$. The topology term is linearly
+ramped from 0 to 1 between epochs 5 and 10.
+
+Three role losses specialize the auxiliary slots. Slot~1 receives an
+additional soft-clDice term; slot~2 receives a boundary-weighted BCE+Dice
+loss with pixel weights $1+4B$, where $B$ is a $5\times5$ morphological
+boundary band; and slot~3 receives a recall-heavy Tversky loss with
+$\alpha=0.3$ and $\beta=0.7$. The role loss is
+\begin{equation}
+\mathcal{L}_{\mathrm{role}}
+=0.1\!\left(\ell_{\mathrm{clDice}}(M_1^{(2)},y)
++\ell_{\mathrm{bnd}}(M_2^{(2)},y)
++\ell_{\mathrm{tv}}(M_3^{(2)},y)\right),
+\label{eq:supp_role}
+\end{equation}
+where
+\begin{equation}
+\begin{aligned}
+\ell_{\mathrm{bnd}}(\hat y,y)
+&=\mathrm{BCE}_{1+4B}(\hat y,y)+\left(1-\mathrm{Dice}(\hat y,y)\right),\\
+\ell_{\mathrm{tv}}(\hat y,y)
+&=1-\frac{TP}{TP+0.3\,FP+0.7\,FN}.
+\end{aligned}
+\label{eq:supp_bnd_tv}
+\end{equation}
+A zero-initialized linear fusion of the four Stage-2 masks is trained as an
+auxiliary output:
+\begin{equation}
+\begin{aligned}
+M_{\mathrm{fus}}={}&M_0^{(2)}+\mathrm{Conv}_{1\times1}\Big(\\
+&\big[M_1^{(2)}-M_0^{(2)},\,M_2^{(2)}-M_0^{(2)},\,
+M_3^{(2)}-M_0^{(2)}\big]\Big),
+\end{aligned}
+\label{eq:supp_fusion}
+\end{equation}
+with a dense loss weight of $1.0$. Because the convolution is zero-initialized,
+$M_{\mathrm{fus}}=M_0^{(2)}$ at initialization. Every Stage-1 head receives
+deep supervision with weight $0.3$, averaged over the four heads. The total
+loss is
+\begin{equation}
+\begin{aligned}
+\mathcal{L}={}&\mathcal{L}_{\mathrm{dense}}
++0.3\,\frac{1}{4}\sum_{k=0}^{3}\ell_{\mathrm{dense}}(M_k^{(1)},y)\\
+&+\mathcal{L}_{\mathrm{top}}+\mathcal{L}_{\mathrm{role}}
++\ell_{\mathrm{dense}}(M_{\mathrm{fus}},y).
+\end{aligned}
+\label{eq:supp_total}
+\end{equation}
+
+\subsection{Deployment Checkpoint}
+\label{sec:supp_deployment}
+
+Training uses \texttt{head\_select=gating}. The deployed checkpoint is derived
+after training by setting \texttt{head\_select=fixed},
+\texttt{deployment\_head=3}, and \texttt{head\_fusion=0}, and by removing the
+\texttt{head\_fusion.*} tensors from the state dict so that strict loading
+succeeds. Model weights, the split hash, the best epoch, and the training
+history are preserved; no weight is retrained. At inference, gating still
+computes the order $s$, but the Stage-2 mask in slot~3 is returned:
+\begin{equation}
+\hat y=\mathbb{1}\!\left[\sigma\!\left(M_3^{(2)}\right)>0.5\right],
+\end{equation}
+where slot~3 is the last position in the gating order. The prediction is
+resized to the ground-truth resolution. The slot is selected on the
+validation split and then frozen for all test datasets and seeds.
+
+\subsection{Hyperparameters}
+\label{sec:supp_hyper}
+
+\begin{table*}[t]
+\centering
+\caption{Training and deployment hyperparameters of DCD.}
+\label{tab:supp_hyper}
+\small
+\begin{tabular}{@{}ll@{}}
+\toprule
+Component & Setting \\
+\midrule
+Backbone & SAM ViT-L, 24 blocks, width 1024, frozen \\
+SAM checkpoint & \texttt{sam\_vit\_l\_0b3195.pth} \\
+Adapter bottleneck & $0.1$ of the token width \\
+Input resolution & $1024\times1024$ \\
+Optimizer & AdamW \\
+Learning rate & $3\times10^{-4}$, cosine decay to $10^{-6}$ \\
+Weight decay & $0.01$, excluding LayerNorm and bias parameters \\
+Batch size & 1 \\
+Gradient clipping & 1.0 \\
+Epochs & 200 \\
+Training / validation images & 18 / 6 per seed \\
+Seeds & 4 \\
+Checkpoint selection & Validation Dice \\
+Augmentation & None \\
+Dense loss & $0.7\,\mathrm{BCE}_{w=2}+0.3\,(1-\mathrm{Dice})$, soft targets \\
+Deep supervision & Weight $0.3$, averaged over four Stage-1 heads \\
+Stage-2 auxiliary weight & $0.25$ total, $0.25/3$ per auxiliary head \\
+Topology supervision & $0.1$ soft-clDice $+$ $0.1$ Skeleton Recall per head, $512\times512$, ramped between epochs 5 and 10 \\
+Role loss & Weight $0.1$; boundary band $5\times5$ with weights $1+4B$; Tversky $\alpha=0.3$, $\beta=0.7$ \\
+Fusion & Zero-initialized $1\times1$ convolution, dense loss weight $1.0$ \\
+Deployment & Fixed slot~3, no fusion, threshold $0.5$ \\
+\bottomrule
+\end{tabular}
+\end{table*}

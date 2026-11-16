@@ -7,45 +7,47 @@
 Curvilinear structure segmentation aims to delineate thin, elongated, and
 branching targets such as vessels, nerves, cracks, and roads. U-Net
 \cite{ronneberger2015unet} established the encoder--decoder template, and
-attention-based and multi-scale variants such as CS-Net \cite{mou2019csnet}
-and CS2-Net \cite{mou2021cs2net} improved the delineation of vessels and
+attention-based networks such as CS-Net \cite{mou2019csnet} and CS2-Net
+\cite{mou2021cs2net} improved the delineation of vessels and
 corneal nerves across imaging modalities. Domain-specific architectures push
 in-domain accuracy further: DeepCrack \cite{liu2019deepcrack} aggregates
 hierarchical convolutional features for crack segmentation, HACNet~V2
 \cite{chen2025hacnetv2} preserves full-resolution detail for pixel-level
 crack detection, and nnWNet \cite{zhou2025nnwnet} revisits
 transformer--convolution hybrids. These models obtain strong results when
-training and test data share a domain, but they rely on large annotated
-datasets and degrade under modality or acquisition shift.
+training and test data come from the same domain, but they rely on large
+annotated datasets and degrade under modality or acquisition-condition shift.
 
 Pixel-wise overlap does not capture connectivity, so a parallel line of work
 adds topological supervision. clDice \cite{shit2021cldice} measures overlap
-between masks and their skeletons and provides a soft, topology-preserving
-objective; Skeleton Recall \cite{kirchhoff2024skeletonrecall} supervises the
-skeleton directly to conserve connectivity at lower cost. TopoMortar
+between masks and their skeletons, and its differentiable soft variant serves
+as a topology-preserving training objective; Skeleton Recall
+\cite{kirchhoff2024skeletonrecall} supervises the skeleton directly to
+conserve connectivity at lower cost than clDice. TopoMortar
 \cite{valverde2025topomortar} shows that the benefit of a topology loss
 depends on dataset challenges such as small training sets, noisy labels, and
-out-of-distribution test images, which motivates evaluating segmentation
+out-of-distribution test images. This motivates evaluating segmentation
 methods across many datasets rather than on a single benchmark.
 
-Annotation-efficient and universal curvilinear models reduce the supervision
-requirement. UCS \cite{zhu2023ucs} adapts SAM with a sparse adapter and
+Complementary to these loss-level approaches, annotation-efficient and universal
+curvilinear models reduce the supervision requirement. UCS \cite{zhu2025ucs}
+adapts SAM with a sparse adapter and
 FFT-based prompt generation for cross-domain curvilinear segmentation. SACM
 \cite{zhu2026sacm} introduces dual-level adapters, multi-layer adapter
 fusion, and a dual-stage prompt-free decoder, and trains with only 18 images.
 Our work shares SACM's prompt-free, low-data setting but studies a different
 question: how the decoder should deploy its candidate masks. Topology-aware
-losses are training signals in our method rather than the deployment
+losses are training objectives in our method rather than the deployment
 mechanism.
 
 \subsection{SAM and Parameter-Efficient Adaptation}
 \label{sec:related_sam}
 
 SAM \cite{kirillov2023sam} is a promptable segmentation foundation model with
-a frozen ViT image encoder, a prompt encoder, and a lightweight mask decoder
-that returns multiple masks together with predicted IoU scores. Full
+a pretrained ViT image encoder, a prompt encoder, and a lightweight mask
+decoder that returns multiple masks together with predicted IoU scores. Full
 fine-tuning is expensive and prone to overfitting on small target sets, so
-parameter-efficient adaptation has become the default. SAM-Adapter
+parameter-efficient adaptation has become a common choice. SAM-Adapter
 \cite{chen2023samadapter} injects task-specific adapters into the encoder;
 Conv-LoRA \cite{zhong2024convlora} adds convolutional parameters to low-rank
 adaptation to restore local inductive bias; CAT-SAM \cite{xiao2024catsam}
@@ -56,13 +58,13 @@ token for intricate structures.
 
 Prompt-free adaptation is particularly relevant to curvilinear structures
 because point and box prompts are ill-posed for dense, branching targets.
+SACM \cite{zhu2026sacm} removes the need for user prompts through dual-level
+adapters, adapter fusion, and a dual-stage decoder; CWSAM \cite{pu2025cwsam}
+uses class-wise adapters for SAR imagery. A related strategy generates prompts automatically:
 SAM-OCTA \cite{wang2024sam_octa} applies low-rank adaptation with prompt-point
-generation to OCTA vessel segmentation; CWSAM \cite{pu2025cwsam} uses
-class-wise adapters for SAR imagery; and SACM \cite{zhu2026sacm} replaces
-prompts with dual-level adapters, adapter fusion, and a dual-stage decoder.
-DCD follows this prompt-free adapter line and keeps the frozen-SAM scaffold;
-its contribution is the decoding and deployment rule rather than a new
-adapter architecture.
+generation to OCTA vessel segmentation. DCD follows the prompt-free line and
+keeps the frozen-SAM scaffold; its contribution is the decoding and deployment
+rule rather than a new adapter architecture.
 
 \subsection{Multi-Candidate Decoding and Test-Time Selection}
 \label{sec:related_selection}
@@ -76,13 +78,12 @@ multiple plausible hypotheses. In prompt-free curvilinear decoding, SACM
 confidence, refines them in Stage-2, and selects the final mask with an
 MLP-based IoU predictor.
 
-These approaches rely on a test-time score, selector, or fusion. The score is
-learned on the Seen distribution, so its calibration can change under domain
+Multi-candidate decoders typically rely on a test-time score or selector. The
+score is learned on the training distribution, so its calibration can change under domain
 shift; selecting for overlap may favor thicker, better-connected masks while
 sacrificing thin branches; and a selector or fusion branch adds inference
 cost. DCD keeps multiple candidates as training-time experts but commits to a
-fixed ranked slot at inference. Gating only determines the candidate order,
-and the fusion branch is discarded after training; no input-dependent
-selection or fusion is deployed. This differs from mixture-of-experts gating,
-where the deployed combination depends on the input, and from ensembles or
-test-time augmentation, which aggregate several predictions.
+fixed ranked slot (slot 3) at inference. Gating only determines the candidate
+order, and the fusion branch is discarded after training, so no test-time
+selector or fusion is deployed. This differs from mixture-of-experts gating,
+where the deployed combination depends on the input.

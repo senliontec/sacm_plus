@@ -92,9 +92,9 @@ Yannick Kirchhoff, Maximilian~R. Rokuss, Saikat Roy, Balint Kovacs, Constantin
 
 \bibitem[Kirillov et~al.(2023)Kirillov, Mintun, Ravi, Mao, Rolland, Gustafson,
   Xiao, Whitehead, Berg, Lo, Doll{\'a}r, and Girshick]{kirillov2023sam}
-Alexander Kirillov, Eric Mintun, Nikhila Ravi, Hanzi Mao, Chloe Rolland, Laura
-  Gustafson, Tete Xiao, Spencer Whitehead, Alexander~C. Berg, Wan-Yen Lo, Piotr
-  Doll{\'a}r, and Ross Girshick.
+Alexander Kirillov, Eric Mintun, Nikhila Ravi, Hanzi Mao, Chlo{\'e} Rolland,
+  Laura Gustafson, Tete Xiao, Spencer Whitehead, Alexander~C. Berg, Wan-Yen Lo,
+  Piotr Doll{\'a}r, and Ross Girshick.
 \newblock Segment anything.
 \newblock In \emph{IEEE/CVF International Conference on Computer Vision
   (ICCV)}, pages 3992--4003, 2023.
@@ -197,7 +197,7 @@ Suprosanna Shit, Johannes~C. Paetzold, Anjany Sekuboyina, Ivan Ezhov, Alexander
 \newblock {clDice} -- a novel topology-preserving loss function for tubular
   structure segmentation.
 \newblock In \emph{IEEE/CVF Conference on Computer Vision and Pattern
-  Recognition (CVPR)}, pages 11705--11715, 2021.
+  Recognition (CVPR)}, pages 16560--16569, 2021.
 
 \bibitem[Staal et~al.(2004)Staal, Abr{\`a}moff, Niemeijer, Viergever, and van
   Ginneken]{staal2004drive}
@@ -216,7 +216,7 @@ Juan~Miguel Valverde, Motoya Koga, Nijihiko Otsuka, and Anders~Bjorholm Dahl.
 
 \bibitem[Wang et~al.(2024)Wang, Chen, Ning, and Li]{wang2024sam_octa}
 Chengliang Wang, Xinrun Chen, Haojian Ning, and Shiying Li.
-\newblock {SAM-OCTA}: A fine-tuning strategy for applying foundation model
+\newblock {SAM-OCTA}: A fine-tuning strategy for applying foundation model to
   {OCTA} image segmentation tasks.
 \newblock In \emph{IEEE International Conference on Acoustics, Speech and
   Signal Processing (ICASSP)}, pages 1771--1775, 2024.
@@ -258,11 +258,10 @@ Yanfeng Zhou, Lingrui Li, Le Lu, and Minfeng Xu.
 \newblock In \emph{IEEE/CVF Conference on Computer Vision and Pattern
   Recognition (CVPR)}, pages 20852--20862, 2025{\natexlab{b}}.
 
-\bibitem[Zhu et~al.(2023)Zhu, Chen, Li, Cao, and Cheng]{zhu2023ucs}
+\bibitem[Zhu et~al.(2025)Zhu, Chen, Li, Cao, and Cheng]{zhu2025ucs}
 Kai Zhu, Li Chen, Dianshuo Li, Yunxiang Cao, and Jun Cheng.
 \newblock {UCS}: A universal model for curvilinear structure segmentation.
-\newblock In \emph{IEEE/CVF International Conference on Computer Vision
-  (ICCV)}, 2023.
+\newblock \emph{arXiv preprint arXiv:2504.04034}, 2025.
 
 \bibitem[Zhu et~al.(2026)Zhu, Chen, and Cheng]{zhu2026sacm}
 Kai Zhu, Li Chen, and Jun Cheng.

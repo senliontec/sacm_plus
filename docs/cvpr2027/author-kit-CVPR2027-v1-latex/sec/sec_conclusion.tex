@@ -1,0 +1,15 @@
+\section{Conclusion}
+\label{sec:conclusion}
+
+DCD revisits how a multi-candidate prompt-free decoder should deploy its
+candidates.  Instead of learning a per-image selector, it trains four
+candidates with dense, topology-aware, and role-specific supervision and
+always deploys slot~3, the last-ranked candidate.  On a 12-dataset 3-shot
+benchmark with ten baselines and four seeds, DCD ranks first on all four
+macro metrics.  The ablation attributes the largest single gain to the
+deployment rule and a further gain to role specialization, while showing
+that fusion and topology supervision mainly affect specific metrics.  The
+results also expose remaining gaps on thin-vessel and mortar datasets, where
+overlap and boundary accuracy trade off.  We hope the deterministic
+deployment view encourages simpler inference rules for prompt-free
+segmentation.

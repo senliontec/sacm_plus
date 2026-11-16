@@ -1,12 +1,17 @@
-\section{Qualitative Results}
+\subsection{Qualitative Analysis}
+\label{sec:qualitative}
+
+\subsubsection{Comparison with Baselines}
 Figure~\ref{fig:dcd_showcase} shows representative qualitative examples of
 DCD against four baselines.  Each row corresponds to one dataset, whose name
 is shown at the left.  The first column shows the raw input image, and each
 remaining column shows one method\'s prediction as an error map: white denotes
 true positives, red outlines false negatives, and green outlines false
 positives.  The yellow insets magnify the same
-local region in each prediction column.  The examples are illustrative; full
-per-dataset results are in the main table.
+local region in each prediction column.  The examples are illustrative;
+per-dataset results are in Tables~\ref{tab:per_dataset_unseen_i}--\ref{tab:per_dataset_novel}.  In these examples, DCD
+preserves more thin branches than the baselines, while the HRF and
+TopoMortar rows show that low-contrast structures remain difficult.
 
 \begin{figure}[t]
 \centering

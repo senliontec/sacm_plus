@@ -1,0 +1,16 @@
+\subsection{Limitations}
+\label{sec:limitations}
+
+Our study has several limitations.  It covers 12 datasets, 18 training
+images, and a single SAM ViT-L backbone; other backbones and larger support
+sets remain untested.  The macro average weights datasets equally, but DCD
+is not best on every dataset: it trails specialized or prompt-based methods
+on HRF and STARE, and its HD95 is higher on DeepCrack, STARE, XCAD, and
+TYRE.  TopoMortar remains a clear failure case relative to SAM-OCTA.  The
+deployed slot is selected on a six-image validation set and then frozen;
+this makes deployment deterministic but may be suboptimal for an individual
+unseen dataset.  Finally, baselines follow their official recipes, whose
+input resolutions and augmentation differ from DCD's; we did not re-tune
+them for the 3-shot protocol, so the comparison reflects faithful ports
+rather than exhaustive per-baseline tuning.  Four seeds reduce, but do not
+eliminate, split variance.

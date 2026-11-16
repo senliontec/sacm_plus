@@ -1,38 +1,5 @@
-\section{Datasets and Evaluation Protocol}
+\subsection{Datasets and Evaluation Protocol}
 \label{sec:datasets}
-
-\paragraph{Training data.}
-We follow the same 3-shot protocol as SACM~\cite{zhu2026sacm}.  From each of
-six Seen curvilinear benchmarks---DRIVE~\cite{staal2004drive},
-CHASEDB1~\cite{owen2009chasedb1}, DCA1~\cite{cervantes2019dca1},
-CrackTree200~\cite{zou2012cracktree}, CREMI~\cite{cremi2016}, and
-CORN~\cite{mou2019csnet}---we randomly sample three images for training and
-hold out one image for validation.  This yields 18 training and 6 validation
-images in total.  The support set is resampled independently for each of the
-four training seeds, while all test sets are fixed across seeds.  The six
-datasets cover retinal vessels, coronary vessels, cracks, neuron boundaries,
-and corneal nerves, spanning fundus, X-ray, EM, and microscopy images.
-
-\paragraph{Evaluation data.}
-We evaluate on 12 datasets that are never used for training or model
-selection.  The eight Unseen datasets---CHCrack5k~\cite{chen2025hacnetv2},
-DeepCrack~\cite{liu2019deepcrack}, FIVES~\cite{jin2022fives},
-HRF~\cite{budai2013robust}, LES-AV~\cite{orlando2018glaucoma},
-OCTA-500~\cite{li2024octa500}, STARE~\cite{hoover2000stare}, and
-XCAD~\cite{ma2021ssvs}---contain the same structure classes as the training
-data (vessels or cracks) but come from different datasets, modalities, and
-acquisition conditions.  The four Novel
-datasets---ROAD~\cite{mnih2013machine},
-TopoMortar~\cite{valverde2025topomortar}, WIRE$^{\dagger}$~\cite{zhu2026sacm},
-and TYRE$^{\dagger}$~\cite{zhu2026sacm}---contain structure classes that never appear during
-training (roads, mortar joints, wires, and tire treads).
-Table~\ref{tab:datasets} summarizes the modalities, targets, and sample
-counts.  Images range from $300\times300$ (DCA1) to $3504\times2336$ (HRF)
-pixels; all inputs are resized to $1024\times1024$ for training and
-inference, and predictions are resized back to the ground-truth resolution
-for evaluation.  Empty-ground-truth images are removed from CHCrack5k, and
-CREMI uses 2D membrane boundaries derived from the raw neuron IDs rather
-than the official 3D leaderboard.
 
 \begin{table}[t]
 \centering
@@ -72,3 +39,77 @@ Split & Distribution & Dataset & Modality & Target & Samples \\
 \bottomrule
 \end{tabular}
 \end{table}
+
+\paragraph{Training data.}
+We follow the same 3-shot protocol as SACM~\cite{zhu2026sacm}.  From each of
+six Seen curvilinear benchmarks---DRIVE~\cite{staal2004drive},
+CHASEDB1~\cite{owen2009chasedb1}, DCA1~\cite{cervantes2019dca1},
+CrackTree200~\cite{zou2012cracktree}, CREMI~\cite{cremi2016}, and
+CORN~\cite{mou2019csnet}---we randomly sample three images for training and
+hold out one image for validation.  This yields 18 training and 6 validation
+images in total.  The support set is resampled independently for each of the
+four training seeds, while all test sets are fixed across seeds.  The six
+datasets cover retinal vessels, coronary vessels, cracks, neuron boundaries,
+and corneal nerves, spanning fundus, X-ray, EM, and microscopy images.
+
+\paragraph{Evaluation data.}
+We evaluate on 12 datasets that are never used for training or model
+selection.  The eight Unseen datasets---CHCrack5k~\cite{chen2025hacnetv2},
+DeepCrack~\cite{liu2019deepcrack}, FIVES~\cite{jin2022fives},
+HRF~\cite{budai2013robust}, LES-AV~\cite{orlando2018glaucoma},
+OCTA-500~\cite{li2024octa500}, STARE~\cite{hoover2000stare}, and
+XCAD~\cite{ma2021ssvs}---contain the same structure classes as the training
+data (vessels or cracks) but differ in source dataset, modality, and
+acquisition conditions.  The four Novel
+datasets---ROAD~\cite{mnih2013machine},
+TopoMortar~\cite{valverde2025topomortar}, WIRE$^{\dagger}$~\cite{zhu2026sacm},
+and TYRE$^{\dagger}$~\cite{zhu2026sacm}---contain structure classes that never appear during
+training (roads, mortar joints, wires, and tire treads).
+Table~\ref{tab:datasets} summarizes the modalities, targets, and sample
+counts.  Images range from $300\times300$ (DCA1) to $3504\times2336$ (HRF)
+pixels.  DCD resizes inputs to $1024\times1024$ for training and inference,
+and predictions are resized back to the ground-truth resolution for
+evaluation; each baseline uses the input resolution of its official recipe.  Empty-ground-truth images are removed from CHCrack5k, and
+CREMI uses 2D membrane boundaries derived from the raw neuron IDs rather
+than the official 3D leaderboard.
+
+% Main-results table, declared here so it is placed at the top of the next page.
+\begin{table*}[!t]
+\centering
+\caption{Main results on the 12 evaluation datasets (8 Unseen and 4 Novel;
+Seen datasets are used for training only).  Four seeds, dataset-equal macro.
+Dice, IoU, and clDice are percentages; HD95 is in pixels (lower is better).
+$\pm$ denotes the sample standard deviation across the four training seeds.
+SAM-OCTA and SAM-Med2D are evaluated with oracle prompts.  Best results are red bold.}
+\label{tab:dcd_main}
+\scriptsize
+\setlength{\tabcolsep}{4.5pt}
+\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}lcccc@{}}
+\toprule
+Method & Dice $\uparrow$ & IoU $\uparrow$ & clDice $\uparrow$ & HD95 $\downarrow$ \\
+\midrule
+SAM-OCTA~\cite{wang2024sam_octa} & 56.16 $\pm$ 0.98 & 43.73 $\pm$ 0.87 & 63.46 $\pm$ 0.98 & 77.71 $\pm$ 4.04 \\
+CWSAM~\cite{pu2025cwsam} & 53.81 $\pm$ 1.20 & 40.33 $\pm$ 0.75 & 60.84 $\pm$ 1.19 & 75.08 $\pm$ 6.58 \\
+nnWNet~\cite{zhou2025nnwnet} & 41.93 $\pm$ 1.64 & 30.90 $\pm$ 1.45 & 47.63 $\pm$ 1.69 & 86.78 $\pm$ 4.01 \\
+U-Net~\cite{ronneberger2015unet} & 39.66 $\pm$ 0.96 & 28.03 $\pm$ 0.98 & 43.63 $\pm$ 0.59 & 89.97 $\pm$ 2.82 \\
+MaskVSC~\cite{zhou2025maskvsc} & 41.29 $\pm$ 1.04 & 30.11 $\pm$ 0.66 & 46.36 $\pm$ 1.08 & 94.06 $\pm$ 3.21 \\
+CS2-Net~\cite{mou2021cs2net} & 39.43 $\pm$ 1.95 & 28.30 $\pm$ 1.56 & 44.13 $\pm$ 1.50 & 95.31 $\pm$ 2.76 \\
+KnowSAM~\cite{huang2025knowsam} & 32.68 $\pm$ 1.67 & 22.35 $\pm$ 1.31 & 33.82 $\pm$ 1.68 & 105.81 $\pm$ 3.74 \\
+SegDINO~\cite{yang2025segdino} & 33.55 $\pm$ 3.17 & 22.50 $\pm$ 2.41 & 35.93 $\pm$ 3.66 & 99.23 $\pm$ 15.03 \\
+SAM-Med2D~\cite{cheng2023sammed2d} & 31.91 $\pm$ 0.99 & 21.02 $\pm$ 0.80 & 31.74 $\pm$ 0.95 & 123.93 $\pm$ 22.07 \\
+SACM~\cite{zhu2026sacm} & 56.24 $\pm$ 0.92 & 42.88 $\pm$ 0.95 & 62.26 $\pm$ 2.20 & 69.20 $\pm$ 4.74 \\
+\midrule
+\textbf{Ours} & \textcolor{red!80!black}{\textbf{58.76 $\pm$ 0.58}} & \textcolor{red!80!black}{\textbf{45.17 $\pm$ 0.56}} & \textcolor{red!80!black}{\textbf{66.02 $\pm$ 0.98}} & \textcolor{red!80!black}{\textbf{63.13 $\pm$ 1.61}} \\
+\bottomrule
+\end{tabular*}
+\end{table*}
+
+\paragraph{Metrics.}
+We report Dice, IoU, clDice~\cite{shit2021cldice}, and the 95th-percentile
+Hausdorff distance (HD95).  clDice measures overlap between predicted and
+ground-truth skeletons and reflects connectivity, whereas HD95 measures
+boundary error in pixels and is sensitive to missing branches.  For each
+dataset, we average the results over the four seeds and then take a
+dataset-equal macro average over the 12 test datasets, so that large test
+sets do not dominate.  No
+hyperparameter is tuned on Unseen or Novel data.

@@ -1,56 +1,30 @@
-\section{Main Results}
+\subsection{Main Results}
+\label{sec:main_results}
 
-All models are trained with 18 3-shot images from six Seen datasets;
-Unseen and Novel datasets are never used for training or model selection.
+% Table~\ref{tab:dcd_main} is declared in 4_dcd_datasets.tex for float placement.
 Table~\ref{tab:dcd_main} reports the macro results on the 12 evaluation
-datasets (8 Unseen and 4 Novel).  DCD obtains 58.76/45.17/66.02/63.13 and is
-best on all four metrics.  Table~\ref{tab:dcd_ablation} separates the
-deployment rule from the training components: DCD improves Dice, IoU, and
-clDice over gating+fusion, while its HD95 change is mixed.  SACM is a
-baseline, not an ablation, and is therefore reported in
-Table~\ref{tab:dcd_main}.  These are macro trends; the per-dataset
-breakdown is reported in Tables~\ref{tab:per_dataset_unseen_i}--\ref{tab:per_dataset_novel}.
+datasets (8 Unseen and 4 Novel).  DCD obtains 58.76 Dice, 45.17 IoU, 66.02
+clDice, and 63.13 HD95, ranking first on all four metrics.  The closest
+baselines are SACM and SAM-OCTA.  DCD improves over SACM
+(56.24/42.88/62.26/69.20) by 2.52 Dice, 2.29 IoU, and 3.76 clDice, and
+reduces HD95 by 6.07 pixels; SAM-OCTA is slightly behind SACM on Dice but
+stronger on IoU and clDice, and DCD still improves over it by 2.60 Dice,
+1.44 IoU, and 2.56 clDice while reducing HD95 by 14.58 pixels.  The strongest SAM-based methods occupy the top ranks, while
+the CNN and transformer baselines are substantially lower under the 3-shot
+protocol.  DCD also has the smallest seed variance on Dice, IoU, and HD95
+among the SAM-based methods, and its clDice variance is tied for the smallest.
+These are macro trends: Section~\ref{sec:per_dataset} shows that the gains
+are not uniform across datasets.
 
-\begin{table*}[t]
-\centering
-\caption{Main results on the 12 evaluation datasets (8 Unseen and 4 Novel;
-Seen datasets are used for training only).  Four seeds, dataset-equal macro.
-Dice, IoU, and clDice are percentages; HD95 is in pixels (lower is better).
-$\pm$ denotes the sample standard deviation across the four training seeds.
-Best results are red bold.}
-\label{tab:dcd_main}
-\scriptsize
-\setlength{\tabcolsep}{4.5pt}
-\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}lcccc@{}}
-\toprule
-Method & Dice $\uparrow$ & IoU $\uparrow$ & clDice $\uparrow$ & HD95 $\downarrow$ \\
-\midrule
-SAM-OCTA~\cite{wang2024sam_octa} & 56.16 $\pm$ 0.98 & 43.73 $\pm$ 0.87 & 63.46 $\pm$ 0.98 & 77.71 $\pm$ 4.04 \\
-CWSAM~\cite{pu2025cwsam} & 53.81 $\pm$ 1.20 & 40.33 $\pm$ 0.75 & 60.84 $\pm$ 1.19 & 75.08 $\pm$ 6.58 \\
-nnWNet~\cite{zhou2025nnwnet} & 41.93 $\pm$ 1.64 & 30.90 $\pm$ 1.45 & 47.63 $\pm$ 1.69 & 86.78 $\pm$ 4.01 \\
-U-Net~\cite{ronneberger2015unet} & 39.66 $\pm$ 0.96 & 28.03 $\pm$ 0.98 & 43.63 $\pm$ 0.59 & 89.97 $\pm$ 2.82 \\
-MaskVSC~\cite{zhou2025maskvsc} & 41.29 $\pm$ 1.04 & 30.11 $\pm$ 0.66 & 46.36 $\pm$ 1.08 & 94.06 $\pm$ 3.21 \\
-CS2Net~\cite{mou2021cs2net} & 39.43 $\pm$ 1.95 & 28.30 $\pm$ 1.56 & 44.13 $\pm$ 1.50 & 95.31 $\pm$ 2.76 \\
-KnowSAM~\cite{huang2025knowsam} & 32.68 $\pm$ 1.67 & 22.35 $\pm$ 1.31 & 33.82 $\pm$ 1.68 & 105.81 $\pm$ 3.74 \\
-SegDINO~\cite{yang2025segdino} & 33.55 $\pm$ 3.17 & 22.50 $\pm$ 2.41 & 35.93 $\pm$ 3.66 & 99.23 $\pm$ 15.03 \\
-SAM-Med2d~\cite{cheng2023sammed2d} & 31.91 $\pm$ 0.99 & 21.02 $\pm$ 0.80 & 31.74 $\pm$ 0.95 & 123.93 $\pm$ 22.07 \\
-SACM~\cite{zhu2026sacm} & 56.24 $\pm$ 0.92 & 42.88 $\pm$ 0.95 & 62.26 $\pm$ 2.20 & 69.20 $\pm$ 4.74 \\
-\midrule
-\textbf{Ours} & \textcolor{red!80!black}{\textbf{58.76 $\pm$ 0.58}} & \textcolor{red!80!black}{\textbf{45.17 $\pm$ 0.56}} & \textcolor{red!80!black}{\textbf{66.02 $\pm$ 0.98}} & \textcolor{red!80!black}{\textbf{63.13 $\pm$ 1.61}} \\
-\bottomrule
-\end{tabular*}
-\end{table*}
 
-\begin{table}[t]
+\begin{table}[!t]
 \centering
-\caption{Deployment-rule and training-component ablation on the same 12
-evaluation datasets (8 Unseen and 4 Novel; Seen used for training only).
-Four-seed mean absolute values, not deltas.  Dice/IoU/clDice in \%, HD95
-in pixels (lower is better).  ``gating + fusion'' selects and fuses
-candidates at test time; the following rows remove one training component.
-The full model uses the fixed third ranked candidate.  It is not
-uniformly best: \emph{w/o fusion} has lower HD95, and \emph{w/o topology}
-is slightly higher on Dice/IoU.}
+\caption{Deployment-rule and training-component ablation on the 12
+evaluation datasets.  Four-seed absolute means; Dice/IoU/clDice in \%, HD95
+in pixels (lower is better).  ``gating + fusion'' is test-time selection
+and fusion on the full model's checkpoint; the full model deploys the fixed
+last-ranked candidate (slot 3).  \emph{W/o fusion} has lower HD95, and
+\emph{w/o topology} is slightly higher on Dice/IoU.}
 \label{tab:dcd_ablation}
 \scriptsize
 \setlength{\tabcolsep}{2.5pt}
@@ -70,3 +44,25 @@ w/o topology supervision & 58.84 & 45.44 & 65.76 & 63.15 \\
 \bottomrule
 \end{tabular*}
 \end{table}
+
+\subsection{Ablation Study}
+\label{sec:ablation}
+
+
+
+Table~\ref{tab:dcd_ablation} isolates the deployment rule and the training
+components.  The first row uses gating and fusion at test time with the
+same trained weights as the full model; replacing this selector with the
+fixed slot improves Dice, IoU, and clDice by 1.22, 1.11, and 1.06 points,
+while HD95 changes by only 0.03 pixels.  Because the candidate experts are identical,
+this comparison directly supports the deployment-bottleneck hypothesis.  The
+native four-head control removes role losses and fusion; compared with the
+no-fusion variant, which keeps the role losses, the role objectives add 1.10
+Dice, 1.04 IoU, and 1.04 clDice, and reduce HD95 by 1.79 pixels.  Topology
+supervision mainly affects connectivity: removing it raises Dice and IoU by
+0.08 and 0.27 points but lowers clDice by 0.26 points.  Fusion is optional:
+removing it lowers Dice, IoU, and clDice by 0.12, 0.11, and 0.26 points but
+improves HD95 by 0.36 pixels.  We keep the full model because it is best on
+Dice, IoU, and clDice; the no-fusion variant is a competitive alternative
+when boundary accuracy is prioritized.  No component dominates every
+metric, but fixed deployment provides the largest single gain.

@@ -1,52 +1,50 @@
-\section{Qualitative Effect of the Deployment Rule}
+\subsubsection{Effect of the Deployment Rule}
+\label{sec:qual_deploy}
 Table~\ref{tab:dcd_ablation} quantifies the deployment-rule and
-training-component effects.  Figure~\ref{fig:dcd_deployment} shows four
+training-component effects.  Figure~\ref{fig:dcd_deployment} shows error maps for four
 representative cases.  OCTA-500 and TopoMortar are examples where DCD
 improves the prediction, while HRF and TYRE expose the Dice--HD95
-trade-off.  These examples are illustrative; dataset-level means are
-reported in Table~\ref{tab:dcd_ablation}.
+trade-off.  The fixed slot tends to recover more of the structure than
+gating+fusion, but it can lose boundary accuracy in low-contrast regions.
+These examples are illustrative; dataset-level means are reported in
+Table~\ref{tab:dcd_ablation}.
 
-\begin{figure*}[t]
+\begin{figure}[t]
 \centering
 \setlength{\tabcolsep}{0.5pt}
 \offinterlineskip
 \renewcommand{\arraystretch}{0}
-\newlength{\QualW}\setlength{\QualW}{\dimexpr\textwidth-6pt\relax}\divide\QualW by 6
-\begin{tabular}{@{}*{6}{c}@{}}
-\multicolumn{3}{c}{\shortstack{\textbf{OCTA-500}\\[1pt]\scriptsize \textcolor{blue!60!black}{DCD improves Dice}}} &
-\multicolumn{3}{c}{\shortstack{\textbf{TopoMortar}\\[1pt]\scriptsize \textcolor{blue!60!black}{DCD improves HD95}}} \\[2pt]
-\includegraphics[width=\QualW]{../img/dcd_deploy_qual/octa_raw.pdf} &
-\includegraphics[width=\QualW]{../img/dcd_deploy_qual/octa_gating.pdf} &
-\includegraphics[width=\QualW]{../img/dcd_deploy_qual/octa_dcd.pdf} &
-\includegraphics[width=\QualW]{../img/dcd_deploy_qual/topo_raw.pdf} &
-\includegraphics[width=\QualW]{../img/dcd_deploy_qual/topo_gating.pdf} &
-\includegraphics[width=\QualW]{../img/dcd_deploy_qual/topo_dcd.pdf} \\
-\makebox[\QualW][c]{\scriptsize Raw} &
-\makebox[\QualW][c]{\scriptsize Gating + fusion} &
-\makebox[\QualW][c]{\scriptsize DCD} &
-\makebox[\QualW][c]{\scriptsize Raw} &
-\makebox[\QualW][c]{\scriptsize Gating + fusion} &
-\makebox[\QualW][c]{\scriptsize DCD} \\[4pt]
-\multicolumn{3}{c}{\shortstack{\textbf{HRF}\\[1pt]\scriptsize \textcolor{orange!80!black}{Dice/HD95 trade-off}}} &
-\multicolumn{3}{c}{\shortstack{\textbf{TYRE}\\[1pt]\scriptsize \textcolor{red!70!black}{DCD slightly worse}}} \\[2pt]
-\includegraphics[width=\QualW]{../img/dcd_deploy_qual/hrf_raw.pdf} &
-\includegraphics[width=\QualW]{../img/dcd_deploy_qual/hrf_gating.pdf} &
-\includegraphics[width=\QualW]{../img/dcd_deploy_qual/hrf_dcd.pdf} &
-\includegraphics[width=\QualW]{../img/dcd_deploy_qual/tyre_raw.pdf} &
-\includegraphics[width=\QualW]{../img/dcd_deploy_qual/tyre_gating.pdf} &
-\includegraphics[width=\QualW]{../img/dcd_deploy_qual/tyre_dcd.pdf} \\
-\makebox[\QualW][c]{\scriptsize Raw} &
-\makebox[\QualW][c]{\scriptsize Gating + fusion} &
-\makebox[\QualW][c]{\scriptsize DCD} &
-\makebox[\QualW][c]{\scriptsize Raw} &
-\makebox[\QualW][c]{\scriptsize Gating + fusion} &
-\makebox[\QualW][c]{\scriptsize DCD} \\
+\newlength{\QualW}\setlength{\QualW}{\dimexpr\columnwidth-12pt\relax}\divide\QualW by 4
+\begin{tabular}{@{}c*{4}{c}@{}}
+\rotatebox{90}{\scriptsize Raw} &
+\includegraphics[width=\QualW]{../img/dcd_deploy_qual_em/octa_raw.pdf} &
+\includegraphics[width=\QualW]{../img/dcd_deploy_qual_em/topo_raw.pdf} &
+\includegraphics[width=\QualW]{../img/dcd_deploy_qual_em/hrf_raw.pdf} &
+\includegraphics[width=\QualW]{../img/dcd_deploy_qual_em/tyre_raw.pdf} \\[1.5pt]
+\rotatebox{90}{\scriptsize Gating + fusion} &
+\includegraphics[width=\QualW]{../img/dcd_deploy_qual_em/octa_gating.pdf} &
+\includegraphics[width=\QualW]{../img/dcd_deploy_qual_em/topo_gating.pdf} &
+\includegraphics[width=\QualW]{../img/dcd_deploy_qual_em/hrf_gating.pdf} &
+\includegraphics[width=\QualW]{../img/dcd_deploy_qual_em/tyre_gating.pdf} \\[1.5pt]
+\rotatebox{90}{\scriptsize DCD} &
+\includegraphics[width=\QualW]{../img/dcd_deploy_qual_em/octa_dcd.pdf} &
+\includegraphics[width=\QualW]{../img/dcd_deploy_qual_em/topo_dcd.pdf} &
+\includegraphics[width=\QualW]{../img/dcd_deploy_qual_em/hrf_dcd.pdf} &
+\includegraphics[width=\QualW]{../img/dcd_deploy_qual_em/tyre_dcd.pdf} \\[4pt]
+{} &
+\makebox[\QualW][c]{\scriptsize OCTA-500} &
+\makebox[\QualW][c]{\scriptsize TopoMortar} &
+\makebox[\QualW][c]{\scriptsize HRF} &
+\makebox[\QualW][c]{\scriptsize TYRE} \\
 \end{tabular}
-\caption{Qualitative examples of the deployment rule.  Each block shows a
-raw test image, the gating+fusion prediction, and the DCD prediction, with
-predictions overlaid in cyan.  OCTA-500 and TopoMortar illustrate cases
-where DCD improves Dice or HD95; HRF and TYRE show the corresponding
-trade-off and failure cases.  These examples are illustrative; the
-dataset-level quantitative comparison is in Table~\ref{tab:dcd_ablation}.}
+\caption{Qualitative examples of the deployment rule.  Each column
+corresponds to one dataset; the three rows show the raw image, the
+gating+fusion error map, and the DCD error map.  White denotes true
+positives, red false negatives, and green false positives; black denotes
+background, and the yellow box marks the same region across the three rows.
+OCTA-500 and TopoMortar illustrate cases where DCD improves Dice or HD95;
+HRF and TYRE show the corresponding trade-off and failure cases.  These
+examples are illustrative; the dataset-level quantitative comparison is in
+Table~\ref{tab:dcd_ablation}.}
 \label{fig:dcd_deployment}
-\end{figure*}
+\end{figure}
