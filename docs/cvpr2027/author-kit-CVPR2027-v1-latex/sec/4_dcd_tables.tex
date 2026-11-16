@@ -48,9 +48,9 @@ evaluation datasets (8 Unseen and 4 Novel; Seen used for training only).
 Four-seed mean absolute values, not deltas.  Dice/IoU/clDice in \%, HD95
 in pixels (lower is better).  ``gating + fusion'' selects and fuses
 candidates at test time; the following rows remove one training component.
-Ours uses the fixed third candidate.  Ours is not uniformly best:
-\emph{w/o fusion} has lower HD95, and \emph{w/o topology} is slightly
-higher on Dice/IoU.}
+The full model uses the fixed third ranked candidate.  It is not
+uniformly best: \emph{w/o fusion} has lower HD95, and \emph{w/o topology}
+is slightly higher on Dice/IoU.}
 \label{tab:dcd_ablation}
 \scriptsize
 \setlength{\tabcolsep}{2.5pt}
@@ -66,7 +66,7 @@ w/o fusion loss & 58.64 & 45.06 & 65.76 & 62.77 \\
 native four heads & 57.54 & 44.02 & 64.72 & 64.56 \\
 w/o topology supervision & 58.84 & 45.44 & 65.76 & 63.15 \\
 \midrule
-\textcolor{red!80!black}{\textbf{Ours}} & \textcolor{red!80!black}{\textbf{58.76}} & \textcolor{red!80!black}{\textbf{45.17}} & \textcolor{red!80!black}{\textbf{66.02}} & \textcolor{red!80!black}{\textbf{63.13}} \\
+\textcolor{red!80!black}{\textbf{Full model}} & \textcolor{red!80!black}{\textbf{58.76}} & \textcolor{red!80!black}{\textbf{45.17}} & \textcolor{red!80!black}{\textbf{66.02}} & \textcolor{red!80!black}{\textbf{63.13}} \\
 \bottomrule
 \end{tabular*}
 \end{table}
