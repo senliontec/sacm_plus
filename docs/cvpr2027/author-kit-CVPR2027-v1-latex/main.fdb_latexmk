@@ -1,14 +1,14 @@
 # Fdb version 4
-["bibtex main"] 1794847036.37215 "main.aux" "main.bbl" "main" 1794847048.59428 0
+["bibtex main"] 1794847369.03021 "main.aux" "main.bbl" "main" 1794847370.50052 0
   "./ieeenat_fullname.bst" 1792569834 26900 a296cb1ebee73f7bfa143751dc4e1dfd ""
   "./main.bib" 1794846370.8101 11978 c3c0ae228a1f8d26732037a1419dccbc ""
   "./parsing_refs.bib" 1794846597.02357 3878 30c7ffb153e3bc9b645b728deff6123d ""
-  "main.aux" 1794847048.09484 43559 18461336083bc3e1a5303b0769e30f0b "pdflatex"
+  "main.aux" 1794847369.96789 43559 18461336083bc3e1a5303b0769e30f0b "pdflatex"
   (generated)
   "main.bbl"
   "main.blg"
   (rewritten before read)
-["pdflatex"] 1794847047.37239 "main.tex" "main.pdf" "main" 1794847048.59477 0
+["pdflatex"] 1794847369.15252 "main.tex" "main.pdf" "main" 1794847370.50097 0
   "../img/dcd_deploy_qual_em/hrf_dcd.pdf" 1794845525.82697 38835 a58cee06b3fee05bfd1ea3a40be181ff ""
   "../img/dcd_deploy_qual_em/hrf_gating.pdf" 1794845525.82406 37860 b1721778f1be8034f67910a800f5ddcf ""
   "../img/dcd_deploy_qual_em/hrf_raw.pdf" 1794845525.82144 12241 1fe1a8fc162a6353d53bf68a9f918561 ""
@@ -197,10 +197,10 @@
   "/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map" 1784550493 5541477 3118940318599480888143717dd32d64 ""
   "/var/lib/texmf/web2c/pdftex/pdflatex.fmt" 1784550512 3638469 3490623590986725f458b6c618cece61 ""
   "cvpr.sty" 1792569834 17887 5b5ac66ec175624b96c33aea06f8d60c ""
-  "main.aux" 1794847048.09484 43559 18461336083bc3e1a5303b0769e30f0b "pdflatex"
-  "main.bbl" 1794847036.49009 13680 10cbdb23f83b5a69ece512e51aa1f202 "bibtex main"
-  "main.brf" 1794847048.09684 7641 820d790a65828884d5bcd2104f6662e6 "pdflatex"
-  "main.out" 1794847048.09684 3445 90200357e86690a0166b8f7ca4772dbc "pdflatex"
+  "main.aux" 1794847369.96789 43559 18461336083bc3e1a5303b0769e30f0b "pdflatex"
+  "main.bbl" 1794847369.14793 13680 10cbdb23f83b5a69ece512e51aa1f202 "bibtex main"
+  "main.brf" 1794847369.96956 7641 820d790a65828884d5bcd2104f6662e6 "pdflatex"
+  "main.out" 1794847369.96956 3445 90200357e86690a0166b8f7ca4772dbc "pdflatex"
   "main.tex" 1794844181.72373 2320 3a534f4c587c8b24c2283c792a5159d0 ""
   "preamble.tex" 1794832106.26567 1426 9c482a87b6004047feaa5333e9c0ad59 ""
   "sec/4_dcd_datasets.tex" 1794846622.35613 6556 ef9eefe1adc19cff6fa8f5ad2dd16db5 ""
@@ -210,9 +210,9 @@
   "sec/4_dcd_limitations.tex" 1794844024.60033 963 0ae3137978063f135572751c9ba4b335 ""
   "sec/4_dcd_tables.tex" 1794846832.3385 3621 04c0a77ce90d8213c401cb48cbd3ce59 ""
   "sec/5_per_dataset.tex" 1794847042.8666 12498 1bcf5c1f3d27e23d6bfcf042fbf9180a ""
-  "sec/sec_abstract.tex" 1794846587.04916 1875 35e9ab926bf8cc5b769986602ed8cf5f ""
+  "sec/sec_abstract.tex" 1794847297.04306 1875 35e9ab926bf8cc5b769986602ed8cf5f ""
   "sec/sec_conclusion.tex" 1794847030.04942 852 fa26bfff7e2481d088dc2112fdf50cfb ""
-  "sec/sec_introduction.tex" 1794846803.03392 9152 27b7c47570d2f09382ed7d370bcd11e6 ""
+  "sec/sec_introduction.tex" 1794847312.74041 9152 27b7c47570d2f09382ed7d370bcd11e6 ""
   "sec/sec_methodology.tex" 1794846957.34751 6373 477f07c921279a519c256dfe2f4f4d23 ""
   "sec/sec_relatedwork.tex" 1794846531.38368 5315 29a043acd98d0f4bd74eff5dfd70f2ff ""
   (generated)
