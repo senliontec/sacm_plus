@@ -1,30 +1,15 @@
 \begin{abstract}
-Curvilinear structure segmentation is a challenging task: the targets are
-often thin, low-contrast, and topologically fragile, while annotations are
-scarce and test domains vary substantially.  Prompt-free adaptation of a
-frozen SAM with lightweight adapters has made few-shot segmentation
-practical, but existing decoders often produce multiple candidate masks and
-rely on test-time gating or fusion to select among them.  This
-input-dependent selection is difficult to calibrate under domain shift,
-increases inference complexity, and can break structural connectivity.
-These issues indicate that the bottleneck is not generating more
-candidates, but how to deploy them.  We therefore propose Deterministic
-Candidate Decoding (DCD), which replaces per-image selection with a fixed
-deployment rule.  DCD trains four candidate heads with dense supervision
-and complementary topology-aware objectives, but always deploys the same
-fixed candidate head at inference.  This turns a multi-candidate decoder
-into a deterministic single-pass predictor while retaining the benefits of
-candidate specialization.  Trained with only 18 images from six Seen
-datasets, DCD is evaluated on 12 datasets (8 Unseen and 4 Novel) spanning
-cracks, retinal and coronary vessels, roads, wires, and tyres.  Against ten
-representative CNN- and SAM-based baselines, DCD achieves
-state-of-the-art macro-averaged performance on this 12-dataset few-shot
-benchmark.  Averaged over four training seeds, it obtains 58.76 Dice,
-45.17 IoU, 66.02 clDice, and 63.13 HD95, ranking first on all four macro
-metrics among all compared methods.  These gains are obtained with only 18
-training images and a single fixed candidate head at inference.  Although
-the improvements are not perfectly uniform across every dataset, DCD
-achieves the best result on every macro-averaged metric and remains
-competitive on the datasets where it trades HD95 for overlap.
+Curvilinear structure segmentation is a challenging task: the targets are often thin, low-contrast, and topologically fragile, while annotations are scarce and test domains vary substantially.  
+Prompt-free adaptation of a frozen SAM with lightweight adapters has made few-shot segmentation practical, but existing decoders often produce multiple candidate masks and rely on test-time gating or fusion to select among them.  
+This input-dependent selection is difficult to calibrate under domain shift, increases inference complexity, and can break structural connectivity.
+These issues indicate that the bottleneck is not generating more candidates, but how to deploy them.  
+We therefore propose Deterministic Candidate Decoding (DCD), which replaces per-image selection with a fixed deployment rule.  
+DCD trains four candidate heads with dense supervision and complementary topology-aware objectives, but always deploys the same fixed candidate head at inference.  
+This turns a multi-candidate decoder into a deterministic single-pass predictor while retaining the benefits of candidate specialization.  
+Trained with only 18 images from six Seen datasets, DCD is evaluated on 12 datasets (8 Unseen and 4 Novel) spanning cracks, retinal and coronary vessels, roads, wires, and tyres.  
+Against ten representative CNN- and SAM-based baselines, DCD achieves state-of-the-art macro-averaged performance on this 12-dataset few-shot benchmark.  
+Averaged over four training seeds, it obtains 58.76 Dice, 45.17 IoU, 66.02 clDice, and 63.13 HD95, ranking first on all four macro metrics among all compared methods.  
+These gains are obtained with only 18 training images and a single fixed candidate head at inference.   
+Although the improvements are not perfectly uniform across every dataset, DCD achieves the best result on every macro-averaged metric and remains competitive on the datasets where it trades HD95 for overlap. 
 The code and data are available at \textcolor{cvprblue}{\url{https://github.com/Liverpool0519/DCD}}.
 \end{abstract}
