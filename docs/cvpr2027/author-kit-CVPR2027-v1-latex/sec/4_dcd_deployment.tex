@@ -1,23 +1,52 @@
-\section{Dataset-Level Effect of the Deployment Rule}
-Table~\ref{tab:dcd_ablation} reports the macro effect of replacing
-gating+fusion with the fixed candidate.  Figure~\ref{fig:dcd_deployment}
-shows the per-dataset trade-off.  DCD improves both Dice and HD95 on two
-datasets, improves Dice but degrades HD95 on six, improves HD95 but degrades
-Dice on two, and degrades both on two.  The large HD95 gain on TopoMortar
-(+24.1 px) contrasts with HD95 losses on most other datasets, which is why
-we do not claim uniform superiority.
+\section{Qualitative Effect of the Deployment Rule}
+Table~\ref{tab:dcd_ablation} quantifies the deployment-rule and
+training-component effects.  Figure~\ref{fig:dcd_deployment} shows four
+representative cases.  OCTA-500 and TopoMortar are examples where DCD
+improves the prediction, while HRF and TYRE expose the Dice--HD95
+trade-off.  These examples are illustrative; dataset-level means are
+reported in Table~\ref{tab:dcd_ablation}.
 
 \begin{figure*}[t]
 \centering
-\includegraphics[width=\textwidth]{../figures/fig4_deployment_dumbbell.pdf}
-\caption{Dataset-level effect of the deterministic deployment rule.  Each
-row is one of the 12 evaluation datasets; the hollow marker is
-gating+fusion and the filled marker is DCD.  The line length is the gain;
-positive values indicate DCD is better.  Dice gains are in percentage
-points and HD95 gains in pixels.  Unseen datasets are above the dashed
-line, Novel datasets below it.  DCD improves Dice on 8/12 datasets and
-HD95 on 4/12; the large HD95 gain on TopoMortar contrasts with HD95 losses
-on several other datasets.  Absolute values are reported in Table~5; all
-values are four-seed means.}
+\setlength{\tabcolsep}{0.5pt}
+\offinterlineskip
+\renewcommand{\arraystretch}{0}
+\newlength{\QualW}\setlength{\QualW}{\dimexpr\textwidth-6pt\relax}\divide\QualW by 6
+\begin{tabular}{@{}*{6}{c}@{}}
+\multicolumn{3}{c}{\shortstack{\textbf{OCTA-500}\\[1pt]\scriptsize \textcolor{blue!60!black}{DCD improves Dice}}} &
+\multicolumn{3}{c}{\shortstack{\textbf{TopoMortar}\\[1pt]\scriptsize \textcolor{blue!60!black}{DCD improves HD95}}} \\[2pt]
+\includegraphics[width=\QualW]{../img/dcd_deploy_qual/octa_raw.pdf} &
+\includegraphics[width=\QualW]{../img/dcd_deploy_qual/octa_gating.pdf} &
+\includegraphics[width=\QualW]{../img/dcd_deploy_qual/octa_dcd.pdf} &
+\includegraphics[width=\QualW]{../img/dcd_deploy_qual/topo_raw.pdf} &
+\includegraphics[width=\QualW]{../img/dcd_deploy_qual/topo_gating.pdf} &
+\includegraphics[width=\QualW]{../img/dcd_deploy_qual/topo_dcd.pdf} \\
+\makebox[\QualW][c]{\scriptsize Raw} &
+\makebox[\QualW][c]{\scriptsize Gating + fusion} &
+\makebox[\QualW][c]{\scriptsize DCD} &
+\makebox[\QualW][c]{\scriptsize Raw} &
+\makebox[\QualW][c]{\scriptsize Gating + fusion} &
+\makebox[\QualW][c]{\scriptsize DCD} \\[4pt]
+\multicolumn{3}{c}{\shortstack{\textbf{HRF}\\[1pt]\scriptsize \textcolor{orange!80!black}{Dice/HD95 trade-off}}} &
+\multicolumn{3}{c}{\shortstack{\textbf{TYRE}\\[1pt]\scriptsize \textcolor{red!70!black}{DCD slightly worse}}} \\[2pt]
+\includegraphics[width=\QualW]{../img/dcd_deploy_qual/hrf_raw.pdf} &
+\includegraphics[width=\QualW]{../img/dcd_deploy_qual/hrf_gating.pdf} &
+\includegraphics[width=\QualW]{../img/dcd_deploy_qual/hrf_dcd.pdf} &
+\includegraphics[width=\QualW]{../img/dcd_deploy_qual/tyre_raw.pdf} &
+\includegraphics[width=\QualW]{../img/dcd_deploy_qual/tyre_gating.pdf} &
+\includegraphics[width=\QualW]{../img/dcd_deploy_qual/tyre_dcd.pdf} \\
+\makebox[\QualW][c]{\scriptsize Raw} &
+\makebox[\QualW][c]{\scriptsize Gating + fusion} &
+\makebox[\QualW][c]{\scriptsize DCD} &
+\makebox[\QualW][c]{\scriptsize Raw} &
+\makebox[\QualW][c]{\scriptsize Gating + fusion} &
+\makebox[\QualW][c]{\scriptsize DCD} \\
+\end{tabular}
+\caption{Qualitative examples of the deployment rule.  Each block shows a
+raw test image, the gating+fusion prediction, and the DCD prediction, with
+predictions overlaid in cyan.  OCTA-500 and TopoMortar illustrate cases
+where DCD improves Dice or HD95; HRF and TYRE show the corresponding
+trade-off and failure cases.  These examples are illustrative; the
+dataset-level quantitative comparison is in Table~\ref{tab:dcd_ablation}.}
 \label{fig:dcd_deployment}
 \end{figure*}
