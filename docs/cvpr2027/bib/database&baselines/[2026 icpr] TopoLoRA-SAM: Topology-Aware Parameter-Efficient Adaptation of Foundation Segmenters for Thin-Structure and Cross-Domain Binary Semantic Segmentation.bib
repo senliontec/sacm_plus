@@ -1,0 +1,21 @@
+@InProceedings{10.1007/978-3-032-31397-3_45,
+author="Khazem, Salim",
+editor="De Marsico, Maria
+and Ho, Tin Kam
+and Jurie, Frederic
+and Liu, Cheng-Lin
+and Lopresti, Daniel
+and Nystr{\"o}m, Ingela
+and Ogier, Jean-Marc
+and Ross, Arun
+and Wang, Liang",
+title="TopoLoRA-SAM: Topology-Aware Parameter-Efficient Adaptation of Foundation Segmenters for Thin-Structure and Cross-Domain Binary Semantic Segmentation",
+booktitle="Pattern Recognition",
+year="2027",
+publisher="Springer Nature Switzerland",
+address="Cham",
+pages="682--696",
+abstract="Foundation segmentation models such as the Segment Anything Model (SAM) exhibit strong zero-shot generalization through large-scale pretraining, but adapting them to domain-specific semantic segmentation remains challenging, particularly for thin structures (e.g., retinal vessels) and noisy modalities (e.g., SAR imagery). Full fine-tuning is computationally expensive and risks catastrophic forgetting. We propose TopoLoRA-SAM, a topology-aware and parameter-efficient adaptation framework for binary semantic segmentation. TopoLoRA-SAM injects Low-Rank Adaptation (LoRA) into the frozen ViT encoder, augmented with a lightweight spatial convolutional adapter and optional topology-aware supervision via differentiable clDice. We evaluate our approach on five benchmarks spanning retinal vessel segmentation (DRIVE, STARE, CHASE{\_}DB1), polyp segmentation (Kvasir-SEG), and SAR sea/land segmentation (SL-SSDD), comparing against U-Net, DeepLabV3+, SegFormer, and Mask2Former. TopoLoRA-SAM achieves the best retina-average Dice and the best overall average Dice across datasets, while training only 5.2{\%} of model parameters ({\$}{\$}{\backslash}sim {\$}{\$}∼4.9M). On the challenging CHASE{\_}DB1 dataset, our method substantially improves segmentation accuracy and robustness, demonstrating that topology-aware parameter-efficient adaptation can match or exceed fully fine-tuned specialist models. Code is available at : https://github.com/salimkhazem/Seglab.git",
+isbn="978-3-032-31397-3"
+}
+

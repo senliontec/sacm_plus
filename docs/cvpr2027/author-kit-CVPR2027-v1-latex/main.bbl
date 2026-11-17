@@ -1,4 +1,4 @@
-\begin{thebibliography}{35}
+\begin{thebibliography}{43}
 \providecommand{\natexlab}[1]{#1}
 \providecommand{\url}[1]{\texttt{#1}}
 \expandafter\ifx\csname urlstyle\endcsname\relax
@@ -35,6 +35,13 @@ Tianrun Chen, Lanyun Zhu, Chaotao Ding, Runlong Cao, Yan Wang, Shangzhan Zhang,
 \newblock In \emph{IEEE/CVF International Conference on Computer Vision
   Workshops (ICCVW)}, pages 3359--3367, 2023.
 
+\bibitem[Chen et~al.(2026)Chen, Chen, Ou, and Li]{chen2026capro}
+Zhuangzhuang Chen, Qiangyu Chen, Chubin Ou, and Xiaomeng Li.
+\newblock {CaPro}: Curvilinear-aware prompt learning with single unlabeled
+  image for cost-effective curvilinear structure segmentation.
+\newblock In \emph{Proceedings of the AAAI Conference on Artificial
+  Intelligence}, pages 3210--3218, 2026.
+
 \bibitem[Cheng et~al.(2023)Cheng, Ye, Deng, Chen, Li, Wang, Su, Huang, Chen,
   Jiang, Sun, He, Zhang, Zhu, and Qiao]{cheng2023sammed2d}
 Junlong Cheng, Jin Ye, Zhongying Deng, Jianpin Chen, Tianbin Li, Haoyu Wang,
@@ -43,12 +50,27 @@ Junlong Cheng, Jin Ye, Zhongying Deng, Jianpin Chen, Tianbin Li, Haoyu Wang,
 \newblock {SAM-Med2D}.
 \newblock \emph{arXiv preprint arXiv:2308.16184}, 2023.
 
+\bibitem[Esmaeilzadeh et~al.(2025)Esmaeilzadeh, Garaaghaji, Azad, and
+  Oner]{esmaeilzadeh2025cape}
+Elyar Esmaeilzadeh, Ehsan Garaaghaji, Farzad~Hallaji Azad, and Doruk Oner.
+\newblock {CAPE}: Connectivity-aware path enforcement loss for curvilinear
+  structure delineation.
+\newblock In \emph{Medical Image Computing and Computer Assisted Intervention
+  (MICCAI)}, pages 183--193, 2025.
+
 \bibitem[Hoover et~al.(2000)Hoover, Kouznetsova, and Goldbaum]{hoover2000stare}
 A.~D. Hoover, V. Kouznetsova, and M. Goldbaum.
 \newblock Locating blood vessels in retinal images by piecewise threshold
   probing of a matched filter response.
 \newblock \emph{IEEE Transactions on Medical Imaging}, 19\penalty0
   (3):\penalty0 203--210, 2000.
+
+\bibitem[Hu et~al.(2025)Hu, Lin, Cheng, and Tang]{hu2025unicurvseg}
+Qiuting Hu, Li Lin, Pujin Cheng, and Xiaoying Tang.
+\newblock {UniCurvSeg}: Learning contextual prompt for universal vessel-like
+  curvilinear structure segmentation.
+\newblock In \emph{IEEE International Symposium on Biomedical Imaging (ISBI)},
+  pages 1--5, 2025.
 
 \bibitem[Huang et~al.(2025)Huang, Zhou, Fu, Zhang, Zhou, Gong, and
   Liang]{huang2025knowsam}
@@ -58,6 +80,12 @@ Kaiwen Huang, Tao Zhou, Huazhu Fu, Yizhe Zhang, Yi Zhou, Chen Gong, and Dong
   semi-supervised medical image segmentation.
 \newblock \emph{IEEE Transactions on Medical Imaging}, 44\penalty0
   (5):\penalty0 2295--2306, 2025.
+
+\bibitem[Jiang et~al.(2025)Jiang, Lv, Gong, Li, and Ou]{jiang2025finesam}
+Weili Jiang, Jinrong Lv, Xun Gong, Xiaomeng Li, and Chubin Ou.
+\newblock Gate to the vessel: Residual experts restore what {SAM} overlooks.
+\newblock In \emph{Advances in Neural Information Processing Systems
+  (NeurIPS)}, pages 105305--105329, 2025.
 
 \bibitem[Jin et~al.(2022)Jin, Huang, Zhou, Li, Yan, Sun, Zhang, Wang, and
   Ye]{jin2022fives}
@@ -73,6 +101,14 @@ Lei Ke, Mingqiao Ye, Martin Danelljan, Yifan Liu, Yu-Wing Tai, Chi-Keung Tang,
 \newblock Segment anything in high quality.
 \newblock In \emph{Advances in Neural Information Processing Systems
   (NeurIPS)}, pages 29914--29934, 2023.
+
+\bibitem[Khazem(2027)]{khazem2027topolorasam}
+Salim Khazem.
+\newblock {TopoLoRA-SAM}: Topology-aware parameter-efficient adaptation of
+  foundation segmenters for thin-structure and cross-domain binary semantic
+  segmentation.
+\newblock In \emph{International Conference on Pattern Recognition (ICPR)},
+  pages 682--696, 2027.
 
 \bibitem[Kirchhoff et~al.(2024)Kirchhoff, Rokuss, Roy, Kovacs, Ulrich, Wald,
   Zenk, Vollmuth, Kleesiek, Isensee, and
@@ -102,6 +138,13 @@ Simon A.~A. Kohl, Bernardino Romera-Paredes, Clemens Meyer, Jeffrey~De Fauw,
 \newblock A probabilistic {U-Net} for segmentation of ambiguous images.
 \newblock In \emph{Advances in Neural Information Processing Systems
   (NeurIPS)}, 2018.
+
+\bibitem[Lei et~al.(2026)Lei, Zhong, Xiao, Yang, and Wu]{lei2026pepa}
+Qin Lei, Jiang Zhong, Xin Xiao, Yuming Yang, and Hao Wu.
+\newblock From reconstruction to decision: A post-encoder plug-in adapter for
+  curvilinear segmentation.
+\newblock In \emph{European Conference on Computer Vision (ECCV)}, pages
+  394--410, 2026.
 
 \bibitem[Li et~al.(2024)Li, Huang, Xu, Yang, Zhang, Ji, Xie, Yuan, Liu, and
   Chen]{li2024octa500}
@@ -216,6 +259,13 @@ Chengliang Wang, Xinrun Chen, Haojian Ning, and Shiying Li.
 \newblock In \emph{IEEE International Conference on Acoustics, Speech and
   Signal Processing (ICASSP)}, pages 1771--1775, 2024.
 
+\bibitem[Wu et~al.(2024)Wu, Chen, Liu, Yue, and Zhuang]{wu2024deepclosing}
+Qian Wu, Yufei Chen, Wei Liu, Xiaodong Yue, and Xiahai Zhuang.
+\newblock Deep closing: Enhancing topological connectivity in medical tubular
+  segmentation.
+\newblock \emph{IEEE Transactions on Medical Imaging}, 43\penalty0
+  (11):\penalty0 3990--4003, 2024.
+
 \bibitem[Xiao et~al.(2024)Xiao, Xuan, Qi, Xing, Ren, Zhang, Shao, and
   Lu]{xiao2024catsam}
 Aoran Xiao, Weihao Xuan, Heli Qi, Yun Xing, Ruijie Ren, Xiaoqin Zhang, Ling
@@ -238,21 +288,30 @@ Zihan Zhong, Zhiqiang Tang, Tong He, Haoyang Fang, and Chun Yuan.
 \newblock In \emph{International Conference on Learning Representations
   (ICLR)}, 2024.
 
-\bibitem[Zhou et~al.(2025{\natexlab{a}})Zhou, Ahmed, Wang, Newman, Schmetterer,
+\bibitem[Zhou et~al.(2025{\natexlab{a}})Zhou, Wang, Li, Qu, Guo, Liu, Tang,
+  Lin, and Zheng]{zhou2025topotta}
+Jiale Zhou, Wenhan Wang, Shikun Li, Xiaolei Qu, Xin Guo, Yizhong Liu, Wenzhong
+  Tang, Xun Lin, and Yefeng Zheng.
+\newblock {TopoTTA}: Topology-enhanced test-time adaptation for tubular
+  structure segmentation.
+\newblock In \emph{IEEE/CVF International Conference on Computer Vision
+  (ICCV)}, pages 24123--24134, 2025{\natexlab{a}}.
+
+\bibitem[Zhou et~al.(2025{\natexlab{b}})Zhou, Ahmed, Wang, Newman, Schmetterer,
   Fu, Cheng, and Tan]{zhou2025maskvsc}
 Yi Zhou, Thiara~Sana Ahmed, Meng Wang, Eric~A. Newman, Leopold Schmetterer,
   Huazhu Fu, Jun Cheng, and Bingyao Tan.
 \newblock Masked vascular structure segmentation and completion in retinal
   images.
 \newblock \emph{IEEE Transactions on Medical Imaging}, 44\penalty0
-  (6):\penalty0 2492--2503, 2025{\natexlab{a}}.
+  (6):\penalty0 2492--2503, 2025{\natexlab{b}}.
 
-\bibitem[Zhou et~al.(2025{\natexlab{b}})Zhou, Li, Lu, and Xu]{zhou2025nnwnet}
+\bibitem[Zhou et~al.(2025{\natexlab{c}})Zhou, Li, Lu, and Xu]{zhou2025nnwnet}
 Yanfeng Zhou, Lingrui Li, Le Lu, and Minfeng Xu.
 \newblock {nnWNet}: Rethinking the use of transformers in biomedical image
   segmentation and calling for a unified evaluation benchmark.
 \newblock In \emph{IEEE/CVF Conference on Computer Vision and Pattern
-  Recognition (CVPR)}, pages 20852--20862, 2025{\natexlab{b}}.
+  Recognition (CVPR)}, pages 20852--20862, 2025{\natexlab{c}}.
 
 \bibitem[Zhu et~al.(2025)Zhu, Chen, Li, Cao, and Cheng]{zhu2025ucs}
 Kai Zhu, Li Chen, Dianshuo Li, Yunxiang Cao, and Jun Cheng.

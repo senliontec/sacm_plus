@@ -5,7 +5,7 @@
 \centering
 \caption{Datasets used in our experiments.  ``Samples'' denotes the number
 of training images for Seen datasets and test images for Unseen and Novel
-datasets.  $^{\dagger}$In-house dataset.}
+datasets.}
 \label{tab:datasets}
 \scriptsize
 \setlength{\tabcolsep}{2.2pt}
@@ -34,8 +34,8 @@ Split & Distribution & Dataset & Modality & Target & Samples \\
 \multirow{4}{*}{Test (Novel)}
  & Novel & ROAD~\cite{mnih2013machine} & Aerial & Road line & 49 \\
  & Novel & TopoMortar~\cite{valverde2025topomortar} & RGB & Mortar & 350 \\
- & Novel & WIRE$^{\dagger}$~\cite{zhu2026sacm} & RGB & Wire & 31 \\
- & Novel & TYRE$^{\dagger}$~\cite{zhu2026sacm} & RGB & Tread line & 36 \\
+ & Novel & WIRE~\cite{zhu2026sacm} & RGB & Wire & 31 \\
+ & Novel & TYRE~\cite{zhu2026sacm} & RGB & Tread line & 36 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -62,8 +62,8 @@ XCAD~\cite{ma2021ssvs}---contain the same structure classes as the training
 data (vessels or cracks) but differ in source dataset, modality, and
 acquisition conditions.  The four Novel
 datasets---ROAD~\cite{mnih2013machine},
-TopoMortar~\cite{valverde2025topomortar}, WIRE$^{\dagger}$~\cite{zhu2026sacm},
-and TYRE$^{\dagger}$~\cite{zhu2026sacm}---contain structure classes that never appear during
+TopoMortar~\cite{valverde2025topomortar}, WIRE~\cite{zhu2026sacm},
+and TYRE~\cite{zhu2026sacm}---contain structure classes that never appear during
 training (roads, mortar joints, wires, and tire treads).
 Table~\ref{tab:datasets} summarizes the modalities, targets, and sample
 counts.  Images range from $300\times300$ (DCA1) to $3504\times2336$ (HRF)

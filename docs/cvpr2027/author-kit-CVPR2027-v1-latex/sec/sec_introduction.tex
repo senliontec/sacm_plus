@@ -56,7 +56,7 @@ single-model performance, but both are typically developed under the
 assumption that training and test data share the same distribution. Under domain shift, the confidence of a single model often
 becomes unreliable. Multi-candidate decoding
 offers a way to keep several complementary hypotheses before committing to one:
-SAM returns multiple masks \cite{kirillov2023sam}, and SACM maintains four
+SAM returns multiple masks \cite{kirillov2023sam}, and SACM maintains multiple
 candidate heads \cite{zhu2026sacm}.
 
 SAM \cite{kirillov2023sam} offers a third path: a frozen ViT encoder can be
@@ -66,9 +66,9 @@ add adapters or low-rank modules, CAT-SAM \cite{xiao2024catsam} performs
 few-shot conditional tuning, and HQ-SAM \cite{ke2023hqsam} improves mask
 decoding quality; UCS \cite{zhu2025ucs} adapts SAM with sparse adapters and
 FFT-generated prompts, while SACM \cite{zhu2026sacm} combines dual-level
-adapters with a prompt-free decoder. SACM is representative: it maintains four
-candidate heads, ranks them by Stage-1 confidence, refines them in Stage-2, and
-selects the final mask with an MLP-based IoU predictor. SACM generalizes across
+adapters with a prompt-free decoder. SACM is representative: it maintains
+multiple candidate heads, ranks them by Stage-1 confidence, refines them in
+Stage-2, and selects the final mask with an MLP-based IoU predictor. SACM generalizes across
 12 datasets when trained on only 18 images.
 
 This raises the central question: do the gains of multi-candidate decoding come
@@ -91,7 +91,7 @@ Our starting point is simple: if the four heads are trained to take different
 roles---dense, topology, boundary, and recall---then the best test-time
 decision may be not to decide. We propose Deterministic Candidate Decoding
 (DCD). Building on SACM's frozen SAM ViT-L, dual-level adapters, and
-four-candidate decoder, we train all four heads with dense supervision, apply
+multi-candidate decoder, we train all four heads with dense supervision, apply
 soft clDice and skeleton recall losses, and add role-specific losses to the
 three auxiliary heads: an extra topology term, a boundary-weighted term, and a
 recall-oriented Tversky term. A zero-initialized linear fusion serves as an

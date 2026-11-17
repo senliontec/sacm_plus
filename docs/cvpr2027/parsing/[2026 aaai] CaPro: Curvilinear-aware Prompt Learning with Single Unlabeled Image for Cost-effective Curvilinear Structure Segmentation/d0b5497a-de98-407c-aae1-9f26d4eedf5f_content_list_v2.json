@@ -1,0 +1,2859 @@
+[
+    [
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Oriented Curviline Detecting"
+                    }
+                ]
+            },
+            "bbox": [
+                545,
+                338,
+                689,
+                348
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "CaPro: Curvilinear-aware Prompt Learning with Single Unlabeled Image for Cost-effective Curvilinear Structure Segmentation"
+                    }
+                ],
+                "level": 1
+            },
+            "bbox": [
+                129,
+                119,
+                867,
+                161
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Zhuangzhuang Chen 1*, Qiangyu Chen 2*, Chubin Ou3, Xiaomeng Li1†"
+                    }
+                ]
+            },
+            "bbox": [
+                196,
+                172,
+                803,
+                190
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "1 Department of Electronic and Computer Engineering, The Hong Kong University of Science and Technology"
+                    }
+                ]
+            },
+            "bbox": [
+                133,
+                193,
+                862,
+                208
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "2 College of Computer Science and Software Engineering, Shenzhen University"
+                    }
+                ]
+            },
+            "bbox": [
+                233,
+                207,
+                764,
+                222
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "3Department of Radiology, Guangdong Provincial People's Hospital, Southern Medical University eezzchen@ust.hk, 2021152010@email.szu.edu.cn, cou@connect.ust.hk, eexmli@ust.hk"
+                    }
+                ]
+            },
+            "bbox": [
+                173,
+                219,
+                823,
+                250
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "Abstract"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                248,
+                275,
+                315,
+                289
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Curvilinear structure segmentation (CSS) plays a vital role in industrial applications, including medical imaging and structural health monitoring. Recently, the strong capacity of the Segment Anything Model (SAM) has inspired its downstream application in CSS tasks. To adapt SAM to CSS tasks, previous methods heavily rely on a certain number of samples and costly pixel-level annotation, which are hard to access for a new scenario. Considering this, the goal of our work is to adapt SAM in a very cost-effective setting where only a single unlabeled image is given. This is far more challenging than the typical supervised, unsupervised, or self-supervised learning manner that needs a large number of training samples. To tackle this problem, we propose a finetuning-free SAM for curvilinear structure segmentation, called curvilinear-aware prompt learning (CaPro), which aims to automatically learn visual prompts via a single unlabeled image. In the first stage, we generate extensive curvilinear structures and oriented subcurvilinear box annotations. To increase the realness of generated curvilinear structures, we adapt these structures into real image domains via the Fourier Transform using a single realworld unlabeled image. Now, these adapted images can be used to train our oriented sub-curvilinear detector. In the second stage, we propose the curvilinear-aware discrete representation matching to filter those unreliable detection results. Afterward, these reliable detection results can be converted into informative prompts, contributing to the cost-effective SAM adaptation to CSS tasks. Experiments demonstrate the effectiveness of CaPro on medical image and crack segmentation tasks."
+                    }
+                ]
+            },
+            "bbox": [
+                98,
+                295,
+                464,
+                661
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Code — https://github.com/xmed-lab/CaPro"
+                    }
+                ]
+            },
+            "bbox": [
+                83,
+                670,
+                380,
+                685
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "Introduction"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                225,
+                702,
+                338,
+                717
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Curvilinear Structure Segmentation (CSS) shows its great importance in various real-world applications including industrial crack segmentation (Chen et al. 2024a) and medical blood vessel segmentation (Chen et al. 2024b). It aims to segment binary masks of those curvilinear objects, which can advance structural health monitoring in industrial scenarios (Liu et al. 2021) or assist doctors with lesion diagnosis in the medical domain (Li et al. 2018, 2020; Yao, Hu, and"
+                    }
+                ]
+            },
+            "bbox": [
+                81,
+                719,
+                480,
+                832
+            ]
+        },
+        {
+            "type": "image",
+            "content": {
+                "image_source": {
+                    "path": "images/853803bcce478fa383b92d96c31b5d01b1fa1d8ada4e8cda2dfcbcfd876b6c9b.jpg"
+                },
+                "image_caption": [],
+                "image_footnote": []
+            },
+            "bbox": [
+                522,
+                272,
+                717,
+                330
+            ]
+        },
+        {
+            "type": "image",
+            "content": {
+                "image_source": {
+                    "path": "images/b556eb7a866e597c0f105e80b9fd11418b063e2a822f6703264136ec007eb2a4.jpg"
+                },
+                "image_caption": [],
+                "image_footnote": []
+            },
+            "bbox": [
+                722,
+                271,
+                908,
+                330
+            ]
+        },
+        {
+            "type": "image",
+            "content": {
+                "image_source": {
+                    "path": "images/4996bce0a33e5d31ceb0c063f4735dfa92b157de3c15a87e982c2fa9b4157939.jpg"
+                },
+                "image_caption": [],
+                "image_footnote": []
+            },
+            "bbox": [
+                524,
+                347,
+                710,
+                398
+            ]
+        },
+        {
+            "type": "image",
+            "content": {
+                "image_source": {
+                    "path": "images/fbaef25dedfde66ab2c0d7741900593de2ba8531b5c967bef3234d2a2bf7372d.jpg"
+                },
+                "image_caption": [],
+                "image_footnote": []
+            },
+            "bbox": [
+                720,
+                340,
+                906,
+                396
+            ]
+        },
+        {
+            "type": "image",
+            "content": {
+                "image_source": {
+                    "path": "images/162a69936b9846948c8482633f11a1fa6c092888429712cb59b6383684ad0068.jpg"
+                },
+                "image_caption": [],
+                "image_footnote": [
+                    {
+                        "type": "text",
+                        "content": "(b) SAM with Ours >> High Performance and No Labeling Costs"
+                    }
+                ]
+            },
+            "bbox": [
+                522,
+                402,
+                718,
+                459
+            ]
+        },
+        {
+            "type": "image",
+            "content": {
+                "image_source": {
+                    "path": "images/c0c7207190d4ea1e90ac62430d777c976feda2babc22c970252874700faba777.jpg"
+                },
+                "image_caption": [
+                    {
+                        "type": "text",
+                        "content": "Figure 1: Visualization results of SAM on curvilinear structures. (a) Vanilla SAM without prompts involves limited performance. (b) SAM combined with our curvilinear-aware prompt learning enjoys high performance and is free of human costs with two key innovations: (1) We are the first ones to detect curvilinear structures in a self-supervised oriented detection manner. (2) We propose curvilinear-aware discrete representation matching to filter those unreliable detection results, thus enabling the provision of informative prompts."
+                    }
+                ],
+                "image_footnote": []
+            },
+            "bbox": [
+                720,
+                402,
+                908,
+                459
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Li 2022; Wang et al. 2024b; Chen et al. 2025b). The substantial progress in the CSS tasks lies in the rise of deep learning (DL) (Zhang et al. 2024; Li et al. 2024a). First, DeepCrack (Zou et al. 2018) and JTFN (Cheng et al. 2021) successfully leverage Convolutional neural networks (CNNs) to segment cracks in an end-to-end manner. Later, with the witness of the success of Vision Transformer (ViT) in natural images (Li et al. 2024a; Li, Xiong, and Fan 2024), CrackFormer (Liu et al. 2021) shows the effectiveness of ViT in capturing long-range interactions (Wang et al. 2024a). However, these approaches require substantial annotated data."
+                    }
+                ]
+            },
+            "bbox": [
+                514,
+                637,
+                915,
+                791
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Considering the remarkable capabilities of the Segment Anything Model (SAM) (Kirillov et al. 2023), previous works (Ge et al. 2024; Xu et al. 2024) argue that SAM can be an ideal solution to overcome the limited availability of labeled samples in CSS tasks. However, directly applying SAM to CSS tasks in zero-shot settings results in very limited performance (See Fig. 1 (a) and Table 1), e.g., SAM achieves only 24.67% with the mIoU metric on the Deep-Crack dataset. Although existing prompt-free (Chen et al. 2023a; Cheng et al. 2024) and prompt-based (Feng, Zhu, and Yu 2023; Leng et al. 2024) SAM adaptation methods can greatly improve SAM performance on CSS tasks, these methods still rely on pixel-level annotations. Notably, it is labor-intensive to collect enough training samples form a new scenario (Lei, Zhong, and Dai 2024). Moreover, due to the complex curvilinear structures with ambiguous boundaries, such pixel-level labeling is time-consuming and relies on experienced experts. To this end, one remaining unexplored challenge arises: How can we adapt SAM to CSS tasks in a far more challenging and realistic scenario, where only a single unlabeled training image is provided?"
+                    }
+                ]
+            },
+            "bbox": [
+                514,
+                791,
+                915,
+                890
+            ]
+        },
+        {
+            "type": "page_header",
+            "content": {
+                "page_header_content": [
+                    {
+                        "type": "text",
+                        "content": "The Fortieth AAAI Conference on Artificial Intelligence (AAAI-26)"
+                    }
+                ]
+            },
+            "bbox": [
+                300,
+                41,
+                694,
+                56
+            ]
+        },
+        {
+            "type": "page_footnote",
+            "content": {
+                "page_footnote_content": [
+                    {
+                        "type": "text",
+                        "content": "*These authors contributed equally."
+                    }
+                ]
+            },
+            "bbox": [
+                104,
+                837,
+                318,
+                851
+            ]
+        },
+        {
+            "type": "page_footnote",
+            "content": {
+                "page_footnote_content": [
+                    {
+                        "type": "text",
+                        "content": "†Corresponding Author (email: eexmli@ust.hk) Copyright © 2026, Association for the Advancement of Artificial Intelligence (www.aaai.org). All rights reserved."
+                    }
+                ]
+            },
+            "bbox": [
+                83,
+                852,
+                480,
+                890
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "3210"
+                    }
+                ]
+            },
+            "bbox": [
+                478,
+                914,
+                516,
+                926
+            ]
+        }
+    ],
+    [
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": []
+            },
+            "bbox": [
+                81,
+                69,
+                482,
+                263
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Inspired by FreeCOS (Shi et al. 2023), a naive solution is to leverage synthetic data to train the horizontal object detector in a self-supervised manner. Afterward, such a detector can provide prompts for SAM without any labeling costs. However, Table 1 shows that this simple approach yields suboptimal performance for two reasons: (i) The horizontal object detectors can not adapt to curvilinear structures that involve varying orientations. (ii) The prompts from those unreliable detection results would devastate SAM performance. To address these problems, here are two insights:"
+                    }
+                ]
+            },
+            "bbox": [
+                81,
+                263,
+                480,
+                404
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "• Curvilinear structures can be viewed as line objects with a certain orientation from local perspectives."
+                    }
+                ]
+            },
+            "bbox": [
+                83,
+                405,
+                480,
+                433
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "• As shown in Fig. 4 (b), handwritten digits and curvilinear structure masks share topological isomorphism."
+                    }
+                ]
+            },
+            "bbox": [
+                83,
+                434,
+                478,
+                462
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Therefore, we propose curvilinear-aware prompt learning (CaPro), a two-stage framework for adapting SAM to CSS tasks without the SAM fine-tuning process. Our key idea is that the self-supervised oriented curvilinear object detector can be realized via curvilinear structures synthesis with a single unlabeled image, and then it can provide more informative prompts by filtering those unreliable ones. Specifically, in the first stage, motivated by the first insight, this is the first-of-its-kind work that detects curvilinear structures in a self-supervised oriented detection manner. To achieve this, we synthesize curvilinear structures using parametric fractal L-Systems (Zamir 2001) and generate the corresponding oriented bounding boxes. These structures are then adapted to real image domains via the Fourier Transform using a single unlabeled image. In return, many realistic synthetic samples with oriented bounding box annotations can be obtained. Afterward, our proposed customized oriented detector can be trained in a self-supervised manner with the help of the above synthetic data. Then, it enables automatic detection of curvilinear structures, and generates prompts for the SAM. In the second stage, motivated by the second insight, we propose curvilinear-aware discrete representation matching that leverages shared patterns between curvilinear structure and handwritten digits, to filter those unreliable detection results. In this way, SAM performance can be greatly enhanced by providing more reliable prompts. Our contributions are summarized as:"
+                    }
+                ]
+            },
+            "bbox": [
+                81,
+                463,
+                482,
+                838
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "• To the best of our knowledge, we are the first ones to adapt SAM to CSS tasks via self-supervised prompt generation without the costly SAM fine-tuning process."
+                    }
+                ]
+            },
+            "bbox": [
+                88,
+                847,
+                480,
+                890
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "For this cause, this paper proposes the curvilinear-aware prompt learning (CaPro) that can serve as a plug-andplay module for the existing prompted-based SAM."
+                    }
+                ]
+            },
+            "bbox": [
+                537,
+                69,
+                913,
+                113
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "• Propose the image-label pair curvilinear structures synthesis that enables our oriented detector to act as prompt generation module in an self-supervised manner."
+                    }
+                ]
+            },
+            "bbox": [
+                522,
+                116,
+                915,
+                159
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "• Propose the curvilinear-aware discrete representation matching that acts in an self-supervised manner, to filter out unreliable prompts from inaccurate detection."
+                    }
+                ]
+            },
+            "bbox": [
+                522,
+                162,
+                915,
+                205
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "• A labeled vessel segmentation dataset has been constructed, namely, OCT1600, which contains challenging samples with complex curvilinear structures, to facilitate the research on CSS tasks."
+                    }
+                ]
+            },
+            "bbox": [
+                522,
+                209,
+                915,
+                266
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "Related Work"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                653,
+                281,
+                777,
+                297
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Curvilinear Structure Segmentation: Curvilinear Structure Segmentation receives extensive attention from various applications, e.g., crack detection (Liu et al. 2021; Lei et al. 2025), and biomedical image segmentation (Lei et al. 2024; Wang et al. 2019). Crackformer (Liu et al. 2021) achieves great success by embedding a novel Transformer encoder module. Despite these models’ great success, these models rely on extensive labeled crack samples for a new scenario and suffer from insufficient generalizability when faced with limited labeled training samples. To alleviate the annotation costs, (Lin et al. 2023) proposes a sparsely annotated segmentation framework. Meanwhile, (Carneiro-Esteves, Vacavant, and Merveille 2024) leverage real-world masks for obtaining pairs of connected/disconnected curvilinear structures. FreeCOS (Shi et al. 2023) generates curvilinear structures for training segmentation models."
+                    }
+                ]
+            },
+            "bbox": [
+                514,
+                304,
+                915,
+                526
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Herein, ours is distinct from these works in two-fold: (1) We perform CSS by adapting SAM via our self-supervised prompt generator without any annotation costs, SAM finetuning process, and training segmentation models. (2) Unlike the FreeCOS (Shi et al. 2023) generates curvilinear-like structures to enlarge segmentation training sets, we focus on image-label pair curvilinear synthesis for oriented curvilinear object detection. Then, we greatly boost the SAM performance on CSS tasks via our curvilinear-aware discrete representation matching to filter out those unreliable prompts."
+                    }
+                ]
+            },
+            "bbox": [
+                516,
+                526,
+                915,
+                666
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Vision Foundation Models for CSS Tasks: Since this paper focuses on leveraging large-scale foundation models for CSS tasks, we briefly review related research on this scope. Foundation models can serve as a new general paradigm of Artificial Intelligence (AI), showing its stronger intelligence than traditional models (Ge et al. 2024). Generally speaking, foundation models are pre-trained, large-scale models that allow for fast customization through fine-tuning (Wang and Li 2023a,b; Ye et al. 2024). Despite this great progress, it is not feasible to directly apply SAM for CSS tasks. The reason is that SAM does not encounter semantics related to curvilinear structures, such as cracks (Ye et al. 2024). Then, a few works attempt to fine-tune SAM to learn the specific semantics of curvilinear structures (Ge et al. 2024; Ye et al. 2024; Rakshitha et al. 2024). Ye et al. (Ye et al. 2024) and Ge et al. (Ge et al. 2024) utilize low-rank adaptation (LoRA)"
+                    }
+                ]
+            },
+            "bbox": [
+                514,
+                666,
+                915,
+                891
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "3211"
+                    }
+                ]
+            },
+            "bbox": [
+                478,
+                914,
+                514,
+                926
+            ]
+        }
+    ],
+    [
+        {
+            "type": "image",
+            "content": {
+                "image_source": {
+                    "path": "images/81b6ea5da672d794e71ec21157647cd79f39283bf0fa69c9fecdcee52cc5c8d2.jpg"
+                },
+                "image_caption": [
+                    {
+                        "type": "text",
+                        "content": "Stage I: Self-supervised Prompt Generation"
+                    }
+                ],
+                "image_footnote": []
+            },
+            "bbox": [
+                96,
+                83,
+                900,
+                239
+            ]
+        },
+        {
+            "type": "image",
+            "content": {
+                "image_source": {
+                    "path": "images/38f7bf6e651e8437d4bb174f096030d92d4c8ac9b247cc494905e5e7837111ce.jpg"
+                },
+                "image_caption": [
+                    {
+                        "type": "text",
+                        "content": "Stage II: Self-supervised Prompt Filtering"
+                    },
+                    {
+                        "type": "text",
+                        "content": "Figure 2: CaPro consists of two stages to facilitate SAM to CSS tasks without the SAM fine-tuning process with a single unlabeled image. In the first stage, we synthesize extensive Fractal-based curvilinear structures with the corresponding automatically generated oriented box annotations. Then, we leverage the above single unlabeled image and transform these synthesized curvilinear structures into the real-world domain via the Fourier Transform, to enable the training of our proposed oriented detector in a self-supervised manner. In the second stage, we propose curvilinear-aware discrete representation matching to filter those unreliable prompts by starting from a perspective, i.e., handwritten digits have similar patterns with curvilinear structures."
+                    }
+                ],
+                "image_footnote": []
+            },
+            "bbox": [
+                101,
+                261,
+                901,
+                414
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "(Hu et al. 2021) to apply SAM for crack segmentation. Rakshitha et al. (Rakshitha et al. 2024) combine crack detector and SAM to enhance the segment capacity. Meanwhile, UCS (Li et al. 2025) further improves the SAM's generalization capability with the proposed sparse adapter. However, UCS still requires a certain of labeled samples from different datasets."
+                    }
+                ]
+            },
+            "bbox": [
+                81,
+                534,
+                480,
+                632
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Unlike previous works that simply fine-tune SAM with extensive labeled samples, we leverage curvilinear structure characteristics and perform self-supervised oriented object detection by using a single unlabeled image. Meanwhile, our filter ensures the quality of generated prompts from the detector, contributing to adapting SAM to CSS without any fine-tuning process and eliminating annotation costs."
+                    }
+                ]
+            },
+            "bbox": [
+                81,
+                635,
+                480,
+                733
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Object Detector as Prompt Generator for SAM: Generally speaking, this paper mainly focuses on leveraging an oriented object detector as a prompt generator to adapt largescale foundation models to CSS. To this end, we present the related research in this area. Previous object detection methods for CSS tasks exploit horizontal bounding boxes to describe the location and the coarse size of curvilinear objects. Considering this, most existing detectors utilize the commonly used detectors in general computer vision tasks, e.g., Faster R-CNN (Ren et al. 2016), RetinaNet (Lin et al. 2017), Yolo (Redmon et al. 2016), CenterNet (Zhou, Wang, and"
+                    }
+                ]
+            },
+            "bbox": [
+                81,
+                736,
+                482,
+                890
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Krähenbüh1 2019), and SSD (Liu et al. 2016). Rakshitha et al. (Rakshitha et al. 2024) integrates Detectron2 with SAM and train the object detection model using images and masks to generate approximate boundary boxes. However, previous horizontal object detection methods suffer from scale and intra-class variation, due to the various types of curvilinear structures. To this end, Chen et al. (Chen et al. 2023b) model cracks as a series of sub-cracks with the corresponding orientation. Despite the fact that it can eliminate the scale variation of cracks, it still involves a higher labeling cost than horizontal bounding boxes, while it is still limited in the full exploration for segmentation tasks."
+                    }
+                ]
+            },
+            "bbox": [
+                514,
+                534,
+                915,
+                700
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "In contrast, our work focuses on training an oriented object detector as the prompt generator in a self-supervised manner, eliminating human labeling costs. We then introduce curvilinear-aware discrete representation matching to filter out unreliable prompts, allowing SAM to adapt to CSS tasks without additional fine-tuning processes."
+                    }
+                ]
+            },
+            "bbox": [
+                514,
+                700,
+                915,
+                785
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "Method"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                679,
+                797,
+                751,
+                814
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Overview: In this paper, we propose a novel framework, called Curvilinear-aware Prompt Learning (CaPro) for adapting SAM to CSS tasks without fine-tuning SAM. As illustrated in Fig. 2, our CaPro consists of two stages. In the first stage, we aim to train an oriented detector as the prompt generator in an self-supervised manner by leveraging Fractal-based curvilinear structure synthesis. Then, in the second stage, we filter those unreliable prompts "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "( \\mathrm { i . e . }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "converted from oriented bounding box) by leveraging the similar characteristics between curvilinear structure mask and handwritten digits. In the following, we will discuss more details of "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "C a P r o"
+                    }
+                ]
+            },
+            "bbox": [
+                514,
+                819,
+                915,
+                890
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "3212"
+                    }
+                ]
+            },
+            "bbox": [
+                478,
+                914,
+                516,
+                926
+            ]
+        }
+    ],
+    [
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": []
+            },
+            "bbox": [
+                81,
+                69,
+                480,
+                166
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "Stage I: Self-supervised Prompt Generation"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                83,
+                176,
+                423,
+                193
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Motivation: While the existing methods based on parametric Fractal L-Systems for curvilinear structure synthesis exist, they concentrate on synthesizing curvilinear structure images for directly training segmentation models. In contrast, we argue that those synthesized curvilinear structures enjoy high consistency with real-world images at the box level compared to the pixel level. To this end, as shown in Fig 3, we aim to synthesize curvilinear structure images and the corresponding oriented box annotations. Then, we leverage a single unlabeled image to transform these synthetic samples into the real-world domain. Afterward, these more realistic transformed samples can enable the training of our oriented sub-curvilinear structure detector in a selfsupervised manner. Afterward, this detector can serve as the prompt generation module to help SAM adapt to CSS tasks by providing informative prompts, which can be converted from the detected oriented boxes."
+                    }
+                ]
+            },
+            "bbox": [
+                81,
+                194,
+                480,
+                429
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Prompt-oriented Training Data Synthesis. Fractals show similar patterns with curvilinear structures and can be rendered by mathematical formulas. Inspired by the existing work parametric Fractal L-systems (Zamir 2001), we generate fractal tree structures by following the physiological rules of curvilinear objects with repeated bifurcations based on Fractal L-systems. See more details in Appendix A. Notably, for each generated sub-curvilinear object, it is straightforward to obtain its height, width, location, and angles. Thus, we are easy to define its oriented ground-truth box denoted as "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "( c x _ { b } , c y _ { b } , w _ { b } , h _ { b } , \\theta _ { b } )"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", where "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "( c x _ { b } , c y _ { b } )"
+                    },
+                    {
+                        "type": "text",
+                        "content": "indicate the center point, "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "( w _ { b } , h _ { b } , \\theta _ { b } )"
+                    },
+                    {
+                        "type": "text",
+                        "content": "denotes width, height, and angle, respectively. Notably, the box width is enlarged over two pixels compared with the width of the curvilinear object."
+                    }
+                ]
+            },
+            "bbox": [
+                81,
+                429,
+                480,
+                623
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Now, these synthetic curvilinear objects can be adapted to the real-world domain via the Fourier Transformation by using a single unlabeled image. Given a single image "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "I _ { c } \\in"
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathbb { R } ^ { H \\times W }"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", we can derive its Fourier Transformation "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\bar { \\mathcal { F } ( \\cdot ) }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "as:"
+                    }
+                ]
+            },
+            "bbox": [
+                81,
+                623,
+                478,
+                680
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "\\begin{array} { r } { \\mathcal { F } ( I _ { c } ) = \\mathcal { A } ( I _ { c } ) e ^ { j \\mathcal { P } ( I _ { c } ) } , } \\end{array}\\tag{1}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/5d889b0919dc8436916483cf93f7935f60615601fc24e63d525b093fbe17e454.jpg"
+                }
+            },
+            "bbox": [
+                202,
+                683,
+                357,
+                699
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "where "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathbb { A } ( I _ { c } ) = | \\mathcal { F } ( I _ { c } ) |"
+                    },
+                    {
+                        "type": "text",
+                        "content": "and "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathcal { P } ( I _ { c } ) = \\arg ( \\mathcal { F } ( I _ { c } ) )"
+                    },
+                    {
+                        "type": "text",
+                        "content": "denote the amplitude and phase. arg(·) indicates the function of calculating the angle of a complex vector. Note that, it is easy to extend to the RGB channel by independently performing the Fourier transformation for each channel. Next, our goal can be achieved by combining the amplitude "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathbb { A } ( I _ { c } )"
+                    },
+                    {
+                        "type": "text",
+                        "content": "of the single unlabeled image "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "I _ { c }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "and the phase "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathcal { P } ( I _ { \\mathrm { f r a c } } )"
+                    },
+                    {
+                        "type": "text",
+                        "content": "of fractal curvilinear object "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "I _ { \\mathrm { f r a c } }"
+                    },
+                    {
+                        "type": "text",
+                        "content": ". Then, Inverse Fourier Transformation is applied to synthesize realistic curvilinear structure samples:"
+                    }
+                ]
+            },
+            "bbox": [
+                81,
+                702,
+                480,
+                829
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "\\hat { I } _ { c } = \\mathcal { F } ^ { - 1 } \\left[ \\mathbb { A } ( I _ { c } ) e ^ { j \\mathcal { P } ( I _ { \\mathrm { f r a c } } ) } \\right] .\\tag{2}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/410715c7e5e1fca9963172699925afc108716fca897189ee4d0642d53f18fe36.jpg"
+                }
+            },
+            "bbox": [
+                186,
+                832,
+                375,
+                858
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Herein, both the Fourier Transformation "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathcal F ( \\cdot )"
+                    },
+                    {
+                        "type": "text",
+                        "content": "and its Inverse Fourier Transformation "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathcal { F } ^ { - 1 } ( \\cdot )"
+                    },
+                    {
+                        "type": "text",
+                        "content": "can be easily implemented by the FFT algorithm. After that, these synthesized crack samples with generated oriented box annotations allows us to train oriented detector in a self-supervised manner."
+                    }
+                ]
+            },
+            "bbox": [
+                81,
+                859,
+                480,
+                890
+            ]
+        },
+        {
+            "type": "image",
+            "content": {
+                "image_source": {
+                    "path": "images/f48ba2e976d72346dcd8661f7231b850b2ba925881cf8227c251c43ba1c0f08e.jpg"
+                },
+                "image_caption": [
+                    {
+                        "type": "text",
+                        "content": "Figure 3: The generated curvilinear structures from Fractal L-system with the generated oriented box annotations."
+                    }
+                ],
+                "image_footnote": []
+            },
+            "bbox": [
+                529,
+                65,
+                900,
+                368
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": []
+            },
+            "bbox": [
+                514,
+                434,
+                913,
+                477
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Prompt Generation Module. Thanks to synthesized samples with generated oriented box annotations, we now can train the oriented detector as prompt generation module without any extra human annotations. Specially, we adopt CenterNet (Zhou, Wang, and Krähenbühl 2019) as our baseline, which models an object as a single point (i.e., the center point of the bounding box) and regresses the object size and offset. To predict oriented boxes for sub-cracks, we add a branch to regress the orientations of the bounding boxes, shown in Fig. 2. Following CenterNet for regression tasks, we adopt L1 loss for the supervision of rotation angles:"
+                    }
+                ]
+            },
+            "bbox": [
+                514,
+                477,
+                915,
+                630
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "\\mathcal { L } _ { \\mathrm { a n g l e } } = \\frac { 1 } { N } \\sum _ { k = 1 } ^ { N } | \\theta _ { b } - \\hat { \\theta _ { b } } |\\tag{3}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/d9edd33c3bc26683ad7c52ecb0f1200f7abe9f764296b5f08e28d78b2449a8ad.jpg"
+                }
+            },
+            "bbox": [
+                630,
+                636,
+                800,
+                679
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "where "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\theta _ { b }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "and "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\hat { \\theta _ { b } }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "are the target and predicted rotation angles, respectively; and N is the number of positive sub-cracks. Finally, the overall training objective of our oriented detector is formulated as follows:"
+                    }
+                ]
+            },
+            "bbox": [
+                514,
+                686,
+                913,
+                744
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "{ \\mathcal { L } } _ { \\mathrm { { D e t } } } = { \\mathcal { L } } _ { k } + \\lambda _ { \\mathrm { { s i z e } } } { \\mathcal { L } } _ { \\mathrm { { s i z e } } } + \\lambda _ { \\mathrm { { o f f } } } { \\mathcal { L } } _ { \\mathrm { { o f f } } } + \\lambda _ { \\mathrm { { a n g l e } } } { \\mathcal { L } } _ { \\mathrm { { a n g l e } } } .\\tag{4}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/d66d4c28ea55a3969d147ba81c8a32bd5b3e8185ae2f3cace57b057b97197b73.jpg"
+                }
+            },
+            "bbox": [
+                537,
+                752,
+                872,
+                768
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "In Eq. 4, "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathcal { L } _ { k } , \\mathcal { L } _ { \\mathrm { s i z e } }"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", and "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathcal { L } _ { \\mathrm { o f f } }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "denotes the losses of center point recognition, scale regression, and offset regression, which are the same as CenterNet. Meanwhile, "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\bar { \\lambda } _ { \\mathrm { s i z e } } , \\lambda _ { \\mathrm { o f f } }"
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\lambda _ { \\mathrm { a n g l e } }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "are used to balance these loss functions and are all set to 0.1 in our experiments."
+                    }
+                ]
+            },
+            "bbox": [
+                516,
+                775,
+                913,
+                844
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Converting Oriented Boxes into Prompts. Herein, considering a test image, we are allowed to obtain the detected oriented boxes "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "( \\hat { c x } _ { b } , \\hat { c y } _ { b } , \\hat { w } _ { b } , \\hat { h } _ { b } , \\hat { \\theta } _ { b } )"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", where its predicted confidence score large than 0.1. Motivated by the fact that curvilinear structures are supposed to be inside the predicted oriented box, the four corner points should be the background prompt "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "P _ { \\mathrm { n e g } } ."
+                    },
+                    {
+                        "type": "text",
+                        "content": "Meanwhile, as the center point of detected oriented boxes is supposed to be the center of the detected curvilinear object, the center point can be used as the foreground prompt "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "P _ { \\mathrm { p o s } } \\mathrm { . }"
+                    }
+                ]
+            },
+            "bbox": [
+                516,
+                843,
+                915,
+                890
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "3213"
+                    }
+                ]
+            },
+            "bbox": [
+                478,
+                914,
+                516,
+                926
+            ]
+        }
+    ],
+    [
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": []
+            },
+            "bbox": [
+                81,
+                69,
+                480,
+                167
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "\\begin{array} { r l } & { P _ { \\mathrm { n e g } } = P _ { l t } = M _ { r } [ - \\hat { h } _ { b } / 2 , - \\hat { w } _ { b } / 2 ] ^ { T } + \\left[ \\hat { c } x _ { b } , \\hat { c } y _ { b } \\right] ^ { T } } \\\\ & { P _ { \\mathrm { n e g } } = P _ { r t } = M _ { r } [ + \\hat { h } _ { b } / 2 , - \\hat { w } _ { b } / 2 ] ^ { T } + \\left[ \\hat { c } x _ { b } , \\hat { c } y _ { b } \\right] ^ { T } } \\\\ & { P _ { \\mathrm { n e g } } = P _ { l b } = M _ { r } [ - \\hat { h } _ { b } / 2 , + \\hat { w } _ { b } / 2 ] ^ { T } + \\left[ \\hat { c } x _ { b } , \\hat { c } y _ { b } \\right] ^ { T } } \\\\ & { P _ { \\mathrm { n e g } } = P _ { r b } = M _ { r } [ + \\hat { h } _ { b } / 2 , + \\hat { w } _ { b } / 2 ] ^ { T } + \\left[ \\hat { c } x _ { b } , \\hat { c } y _ { b } \\right] ^ { T } } \\\\ & { P _ { \\mathrm { p o s } } = \\left[ \\hat { c } x _ { b } , \\hat { c } y _ { b } \\right] ^ { T } } \\end{array}\\tag{5}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/3c13ea0790edd156cbf27fa2ed434a4d781d171e0963d73509e617e930796fc9.jpg"
+                }
+            },
+            "bbox": [
+                102,
+                171,
+                437,
+                276
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "where "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "( \\hat { c x } _ { b } , \\hat { c y } _ { b } )"
+                    },
+                    {
+                        "type": "text",
+                        "content": "denotes the center point prediction; "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "( \\hat { w } _ { b } , \\hat { h } _ { b } )"
+                    },
+                    {
+                        "type": "text",
+                        "content": "is the size prediction; "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "M _ { r }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "is the rotation matrix according to the angle prediction "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\hat { \\theta } _ { b }"
+                    }
+                ]
+            },
+            "bbox": [
+                81,
+                280,
+                478,
+                329
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "Stage II: Self-supervised Prompt Filtering"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                83,
+                338,
+                410,
+                354
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Motivation: With the help of the previous stage, we are allowed to obtain the detected oriented box for any real-world images. However, due to those predicted boxes may fail to localize curvilinear structures. Thus, as shown in Fig. 6, suboptimal segmentation outcomes will be produced when directly using the prompts from all detected boxes. Intuitively, an informative box is supposed to contain curvilinear structures and can help SAM to segment these structures well."
+                    }
+                ]
+            },
+            "bbox": [
+                81,
+                356,
+                480,
+                467
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Meanwhile, as shown in Fig 4, it can be observed that handwritten digits in the MNIST dataset and curvilinear structure masks share topological isomorphism (i.e., shapes). Motivated by this, our curvilinear-aware discrete representation matching first enforces the codebooks to capture curvilinear structure features by training the vectorquantized variational auto-encoder (VQVAE) on the MNIST dataset. Afterward, these codebooks can be used to estimate whether the detected box region contains curvilinear structures via discrete representation matching."
+                    }
+                ]
+            },
+            "bbox": [
+                81,
+                467,
+                480,
+                607
+            ]
+        },
+        {
+            "type": "image",
+            "content": {
+                "image_source": {
+                    "path": "images/5a146b77ee7b82ee80c882c0bb69486180cb6b9454657f7274f631aeb0347c74.jpg"
+                },
+                "image_caption": [
+                    {
+                        "type": "text",
+                        "content": "Figure 4: Handwritten digits in MNIST dataset and curvilinear structures masks share common patterns (i.e., shapes)."
+                    }
+                ],
+                "image_footnote": []
+            },
+            "bbox": [
+                88,
+                616,
+                470,
+                801
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Codebook Learning: Given the handwritten digit image X from the MNIST dataset, the convolutional encoder E maps the input image X with the size "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "6 4 \\times 6 4"
+                    },
+                    {
+                        "type": "text",
+                        "content": "to the latent feature vector "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathbf { z _ { e } }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "as following :"
+                    }
+                ]
+            },
+            "bbox": [
+                81,
+                859,
+                480,
+                888
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": []
+            },
+            "bbox": [
+                514,
+                69,
+                913,
+                97
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "\\mathbf { z _ { e } } = \\mathbb { E } ( X ) , ~ \\mathrm { a n d } ~ \\mathbf { z _ { e } } \\in \\mathbb { R } ^ { W \\times H \\times C } ,\\tag{6}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/82f1a285a612c931aabfd9527abc71fe508bfae8396452244ea8e27fada44895.jpg"
+                }
+            },
+            "bbox": [
+                593,
+                98,
+                833,
+                114
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "where W, H, and C indicate the feature's width, height, and the number of channels, respectively. Next, we built codebook "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathbb { C } ~ \\in ~ \\mathbb { R } ^ { N \\times c }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "that contains N discrete latent vectors to model the distributions of the original MNIST dataset, where N is the number of entries in the codebook. And, c is the dimension of each entry, which is equal to C. Then, we can discretize the distribution of latent feature vector to get the quantized features "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\hat { \\mathbf { z } } _ { \\mathbf { e } }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "by the following vector quantization "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathrm { v Q } _ { \\mathbb { C } } ( \\cdot )"
+                    }
+                ]
+            },
+            "bbox": [
+                514,
+                116,
+                915,
+                242
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "\\begin{array} { r } { \\mathrm { V Q } _ { \\mathbb { C } } ( \\mathbf { z } ) : = \\mathrm { a r g m i n } _ { \\mathbf { z } _ { k } \\in \\mathbb { T } } \\left\\| \\mathbf { z } - \\mathbf { z } _ { k } \\right\\| _ { 2 } , } \\end{array}\\tag{7}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/10bd25816a76bc90dd4d9edddb736c893ebf1d445733e53bc0e37a769847d4e0.jpg"
+                }
+            },
+            "bbox": [
+                593,
+                243,
+                836,
+                260
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "where "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathbf { z } _ { k }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "is the k-th entry in the codebook C. Then, each vector in "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathbf { z _ { e } }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "is replaced with its nearest neighbor entry in the codebook C via "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathrm { V Q } _ { \\mathbb { C } } ( \\cdot )"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", resulting in the corresponding quantized feature vector "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\hat { \\mathbf { z } } _ { \\mathbf { e } } \\in \\mathbb { R } ^ { W \\times H \\times c } \\mathrm { : }"
+                    }
+                ]
+            },
+            "bbox": [
+                514,
+                260,
+                913,
+                316
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "\\begin{array} { r } { \\hat { \\mathbf { z } } _ { \\mathbf { e } } = \\mathrm { V Q } _ { \\mathbb { C } } ( \\mathbf { z } _ { \\mathbf { e } } ) , \\ \\mathrm { a n d } \\ \\hat { \\mathbf { z } } _ { \\mathbf { e } } \\in \\mathbb { R } ^ { W \\times H \\times c } . } \\end{array}\\tag{8}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/abdd40026e943c56b89d590b38b10939ec37d37eafa179b1d148236707126500.jpg"
+                }
+            },
+            "bbox": [
+                584,
+                318,
+                841,
+                335
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "The convolutional decoder D reconstructs the quantized vector "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\hat { \\mathbf { z } } _ { \\mathbf { e } }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "back into the image "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\hat { X } _ { \\mathrm { r e c o n } }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "by the Eq. 9."
+                    }
+                ]
+            },
+            "bbox": [
+                516,
+                337,
+                913,
+                367
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "\\hat { X } _ { \\mathrm { r e c o n } } = \\mathbb { D } ( \\hat { \\mathbf { z } } _ { \\mathbf { e } } ) .\\tag{9}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/d7d8ff3102d3ec5deb18ef6b0d21f113efa0445349531c9e3d1268be52bfed37.jpg"
+                }
+            },
+            "bbox": [
+                660,
+                368,
+                767,
+                385
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Finally, codebook C, encoder "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathbb { M } _ { e } ^ { t }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "and decoder "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathbb { M } _ { d } ^ { t }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "are jointly optimized with the following reconstruction loss:"
+                    }
+                ]
+            },
+            "bbox": [
+                514,
+                386,
+                913,
+                415
+            ]
+        },
+        {
+            "type": "equation_interline",
+            "content": {
+                "math_content": "\\begin{array} { r l } & { \\mathcal { L } _ { \\mathrm { V Q V A E } } ( \\mathbb { C } , \\mathbb { E } , \\mathbb { D } ) = \\Big \\| X - \\hat { X } _ { \\mathrm { r e c o n } } \\Big \\| _ { 2 } + } \\\\ & { \\qquad \\| \\mathbf { s g } [ \\mathbf { z } _ { \\mathrm { e } } ] - \\hat { \\mathbf { z } } _ { \\mathrm { e } } \\| _ { 2 } + \\| \\mathbf { s g } [ \\hat { \\mathbf { z } } _ { \\mathrm { e } } ] - \\mathbf { z } _ { \\mathrm { e } } \\| _ { 2 } , } \\end{array}\\tag{10}",
+                "math_type": "latex",
+                "image_source": {
+                    "path": "images/5f1dffeecb746dbf2857b510b039c488b051d012655fe7af43267dabe531b546.jpg"
+                }
+            },
+            "bbox": [
+                524,
+                416,
+                875,
+                462
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "where "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathbf { s g } [ \\cdot ]"
+                    },
+                    {
+                        "type": "text",
+                        "content": "indicates the stop gradient operator. The first item in Eq. 10 optimizes encoder and decoder to enforce the reconstructed image close to the original handwritten digit image. The second item in Eq. 10 provides gradients to the codebook C. To incentivize the encoder E to commit to the codebook, a third term is added to update the encoder parameters. In other words, it enforces the latent feature "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathbf { z _ { e } }"
+                    },
+                    {
+                        "type": "text",
+                        "content": "to be close to the nearest neighbor entry in C."
+                    }
+                ]
+            },
+            "bbox": [
+                514,
+                462,
+                915,
+                574
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Top-K Selection: As shown in Fig 2, for a given image, we first obtain detected boxes via prompt generation module. Then, we convert these boxes into point prompts via Eq. 5, and then input SAM to get the initial predicted mask. For each predicted box, we crop the corresponding box region from the initial predicted mask, and then perform zero-padding into the patch image with size 64 × 64 (when the cropped region less than "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "6 4 \\times 6 4 )"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", denoted as "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "P ^ { i } , i \\in \\{ 1 , \\cdots , N \\}"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", where N denotes the number of boxes."
+                    }
+                ]
+            },
+            "bbox": [
+                516,
+                573,
+                915,
+                699
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Suppose that cropped patch image Pi does not contain any curvilinear structures, the extracted feature "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathbb { E } ( P _ { i } )"
+                    },
+                    {
+                        "type": "text",
+                        "content": "will have a large distance with its nearest neighbor entry in the codebook C via "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathrm { v Q } _ { \\mathbb { C } } ( \\cdot )"
+                    },
+                    {
+                        "type": "text",
+                        "content": ". For this purpose, our curvilinearaware discrete representation matching can be achieved via vector quantization in Eq. 7 with the pre-trained codebook:"
+                    }
+                ]
+            },
+            "bbox": [
+                516,
+                698,
+                913,
+                781
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Scor "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\mathbf { \\dot { e } } ^ { i } = 1 - \\operatorname { S i g m o i d } ( \\| \\mathbb { E } ( P _ { i } ) - \\mathbf { V } \\mathbf { Q } _ { \\mathbb { C } } \\left( \\mathbb { E } \\left( P _ { i } \\right) \\right) \\| _ { 2 } )"
+                    },
+                    {
+                        "type": "text",
+                        "content": "(11) where Sigmoid "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "\\begin{array} { r } { ( x ) = \\frac { 1 } { 1 + \\exp ^ { - x } } } \\end{array}"
+                    },
+                    {
+                        "type": "text",
+                        "content": "denotes sigmoid function."
+                    }
+                ]
+            },
+            "bbox": [
+                516,
+                784,
+                913,
+                819
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Then, we can select Top-K boxes according to the discrete representation matching score in Eq. 11, and then transform the selected boxes into point prompts by using Eq. 5. Finally, the final mask can be obtained by leveraging these reliable prompts as the input to SAM (ViT-B as the backbone)."
+                    }
+                ]
+            },
+            "bbox": [
+                514,
+                819,
+                915,
+                890
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "3214"
+                    }
+                ]
+            },
+            "bbox": [
+                478,
+                914,
+                516,
+                926
+            ]
+        }
+    ],
+    [
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "Experiments"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                225,
+                68,
+                339,
+                83
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Experimental Setup. As this paper focuses on curvilinear structure segmentation tasks, we adopt the following related datasets for evaluation. Our OCT1600 dataset contains 1600 OCT projection images of the size 448 × 448 which are collected from real-world applications with fixed fields of view. The OCTA500 dataset has two different field of view types named OCTA-500_3M, and OCTA-500_6M. Compared to the 3M images, the vessels in the 6M images are more complicated, and the foveal avascular zone is smaller. Therefore, the segmentation tasks of 6M are more challenging compared to 3M. For this reason, we follow the existing work (Chen et al. 2025a) and use the 2-D projection image of the size 400 × 400 from OCTA-500_6M. The DeepCrack dataset (Liu et al. 2019) contains curvilinear structures of cracks and consists of 537 images with manually annotated crack masks. All of the images involve a fixed size of 544 × 384. Each dataset is divided into training, validation, and testing sets at a ratio of 7:1:2. The Drive dataset (Staal et al. 2004) consists of 20 training and test retinal images of size 565 × 584. We randomly select a single image in the training set as our training image. The MNIST dataset (LeCun et al. 1998) is used to learn informative codebooks for storing curvilinear structure features. It contains 70000 greyscale images of handwritten digits, where 60000 labeled images are used for training our model, and the remaining 10000 are for testing to select the best model by the reconstruction error between the original and output image."
+                    }
+                ]
+            },
+            "bbox": [
+                81,
+                85,
+                482,
+                460
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Implementation Details. Our CaPro is implemented based on the PyTorch. The training of oriented object detector: the size of synthetic training samples is 1000, the total training epoch is 60, the backbone of the detector is ResNet50 (He et al. 2016) and the remaining is the same as the original CenterNet (Zhou, Wang, and Krähenbühl 2019). The training of codebooks: the encoder/decoder of VQVAE consists of four blocks, where each block contains two ResBlocks (He et al. 2016) and a downsampling/upsampling layer. Note that, digits are resized to 64 × 64 pixels for training. The codebook has N = 1024 entries and an entry dimension of "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "c = 2 5 6"
+                    },
+                    {
+                        "type": "text",
+                        "content": ". For both two training stages, we use an Adam optimizer (Diederik 2014) with a batch size of 64, a learning rate of "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "1 . 0 \\times 1 0 ^ { - 3 }"
+                    },
+                    {
+                        "type": "text",
+                        "content": ", and the training epoch 20. There is one hyper-parameter K, which is used to filter out those unreliable detected boxes. Fig. 5 shows that both a small K and a large K involve with limited performance. The reason behind this effect is that a small Kwill filter those informative boxes, and a large K will introduce those unreliable boxes. For this reason, we set "
+                    },
+                    {
+                        "type": "equation_inline",
+                        "content": "K = 2 0"
+                    },
+                    {
+                        "type": "text",
+                        "content": "in our experiments."
+                    }
+                ]
+            },
+            "bbox": [
+                81,
+                460,
+                482,
+                684
+            ]
+        },
+        {
+            "type": "chart",
+            "content": {
+                "image_source": {
+                    "path": "images/0dc862b7f0f1958aff893bd01deac712d4fdb92b460a5bfb69261a0f95763be3.jpg"
+                },
+                "content": "",
+                "chart_caption": [
+                    {
+                        "type": "text",
+                        "content": "Figure 5: Hyper-parameter study of K on OCTA500 dataset."
+                    }
+                ],
+                "chart_footnote": []
+            },
+            "bbox": [
+                104,
+                704,
+                459,
+                861
+            ]
+        },
+        {
+            "type": "table",
+            "content": {
+                "image_source": {
+                    "path": "images/afbba9e5a76e6bffa9e33a8323fcfae55d69e44f12cfa21ed0f4b05869305436.jpg"
+                },
+                "table_caption": [
+                    {
+                        "type": "text",
+                        "content": "Table 1: Results on the OCT1600 and OCTA500 datasets."
+                    }
+                ],
+                "table_footnote": [],
+                "html": "<table><tr><td rowspan=\"2\">Method</td><td colspan=\"2\">OCT1600</td><td colspan=\"2\">OCTA500</td></tr><tr><td>mIoU(%) ↑</td><td>F1(%)↑</td><td>mIoU(%) ↑</td><td>F1(%)↑</td></tr><tr><td>FreeCOS</td><td>52.43</td><td>58.11</td><td>44.22</td><td>48.93</td></tr><tr><td>UPCrack</td><td>21.33</td><td>10.17</td><td>19.11</td><td>1.23</td></tr><tr><td>MuSc</td><td>23.11</td><td>5.34</td><td>25.02</td><td>4.27</td></tr><tr><td>SAM</td><td>15.60</td><td>11.12</td><td>24.03</td><td>3.300</td></tr><tr><td>+CaPro</td><td>64.33</td><td>70.49</td><td>58.68</td><td>64.23</td></tr><tr><td>SAM2</td><td>24.66</td><td>7.57</td><td>22.98</td><td>0.94</td></tr><tr><td>+CaPro</td><td>52.93</td><td>54.88</td><td>32.11</td><td>23.15</td></tr></table>",
+                "table_type": "complex_table",
+                "table_nest_level": 1
+            },
+            "bbox": [
+                522,
+                68,
+                913,
+                199
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": []
+            },
+            "bbox": [
+                514,
+                260,
+                915,
+                316
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Evaluation Metrics. For pixel-wise evaluation, we choose Precision, Recall, and F1 that have widely been used in existing semantic segmentation methods (Cheng et al. 2021). For each image, the performance metrics of Precision are calculated by comparing the correctly predicted pixels to all predicted pixels; Recall is calculated as the ratio that the model correctly predicted pixels of all pixels with respect to the ground-truth mask; Then, F1 can be obtained by a harmonic mean of the Precision and Recall: F1 = 2×Precision×Recall . The final F1 is calculated based on the av-Precision+Recall erage of all test images. Meanwhile, we also adopt mean Intersection over Union (mIoU) as our metrics by following the existing works (Lei, Zhong, and Wang 2024)."
+                    }
+                ]
+            },
+            "bbox": [
+                514,
+                318,
+                915,
+                500
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Quantitative Results. We compare CaPro with some stateof-the-art curvilinear structure segmentation methods that do not need the label of training samples including FreeCOS (Shi et al. 2023), UPCrack (Ma, Fan, and Xie 2024), MuSc(Li et al. 2024b), SAM (Kirillov et al. 2023), SAM2 (Ravi et al. 2024) on OCT1600, OCTA500, DeepCrack and Drive datasets. Table 1 shows that our CaPro achieves 48.73% improvement on mIoU, and 59.37% improvement on F1 than original SAM with OCT1600 dataset. These results show that the performances of SAM-based methods are still far from satisfactory when directly applied to curvilinear structure segmentation tasks in real-world industrial scenarios. This phenomenon is attributed to the domain gap between natural images and curvilinear structure images. Nonetheless, our CaPro can provide informative prompts, thus enabling SAM to adapt to curvilinear structure segmentation tasks without fine-tuning SAM. Moreover, to further validate the superiority of our method, we also compare with FreeCOS on Drive dataset. Table 3 also shows that our method still enjoys a high-performance gain over FreeCOS. For example, on the DeepCrack dataset, our method has more than 14.77% improvement on mIoU, and 18.33% improvement on F1 than training with synthesized images from FreeCOS (Shi et al. 2023). These results demonstrate the effectiveness of our oriented object detection perspective and curvilinear-aware discrete representation matching can filter those unreliable prompts from inaccurate detection. This can be attributed to the great potential of SAM-based methods"
+                    }
+                ]
+            },
+            "bbox": [
+                514,
+                501,
+                916,
+                890
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "3215"
+                    }
+                ]
+            },
+            "bbox": [
+                478,
+                914,
+                516,
+                926
+            ]
+        }
+    ],
+    [
+        {
+            "type": "image",
+            "content": {
+                "image_source": {
+                    "path": "images/3d3c33f50006c29b7635e1b20ea83b981a0c5158467198a89574be46256a4501.jpg"
+                },
+                "image_caption": [],
+                "image_footnote": []
+            },
+            "bbox": [
+                117,
+                66,
+                879,
+                369
+            ]
+        },
+        {
+            "type": "table",
+            "content": {
+                "image_source": {
+                    "path": "images/d19053343426184f63e48822eed67367ed8a9664ba3bc4dc650dbb7c9c2aa313.jpg"
+                },
+                "table_caption": [
+                    {
+                        "type": "text",
+                        "content": "Figure 6: Visualization results of CaPro at different stages. “GT\" denotes the ground truth mask. “SAM\" denotes the results from SAM (Kirillov et al. 2023).“ODet\" denotes the detected results from our self-supervised oriented object detector. “Prompts\"denote the convert point prompts from the detected boxes. “Res\" denotes the segmentation results of SAM with point prompts. “Filter\" denotes the selected boxes via our curvilinear-aware discrete representation matching."
+                    },
+                    {
+                        "type": "text",
+                        "content": "Table 2: Ablation studies on various curvilinear structure datasets."
+                    }
+                ],
+                "table_footnote": [],
+                "html": "<table><tr><td rowspan=\"2\">Method</td><td colspan=\"2\">OCT1600</td><td colspan=\"2\">OCTA500</td><td colspan=\"2\">DeepCrack</td><td colspan=\"2\">Drive</td></tr><tr><td>mIoU(%) ↑</td><td>F1(%)↑</td><td>mIoU(%) ↑</td><td>F1(%) ↑</td><td>mIoU(%)↑</td><td>F1(%)↑</td><td>mIoU(%) ↑</td><td>F1(%)↑</td></tr><tr><td>SAM</td><td>15.60</td><td>11.12</td><td>24.03</td><td>3.300</td><td>24.67</td><td>6.710</td><td>18.91</td><td>22.93</td></tr><tr><td>+ CaPro (Stage I)</td><td>60.13</td><td>66.72</td><td>48.51</td><td>51.33</td><td>39.30</td><td>32.30</td><td>48.36</td><td>51.76</td></tr><tr><td>+ CaPro (Stage II)</td><td>64.33</td><td>70.49</td><td>58.68</td><td>64.23</td><td>50.20</td><td>46.25</td><td>51.93</td><td>56.05</td></tr></table>",
+                "table_type": "complex_table",
+                "table_nest_level": 1
+            },
+            "bbox": [
+                89,
+                454,
+                906,
+                532
+            ]
+        },
+        {
+            "type": "table",
+            "content": {
+                "image_source": {
+                    "path": "images/12c9963ddd72ad325b8d7867c7d55637d9328d22f4d87ccda84e774f0ec182f2.jpg"
+                },
+                "table_caption": [
+                    {
+                        "type": "text",
+                        "content": "Table 3: Results on the DeepCrack and Drive datasets."
+                    }
+                ],
+                "table_footnote": [],
+                "html": "<table><tr><td rowspan=\"2\">Method</td><td colspan=\"2\">DeepCrack</td><td colspan=\"2\">Drive</td></tr><tr><td>mIoU(%) ↑</td><td>F1(%)↑</td><td>mIoU(%) ↑</td><td>F1(%)↑</td></tr><tr><td>FreeCOS</td><td>35.43</td><td>27.92</td><td>44.75</td><td>46.63</td></tr><tr><td>UPCrack</td><td>42.00</td><td>40.33</td><td>23.91</td><td>3.121</td></tr><tr><td>MuSc</td><td>28.13</td><td>11.53</td><td>27.36</td><td>11.97</td></tr><tr><td>SAM</td><td>24.67</td><td>6.710</td><td>18.91</td><td>22.93</td></tr><tr><td>+CaPro</td><td>50.20</td><td>46.25</td><td>51.93</td><td>56.05</td></tr></table>",
+                "table_type": "complex_table",
+                "table_nest_level": 1
+            },
+            "bbox": [
+                88,
+                588,
+                480,
+                690
+            ]
+        },
+        {
+            "type": "list",
+            "content": {
+                "list_type": "text_list",
+                "attribute": "unordered",
+                "list_items": [
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "on segmentation tasks when providing informative prompts."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Qualitative results are available in Appendix B."
+                            }
+                        ]
+                    }
+                ]
+            },
+            "bbox": [
+                81,
+                757,
+                478,
+                787
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "Ablation Study. To verify each stage in CaPro, we provide a series of ablation studies in Table 2. Stage II refreshes the performance achieved by Stage I. The reason behind this effect is two-fold: (1) Due to the domain gap between the synthesized images and real-world images, as shown in Fig. 6, those predicted boxes from stage I may fail to localize curvilinear structures. Thus, Stage I involves unsatisfied results that directly use the prompts from all detected boxes. (2) Our Stage II can filter those unreliable predicted boxes via the pre-trained codebook within the MNIST. Fig. 6 shows that the selected boxes in Stage II can well locate curvilinear structures, thus providing reliable prompts."
+                    }
+                ]
+            },
+            "bbox": [
+                81,
+                791,
+                480,
+                890
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": []
+            },
+            "bbox": [
+                514,
+                589,
+                915,
+                661
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "Conclusion"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                665,
+                674,
+                766,
+                689
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "We propose Curvilinear-aware Prompt Learning for adapting SAM to CSS tasks without requiring the SAM finetuning process and human annotation. Inspired by the fact that informative point prompts can help SAM to easily segment those curvilinear structures, this paper aims to automatically learn visual prompts with a single unlabeled image. To this end, we first propose the prompt-oriented training data synthesis that enables our customized oriented detector to act as a prompt generation module in a selfsupervised manner. Then, we explore the fact i.e., handwritten digits and curvilinear structure masks share common patterns, and then learn codebooks to store those curvilinear representations, which allows us to filter those unreliable prompts via curvilinear-aware representation matching."
+                    }
+                ]
+            },
+            "bbox": [
+                514,
+                694,
+                915,
+                891
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "3216"
+                    }
+                ]
+            },
+            "bbox": [
+                478,
+                914,
+                516,
+                926
+            ]
+        }
+    ],
+    [
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "Acknowledgments"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                200,
+                66,
+                362,
+                83
+            ]
+        },
+        {
+            "type": "paragraph",
+            "content": {
+                "paragraph_content": [
+                    {
+                        "type": "text",
+                        "content": "This work was partially supported by research grants from the Research Grants Council (RGC) of the Hong Kong Special Administrative Region, China (Project No. R6005-24); the Hong Kong Joint Research Scheme (JRS) of the National Natural Science Foundation of China (NSFC)/RGC (Project No. N_HKUST654/24); and the National Natural Science Foundation of China (NSFC) (Grant No. 62306254)."
+                    }
+                ]
+            },
+            "bbox": [
+                81,
+                87,
+                480,
+                186
+            ]
+        },
+        {
+            "type": "title",
+            "content": {
+                "title_content": [
+                    {
+                        "type": "text",
+                        "content": "References"
+                    }
+                ],
+                "level": 2
+            },
+            "bbox": [
+                233,
+                199,
+                331,
+                215
+            ]
+        },
+        {
+            "type": "list",
+            "content": {
+                "list_type": "reference_list",
+                "list_items": [
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Carneiro-Esteves, S.; Vacavant, A.; and Merveille, O. 2024. A plug-and-play framework for curvilinear structure segmentation based on a learned reconnecting regularization. Neurocomputing, 599: 128055."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Chen, J.; Zhu, G.; Zhang, Y.; Chen, Z.; Huang, Q.; and Li, J. 2024a. UCAN: U-shaped context aggregation network for thin crack segmentation under topological constraints. Robotic Intelligence and Automation, 44(5): 637–647."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Chen, T.; Zhu, L.; Deng, C.; Cao, R.; Wang, Y.; Zhang, S.; Li, Z.; Sun, L.; Zang, Y.; and Mao, P. 2023a. Sam-adapter: Adapting segment anything in underperformed scenes. In Int. Conf. Comput. Vis., 3367–3375."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Chen, X.; Wang, C.; Ning, H.; Li, S.; and Shen, M. 2025a. Sam-octa: Prompting segment-anything for octa image segmentation. Biomedical Signal Processing and Control, 106: 107698."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Chen, Z.; Lai, Z.; Chen, J.; and Li, J. 2024b. Mind Marginal Non-Crack Regions: Clustering-Inspired Representation Learning for Crack Segmentation. In IEEE Conf. Comput. Vis. Pattern Recog., 12698–12708."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Chen, Z.; Wang, H.; Ou, C.; and Li, X. 2025b. MuTri: Multiview Tri-alignment for OCT to OCTA 3D Image Translation. In IEEE Conf. Comput. Vis. Pattern Recog., 20885– 20894."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Chen, Z.; Zhang, J.; Lai, Z.; Zhu, G.; Liu, Z.; Chen, J.; and Li, J. 2023b. The devil is in the crack orientation: A new perspective for crack detection. In Int. Conf. Comput. Vis., 6653-6663."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Cheng, M.; Zhao, K.; Guo, X.; Xu, Y.; and Guo, J. 2021. Joint topology-preserving and feature-refinement network for curvilinear structure segmentation. In Int. Conf. Comput. Vis., 7147–7156."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Cheng, Z.; Wei, Q.; Zhu, H.; Wang, Y.; Qu, L.; Shao, W.; and Zhou, Y. 2024. Unleashing the potential of SAM for medical adaptation via hierarchical decoding. In IEEE Conf. Comput. Vis. Pattern Recog., 3511–3522."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Diederik, P. K. 2014. Adam: A method for stochastic optimization. (No Title)."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Feng, W.; Zhu, L.; and Yu, L. 2023. Cheap lunch for medical image segmentation by fine-tuning sam on few exemplars. In International MICCAI Brainlesion Workshop, 13–22."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Ge, K.; Wang, C.; Guo, Y.; Tang, Y.; Hu, Z.; and Chen, H. 2024. Fine-tuning vision foundation model for crack segmentation in civil infrastructures. Construction and Building Materials, 431: 136573."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "He, K.; Zhang, X.; Ren, S.; and Sun, J. 2016. Deep residual learning for image recognition. In IEEE Conf. Comput. Vis. Pattern Recog., 770–778."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Hu, E. J.; Shen, Y.; Wallis, P.; Allen-Zhu, Z.; Li, Y.; Wang, S.; Wang, L.; and Chen, W. 2021. Lora: Low-rank adaptation of large language models. arXiv preprint arXiv:2106.09685."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Kirillov, A.; Mintun, E.; Ravi, N.; Mao, H.; Rolland, C.; Gustafson, L.; Xiao, T.; Whitehead, S.; Berg, A. C.; Lo, W.- Y.; et al. 2023. Segment anything. In Int. Conf. Comput. Vis., 4015–4026."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "LeCun, Y.; Bottou, L.; Bengio, Y.; and Haffner, P. 1998. Gradient-based learning applied to document recognition. Proceedings of the IEEE, 86(11): 2278–2324."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Lei, Q.; Zhong, J.; and Dai, Q. 2024. Enriching Information and Preserving Semantic Consistency in Expanding Curvilinear Object Segmentation Datasets. In European Conference on Computer Vision, 233–250. Springer."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Lei, Q.; Zhong, J.; Dong, M.; and Ota, K. 2025. Faithful crack image synthesis from evolutionary pixel-level annotations via latent semantic diffusion model. Expert Systems with Applications, 126986."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Lei, Q.; Zhong, J.; and Wang, C. 2024. Joint optimization of crack segmentation with an adaptive dynamic threshold module. IEEE Transactions on Intelligent Transportation Systems, 25(7): 6902–6916."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Lei, Q.; Zhong, J.; Wang, C.; and Li, X. 2024. Integrating Crack Causal Augmentation Framework and Dynamic Binary Threshold for imbalanced crack instance segmentation. Expert Systems with Applications, 240: 122552."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Leng, T.; Zhang, Y.; Han, K.; and Xie, X. 2024. Selfsampling meta SAM: enhancing few-shot medical image segmentation with meta-learning. In IEEE Winter Conf Appl Comput Vis., 7925–7935."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Li, D.; Chen, L.; Cao, Y.; Zhu, K.; and Cheng, J. 2025. UCS: A Universal Model for Curvilinear Structure Segmentation. arXiv preprint arXiv:2504.04034."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Li, W.; Wang, P.; Xiong, R.; and Fan, X. 2024a. Spiking tucker fusion transformer for audio-visual zero-shot learning. IEEE Transactions on Image Processing."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Li, W.; Xiong, R.; and Fan, X. 2024. Multi-layer probabilistic association reasoning network for image-text retrieval. IEEE transactions on circuits and systems for video technology, 34(10): 9706–9717."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Li, X.; Chen, H.; Qi, X.; Dou, Q.; Fu, C.-W.; and Heng, P.- A. 2018. H-DenseUNet: hybrid densely connected UNet for liver and tumor segmentation from CT volumes. IEEE transactions on medical imaging, 37(12): 2663–2674."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Li, X.; Huang, Z.; Xue, F.; and Zhou, Y. 2024b. MuSc: Zero-Shot Industrial Anomaly Classification and Segmentation with Mutual Scoring of the Unlabeled Images. In International Conference on Learning Representations."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Li, X.; Yu, L.; Chen, H.; Fu, C.-W.; Xing, L.; and Heng, P.- A. 2020. Transformation-consistent self-ensembling model for semisupervised medical image segmentation. IEEE transactions on neural networks and learning systems, 32(2): 523–534."
+                            }
+                        ]
+                    }
+                ]
+            },
+            "bbox": [
+                83,
+                219,
+                478,
+                276
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "3217"
+                    }
+                ]
+            },
+            "bbox": [
+                478,
+                914,
+                516,
+                926
+            ]
+        }
+    ],
+    [
+        {
+            "type": "list",
+            "content": {
+                "list_type": "reference_list",
+                "list_items": [
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Lin, L.; Peng, L.; He, H.; Cheng, P.; Wu, J.; Wong, K. K.; and Tang, X. 2023. YoloCurvSeg: You only label one noisy skeleton for vessel-style curvilinear structure segmentation. Medical image analysis, 90: 102937."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Lin, T.-Y.; Goyal, P.; Girshick, R.; He, K.; and Dollár, P. 2017. Focal loss for dense object detection. In Int. Conf. Comput. Vis., 2980–2988."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Liu, H.; Miao, X.; Mertz, C.; Xu, C.; and Kong, H. 2021. Crackformer: Transformer network for fine-grained crack detection. In Int. Conf. Comput. Vis., 3783–3792."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Liu, W.; Anguelov, D.; Erhan, D.; Szegedy, C.; Reed, S.; Fu, C.-Y.; and Berg, A. C. 2016. Ssd: Single shot multibox detector. In Eur. Conf. Comput. Vis., 21–37."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Liu, Y.; Yao, J.; Lu, X.; Xie, R.; and Li, L. 2019. DeepCrack: A deep hierarchical feature learning architecture for crack segmentation. Neurocomputing, 338: 139–153."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Ma, N.; Fan, R.; and Xie, L. 2024. UP-CrackNet: Unsupervised Pixel-Wise Road Crack Detection via Adversarial Image Restoration. IEEE Transactions on Intelligent Transportation Systems."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Rakshitha, R.; Srinath, S.; Kumar, N. V.; Rashmi, S.; and Poornima, B. 2024. Crack-SAM: Crack Segmentation Using a Foundation Model."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Ravi, N.; Gabeur, V.; Hu, Y.-T.; Hu, R.; Ryali, C.; Ma, T.; Khedr, H.; Rädle, R.; Rolland, C.; Gustafson, L.; et al. 2024. Sam 2: Segment anything in images and videos. arXiv preprint arXiv:2408.00714."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Redmon, J.; Divvala, S.; Girshick, R.; and Farhadi, A. 2016. You only look once: Unified, real-time object detection. In IEEE Conf. Comput. Vis. Pattern Recog., 779–788."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Ren, S.; He, K.; Girshick, R.; and Sun, J. 2016. Faster R-CNN: Towards real-time object detection with region proposal networks. IEEE Trans. Pattern Anal. Mach. Intell., 39(6): 1137–1149."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Shi, T.; Ding, X.; Zhang, L.; and Yang, X. 2023. FreeCOS: self-supervised learning from fractals and unlabeled images for curvilinear object segmentation. In Int. Conf. Comput. Vis., 876–886."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Staal, J.; Abràmoff, M. D.; Niemeijer, M.; Viergever, M. A.; and Van Ginneken, B. 2004. Ridge-based vessel segmentation in color images of the retina. IEEE transactions on medical imaging, 23(4): 501–509."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Wang, F.; Gu, Y.; Liu, W.; Yu, Y.; He, S.; and Pan, J. 2019. Context-aware spatio-recurrent curvilinear structure segmentation. In IEEE Conf. Comput. Vis. Pattern Recog., 12648-12657."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Wang, H.; and Li, X. 2023a. Dhc: Dual-debiased heterogeneous co-training framework for class-imbalanced semisupervised medical image segmentation. In International conference on medical image computing and computerassisted intervention, 582–591."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Wang, H.; and Li, X. 2023b. Towards generic semisupervised framework for volumetric medical image segmentation. Advances in Neural Information Processing Systems, 36: 1833–1848."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Wang, H.; Zhang, Q.; Li, Y.; and Li, X. 2024a. Allspark: Reborn labeled features from unlabeled in transformer for semi-supervised semantic segmentation. In IEEE Conf. Comput. Vis. Pattern Recog., 3627–3636."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Wang, L.; Qi, C.; Ou, C.; An, L.; Jin, M.; Kong, X.; and Li, X. 2024b. MultiEYE: Dataset and Benchmark for OCT-Enhanced Retinal Disease Recognition from Fundus Images. IEEE Transactions on Medical Imaging."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Xu, H.; Li, C.; Jiang, X.; Zhang, S.; Wang, S.; and Zhang, H. 2024. CrackSAM: Study on Few-Shot Segmentation of Mural Crack Images Using SAM. In 2024 IEEE 16th International Conference on Advanced Infocomm Technology (ICAIT), 188–193. IEEE."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Yao, H.; Hu, X.; and Li, X. 2022. Enhancing pseudo label quality for semi-supervised domain-generalized medical image segmentation. In Proceedings of the AAAI conference on artificial intelligence, volume 36, 3099–3107."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Ye, Z.; Lovell, L.; Faramarzi, A.; and Ninić, J. 2024. Sambased instance segmentation models for the automation of structural damage detection. Advanced Engineering Informatics, 62: 102826."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Zamir, M. 2001. Arterial branching within the confines of fractal L-system formalism. The Journal of general physiology, 118(3): 267–276."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Zhang, H.; Zhu, H.; Jing, J.; Li, P.; and Pan, Q. 2024. Curve-Like Structure Detection Using Multi-Sale and Boundary Assisted Segmentation Network. IEEE Transactions on Instrumentation and Measurement."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Zhou, X.; Wang, D.; and Krähenbühl, P. 2019. Objects as points. arXiv preprint arXiv:1904.07850."
+                            }
+                        ]
+                    },
+                    {
+                        "item_type": "text",
+                        "item_content": [
+                            {
+                                "type": "text",
+                                "content": "Zou, Q.; Zhang, Z.; Li, Q.; Qi, X.; Wang, Q.; and Wang, S. 2018. Deepcrack: Learning hierarchical convolutional features for crack detection. IEEE transactions on image processing, 28(3): 1498–1512."
+                            }
+                        ]
+                    }
+                ]
+            },
+            "bbox": [
+                83,
+                68,
+                478,
+                126
+            ]
+        },
+        {
+            "type": "page_number",
+            "content": {
+                "page_number_content": [
+                    {
+                        "type": "text",
+                        "content": "3218"
+                    }
+                ]
+            },
+            "bbox": [
+                478,
+                914,
+                516,
+                926
+            ]
+        }
+    ]
+]

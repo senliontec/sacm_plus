@@ -4,44 +4,44 @@ The top-level auxiliary file: main.aux
 The style file: ieeenat_fullname.bst
 Database file #1: main.bib
 Database file #2: parsing_refs.bib
-You've used 35 entries,
+You've used 43 entries,
             2708 wiz_defined-function locations,
-            854 strings with 13938 characters,
-and the built_in function-call counts, 25243 in all, are:
-= -- 2112
-> -- 2218
-< -- 15
-+ -- 741
-- -- 705
-* -- 2328
-:= -- 3915
-add.period$ -- 109
-call.type$ -- 35
-change.case$ -- 339
-chr.to.int$ -- 34
-cite$ -- 70
-duplicate$ -- 897
-empty$ -- 1506
-format.name$ -- 742
-if$ -- 5198
-int.to.chr$ -- 2
+            894 strings with 15648 characters,
+and the built_in function-call counts, 30840 in all, are:
+= -- 2623
+> -- 2573
+< -- 23
++ -- 861
+- -- 816
+* -- 2781
+:= -- 4703
+add.period$ -- 133
+call.type$ -- 43
+change.case$ -- 400
+chr.to.int$ -- 41
+cite$ -- 86
+duplicate$ -- 1149
+empty$ -- 1914
+format.name$ -- 861
+if$ -- 6422
+int.to.chr$ -- 3
 int.to.str$ -- 1
-missing$ -- 34
-newline$ -- 183
-num.names$ -- 140
-pop$ -- 679
+missing$ -- 42
+newline$ -- 223
+num.names$ -- 172
+pop$ -- 814
 preamble$ -- 1
-purify$ -- 305
+purify$ -- 358
 quote$ -- 0
-skip$ -- 817
+skip$ -- 1044
 stack$ -- 0
-substring$ -- 900
-swap$ -- 192
-text.length$ -- 13
+substring$ -- 1203
+swap$ -- 279
+text.length$ -- 20
 text.prefix$ -- 0
 top$ -- 0
-type$ -- 385
+type$ -- 473
 warning$ -- 0
-while$ -- 167
+while$ -- 214
 width$ -- 0
-write$ -- 460
+write$ -- 564

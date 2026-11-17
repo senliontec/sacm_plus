@@ -1,0 +1,399 @@
+# TopoTTA: Topology-Enhanced Test-Time Adaptation for Tubular Structure Segmentation
+
+Jiale Zhou1,2, Wenhan Wang3, Shikun Li, Xiaolei Qu3, Xin Guo3, Yizhong Liu³, Wenzhong Tang3, Xun Lin2,3,\*, Yefeng Zheng2,\*
+
+1Zhejiang University2Westlake University3Beihang University
+
+{zhoujiale, zhengyefeng}@westlake.edu.cnlinxun@buaa.edu.cn
+
+## Abstract
+
+Tubular structure segmentation (TSS) is important for various applications, such as hemodynamic analysis and route navigation. Despite significant progress in TSS, domain shifts remain a major challenge, leading to performance degradation in unseen target domains. Unlike other segmentation tasks, TSS is more sensitive to domain shifts, as changes in topological structures can compromise segmentation integrity, and variations in local features distinguishing foreground from background (e.g., texture and contrast) may further disrupt topological continuity. To address these challenges, we propose Topology-enhanced Test-Time Adaptation (TopoTTA), the first test-time adaptation framework designed specifically for TSS. TopoTTA consists of two stages: Stage 1 adapts models to cross-domain topological discrepancies using the proposed Topological Meta Difference Convolutions (TopoMDCs), which enhance topological representation without altering pre-trained parameters; Stage 2 improves topological continuity by a novel Topology Hard sample Generation (TopoHG) strategy and prediction alignment on hard samples with pseudo-labels in the generated pseudobreaks. Extensive experiments across four scenarios and ten datasets demonstrate TopoTTA's effectiveness in handling topological distribution shifts, achieving an average improvement of 31.81% in clDice. TopoTTA also serves as a plug-and-play TTA solution for CNN-based TSS models.
+
+## 1. Introduction
+
+Tubular structure segmentation (TSS), also known as curvilinear object segmentation [45], plays a critical role in various applications (e.g., hemodynamic analysis [24, 55] and route planning [64, 73]). Although many TSS methods have been proposed and achieved inspiring performance [15, 21], domain shifts remain a common challenge in real-world scenarios [42] due to discrepancies in imaging devices [1, 13] and sample heterogeneity [11].
+
+![](images/0866da74e469171d9dee9c115d671de8edf0f31eed939a3397b989fcaec7133d.jpg)  
+Figure 1. Comparison between TopoTTA and existing TTA solutions. (a) represents the model during the source domain training phase, while (b) denotes the model in the target domain testing phase. (b1-b4) show the results of directly testing the sourcetrained model, the TENT [58] method with updated BN layers, the CoTTA [60] method using a teacher-student scheme, and our topology-enhanced approach, respectively.
+
+Domain shifts undermine the effectiveness of TSS models trained on the source domain when applied to an unseen target domain [36, 50]. Unlike segmentation models trained for other tasks, e.g., semantic [35, 67] or tumor segmentation [9, 30, 31, 47, 77], TSS models are more sensitive to domain shifts [50]. Beyond the common variations such as contrast and noise distribution [62, 63], TSS faces additional challenges related to unseen topological structural characteristics, including variations in trajectory, curvature, branching patterns, and thickness [6, 46]. These factors degrade segmentation performance and even disrupt the topological continuity of the structures [65] (see Fig. 1 (b1)), which may mislead critical downstream applications [37, 55, 64].
+
+Recently, a special domain adaptation (DA) paradigm, namely test-time adaptation (TTA) [27, 40, 43], has been proposed and successfully applied to various image segmentation tasks, including semantic [22, 60, 61] and medical image segmentation [3, 74]. Unlike other DA paradigms, TTA performs continuous online adaptation during the test stage (after model deployment) [71]. It uses extremely small amounts of data (e.g., a single sample or batch), aligning better with real-world scenarios where data must be processed sequentially [58].
+
+Most TTA methods update pre-trained models using self-supervised methods [27], which can typically be categorized into normalization-based methods [58, 72] and teacher-student schemes [10, 60]. Normalization-based methods update normalization layer statistics [53] (e.g., batch/layer normalization (BN/LN)) or leverage the difference in normalization statistics before and after adaptation to update external model parameters [3, 49]. These methods are initially designed for classification tasks, and their performance may degrade when applied to segmentation tasks with severe pixel-level class imbalance [5]. The second category, teacher-student schemes (based on pseudolabels), updates all model parameters and achieves performance gains in general segmentation tasks [69]. However, as shown in Fig. 1, these methods perform poorly in TSS due to two unique challenges in cross-domain scenarios:
+
+• Challenge 1: Discrepant topological structures. Tubular structures in the source and target domains can exhibit substantial topological differences (e.g., thickness, curvature, and branching patterns). Prior TTA methods general-purpose model adaptation strategies struggle to effectively capture these cross-domain topological variations when adapting to individual samples.
+
+• Challenge 2: Fragile topological continuity. In crossdomain settings, the local characteristics (e.g., color, texture, and contrast) distinguishing foreground from background may change significantly [50]. Existing TTA methods lack targeted adaptation to these local variations, resulting in catastrophic disruptions to topological continuity (see Fig. 1) by misclassifying foreground pixels.
+
+To address the aforementioned challenges, we propose Topology-Enhanced Test-Time Adaptation (TopoTTA) in this paper. It includes two adaptation stages: topological structure adaptation (Stage 1) and topological continuity refinement (Stage 2).
+
+Stage 1 aims to enhance the model's capability to adapt to discrepant topological structures by utilizing a topologyperceiving model adaptation strategy. Inspired by the Central Difference Convolution (CDC) [70], which captures differences between the central pixel and its neighbors to enhance local representations, we extend this concept to accommodate the elongated and diverse trajectories of tubular structures. Specifically, we introduce Topological Meta
+
+Difference Convolutions (TopoMDCs), which perform a dual-pixel difference operation by extending the central pixel's interaction across eight directional neighbors. As shown in Fig. 2, we learn weighted combinations of different directional TopoMDCs (instead of the vanilla convolution) for different regions to enhance the representations of hard-to-detect tubular branches, improving adaptability to discrepant topological structures.
+
+Within Stage 2, we design a Topology Hard sample Generation (TopoHG) strategy to construct samples with pseudo-breaks. These pseudo-breaks mislead the models to make weakened predictions with poor topological continuity. We then emphasize the local consistency between the predictions and original pseudo-labels in these hard regions. This stage encourages the models to adapt the characteristics distinguishing foreground from background and helps address continuity destructions in the target domain.
+
+Our contributions are as follows:
+
+• We propose the first TTA framework for tubular structure segmentation, named TopoTTA, which effectively adapts to unseen domains by enhancing topological information.
+
+• We design eight directional Topological Meta Difference Convolutions (TopoMDCs) within TopoTTA, and learn how to adaptively combine different TopoMDCs based on the topological features of the test sample. TopoMDCs enhance adaptability to unseen topological structures.
+
+• We propose a Topology Hard sample Generation strategy for TopoTTA, namely TopoHG, which generates pseudobreaks at confidently predicted regions. We then align the predictions around these pseudo breaks to the original pseudo labels, improving the topological continuity in the unseen domain.
+
+• Extensive experiments on four scenarios across ten datasets validate the effectiveness of TopoTTA in addressing topological distribution shifts, achieving an average performance improvement of 31.81% in clDice.
+
+## 2. Related Works
+
+## 2.1. Tubular Structure Segmentation
+
+Tubular structures, characterized by their thin and long topological structures as well as complex layouts, usually cannot be accurately and continuously localized by general segmentation methods [59]. To tackle these challenges, researchers have incorporated topological priors into model designs, including specialized deformable convolution kernels [46], attention mechanisms [14, 66], and tailored model architectures [33]. Complementary to these module innovations, PointScatter [59] was introduced to represent tubular structures as point sets, addressing the flexibility limitations of masks constrained by fixed grids. DconnNet [68] employed a unique design to separate directional subspaces from the latent space, enhancing feature representation for connectivity. Meanwhile, a growing body of works focused on novel loss functions [2, 17, 19, 20, 23, 52, 57] that explicitly optimize the topological continuity of segmentation results. More recently, some research has started to explore the use of synthetic data [25, 28, 51] and the integration of additional topological information [21, 63] to further improve performance. However, these TSS methods ignore the existence of domain shifts, resulting in suboptimal performance when applied to unseen domains.
+
+## 2.2. Test-Time Adaptation
+
+TTA adaptively adjusts the model at test time based on a small number of unlabeled samples from a different distribution. Early TTA methods primarily modified model representations by adjusting BN's statistics [38, 44, 61, 75]. Mirza et al. [38] adapted target domain features by updating BN statistics continuously. Most TTA methods used self-supervised learning to adjust pre-trained parameters, including normalization-based methods [3, 43, 53, 58, 72] and teacher-student (TS) schemes [10, 41, 56, 60]. Wang et al. [58] proposed TENT, an entropy minimization method that updates BN affine transformation parameters to improve confidence in the target domain. Motivated by TENT, some recent works achieved better performance [3, 72] by designing various strategies to fine-tune BN. Zhang et al. [72] incorporated source domain statistics and extended the entropy minimization loss to utilize target domain information better. More recently, Chen et al. [3] reduced generalization errors by aligning source and target statistics to update external model parameters. However, many TTA methods are designed for classification tasks, ignoring pixel-wise class imbalance. In segmentation tasks, where sample imbalance is more severe, simple statistical adjustments and minor parameter updates are easily dominated by the majority of background pixels, reducing segmentation performance [69]. The TS scheme, which applies consistency regularization to update all model parameters, has shown effectiveness in general segmentation tasks. CoTTA [60] used weight-averaged and augmentation-averaged predictions, further reducing error accumulation in continuous inference. However, these methods lack a focus on tubular structure and topological continuity, leading to performance decline and continuity destruction in TSS.
+
+## 3. Proposed TopoTTA
+
+## 3.1. Preliminary
+
+Let $\mathcal { D } ^ { s } = \{ ( \pmb { x } _ { i } ^ { s } , \pmb { y } _ { i } ^ { s } ) \} _ { i = 1 } ^ { N ^ { s } }$ denote the labeled source domain dataset, where $\pmb { x } _ { i } ^ { s } \in \mathbb { R } ^ { \hat { H } \times W \times C }$ is an image with height H, width W, and channel number C, and $\pmb { y } _ { i } ^ { s } \in \{ 0 , 1 \} ^ { H \times W \times C }$ denotes the corresponding ground-truth label. Given a TSS model $\mathcal { F } ( \cdot ; \theta ^ { s } )$ trained on $\mathcal { D } ^ { s }$
+
+$$
+\begin{array} { r } { \theta ^ { s } = \underset { \theta ^ { s } } { \arg \operatorname* { m i n } } \mathbb { E } _ { ( \pmb { x } ^ { s } , \pmb { y } ^ { s } ) \sim \mathcal { D } ^ { s } } \left[ \mathcal { L } _ { s e g } \big ( \mathcal { F } ( \pmb { x } ^ { s } ; \theta ^ { s } ) , \pmb { y } ^ { s } ) \right] , } \end{array}\tag{1}
+$$
+
+where $\mathcal { L } _ { s e g } ( \cdot , \cdot )$ can be any TSS loss function. Let $\mathcal { D } ^ { t } =$ $\{ \boldsymbol { x } _ { i } ^ { t } \} _ { i = 1 } ^ { N ^ { t } }$ represent the unlabeled target domain dataset. During testing, TTA methods aim to update the model parameters for each input image $\pmb { x } _ { i } ^ { t } \in \mathcal { D } ^ { t }$ and produce segmentation outputs $\hat { \pmb { y } } _ { i } ^ { t } = \mathcal { F } ( \pmb { x } _ { i } ^ { t } ; \hat { \theta _ { i - 1 } ^ { t } } )$ as follows:
+
+$$
+\theta _ { i } ^ { t } = \underset { \theta _ { i - 1 } ^ { t } } { \arg \operatorname* { m i n } } \mathcal { L } _ { t t a } ( \mathcal { F } ( \cdot ; \theta _ { i - 1 } ^ { t } ) , \pmb { x } _ { i } ^ { t } ) ,\tag{2}
+$$
+
+where $\theta _ { i } ^ { t }$ are the parameters of the TSS model $\mathcal F ( \cdot ; \cdot )$ at the i-th iteration, and $\mathcal { L } _ { t t a } ( \cdot , \cdot )$ denotes the self-supervised loss function for TTA. Before performing TTA, we set $\theta _ { 0 } ^ { t } = \theta ^ { s }$
+
+To improve readability, we use the simplified notation x instead of $\boldsymbol { x } _ { i } ^ { t }$ in the following sections and figures.
+
+## 3.2. Overview of TopoTTA
+
+As discussed in Section 1, existing TTA methods cannot effectively segment tubular structures due to two major challenges: discrepant topological structures and fragile topological continuity. To solve these issues, we propose TopoTTA, which consists of two stages: Stage 1 performs topological structure adaptation to overcome the insufficient cross-domain topological structure adaptation; Stage 2 conducts topological continuity refinement to enhance the topological continuity of the final predictions. An overview of our TopoTTA is illustrated in Fig. 2. The details of Stage 1 and Stage 2 are described in Section 3.3 and Section 3.4, respectively.
+
+## 3.3. Stage 1: Topological Structure Adaptation
+
+This stage aims to adapt the pre-trained TSS model to discrepant topological structures caused by domain shifts. To achieve this, we propose TopoMDCs based on diverse fundamental topological patterns and adaptively reweight and combine TopoMDCs according to the topological features of different regions. We introduce the details of TopoMDCs and the model parameter updating process below.
+
+Topology-Meta Difference Convolutions (TopoMDCs). TopoMDCs draw inspiration from central difference convolution (CDC) [70], which captures the difference between the central pixel of a convolution kernel and its neighbors to detect local gradient changes. However, the local topological shapes of tubular structures often exhibit directionality and continuity. CDC, initially designed for other finegrained vision tasks (e.g., face anti-spoofing [29, 32, 70]) lacks the ability to perceive these two features of tubular structures, making them ineffective in representing the complex topologies and geometric constraints within local regions. Let $\pmb { x } _ { \mathrm { i n } }$ denote the input feature map. The vanilla convolution $\mathcal { C } _ { 0 }$ and $\mathbf { C D C } \mathcal { C } _ { c }$ can be formulated as:
+
+$$
+\mathcal { C } _ { 0 } ( r _ { x } , r _ { y } ) = \sum _ { ( \Delta r _ { x } , \Delta r _ { y } ) \in \mathcal { R } } w ( \Delta r _ { x } , \Delta r _ { y } ) \cdot \pmb { x } _ { \mathrm { i n } } ( r _ { x } - \Delta r _ { x } , r _ { y } - \Delta r _ { y } ) ,\tag{3}
+$$
+
+$$
+\mathcal { C } _ { c } ( \boldsymbol { r } _ { x } , \boldsymbol { r } _ { y } ) = \sum _ { \begin{array} { c } { ( \Delta \boldsymbol { r } _ { x } , \Delta \boldsymbol { r } _ { y } ) \in \mathcal { R } } \\ { \left( \Delta \boldsymbol { r } _ { x } , \Delta \boldsymbol { r } _ { y } \right) \in \mathcal { R } } \end{array} } w ( \Delta \boldsymbol { r } _ { x } , \Delta \boldsymbol { r } _ { y } ) \cdot \boldsymbol { x } _ { \mathrm { i n } } ( \boldsymbol { r } _ { x } , \boldsymbol { r } _ { y } ) ,
+$$
+
+![](images/bc9c59f856f2071db4c185627350c065b32f807873b795032793ad0f404b812c.jpg)  
+Figure 2. Overview of the proposed TopoTTA. TopoTTA consists of two stages: (a) Stage 1: Topology structure adaptation with Topological Meta Difference Convolutions (TopoMDCs), and (b) Stage 2: Topological continuity refinement. (c) Topology Hard sample Generation (TopoHG) constructs challenging samples with local pseudo-breaks. CDC is short for central difference convolution.
+
+where $\mathcal { R } = \{ ( 1 , 1 ) , ( 0 , 1 ) , \cdot \cdot \cdot , ( - 1 , 0 ) , ( - 1 , - 1 ) \}$ represents the local receptive field of a 3 × 3 convolution kernel, w denotes the parameters of the vanilla convolution layer, and $( r _ { x } , r _ { y } )$ represents the relative position within the convolution operation centered on the current pixel of $\pmb { x } _ { \mathrm { i n } }$
+
+To overcome this limitation of CDC, the proposed TopoMDCs perform a two-pixel differential operation by extending their reach to the eight neighboring directions beyond the center pixel, as shown in Fig. 2 (a). This design simulates various basic topological patterns, effectively accommodating the elongated and diverse trajectories of tubular structures and enhancing the model's capability to recognize various tubular objects. Let $\pmb { x } _ { \mathrm { i n } } \in \mathbb { R } ^ { \tilde { H _ { \mathrm { i n } } } \times W _ { \mathrm { i n } } \times \tilde { C } _ { \mathrm { i n } } }$ denote the input feature map, the pre-trained vanilla convolution be $\mathcal { C } _ { 0 }$ , and the set of TopoMDCs be $\{ { \mathcal { C } } _ { 1 } , { \mathcal { C } } _ { 2 } , \cdots , { \mathcal { C } } _ { 8 } \}$
+
+Taking $\mathcal { C } _ { 1 }$ , which extends toward the top-left pixel (see Fig. 2 (a)), as an example, it is defined as:
+
+$$
+\begin{array} { l } { \displaystyle \mathcal { C } _ { 1 } ( \boldsymbol { r } _ { x } , \boldsymbol { r } _ { y } ) = \mathcal { C } _ { c } ( \boldsymbol { r } _ { x } , \boldsymbol { r } _ { y } ) - \sum _ { ( \Delta r _ { x } , \Delta r _ { y } ) \in \mathcal { R } _ { 1 } } w ( \Delta r _ { x } , \Delta r _ { y } ) \cdot \boldsymbol { \mathbf { \mathit { x } } } _ { \mathrm { i n } } ( \boldsymbol { r } _ { x } , \boldsymbol { r } _ { y } ) } \\ { \displaystyle \qquad ( \Delta r _ { x } , \Delta r _ { y } ) \in \mathcal { R } _ { 1 } } \\ { \displaystyle \qquad + \sum _ { ( \Delta r _ { x } , \Delta r _ { y } ) \in \mathcal { R } _ { 1 } } w ( \Delta r _ { x } , \Delta r _ { y } ) \cdot \boldsymbol { \mathbf { \mathit { x } } } _ { \mathrm { i n } } ( \boldsymbol { r } _ { x } + 1 , \boldsymbol { r } _ { y } + 1 ) , } \end{array}\tag{4}
+$$
+
+where $\mathcal { R } _ { 1 } = \{ ( - 1 , - 1 ) , ( - 1 , 0 ) , ( 0 , - 1 ) \}$ is the local receptive field of $\mathcal { C } _ { 1 }$ . Due to space limitations, the formal definitions of other TopoMDCs are provided in Appendix.
+
+TopoMDCs do not introduce any additional parameters for any convolution layer but instead, adaptively transform the vanilla convolution in $\mathcal { F } ( \cdot ; \theta )$ . Specifically, we replace all $3 \times 3$ convolution layers in the encoder of $\mathcal { F } ( \cdot ; \theta )$ with TopoMDCs. All TopoMDCs inherit the parameters of the vanilla convolutions. To adapt to a variety of complex (even unseen) topologies, a dynamic combination of TopoMDCs is required. Given that the topologies of local regions tend to be quite similar, while the topologies of distant regions can differ significantly, we introduce different learnable parameter sets δ with eight learnable router parameters for different image patches. To adapt to the respective topological structures in different regions, we patchify the input image into $n \times n$ non-overlap patches, each with the size of $H _ { \mathrm { i n } } / n \times W _ { \mathrm { i n } } / n$ . Taking the j-th image patches $\mathbf { \Delta } _ { \pmb { p } _ { j } }$ from $x _ { \mathrm { i n } } ,$ the corresponding router parameter set δ assigns external parameters to different TopoMDCs, enabling adaptive enhancement of the perception of topological structures within the patch. The output feature $\hat { \mathbf { x } } _ { \mathrm { o u t } }$ is obtained as:
+
+$$
+\hat { \pmb { x } } _ { \mathrm { o u t } } = \mathcal { C } _ { 0 } ( \pmb { x } _ { \mathrm { i n } } ) - \sum _ { j = 1 } ^ { n \times n } \delta _ { j } \sum _ { i = 1 } ^ { 8 } \mathcal { C } _ { i } ( \pmb { x } _ { \mathrm { i n } } ^ { j } ) ,\tag{5}
+$$
+
+where $\pmb { x } _ { \mathrm { i n } } ^ { j }$ denotes the j-th patch of $\pmb { x } _ { \mathrm { i n } }$ . The patchification operations $\mathcal { C } _ { 0 }$ and $\mathcal { C } _ { i }$ differ slightly in their inputs in Eq. (4) and Eq. (5). In Eq. (5), $\mathcal { C } _ { 0 }$ and $\mathcal { C } _ { i }$ denote the same computation applied uniformly to every pixel in $\pmb { x } _ { \mathrm { i n } } ^ { j }$
+
+Router Parameter (δ) Updating in Stage 1. As mentioned above, we do not update the original parameters of the convolution kernel or any other parameters in the network but only update a small number of introduced router parameters δ. This is not just a consideration for inference speed. Simultaneously adjusting both $\delta$ and the model parameters increases the search-space complexity, which may lead to conflicts or interference among parameters. This, in turn, could even disrupt the original feature representation. To this end, we only adjust δ to adapt the topological response within an external feature space, thereby reducing the risk of instability. For each incoming test sample x, all router parameters are reset to zero, so that the model can independently adapt to the topological structures of the new sample. We use the self-supervised entropy minimization (EM) loss [58] to update $\delta \colon$
+
+$$
+\begin{array} { r l } & { \mathcal { L } _ { \mathrm { { E M } } } = - \displaystyle \sum _ { j = 1 } ^ { 2 } \hat { y } _ { j } \log ( \hat { y } _ { j } ) , } \\ & { \delta = \displaystyle \arg \operatorname* { m i n } _ { \theta ^ { t } } \mathcal { L } _ { \mathrm { { E M } } } ( \mathcal { F } ( \cdot ; \theta ^ { t } ; \delta ) , x ) . } \end{array}\tag{6}
+$$
+
+## 3.4. Stage 2: Topological Continuity Refinement
+
+As previously discussed in Sec. 3.3, Stage 1 enhances the representation of topological structures in $\mathcal { D } ^ { t }$ . In Stage 2, we guide the model to learn local characteristics in $\mathcal { D } ^ { t }$ for foreground-background differentiation, thereby improving the topological continuity of segmentation. To achieve this, we generate a series of pseudo-breaks at key topological structures on the test image $^ { \mathbf { \delta x } , }$ producing the edited image $\mathbf { x } ^ { \prime }$ through the proposed Topology Hard sample Generation (TopoHG) strategy, as shown in Fig. 2 (c).
+
+Topology Hard Sample Generation (TopoHG). The TopoHG process for generating local hard samples can be roughly divided into the following three steps:
+
+Step 1: Key Point Selection. Since we apply consistency supervision on the predictions of local hard samples, the selected regions must have highly reliable pseudo-labels. To this end, we first select a set of points with confidence above the threshold $\tau = 0 . 9 5$ from the teacher's predictions $\hat { \boldsymbol y } ^ { \prime }$ denoted as $\mathcal { P } = \{ ( u , v ) \mid \hat { \pmb { y } } ^ { \prime } ( u , v ) > \tau \}$ . Then, we randomly select $N _ { p }$ points from $\mathcal { P }$ as key points. Since prediction confidence varies across different test samples, using a fixed $N _ { p }$ for all input samples is suboptimal. Therefore, we allow samples with higher confidence to select more key points and create more challenging regions to contribute more to the weight update: $N _ { p } = k \cdot | \mathcal { P } |$ , where k is a hyperparameter.
+
+Step 2: Sliding to Search. For each selected key point $( u _ { c } , v _ { c } )$ , let $\pmb { x } _ { p } ^ { \mathrm { f g } }$ denote the fixed foreground window centered at this point, with a size of $s \times s$ . Then, a background sliding window $\pmb { x } _ { p } ^ { \mathrm { b g } }$ , of the same size as the foreground window, slides over adjacent non-overlapping regions, identifying window $\pmb { x } _ { p } ^ { \mathrm { b g , * } }$ with the lowest pseudo-label confidence of all pixels. Meanwhile, to prevent $\pmb { x } _ { p } ^ { \mathrm { b g , * } }$ from carrying too much foreground information, we set a lower threshold τbg. If the sum of foreground confidence of all pixels in $\pmb { x } _ { p } ^ { \mathrm { b g , * } }$ exceeds $\tau ^ { \mathrm { b g } }$ , the key point $( u _ { c } , v _ { c } )$ is discarded.
+
+Step 3: Frequency-based Pseudo-break Generation. TopoHG aims to create local pseudo-break topological structures within the critical regions. This requires TopoHG to simulate the characteristics of structures that seem to be broken while retaining essential foreground features. Inspired by [34], we adopt a low-frequency swap method between background and foreground to preserve highfrequency information that carries critical foreground features. Let FFT and iFFT denote the Fast Fourier Transform (FFT) and inverse Fast Fourier Transform (iFFT) operations [7], respectively, with $\mathbf { \Delta } m _ { \mathrm { l o w } }$ as the mask for the lowfrequency regions that need to be swapped. Applying FFT to $\dot { \pmb { x } } _ { p } ^ { \mathrm { f g } }$ and $\pmb { x } _ { p } ^ { \mathrm { b g } , \ast }$ yields the frequency domain representations $\pmb { f } _ { p } ^ { \mathrm { f g } } = \mathrm { F F T } ( \pmb { x } _ { p } ^ { \mathrm { f g } } )$ and $\pmb { f } _ { p } ^ { \mathrm { b g } } = \mathrm { F F T } ( \pmb { x } _ { p } ^ { \mathrm { b g , * } } )$ . After performing low-frequency swap on $\boldsymbol { f } _ { p } ^ { \mathrm { f g } }$ and $\pmb { f } _ { p } ^ { \mathrm { b g } }$ and applying iFFT, we obtain the modified image $\pmb { x } _ { p } ^ { \mathrm { s w a p } }$ , as follows:
+
+$$
+\pmb { x } _ { p } ^ { \mathrm { s w a p } } = \mathrm { i F F T } \left( \pmb { f } _ { p } ^ { \mathrm { f g } } \cdot ( 1 - \pmb { m } _ { \mathrm { l o w } } ) + \pmb { f } _ { p } ^ { \mathrm { b g } } \cdot \pmb { m } _ { \mathrm { l o w } } \right) .\tag{7}
+$$
+
+To avoid additional risks associated with unnecessary background changes when emphasizing consistency, we update only update pixels in $\pmb { x } _ { p } ^ { \mathrm { f g } }$ that correspond to the foreground in the pseudo-label $\hat { \pmb y } _ { p } ^ { \prime } .$ The pseudo-break patch $\pmb { x } _ { p } ^ { \prime }$ can be defined as follows:
+
+$$
+\begin{array} { r } { \pmb { x } _ { p } ^ { \prime } = \pmb { x } _ { p } ^ { \mathrm { s w a p } } \cdot \hat { \pmb { y } } _ { p } ^ { \prime } + \pmb { x } _ { p } ^ { \mathrm { f g } } \cdot ( 1 - \hat { \pmb { y } } _ { p } ^ { \prime } ) . } \end{array}\tag{8}
+$$
+
+After completing the above four steps, we obtain a hard sample $\mathbf { x } ^ { \prime }$ that contains multiple local pseudo-breaks, resulting in weakened predictions to assist in model updates.
+
+Model Updating in Stage 2. To align the predictions $\hat { \pmb y } ^ { \prime \prime }$ of these local hard samples $\mathbf { x } ^ { \prime }$ with the original pseudo-label $\hat { \boldsymbol y } ^ { \prime }$ , we apply consistency regularization as supervision, implemented through the TS scheme as shown in Fig. 2 (c). The cross-entropy loss $\mathcal { L } _ { \mathrm { C E } }$ is used to enhance the consistency between the student's (i.e., prediction of the hard sample $\dot { \hat { y } } ^ { \prime \prime } )$ and teacher's (i.e., pseudo-label $\hat { \boldsymbol y } ^ { \prime }$ of original samples) predictions, updating $\theta _ { i } ^ { t }$ as follows:
+
+$$
+\begin{array} { r l } & { \mathcal { L } _ { \mathrm { C E } } = - \displaystyle \sum _ { ( u , v ) } \mathcal { W } \left( u , v \right) \cdot \left( \hat { y } ^ { \prime } \log \left( \hat { y } ^ { \prime \prime } \right) + \hat { y } ^ { \prime \prime } \log \left( \hat { y } ^ { \prime } \right) \right) , } \\ & { } \\ & { \theta _ { i } ^ { t } = \displaystyle \operatornamewithlimits { a r g m i n } \mathcal { L } _ { \mathrm { C E } } ( \mathcal { F } ( \cdot ; \theta _ { i - 1 } ^ { t } ; \delta ) , \pmb { x } ) , } \\ & { \quad \theta _ { i - 1 } ^ { t } } \end{array}\tag{9}
+$$
+
+where $\boldsymbol { \mathcal { W } } ( \boldsymbol { u } , \boldsymbol { v } )$ is a weight map. The local pseudo-breaks should receive higher attention in consistency regularization; therefore, $\boldsymbol { \mathcal { W } } ( \boldsymbol { u } , \boldsymbol { v } )$ is defined as follows:
+
+$$
+\mathcal { W } ( u , v ) = \left\{ \begin{array} { l l } { 1 0 } & { \mathrm { i f } \left( u , v \right) \in \pmb { x } _ { p } ^ { \prime } \cdot \hat { \pmb { y } } _ { p } ^ { \prime } } \\ { 1 } & { \mathrm { o t h e r w i s e } } \end{array} \right. .\tag{10}
+$$
+
+The gradient is used solely to update the student, while the teacher's parameters are updated by an exponential moving average (EMA) of the student's parameters. Finally, after several steps of updates, the unmodified input x is fed into the student model to obtain the final prediction.
+
+## 4. Experiments
+
+We conduct comparison experiments across four scenarios, i.e., retinal vessel segmentation, road extraction, microscopic neuronal segmentation, and retinal OCTangiography vessel segmentation covering ten datasets.
+
+Table 1. Cross-domain testing results in four different scenarios, i.e., retinal vessel segmentation, road extraction, microscopic neuronal segmentation, and retinal OCT-angiography vessel segmentation. Source Only: Trained on the source domain and tested on the target domain directly. The best and second-best results in each column are highlighted in bold and underline, respectively.
+<table><tr><td rowspan="2">Method</td><td colspan="3">DRIVE → CHASE</td><td colspan="3">DRIVE → STARE</td><td colspan="3">CHASE → DRIVE</td><td colspan="3">CHASE → STARE</td><td colspan="3">DeepGlobe → MR</td></tr><tr><td>Dice (%) ↑</td><td>clDice (%) ↑</td><td>β↓</td><td>Dice (%) ↑</td><td>clDice (%) ↑</td><td>β↓</td><td>Dice (%) ↑</td><td>clDice (%) ↑</td><td>β↓</td><td>Dice ↑</td><td>clDice (%) ↑</td><td>β↓</td><td>Dice (%) ↑</td><td>clDice (%) ↑</td><td>β↓</td></tr><tr><td>Source Only</td><td>22.38</td><td>18.21</td><td>41.25</td><td>48.05</td><td></td><td>106.30</td><td>62.95</td><td>58.59</td><td>89.95</td><td>48.77</td><td></td><td>105.20</td><td>44.89</td><td>54.97</td><td>76.83</td></tr><tr><td>TENT [58]</td><td>66.97</td><td>69.43</td><td>37.75</td><td>67.14</td><td>60.74</td><td>98.40</td><td>64.74</td><td>60.25</td><td>88.30</td><td>61.91</td><td>55.39</td><td>106.00</td><td>42.61</td><td>52.18</td><td>77.71</td></tr><tr><td>CoTTA [60]</td><td>68.60</td><td>71.53</td><td>36.38</td><td>67.02</td><td>59.86</td><td>97.40</td><td>67.64</td><td>64.80</td><td>81.20</td><td>63.72</td><td>57.64</td><td>99.85</td><td>50.83</td><td>60.58</td><td>74.82</td></tr><tr><td>SAR [43]</td><td>66.97</td><td>69.49</td><td>37.13</td><td>67.29</td><td>60.90</td><td>97.90</td><td>65.06</td><td>60.69</td><td>88.35</td><td>62.17</td><td>55.68</td><td>105.60</td><td>43.88</td><td>54.30</td><td>76.70</td></tr><tr><td>DIGA [61]</td><td>66.91</td><td>70.37</td><td>36.50</td><td>59.22</td><td></td><td>82.00</td><td>66.54</td><td>62.43</td><td>85.85</td><td>63.80</td><td>57.32</td><td>103.75</td><td>40.65</td><td>51.08</td><td>78.82</td></tr><tr><td>DomainAdaptor [72]</td><td>64.99</td><td>66.99</td><td>41.50</td><td>62.98</td><td>55.3</td><td>102.75</td><td>64.43</td><td>59.89</td><td>88.50</td><td>59.41</td><td>52.05</td><td>105.45</td><td>45.17</td><td>55.86</td><td>76.98</td></tr><tr><td>MedBN [44]</td><td>49.77</td><td>51.09</td><td>75.88</td><td>57.83</td><td>51.99</td><td>102.55</td><td>59.63</td><td>54.14</td><td>89.95</td><td>54.05</td><td>48.27</td><td>109.00</td><td>38.92</td><td></td><td>76.89</td></tr><tr><td>VPTTA [3]</td><td>66.48</td><td>68.93</td><td>38.50 25.38</td><td>67.16</td><td>60.54</td><td>98.95 85.75</td><td>65.02</td><td>60.70</td><td>88.35 79.15</td><td>61.73</td><td>55.01</td><td>105.55 97.60</td><td>44.51</td><td>55.99</td><td>77.43</td></tr><tr><td>TopoTTA (Ours)</td><td colspan="3">70.73 77.05</td><td colspan="3">67.36 62.74</td><td colspan="3">72.96 70.26</td><td colspan="3">68.43 61.20</td><td colspan="3">50.74 66.08 69.23</td></tr><tr><td rowspan="2">Method</td><td colspan="3">DeepGlobe → CNDS</td><td colspan="3">Neub1 → Neub2</td><td colspan="3">Neub2 → Neub1</td><td colspan="3">ROSE → OCTA500</td><td colspan="3">OCTA500 → ROSE</td></tr><tr><td>Dice (%) ↑</td><td>clDice (%) ↑</td><td>β↓</td><td>Dice (%) ↑</td><td>clDice (%) ↑</td><td>β↓</td><td>Dice (%) ↑</td><td>clDice (%) ↑</td><td>β↓</td><td>Dice (%) ↑</td><td>clDice (%) ↑</td><td>β↓</td><td>Dice (%) ↑</td><td>clDice (%) ↑</td><td>β↓</td></tr><tr><td></td><td></td><td>92.22</td><td>7.09</td><td></td><td></td><td>8.22</td><td>60.97</td><td>65.62</td><td>60.56</td><td>50.10</td><td>57.65</td><td>55.36</td><td>71.39</td><td></td><td>19.55</td></tr><tr><td>Source Only</td><td>81.74</td><td></td><td>6.65</td><td>14.34</td><td></td><td>9.06</td><td>63.26</td><td>72.32</td><td>9.37</td><td>68.99</td><td>75.69</td><td>43.06</td><td>72.25</td><td>74.64 75.64</td><td>17.89</td></tr><tr><td>TENT [58]</td><td>78.69</td><td>90.65 91.18</td><td>5.99</td><td>51.55 52.21</td><td>60.58 62.78</td><td>10.06</td><td>64.40</td><td>73.58</td><td>7.96</td><td>70.05</td><td>75.65</td><td>41.34</td><td>72.58</td><td>75.78</td><td>18.00</td></tr><tr><td>CoTTA [60]</td><td>77.83 79.19</td><td>90.72</td><td>6.86</td><td>51.85</td><td>60.80</td><td>9.16</td><td>63.21</td><td>72.31</td><td>9.62</td><td>67.65</td><td>74.14</td><td>44.42</td><td>72.45</td><td>75.85</td><td>17.44</td></tr><tr><td>SAR [43]</td><td>75.45</td><td>83.22</td><td>14.10</td><td>39.4</td><td>66.44</td><td>19.77</td><td>61.32</td><td>73.40</td><td>8.19</td><td>66.17</td><td>72.98</td><td>42.18</td><td>71.51</td><td>75.40</td><td>17.99</td></tr><tr><td>DIGA [61] DomainAdaptor [72]</td><td>80.71</td><td>91.72</td><td>6.80</td><td></td><td>60.96</td><td>7.94</td><td>64.04</td><td>72.38</td><td>8.75</td><td>67.39</td><td>74.60</td><td>44.14</td><td>71.77</td><td>75.37</td><td>17.00</td></tr><tr><td>MedBN [44]</td><td>76.96</td><td>87.94</td><td>9.22</td><td>55.59</td><td>63.92</td><td>10.56</td><td>61.34</td><td>70.82</td><td>11.57</td><td>40.64</td><td>47.53</td><td>298.74</td><td>71.77</td><td>73.29</td><td>16.11</td></tr><tr><td>VPTTA [3]</td><td>77.01</td><td>88.56</td><td>8.64</td><td>54.25</td><td>62.88</td><td>8.83</td><td>63.46</td><td>72.24</td><td>9.34</td><td>67.54</td><td>74.01</td><td>44.92</td><td>72.61</td><td>75.93</td><td>17.11</td></tr><tr><td>TopoTTA (Ours)</td><td>89.15</td><td>96.35</td><td>5.98</td><td>66.88</td><td>74.95</td><td>7.22</td><td>61.83</td><td>75.38</td><td>6.50</td><td>70.70</td><td>78.24</td><td>31.88</td><td>75.59</td><td>77.73</td><td>16.22</td></tr></table>
+
+## 4.1. Experiment Setup
+
+Datasets. We adopt 10 widely-used TSS datasets for the following experiments. The retinal vessel segmentation datasets are collected from three different sources: DRIVE [54], STARE [16], and CHASEDB1 (CHASE) [12], which contain 40, 20, and 28 samples, respectively. Three road extraction datasets are Deep-Globe [8], Massachusetts road (MR) [39], and CNDS [4], providing 8,570, 1,171, and 224 samples, respectively. The microscopic neuronal segmentation datasets are Neub1 and Neub2 [76], with 112 and 98 samples, respectively. Two retinal OCT-angiography vessel segmentation datasets are from different sources, ROSE1 [37] and OCTA500 [26], containing 117 and 300 samples, respectively. All datasets follow their original training and testing splits, except for STARE, which is officially used as a test set due to its limited sample size [16].
+
+Evaluation Metrics. Following prior works [46, 59, 65, 68], we use Dice as the primary metric for TSS performance evaluation, with clDice [52] and Betti errors (β) [18] as metrics of topological continuity. In Table 1, the diagonal marks “" in clDice for some TTA methods indicate cases where no skeleton map can be extracted from their predictions, and thus clDice cannot be calculated. Further investigation reveals that these are failure cases.
+
+Implementation Details. For each scenario, we use a model pre-trained on a single dataset (source domain) and test it on other datasets (target domains) to calculate metrics. UNet [48] and CS2Net [24] (designed for TSS) are adopted as baseline networks for validating the performance of TopoTTA. To ensure consistent field-of-view and crossdomain accuracy, all datasets are resized to 384 × 384 pixels, except for the OCTA dataset as ROSE and OCTA500 already share similar resolutions. During testing, TopoTTA and the comparison methods undergo six iterations of adaptation for each image, with TopoTTA performing three iterations at each stage to ensure experimental consistency. For TopoTTA, we use the Adam optimizer with learning rates of 0.01 and $1 \times 1 0 ^ { - 4 }$ for the first and second stages, respectively. We use 0.5 as the threshold for mask binarization. The hyperparameters n × n (number of TopoMDC regions), s (modification window size), and $\tau ^ { \mathrm { b g } }$ (upper limit of the foreground pixel), respectively, are set to 4× 4, 30, 0.05 for all tasks. We present more details in Appendix.
+
+Table 2. Average cross-dataset testing results across ten datasets using UNet and CS2Net as baseline networks. The best and second-best results in each column are highlighted in bold and underline, respectively.
+<table><tr><td rowspan="2">Method</td><td colspan="3">UNet</td><td colspan="3">CS2Net</td></tr><tr><td>Dice (%) ↑</td><td>clDice (%) ↑</td><td>β↓</td><td>Dice (%) ↑</td><td>clDice (%) ↑</td><td>β↓</td></tr><tr><td>Source Only</td><td>50.56</td><td>42.19</td><td>51.94</td><td>50.31</td><td>51.17</td><td>54.35</td></tr><tr><td>TENT [58]</td><td>63.81</td><td>67.29</td><td>49.42</td><td>63.76</td><td>68.09</td><td>51.87</td></tr><tr><td>CoTTA [60]</td><td>65.49</td><td>69.34</td><td>47.30</td><td>65.12</td><td>69.84</td><td>48.19</td></tr><tr><td>SAR [43]</td><td>63.97</td><td>67.49</td><td>49.32</td><td>63.63</td><td>68.11</td><td>51.84</td></tr><tr><td>DIGA [61]</td><td>63.07</td><td>67.44</td><td>48.92</td><td>63.92</td><td>68.20</td><td>51.97</td></tr><tr><td>DomainAdaptor [72]</td><td>63.41</td><td>66.53</td><td>49.98</td><td>60.95</td><td>65.65</td><td>54.68</td></tr><tr><td>MedBN [44]</td><td>56.65</td><td>54.90</td><td>80.05</td><td>62.63</td><td>65.97</td><td>54.63</td></tr><tr><td>VPTTA [3]</td><td>63.98</td><td>67.48</td><td>49.76</td><td>63.30</td><td>67.77</td><td>52.25</td></tr><tr><td>TopoTTA (Ours)</td><td>69.44</td><td>74.00</td><td>43.01</td><td>67.68</td><td>72.70</td><td>43.86</td></tr></table>
+
+Comparison TTA Methods. In the following experiments, we compare our method with three categories of TTA methods: (1) methods designed for semantic segmentation, such as CoTTA [60] and DIGA [61], (2) a method designed for medical image segmentation, i.e., VPTTA [3], and (3) methods designed for classification, including TENT [58], SAR [43], DomainAdaptor [72] and MedBN [44], which can be easily adapted to segmentation tasks [3, 61] by using pixel-level self-supervision or BN statistics adjustment. We implement these TTA methods on the same baseline networks as TopoTTA, using hyperparameters as specified in the corresponding reference or assigning optimal ones.
+
+## 4.2. Comparison Results
+
+Table 1 presents the cross-dataset testing results across four different scenarios. Table 2 shows the average results for each baseline across all scenarios. Fig. 3 visualizes the segmentation results. From these results, we have the following key observations:
+
+![](images/83ab964c87e3f6cf557b5096ca78fda0ca1300a5649dcbcc112fca3b8340e31c.jpg)  
+Figure 3. Visualization of segmentation results for TopoTTA and seven comparison methods across four scenarios. “Source Image" is provided solely to illustrate domain differences across datasets. "Source Only" denotes results without any TTA methods applied, and GT is short for ground-truth labels. More visual examples are presented in Appendix.
+
+Key Observation 1: Improvement on topological continuity across four scenarios. As shown in Table 1, TopoTTA consistently achieves the highest topological continuity metrics. This improvement is not attained at the expense of segmentation accuracy (e.g., DIGA in the DRIVE → STARE, and VPTTA in the DeepGlobe → MR), but rather, TopoTTA enhances Dice score on most datasets. Notably, for the DeepGlobe → CNDS experiment, where the source domain model has already demonstrated strong test time performance, the results of all comparison methods decline. However, TopoTTA substantially improves segmentation accuracy and topological continuity metrics in this experiment. In particular, in the challenging Neub1 → Neub2 experiment, TopoTTA surpasses the second-best method, achieving gains of 7.74 and 8.51 in Dice and clDice scores, respectively, underscoring the method's exceptional capacity for topological adaptation and continuity enhancement. Additionally, in the Neub1 → Neub2 experiment, although TopoTTA's Dice score is lower than most comparison methods, visual analysis indicates this is likely due to label granularity rather than a true performance drop. As space is limited, details are provided in Appendix.
+
+Key Observation 2: Consistent superiority across different baselines. TopoTTA can function as a plug-andplay module within standard convolutional neural networks. From Table 2, we observe that TopoTTA achieves significant improvements across ten experiments using both UNet and CS2Net as baseline networks. CoTTA attains the second-best performance, indicating that the TS scheme may be well-suited for segmentation tasks. With UNet as the baseline network, TopoTTA outperforms CoTTA by 3.95% in Dice, 4.66% in clDice, and reduces Betti errors by 4.29%. Similar gains are observed using CS2Net. We also implement a TopoTTA variant on DSCNet, which delivers notable performance improvements, demonstrating TopoTTA's adaptability across different baseline networks. Detailed results on other baseline networks (i.e., CS2Net and DSCNet) can be found in Appendix.
+
+Key Observation 3: Clear visual proof of enhanced continuity and topological adaptability. In Fig. 3, we magnify specific regions of selected images for detailed comparison. In rows 1, 2, and 5, all comparison methods show apparent discontinuities in the red-boxed areas, while TopoTTA effectively connects these branches, underscoring its superior continuity enhancement. For the road image in row 3, TopoTTA achieves an almost perfect match with the ground truth—a level of accuracy beyond all comparison methods' reach. In the microscopic neuronal image in row 4, most comparison methods struggle to segment even the main branches, while TopoTTA closely matches the ground truth. These results showcase TopoTTA's adaptability to various topological features. Moreover, in row 6, comparison methods exhibit noise due to over-segmentation, which TopoTTA effectively suppresses.
+
+## 4.3. Ablation Study
+
+In this section, we perform ablation analyses of TopoMDCs and TopoHG. For all ablation experiments, we report the average results on the retinal vessel segmentation scenario. Due to the limited space, the ablation analysis on our hyperparameters is provided in Appendix.
+
+VC  
+VC  
+Table 3. Ablation results of the proposed TopoTTA. Baseline\* is the model using the teacher-student scheme.
+<table><tr><td>Method</td><td>Dice (%) ↑</td><td>clDice (%) ↑</td><td> $\beta \downarrow$ </td></tr><tr><td>Baseline</td><td>65.37</td><td>61.69</td><td>82.24</td></tr><tr><td>Baseline + TopoMDCs (Stage 1)</td><td>68.70</td><td>65.14</td><td>76.28</td></tr><tr><td>Baseline*</td><td>65.95</td><td>62.20</td><td>77.90</td></tr><tr><td>Baseline* + TopoHG (Stage 2)</td><td>68.82</td><td>66.61</td><td>73.63</td></tr><tr><td>TopoTTA</td><td>69.87</td><td>67.81</td><td>73.27</td></tr></table>
+
+Table 4. Ablation results of the proposed TopoMDCs using each TopoMDC type individually.
+<table><tr><td>Variant</td><td>MDC Operation Set</td><td>Dice (%) ↑</td><td>clDice (%) ↑</td><td> $\beta \downarrow$ </td></tr><tr><td>CDC</td><td>{Cc}</td><td>68.99</td><td>67.35</td><td>72.91</td></tr><tr><td>Orthogonal MDCs</td><td> $\{ \mathcal { C } _ { 1 } , \mathcal { C } _ { 2 } , \mathcal { C } _ { 3 } , \mathcal { C } _ { 4 } \}$ </td><td>69.26</td><td>67.54</td><td>72.93</td></tr><tr><td>Diagonal MDCs</td><td> $\{ \mathcal { C } _ { 5 } , \mathcal { C } _ { 6 } , \mathcal { C } _ { 7 } , \mathcal { C } _ { 8 } \}$ </td><td>69.29</td><td>67.48</td><td>73.86</td></tr><tr><td>TopoMDCs (Full)</td><td> $\{ \mathcal { C } _ { 1 } , \mathcal { C } _ { 2 } , \cdots , \mathcal { C } _ { 8 } \}$ </td><td>69.87</td><td>67.81</td><td>73.27</td></tr></table>
+
+Table 5. Ablation results of the proposed TopoHG. We compare with three variants, i.e., Gaussian blur, random Gaussian noise, and image swap in the spatial domain.
+<table><tr><td>Method</td><td>Dice (%) ↑</td><td>clDice (%) ↑</td><td>β↓</td></tr><tr><td>Stage 1</td><td>68.70</td><td>65.14</td><td>76.28</td></tr><tr><td>Stage 1 + Blur</td><td>69.16</td><td>66.26</td><td>76.19</td></tr><tr><td> $_ { \mathrm { ~ \tiny ~ 5 t a g e ~ 1 ~ + N o i s e ~ } }$ </td><td>68.48</td><td>65.00</td><td>77.76</td></tr><tr><td> $\mathtt { S t a g e 1 + I m a g e \ s w a p }$ </td><td>67.65</td><td>66.36</td><td>69.63</td></tr><tr><td>TopoTTA (Ours)</td><td>69.87</td><td>67.81</td><td>73.27</td></tr></table>
+
+Effectiveness of TopoMDCs. To validate the effectiveness of the proposed TopoMDCs, we compare the network performance before and after applying TopoMDCs to the baseline or removing them from the TopoTTA. As shown in Table 3, TopoMDCs result in significant improvements across all metrics compared to the baseline that only updates statistical parameters, validating the effectiveness of TopoMDCs in adapting to various topological structures. Additionally, Table 4 provides a detailed analysis of the contribution of each type of TopoMDCs to performance enhancement. We categorize TopoMDCs into three types: central $( { \mathcal { C } } _ { c } ) .$ orthogonal $( \mathcal { C } _ { 1 - 4 } )$ , and diagonal $( { \mathcal { C } } _ { 5 - 8 } ) .$ and evaluate their impact individually. Results indicate that orthogonal and diagonal types relative to central lead to more significant performance improvements, with optimal topological awareness achieved when orthogonal and diagonal types are used together. We also visualize feature maps before and after incorporating TopoMDCs. Fig. 4 illustrates that in all four scenarios, TopoMDCs effectively enhance the topological structures on the target domain.
+
+Effectiveness of TopoHG. Here, we aim to answer two research questions: (1) Can TopoHG truly create pseudobreak predictions? (2) Is the low-frequency swap method in TopoHG more effective for enhancing topological continuity compared to other data augmentation methods?
+
+As shown in Table 3, using only Stage 2 with TopoHG still leads to improvements in both segmentation performance and topological continuity. Compared to Stage 1 alone, adding TopoHG notably enhances continuity. To answer the first question, we provide visualizations of selected regions' predictions before and after introducing pseudobreaks in Fig. 5. The images generated by TopoHG significantly disrupt the model's previously confident predictions, effectively creating local pseudo-breaks. For the second question, Table 5 compares various data augmentation methods, including Gaussian blur, random Gaussian noise, and foreground swap with the background in the spatial domain (image swap). The blur method creates local hard samples by removing high-frequency details, which offers some improvement. The image swap method seems to yield superior topological performance, but a sharp drop in Dice indicates that lower Betti errors may stem from overly aggressive predictions connecting many regions incorrectly. This is likely due to consistent regularization on the background without high-frequency details, which can cause incorrect segmentation of the background as foreground. Due to the limited space, visual comparisons of different data augmentation methods are provided in Appendix.
+
+Image  
+TopoMDCs  
+Image  
+TopoMDCs  
+![](images/5848755e75aa165dd33a2cbdd5791cfa761dde882f0f509f22600438642f486d.jpg)
+
+![](images/7986e450f4cc080f2902f9abb758c6bb7ad6ba05856d693d5b5d9ea2a2b842be.jpg)
+
+Figure 4. Feature maps before and after TopoMDCs across four scenarios. VC represents the feature maps of vanilla convolutions.  
+![](images/afc070f9bb42491e592064bbfaab3f3c868688004b73725c747407e07217a6d4.jpg)  
+Figure 5. Visualizations of original patches $\begin{array} { r } { x _ { p } ^ { \mathrm { f g } } , } \end{array}$ pseudo-labels $\hat { \pmb { y } } _ { p } ^ { \prime } ,$ pseudo-break patches $\begin{array} { r } { \pmb { x } _ { p } ^ { \prime } , } \end{array}$ and weakened prediction masks $\pmb { y } _ { p } ^ { \prime }$ in selected regions across four scenarios.
+
+## 5. Conclusion
+
+In this work, we proposed the first TTA framework, i.e., TopoTTA, for TSS to enhance cross-domain performance by addressing discrepant topological structures and fragile topological continuity. To improve the adaptability to topological structure, we proposed TopoMDCs to learn how to adaptively integrate various orientation information according to the topological feature of each test sample. Besides, we developed TopoHG to generate pseudo-breaks to enhance the predictions' topological continuity. Extensive experiments across four scenarios verified the superiority of our TopoTTA compared to other methods.
+
+Acknowledgement. This research was supported by the National Natural Science Foundation of China (Grant No. 62202027).
+
+## References
+
+[1] Cheng Chen, Quande Liu, Yueming Jin, Qi Dou, and Pheng-Ann Heng. Source-Free Domain Adaptive Fundus Image Segmentation with Denoised Pseudo-Labeling. In Proceedings of the International Conference on Medical Image Computing and Computer Assisted Interventions, pages 225–235, 2021.1
+
+[2] Zhuangzhuang Chen, Zhuonan Lai, Jie Chen, and Jianqiang Li. Mind Marginal Non-Crack Regions: Clustering-Inspired Representation Learning for Crack Segmentation. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition, pages 12698–12708, 2024. 3
+
+[3] Ziyang Chen, Yongsheng Pan, Yiwen Ye, Mengkang Lu, and Yong Xia. Each Test Image Deserves a Specific Prompt: Continual Test-Time Adaptation for 2D Medical Image Segmentation. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition, pages 11184–11193, 2024.2, 3, 6, 4, 5
+
+[4] Guangliang Cheng, Ying Wang, Shibiao Xu, Hongzhen Wang, Shiming Xiang, and Chunhong Pan. Automatic Road Detection and Centerline Extraction via Cascaded End-to-End Convolutional Neural Network. IEEE Transactions on Geoscience and Remote Sensing, 55(6):3322–3337, 2017. 6
+
+[5] Lechao Cheng, Chaowei Fang, Dingwen Zhang, Guanbin Li, and Gang Huang. Compound Batch Normalization for Long-Tailed Image Classification. In Proceedings of the ACM International Conference on Multimedia, pages 1925–1934, 2022.2
+
+[6] Mingfei Cheng, Kaili Zhao, Xuhong Guo, Yajing Xu, and Jun Guo. Joint Topology-Preserving and Feature-Refinement Network for Curvilinear Structure Segmentation. In Proceedings of the IEEE International Conference on Computer Vision, pages 7147–7156, 2021. 1
+
+[7] James W. Cooley and John W. Tukey. An Algorithm for the Machine Calculation of Complex Fourier Series. Mathematics of Computation, 19(90):297–301, 1965. 5
+
+[8] Ilke Demir, Krzysztof Koperski, David Lindenbaum, Guan Pang, Jing Huang, Saikat Basu, Forest Hughes, Devis Tuia, and Ramesh Raskar. DeepGlobe 2018: A Challenge to Parse the Earth Through Satellite Images. In IEEE Conference on Computer Vision and Pattern Recognition Workshop, pages 172–181, 2018. 6
+
+[9] Jiahua Dong, Yang Cong, Gan Sun, Bineng Zhong, and Xiaowei Xu. What Can Be Transferred: Unsupervised Domain Adaptation for Endoscopic Lesions Segmentation. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition, pages 4023–4032, 2020. 1
+
+[10] Mario Döbler, Robert A Marsden, and Bin Yang. Robust Mean Teacher for Continual and Gradual Test-Time Adaptation. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition, pages 7704–7714, 2023. 2, 3
+
+[11] Zhen Fang, Jie Lu, Feng Liu, and Guangquan Zhang. Semi-Supervised Heterogeneous Domain Adaptation: Theory and Algorithms. IEEE Transactions on Pattern Analysis and Machine Intelligence, 45(1):1087–1105, 2022. 1
+
+[12] Muhammad Moazam Fraz, Paolo Remagnino, Andreas Hoppe, Bunyarit Uyyanonvara, Alicja R Rudnicka, Christopher G Owen, and Sarah A Barman. An Ensemble Classification-based Approach Applied to Retinal Blood Vessel Segmentation. IEEE Transactions on Biomedical Engineering, 59(9):2538–2548, 2012. 6
+
+[13] Mohsen Ghafoorian, Alireza Mehrtash, Tina Kapur, Nico Karssemeijer, Elena Marchiori, Mehran Pesteie, Charles R. G. Guttmann, Frank-Erik de Leeuw, Clare M. Tempany, Bram van Ginneken, Andriy Fedorov, Purang Abolmaesumi Bram Platel, and William M. Wells. Transfer Learning for Domain Adaptation in MRI: Application in Brain Lesion Segmentation. In Proceedings of the International Conference on Medical Image Computing and Computer Assisted Interventions, pages 516–524, 2017. 1
+
+[14] Xin Guo, Wenzhong Tang, Haoran Wang, Jiale Wang, Shuai Wang, Xiaolei Qu, and Xun Lin. MorFormer: morphologyaware transformer for generalized pavement crack segmentation. IEEE Transactions on Intelligent Transportation Systems, 26(6):8219–8232, 2025. 2
+
+[15] Saumya Gupta, Yikai Zhang, Xiaoling Hu, Prateek Prasanna, and Chao Chen. Topology-Aware Uncertainty for Image Segmentation. In Advances in the Neural Information Processing Systems, page 36, 2024. 1
+
+[16] AD Hoover, Valentina Kouznetsova, and Michael Goldbaum. Locating Blood Vessels in Retinal Images by Piecewise Threshold Probing of a Matched Filter Response. IEEE Transactions on Medical Imaging, 19(3):203–210, 2000. 6
+
+[17] Xiaoling Hu. Structure-Aware Image Segmentation with Homotopy Warping. In Advances in the Neural Information ProcessingSystems, pages 24046–24059, 2022. 3
+
+[18] Xiaoling Hu, Fuxin Li, Dimitris Samaras, and Chao Chen. Topology-Preserving Deep Image Segmentation. In Advances in the Neural Information Processing Systems, 2019. 6
+
+[19] Xiaoling Hu, Yusu Wang, Li Fuxin, Dimitris Samaras, and Chao Chen. Topology-Aware Segmentation Using Discrete Morse Theory. In Proceedings of the International Conference on Learning Representations, 2021. 3
+
+[20] Xiaoling Hu, Dimitris Samaras, and Chao Chen. Learning Probabilistic Topological Representations Using Discrete Morse Theory. In Proceedings of the International Conference on Learning Representations, 2022. 3
+
+[21] Jiaxing Huang, Yanfeng Zhou, Yaoru Luo, Guole Liu, Heng Guo, and Ge Yang. Representing Topological Self-Similarity Using Fractal Feature Maps for Accurate Segmentation of Tubular Structures. In Proceedings of the European Conference on Computer Vision, pages 143–160, 2025. 1, 3
+
+[22] Klara Janouskova, Tamir Shor, Chaim Baskin, and Jiri Matas. Single Image Test-Time Adaptation for Segmentation. Transactions on Machine Learning Research, 2024. 2
+
+[23] Yannick Kirchhoff, Maximilian R Rokuss, Saikat Roy, Balint Kovacs, Constantin Ulrich, Tassilo Wald, Maximilian Zenk, Philipp Vollmuth, Jens Kleesiek, Fabian Isensee,
+
+and Klaus Maier-Hein. Skeleton Recall Loss for Connectivity Conserving and Resource Efficient Segmentation of Thin Tubular Structures. In Proceedings of the European Conference on Computer Vision, pages 218–234, 2024. 3
+
+[24] Mou Lei, Yitian Zhao, Huazhu Fu, Yonghuai Liu, Jun Cheng, Yalin Zheng, Pan Su, Jianlong Yang, Li Chen, Alejandro F Frangi, Masahiro Akiba, and Jiang Liu. CS2-Net: Deep learning Segmentation of Curvilinear Structures in Medical Imaging. Medical Image Analysis, 67:101874, 2021. 1, 6
+
+[25] Qin Lei, Jiang Zhong, and Qizhu Dai. Enriching Information and Preserving Semantic Consistency in Expanding Curvilinear Object Segmentation Datasets. In Proceedings of the European Conference on Computer Vision, pages 233–250, 2025.3
+
+[26] Mingchao Li, Kun Huang, Qiuzhuo Xu, Jiadong Yang, Yuhan Zhang, Zexuan Ji, Keren Xie, Songtao Yuan, Qinghuai Liu, and Qiang Chen. OCTA-500: A Retinal Dataset for Optical Coherence Tomography Angiography Study. Medical Image Analysis, 93:103092, 2024. 6
+
+[27] Jian Liang, Ran He, and Tieniu Tan. A Comprehensive Survey on Test-Time Adaptation Under Distribution Shifts. International Journal of Computer Vision, pages 1–34, 2024. 2
+
+[28] Li Lin, Linkai Peng, Huaqing He, Pujin Cheng, Jiewei Wu, Kenneth K.Y. Wong, and Xiaoying Tang. YoloCurvSeg: You Only Label One Noisy Skeleton for Vessel-Style Curvilinear Structure Segmentation. Medical Image Analysis, 90: 102937, 2023.3
+
+[29] Xun Lin, Shuai Wang, Rizhao Cai, Yizhong Liu, Ying Fu, Wenzhong Tang, Zitong Yu, and Alex C. Kot. Suppress and rebalance: Towards generalized multi-modal face antispoofing. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition, pages 211–221, 2024. 3
+
+[30] Xun Lin, Yi Yu, Song Xia, Jue Jiang, Haoran Wang, Zitong Yu, Yizhong Liu, Ying Fu, Shuai Wang, Wenzhong Tang, and Alex C. Kot. Safeguarding medical image segmentation datasets against unauthorized training via contour- and texture-aware perturbations. arXiv preprint arXiv:2403.14250, 2024. 1
+
+[31] Xun Lin, Yi Yu, Zitong Yu, Ruohan Meng, Jiale Zhou, Ajian Liu, Yizhong Liu, Shuai Wang, Wenzhong Tang, Zhen Lei, and Alex C. Kot. Hidemia: Hidden wavelet mining for privacy-enhancing medical image analysis. In Proceedings of the ACM International Conference on Multimedia, pages 8110–8119, 2024. 1
+
+[32] Xun Lin, Ajian Liu, Zitong Yu, Rizhao Cai, Shuai Wang, Yi Yu, Jun Wan, Zhen Lei, Xiaochun Cao, and Alex Kot. Reliable and balanced transfer learning for generalized multimodal face anti-spoofing. IEEE Transactions on Pattern Analysis and Machine Intelligence, pages 1–18, 2025. 3
+
+[33] Huajun Liu, Xiangyu Miao, Christoph Mertz, Chengzhong Xu, and Hui Kong. Crackformer: Transformer Network for Fine-Grained Crack Detection. In Proceedings of the IEEE International Conference on Computer Vision, pages 3783— 3792, 2021.2
+
+[34] Quande Liu, Cheng Chen, Jing Qin, Qi Dou, and Pheng-Ann Heng. FedDG: Federated Domain Generalization on
+
+Medical Image Segmentation via Episodic Learning in Continuous Frequency Space. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition, pages 1013-1023, 2021. 5
+
+[35] Yuang Liu, Wei Zhang, and Jun Wang. Source-Free Domain Adaptation for Semantic Segmentation. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition, pages 1215–1224, 2021. 1
+
+[36] Junyan Lyu, Yiqi Zhang, Yijin Huang, Li Lin, Pujin Cheng, and Xiaoying Tang. AADG: Automatic Augmentation for Domain Generalization on Retinal Image Segmentation. IEEE Transactions on Medical Imaging, 41(12):3699–3711, 2022.1
+
+[37] Yuhui Ma, Huaying Hao, Jianyang Xie, Huazhu Fu, Jiong Zhang, Jianlong Yang, Zhen Wang, Jiang Liu, Yalin Zheng, and Yitian Zhao. ROSE: A Retinal OCT-Angiography Vessel Segmentation Dataset and New Model. IEEE Transactions on Medical Imaging, 40(3):928–939, 2020. 1, 6
+
+[38] M Jehanzeb Mirza, Jakub Micorek, Horst Possegger, and Horst Bischof. The Norm Must Go On: Dynamic Unsupervised Domain Adaptation by Normalization. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition, pages 14765–14775, 2022. 3
+
+[39] Volodymyr Mnih. Machine Learning for Aerial Image Labeling. University of Toronto, Canada, 2013. 6
+
+[40] A Tuan Nguyen, Thanh Nguyen-Tang, Ser-Nam Lim, and Philip H.S. Torr. Tipi: Test Time Adaptation with Transformation Invariance. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition, pages 24162– 24171,2023.2
+
+[41] Jiayi Ni, Senqiao Yang, Ran Xu, Jiaming Liu, Xiaoqi Li, Wenyu Jiao, Zehui Chen, Yi Liu, and Shanghang Zhang. Distribution-Aware Continual Test-Time Adaptation for Semantic Segmentation. In Proceedings of International Conference on Robotics and Automation, pages 3044–3050, 2024.3
+
+[42] Munan Ning, Donghuan Lu, Yujia Xie, Dongdong Chen, Dong Wei, Yefeng Zheng, Yonghong Tian, Shuicheng Yan, and Li Yuan. MADAv2: Advanced Multi-Anchor based Active Domain Adaptation Segmentation. IEEE Transactions on Pattern Analysis and Machine Intelligence, 45(11): 13553–13566, 2023. 1
+
+[43] Shuaicheng Niu, Jiaxiang Wu, Yifan Zhang, Zhiquan Wen, Yaofo Chen, Peilin Zhao, and Mingkui Tan. Towards Stable Test-Time Adaptation in Dynamic Wild World. In Proceedings of the International Conference on Learning Representations, 2023. 2, 3, 6, 4, 5
+
+[44] Hyejin Park, Jeongyeon Hwang, Sunung Mun, Sangdon Park, and Jungseul Ok. MedBN: Robust Test-Time Adaptation Against Malicious Test Samples. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition, pages 5997–6007, 2024. 3, 6, 4, 5
+
+[45] Bibiloni Pedro, González-Hidalgo M, and Massanet Sebastià. A Survey on Curvilinear Object Segmentation in Multiple Applications. Pattern Recognition, 60:949–970, 2016.1
+
+[46] Yaolei Qi, Yuting He, Xiaoming Qi, Yuan Zhang, and Guanyu Yang. Dynamic Snake Convolution Based on Topo-
+
+logical Geometric Constraints for Tubular Structure Segmentation. In Proceedings of the IEEE International Conference on Computer Vision, pages 6070–6079, 2023. 1, 2, 6
+
+[47] Xiaolei Qu, Jiale Zhou, Jue Jiang, Wenhan Wang, Haoran Wang, Shuai Wang, Wenzhong Tang, and Xun Lin. Ehformer: Regional easy-hard-aware transformer for breast lesion segmentation in ultrasound images. Information Fusion, 109:102430, 2024.1
+
+[48] Olaf Ronneberger, Philipp Fischer, and Thomas Brox. U-Net: Convolutional Networks for Biomedical Image Segmentation. In Proceedings of the International Conference on Medical Image Computing and Computer Assisted Interventions, pages 234–241, 2015. 6
+
+[49] Jameel Hassan Abdul Samadh, Hanan Gani, Noor Hazim Hussein, Muhammad Uzair Khattak, Muzammal Naseer, Fahad Khan, and Salman Khan. Align Your Prompts: Test-Time Prompting with Distribution Alignment for Zero-Shot Generalization. In Advances in the Neural Information Processing Systems, 2023. 2
+
+[50] Tianyi Shi, Nicolas Boutry, Yongchao Xu, and Thierry Géraud. Local Intensity Order Transformation for Robust Curvilinear Object Segmentation. IEEE Transactions on Image Processing, 31:2557–2569, 2022. 1, 2
+
+[51] Tianyi Shi, Xiaohuan Ding, Liang Zhang, and Xin Yang. FreeCOS: Self-Supervised Learning from Fractals and Unlabeled Images for Curvilinear Object Segmentation. In Proceedings of the IEEE International Conference on Computer Vision, pages 876–886, 2023. 3
+
+[52] Suprosanna Shit, Johannes C Paetzold, Anjany Sekuboyina, Ivan Ezhov, Alexander Unger, Andrey Zhylka, Josien P.W. Pluim, Ulrich Bauer, and Bjoern H Menze. clDice: A Novel Topology-Preserving Loss Function for Tubular Structure Segmentation. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition, pages 16560– 16569, 2021. 3, 6
+
+[53] Junha Song, Jungsoo Lee, In So Kweon, and Sungha Choi. ECoTTA: Memory-Efficient Continual Test-Time Adaptation via Self-Distilled Regularization. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition, pages 11920–11929, 2023. 2, 3
+
+[54] Joes Staal, Michael D Abràmoff, Meindert Niemeijer, Max A Viergever, and Bram Van Ginneken. Ridge-based Vessel Segmentation in Color Images of the Retina. IEEE Transactions on Medical Imaging, 23(4):501–509, 2004. 6
+
+[55] Yubo Tan, Kaifu Yang, Shixuan Zhao, and Yongjie Li. Retinal Vessel Segmentation with Skeletal Prior and Contrastive Loss. IEEE Transactions on Medical Imaging, 41(9):2238– 2251, 2022. 1
+
+[56] Devavrat Tomar, Guillaume Vray, Behzad Bozorgtabar, and Jean-Philippe Thiran. TeSLA: Test-Time Self-Learning with Automatic Adversarial Augmentation. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition, pages 20341–20350, 2023. 3
+
+[57] Chenglong Wang, Yuichiro Hayashi, Masahiro Oda, Hayato Itoh, Takayuki Kitasaka, Alejandro F Frangi, and Kensaku Mori. Tubular Structure Segmentation Using Spatial Fully Connected Network with Radial Distance Loss for 3D Medical Images. In Proceedings of the International Conference
+
+on Medical Image Computing and Computer Assisted Interventions, pages 348–356, 2019. 3
+
+[58] Dequan Wang, Evan Shelhamer, Shaoteng Liu, Bruno Olshausen, and Trevor Darrell. TENT: Fully Test-Time Adaptation by Entropy Minimization. Proceedings of the International Conference on Learning Representations, 2021. 1, 2, 3, 5,6,4
+
+[59] Dong Wang, Zhao Zhang, Ziwei Zhao, Yuhang Liu, Yihong Chen, and Liwei Wang. PointScatter: Point Set Representation for Tubular Structure Extraction. In Proceedings of the European Conference on Computer Vision, pages 366–383, 2022. 2,6
+
+[60] Qin Wang, Olga Fink, Luc Van Gool, and Dengxin Dai. Continual Test-Time Domain Adaptation. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition, pages 7201–7211, 2022. 1, 2, 3, 6, 4, 5
+
+[61] Wei Wang, Zhun Zhong, Weijie Wang, Xi Chen, Charles Ling, Boyu Wang, and Nicu Sebe. Dynamically Instance-Guided Adaptation: A Backward-Free Approach for Test-Time Domain Adaptive Semantic Segmentation. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition, pages 24090–24099, 2023. 2, 3, 6, 4
+
+[62] Wenhan Wang, Jiale Zhou, Jin Zhao, Xun Lin, Yan Zhang, Shan Lu, Wanchen Zhao, Shuai Wang, Wenzhong Tang, and Xiaolei Qu. Interactively fusing global and local features for benign and malignant classification of breast ultrasound images. Ultrasound in Medicine Biology, 51(3):525–534, 2025.1
+
+[63] Yan Wang, Xu Wei, Fengze Liu, Jieneng Chen, Yuyin Zhou, Wei Shen, Elliot K. Fishman, and Alan L. Yuille. Deep Distance Transform for Tubular Structure Segmentation in CT Scans. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition, 2020. 1, 3
+
+[64] Ying Wang, Yuexing Peng, Wei Li, George C Alexandropoulos, Junchuan Yu, Daqing Ge, and Wei Xiang. DDU-Net: Dual-Decoder-U-Net for Road Extraction Using High-Resolution Remote Sensing Images. IEEE Transactions on Geoscience and Remote Sensing, 60:1–12, 2022. 1
+
+[65] Qian Wu, Yufei Chen, Wei Liu, Xiaodong Yue, and Xiahai Zhuang. Deep Closing: Enhancing Topological Connectivity in Medical Tubular Segmentation. IEEE Transactions on Medical Imaging, 43(11):3990–4003, 2024. 1, 6
+
+[66] Jiaqi Yang, Xiaoling Hu, Chao Chen, and Chialing Tsai. A Topological-Attention ConvLSTM Network and Its Application to EM Images. In Proceedings of the International Conference on Medical Image Computing and Computer Assisted Interventions, pages 217–228, 2021. 2
+
+[67] Yanchao Yang and Stefano Soatto. FDA: Fourier Domain Adaptation for Semantic Segmentation. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition, pages 4085–4095, 2020. 1
+
+[68] Ziyun Yang and Sina Farsiu. Directional Connectivity-based Segmentation of Medical Images. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition, pages 11525–11535, 2023. 2, 6
+
+[69] Chang'an Yi, Haotian Chen, Yifan Zhang, Yonghui Xu, Yan Zhou, and Lizhen Cui. From Question to Exploration:
+
+Can Classic Test-Time Adaptation Strategies Be Effectively Applied in Semantic Segmentation? In Proceedings of the ACM International Conference on Multimedia, pages 10085–10094, 2024. 2, 3
+
+[70] Zitong Yu, Chenxu Zhao, Zezheng Wang, Yunxiao Qin, Zhuo Su, Xiaobai Li, Feng Zhou, and Guoying Zhao. Searching Central Difference Convolutional Networks for Face Anti-Spoofing. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition, pages 5295– 5305, 2020. 2, 3
+
+[71] Longhui Yuan, Binhui Xie, and Shuang Li. Robust Test-Time Adaptation in Dynamic Scenarios. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition, pages 15922–15932, 2023. 2
+
+[72] Jian Zhang, Lei Qi, Yinghuan Shi, and Yang Gao. DomainAdaptor: A Novel Approach to Test-Time Adaptation. In Proceedings of the IEEE International Conference on Computer Vision, pages 18971–18981, 2023. 2, 3, 6, 4, 5
+
+[73] Lefei Zhang, Meng Lan, Jing Zhang, and Dacheng Tao. Stagewise Unsupervised Domain Adaptation with Adversarial Self-Training for Road Segmentation of Remote-Sensing Images. IEEE Transactions on Geoscience and Remote Sensing, 60:1–13, 2021. 1
+
+[74] Yizhe Zhang, Tao Zhou, Yuhui Tao, Shuo Wang, Ye Wu, Benyuan Liu, Pengfei Gu, Qiang Chen, and Danny Z Chen. TestFit: A Plug-and-Play One-Pass Test Time Method for Medical Image Segmentation. Medical Image Analysis, 92: 103069, 2024. 2
+
+[75] Bowen Zhao, Chen Chen, and Shu-Tao Xia. DELTA: Degradation-Free Fully Test-Time Adaptation. In Proceedings of the International Conference on Learning Representations, 2023. 3
+
+[76] He Zhao, Huiqi Li, Sebastian Maurer-Stroh, and Li Cheng. Synthesizing Retinal and Neuronal Images with Generative Adversarial Nets. Medical Image Analysis, 49:14–26, 2018. 6
+
+[77] Jiale Zhou, Zuoxun Hou, Hongyan Lu, Wenhan Wang, Wanchen Zhao, Zenan Wang, Dezhi Zheng, Shuai Wang, Wenzhong Tang, and Xiaolei Qu. A deep supervised transformer u-shaped full-resolution residual network for the segmentation of breast ultrasound image. Medical Physics, 50 (12):7513–7524, 2023. 1

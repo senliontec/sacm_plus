@@ -14,9 +14,8 @@ in-domain accuracy further: DeepCrack \cite{liu2019deepcrack} aggregates
 hierarchical convolutional features for crack segmentation, HACNet~V2
 \cite{chen2025hacnetv2} preserves full-resolution detail for pixel-level
 crack detection, and nnWNet \cite{zhou2025nnwnet} revisits
-transformer--convolution hybrids. These models obtain strong results when
-training and test data come from the same domain, but they rely on
-domain-specific annotated datasets and degrade under modality or
+transformer--convolution hybrids. These models obtain strong in-domain results
+but rely on domain-specific annotations and can degrade under modality or
 acquisition-condition shift.
 
 Pixel-wise overlap does not capture connectivity, so a parallel line of work
@@ -28,7 +27,10 @@ conserve connectivity at lower cost than clDice. TopoMortar
 \cite{valverde2025topomortar} shows that the benefit of a topology loss
 depends on dataset challenges such as small training sets, noisy labels, and
 out-of-distribution test images. This motivates evaluating segmentation
-methods across many datasets rather than on a single benchmark.
+methods across many datasets rather than on a single benchmark. Recent methods
+target connectivity outside the loss: CAPE \cite{esmaeilzadeh2025cape} enforces
+shortest-path connectivity, Deep Closing \cite{wu2024deepclosing} repairs broken
+tubular masks, and TopoTTA \cite{zhou2025topotta} adapts topology at test time.
 
 Complementary to these loss-level approaches, annotation-efficient and universal
 curvilinear models reduce the supervision requirement. UCS \cite{zhu2025ucs}
@@ -46,9 +48,9 @@ mechanism.
 
 SAM \cite{kirillov2023sam} is a promptable segmentation foundation model with
 a pretrained ViT image encoder, a prompt encoder, and a lightweight mask
-decoder that returns multiple masks together with predicted IoU scores. Full
-fine-tuning is expensive and prone to overfitting on small target sets, so
-parameter-efficient adaptation has become a common choice. SAM-Adapter
+decoder that returns multiple masks together with predicted IoU scores.
+Fine-tuning is expensive and overfits on small target sets, motivating
+parameter-efficient adaptation. SAM-Adapter
 \cite{chen2023samadapter} injects task-specific adapters into the encoder;
 Conv-LoRA \cite{zhong2024convlora} adds convolutional parameters to low-rank
 adaptation to restore local inductive bias; CAT-SAM \cite{xiao2024catsam}
@@ -63,9 +65,14 @@ SACM \cite{zhu2026sacm} removes the need for user prompts through dual-level
 adapters, adapter fusion, and a dual-stage decoder; CWSAM \cite{pu2025cwsam}
 uses lightweight adapters and a class-wise decoder for SAR imagery. A related strategy generates prompts automatically:
 SAM-OCTA \cite{wang2024sam_octa} applies low-rank adaptation with prompt-point
-generation to OCTA vessel segmentation. DCD follows the prompt-free line and
-keeps the frozen-SAM scaffold; its contribution is the decoding and deployment
-rule rather than a new adapter architecture.
+generation to OCTA vessel segmentation. TopoLoRA-SAM
+\cite{khazem2027topolorasam} adds LoRA and a spatial adapter with clDice
+supervision; PEPA \cite{lei2026pepa} targets post-encoder reconstruction and
+binarization. CaPro \cite{chen2026capro} learns prompts from a single unlabeled
+image, UniCurvSeg \cite{hu2025unicurvseg} learns contextual prompts for
+universal vessel-like segmentation, and FineSAM++ \cite{jiang2025finesam} uses
+sparse residual experts. DCD keeps the frozen-SAM scaffold; its contribution is
+the decoding and deployment rule rather than a new adapter architecture.
 
 \subsection{Multi-Candidate Decoding and Test-Time Selection}
 \label{sec:related_selection}
@@ -73,17 +80,17 @@ rule rather than a new adapter architecture.
 Segmentation models often represent ambiguity with multiple outputs. SAM
 returns several masks and predicted IoU scores \cite{kirillov2023sam}, and
 HQ-SAM adds a quality token \cite{ke2023hqsam}. Probabilistic U-Net
-\cite{kohl2018probunet} learns a distribution over masks and generates
-multiple plausible hypotheses. In prompt-free curvilinear decoding, SACM
+\cite{kohl2018probunet} learns a distribution over plausible masks. In
+prompt-free curvilinear decoding, SACM
 \cite{zhu2026sacm} ranks multiple candidate descriptors by Stage-1
 confidence, refines them in Stage-2, and selects the final mask with an
 MLP-based IoU predictor.
 
 Multi-candidate decoders typically rely on a test-time score or selector. The
-score is learned on the training distribution, so its calibration can change under domain
-shift; selecting for overlap may favor thicker, better-connected masks while
-sacrificing thin branches; and a selector or fusion branch adds inference
-cost. DCD keeps multiple candidates as training-time experts but commits to a
+score is learned on the training distribution, so its calibration can drift
+under domain shift; selecting for overlap may favor thicker masks; and a
+selector or fusion branch adds inference cost. DCD keeps multiple candidates
+as training-time experts but commits to a
 fixed ranked slot (slot 3) at inference. Gating only determines the candidate
 order, and the fusion branch is discarded after training, so no test-time
 selector or fusion is deployed. This differs from mixture-of-experts gating,
