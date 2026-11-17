@@ -34,7 +34,7 @@ SAM \cite{kirillov2023sam} 提供了另一条路径。
 SAM-Adapter \cite{chen2023samadapter} 与 Conv-LoRA \cite{zhong2024convlora} 从 adapter 与低秩适配入手，
 CAT-SAM \cite{xiao2024catsam} 做少样本条件调优，HQ-SAM \cite{ke2023hqsam} 改进高质量掩膜解码；
 这些工作共同把“通用分割先验”转化为“可部署的域内分割器”。
-在细线结构上，UCS \cite{zhu2023ucs} 用稀疏 adapter 与基于 FFT 的提示生成推进跨域分割；
+在细线结构上，UCS \cite{zhu2025ucs} 用稀疏 adapter 与基于 FFT 的提示生成推进跨域分割；
 SACM \cite{zhu2026sacm} 则用双层 adapter 与无提示解码器，仅以 18 张标注图像训练，就能在十二个数据集上取得较好的跨域泛化。
 SACM 的解码器有一个值得注意的设计：它不再只输出一个掩膜，而是维护四个候选头，用 Stage-1 置信度排序、Stage-2 细化，再用一个 MLP IoU 预测器在测试时选出最终掩膜。
 

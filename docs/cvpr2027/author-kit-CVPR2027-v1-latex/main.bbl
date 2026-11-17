@@ -1,4 +1,4 @@
-\begin{thebibliography}{36}
+\begin{thebibliography}{35}
 \providecommand{\natexlab}[1]{#1}
 \providecommand{\url}[1]{\texttt{#1}}
 \expandafter\ifx\csname urlstyle\endcsname\relax
@@ -33,7 +33,7 @@ Tianrun Chen, Lanyun Zhu, Chaotao Ding, Runlong Cao, Yan Wang, Shangzhan Zhang,
   Zejian Li, Lingyun Sun, Ying Zang, and Papa Mao.
 \newblock {SAM-Adapter}: Adapting segment anything in underperformed scenes.
 \newblock In \emph{IEEE/CVF International Conference on Computer Vision
-  Workshops (ICCVW)}, 2023.
+  Workshops (ICCVW)}, pages 3359--3367, 2023.
 
 \bibitem[Cheng et~al.(2023)Cheng, Ye, Deng, Chen, Li, Wang, Su, Huang, Chen,
   Jiang, Sun, He, Zhang, Zhu, and Qiao]{cheng2023sammed2d}
@@ -42,12 +42,6 @@ Junlong Cheng, Jin Ye, Zhongying Deng, Jianpin Chen, Tianbin Li, Haoyu Wang,
   Zhang, Min Zhu, and Yu Qiao.
 \newblock {SAM-Med2D}.
 \newblock \emph{arXiv preprint arXiv:2308.16184}, 2023.
-
-\bibitem[{CREMI Team}(2016)]{cremi2016}
-{CREMI Team}.
-\newblock {CREMI}: {MICCAI} challenge on circuit reconstruction from electron
-  microscopy images.
-\newblock \mbox{\url{https://cremi.org/}}, 2016.
 
 \bibitem[Hoover et~al.(2000)Hoover, Kouznetsova, and Goldbaum]{hoover2000stare}
 A.~D. Hoover, V. Kouznetsova, and M. Goldbaum.
@@ -71,14 +65,14 @@ Kai Jin, Xingru Huang, Jingxing Zhou, Yunxiang Li, Yan Yan, Yibao Sun, Qianni
   Zhang, Yaqi Wang, and Juan Ye.
 \newblock {FIVES}: A fundus image dataset for artificial intelligence based
   vessel segmentation.
-\newblock \emph{Scientific Data}, 9:\penalty0 475, 2022.
+\newblock \emph{Scientific Data}, 9\penalty0 (1):\penalty0 475, 2022.
 
 \bibitem[Ke et~al.(2023)Ke, Ye, Danelljan, Liu, Tai, Tang, and Yu]{ke2023hqsam}
 Lei Ke, Mingqiao Ye, Martin Danelljan, Yifan Liu, Yu-Wing Tai, Chi-Keung Tang,
   and Fisher Yu.
 \newblock Segment anything in high quality.
 \newblock In \emph{Advances in Neural Information Processing Systems
-  (NeurIPS)}, 2023.
+  (NeurIPS)}, pages 29914--29934, 2023.
 
 \bibitem[Kirchhoff et~al.(2024)Kirchhoff, Rokuss, Roy, Kovacs, Ulrich, Wald,
   Zenk, Vollmuth, Kleesiek, Isensee, and
@@ -88,7 +82,8 @@ Yannick Kirchhoff, Maximilian~R. Rokuss, Saikat Roy, Balint Kovacs, Constantin
   Fabian Isensee, and Klaus Maier-Hein.
 \newblock Skeleton recall loss for connectivity conserving and resource
   efficient segmentation of thin tubular structures.
-\newblock In \emph{European Conference on Computer Vision (ECCV)}, 2024.
+\newblock In \emph{European Conference on Computer Vision (ECCV)}, pages
+  218--234, 2024.
 
 \bibitem[Kirillov et~al.(2023)Kirillov, Mintun, Ravi, Mao, Rolland, Gustafson,
   Xiao, Whitehead, Berg, Lo, Doll{\'a}r, and Girshick]{kirillov2023sam}
@@ -101,7 +96,7 @@ Alexander Kirillov, Eric Mintun, Nikhila Ravi, Hanzi Mao, Chlo{\'e} Rolland,
 
 \bibitem[Kohl et~al.(2018)Kohl, Romera-Paredes, Meyer, Fauw, Ledsam,
   Maier-Hein, Eslami, Rezende, and Ronneberger]{kohl2018probunet}
-Simon A.~A. Kohl, Bernardino Romera-Paredes, Clemens Meyer, Jeffrey~De Fauw,
+Simon Kohl, Bernardino Romera-Paredes, Clemens Meyer, Jeffrey~De Fauw,
   Joseph~R. Ledsam, Klaus~H. Maier-Hein, S.~M.~Ali Eslami, Danilo~Jimenez
   Rezende, and Olaf Ronneberger.
 \newblock A probabilistic {U-Net} for segmentation of ambiguous images.
@@ -125,7 +120,7 @@ Yahui Liu, Jian Yao, Xiaohu Lu, Renping Xie, and Li Li.
 \bibitem[Ma et~al.(2024)Ma, He, Li, Han, You, and Wang]{ma2024medsam}
 Jun Ma, Yuting He, Feifei Li, Lin Han, Chenyu You, and Bo Wang.
 \newblock Segment anything in medical images.
-\newblock \emph{Nature Communications}, 15:\penalty0 654, 2024.
+\newblock \emph{Nature Communications}, 15\penalty0 (1):\penalty0 654, 2024.
 
 \bibitem[Ma et~al.(2021)Ma, Hua, Deng, Song, Wang, Xue, Cao, Ma, and
   Guan]{ma2021ssvs}
@@ -133,7 +128,7 @@ Yuxin Ma, Yang Hua, Hanming Deng, Tao Song, Hao Wang, Zhengui Xue, Heng Cao,
   Ruhui Ma, and Haibing Guan.
 \newblock Self-supervised vessel segmentation via adversarial learning.
 \newblock In \emph{IEEE/CVF International Conference on Computer Vision
-  (ICCV)}, pages 7536--7545, 2021.
+  (ICCV)}, pages 7516--7525, 2021.
 
 \bibitem[Mnih(2013)]{mnih2013machine}
 Volodymyr Mnih.
@@ -227,7 +222,8 @@ Aoran Xiao, Weihao Xuan, Heli Qi, Yun Xing, Ruijie Ren, Xiaoqin Zhang, Ling
   Shao, and Shijian Lu.
 \newblock {CAT-SAM}: Conditional tuning for few-shot adaptation of segment
   anything model.
-\newblock In \emph{European Conference on Computer Vision (ECCV)}, 2024.
+\newblock In \emph{European Conference on Computer Vision (ECCV)}, pages
+  189--206, 2024.
 
 \bibitem[Yang et~al.(2025)Yang, Wang, Xing, Chen, and Zhu]{yang2025segdino}
 Sicheng Yang, Hongqiu Wang, Zhaohu Xing, Sixiang Chen, and Lei Zhu.

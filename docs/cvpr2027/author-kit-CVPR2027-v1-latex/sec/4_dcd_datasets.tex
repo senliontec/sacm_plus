@@ -18,7 +18,7 @@ Split & Distribution & Dataset & Modality & Target & Samples \\
  & Seen & CHASEDB1~\cite{owen2009chasedb1} & Fundus & Vessel & 3 \\
  & Seen & DCA1~\cite{cervantes2019dca1} & X-ray & Vessel & 3 \\
  & Seen & CrackTree200~\cite{zou2012cracktree} & RGB & Crack & 3 \\
- & Seen & CREMI~\cite{cremi2016} & Microscopy & Boundary & 3 \\
+ & Seen & CREMI & Microscopy & Boundary & 3 \\
  & Seen & CORN~\cite{mou2019csnet} & Microscopy & Nerve & 3 \\
 \midrule
 \multirow{8}{*}{Test (Unseen)}
@@ -44,7 +44,7 @@ Split & Distribution & Dataset & Modality & Target & Samples \\
 We follow the same 3-shot protocol as SACM~\cite{zhu2026sacm}.  From each of
 six Seen curvilinear benchmarks---DRIVE~\cite{staal2004drive},
 CHASEDB1~\cite{owen2009chasedb1}, DCA1~\cite{cervantes2019dca1},
-CrackTree200~\cite{zou2012cracktree}, CREMI~\cite{cremi2016}, and
+CrackTree200~\cite{zou2012cracktree}, CREMI\footnote{Challenge website: \url{https://cremi.org/}.}, and
 CORN~\cite{mou2019csnet}---we randomly sample three images for training and
 hold out one image for validation.  This yields 18 training and 6 validation
 images in total.  The support set is resampled independently for each of the

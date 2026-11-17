@@ -1,14 +1,14 @@
 # Fdb version 4
-["bibtex main"] 1794847416.74095 "main.aux" "main.bbl" "main" 1794847418.25754 0
+["bibtex main"] 1794882464.67924 "main.aux" "main.bbl" "main" 1794882466.034 0
   "./ieeenat_fullname.bst" 1792569834 26900 a296cb1ebee73f7bfa143751dc4e1dfd ""
-  "./main.bib" 1794846370.8101 11978 c3c0ae228a1f8d26732037a1419dccbc ""
-  "./parsing_refs.bib" 1794846597.02357 3878 30c7ffb153e3bc9b645b728deff6123d ""
-  "main.aux" 1794847417.7446 43559 18461336083bc3e1a5303b0769e30f0b "pdflatex"
+  "./main.bib" 1794882416.19206 11762 1956ab7120d152b11214ae95de038afc ""
+  "./parsing_refs.bib" 1794882237.67418 4041 3e9e6185540d41ece2a2e2a614715870 ""
+  "main.aux" 1794882465.56539 43303 f522279bff0c99af5207355835d53550 "pdflatex"
   (generated)
   "main.bbl"
   "main.blg"
   (rewritten before read)
-["pdflatex"] 1794847416.8776 "main.tex" "main.pdf" "main" 1794847418.25804 0
+["pdflatex"] 1794882464.8176 "main.tex" "main.pdf" "main" 1794882466.03449 0
   "../img/dcd_deploy_qual_em/hrf_dcd.pdf" 1794845525.82697 38835 a58cee06b3fee05bfd1ea3a40be181ff ""
   "../img/dcd_deploy_qual_em/hrf_gating.pdf" 1794845525.82406 37860 b1721778f1be8034f67910a800f5ddcf ""
   "../img/dcd_deploy_qual_em/hrf_raw.pdf" 1794845525.82144 12241 1fe1a8fc162a6353d53bf68a9f918561 ""
@@ -197,13 +197,13 @@
   "/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map" 1784550493 5541477 3118940318599480888143717dd32d64 ""
   "/var/lib/texmf/web2c/pdftex/pdflatex.fmt" 1784550512 3638469 3490623590986725f458b6c618cece61 ""
   "cvpr.sty" 1792569834 17887 5b5ac66ec175624b96c33aea06f8d60c ""
-  "main.aux" 1794847417.7446 43559 18461336083bc3e1a5303b0769e30f0b "pdflatex"
-  "main.bbl" 1794847416.87299 13680 10cbdb23f83b5a69ece512e51aa1f202 "bibtex main"
-  "main.brf" 1794847417.74605 7641 820d790a65828884d5bcd2104f6662e6 "pdflatex"
-  "main.out" 1794847417.74605 3445 90200357e86690a0166b8f7ca4772dbc "pdflatex"
+  "main.aux" 1794882465.56539 43303 f522279bff0c99af5207355835d53550 "pdflatex"
+  "main.bbl" 1794882464.81301 13571 507fbbec1ae8af02d6b62c681c3a88dd "bibtex main"
+  "main.brf" 1794882465.5671 7550 542e0eaaa40c8d93c8a88ddb0368b3a4 "pdflatex"
+  "main.out" 1794882465.5671 3445 90200357e86690a0166b8f7ca4772dbc "pdflatex"
   "main.tex" 1794844181.72373 2320 3a534f4c587c8b24c2283c792a5159d0 ""
   "preamble.tex" 1794832106.26567 1426 9c482a87b6004047feaa5333e9c0ad59 ""
-  "sec/4_dcd_datasets.tex" 1794846622.35613 6556 ef9eefe1adc19cff6fa8f5ad2dd16db5 ""
+  "sec/4_dcd_datasets.tex" 1794882419.72714 6577 bbc931672ae94718c68e0cb6e144b1b4 ""
   "sec/4_dcd_deployment.tex" 1794846411.93754 2684 991cb163410cd8e38c48d286f306a709 ""
   "sec/4_dcd_experiments.tex" 1794846396.33657 747 ba1ae1f8a5ef63f11769cc8615d7ed41 ""
   "sec/4_dcd_figure.tex" 1794846584.13286 4151 7022cb46d7d9157e37c9bbbcb9564827 ""
