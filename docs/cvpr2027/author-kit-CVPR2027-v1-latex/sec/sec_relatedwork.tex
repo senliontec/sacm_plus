@@ -15,8 +15,9 @@ hierarchical convolutional features for crack segmentation, HACNet~V2
 \cite{chen2025hacnetv2} preserves full-resolution detail for pixel-level
 crack detection, and nnWNet \cite{zhou2025nnwnet} revisits
 transformer--convolution hybrids. These models obtain strong results when
-training and test data come from the same domain, but they rely on large
-annotated datasets and degrade under modality or acquisition-condition shift.
+training and test data come from the same domain, but they rely on
+domain-specific annotated datasets and degrade under modality or
+acquisition-condition shift.
 
 Pixel-wise overlap does not capture connectivity, so a parallel line of work
 adds topological supervision. clDice \cite{shit2021cldice} measures overlap
@@ -60,7 +61,7 @@ Prompt-free adaptation is particularly relevant to curvilinear structures
 because point and box prompts are ill-posed for dense, branching targets.
 SACM \cite{zhu2026sacm} removes the need for user prompts through dual-level
 adapters, adapter fusion, and a dual-stage decoder; CWSAM \cite{pu2025cwsam}
-uses class-wise adapters for SAR imagery. A related strategy generates prompts automatically:
+uses lightweight adapters and a class-wise decoder for SAR imagery. A related strategy generates prompts automatically:
 SAM-OCTA \cite{wang2024sam_octa} applies low-rank adaptation with prompt-point
 generation to OCTA vessel segmentation. DCD follows the prompt-free line and
 keeps the frozen-SAM scaffold; its contribution is the decoding and deployment

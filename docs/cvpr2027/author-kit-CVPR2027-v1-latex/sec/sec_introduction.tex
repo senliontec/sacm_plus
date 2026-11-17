@@ -33,7 +33,7 @@ is thus the central deployment challenge.
 \begin{tabular}{@{}c*{4}{c}@{}}
 \makebox[\FigOneLabelW][c]{\rotatebox{90}{\scriptsize Input}} & \includegraphics[width=\FigOneW]{../img/dcd_fig1/crack_raw.pdf} & \includegraphics[width=\FigOneW]{../img/dcd_fig1/octa_raw.pdf} & \includegraphics[width=\FigOneW]{../img/dcd_fig1/road_raw.pdf} & \includegraphics[width=\FigOneW]{../img/dcd_fig1/tyre_raw.pdf} \\[1pt]
 \makebox[\FigOneLabelW][c]{\rotatebox{90}{\scriptsize Prediction}} & \includegraphics[width=\FigOneW]{../img/dcd_fig1/crack_ours.pdf} & \includegraphics[width=\FigOneW]{../img/dcd_fig1/octa_ours.pdf} & \includegraphics[width=\FigOneW]{../img/dcd_fig1/road_ours.pdf} & \includegraphics[width=\FigOneW]{../img/dcd_fig1/tyre_ours.pdf} \\[9pt]
-\makebox[\FigOneLabelW]{} & \makebox[\FigOneW][c]{\scriptsize CHCrack5k} & \makebox[\FigOneW][c]{\scriptsize OCTA-500} & \makebox[\FigOneW][c]{\scriptsize ROAD} & \makebox[\FigOneW][c]{\scriptsize TYRE} \\
+\makebox[\FigOneLabelW]{} & \makebox[\FigOneW][c]{\scriptsize CHCrack5K} & \makebox[\FigOneW][c]{\scriptsize OCTA-500} & \makebox[\FigOneW][c]{\scriptsize ROAD} & \makebox[\FigOneW][c]{\scriptsize TYRE} \\
 \end{tabular}
 \caption{Cross-domain results of DCD. Each column shows a raw test image
 (top) and the DCD prediction overlaid in cyan (bottom). Trained on only
@@ -59,8 +59,8 @@ offers a way to keep several complementary hypotheses before committing to one:
 SAM returns multiple masks \cite{kirillov2023sam}, and SACM maintains four
 candidate heads \cite{zhu2026sacm}.
 
-SAM-based adaptation \cite{kirillov2023sam} offers a third path: a frozen ViT
-encoder with lightweight adapters enables transfer with very few annotations.
+SAM \cite{kirillov2023sam} offers a third path: a frozen ViT encoder can be
+adapted with lightweight modules, enabling transfer with very few annotations.
 SAM-Adapter \cite{chen2023samadapter} and Conv-LoRA \cite{zhong2024convlora}
 add adapters or low-rank modules, CAT-SAM \cite{xiao2024catsam} performs
 few-shot conditional tuning, and HQ-SAM \cite{ke2023hqsam} improves mask

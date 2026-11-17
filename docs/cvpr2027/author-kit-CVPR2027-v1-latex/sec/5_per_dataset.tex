@@ -4,11 +4,11 @@
 Tables~\ref{tab:per_dataset_unseen_i}--\ref{tab:per_dataset_novel} report the
 per-dataset results; best results are red bold and second-best results are
 underlined.  The macro ranking in Table~\ref{tab:dcd_main} is not reproduced
-on every dataset.  On Unseen data, DCD is best on Dice for CHCrack5k,
+on every dataset.  On Unseen data, DCD is best on Dice for CHCrack5K,
 OCTA-500, and XCAD, and best on clDice for six of the eight datasets; the
 clDice gains on DeepCrack, HRF, and LES-AV indicate better connectivity even
 where Dice is not best.  The largest Dice margins over SACM are on OCTA-500
-(+7.16) and FIVES (+2.64), while CHCrack5k (+2.16) and DeepCrack (+2.11)
+(+7.16) and FIVES (+2.64), while CHCrack5K (+2.16) and DeepCrack (+2.11)
 also improve; XCAD is nearly tied (+0.35).  FIVES and LES-AV place DCD second
 behind SAM-OCTA, and on HRF and STARE it trails the best baseline,
 consistent with the difficulty of thin vessels.  DeepCrack and XCAD expose a
@@ -30,13 +30,13 @@ a broad trend rather than uniform superiority.
 
 \begin{table*}[t]
 \centering
-\caption{Per-dataset results on the first four Unseen datasets (CHCrack5k, DeepCrack, FIVES, HRF). Four-seed mean; Dice/IoU/clDice in \%, HD95 in pixels (lower is better). Best results are red bold; second-best results are underlined.}
+\caption{Per-dataset results on the first four Unseen datasets (CHCrack5K, DeepCrack, FIVES, HRF). Four-seed mean; Dice/IoU/clDice in \%, HD95 in pixels (lower is better). Best results are red bold; second-best results are underlined.}
 \label{tab:per_dataset_unseen_i}
 \tiny
 \setlength{\tabcolsep}{1.5pt}
 \begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}lcccccccccccccccc@{}}
 \toprule
-Method & \multicolumn{4}{c}{CHCrack5k~\cite{chen2025hacnetv2}} & \multicolumn{4}{c}{DeepCrack~\cite{liu2019deepcrack}} & \multicolumn{4}{c}{FIVES~\cite{jin2022fives}} & \multicolumn{4}{c}{HRF~\cite{budai2013robust}} \\
+Method & \multicolumn{4}{c}{CHCrack5K~\cite{chen2025hacnetv2}} & \multicolumn{4}{c}{DeepCrack~\cite{liu2019deepcrack}} & \multicolumn{4}{c}{FIVES~\cite{jin2022fives}} & \multicolumn{4}{c}{HRF~\cite{budai2013robust}} \\
 \cmidrule(lr){2-5}
 \cmidrule(lr){6-9}
 \cmidrule(lr){10-13}

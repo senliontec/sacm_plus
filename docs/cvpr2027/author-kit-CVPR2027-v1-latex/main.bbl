@@ -96,7 +96,7 @@ Alexander Kirillov, Eric Mintun, Nikhila Ravi, Hanzi Mao, Chlo{\'e} Rolland,
 
 \bibitem[Kohl et~al.(2018)Kohl, Romera-Paredes, Meyer, Fauw, Ledsam,
   Maier-Hein, Eslami, Rezende, and Ronneberger]{kohl2018probunet}
-Simon Kohl, Bernardino Romera-Paredes, Clemens Meyer, Jeffrey~De Fauw,
+Simon A.~A. Kohl, Bernardino Romera-Paredes, Clemens Meyer, Jeffrey~De Fauw,
   Joseph~R. Ledsam, Klaus~H. Maier-Hein, S.~M.~Ali Eslami, Danilo~Jimenez
   Rezende, and Olaf Ronneberger.
 \newblock A probabilistic {U-Net} for segmentation of ambiguous images.

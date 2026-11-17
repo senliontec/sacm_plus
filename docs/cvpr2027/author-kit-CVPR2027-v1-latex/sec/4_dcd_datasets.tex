@@ -22,7 +22,7 @@ Split & Distribution & Dataset & Modality & Target & Samples \\
  & Seen & CORN~\cite{mou2019csnet} & Microscopy & Nerve & 3 \\
 \midrule
 \multirow{8}{*}{Test (Unseen)}
- & Unseen & CHCrack5k~\cite{chen2025hacnetv2} & RGB & Crack & 990 \\
+ & Unseen & CHCrack5K~\cite{chen2025hacnetv2} & RGB & Crack & 990 \\
  & Unseen & DeepCrack~\cite{liu2019deepcrack} & RGB & Crack & 237 \\
  & Unseen & FIVES~\cite{jin2022fives} & Fundus & Vessel & 200 \\
  & Unseen & HRF~\cite{budai2013robust} & Fundus & Vessel & 45 \\
@@ -54,7 +54,7 @@ and corneal nerves, spanning fundus, X-ray, EM, and microscopy images.
 
 \paragraph{Evaluation data.}
 We evaluate on 12 datasets that are never used for training or model
-selection.  The eight Unseen datasets---CHCrack5k~\cite{chen2025hacnetv2},
+selection.  The eight Unseen datasets---CHCrack5K~\cite{chen2025hacnetv2},
 DeepCrack~\cite{liu2019deepcrack}, FIVES~\cite{jin2022fives},
 HRF~\cite{budai2013robust}, LES-AV~\cite{orlando2018glaucoma},
 OCTA-500~\cite{li2024octa500}, STARE~\cite{hoover2000stare}, and
@@ -69,7 +69,7 @@ Table~\ref{tab:datasets} summarizes the modalities, targets, and sample
 counts.  Images range from $300\times300$ (DCA1) to $3504\times2336$ (HRF)
 pixels.  DCD resizes inputs to $1024\times1024$ for training and inference,
 and predictions are resized back to the ground-truth resolution for
-evaluation; each baseline uses the input resolution of its official recipe.  Empty-ground-truth images are removed from CHCrack5k, and
+evaluation; each baseline uses the input resolution of its official recipe.  Empty-ground-truth images are removed from CHCrack5K, and
 CREMI uses 2D membrane boundaries derived from the raw neuron IDs rather
 than the official 3D leaderboard.
 
