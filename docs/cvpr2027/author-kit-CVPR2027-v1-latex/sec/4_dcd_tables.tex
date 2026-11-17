@@ -5,7 +5,8 @@
 Table~\ref{tab:dcd_main} reports the macro results on the 12 evaluation
 datasets (8 Unseen and 4 Novel).  DCD obtains 58.76 Dice, 45.17 IoU, 66.02
 clDice, and 63.13 HD95, ranking first on all four metrics.  The closest
-baselines are SACM and SAM-OCTA.  DCD improves over SACM
+baselines are SACM and SAM-OCTA, both re-run under our protocol.  DCD
+improves over SACM
 (56.24/42.88/62.26/69.20) by 2.52 Dice, 2.29 IoU, and 3.76 clDice, and
 reduces HD95 by 6.07 pixels; SAM-OCTA is slightly behind SACM on Dice but
 stronger on IoU and clDice, and DCD still improves over it by 2.60 Dice,
@@ -22,8 +23,8 @@ are not uniform across datasets.
 \caption{Deployment-rule and training-component ablation on the 12
 evaluation datasets.  Four-seed absolute means; Dice/IoU/clDice in \%, HD95
 in pixels (lower is better).  ``gating + fusion'' is test-time selection
-and fusion on the full model's checkpoint; the full model deploys the fixed
-last-ranked candidate (slot 3).  \emph{W/o fusion} has lower HD95, and
+and fusion on the full model's checkpoint; the full model deploys a
+validation-selected fixed candidate (slot 3 in our benchmark).  \emph{W/o fusion} has lower HD95, and
 \emph{w/o topology} is slightly higher on Dice/IoU.}
 \label{tab:dcd_ablation}
 \scriptsize
@@ -58,11 +59,14 @@ while HD95 changes by only 0.03 pixels.  Because the candidate experts are ident
 this comparison directly supports the deployment-bottleneck hypothesis.  The
 native four-head control removes role losses and fusion; compared with the
 no-fusion variant, which keeps the role losses, the role objectives add 1.10
-Dice, 1.04 IoU, and 1.04 clDice, and reduce HD95 by 1.79 pixels.  Topology
+Dice, 1.04 IoU, and 1.04 clDice, and reduce HD95 by 1.79 pixels.  Because all
+heads share the decoder feature, these objectives also regularize the
+representation used by the deployed head.  Topology
 supervision mainly affects connectivity: removing it raises Dice and IoU by
 0.08 and 0.27 points but lowers clDice by 0.26 points.  Fusion is optional:
 removing it lowers Dice, IoU, and clDice by 0.12, 0.11, and 0.26 points but
-improves HD95 by 0.36 pixels.  We keep the full model because it is best on
-Dice, IoU, and clDice; the no-fusion variant is a competitive alternative
-when boundary accuracy is prioritized.  No component dominates every
-metric, but fixed deployment provides the largest single gain.
+improves HD95 by 0.36 pixels, so most of the gain over gating+fusion comes
+from the fixed selector rather than fusion removal.  We keep the full model
+because it is best on Dice, IoU, and clDice; the no-fusion variant is a
+competitive alternative when boundary accuracy is prioritized.  No component
+dominates every metric, but fixed deployment provides the largest single gain.

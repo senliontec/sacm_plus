@@ -4,7 +4,7 @@
 DCD revisits how a multi-candidate prompt-free decoder should deploy its
 candidates.  Instead of learning a per-image selector, it trains four
 candidates with dense, topology-aware, and role-specific supervision and
-always deploys slot~3, the last-ranked candidate.  On a 12-dataset 3-shot
+deploys a validation-selected fixed slot (slot~3 in our benchmark).  On a 12-dataset 3-shot
 benchmark with ten baselines and four seeds, DCD ranks first on all four
 macro metrics.  The ablation attributes the largest single gain to the
 deployment rule and a further gain to role specialization, while showing

@@ -29,8 +29,9 @@ depends on dataset challenges such as small training sets, noisy labels, and
 out-of-distribution test images. This motivates evaluating segmentation
 methods across many datasets rather than on a single benchmark. Recent methods
 target connectivity outside the loss: CAPE \cite{esmaeilzadeh2025cape} enforces
-shortest-path connectivity, Deep Closing \cite{wu2024deepclosing} repairs broken
-tubular masks, and TopoTTA \cite{zhou2025topotta} adapts topology at test time.
+shortest-path connectivity, Deep Closing \cite{wu2024deepclosing} improves
+connectivity of tubular masks, and TopoTTA \cite{zhou2025topotta} adapts
+topology at test time.
 
 Complementary to these loss-level approaches, annotation-efficient and universal
 curvilinear models reduce the supervision requirement. UCS \cite{zhu2025ucs}
@@ -66,9 +67,9 @@ adapters, adapter fusion, and a dual-stage decoder; CWSAM \cite{pu2025cwsam}
 uses lightweight adapters and a class-wise decoder for SAR imagery. A related strategy generates prompts automatically:
 SAM-OCTA \cite{wang2024sam_octa} applies low-rank adaptation with prompt-point
 generation to OCTA vessel segmentation. TopoLoRA-SAM
-\cite{khazem2027topolorasam} adds LoRA and a spatial adapter with clDice
+\cite{khazem2026topolorasam} adds LoRA and a spatial adapter with clDice
 supervision; PEPA \cite{lei2026pepa} targets post-encoder reconstruction and
-binarization. CaPro \cite{chen2026capro} learns prompts from a single unlabeled
+adaptive thresholding. CaPro \cite{chen2026capro} learns prompts from a single unlabeled
 image, UniCurvSeg \cite{hu2025unicurvseg} learns contextual prompts for
 universal vessel-like segmentation, and FineSAM++ \cite{jiang2025finesam} uses
 sparse residual experts. DCD keeps the frozen-SAM scaffold; its contribution is
@@ -90,8 +91,8 @@ Multi-candidate decoders typically rely on a test-time score or selector. The
 score is learned on the training distribution, so its calibration can drift
 under domain shift; selecting for overlap may favor thicker masks; and a
 selector or fusion branch adds inference cost. DCD keeps multiple candidates
-as training-time experts but commits to a
-fixed ranked slot (slot 3) at inference. Gating only determines the candidate
+as training-time experts but commits to a validation-selected fixed ranked
+slot (slot 3 in our benchmark) at inference. Gating only determines the candidate
 order, and the fusion branch is discarded after training, so no test-time
 selector or fusion is deployed. This differs from mixture-of-experts gating,
 where the deployed combination depends on the input.

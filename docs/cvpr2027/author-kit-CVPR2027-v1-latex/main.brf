@@ -12,7 +12,7 @@
 \backcite {ronneberger2015unet}{{1}{1}{figure.caption.1}}
 \backcite {mou2019csnet}{{1}{1}{figure.caption.1}}
 \backcite {mou2021cs2net}{{1}{1}{figure.caption.1}}
-\backcite {liu2019deepcrack}{{1}{1}{figure.caption.1}}
+\backcite {liu2019deepcrack}{{2}{1}{figure.caption.1}}
 \backcite {zhou2025nnwnet}{{2}{1}{figure.caption.1}}
 \backcite {shit2021cldice}{{2}{1}{figure.caption.1}}
 \backcite {kirchhoff2024skeletonrecall}{{2}{1}{figure.caption.1}}
@@ -50,7 +50,7 @@
 \backcite {zhu2026sacm}{{3}{2.2}{subsection.2.2}}
 \backcite {pu2025cwsam}{{3}{2.2}{subsection.2.2}}
 \backcite {wang2024sam_octa}{{3}{2.2}{subsection.2.2}}
-\backcite {khazem2027topolorasam}{{3}{2.2}{subsection.2.2}}
+\backcite {khazem2026topolorasam}{{3}{2.2}{subsection.2.2}}
 \backcite {lei2026pepa}{{3}{2.2}{subsection.2.2}}
 \backcite {chen2026capro}{{3}{2.2}{subsection.2.2}}
 \backcite {hu2025unicurvseg}{{3}{2.2}{subsection.2.2}}
@@ -91,8 +91,8 @@
 \backcite {budai2013robust}{{5}{4.1}{section*.5}}
 \backcite {orlando2018glaucoma}{{5}{4.1}{section*.5}}
 \backcite {li2024octa500}{{5}{4.1}{section*.5}}
-\backcite {hoover2000stare}{{5}{4.1}{section*.5}}
-\backcite {ma2021ssvs}{{5}{4.1}{section*.5}}
+\backcite {hoover2000stare}{{6}{4.1}{section*.5}}
+\backcite {ma2021ssvs}{{6}{4.1}{section*.5}}
 \backcite {mnih2013machine}{{6}{4.1}{section*.5}}
 \backcite {valverde2025topomortar}{{6}{4.1}{section*.5}}
 \backcite {zhu2026sacm}{{6}{4.1}{section*.5}}

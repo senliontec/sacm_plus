@@ -37,8 +37,9 @@ is thus the central deployment challenge.
 \end{tabular}
 \caption{Cross-domain results of DCD. Each column shows a raw test image
 (top) and the DCD prediction overlaid in cyan (bottom). Trained on only
-18 images from six training datasets and deployed at a single fixed candidate
-rank (slot 3), DCD preserves thin structures and connectivity on two
+18 images from six training datasets and deployed at a validation-selected
+fixed candidate rank (slot 3 in our benchmark), DCD preserves thin structures
+and connectivity on two
 unseen and two novel datasets.}
 \label{fig:dcd_teaser}
 \end{figure}
@@ -96,13 +97,14 @@ soft clDice and skeleton recall losses, and add role-specific losses to the
 three auxiliary heads: an extra topology term, a boundary-weighted term, and a
 recall-oriented Tversky term. A zero-initialized linear fusion serves as an
 auxiliary output. At inference, gating only orders the candidates, and DCD
-always deploys the last-ranked slot (slot 3), without the IoU predictor or the
-fusion branch. Slot 3 is the recall-oriented Tversky expert; fixing the rank
-preserves the learned role specialization while removing the selector's
-per-image variability. With the same trained candidate experts, fixed deployment improves
+deploys a validation-selected fixed slot (slot 3 in our benchmark), without the
+IoU predictor or the fusion branch. Slot 3 is the recall-oriented Tversky
+expert; fixing the rank preserves the learned role specialization while
+removing the selector's per-image variability. With the same trained candidate experts, fixed deployment improves
 Dice, IoU, and clDice by 1.22, 1.11, and 1.06 points over gating and fusion,
-with HD95 essentially unchanged. This counterintuitive result suggests that, for this family of
-decoders, the bottleneck lies in deployment rather than candidate generation.
+with HD95 essentially unchanged. This counterintuitive result suggests that, for
+this family of decoders, deployment can be a more important bottleneck than
+candidate generation.
 
 We validate this on a strict 3-shot protocol: 18 training images from six
 training datasets, 12 evaluation datasets (eight unseen and four novel
@@ -117,17 +119,17 @@ the deployment-bottleneck hypothesis.
 
 Our contributions are threefold.
 \begin{itemize}
-\item We identify test-time candidate selection as the deployment bottleneck
-of multi-candidate prompt-free decoders for thin structures, and provide
-counterintuitive evidence: with the same trained candidate experts, fixed-rank deployment
-improves Dice, IoU, and clDice relative to the learned selector, with
-comparable HD95 and without retraining the candidate experts.
+\item We identify test-time candidate selection as a deployment bottleneck for
+this family of multi-candidate prompt-free decoders, and provide
+counterintuitive evidence: with the same trained candidate experts, fixed-rank
+deployment improves Dice, IoU, and clDice relative to the learned selector,
+with comparable HD95 and without retraining the candidate experts.
 \item We propose DCD, a training-and-deployment recipe for frozen-SAM
 prompt-free decoders: four candidate heads are trained with dense,
 topology-aware, and role-specific supervision; at inference, gating only
-orders the candidates, and DCD always deploys the last-ranked slot (slot 3),
-with no IoU predictor or fusion. This turns multi-candidate decoding into a
-deterministic single-output rule.
+orders the candidates, and DCD deploys a validation-selected fixed slot
+(slot 3 in our benchmark), with no IoU predictor or fusion. This turns
+multi-candidate decoding into a deterministic single-output rule.
 \item We follow SACM's 3-shot setting and systematically compare DCD with ten
 CNN, transformer, and SAM baselines on 12 datasets (eight unseen and
 four novel datasets) over four seeds; DCD ranks first on all four macro metrics.

@@ -8,8 +8,9 @@
 block-internal Adapter-I and block-external Adapter-E features, which
 Adapter-F fuses into the decoder.  Stage-1 ranks four candidate masks by
 gating confidence, and Stage-2 refines them with dense, topology, and
-role-specific losses.  At inference, DCD deploys a fixed slot (slot~3),
-without a test-time selector or the training-only fusion branch.}
+role-specific losses.  At inference, DCD deploys a validation-selected fixed
+slot (slot~3 in our benchmark), without a test-time selector or the
+training-only fusion branch.}
 \label{fig:dcd_framework}
 \end{figure*}
 
@@ -36,9 +37,10 @@ x_{l+1}=x_l+a_l^{E}(\mathrm{LN}(x_l)),
 \end{equation}
 where $\sigma$ is GELU. Adapter-I adds its output to the MLP residual, while
 Adapter-E updates the block output and passes context to the next block.
-Adapter-F gives the decoder a cross-layer view by pooling each Adapter-E
-output into a descriptor $z_l$, weighting the 24 descriptors with softmax, and
-adding the weighted sum to the upsampled decoder feature:
+Adapter-F gives the decoder a cross-layer view. It pools each Adapter-E
+output $e_l$ into a descriptor $z_l$, weights the 24 descriptors with softmax,
+and adds the weighted sum of the adapter outputs to the upsampled decoder
+feature:
 \begin{equation}
 \alpha=\mathrm{softmax}\!\left(\mathrm{FFN}([z_1;\dots;z_{24}])\right),
 \label{eq:fusion_weights}
@@ -66,7 +68,7 @@ g_k=\max_{u}M_k^{(1)}(u),
 \label{eq:stage1}
 \end{equation}
 \begin{equation}
-s=\mathrm{argsort}\!\left(\mathrm{softmax}(g)\right),\qquad
+s=\mathrm{argsort}_{\downarrow}\!\left(\mathrm{softmax}(g)\right),\qquad
 M_j^{(2)}=\mathrm{MLP}_j^{(2)}(t_{s_j};F),
 \label{eq:stage2}
 \end{equation}
@@ -93,10 +95,10 @@ topology term adds 0.1 soft-clDice and 0.1 Skeleton Recall per head and is
 ramped from 0 to 1 between epochs 5 and 10. Every Stage-1 head is also
 deep-supervised with the dense loss.
 
-The three auxiliary slots receive role losses with total weight 0.1. Slot~1
-is pushed toward topology by an extra soft-clDice term. Slot~2 targets
-boundaries with a BCE+Dice loss whose pixels are weighted by $1+4B$ on a
-$5\times5$ boundary band $B$. Slot~3 targets recall with a Tversky loss using
+The three auxiliary slots receive role losses combined with an overall weight
+of 0.1. Slot~1 is pushed toward topology by an extra soft-clDice term. Slot~2
+targets boundaries with a BCE loss weighted by $1+4B$ on a $5\times5$ boundary
+band $B$, plus an unweighted Dice loss. Slot~3 targets recall with a Tversky loss using
 $\alpha=0.3$ and $\beta=0.7$, where
 $\ell_{\mathrm{tv}}=1-TP/(TP+0.3FP+0.7FN)$ and $TP$, $FP$, and $FN$ are pixel
 counts. A zero-initialized $1\times1$ convolution fuses the four refined masks
@@ -120,8 +122,7 @@ $\ell_{\mathrm{bnd}}=\mathrm{BCE}_{1+4B}+1-\mathrm{Dice}$,
 $\mathcal{L}_{\mathrm{dense}}$ and $\mathcal{L}_{\mathrm{top}}$ are the
 weighted dense and topology terms over all Stage-2 heads, and
 $\mathcal{L}_{\mathrm{ds}}$ is the averaged deep supervision of the four
-Stage-1 heads. Exact resolutions and the warmup schedule are listed in the
-supplement.
+Stage-1 heads.
 
 \subsection{Deterministic Deployment}
 \label{sec:method_deploy}
@@ -134,13 +135,15 @@ are unchanged, so no retraining is required. The checkpoint sets
 \texttt{head\_fusion=0}, and drops the fusion tensors. Gating still computes
 the order, but DCD returns the Stage-2 mask in slot~3, thresholded at 0.5 and
 resized to the ground-truth resolution. The fused output and the IoU predictor
-are not used. The slot is selected on the validation split and then frozen for
-all test datasets and seeds.
+are not used. The slot is a single four-way choice made on the six-image validation split
+by validation Dice and then frozen for all test datasets and seeds. We do not
+claim slot~3 is universally optimal; a precision-critical deployment can
+select another fixed slot on validation using its target metric.
 
 Fixing the slot is motivated by two observations. Slot~3 is the
 recall-oriented Tversky expert, so fixing its rank preserves specialization
 and removes per-image selector variance. A jointly trained selector can also
 co-adapt with the heads and drift under a change in modality or acquisition
 conditions. Fixed deployment removes this decision point, while the candidate
-experts themselves are unchanged. Training uses the hyperparameters listed in
-the supplement.
+experts themselves are unchanged. We use the official SACM optimizer and
+schedule.

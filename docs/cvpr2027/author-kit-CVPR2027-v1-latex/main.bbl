@@ -85,7 +85,7 @@ Kaiwen Huang, Tao Zhou, Huazhu Fu, Yizhe Zhang, Yi Zhou, Chen Gong, and Dong
 Weili Jiang, Jinrong Lv, Xun Gong, Xiaomeng Li, and Chubin Ou.
 \newblock Gate to the vessel: Residual experts restore what {SAM} overlooks.
 \newblock In \emph{Advances in Neural Information Processing Systems
-  (NeurIPS)}, pages 105305--105329, 2025.
+  (NeurIPS)}, 2025.
 
 \bibitem[Jin et~al.(2022)Jin, Huang, Zhou, Li, Yan, Sun, Zhang, Wang, and
   Ye]{jin2022fives}
@@ -102,13 +102,13 @@ Lei Ke, Mingqiao Ye, Martin Danelljan, Yifan Liu, Yu-Wing Tai, Chi-Keung Tang,
 \newblock In \emph{Advances in Neural Information Processing Systems
   (NeurIPS)}, pages 29914--29934, 2023.
 
-\bibitem[Khazem(2027)]{khazem2027topolorasam}
+\bibitem[Khazem(2026)]{khazem2026topolorasam}
 Salim Khazem.
 \newblock {TopoLoRA-SAM}: Topology-aware parameter-efficient adaptation of
   foundation segmenters for thin-structure and cross-domain binary semantic
   segmentation.
 \newblock In \emph{International Conference on Pattern Recognition (ICPR)},
-  pages 682--696, 2027.
+  pages 682--696, 2026.
 
 \bibitem[Kirchhoff et~al.(2024)Kirchhoff, Rokuss, Roy, Kovacs, Ulrich, Wald,
   Zenk, Vollmuth, Kleesiek, Isensee, and

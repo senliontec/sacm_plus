@@ -48,7 +48,9 @@ CrackTree200~\cite{zou2012cracktree}, CREMI\footnote{Challenge website: \url{htt
 CORN~\cite{mou2019csnet}---we randomly sample three images for training and
 hold out one image for validation.  This yields 18 training and 6 validation
 images in total.  The support set is resampled independently for each of the
-four training seeds, while all test sets are fixed across seeds.  The six
+four training seeds, while all test sets are fixed across seeds.  DCD is
+trained for 200 epochs, and the checkpoint with the best validation Dice is
+used.  The six
 datasets cover retinal vessels, coronary vessels, cracks, neuron boundaries,
 and corneal nerves, spanning fundus, X-ray, EM, and microscopy images.
 
@@ -69,7 +71,11 @@ Table~\ref{tab:datasets} summarizes the modalities, targets, and sample
 counts.  Images range from $300\times300$ (DCA1) to $3504\times2336$ (HRF)
 pixels.  DCD resizes inputs to $1024\times1024$ for training and inference,
 and predictions are resized back to the ground-truth resolution for
-evaluation; each baseline uses the input resolution of its official recipe.  Empty-ground-truth images are removed from CHCrack5K, and
+evaluation; each baseline uses the input resolution of its official recipe.
+All baseline numbers are our re-runs under this protocol, using each method's
+official implementation adapted to the 3-shot setting, with hyperparameters
+selected on the Seen validation split; no numbers are copied from prior
+papers.  Empty-ground-truth images are removed from CHCrack5K, and
 CREMI uses 2D membrane boundaries derived from the raw neuron IDs rather
 than the official 3D leaderboard.
 
@@ -112,4 +118,4 @@ boundary error in pixels and is sensitive to missing branches.  For each
 dataset, we average the results over the four seeds and then take a
 dataset-equal macro average over the 12 test datasets, so that large test
 sets do not dominate.  No
-hyperparameter is tuned on Unseen or Novel data.
+method, including any baseline, is tuned on Unseen or Novel data.

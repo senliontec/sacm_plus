@@ -13,8 +13,8 @@ also improve; XCAD is nearly tied (+0.35).  FIVES and LES-AV place DCD second
 behind SAM-OCTA, and on HRF and STARE it trails the best baseline,
 consistent with the difficulty of thin vessels.  DeepCrack and XCAD expose a
 Dice--HD95 trade-off: DCD is second on Dice on DeepCrack but fourth on HD95,
-and it leads XCAD on overlap while trailing SegDINO, SAM-Med2D, and SACM on
-HD95.  On Novel data, DCD is best on Dice, IoU, and clDice for ROAD, WIRE,
+and it leads XCAD on overlap while trailing SAM-OCTA, SegDINO, SAM-Med2D, and
+SACM on HD95.  On Novel data, DCD is best on Dice, IoU, and clDice for ROAD, WIRE,
 and TYRE.  TopoMortar is the main exception: DCD improves Dice over SACM
 from 6.97 to 14.85 but remains behind SAM-OCTA (42.18), and its HD95 (93.02)
 is far above CS2-Net (37.78).  The macro average should therefore be read as
@@ -22,7 +22,7 @@ a broad trend rather than uniform superiority.
 
 \setcounter{dbltopnumber}{4}
 \renewcommand{\dbltopfraction}{1.0}
-\renewcommand{\arraystretch}{0.92}
+\renewcommand{\arraystretch}{0.85}
 \setlength{\textfloatsep}{8pt plus 2pt minus 2pt}
 \setlength{\floatsep}{6pt plus 1pt minus 1pt}
 \setlength{\dblfloatsep}{4pt plus 1pt minus 1pt}
@@ -98,7 +98,7 @@ SACM~\cite{zhu2026sacm} & 81.01 & 68.17 & 81.37 & 44.47 & \underline{62.95} & \u
 \setlength{\tabcolsep}{1.5pt}
 \begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}lcccccccccccccccc@{}}
 \toprule
-Method & \multicolumn{4}{c}{ROAD~\cite{mnih2013machine}} & \multicolumn{4}{c}{TopoMortar~\cite{valverde2025topomortar}} & \multicolumn{4}{c}{WIRE$^{\dagger}$~\cite{zhu2026sacm}} & \multicolumn{4}{c}{TYRE$^{\dagger}$~\cite{zhu2026sacm}} \\
+Method & \multicolumn{4}{c}{ROAD~\cite{mnih2013machine}} & \multicolumn{4}{c}{TopoMortar~\cite{valverde2025topomortar}} & \multicolumn{4}{c}{WIRE~\cite{zhu2026sacm}} & \multicolumn{4}{c}{TYRE~\cite{zhu2026sacm}} \\
 \cmidrule(lr){2-5}
 \cmidrule(lr){6-9}
 \cmidrule(lr){10-13}
@@ -119,5 +119,4 @@ SACM~\cite{zhu2026sacm} & \underline{34.26} & \underline{21.80} & \underline{38.
 \textbf{Ours} & \textcolor{red!80!black}{\textbf{39.93}} & \textcolor{red!80!black}{\textbf{26.20}} & \textcolor{red!80!black}{\textbf{44.60}} & \underline{165.38} & \underline{14.85} & \underline{9.81} & \underline{18.82} & 93.02 & \textcolor{red!80!black}{\textbf{53.73}} & \textcolor{red!80!black}{\textbf{38.22}} & \textcolor{red!80!black}{\textbf{61.07}} & \underline{68.58} & \textcolor{red!80!black}{\textbf{37.21}} & \textcolor{red!80!black}{\textbf{24.20}} & \textcolor{red!80!black}{\textbf{52.47}} & \underline{84.71} \\
 \bottomrule
 \end{tabular*}
-\vspace{2em}
 \end{table*}

@@ -6,42 +6,42 @@ Database file #1: main.bib
 Database file #2: parsing_refs.bib
 You've used 43 entries,
             2708 wiz_defined-function locations,
-            894 strings with 15648 characters,
-and the built_in function-call counts, 30840 in all, are:
-= -- 2623
+            892 strings with 15630 characters,
+and the built_in function-call counts, 30547 in all, are:
+= -- 2584
 > -- 2573
-< -- 23
+< -- 22
 + -- 861
 - -- 816
-* -- 2781
-:= -- 4703
+* -- 2764
+:= -- 4678
 add.period$ -- 133
 call.type$ -- 43
 change.case$ -- 400
 chr.to.int$ -- 41
 cite$ -- 86
-duplicate$ -- 1149
-empty$ -- 1914
+duplicate$ -- 1134
+empty$ -- 1892
 format.name$ -- 861
-if$ -- 6422
+if$ -- 6345
 int.to.chr$ -- 3
 int.to.str$ -- 1
 missing$ -- 42
 newline$ -- 223
 num.names$ -- 172
-pop$ -- 814
+pop$ -- 815
 preamble$ -- 1
 purify$ -- 358
 quote$ -- 0
-skip$ -- 1044
+skip$ -- 1022
 stack$ -- 0
-substring$ -- 1203
-swap$ -- 279
-text.length$ -- 20
+substring$ -- 1147
+swap$ -- 264
+text.length$ -- 19
 text.prefix$ -- 0
 top$ -- 0
 type$ -- 473
 warning$ -- 0
-while$ -- 214
+while$ -- 211
 width$ -- 0
-write$ -- 564
+write$ -- 563
