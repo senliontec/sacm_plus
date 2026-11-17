@@ -39,6 +39,7 @@ _ADAPTERS = {
     'dcd': ('baseline_zoo.adapters.dcd', 'DCDAdapter'),
     'spa_sam': ('baseline_zoo.adapters.spa_sam', 'SpaSamAdapter'),
     'curvimix': ('baseline_zoo.adapters.curvimix', 'CurviMixAdapter'),
+    'strandcal': ('baseline_zoo.adapters.strandcal', 'StrandCalAdapter'),
     'sam_octa': ('baseline_zoo.adapters.sam_octa', 'SAMOCTAAdapter'),
     'sansa': ('baseline_zoo.adapters.sansa', 'SANSAAdapter'),
     's2mnet': ('baseline_zoo.adapters.s2mnet', 'S2MNetAdapter'),

@@ -89,6 +89,7 @@ METHOD_META = {
     'segdino': ('SegDINO', '✓'),
     'segdino_v2': ('SegDINO v2', '✓'),
     'sacm': ('SACM', '✗'),
+    'strandcal': ('StrandCal-SAM', '✓'),
     'dcd': ('DCD', '✗'),
     'sam_vit_l_unet': ('SAM ViT-L + U-Net', '✗'),
     'sam2_unet': ('SAM2-UNet', '✗'),

@@ -1,0 +1,46 @@
+id: strandcal
+display_name: StrandCal-SAM
+family: sam
+status: available
+checkpoint: "{output_root}/best_model_fixed3.pth"
+train_entrypoint: >-
+  python -m baseline_zoo.models.strandcal.train
+  --data-root {split_root} --workdir {output_root}
+  --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
+  --sam-checkpoint checkpoints/sam_vit_l_0b3195.pth
+  --bce-weight 0.7 --dice-weight 0.3 --bce-pos-weight 2
+  --binary-targets 0 --deploy-threshold 0.5
+  --stage2-loss-scope all --topology-head all
+  --cl-dice-weight 0.1 --skeleton-recall-weight 0.1
+  --specialized-heads 1 --specialized-head-weight 0.1
+  --specialized-topology-weight 0.1
+  --head-fusion 1 --fusion-loss-weight 1.0
+  --topology-resolution 512 --topology-warmup-epochs 5
+  --deep-sup-weight 0.3 --head-select gating --deployment-head 3
+  --adapter-dim-ratio 0.1 --num-workers 0 --save-every 0
+  --train-aug mild --copy-paste-prob 0.5
+  --deployed-tversky-weight 0.1 --area-loss-weight 0.1
+eval_entrypoint: >-
+  python -m baseline_zoo.models.strandcal.evaluate
+  --data-root {split_root} --protocol {test_manifest}
+  --workdir {output_root}
+  --checkpoint {output_root}/best_model_fixed3.pth
+  --seed {seed} --device cuda:{gpu} --use-wandb 0
+  --tta-flip --rcd 1 --atc 1 --tile 1024 --stride 896
+  --routing-skel-ratio 1.0 --routing-area-ratio 0.7
+protocols: [seeded5, fixed]
+defaults:
+  epochs: 200
+  preset: default
+note: >-
+  StrandCal-SAM is a self-contained baseline model, physically independent of
+  TopoStrand-SAM, DCD, SPA-SAM and CurviMix.  It owns its SAM ViT-L variant,
+  fusion module, topology losses, CAPE and decoding code.  Training uses the
+  width-calibrated fixed3 recipe, structure-aware copy-paste and mild
+  augmentation.  Prediction adds resolution-consensus decoding (full view
+  versus native-resolution tiles), close2, and inference-only Adaptive
+  Topology Calibration (ATC).  ATC is label-free and uses only prediction
+  density/width to dilate under-segmented skeletons by 1-2 px.  The reference
+  TopoStrand+ATC four-seed result is 61.48/47.90/69.91/59.64 on the 20-dataset
+  protocol and 64.21/51.03/73.41/57.60 on the 12-dataset paper subset; rerun
+  this self-contained baseline to regenerate its own table.

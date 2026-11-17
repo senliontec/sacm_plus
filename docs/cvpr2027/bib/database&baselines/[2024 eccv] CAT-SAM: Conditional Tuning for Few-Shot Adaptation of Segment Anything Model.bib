@@ -1,0 +1,25 @@
+@InProceedings{10.1007/978-3-031-73661-2_11,
+author="Xiao, Aoran
+and Xuan, Weihao
+and Qi, Heli
+and Xing, Yun
+and Ren, Ruijie
+and Zhang, Xiaoqin
+and Shao, Ling
+and Lu, Shijian",
+editor="Leonardis, Ale{\v{s}}
+and Ricci, Elisa
+and Roth, Stefan
+and Russakovsky, Olga
+and Sattler, Torsten
+and Varol, G{\"u}l",
+title="CAT-SAM: Conditional Tuning for Few-Shot Adaptation of Segment Anything Model",
+booktitle="Computer Vision -- ECCV 2024",
+year="2025",
+publisher="Springer Nature Switzerland",
+address="Cham",
+pages="189--206",
+abstract="The Segment Anything Model (SAM) has demonstrated remarkable zero-shot capability and flexible geometric prompting in general image segmentation. However, it often struggles in domains that are either sparsely represented or lie outside its training distribution, such as aerial, medical, and non-RGB images. Recent efforts have predominantly focused on adapting SAM to these domains using fully supervised methods, which necessitate large amounts of annotated training data and pose practical challenges in data collection. This paper presents CAT-SAM, a ConditionAl Tuning network that explores few-shot adaptation of SAM toward various challenging downstream domains in a data-efficient manner. The core design is a prompt bridge structure that enables decoder-conditioned joint tuning of the heavyweight image encoder and the lightweight mask decoder. The bridging maps the domain-specific features of the mask decoder to the image encoder, fostering synergic adaptation of both components with mutual benefits with few-shot target samples only, ultimately leading to superior segmentation in various downstream tasks. We develop two CAT-SAM variants that adopt two tuning strategies for the image encoder: one injecting learnable prompt tokens in the input space and the other inserting lightweight adapter networks. Extensive experiments over 11 downstream tasks show that CAT-SAM achieves superior segmentation consistently even under the very challenging one-shot adaptation setup.",
+isbn="978-3-031-73661-2"
+}
+

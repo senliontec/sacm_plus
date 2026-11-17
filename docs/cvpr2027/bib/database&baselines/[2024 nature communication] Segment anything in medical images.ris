@@ -1,0 +1,20 @@
+TY  - JOUR
+AU  - Ma, Jun
+AU  - He, Yuting
+AU  - Li, Feifei
+AU  - Han, Lin
+AU  - You, Chenyu
+AU  - Wang, Bo
+PY  - 2024
+DA  - 2024/01/22
+TI  - Segment anything in medical images
+JO  - Nature Communications
+SP  - 654
+VL  - 15
+IS  - 1
+AB  - Medical image segmentation is a critical component in clinical practice, facilitating accurate diagnosis, treatment planning, and disease monitoring. However, existing methods, often tailored to specific modalities or disease types, lack generalizability across the diverse spectrum of medical image segmentation tasks. Here we present MedSAM, a foundation model designed for bridging this gap by enabling universal medical image segmentation. The model is developed on a large-scale medical image dataset with 1,570,263 image-mask pairs, covering 10 imaging modalities and over 30 cancer types. We conduct a comprehensive evaluation on 86 internal validation tasks and 60 external validation tasks, demonstrating better accuracy and robustness than modality-wise specialist models. By delivering accurate and efficient segmentation across a wide spectrum of tasks, MedSAM holds significant potential to expedite the evolution of diagnostic tools and the personalization of treatment plans.
+SN  - 2041-1723
+UR  - https://doi.org/10.1038/s41467-024-44824-z
+DO  - 10.1038/s41467-024-44824-z
+ID  - Ma2024
+ER  - 

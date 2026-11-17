@@ -136,6 +136,10 @@ def main(argv=None) -> int:
         '--threshold', type=float, default=None,
         help='override the checkpoint deployment threshold for inference')
     parser.add_argument(
+        '--deploy-fusion', choices=['none', 'mean'], default='none',
+        help='deploy the selected head (none) or the mean logit of all '
+             'four Stage-2 candidates (mean)')
+    parser.add_argument(
         '--postprocess', choices=['none', 'close1', 'close2', 'close3'],
         default='close2',
         help='label-free topology-preserving morphological closing')
@@ -146,6 +150,7 @@ def main(argv=None) -> int:
     adapter, model = _load_model(args.checkpoint, args.data_root, args.device)
     adapter.tta_flip = bool(args.tta_flip)
     adapter.tta_rot90 = bool(args.tta_rot90)
+    adapter.deploy_fusion = str(args.deploy_fusion)
     selected = set(args.datasets) if args.datasets else None
     specs = dataset_specs(args.protocol, selected, REPO_ROOT)
     pred_root = args.workdir / f'predictions{args.tag}' / 'topostrand'

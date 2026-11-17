@@ -270,6 +270,8 @@ class _TopoStrandBase(BaselineAdapter):
         self.cape_warmup_epochs = 10
         self.deployed_tversky_weight = 0.0
         self.area_loss_weight = 0.0
+        self.area_loss_mode = 'two_sided'
+        self.deploy_fusion = 'none'
         self.deployment_head = 3
         self.specialized_heads = True
         self.specialized_head_weight = 0.1
@@ -375,12 +377,22 @@ class _TopoStrandBase(BaselineAdapter):
             '--area-loss-weight', type=float, default=0.0,
             help='L1 foreground-area calibration on slot 3')
         parser.add_argument(
+            '--area-loss-mode', choices=['two_sided', 'over'],
+            default='two_sided',
+            help='penalise both over- and under-segmentation (two_sided) '
+                 'or only over-segmentation (over), which preserves thin '
+                 'under-segmented branches')
+        parser.add_argument(
             '--head-select', choices=['gating', 'fixed'], default=None,
             help='training uses gating; the derived deployment checkpoint '
                  'sets fixed when the CLI leaves this unset')
         parser.add_argument(
             '--deployment-head', type=int, default=3,
             help='Stage-2 head used by fixed deployment')
+        parser.add_argument(
+            '--deploy-fusion', choices=['none', 'mean'], default='none',
+            help='deployment output: the selected Stage-2 head (none) or '
+                 'the mean logit of all four Stage-2 candidates (mean)')
         parser.add_argument(
             '--clip-grad-norm', dest='grad_clip', type=float,
             help='gradient clipping norm (official default: 1.0)')
@@ -564,6 +576,15 @@ class _TopoStrandBase(BaselineAdapter):
             getattr(args, 'deployed_tversky_weight', 0.0))
         self.area_loss_weight = float(
             getattr(args, 'area_loss_weight', 0.0))
+        self.area_loss_mode = str(
+            getattr(args, 'area_loss_mode', 'two_sided'))
+        self.deploy_fusion = str(
+            getattr(args, 'deploy_fusion', 'none'))
+        if self.area_loss_mode not in ('two_sided', 'over'):
+            raise SystemExit(
+                '--area-loss-mode must be two_sided or over')
+        if self.deploy_fusion not in ('none', 'mean'):
+            raise SystemExit('--deploy-fusion must be none or mean')
         if self.cape_weight < 0:
             raise SystemExit('--cape-weight must be non-negative')
         if self.cape_resolution <= 0:
@@ -625,6 +646,7 @@ class _TopoStrandBase(BaselineAdapter):
             'cape_warmup_epochs': self.cape_warmup_epochs,
             'deployed_tversky_weight': self.deployed_tversky_weight,
             'area_loss_weight': self.area_loss_weight,
+            'area_loss_mode': self.area_loss_mode,
             'train_aug': self.train_aug,
             'aug_flip_prob': self.aug_flip_prob,
             'aug_photo_strength': self.aug_photo_strength,
@@ -646,7 +668,7 @@ class _TopoStrandBase(BaselineAdapter):
                 'topology_resolution', 'topology_warmup_epochs',
                 'cape_weight', 'cape_resolution', 'cape_pairs',
                 'cape_warmup_epochs', 'deployed_tversky_weight',
-                'area_loss_weight',
+                'area_loss_weight', 'area_loss_mode',
                 'train_aug', 'aug_flip_prob', 'aug_photo_strength',
                 'aug_noise_std', 'aug_crop_min_scale',
                 'aug_elastic_alpha'):
@@ -916,8 +938,10 @@ class _TopoStrandBase(BaselineAdapter):
             pred_area = torch.sigmoid(stage2[:, 3:4]).mean(
                 dim=(1, 2, 3))
             true_area = masks.mean(dim=(1, 2, 3))
-            loss = loss + self.area_loss_weight * F.l1_loss(
-                pred_area, true_area)
+            area_delta = pred_area - true_area
+            if self.area_loss_mode == 'over':
+                area_delta = area_delta.clamp_min(0.0)
+            loss = loss + self.area_loss_weight * area_delta.abs().mean()
         if self.specialized_heads:
             loss = loss + self._specialized_head_loss(
                 stage2_native, masks)
@@ -937,14 +961,11 @@ class _TopoStrandBase(BaselineAdapter):
         ).permute(2, 0, 1) / 255.0
         return tensor.unsqueeze(0).to(device)
 
+    @torch.no_grad()
     def predict_sample(self, model, prepared, sample):
         stage2, _ = self._forward(
             model, prepared, return_stage1=False)
-        if self.head_fusion:
-            logits = self._fused_heads(model, stage2)
-        else:
-            index = self._selected_stage2_index()
-            logits = stage2[:, index:index + 1]
+        logits = self._deploy_from_stage2(model, stage2)
         with Image.open(sample.mask_path) as mask:
             width, height = mask.size
         logits = F.interpolate(logits, size=(height, width),
@@ -1213,12 +1234,18 @@ class TopoStrandAdapter(_TopoStrandBase):
             return images, masks
         return self._copy_paste(images, masks, rng)
 
-    def _deploy_logits(self, model, images):
-        stage2, _ = self._forward(model, images, return_stage1=False)
+    def _deploy_from_stage2(self, model, stage2):
+        """Map the four Stage-2 candidates to the deployed logit map."""
+        if self.deploy_fusion == 'mean':
+            return stage2.mean(dim=1, keepdim=True)
         if self.head_fusion:
             return self._fused_heads(model, stage2)
         index = self._selected_stage2_index()
         return stage2[:, index:index + 1]
+
+    def _deploy_logits(self, model, images):
+        stage2, _ = self._forward(model, images, return_stage1=False)
+        return self._deploy_from_stage2(model, stage2)
 
     def predict_sample(self, model, prepared, sample):
         if not (self.tta_flip or self.tta_rot90):
