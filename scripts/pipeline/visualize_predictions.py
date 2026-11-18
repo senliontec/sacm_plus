@@ -80,6 +80,8 @@ METHOD_META = {
     'sam_adapter': ('SAM-Adapter', '✓'),
     'samed': ('SAMed', '✓'),
     'topolora': ('TopoLoRA-SAM', '✓'),
+    'topostrand': ('BCTD-SAM + AS', '✓'),
+    'bctd': ('BCTD-SAM + AS', '✓'),
     'tpsegformer': ('TPSegformer', '✗'),
     'ucs': ('UCS', '✓'),
 }
@@ -152,6 +154,22 @@ def error_map(image, pred, gt):
     return np.clip(rgb, 0, 1)
 
 
+def load_metric_lookup(root: Path | None, dataset: str) -> dict:
+    """Load eval/<dataset>/metrics.csv into an image-stem -> row mapping."""
+    if root is None:
+        return {}
+    path = root / dataset / 'metrics.csv'
+    if not path.is_file():
+        return {}
+    lookup = {}
+    with path.open() as handle:
+        for row in csv.DictReader(handle):
+            key = row.get('image', '')
+            if key:
+                lookup[key] = row
+    return lookup
+
+
 def make_panel(image, gt, pred, title, metrics):
     fig, axes = plt.subplots(1, 4, figsize=(13, 3.4), dpi=140)
     panels = [
@@ -202,6 +220,10 @@ def main():
                         help='prediction root (required; canonical: '
                              'results/runs/<method>/<variant>/seed_<seed>/'
                              'predictions)')
+    parser.add_argument('--metrics-root', type=Path, default=None,
+                        help='optional eval root with per-dataset '
+                             'metrics.csv; avoids recomputing per-image '
+                             'metrics')
     parser.add_argument('--out-root', type=Path, default=None,
                         help='output root (default: <pred-root>/../'
                              'visualizations)')
@@ -210,6 +232,9 @@ def main():
     parser.add_argument('--num-samples', type=int, default=8,
                         help='images per dataset; 0/negative means all')
     parser.add_argument('--max-side', type=int, default=512)
+    parser.add_argument('--grid-chunk', type=int, default=16,
+                        help='rows per contact-sheet image; all images '
+                             'are still saved as individual panels')
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--allow-missing', action='store_true')
     args = parser.parse_args()
@@ -249,6 +274,8 @@ def main():
                 unit += 1
                 out_dir = args.out_root / method / dataset
                 out_dir.mkdir(parents=True, exist_ok=True)
+                metric_lookup = load_metric_lookup(
+                    args.metrics_root, dataset)
                 status.start_dataset(f'{method}/{dataset}', index=unit,
                                      total=len(items),
                                      overall_total=total_panels)
@@ -270,10 +297,23 @@ def main():
                     if gt_orig.size != pred_orig.size:
                         raise SystemExit(
                             f'{pred_path}: {pred_orig.size} != GT {gt_orig.size}')
-                    metrics = compute_selected(
-                        np.asarray(pred_orig, dtype=np.float32) / 255.0,
-                        np.asarray(gt_orig, dtype=np.float32) / 255.0,
-                        ['dice', 'iou', 'cldice', 'hd95'])
+                    if stem in metric_lookup:
+                        row_metrics = metric_lookup[stem]
+                        try:
+                            metrics = {
+                                key: float(row_metrics[key])
+                                for key in ('dice', 'iou', 'cldice', 'hd95')
+                            }
+                        except (KeyError, TypeError, ValueError):
+                            metrics = compute_selected(
+                                np.asarray(pred_orig, dtype=np.float32) / 255.0,
+                                np.asarray(gt_orig, dtype=np.float32) / 255.0,
+                                ['dice', 'iou', 'cldice', 'hd95'])
+                    else:
+                        metrics = compute_selected(
+                            np.asarray(pred_orig, dtype=np.float32) / 255.0,
+                            np.asarray(gt_orig, dtype=np.float32) / 255.0,
+                            ['dice', 'iou', 'cldice', 'hd95'])
                     gt_image = (gt_orig if gt_orig.size == image.size else
                                 gt_orig.resize(image.size, Image.NEAREST))
                     pred_image = (pred_orig if pred_orig.size == image.size else
@@ -298,16 +338,24 @@ def main():
                     })
                     status.advance(1, write=False)
                 if panels:
-                    # A grid with hundreds of rows is both unreadable and an
-                    # OOM risk (e.g. CHCrack5k with --num-samples 0).  Keep all
-                    # individual panels but cap the contact sheet.
-                    grid_panels = panels[:16]
-                    fig = make_grid(grid_panels, f'{display} | {dataset}')
-                    fig.savefig(out_dir / 'grid.png', bbox_inches='tight')
-                    plt.close(fig)
-                    if len(panels) > len(grid_panels):
-                        print(f'  grid capped at {len(grid_panels)} of '
-                              f'{len(panels)} panels')
+                    # Save every individual panel.  Contact sheets are split
+                    # into chunks so a dataset with hundreds of images does
+                    # not produce one unreadable/OOM-sized grid.
+                    chunk = max(1, int(args.grid_chunk))
+                    n_chunks = (len(panels) + chunk - 1) // chunk
+                    for start in range(0, len(panels), chunk):
+                        part = panels[start:start + chunk]
+                        fig = make_grid(
+                            part,
+                            f'{display} | {dataset} | '
+                            f'{start + 1}-{start + len(part)}')
+                        index = start // chunk
+                        name = ('grid.png' if index == 0
+                                else f'grid_{index + 1:03d}.png')
+                        fig.savefig(out_dir / name, bbox_inches='tight')
+                        plt.close(fig)
+                    if n_chunks > 1:
+                        print(f'  grids: {n_chunks} chunks of {chunk}')
                 status.finish_dataset()
                 print(f'{method}/{dataset}: {len(panels)} panels -> {out_dir}',
                       flush=True)

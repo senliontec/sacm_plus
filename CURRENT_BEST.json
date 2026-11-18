@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-11-18",
+  "champion": {
+    "name": "BCTD-SAM + AS",
+    "id": "bctd_as",
+    "status": "champion",
+    "updated_at": "2026-11-18",
+    "protocol": "3-shot, 6 Seen datasets, seeds 0-3, 20 datasets, dataset-equal macro; no target labels/support; no test-time tuning",
+    "metrics_20": {
+      "dice": 61.93,
+      "iou": 48.29,
+      "cldice": 70.14,
+      "hd95": 59.23
+    },
+    "metrics_12": {
+      "dice": 64.57,
+      "iou": 51.37,
+      "cldice": 73.63,
+      "hd95": 57.13
+    },
+    "per_seed_20": {
+      "0": {
+        "dice": 62.93,
+        "iou": 49.33,
+        "cldice": 71.01,
+        "hd95": 58.28
+      },
+      "1": {
+        "dice": 61.29,
+        "iou": 47.73,
+        "cldice": 69.96,
+        "hd95": 61.64
+      },
+      "2": {
+        "dice": 61.3,
+        "iou": 47.67,
+        "cldice": 69.94,
+        "hd95": 60.1
+      },
+      "3": {
+        "dice": 62.2,
+        "iou": 48.42,
+        "cldice": 69.65,
+        "hd95": 56.91
+      }
+    },
+    "code": {
+      "method_tree": "src/methods/topostrand/",
+      "baseline_port": "src/baseline_zoo/models/bctd/",
+      "adapter": "src/baseline_zoo/adapters/bctd.py",
+      "config": "configs/models/bctd.yaml",
+      "train_script": "scripts/run_bctd_seeds03_200.sh",
+      "baseline_script": "scripts/run_bctd_baseline_seeds03_200.sh",
+      "checkpoints": "results/runs/topostrand/bctd200/seed_{0..3}/best_model_fixed3.pth"
+    },
+    "evidence": {
+      "report": "results/reports/topostrand_bctd200_4seed_20.md",
+      "eval_tables": "results/runs/topostrand/bctd200/seed_{1..3}/eval_bctd200_as/tables/all_metrics.csv; seed0: results/runs/topostrand/pilot200_bnd005_h2/seed_0/eval_p200_as/tables/all_metrics.csv",
+      "visualization": "results/visualizations/bctd_seed0_20dataset_2026-11-18/index.html",
+      "audit": "results/reports/bctd_baseline_port_audit_2026-11-18.md"
+    },
+    "caveats": [
+      "AS thresholds are label-free but benchmark-selected; validate on held-out Seen validation only.",
+      "Macro gains are not uniform across all 20 datasets.",
+      "Seed 1 has weaker HD95.",
+      "200-epoch results; do not mix with 50-epoch pilots.",
+      "No target labels, supports, or test-time tuning were used."
+    ]
+  },
+  "metric_leaders": {
+    "dice": {
+      "model": "BCTD-SAM + AS",
+      "value": 61.93
+    },
+    "iou": {
+      "model": "BCTD-SAM + AS",
+      "value": 48.29
+    },
+    "cldice": {
+      "model": "BCTD-SAM + AS",
+      "value": 70.14
+    },
+    "hd95": {
+      "model": "TopoStrand-SAM base",
+      "value": 58.76
+    }
+  },
+  "challengers": [
+    {
+      "name": "TopoStrand-SAM base",
+      "metrics_20": {
+        "dice": 61.54,
+        "iou": 47.89,
+        "cldice": 69.03,
+        "hd95": 58.76
+      },
+      "status": "metric_leader_hd95_only",
+      "note": "Best HD95 but lower Dice/IoU/clDice; not the overall champion."
+    },
+    {
+      "name": "TopoStrand-SAM + ATC",
+      "metrics_20": {
+        "dice": 61.48,
+        "iou": 47.9,
+        "cldice": 69.91,
+        "hd95": 59.64
+      },
+      "status": "predecessor",
+      "note": "Previous all-four champion; superseded by BCTD-SAM + AS."
+    }
+  ],
+  "promotion_rule": "A challenger becomes champion only after a 4-seed, 20-dataset run under the strict 3-shot protocol where all four macro metrics are strictly better than the current champion's 4-seed macro; at least 3/4 seeds must be not worse on Dice/IoU/clDice, and HD95 must be not worse in at least 3/4 seeds. Selection must be validation-only; no target labels, target images, test-time adaptation, or protocol changes. A 3/4 win is recorded as a challenger, not champion.",
+  "resolution_rule": "When the user says 当前最强模型 / 当前冠军 / CURRENT_BEST / champion, read this file first. Do not rely on memory or old model names. If the file is missing or stale, stop and ask."
+}
