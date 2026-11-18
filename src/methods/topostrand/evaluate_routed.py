@@ -140,6 +140,9 @@ def main(argv=None) -> int:
         help='deploy the selected head (none) or the mean logit of all '
              'four Stage-2 candidates (mean)')
     parser.add_argument(
+        '--deployment-head', type=int, default=None,
+        help='override the fixed Stage-2 slot at inference (0-3)')
+    parser.add_argument(
         '--postprocess', choices=['none', 'close1', 'close2', 'close3'],
         default='close2',
         help='label-free topology-preserving morphological closing')
@@ -151,6 +154,11 @@ def main(argv=None) -> int:
     adapter.tta_flip = bool(args.tta_flip)
     adapter.tta_rot90 = bool(args.tta_rot90)
     adapter.deploy_fusion = str(args.deploy_fusion)
+    if args.deployment_head is not None:
+        if not 0 <= args.deployment_head < 4:
+            raise SystemExit('--deployment-head must be in [0, 3]')
+        adapter.deployment_head = int(args.deployment_head)
+        adapter.args.deployment_head = int(args.deployment_head)
     selected = set(args.datasets) if args.datasets else None
     specs = dataset_specs(args.protocol, selected, REPO_ROOT)
     pred_root = args.workdir / f'predictions{args.tag}' / 'topostrand'

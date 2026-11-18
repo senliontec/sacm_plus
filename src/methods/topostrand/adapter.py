@@ -41,6 +41,7 @@ from methods.topostrand.models.topostrand.topology_losses import (
     TverskyLoss,
 )
 from baseline_zoo.runtime import REPO_ROOT, BaselineAdapter
+from core.losses.boundary import BoundaryLoss
 from core.losses.cape import CAPELoss
 
 AUG_MODES = (
@@ -271,6 +272,11 @@ class _TopoStrandBase(BaselineAdapter):
         self.deployed_tversky_weight = 0.0
         self.area_loss_weight = 0.0
         self.area_loss_mode = 'two_sided'
+        self.boundary_loss_weight = 0.0
+        self.boundary_loss_resolution = 512
+        self.boundary_loss_head = 'deployment'
+        self.boundary_loss_warmup_epochs = 0
+        self._boundary_loss = None
         self.deploy_fusion = 'none'
         self.deployment_head = 3
         self.specialized_heads = True
@@ -382,6 +388,23 @@ class _TopoStrandBase(BaselineAdapter):
             help='penalise both over- and under-segmentation (two_sided) '
                  'or only over-segmentation (over), which preserves thin '
                  'under-segmented branches')
+        parser.add_argument(
+            '--boundary-loss-weight', type=float, default=0.0,
+            help='distance-transform boundary loss weight on the selected '
+                 'Stage-2 head(s); 0 disables')
+        parser.add_argument(
+            '--boundary-loss-resolution', type=int, default=512,
+            help='resolution used to compute the distance-transform boundary '
+                 'loss')
+        parser.add_argument(
+            '--boundary-loss-head',
+            choices=['deployment', 'boundary', 'all'],
+            default='deployment',
+            help='apply boundary loss to the deployed head, the boundary '
+                 'head, or all four Stage-2 candidates')
+        parser.add_argument(
+            '--boundary-loss-warmup-epochs', type=int, default=0,
+            help='linearly ramp boundary loss in over this many epochs')
         parser.add_argument(
             '--head-select', choices=['gating', 'fixed'], default=None,
             help='training uses gating; the derived deployment checkpoint '
@@ -578,6 +601,14 @@ class _TopoStrandBase(BaselineAdapter):
             getattr(args, 'area_loss_weight', 0.0))
         self.area_loss_mode = str(
             getattr(args, 'area_loss_mode', 'two_sided'))
+        self.boundary_loss_weight = float(
+            getattr(args, 'boundary_loss_weight', 0.0))
+        self.boundary_loss_resolution = int(
+            getattr(args, 'boundary_loss_resolution', 512))
+        self.boundary_loss_head = str(
+            getattr(args, 'boundary_loss_head', 'deployment'))
+        self.boundary_loss_warmup_epochs = int(
+            getattr(args, 'boundary_loss_warmup_epochs', 0))
         self.deploy_fusion = str(
             getattr(args, 'deploy_fusion', 'none'))
         if self.area_loss_mode not in ('two_sided', 'over'):
@@ -596,6 +627,14 @@ class _TopoStrandBase(BaselineAdapter):
                 '--deployed-tversky-weight must be non-negative')
         if self.area_loss_weight < 0:
             raise SystemExit('--area-loss-weight must be non-negative')
+        if self.boundary_loss_weight < 0:
+            raise SystemExit('--boundary-loss-weight must be non-negative')
+        if self.boundary_loss_resolution <= 0:
+            raise SystemExit('--boundary-loss-resolution must be positive')
+        if self.boundary_loss_head not in ('deployment', 'boundary', 'all'):
+            raise SystemExit('unknown --boundary-loss-head')
+        if self.boundary_loss_warmup_epochs < 0:
+            raise SystemExit('--boundary-loss-warmup-epochs must be >= 0')
 
         model = build_sam_vit_l(
             checkpoint=checkpoint, use_adapter=True,
@@ -647,6 +686,10 @@ class _TopoStrandBase(BaselineAdapter):
             'deployed_tversky_weight': self.deployed_tversky_weight,
             'area_loss_weight': self.area_loss_weight,
             'area_loss_mode': self.area_loss_mode,
+            'boundary_loss_weight': self.boundary_loss_weight,
+            'boundary_loss_resolution': self.boundary_loss_resolution,
+            'boundary_loss_head': self.boundary_loss_head,
+            'boundary_loss_warmup_epochs': self.boundary_loss_warmup_epochs,
             'train_aug': self.train_aug,
             'aug_flip_prob': self.aug_flip_prob,
             'aug_photo_strength': self.aug_photo_strength,
@@ -669,6 +712,8 @@ class _TopoStrandBase(BaselineAdapter):
                 'cape_weight', 'cape_resolution', 'cape_pairs',
                 'cape_warmup_epochs', 'deployed_tversky_weight',
                 'area_loss_weight', 'area_loss_mode',
+                'boundary_loss_weight', 'boundary_loss_resolution',
+                'boundary_loss_head', 'boundary_loss_warmup_epochs',
                 'train_aug', 'aug_flip_prob', 'aug_photo_strength',
                 'aug_noise_std', 'aug_crop_min_scale',
                 'aug_elastic_alpha'):
@@ -942,6 +987,25 @@ class _TopoStrandBase(BaselineAdapter):
             if self.area_loss_mode == 'over':
                 area_delta = area_delta.clamp_min(0.0)
             loss = loss + self.area_loss_weight * area_delta.abs().mean()
+        if self.boundary_loss_weight > 0:
+            if self._boundary_loss is None:
+                self._boundary_loss = BoundaryLoss(
+                    resolution=self.boundary_loss_resolution)
+            epoch = int(getattr(self, '_epoch', 1))
+            warmup = max(0, int(self.boundary_loss_warmup_epochs))
+            ramp = 1.0 if warmup <= 0 else min(
+                1.0, max(0.0, (epoch - warmup) / float(warmup)))
+            if ramp > 0:
+                if self.boundary_loss_head == 'deployment':
+                    boundary_indices = [int(self.deployment_head)]
+                elif self.boundary_loss_head == 'boundary':
+                    boundary_indices = [2]
+                else:
+                    boundary_indices = list(range(stage2.shape[1]))
+                for head_index in boundary_indices:
+                    loss = loss + self.boundary_loss_weight * ramp * (
+                        self._boundary_loss(
+                            stage2[:, head_index:head_index + 1], masks))
         if self.specialized_heads:
             loss = loss + self._specialized_head_loss(
                 stage2_native, masks)
