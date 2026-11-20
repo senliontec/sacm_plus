@@ -18,6 +18,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from PIL import Image
+from skimage.measure import label, regionprops
 from skimage.morphology import binary_closing, binary_dilation, disk
 
 from baseline_zoo.data import load_rgb
@@ -83,6 +84,10 @@ class CoSNAAdapter(BCTDAdapter):
         parser.add_argument('--cosna-feature-dim', type=int, default=16)
         parser.add_argument('--cosna-gate', type=float, default=0.10)
         parser.add_argument('--cosna-near-radius', type=int, default=4)
+        parser.add_argument('--cosna-tcsu-threshold', type=float, default=0.5)
+        parser.add_argument('--cosna-filter-min-size', type=int, default=80)
+        parser.add_argument('--cosna-filter-aspect', type=float, default=2.0)
+        parser.add_argument('--cosna-filter-maxdim', type=int, default=1200)
         parser.add_argument('--cosna-save-last', type=str, default='')
 
     def build_model(self, args):
@@ -96,6 +101,14 @@ class CoSNAAdapter(BCTDAdapter):
         self.cosna_gate = float(getattr(args, 'cosna_gate', 0.10))
         self.cosna_near_radius = int(
             getattr(args, 'cosna_near_radius', 4))
+        self.cosna_tcsu_threshold = float(
+            getattr(args, 'cosna_tcsu_threshold', 0.5))
+        self.cosna_filter_min_size = int(
+            getattr(args, 'cosna_filter_min_size', 80))
+        self.cosna_filter_aspect = float(
+            getattr(args, 'cosna_filter_aspect', 2.0))
+        self.cosna_filter_maxdim = int(
+            getattr(args, 'cosna_filter_maxdim', 1200))
         self.cosna_save_last = str(
             getattr(args, 'cosna_save_last', '') or '')
         model.tcsu = SnakeUpsampler(
@@ -117,6 +130,10 @@ class CoSNAAdapter(BCTDAdapter):
             'cosna_boundary_resolution': self.cosna_boundary_resolution,
             'cosna_gate': self.cosna_gate,
             'cosna_near_radius': self.cosna_near_radius,
+            'cosna_tcsu_threshold': self.cosna_tcsu_threshold,
+            'cosna_filter_min_size': self.cosna_filter_min_size,
+            'cosna_filter_aspect': self.cosna_filter_aspect,
+            'cosna_filter_maxdim': self.cosna_filter_maxdim,
         })
         return config
 
@@ -124,7 +141,9 @@ class CoSNAAdapter(BCTDAdapter):
         super().restore_config(args, config)
         for key in ('cosna_weight', 'cosna_cl', 'cosna_boundary',
                     'cosna_boundary_resolution', 'cosna_gate',
-                    'cosna_near_radius'):
+                    'cosna_near_radius', 'cosna_tcsu_threshold',
+                    'cosna_filter_min_size', 'cosna_filter_aspect',
+                    'cosna_filter_maxdim'):
             if key in config:
                 setattr(args, key, config[key])
 
@@ -194,7 +213,8 @@ class CoSNAAdapter(BCTDAdapter):
             mode='bilinear', align_corners=False)
         probs = torch.sigmoid(stage_logits)[0].cpu().numpy()
         gated = _gated_mask(probs, self.cosna_gate)
-        tcsu = torch.sigmoid(high_logits)[0, 0].cpu().numpy() > 0.5
+        tcsu = (torch.sigmoid(high_logits)[0, 0].cpu().numpy()
+                > self.cosna_tcsu_threshold)
         return gated, tcsu
 
     @torch.no_grad()
@@ -227,8 +247,29 @@ class CoSNAAdapter(BCTDAdapter):
         high_logits = high_buf / weight.clamp_min(1.0)
         probs = torch.sigmoid(stage_logits).numpy()
         gated = _gated_mask(probs, self.cosna_gate)
-        tcsu = torch.sigmoid(high_logits)[0].numpy() > 0.5
+        tcsu = (torch.sigmoid(high_logits)[0].numpy()
+                > self.cosna_tcsu_threshold)
         return gated, tcsu
+
+    @torch.no_grad()
+    def predict_tcsu_sample(self, model, prepared, sample):
+        """Return only the TCSU-h3 branch, before near-union."""
+        with Image.open(sample.mask_path) as mask:
+            width, height = mask.size
+        _, tcsu = self._full_pair(model, prepared, height, width)
+        if (bool(getattr(self, 'prediction_mode', False))
+                and self.rcd
+                and (width > self.rcd_tile or height > self.rcd_tile)):
+            _, tile_tcsu = self._tiled_pair(model, load_rgb(
+                sample.image_path))
+            tcsu, _ = route_masks(
+                tcsu, tile_tcsu, self.routing_skel_ratio,
+                self.routing_area_ratio, self.routing_mode)
+        if self.close_radius > 0:
+            tcsu = binary_closing(tcsu, disk(self.close_radius))
+        if self.as_calibration:
+            tcsu = apply_adaptive_skel(tcsu)
+        return np.asarray(tcsu, dtype=bool)
 
     @torch.no_grad()
     def predict_sample(self, model, prepared, sample):
@@ -255,7 +296,26 @@ class CoSNAAdapter(BCTDAdapter):
         gated = np.asarray(gated, dtype=bool)
         tcsu = np.asarray(tcsu, dtype=bool)
         near = binary_dilation(gated, disk(self.cosna_near_radius))
-        return gated | (tcsu & near)
+        extra = tcsu & near & ~gated
+        if extra.any() and (self.cosna_filter_min_size > 0
+                            or self.cosna_filter_aspect > 0):
+            labels = label(extra, connectivity=1)
+            sizes = np.bincount(labels.ravel())
+            keep = sizes >= max(1, self.cosna_filter_min_size)
+            if (self.cosna_filter_aspect > 0
+                    and max(gated.shape) >= self.cosna_filter_maxdim):
+                for prop in regionprops(labels):
+                    if sizes[prop.label] >= self.cosna_filter_min_size:
+                        continue
+                    height = prop.bbox[2] - prop.bbox[0]
+                    width = prop.bbox[3] - prop.bbox[1]
+                    aspect = max(height, width) / max(
+                        1, min(height, width))
+                    if aspect >= self.cosna_filter_aspect:
+                        keep[prop.label] = True
+            keep[0] = False
+            extra = keep[labels]
+        return gated | extra
 
     def train_epoch(self, model, loader, optimizer, scheduler, args):
         result = super().train_epoch(

@@ -79,6 +79,11 @@ def main() -> None:
     parser.add_argument('--routing-mode', default='auto')
     parser.add_argument('--cosna-gate', type=float, default=0.10)
     parser.add_argument('--cosna-near-radius', type=int, default=4)
+    parser.add_argument('--cosna-tcsu-threshold', type=float, default=0.5)
+    parser.add_argument('--cosna-filter-min-size', type=int, default=80)
+    parser.add_argument('--cosna-filter-aspect', type=float, default=2.0)
+    parser.add_argument('--cosna-filter-maxdim', type=int, default=1200)
+    parser.add_argument('--branch', choices=['cosna', 'tcsu'], default='cosna')
     args = parser.parse_args()
     protocol = args.protocol or (args.data_root / 'protocol_manifest.csv')
     out = args.out or (args.workdir / 'eval_summary.json')
@@ -91,17 +96,27 @@ def main() -> None:
         '--routing-mode', args.routing_mode,
         '--cosna-gate', str(args.cosna_gate),
         '--cosna-near-radius', str(args.cosna_near_radius),
+        '--cosna-tcsu-threshold', str(args.cosna_tcsu_threshold),
+        '--cosna-filter-min-size', str(args.cosna_filter_min_size),
+        '--cosna-filter-aspect', str(args.cosna_filter_aspect),
+        '--cosna-filter-maxdim', str(args.cosna_filter_maxdim),
     ]
     adapter, model = _load(
         args.checkpoint, args.data_root, args.device, extra)
     datasets = set(args.datasets) if args.datasets else None
     samples = _samples(protocol, args.split, datasets)
-    pred_root = args.workdir / f'predictions_{args.split}' / 'cosna'
+    subset = 'tcsu' if args.branch == 'tcsu' else 'cosna'
+    pred_root = args.workdir / f'predictions_{args.split}' / subset
     per = defaultdict(list)
     missing = 0
     for index, sample in enumerate(samples, 1):
         prepared = adapter.prepare_eval_sample(sample, adapter.device)
-        mask = np.asarray(adapter.predict_sample(model, prepared, sample))
+        if args.branch == 'tcsu':
+            mask = np.asarray(adapter.predict_tcsu_sample(
+                model, prepared, sample))
+        else:
+            mask = np.asarray(adapter.predict_sample(
+                model, prepared, sample))
         gt = load_mask(sample.mask_path)
         if mask.shape != gt.shape:
             missing += 1

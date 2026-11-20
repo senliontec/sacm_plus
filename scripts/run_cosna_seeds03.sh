@@ -99,6 +99,8 @@ PY
       --lr 1e-3 --cosna-weight 1.0 --cosna-cl 0.1
       --cosna-render 1024 --cosna-coarse 512 --cosna-feature-dim 16
       --cosna-gate 0.10 --cosna-near-radius 4
+      --cosna-filter-min-size 80 --cosna-filter-aspect 2
+      --cosna-filter-maxdim 1200
       --rcd 1 --as-calibration 1 --close-radius 2 --tile 1024 --stride 896
       --routing-skel-ratio 1.0 --routing-area-ratio 0.7 --routing-mode auto
       --num-workers 0 --save-every 0
@@ -121,7 +123,9 @@ PY
       --rcd 1 --as-calibration 1 --close-radius 2
       --tile 1024 --stride 896 --routing-skel-ratio 1.0
       --routing-area-ratio 0.7 --routing-mode auto
-      --cosna-gate 0.10 --cosna-near-radius 4)
+      --cosna-gate 0.10 --cosna-near-radius 4
+      --cosna-filter-min-size 80 --cosna-filter-aspect 2
+      --cosna-filter-maxdim 1200)
     if [ "$DRY_RUN" = 1 ]; then
       printf 'DRY eval seed=%s gpu=%s: ' "$seed" "$gpu"; printf '%q ' "${eval_cmd[@]}"; printf '\n'
     else

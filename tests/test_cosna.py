@@ -44,3 +44,6 @@ def test_cosna_identity_and_cli():
     ])
     assert args.cosna_weight == 1.0
     assert args.cosna_near_radius == 4
+    assert args.cosna_filter_min_size == 80
+    assert args.cosna_filter_aspect == 2.0
+    assert args.cosna_filter_maxdim == 1200
