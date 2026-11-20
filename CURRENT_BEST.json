@@ -55,7 +55,9 @@
    "baseline_script": "scripts/run_cosna_baseline_seeds03.sh",
    "checkpoints": "canonical: results/runs/bctd/tcsu20/seed_{0..3}/best_model.pth; baseline copies: results/runs/cosna/default/seed_{0..3}/best_model.pth",
    "server_script": "scripts/run_cosna_server_seeds03.sh",
-   "server_summary": "results/reports/cosna_server_4seed/summary.{json,csv,md}"
+   "server_summary": "results/reports/cosna_server_4seed/summary.{json,csv,md}",
+   "best_repro_script": "scripts/reproduce_cosna_best.sh",
+   "best_weights": "checkpoints/cosna_best/seed_{0..3}/best_model.pth (CoSNA canonical assets)"
   },
   "evidence": {
    "report": "results/reports/cosna_promotion_2026-11-20.md",
@@ -73,7 +75,8 @@
    "baseline_port_audit": "results/reports/cosna_baseline_port_audit_2026-11-20.md",
    "baseline_full_seed0": "results/ablations/cosna_m80/baseline_port/test_seed0_full.json",
    "baseline_val_dir": "results/ablations/cosna_m80/baseline_port/",
-   "server_summary": "results/reports/cosna_server_4seed/summary.json"
+   "server_summary": "results/reports/cosna_server_4seed/summary.json",
+   "best_repro_summary": "results/reports/cosna_best_repro/summary.{json,csv,md}"
   },
   "caveats": [
    "CoSNA is an inference-time two-branch fusion (gated BCTD + TCSU-h3), not a single end-to-end decoder pass.",

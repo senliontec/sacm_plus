@@ -22,24 +22,61 @@ model package, or another model package at runtime.
 
 ## Reproduction
 
-The canonical CoSNA checkpoints are the four TCSU runs in
-`results/runs/bctd/tcsu20/seed_{0..3}/best_model.pth`. They carry the BCTD
-scaffold weights plus the trained TCSU residual. The baseline runtime
-requires the copy's adapter tag to be `cosna`; `prepare_init` changes only
-the copy.
+## From-zero training (server, SAM initialization only)
 
-Quick reproduction of all four seeds and 20 datasets:
+This is the requested server path when no CoSNA/BCTD trained checkpoint is
+available:
 
 ```bash
+bash scripts/run_cosna_server_seeds03.sh
+```
+
+It reads only `checkpoints/sam_vit_l_0b3195.pth`, trains the scaffold
+adapter/decoder plus TCSU jointly from that SAM initialization for 800
+epochs on seeds 0–3 / GPUs 0–3, then evaluates all 20 datasets and writes the
+4-seed summary. It does not scan or read BCTD/CoSNA checkpoints. This is a
+new from-zero recipe; its metrics must not be assumed to equal the canonical
+62.09 until the 4-seed run completes.
+
+## Exact best reproduction (no training, optional)
+
+Put the four CoSNA canonical checkpoints at
+`checkpoints/cosna_best/seed_{0..3}/best_model.pth`, then run:
+
+```bash
+bash scripts/reproduce_cosna_best.sh
+```
+
+This script auto-detects the weights, copies and adapter-tags only the copies,
+evaluates all 20 datasets for seeds 0–3, writes the per-seed tables, and
+creates `results/reports/cosna_best_repro/summary.{json,csv,md}`. It never
+trains and never reads a BCTD code path. If the four weight files are absent,
+it stops with the exact missing paths; code alone cannot reconstruct the
+62.09 trained weights.
+
+The same canonical weights can also be placed under
+`checkpoints/cosna_init/` for the lower-level source-initialization path.
+
+The canonical CoSNA checkpoints currently on this machine are the four TCSU
+runs in `results/runs/bctd/tcsu20/seed_{0..3}/best_model.pth` (historical
+directory name); the packaged copies are in `checkpoints/cosna_best/`.
+
+Manual lower-level reproduction (equivalent, with a custom output root):
+
+```bash
+MODE=repro \
+REPRO_ROOT=checkpoints/cosna_best \
+RUN_ROOT=results/runs/cosna/best_repro \
+FORCE=1 \
 bash scripts/run_cosna_baseline_seeds03.sh
 ```
 
-This is `MODE=repro` by default. It copies each canonical checkpoint to
-`results/runs/cosna/default/seed_X/best_model.pth`, patches only the copy,
-then runs the standard baseline pipeline. Tables land in
-`results/runs/cosna/default/seed_X/eval/tables/all_metrics.csv`.
+It copies each canonical checkpoint to
+`<RUN_ROOT>/seed_X/best_model.pth`, patches only the copy, and runs the
+standard baseline pipeline. `reproduce_cosna_best.sh` also writes the 4-seed
+summary automatically.
 
-Train a fresh model from the BCTD champion checkpoints:
+Train a fresh model from a CoSNA initialization checkpoint:
 
 ```bash
 MODE=train bash scripts/run_cosna_baseline_seeds03.sh

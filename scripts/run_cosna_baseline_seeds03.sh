@@ -1,21 +1,22 @@
 #!/usr/bin/env bash
 # One-click CoSNA baseline runner.
 #
-# MODE=repro (default): copy the four canonical CoSNA checkpoints into the
-#   baseline run roots, patch only the copied checkpoint's adapter tag, and
-#   evaluate all 20 datasets with the standard baseline pipeline.
-# MODE=train: initialize each seed from its BCTD champion checkpoint, fit the
-#   TCSU head for EPOCHS_ADD epochs (or to EPOCHS_TOTAL), then evaluate.
+# MODE=train (default): train each seed from zero using only the official
+#   SAM ViT-L checkpoint (INIT=scratch), then evaluate 20 datasets.
+# MODE=repro: copy existing CoSNA checkpoints into the run roots and evaluate
+#   without training; this is an explicit reproduction path.
 #
 # Usage:
 #   bash scripts/run_cosna_baseline_seeds03.sh
-#   MODE=train bash scripts/run_cosna_baseline_seeds03.sh
+#   MODE=repro REPRO_ROOT=... bash scripts/run_cosna_baseline_seeds03.sh
 #   SEEDS="0" GPUS="0" bash scripts/run_cosna_baseline_seeds03.sh
 #
 # Env:
 #   SEEDS="0 1 2 3", GPUS="0,1,2,3", EPOCHS_ADD=20
-#   EPOCHS_TOTAL=0 (positive = absolute final epoch; overrides EPOCHS_ADD)
-#   INIT=scratch|cosna|bctd (train-mode initialization source)
+#   EPOCHS_TOTAL=800 (positive = absolute final epoch; overrides EPOCHS_ADD;
+#   set 0 only when intentionally using EPOCHS_ADD)
+#   INIT=scratch|cosna|bctd (train-mode initialization source; default
+#   scratch = SAM only, no BCTD/CoSNA checkpoint)
 #   COSNA_INIT_ROOT=checkpoints/cosna_init
 #   RUN_ROOT=results/runs/cosna/default
 #   REPRO_ROOT=results/runs/bctd/tcsu20
@@ -30,7 +31,7 @@ REPO="$(pwd)"
 SEEDS_STR="${SEEDS:-0 1 2 3}"
 SEEDS_STR="${SEEDS_STR//,/ }"
 GPU_STR="${GPUS:-0,1,2,3}"
-MODE="${MODE:-repro}"
+MODE="${MODE:-train}"
 INIT="${INIT:-scratch}"
 RUN_ROOT="${RUN_ROOT:-results/runs/cosna/default}"
 REPRO_ROOT="${REPRO_ROOT:-results/runs/bctd/tcsu20}"
@@ -38,7 +39,7 @@ BCTD_ROOT="${BCTD_ROOT:-results/runs/topostrand/bctd200}"
 SEED0_SOURCE="${SEED0_SOURCE:-results/runs/topostrand/pilot200_bnd005_h2/seed_0/best_model_fixed3.pth}"
 COSNA_INIT_ROOT="${COSNA_INIT_ROOT:-checkpoints/cosna_init}"
 EPOCHS_ADD="${EPOCHS_ADD:-20}"
-EPOCHS_TOTAL="${EPOCHS_TOTAL:-0}"
+EPOCHS_TOTAL="${EPOCHS_TOTAL:-800}"
 LOG_DIR="${LOG_DIR:-$REPO/results/logs}"
 FORCE="${FORCE:-0}"
 SKIP_TRAIN="${SKIP_TRAIN:-0}"

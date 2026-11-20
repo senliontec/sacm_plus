@@ -35,7 +35,9 @@ BCTD `0.6641 / 0.5163 / 0.7375 / 8.978`.
 - Baseline model: `src/baseline_zoo/models/cosna/`
 - Adapter: `src/baseline_zoo/adapters/cosna.py`
 - Config: `configs/models/cosna.yaml`
-- One-click reproduction: `scripts/run_cosna_baseline_seeds03.sh`
+- **Exact best reproduction:** `scripts/reproduce_cosna_best.sh`
+  (requires CoSNA canonical assets `checkpoints/cosna_best/seed_{0..3}/best_model.pth`)
+- One-click baseline reproduction: `scripts/run_cosna_baseline_seeds03.sh`
 - Server train + 20-dataset eval: `scripts/run_cosna_server_seeds03.sh`
 - Server 4-seed summary: `results/reports/cosna_server_4seed/summary.{json,csv,md}`
 - Canonical checkpoints: `results/runs/bctd/tcsu20/seed_{0..3}/best_model.pth`
