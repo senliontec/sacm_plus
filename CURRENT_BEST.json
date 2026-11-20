@@ -53,7 +53,9 @@
    "config": "configs/models/cosna.yaml",
    "train_script": "scripts/run_cosna_baseline_seeds03.sh",
    "baseline_script": "scripts/run_cosna_baseline_seeds03.sh",
-   "checkpoints": "canonical: results/runs/bctd/tcsu20/seed_{0..3}/best_model.pth; baseline copies: results/runs/cosna/default/seed_{0..3}/best_model.pth"
+   "checkpoints": "canonical: results/runs/bctd/tcsu20/seed_{0..3}/best_model.pth; baseline copies: results/runs/cosna/default/seed_{0..3}/best_model.pth",
+   "server_script": "scripts/run_cosna_server_seeds03.sh",
+   "server_summary": "results/reports/cosna_server_4seed/summary.{json,csv,md}"
   },
   "evidence": {
    "report": "results/reports/cosna_promotion_2026-11-20.md",
@@ -70,7 +72,8 @@
    "methods_package": "src/methods/cosna/",
    "baseline_port_audit": "results/reports/cosna_baseline_port_audit_2026-11-20.md",
    "baseline_full_seed0": "results/ablations/cosna_m80/baseline_port/test_seed0_full.json",
-   "baseline_val_dir": "results/ablations/cosna_m80/baseline_port/"
+   "baseline_val_dir": "results/ablations/cosna_m80/baseline_port/",
+   "server_summary": "results/reports/cosna_server_4seed/summary.json"
   },
   "caveats": [
    "CoSNA is an inference-time two-branch fusion (gated BCTD + TCSU-h3), not a single end-to-end decoder pass.",
@@ -80,7 +83,8 @@
    "Seed1 clDice is 0.04 lower and seed2 HD95 is 0.13 higher than BCTD; the 3/4 seed consistency rule permits these.",
    "12-dataset subset: CoSNA 64.611/51.396/73.630/56.987 vs BCTD 64.574/51.368/73.627/57.132; all four are strictly better, with clDice margin 0.0024.",
    "TCSU is a 20-epoch source-only head fine-tune of a frozen BCTD champion; do not mix with 200-epoch from-scratch comparisons.",
-   "No target labels, target support, pseudo-labels, or test-time adaptation were used."
+   "No target labels, target support, pseudo-labels, or test-time adaptation were used.",
+   "The current 62.09 champion is the canonical source-initialized CoSNA (20 TCSU epochs from a trained four-candidate scaffold). The independently trainable server mode INIT=scratch starts from SAM ViT-L only and is a different recipe; its results must be evaluated separately and are not expected to equal 62.09."
   ],
   "selection_note": "The 20-dataset promotion result uses validation-free inference and no target adaptation. The 12-subset result passed after choosing min-size 80 at that test gate; validation cannot distinguish 80 from 100. Flag for paper-protocol review.",
   "metrics_20_exact": {

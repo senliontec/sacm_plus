@@ -67,8 +67,9 @@ class CoSNAAdapter(CoSNAScaffoldAdapter):
         'Gated candidate consensus + TCSU-lite snake reconstruction + '
         'constrained near-union')
     deviations = tuple(CoSNAScaffoldAdapter.deviations) + (
-        'The base BCTD-SAM checkpoint is frozen; only the 18k-parameter '
-        'TCSU residual is fitted on the 18 source images.',
+        'In canonical source mode the scaffold is frozen and only the '
+        '18k-parameter TCSU residual is fitted; --cosna-train-scope full '
+        'trains scaffold adapters/decoder and TCSU jointly from scratch.',
         'Inference combines a gated candidate-consensus mask with a TCSU-h3 '
         'mask; TCSU pixels are added only within 4 px of the gated mask.',
         'Added components smaller than 80 px are removed; on images with max '
@@ -78,6 +79,10 @@ class CoSNAAdapter(CoSNAScaffoldAdapter):
 
     def add_args(self, parser):
         super().add_args(parser)
+        parser.add_argument(
+            '--cosna-train-scope', choices=['tcsu', 'full'], default='tcsu',
+            help='tcsu=frozen scaffold + residual (canonical); '
+                 'full=train scaffold adapters/decoder and TCSU jointly')
         parser.add_argument('--cosna-weight', type=float, default=1.0)
         parser.add_argument('--cosna-cl', type=float, default=0.1)
         parser.add_argument('--cosna-boundary', type=float, default=0.0)
@@ -96,6 +101,8 @@ class CoSNAAdapter(CoSNAScaffoldAdapter):
 
     def build_model(self, args):
         model = super().build_model(args)
+        self.cosna_train_scope = str(
+            getattr(args, 'cosna_train_scope', 'tcsu'))
         self.cosna_weight = float(getattr(args, 'cosna_weight', 1.0))
         self.cosna_cl = float(getattr(args, 'cosna_cl', 0.1))
         self.cosna_boundary = float(
@@ -128,6 +135,7 @@ class CoSNAAdapter(CoSNAScaffoldAdapter):
     def save_config(self, args):
         config = super().save_config(args)
         config.update({
+            'cosna_train_scope': self.cosna_train_scope,
             'cosna_weight': self.cosna_weight,
             'cosna_cl': self.cosna_cl,
             'cosna_boundary': self.cosna_boundary,
@@ -143,8 +151,9 @@ class CoSNAAdapter(CoSNAScaffoldAdapter):
 
     def restore_config(self, args, config):
         super().restore_config(args, config)
-        for key in ('cosna_weight', 'cosna_cl', 'cosna_boundary',
-                    'cosna_boundary_resolution', 'cosna_gate',
+        for key in ('cosna_train_scope', 'cosna_weight', 'cosna_cl',
+                    'cosna_boundary', 'cosna_boundary_resolution',
+                    'cosna_gate',
                     'cosna_near_radius', 'cosna_tcsu_threshold',
                     'cosna_filter_min_size', 'cosna_filter_aspect',
                     'cosna_filter_maxdim'):
@@ -159,18 +168,23 @@ class CoSNAAdapter(CoSNAScaffoldAdapter):
         model.load_state_dict(filtered, strict=False)
 
     def configure_trainable(self, model):
-        # The BCTD base is a frozen source model; CoSNA fits only the
-        # reconstruction residual on the 18 source images.
+        if self.cosna_train_scope == 'full':
+            # From-scratch CoSNA: train the scaffold's adapter/decoder
+            # parameters with the standard four-candidate policy, and the
+            # TCSU residual jointly.  No BCTD checkpoint is required.
+            super().configure_trainable(model)
+            for parameter in model.tcsu.parameters():
+                parameter.requires_grad_(True)
+            return
+        # Canonical CoSNA: the scaffold is a frozen source model; fit only
+        # the reconstruction residual on the 18 source images.
         for parameter in model.parameters():
             parameter.requires_grad_(False)
         for parameter in model.tcsu.parameters():
             parameter.requires_grad_(True)
         model.image_encoder.grad_checkpointing = False
 
-    def train_step(self, model, batch):
-        images, masks = batch
-        output = super()._forward(model, images, return_stage1=True)
-        stage2 = output[0] if isinstance(output, (tuple, list)) else output
+    def _tcsu_loss(self, model, images, masks, stage2):
         high = model.tcsu(stage2, images)
         masks = F.interpolate(
             masks, size=(high.shape[-2], high.shape[-1]),
@@ -192,7 +206,22 @@ class CoSNAAdapter(CoSNAScaffoldAdapter):
                 mode='bilinear', align_corners=False)
             loss = loss + self.cosna_boundary * self._cosna_boundary_loss(
                 high, boundary_target)
-        return self.cosna_weight * loss
+        return loss
+
+    def train_step(self, model, batch):
+        images, masks = batch
+        if self.cosna_train_scope == 'full':
+            base_loss = super().train_step(model, batch)
+            stage2 = getattr(self, '_last_stage2_native', None)
+            if stage2 is None:
+                raise RuntimeError(
+                    'full CoSNA training did not receive a Stage-2 tensor')
+            return base_loss + self.cosna_weight * self._tcsu_loss(
+                model, images, masks, stage2)
+        output = super()._forward(model, images, return_stage1=True)
+        stage2 = output[0] if isinstance(output, (tuple, list)) else output
+        return self.cosna_weight * self._tcsu_loss(
+            model, images, masks, stage2)
 
     @torch.no_grad()
     def _full_pair(self, model, prepared, height: int, width: int):

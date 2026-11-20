@@ -45,18 +45,61 @@ Train a fresh model from the BCTD champion checkpoints:
 MODE=train bash scripts/run_cosna_baseline_seeds03.sh
 ```
 
-`EPOCHS_ADD=20` (or `defaults.epochs` in the config) is the number of TCSU
-epochs, not an absolute epoch. The wrapper computes the absolute final
-epoch from the source checkpoint.
+Server one-click (GPUs 0-3, seeds 0-3, train then 20-dataset eval and
+4-seed summary):
 
-Run one seed manually:
+```bash
+bash scripts/run_cosna_server_seeds03.sh
+```
+
+The server wrapper uses `results/runs/cosna/server_scratch` for `INIT=scratch`
+(and `server_cosna`/`server` for the other modes), writes per-seed canonical
+tables, then `results/reports/cosna_server_4seed/summary.{json,csv,md}`.
+`EPOCHS` defaults to `800` and is an absolute final-epoch target.
+
+Initialization modes:
+
+```bash
+# Default: fully independent of BCTD and CoSNA init weights.
+# Train scaffold adapters/decoder + TCSU jointly from SAM ViT-L only.
+bash scripts/run_cosna_server_seeds03.sh
+
+# Optional: initialize from CoSNA-owned checkpoints (not BCTD).
+INIT=cosna COSNA_INIT_ROOT=checkpoints/cosna_init \
+  bash scripts/run_cosna_server_seeds03.sh
+```
+
+`INIT=scratch` reads only `checkpoints/sam_vit_l_0b3195.pth`. `INIT=cosna`
+expects `COSNA_INIT_ROOT/seed_<n>/best_model.pth`; it is useful when the
+canonical CoSNA initialization weights are available. For that optional
+mode, place the four CoSNA checkpoints there explicitly:
+
+```bash
+mkdir -p checkpoints/cosna_init
+# for seed in 0 1 2 3: copy a CoSNA checkpoint to
+# checkpoints/cosna_init/seed_<seed>/best_model.pth
+```
+
+`INIT=bctd` is the legacy local path and is not required on the server.
+
+For the canonical 20-TCSU-epoch reproduction use the lower-level script
+(`MODE=train`, default `EPOCHS_ADD=20`) with an available initialization
+checkpoint. Use `DRY_RUN=1` to inspect commands.
+
+`EPOCHS_ADD=20` is the number of TCSU epochs, not an absolute epoch. The
+source-mode wrapper computes the absolute final epoch from the initialization
+checkpoint. The YAML config's own train entrypoint is independent scratch at
+`defaults.epochs=800`; use the lower-level source script for the canonical
+20-epoch recipe.
+
+Run one seed manually from scratch (no BCTD/CoSNA init checkpoint):
 
 ```bash
 python -m baseline_zoo.models.cosna.train \
+  --init-mode scratch --epochs-total 800 \
   --data-root data/sacm_3shot_seed0 \
   --workdir results/runs/cosna/default/seed_0 \
-  --source-checkpoint results/runs/topostrand/pilot200_bnd005_h2/seed_0/best_model_fixed3.pth \
-  --epochs-add 20 --seed 0 --device cuda:0 --use_wandb 1 \
+  --seed 0 --device cuda:0 --use_wandb 1 \
   --sam-checkpoint checkpoints/sam_vit_l_0b3195.pth \
   --lr 1e-3 --cosna-weight 1.0 --cosna-cl 0.1 \
   --cosna-render 1024 --cosna-coarse 512 --cosna-feature-dim 16 \
@@ -125,6 +168,11 @@ is +0.0024.
   the 12-subset pass is benchmark-selected, not independent confirmation.
 - CoSNA is a two-branch inference method (gated + TCSU-h3), not a single
   end-to-end decoder pass.
-- The TCSU head is a 20-epoch source-only fine-tune of a frozen BCTD
-  champion; do not mix with 200-epoch from-scratch runs.
+- The canonical TCSU head is a 20-epoch source-only fine-tune of a frozen
+  scaffold; do not mix with 200-epoch from-scratch runs.
+- `--init-mode scratch` trains scaffold adapters/decoder plus TCSU jointly
+  from SAM ViT-L. It is independent of BCTD weights, but its results are not
+  the canonical 20-epoch CoSNA numbers and need a fresh 4-seed evaluation.
+- `INIT=cosna` needs CoSNA-owned init checkpoints under `COSNA_INIT_ROOT`;
+  it never reads a BCTD path.
 - No target labels, target supports, pseudo-labels, or test-time adaptation.

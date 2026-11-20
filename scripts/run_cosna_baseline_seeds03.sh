@@ -5,7 +5,7 @@
 #   baseline run roots, patch only the copied checkpoint's adapter tag, and
 #   evaluate all 20 datasets with the standard baseline pipeline.
 # MODE=train: initialize each seed from its BCTD champion checkpoint, fit the
-#   TCSU head for EPOCHS_ADD epochs, then evaluate.
+#   TCSU head for EPOCHS_ADD epochs (or to EPOCHS_TOTAL), then evaluate.
 #
 # Usage:
 #   bash scripts/run_cosna_baseline_seeds03.sh
@@ -14,11 +14,15 @@
 #
 # Env:
 #   SEEDS="0 1 2 3", GPUS="0,1,2,3", EPOCHS_ADD=20
+#   EPOCHS_TOTAL=0 (positive = absolute final epoch; overrides EPOCHS_ADD)
+#   INIT=scratch|cosna|bctd (train-mode initialization source)
+#   COSNA_INIT_ROOT=checkpoints/cosna_init
 #   RUN_ROOT=results/runs/cosna/default
 #   REPRO_ROOT=results/runs/bctd/tcsu20
 #   BCTD_ROOT=results/runs/topostrand/bctd200
 #   SEED0_SOURCE=results/runs/topostrand/pilot200_bnd005_h2/seed_0/best_model_fixed3.pth
-#   FORCE=0, SKIP_TRAIN=0, SKIP_EVAL=0, USE_WANDB=1
+#   FORCE=0 (MODE=train: FORCE=1 re-initializes from the BCTD source)
+#   SKIP_TRAIN=0, SKIP_EVAL=0, USE_WANDB=1
 set -euo pipefail
 cd "$(dirname "$0")/.." || exit 1
 REPO="$(pwd)"
@@ -27,11 +31,15 @@ SEEDS_STR="${SEEDS:-0 1 2 3}"
 SEEDS_STR="${SEEDS_STR//,/ }"
 GPU_STR="${GPUS:-0,1,2,3}"
 MODE="${MODE:-repro}"
+INIT="${INIT:-scratch}"
 RUN_ROOT="${RUN_ROOT:-results/runs/cosna/default}"
 REPRO_ROOT="${REPRO_ROOT:-results/runs/bctd/tcsu20}"
 BCTD_ROOT="${BCTD_ROOT:-results/runs/topostrand/bctd200}"
 SEED0_SOURCE="${SEED0_SOURCE:-results/runs/topostrand/pilot200_bnd005_h2/seed_0/best_model_fixed3.pth}"
+COSNA_INIT_ROOT="${COSNA_INIT_ROOT:-checkpoints/cosna_init}"
 EPOCHS_ADD="${EPOCHS_ADD:-20}"
+EPOCHS_TOTAL="${EPOCHS_TOTAL:-0}"
+LOG_DIR="${LOG_DIR:-$REPO/results/logs}"
 FORCE="${FORCE:-0}"
 SKIP_TRAIN="${SKIP_TRAIN:-0}"
 SKIP_EVAL="${SKIP_EVAL:-0}"
@@ -39,6 +47,30 @@ DRY_RUN="${DRY_RUN:-0}"
 USE_WANDB="${USE_WANDB:-1}"
 WANDB_PROJECT="${WANDB_PROJECT:-sacm}"
 WANDB_ENTITY="${WANDB_ENTITY:-buaazqk}"
+
+abspath() {
+  case "$1" in
+    /*) printf '%s\n' "$1" ;;
+    *) printf '%s\n' "$REPO/$1" ;;
+  esac
+}
+RUN_ROOT_ABS=$(abspath "$RUN_ROOT")
+REPRO_ROOT_ABS=$(abspath "$REPRO_ROOT")
+BCTD_ROOT_ABS=$(abspath "$BCTD_ROOT")
+SEED0_SOURCE_ABS=$(abspath "$SEED0_SOURCE")
+COSNA_INIT_ROOT_ABS=$(abspath "$COSNA_INIT_ROOT")
+if ! [[ "$EPOCHS_TOTAL" =~ ^[0-9]+$ ]]; then
+  echo "ERROR: EPOCHS_TOTAL must be a non-negative integer; got '$EPOCHS_TOTAL'" >&2
+  exit 2
+fi
+if [ "$EPOCHS_TOTAL" -eq 0 ] && ! [[ "$EPOCHS_ADD" =~ ^[1-9][0-9]*$ ]]; then
+  echo "ERROR: EPOCHS_ADD must be positive when EPOCHS_TOTAL=0; got '$EPOCHS_ADD'" >&2
+  exit 2
+fi
+case "$INIT" in
+  scratch|cosna|bctd) ;;
+  *) echo "ERROR: INIT must be scratch, cosna, or bctd; got '$INIT'" >&2; exit 2 ;;
+esac
 
 if [ -z "${PYTHON:-}" ]; then
   if [ -x /home/dev/anaconda3/envs/tsai/bin/python ]; then
@@ -52,7 +84,7 @@ export TMPDIR="${TMPDIR:-$REPO/results/.tmp}"
 export CUBLAS_WORKSPACE_CONFIG="${CUBLAS_WORKSPACE_CONFIG:-:4096:8}"
 export OMP_NUM_THREADS="${OMP_NUM_THREADS:-1}"
 export MKL_NUM_THREADS="${MKL_NUM_THREADS:-1}"
-mkdir -p "$TMPDIR" "$REPO/results/logs"
+mkdir -p "$TMPDIR" "$LOG_DIR"
 
 if [ "$USE_WANDB" != 0 ]; then
   source "$REPO/scripts/wandb_env.sh"
@@ -64,17 +96,41 @@ if [ "${#SEEDS[@]}" -eq 0 ] || [ "${#GPUS[@]}" -eq 0 ]; then
   echo "ERROR: empty SEEDS/GPUS" >&2
   exit 2
 fi
+for seed in "${SEEDS[@]}"; do
+  if ! [[ "$seed" =~ ^[0-9]+$ ]]; then
+    echo "ERROR: SEEDS must be non-negative integers; got '$seed'" >&2
+    exit 2
+  fi
+done
+for gpu in "${GPUS[@]}"; do
+  if ! [[ "$gpu" =~ ^[0-9]+$ ]]; then
+    echo "ERROR: GPUS must be non-negative integers; got '$gpu'" >&2
+    exit 2
+  fi
+done
+if [ "$(printf '%s\n' "${SEEDS[@]}" | sort -u | wc -l)" -ne "${#SEEDS[@]}" ]; then
+  echo "ERROR: duplicate seed in SEEDS" >&2
+  exit 2
+fi
+if [ "$(printf '%s\n' "${GPUS[@]}" | sort -u | wc -l)" -ne "${#GPUS[@]}" ]; then
+  echo "ERROR: duplicate GPU in GPUS" >&2
+  exit 2
+fi
 
 run_one_seed() {
   local seed="$1" gpu="$2"
   local data="$REPO/data/sacm_3shot_seed${seed}"
-  local work="$REPO/$RUN_ROOT/seed_${seed}"
-  local log="$REPO/results/logs/cosna_baseline_seed${seed}.log"
-  local source
-  if [ "$seed" = 0 ]; then
-    source="$REPO/$SEED0_SOURCE"
-  else
-    source="$REPO/$BCTD_ROOT/seed_${seed}/best_model_fixed3.pth"
+  local work="$RUN_ROOT_ABS/seed_${seed}"
+  local log="$LOG_DIR/cosna_baseline_seed${seed}.log"
+  local source=""
+  if [ "$INIT" = cosna ]; then
+    source="$COSNA_INIT_ROOT_ABS/seed_${seed}/best_model.pth"
+  elif [ "$INIT" = bctd ]; then
+    if [ "$seed" = 0 ]; then
+      source="$SEED0_SOURCE_ABS"
+    else
+      source="$BCTD_ROOT_ABS/seed_${seed}/best_model_fixed3.pth"
+    fi
   fi
   mkdir -p "$work"
   : > "$log"
@@ -82,7 +138,7 @@ run_one_seed() {
 
   if [ "$MODE" = repro ]; then
     if [ ! -f "$work/best_model.pth" ] || [ "$FORCE" = 1 ]; then
-      local repro_source="$REPO/$REPRO_ROOT/seed_${seed}/best_model.pth"
+      local repro_source="$REPRO_ROOT_ABS/seed_${seed}/best_model.pth"
       if [ ! -f "$repro_source" ]; then
         echo "missing canonical CoSNA checkpoint: $repro_source" >&2
         return 2
@@ -99,9 +155,27 @@ run_one_seed() {
     fi
   elif [ "$MODE" = train ]; then
     if [ "$SKIP_TRAIN" != 1 ]; then
+      local init_args=()
+      local source_args=()
+      if [ "$INIT" = scratch ]; then
+        init_args=(--init-mode scratch)
+      else
+        init_args=(--init-mode source)
+        source_args=(--source-checkpoint "$source")
+        if [ "$FORCE" = 1 ]; then
+          init_args+=(--force-init)
+        fi
+      fi
+      local epoch_args=()
+      if [ "$EPOCHS_TOTAL" -gt 0 ]; then
+        epoch_args=(--epochs-total "$EPOCHS_TOTAL")
+      else
+        epoch_args=(--epochs-add "$EPOCHS_ADD")
+      fi
       local train_cmd=("$PYTHON" -m baseline_zoo.models.cosna.train
         --data-root "$data" --workdir "$work"
-        --source-checkpoint "$source" --epochs-add "$EPOCHS_ADD"
+        "${source_args[@]}" "${epoch_args[@]}"
+        "${init_args[@]}"
         --seed "$seed" --device "cuda:${gpu}" --use_wandb "$USE_WANDB"
         --sam-checkpoint "$REPO/checkpoints/sam_vit_l_0b3195.pth"
         --lr 1e-3 --cosna-weight 1.0 --cosna-cl 0.1

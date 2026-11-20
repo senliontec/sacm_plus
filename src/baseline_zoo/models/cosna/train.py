@@ -1,14 +1,16 @@
-"""Train CoSNA from a trained four-candidate BCTD-scaffold checkpoint.
+"""Train CoSNA from scratch or from a CoSNA initialization checkpoint.
 
-CoSNA keeps the scaffold frozen and fits only the 18k-parameter TCSU
-residual, so a random initialization is not a valid starting point.  This
-wrapper copies the seed-specific BCTD champion checkpoint into the CoSNA
-workdir (``prepare_init``), computes the absolute final epoch, and forwards
-all remaining flags to the shared baseline runtime.
+``--init-mode source`` keeps the canonical two-stage recipe: copy a trained
+CoSNA/BCTD-scaffold checkpoint, freeze the scaffold and fit the TCSU
+residual.  ``--init-mode scratch`` does not read any initialization
+checkpoint; it trains the scaffold adapters/decoder and the TCSU residual
+jointly from the SAM ViT-L checkpoint, so the run is fully independent of
+BCTD files.
 
     python -m baseline_zoo.models.cosna.train \
+      --init-mode scratch \
       --data-root data/sacm_3shot_seed0 --workdir results/runs/cosna/seed_0 \
-      --epochs-add 20 --seed 0 --device cuda:0 ...
+      --epochs-total 800 --seed 0 --device cuda:0 ...
 """
 
 from __future__ import annotations
@@ -21,20 +23,7 @@ import torch
 
 from baseline_zoo.models.cosna.adapter import CoSNAAdapter
 from baseline_zoo.models.cosna.prepare_init import prepare
-from baseline_zoo.runtime import REPO_ROOT, main_for
-
-DEFAULT_SOURCES = {
-    0: REPO_ROOT / 'results/runs/topostrand/pilot200_bnd005_h2/seed_0/'
-                    'best_model_fixed3.pth',
-}
-DEFAULT_SOURCE_TEMPLATE = (
-    REPO_ROOT / 'results/runs/topostrand/bctd200/seed_{seed}/'
-                 'best_model_fixed3.pth')
-
-
-def default_source(seed: int) -> Path:
-    return DEFAULT_SOURCES.get(seed, Path(str(DEFAULT_SOURCE_TEMPLATE).format(
-        seed=int(seed))))
+from baseline_zoo.runtime import main_for
 
 
 def _strip_option(argv: list[str], name: str) -> list[str]:
@@ -56,31 +45,72 @@ def _strip_option(argv: list[str], name: str) -> list[str]:
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument('--init-mode', choices=['source', 'scratch'],
+                        default='source',
+                        help='source=copy a trained CoSNA init checkpoint; '
+                             'scratch=train from SAM ViT-L only')
     parser.add_argument('--source-checkpoint', type=Path, default=None)
-    parser.add_argument('--epochs-add', type=int, default=20)
+    parser.add_argument('--epochs-add', type=int, default=20,
+                        help='additional TCSU epochs (canonical CoSNA uses 20)')
+    parser.add_argument('--epochs-total', type=int, default=0,
+                        help='absolute final epoch; overrides --epochs-add')
     parser.add_argument('--force-init', action='store_true')
     parser.add_argument('--workdir', type=Path, required=True)
     parser.add_argument('--data-root', type=Path, required=True)
     parser.add_argument('--seed', type=int, default=0)
     known, rest = parser.parse_known_args(argv)
+    if known.epochs_add < 0 or known.epochs_total < 0:
+        raise SystemExit('epochs-add/epochs-total must be non-negative')
 
     workdir = known.workdir
     data_root = Path(known.data_root).resolve()
     checkpoint = workdir / 'best_model.pth'
-    if checkpoint.is_file() and not known.force_init:
-        payload = torch.load(checkpoint, map_location='cpu',
-                             weights_only=False)
-        source_epoch = int(payload.get('epoch', 0))
-        final_epoch = source_epoch + int(known.epochs_add)
+    if known.init_mode == 'scratch':
+        if checkpoint.is_file():
+            print(f'[cosna] scratch mode: ignoring existing {checkpoint}',
+                  flush=True)
+        source_epoch = 0
+        final_epoch = (int(known.epochs_total)
+                       if int(known.epochs_total) > 0
+                       else int(known.epochs_add))
+        if final_epoch <= 0:
+            raise SystemExit('scratch mode needs --epochs-total or '
+                             '--epochs-add > 0')
+        resume_args = ['--cosna-train-scope', 'full']
+        print(f'[cosna] seed={known.seed} init=scratch '
+              f'final_epoch={final_epoch}', flush=True)
     else:
-        source = known.source_checkpoint or default_source(known.seed)
-        if not source.is_file():
+        if checkpoint.is_file() and not known.force_init:
+            payload = torch.load(checkpoint, map_location='cpu',
+                                 weights_only=False)
+            source_epoch = int(payload.get('epoch', 0))
+        else:
+            source = known.source_checkpoint
+            if source is None or not source.is_file():
+                raise SystemExit(
+                    'source mode requires an explicit --source-checkpoint '
+                    '(a CoSNA init checkpoint); use --init-mode scratch '
+                    'for the BCTD-free recipe, or pre-populate the workdir')
+            # Establish the CoSNA-labelled source checkpoint first, then
+            # decide the final epoch.  This keeps --epochs-total independent
+            # of the source checkpoint's epoch.
+            prepare(source, workdir, data_root, epochs_add=0,
+                    force=known.force_init)
+            payload = torch.load(checkpoint, map_location='cpu',
+                                 weights_only=False)
+            source_epoch = int(payload.get('epoch', 0))
+
+        if int(known.epochs_total) > 0:
+            final_epoch = int(known.epochs_total)
+        else:
+            final_epoch = source_epoch + int(known.epochs_add)
+        if final_epoch <= source_epoch:
             raise SystemExit(
-                f'missing initialization checkpoint: {source}; pass '
-                '--source-checkpoint or pre-populate the workdir')
-        final_epoch = prepare(
-            source, workdir, data_root,
-            epochs_add=known.epochs_add, force=known.force_init)
+                f'final epoch {final_epoch} must be greater than the '
+                f'resume epoch {source_epoch}')
+        resume_args = ['--resume', '--resume-checkpoint', 'best']
+        print(f'[cosna] seed={known.seed} resume_epoch={source_epoch} '
+              f'final_epoch={final_epoch}', flush=True)
 
     forwarded = _strip_option(rest, '--epochs')
     forwarded += [
@@ -89,7 +119,7 @@ def main(argv: list[str] | None = None) -> int:
         '--data-root', str(data_root),
         '--seed', str(known.seed),
         '--epochs', str(final_epoch),
-        '--resume', '--resume-checkpoint', 'best',
+        *resume_args,
     ]
     return main_for(CoSNAAdapter(), forwarded)
 

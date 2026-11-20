@@ -6,7 +6,8 @@ checkpoint: "{output_root}/best_model.pth"
 train_entrypoint: >-
   python -m baseline_zoo.models.cosna.train
   --data-root {split_root} --workdir {output_root}
-  --epochs-add {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
+  --init-mode scratch --epochs-total {epochs}
+  --seed {seed} --device cuda:{gpu} --use_wandb
   --sam-checkpoint checkpoints/sam_vit_l_0b3195.pth
   --lr 1e-3
   --cosna-weight 1.0 --cosna-cl 0.1 --cosna-render 1024
@@ -28,18 +29,24 @@ eval_entrypoint: >-
   --device cuda:{gpu} --use_wandb true --skip-visualize
 protocols: [seeded5, fixed]
 defaults:
-  epochs: 20
+  epochs: 800
   preset: default
 note: >-
   CoSNA (Consensus-Guided Snake Reconstruction) is a self-contained baseline
   package under baseline_zoo.models.cosna. It physically owns the copied
   four-candidate SAM ViT-L scaffold, TCSU-lite snake-upsampling residual,
   decoding, topology/boundary losses and adaptive-skeleton calibration; it
-  does not import another model package. Training fits only the 18k-parameter
-  TCSU residual on the 18 source images; the scaffold must be initialized
-  from a trained BCTD checkpoint, not random weights. The baseline train
-  wrapper handles that initialization and uses defaults.epochs as the number
-  of TCSU epochs to add. The canonical near-union radius is 4 px and the
+  does not import another model package. The canonical recipe fits only the
+  18k-parameter TCSU residual on the 18 source images, with the scaffold
+  initialized from a trained CoSNA/BCTD-scaffold checkpoint. For a server
+  without BCTD, the train wrapper's --init-mode scratch instead trains the
+  scaffold adapters/decoder and TCSU jointly from the SAM ViT-L checkpoint
+  only; that is fully independent but is not the canonical 20-epoch recipe.
+  Source mode uses --epochs-add as the number of TCSU epochs to add. The
+  config's own train entrypoint defaults to independent scratch at 800
+  epochs (SAM ViT-L only); the canonical 20-epoch source-initialized recipe
+  is available through the lower-level script with an explicit CoSNA init.
+  The canonical near-union radius is 4 px and the
   gated threshold is 0.10. Small added components (<80 px) are removed, while
   elongated added components (bbox aspect >=2) are kept on images with max
   dimension >=1200. Current 4-seed test macro is 62.09/48.42/70.21/59.07

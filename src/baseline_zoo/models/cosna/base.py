@@ -929,8 +929,11 @@ class _CoSNAScaffoldBase(BaselineAdapter):
         stage2, _, stage1 = self._forward(
             model, images, return_stage1=True)
         # Keep the native Stage-2 tensor for topology losses; the dense loss
-        # uses the 256 -> 1024 training geometry.
+        # uses the 256 -> 1024 training geometry.  The CoSNA full-training
+        # hook reuses the same graph for the TCSU residual.
         stage2_native = stage2
+        self._last_stage2_native = stage2_native
+        self._last_train_images = images
         masks = F.interpolate(masks, (1024, 1024), mode='bilinear',
                               align_corners=False)
         stage1 = F.interpolate(stage1, (1024, 1024), mode='bilinear',

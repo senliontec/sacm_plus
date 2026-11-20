@@ -36,6 +36,8 @@ BCTD `0.6641 / 0.5163 / 0.7375 / 8.978`.
 - Adapter: `src/baseline_zoo/adapters/cosna.py`
 - Config: `configs/models/cosna.yaml`
 - One-click reproduction: `scripts/run_cosna_baseline_seeds03.sh`
+- Server train + 20-dataset eval: `scripts/run_cosna_server_seeds03.sh`
+- Server 4-seed summary: `results/reports/cosna_server_4seed/summary.{json,csv,md}`
 - Canonical checkpoints: `results/runs/bctd/tcsu20/seed_{0..3}/best_model.pth`
 - Baseline copies: `results/runs/cosna/default/seed_{0..3}/best_model.pth`
 - Baseline documentation: `src/baseline_zoo/models/cosna/COSNA.md`
@@ -47,6 +49,12 @@ BCTD `0.6641 / 0.5163 / 0.7375 / 8.978`.
 The baseline port was verified on seed0 over all 20 test datasets: 3580
 images, 0 missing, every per-dataset metric matching the canonical m=80
 result to below 1e-4; macro `63.2135 / 49.5385 / 71.0880 / 57.7632`.
+
+The server script defaults to `INIT=scratch`, which trains CoSNA from the
+SAM ViT-L checkpoint only and does not read BCTD weights. That recipe is
+independent but is not the 62.09 canonical champion; use source
+initialization (`INIT=cosna` with CoSNA-owned init weights) or the lower-level
+reproduction script to evaluate the canonical recipe.
 
 ## Standing research contract
 
@@ -98,5 +106,9 @@ subset `64.611 / 51.396 / 73.630 / 56.987`, all four above BCTD. The
   caveat in `results/reports/cosna_promotion_2026-11-20.md`.
 - TCSU is a 20-epoch source-only head fine-tune of a frozen BCTD champion; do
   not mix with 200-epoch from-scratch comparisons.
+- The server's `INIT=scratch` mode trains scaffold adapters/decoder plus TCSU
+  jointly from SAM ViT-L only; it is independent of BCTD weights but is a
+  different recipe. Its results must not be reported as the 62.09 canonical
+  champion without a fresh 4-seed evaluation.
 
 See `CURRENT_BEST_HISTORY.md` for the change log.
