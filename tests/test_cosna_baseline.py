@@ -12,6 +12,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / 'src'))
 
 from baseline_zoo.adapters.registry import load_adapter  # noqa: E402
+from baseline_zoo.method_groups import group_for  # noqa: E402
 from baseline_zoo.models.cosna.adapter import CoSNAAdapter  # noqa: E402
 from baseline_zoo.models.cosna.tcsu import SnakeUpsampler  # noqa: E402
 from baseline_zoo.runtime import build_parser  # noqa: E402
@@ -23,6 +24,7 @@ def test_registry_and_independence():
     assert adapter.id == 'cosna'
     assert adapter.display_name == 'CoSNA'
     assert type(adapter).__module__ == 'baseline_zoo.models.cosna.adapter'
+    assert group_for('cosna') == 'proposed'
 
     root = REPO_ROOT / 'src' / 'baseline_zoo'
     source = (root / 'adapters' / 'cosna.py').read_text()

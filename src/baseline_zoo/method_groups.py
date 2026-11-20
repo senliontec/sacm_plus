@@ -63,7 +63,7 @@ _GROUP_NAMES = (
 def group_for(model: str) -> str:
     """Return the primary task group for a model id."""
     model = str(model)
-    if model == 'dcd':
+    if model in ('dcd', 'cosna'):
         return 'proposed'
     for name, members in _GROUP_NAMES:
         if model in members:

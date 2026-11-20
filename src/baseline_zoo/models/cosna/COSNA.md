@@ -76,6 +76,17 @@ python scripts/pipeline/run_baseline_test.py --method cosna \
   --device cuda:0 --use_wandb false --skip-visualize
 ```
 
+For a validation split or the exact JSON summary used in the port audit:
+
+```bash
+python -m baseline_zoo.models.cosna.evaluate \
+  --data-root data/sacm_3shot_seed0 \
+  --workdir results/runs/cosna/default/seed_0 \
+  --checkpoint results/runs/cosna/default/seed_0/best_model.pth \
+  --split val --device cuda:0 \
+  --out results/runs/cosna/default/seed_0/val_summary.json
+```
+
 ## Reference result (4 seeds, dataset-equal macro)
 
 | | Dice | IoU | clDice | HD95 |
@@ -91,14 +102,21 @@ is +0.0024.
 
 ## Port verification
 
-- The baseline package's val seed0 and DRIVE test match the existing CoSNA
-  outputs exactly: val `0.6619/0.5130/0.7370/11.6825`; DRIVE
-  `0.8023/0.6707/0.8295/6.0888`, with byte-identical masks.
+- Full seed0, all 20 test datasets (3580 images, 0 missing): every
+  per-dataset metric matches the canonical CoSNA m=80 result to below 1e-4.
+  Macro `63.2135 / 49.5385 / 71.0880 / 57.7632` versus canonical
+  `63.21 / 49.54 / 71.09 / 57.76`.
+- Four-seed validation matches exactly: `0.6619/0.5130/0.7370/11.6825`,
+  `0.6651/0.5161/0.7368/7.5134`, `0.6818/0.5369/0.7610/6.7952`,
+  `0.6661/0.5160/0.7248/9.7873`.
+- DRIVE test `0.8023/0.6707/0.8295/6.0888` with byte-identical masks;
+  DeepCrack `0.7372/0.6023/0.8169/45.8443`; HRF (large/tiled path)
+  `0.7917/0.6560/0.8062/33.5681`.
 - The standard baseline pipeline writes DRIVE `dice_mean=0.80233266`,
   `iou_mean=0.67067750`, `cldice_mean=0.82946516`,
   `hd95_mean=6.08881812`, matching the canonical values.
-- HRF (large/tiled path) and DeepCrack are also parity-checked in
-  `results/ablations/cosna_m80/`.
+- Evidence: `results/reports/cosna_baseline_port_audit_2026-11-20.md` and
+  `results/ablations/cosna_m80/baseline_port/`.
 
 ## Caveats
 

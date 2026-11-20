@@ -65,6 +65,7 @@ def main(argv: list[str] | None = None) -> int:
     known, rest = parser.parse_known_args(argv)
 
     workdir = known.workdir
+    data_root = Path(known.data_root).resolve()
     checkpoint = workdir / 'best_model.pth'
     if checkpoint.is_file() and not known.force_init:
         payload = torch.load(checkpoint, map_location='cpu',
@@ -78,11 +79,15 @@ def main(argv: list[str] | None = None) -> int:
                 f'missing initialization checkpoint: {source}; pass '
                 '--source-checkpoint or pre-populate the workdir')
         final_epoch = prepare(
-            source, workdir, known.data_root,
+            source, workdir, data_root,
             epochs_add=known.epochs_add, force=known.force_init)
 
     forwarded = _strip_option(rest, '--epochs')
     forwarded += [
+        '--stage', 'train',
+        '--workdir', str(known.workdir),
+        '--data-root', str(data_root),
+        '--seed', str(known.seed),
         '--epochs', str(final_epoch),
         '--resume', '--resume-checkpoint', 'best',
     ]

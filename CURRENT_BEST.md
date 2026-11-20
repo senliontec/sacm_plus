@@ -41,7 +41,12 @@ BCTD `0.6641 / 0.5163 / 0.7375 / 8.978`.
 - Baseline documentation: `src/baseline_zoo/models/cosna/COSNA.md`
 - Experimental tree retained for reference: `src/methods/cosna/`
 - Promotion report: `results/reports/cosna_promotion_2026-11-20.md`
+- Port audit: `results/reports/cosna_baseline_port_audit_2026-11-20.md`
 - Night report: `results/reports/night_2026-11-20.md`
+
+The baseline port was verified on seed0 over all 20 test datasets: 3580
+images, 0 missing, every per-dataset metric matching the canonical m=80
+result to below 1e-4; macro `63.2135 / 49.5385 / 71.0880 / 57.7632`.
 
 ## Standing research contract
 

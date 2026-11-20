@@ -23,8 +23,12 @@ def prepare(source: Path, workdir: Path, data_root: Path,
         raise SystemExit(f'{dest} exists; pass --force to overwrite')
     payload = torch.load(source, map_location='cpu',
                          weights_only=False)
+    data_root = Path(data_root).resolve()
+    protocol = data_root / 'protocol_manifest.csv'
     manifest = build_data_manifest(
-        data_root.resolve(), hash_files=True)
+        data_root,
+        protocol=protocol if protocol.is_file() else None,
+        hash_files=True)
     fingerprint = data_manifest_fingerprint(manifest)
     payload['data_manifest_sha256'] = fingerprint
     payload['adapter'] = 'cosna'

@@ -60,13 +60,17 @@
    "night_report": "results/reports/night_2026-11-20.md",
    "test_json": "results/ablations/cosna_m80/filter_res1200_s{0..3}_m80.json",
    "val_json": "results/ablations/cosna_m80/val_s{0..3}.json",
-   "package": "src/methods/cosna/",
+   "package": "src/baseline_zoo/models/cosna/",
    "test_12_json": "results/ablations/cosna_m80/filter_res1200_m80_12subset.json",
    "parity_json": "results/ablations/cosna_m80/test_deepcrack_s0.json",
    "drive_parity_json": "results/ablations/cosna_m80/test_drive_s0.json",
    "hrf_parity_json": "results/ablations/cosna_m80/test_hrf_s0.json",
    "baseline_doc": "src/baseline_zoo/models/cosna/COSNA.md",
-   "baseline_tests": "tests/test_cosna_baseline.py"
+   "baseline_tests": "tests/test_cosna_baseline.py",
+   "methods_package": "src/methods/cosna/",
+   "baseline_port_audit": "results/reports/cosna_baseline_port_audit_2026-11-20.md",
+   "baseline_full_seed0": "results/ablations/cosna_m80/baseline_port/test_seed0_full.json",
+   "baseline_val_dir": "results/ablations/cosna_m80/baseline_port/"
   },
   "caveats": [
    "CoSNA is an inference-time two-branch fusion (gated BCTD + TCSU-h3), not a single end-to-end decoder pass.",
