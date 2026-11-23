@@ -35,7 +35,7 @@ _PROMPT_FREE = frozenset({
     'dconnnet', 'scrwkv', 'kprism', 'segdino', 'segdino_v2',
     'sam_adapter', 'topolora', 'samed', 'convlora', 'blo_sam', 'cwsam',
     'tpsegformer', 'aco_moe_lora',
-    'sacm', 'strandcal', 'bctd',
+    'sacm', 'strandcal', 'bctd', 'wprf_sam',
 })
 
 _SUPPORT = frozenset({'persam', 'matcher', 'fssam', 'sansa', 'rsrm'})

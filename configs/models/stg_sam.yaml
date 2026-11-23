@@ -1,0 +1,26 @@
+id: stg_sam
+display_name: STG-SAM structure-tensor guidance
+family: sam
+status: available
+checkpoint: "{output_root}/best_model.pth"
+train_entrypoint: >-
+  PYTHONPATH=src python src/methods/stg_sam/stg_adapter.py --stage train
+  --data-root {split_root} --workdir {output_root}
+  --epochs {epochs} --seed {seed} --device cuda:{gpu}
+  --use_wandb true --scheduler cosine --warmup-epochs 5
+eval_entrypoint: >-
+  PYTHONPATH=src python src/methods/stg_sam/stg_adapter.py --stage predict
+  --checkpoint {output_root}/best_model.pth
+  --pred-root {output_root}/predictions/stg_sam
+  --data-root {split_root} --test-datasets {test_specs}
+  --device cuda:{gpu}
+protocols: [seeded5, fixed]
+defaults:
+  epochs: 200
+note: >-
+  The proven GFA/BCTD-SAM scaffold plus a deterministic multi-scale
+  structure-tensor side input (coherence and doubled-angle orientation at
+  three scales, per-image z-scored). The tensor maps are patch-embedded by
+  a new stem added to the official SAM RGB patch tokens; the stem, adapters
+  and decoder are trained on the 18 source images only. Ablation:
+  --structure-tensor 0 reproduces the scaffold control exactly.

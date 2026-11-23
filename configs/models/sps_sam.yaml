@@ -1,0 +1,28 @@
+id: sps_sam
+display_name: SP-SAM self-prompting
+family: sam
+status: available
+checkpoint: "{output_root}/best_model.pth"
+train_entrypoint: >-
+  PYTHONPATH=src python src/methods/sps_sam/adapter.py --stage train
+  --data-root {split_root} --workdir {output_root}
+  --epochs {epochs} --seed {seed} --device cuda:{gpu}
+  --use_wandb true --scheduler cosine --warmup-epochs 5
+eval_entrypoint: >-
+  PYTHONPATH=src python src/methods/sps_sam/adapter.py --stage predict
+  --checkpoint {output_root}/best_model.pth
+  --pred-root {output_root}/predictions/sps_sam
+  --data-root {split_root} --test-datasets {test_specs}
+  --device cuda:{gpu}
+protocols: [seeded5, fixed]
+defaults:
+  epochs: 200
+note: >-
+  Self-prompting SAM: a 256x256 click-proposal head on the frozen-adapted
+  ViT-L embedding proposes skeleton points; the official SAM promptable
+  decoder is trained so a click returns the GT inside a 128-pixel disk
+  around it (local structure patch); K=64 label-free peaks are decoded and
+  combined by weighted union (predicted-IoU weights). Local targets avoid
+  the v1 prompt collapse caused by full-component targets. Official SAM
+  ViT-L weights only; source-only training on the 18-image split; no target
+  labels, pseudo-labels, or test-time updates.

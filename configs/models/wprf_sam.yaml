@@ -1,0 +1,52 @@
+id: wprf_sam
+display_name: WPRF-SAM reachability
+family: sam
+status: available
+checkpoint: "{output_root}/best_model.pth"
+train_entrypoint: >-
+  python -m baseline_zoo.run_one --model wprf_sam --stage train
+  --data-root {split_root} --workdir {output_root}
+  --epochs {epochs} --seed {seed} --device cuda:{gpu} --use_wandb
+  --sam-checkpoint checkpoints/sam_vit_l_0b3195.pth
+  --lr 3e-4 --bce-weight 0.7 --dice-weight 0.3 --cl-dice-weight 0.1
+  --skeleton-recall-weight 0.1 --boundary-loss-weight 0.05
+  --boundary-loss-resolution 512 --boundary-loss-head boundary
+  --boundary-loss-warmup-epochs 5 --area-loss-weight 0.1
+  --area-loss-mode two_sided --deployed-tversky-weight 0.1
+  --specialized-heads 1 --deployment-head 3 --topology-head all
+  --topology-warmup-epochs 5 --head-fusion 1 --head-select gating
+  --fusion-loss-weight 1.0 --copy-paste-prob 0.5 --train-aug mild
+  --cosna-train-scope full --cosna-weight 0.0 --cosna-cl 0.0
+  --cosna-render 1024 --cosna-coarse 512 --cosna-feature-dim 16
+  --cosna-gate 0.10 --cosna-near-radius 4
+  --cosna-filter-min-size 80 --cosna-filter-aspect 2
+  --cosna-filter-maxdim 1200 --rcd 1 --as-calibration 1
+  --close-radius 2 --tile 1024 --stride 896
+  --routing-skel-ratio 1.0 --routing-area-ratio 0.7
+  --routing-mode auto --num-workers 0 --save-every 0
+  --wprf 1 --wprf-edge-weight 0.0 --wprf-reach-weight 0.5
+  --wprf-warmup-epochs 10 --wprf-stride 8 --wprf-sources 16
+eval_entrypoint: >-
+  python scripts/pipeline/run_baseline_test.py --method wprf_sam
+  --protocol {test_manifest} --seed {seed}
+  --checkpoint {output_root}/best_model.pth
+  --data-root {split_root}
+  --pred-root {output_root}/predictions
+  --paper-root {output_root}/eval
+  --device cuda:{gpu} --use_wandb true --skip-visualize
+protocols: [seeded5, fixed]
+defaults:
+  epochs: 200
+note: >-
+  WPRF-SAM is a self-contained baseline package under
+  baseline_zoo.models.wprf_sam.  It physically owns its SAM ViT-L code and
+  the GFA/BCTD scaffold copy, and adds a lightweight affinity head plus
+  Widest-Path Reachability Field losses on a GT-skeleton support graph
+  (Max-Min DP over directed 8-neighbour links).  The canonical recipe uses
+  reach-only supervision (edge 0.0, reach 0.5) with a 10-epoch WPRF warmup,
+  200 epochs, and the shared RCD/AS inference.  Inference emits only the
+  union mask, so the affinity head adds no test-time cost.  The WPRF paper
+  (2026) has no accessible official code; this is an independent
+  implementation.  Four-seed result: 20-dataset 61.949/48.331/69.673/59.723
+  and 12-subset 64.120/50.875/73.110/57.706, below CoSNA; seed-0 4/4 was
+  seed luck, and TopoMortar under-fires on about a quarter of its images.
