@@ -14,7 +14,8 @@ sys.path.insert(0, str(REPO_ROOT / 'src'))
 from baseline_zoo.adapters.registry import load_adapter  # noqa: E402
 from baseline_zoo.method_groups import group_for  # noqa: E402
 from baseline_zoo.models.wprf_sam.wprf import (  # noqa: E402
-    AffinityHead, WPRFLoss, reachability, symmetrized_affinity)
+    AffinityHead, WPRFLoss, graph_distance, reachability,
+    symmetrized_affinity)
 from baseline_zoo.models.wprf_sam.wprf_adapter import WPRFAdapter  # noqa: E402
 from baseline_zoo.runtime import build_parser  # noqa: E402
 
@@ -90,6 +91,15 @@ def test_wprf_edge_loss_uses_every_batch_item():
     loss_one = WPRFLoss(edge_weight=1.0, reach_weight=0.0)(
         head, embeddings, one)
     assert not torch.allclose(loss_two, loss_one)
+
+
+def test_graph_distance_boundary_padding():
+    support = torch.zeros(5, 5)
+    support[2, :] = 1
+    dist = graph_distance(support, np.array([[2, 0]]), 3)[0]
+    assert float(dist[2, 3]) == 3.0
+    # A zero-padded shift would make the boundary cell look distance 1.
+    assert float(dist[2, 4]) >= 1e4 - 1
 
 
 def test_maxmin_reachability_propagates():

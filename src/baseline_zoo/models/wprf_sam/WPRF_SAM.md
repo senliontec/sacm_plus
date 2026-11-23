@@ -49,14 +49,24 @@ was produced by a physical copy; only import paths and docstrings changed
   baseline `run_one --stage predict` on DRIVE; all 16 exported masks are
   byte-identical to the experimental-package predictions.
 - Tests: `tests/test_wprf_sam_baseline.py` (registry/independence, parser
-  defaults, affinity-head shape, batch coverage, Max-Min propagation)
-  pass.
+  defaults, affinity-head shape, batch coverage, BFS boundary padding,
+  Max-Min propagation) pass.
 - Smoke: `baseline_zoo.run_one --model wprf_sam --stage train` with 2
   images / 1 val image builds from the official SAM ViT-L checkpoint and
   runs end to end.
 - `WPRFLoss` averages the edge and reachability terms over the batch
   dimension; the canonical recipe remains batch=1 (the local 11 GiB card
   cannot fit ViT-L batch 2 at 1024, but the loss is unit-tested at B=2).
+- **Post-port audit fixes** (applied identically to both the baseline and
+  experimental copies): (1) `WPRFLoss` previously used only batch item 0;
+  it now averages every image.  (2) `graph_distance` previously inherited
+  the reachability zero-pad for BFS shifts, so cells at the grid boundary
+  could look distance-1 reachable (phantom source); distance shifts now
+  pad with 1e4.  The second bug changed WPRF pair labels near the image
+  boundary during training.  **The 4-seed numbers below predate these
+  fixes**; they remain valid for the pre-fix code but a re-run is needed
+  for official baseline numbers.  Inference is unaffected (the WPRF head
+  is unused at test time), so the 16/16 DRIVE parity still holds.
 
 ## Canonical recipe (V3)
 
@@ -73,7 +83,7 @@ The class defaults are the paper's `edge 1.0 / reach 1.0 / warmup 0`;
 the config is the selected baseline recipe.  The 0.5/0.5 and 1.0/1.0
 ablations are in the round report.
 
-## Results (4 seeds, dataset-equal macro)
+## Results (4 seeds, dataset-equal macro; pre-audit-fix experimental run)
 
 | benchmark | Dice | IoU | clDice | HD95 |
 |---|---:|---:|---:|---:|
@@ -84,6 +94,11 @@ For comparison, CoSNA is 62.09 / 48.42 / 70.21 / 59.07 (20) and
 64.61 / 51.40 / 73.63 / 56.99 (12).  WPRF-SAM does not beat the champion
 on all four and was **not promoted**.  The seed-0 4/4 was seed luck; see
 `results/reports/wprf_sam_final_2026-11-23.md`.
+
+These numbers were produced **before** the two port-audit fixes above;
+the canonical baseline code now includes them.  A fresh 4-seed run is
+required before citing the baseline's performance, because the BFS fix
+changes WPRF pair labels near the image boundary.
 
 Known failure: TopoMortar raw Stage-2 probabilities collapse on roughly a
 quarter of images (reach-only mitigates but does not fix it).  Full

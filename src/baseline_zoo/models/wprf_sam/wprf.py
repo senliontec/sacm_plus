@@ -33,9 +33,10 @@ OFFSETS = ((0, 1), (0, -1), (1, 0), (-1, 0),
 REVERSE = (1, 0, 3, 2, 7, 6, 5, 4)
 
 
-def _shift_to(tensor: torch.Tensor, dy: int, dx: int) -> torch.Tensor:
-    """out[v] = tensor[v - (dy, dx)], zero outside the grid."""
-    out = torch.zeros_like(tensor)
+def _shift_to(tensor: torch.Tensor, dy: int, dx: int,
+              pad: float = 0.0) -> torch.Tensor:
+    """out[v] = tensor[v - (dy, dx)], ``pad`` outside the grid."""
+    out = torch.full_like(tensor, float(pad))
     height, width = tensor.shape[-2:]
     src_y = slice(max(0, -dy), height - max(0, dy))
     dst_y = slice(max(0, dy), height - max(0, -dy))
@@ -155,7 +156,10 @@ def graph_distance(support: torch.Tensor, sources: np.ndarray,
     for _ in range(steps):
         new = dist
         for dy, dx in OFFSETS:
-            new = torch.minimum(new, _shift_to(dist, dy, dx) + 1.0)
+            # Distance arrays must not inherit the reachability zero-pad:
+            # a zero outside the grid would act as a phantom source.
+            new = torch.minimum(
+                new, _shift_to(dist, dy, dx, pad=1e4) + 1.0)
         dist = torch.where(support.bool(), new,
                            torch.full_like(new, 1e4))
         dist[index, rows, cols] = 0.0
